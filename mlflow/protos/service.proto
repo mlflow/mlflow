@@ -276,13 +276,27 @@ service MlflowService {
       rpc_doc_title: "Get Metric History",
     };
   }
-  // Log a batch of metrics, params, or tags for a run
-  rpc logBatch(LogBatch) returns (LogBatch.Response) {
+
+  // Log a batch of metrics, params, and/or tags for a run. The server may respond with:
+  //
+  // - A 500-level error on internal error (clients may retry on such failures)
+  // - A 400-level error if the request was invalid (i.e. too large, too many params, etc)
+  // - A 200 if data was persisted, describing any data that failed to be persisted (e.g.
+  //   rejected attempts to overwrite parameters, failures to write to persistent storage) via the
+  //   unprocessed_metrics, unprocessed_params, unprocessed_tags fields
+  //
+  // Note that clients must therefore inspect the response body of successful requests to this
+  // endpoint to determine whether all data in the request was persisted.
+  //
+  rpc logBatch (LogBatch) returns (LogBatch.Response) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
         path: "/preview/mlflow/runs/log-batch"
+        since { major: 2, minor: 0 },
       }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Batch",
     };
   }
 }
@@ -880,20 +894,15 @@ enum ErrorCode {
 
 }
 
-// For batch-logging calls in which one or more of the logged entities are
-// invalid (e.g. tag value too large), we may fail to persist all the data.
-// In practice in Databricks, we’ll attempt to persist all data that
-// is valid.
-// For each invalid metric/param/tag, we include an instance of
-// FailedBatchLogEntry in our response, in which we describe the
-// items that were not persisted and reasons why.
+// For each metric, param, or tag comprising a batch logging request that fails to be persisted due
+// to  a retryable error (e.g. due to a failure writing to persistent storage) we include an
+// instance of BatchLogFailure in our response, in which we describe the items that were not
+// persisted and reasons why.
 message BatchLogFailure {
   // Index of metric/param/tag that we failed to log in the original list
   optional int64 index = 1;
-  // Inlined equivalent of the DatabricksServiceExceptionProto containing
-  // error message & error code for failed log attempt
-  optional ErrorCode error_code = 2;
-  optional string message = 3;
+  // Message describing why the metric, param, or tag failed to be persisted
+  optional string message = 2;
 }
 
 message LogBatch {
@@ -907,11 +916,14 @@ message LogBatch {
   // Tags to log
   repeated RunTag tags = 4;
   message Response {
-    // List of failure protos corresponding to metrics that could not be logged
+    // List of failure protos corresponding to metrics that could not be logged due to
+    // retryable errors (e.g. due to a failure writing to persistent storage)
     repeated BatchLogFailure unprocessed_metrics = 1;
-    // List of failure protos corresponding to params that could not be logged
+    // List of failure protos corresponding to params that could not be logged due to
+    // retryable errors (e.g. due to a failure writing to persistent storage)
     repeated BatchLogFailure unprocessed_params = 2;
-    // List of failure protos corresponding to tags that could not be logged
+    // List of failure protos corresponding to tags that could not be logged due to
+    // retryable errors (e.g. due to a failure writing to persistent storage)
     repeated BatchLogFailure unprocessed_tags = 3;
   }
 }

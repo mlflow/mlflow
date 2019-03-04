@@ -44575,46 +44575,36 @@ public final class Service {
 
     /**
      * <pre>
-     * Inlined equivalent of the DatabricksServiceExceptionProto containing
-     * error message &amp; error code for failed log attempt
+     * Message describing why the metric, param, or tag failed to be persisted
      * </pre>
      *
-     * <code>optional .mlflow.ErrorCode error_code = 2;</code>
-     */
-    boolean hasErrorCode();
-    /**
-     * <pre>
-     * Inlined equivalent of the DatabricksServiceExceptionProto containing
-     * error message &amp; error code for failed log attempt
-     * </pre>
-     *
-     * <code>optional .mlflow.ErrorCode error_code = 2;</code>
-     */
-    org.mlflow.api.proto.Service.ErrorCode getErrorCode();
-
-    /**
-     * <code>optional string message = 3;</code>
+     * <code>optional string message = 2;</code>
      */
     boolean hasMessage();
     /**
-     * <code>optional string message = 3;</code>
+     * <pre>
+     * Message describing why the metric, param, or tag failed to be persisted
+     * </pre>
+     *
+     * <code>optional string message = 2;</code>
      */
     java.lang.String getMessage();
     /**
-     * <code>optional string message = 3;</code>
+     * <pre>
+     * Message describing why the metric, param, or tag failed to be persisted
+     * </pre>
+     *
+     * <code>optional string message = 2;</code>
      */
     com.google.protobuf.ByteString
         getMessageBytes();
   }
   /**
    * <pre>
-   * For batch-logging calls in which one or more of the logged entities are
-   * invalid (e.g. tag value too large), we may fail to persist all the data.
-   * In practice in Databricks, we’ll attempt to persist all data that
-   * is valid.
-   * For each invalid metric/param/tag, we include an instance of
-   * FailedBatchLogEntry in our response, in which we describe the
-   * items that were not persisted and reasons why.
+   * For each metric, param, or tag comprising a batch logging request that fails to be persisted due
+   * to  a retryable error (e.g. due to a failure writing to persistent storage) we include an
+   * instance of BatchLogFailure in our response, in which we describe the items that were not
+   * persisted and reasons why.
    * </pre>
    *
    * Protobuf type {@code mlflow.BatchLogFailure}
@@ -44630,7 +44620,6 @@ public final class Service {
     }
     private BatchLogFailure() {
       index_ = 0L;
-      errorCode_ = 1;
       message_ = "";
     }
 
@@ -44663,21 +44652,9 @@ public final class Service {
               index_ = input.readInt64();
               break;
             }
-            case 16: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Service.ErrorCode value = org.mlflow.api.proto.Service.ErrorCode.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(2, rawValue);
-              } else {
-                bitField0_ |= 0x00000002;
-                errorCode_ = rawValue;
-              }
-              break;
-            }
-            case 26: {
+            case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
+              bitField0_ |= 0x00000002;
               message_ = bs;
               break;
             }
@@ -44737,43 +44714,24 @@ public final class Service {
       return index_;
     }
 
-    public static final int ERROR_CODE_FIELD_NUMBER = 2;
-    private int errorCode_;
+    public static final int MESSAGE_FIELD_NUMBER = 2;
+    private volatile java.lang.Object message_;
     /**
      * <pre>
-     * Inlined equivalent of the DatabricksServiceExceptionProto containing
-     * error message &amp; error code for failed log attempt
+     * Message describing why the metric, param, or tag failed to be persisted
      * </pre>
      *
-     * <code>optional .mlflow.ErrorCode error_code = 2;</code>
+     * <code>optional string message = 2;</code>
      */
-    public boolean hasErrorCode() {
+    public boolean hasMessage() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     /**
      * <pre>
-     * Inlined equivalent of the DatabricksServiceExceptionProto containing
-     * error message &amp; error code for failed log attempt
+     * Message describing why the metric, param, or tag failed to be persisted
      * </pre>
      *
-     * <code>optional .mlflow.ErrorCode error_code = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.ErrorCode getErrorCode() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.Service.ErrorCode result = org.mlflow.api.proto.Service.ErrorCode.valueOf(errorCode_);
-      return result == null ? org.mlflow.api.proto.Service.ErrorCode.INTERNAL_ERROR : result;
-    }
-
-    public static final int MESSAGE_FIELD_NUMBER = 3;
-    private volatile java.lang.Object message_;
-    /**
-     * <code>optional string message = 3;</code>
-     */
-    public boolean hasMessage() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
-    }
-    /**
-     * <code>optional string message = 3;</code>
+     * <code>optional string message = 2;</code>
      */
     public java.lang.String getMessage() {
       java.lang.Object ref = message_;
@@ -44790,7 +44748,11 @@ public final class Service {
       }
     }
     /**
-     * <code>optional string message = 3;</code>
+     * <pre>
+     * Message describing why the metric, param, or tag failed to be persisted
+     * </pre>
+     *
+     * <code>optional string message = 2;</code>
      */
     public com.google.protobuf.ByteString
         getMessageBytes() {
@@ -44824,10 +44786,7 @@ public final class Service {
         output.writeInt64(1, index_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        output.writeEnum(2, errorCode_);
-      }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, message_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, message_);
       }
       unknownFields.writeTo(output);
     }
@@ -44843,11 +44802,7 @@ public final class Service {
           .computeInt64Size(1, index_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(2, errorCode_);
-      }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, message_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, message_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -44870,10 +44825,6 @@ public final class Service {
         result = result && (getIndex()
             == other.getIndex());
       }
-      result = result && (hasErrorCode() == other.hasErrorCode());
-      if (hasErrorCode()) {
-        result = result && errorCode_ == other.errorCode_;
-      }
       result = result && (hasMessage() == other.hasMessage());
       if (hasMessage()) {
         result = result && getMessage()
@@ -44894,10 +44845,6 @@ public final class Service {
         hash = (37 * hash) + INDEX_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getIndex());
-      }
-      if (hasErrorCode()) {
-        hash = (37 * hash) + ERROR_CODE_FIELD_NUMBER;
-        hash = (53 * hash) + errorCode_;
       }
       if (hasMessage()) {
         hash = (37 * hash) + MESSAGE_FIELD_NUMBER;
@@ -45000,13 +44947,10 @@ public final class Service {
     }
     /**
      * <pre>
-     * For batch-logging calls in which one or more of the logged entities are
-     * invalid (e.g. tag value too large), we may fail to persist all the data.
-     * In practice in Databricks, we’ll attempt to persist all data that
-     * is valid.
-     * For each invalid metric/param/tag, we include an instance of
-     * FailedBatchLogEntry in our response, in which we describe the
-     * items that were not persisted and reasons why.
+     * For each metric, param, or tag comprising a batch logging request that fails to be persisted due
+     * to  a retryable error (e.g. due to a failure writing to persistent storage) we include an
+     * instance of BatchLogFailure in our response, in which we describe the items that were not
+     * persisted and reasons why.
      * </pre>
      *
      * Protobuf type {@code mlflow.BatchLogFailure}
@@ -45048,10 +44992,8 @@ public final class Service {
         super.clear();
         index_ = 0L;
         bitField0_ = (bitField0_ & ~0x00000001);
-        errorCode_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000002);
         message_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         return this;
       }
 
@@ -45086,10 +45028,6 @@ public final class Service {
         result.index_ = index_;
         if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000002;
-        }
-        result.errorCode_ = errorCode_;
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
-          to_bitField0_ |= 0x00000004;
         }
         result.message_ = message_;
         result.bitField0_ = to_bitField0_;
@@ -45144,11 +45082,8 @@ public final class Service {
         if (other.hasIndex()) {
           setIndex(other.getIndex());
         }
-        if (other.hasErrorCode()) {
-          setErrorCode(other.getErrorCode());
-        }
         if (other.hasMessage()) {
-          bitField0_ |= 0x00000004;
+          bitField0_ |= 0x00000002;
           message_ = other.message_;
           onChanged();
         }
@@ -45230,72 +45165,23 @@ public final class Service {
         return this;
       }
 
-      private int errorCode_ = 1;
+      private java.lang.Object message_ = "";
       /**
        * <pre>
-       * Inlined equivalent of the DatabricksServiceExceptionProto containing
-       * error message &amp; error code for failed log attempt
+       * Message describing why the metric, param, or tag failed to be persisted
        * </pre>
        *
-       * <code>optional .mlflow.ErrorCode error_code = 2;</code>
+       * <code>optional string message = 2;</code>
        */
-      public boolean hasErrorCode() {
+      public boolean hasMessage() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       /**
        * <pre>
-       * Inlined equivalent of the DatabricksServiceExceptionProto containing
-       * error message &amp; error code for failed log attempt
+       * Message describing why the metric, param, or tag failed to be persisted
        * </pre>
        *
-       * <code>optional .mlflow.ErrorCode error_code = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.ErrorCode getErrorCode() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.Service.ErrorCode result = org.mlflow.api.proto.Service.ErrorCode.valueOf(errorCode_);
-        return result == null ? org.mlflow.api.proto.Service.ErrorCode.INTERNAL_ERROR : result;
-      }
-      /**
-       * <pre>
-       * Inlined equivalent of the DatabricksServiceExceptionProto containing
-       * error message &amp; error code for failed log attempt
-       * </pre>
-       *
-       * <code>optional .mlflow.ErrorCode error_code = 2;</code>
-       */
-      public Builder setErrorCode(org.mlflow.api.proto.Service.ErrorCode value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        bitField0_ |= 0x00000002;
-        errorCode_ = value.getNumber();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Inlined equivalent of the DatabricksServiceExceptionProto containing
-       * error message &amp; error code for failed log attempt
-       * </pre>
-       *
-       * <code>optional .mlflow.ErrorCode error_code = 2;</code>
-       */
-      public Builder clearErrorCode() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        errorCode_ = 1;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object message_ = "";
-      /**
-       * <code>optional string message = 3;</code>
-       */
-      public boolean hasMessage() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
-      }
-      /**
-       * <code>optional string message = 3;</code>
+       * <code>optional string message = 2;</code>
        */
       public java.lang.String getMessage() {
         java.lang.Object ref = message_;
@@ -45312,7 +45198,11 @@ public final class Service {
         }
       }
       /**
-       * <code>optional string message = 3;</code>
+       * <pre>
+       * Message describing why the metric, param, or tag failed to be persisted
+       * </pre>
+       *
+       * <code>optional string message = 2;</code>
        */
       public com.google.protobuf.ByteString
           getMessageBytes() {
@@ -45328,36 +45218,48 @@ public final class Service {
         }
       }
       /**
-       * <code>optional string message = 3;</code>
+       * <pre>
+       * Message describing why the metric, param, or tag failed to be persisted
+       * </pre>
+       *
+       * <code>optional string message = 2;</code>
        */
       public Builder setMessage(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         message_ = value;
         onChanged();
         return this;
       }
       /**
-       * <code>optional string message = 3;</code>
+       * <pre>
+       * Message describing why the metric, param, or tag failed to be persisted
+       * </pre>
+       *
+       * <code>optional string message = 2;</code>
        */
       public Builder clearMessage() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         message_ = getDefaultInstance().getMessage();
         onChanged();
         return this;
       }
       /**
-       * <code>optional string message = 3;</code>
+       * <pre>
+       * Message describing why the metric, param, or tag failed to be persisted
+       * </pre>
+       *
+       * <code>optional string message = 2;</code>
        */
       public Builder setMessageBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         message_ = value;
         onChanged();
         return this;
@@ -45700,7 +45602,8 @@ public final class Service {
 
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45709,7 +45612,8 @@ public final class Service {
           getUnprocessedMetricsList();
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45717,7 +45621,8 @@ public final class Service {
       org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedMetrics(int index);
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45725,7 +45630,8 @@ public final class Service {
       int getUnprocessedMetricsCount();
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45734,7 +45640,8 @@ public final class Service {
           getUnprocessedMetricsOrBuilderList();
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45744,7 +45651,8 @@ public final class Service {
 
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -45753,7 +45661,8 @@ public final class Service {
           getUnprocessedParamsList();
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -45761,7 +45670,8 @@ public final class Service {
       org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedParams(int index);
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -45769,7 +45679,8 @@ public final class Service {
       int getUnprocessedParamsCount();
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -45778,7 +45689,8 @@ public final class Service {
           getUnprocessedParamsOrBuilderList();
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -45788,7 +45700,8 @@ public final class Service {
 
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -45797,7 +45710,8 @@ public final class Service {
           getUnprocessedTagsList();
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -45805,7 +45719,8 @@ public final class Service {
       org.mlflow.api.proto.Service.BatchLogFailure getUnprocessedTags(int index);
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -45813,7 +45728,8 @@ public final class Service {
       int getUnprocessedTagsCount();
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -45822,7 +45738,8 @@ public final class Service {
           getUnprocessedTagsOrBuilderList();
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -45944,7 +45861,8 @@ public final class Service {
       private java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> unprocessedMetrics_;
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45954,7 +45872,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45965,7 +45884,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45975,7 +45895,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45985,7 +45906,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to metrics that could not be logged
+       * List of failure protos corresponding to metrics that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -45999,7 +45921,8 @@ public final class Service {
       private java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> unprocessedParams_;
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46009,7 +45932,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46020,7 +45944,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46030,7 +45955,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46040,7 +45966,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to params that could not be logged
+       * List of failure protos corresponding to params that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46054,7 +45981,8 @@ public final class Service {
       private java.util.List<org.mlflow.api.proto.Service.BatchLogFailure> unprocessedTags_;
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -46064,7 +45992,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -46075,7 +46004,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -46085,7 +46015,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -46095,7 +46026,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * List of failure protos corresponding to tags that could not be logged
+       * List of failure protos corresponding to tags that could not be logged due to
+       * retryable errors (e.g. due to a failure writing to persistent storage)
        * </pre>
        *
        * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -46572,7 +46504,8 @@ public final class Service {
 
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46586,7 +46519,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46600,7 +46534,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46614,7 +46549,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46635,7 +46571,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46653,7 +46590,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46673,7 +46611,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46694,7 +46633,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46712,7 +46652,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46730,7 +46671,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46749,7 +46691,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46766,7 +46709,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46783,7 +46727,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46794,7 +46739,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46808,7 +46754,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46823,7 +46770,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46834,7 +46782,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46846,7 +46795,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to metrics that could not be logged
+         * List of failure protos corresponding to metrics that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_metrics = 1;</code>
@@ -46884,7 +46834,8 @@ public final class Service {
 
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46898,7 +46849,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46912,7 +46864,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46926,7 +46879,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46947,7 +46901,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46965,7 +46920,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -46985,7 +46941,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47006,7 +46963,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47024,7 +46982,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47042,7 +47001,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47061,7 +47021,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47078,7 +47039,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47095,7 +47057,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47106,7 +47069,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47120,7 +47084,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47135,7 +47100,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47146,7 +47112,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47158,7 +47125,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to params that could not be logged
+         * List of failure protos corresponding to params that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_params = 2;</code>
@@ -47196,7 +47164,8 @@ public final class Service {
 
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47210,7 +47179,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47224,7 +47194,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47238,7 +47209,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47259,7 +47231,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47277,7 +47250,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47297,7 +47271,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47318,7 +47293,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47336,7 +47312,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47354,7 +47331,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47373,7 +47351,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47390,7 +47369,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47407,7 +47387,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47418,7 +47399,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47432,7 +47414,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47447,7 +47430,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47458,7 +47442,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -47470,7 +47455,8 @@ public final class Service {
         }
         /**
          * <pre>
-         * List of failure protos corresponding to tags that could not be logged
+         * List of failure protos corresponding to tags that could not be logged due to
+         * retryable errors (e.g. due to a failure writing to persistent storage)
          * </pre>
          *
          * <code>repeated .mlflow.BatchLogFailure unprocessed_tags = 3;</code>
@@ -49712,95 +49698,94 @@ public final class Service {
       "History\022\026\n\010run_uuid\030\001 \001(\tB\004\210\265\030\001\022\030\n\nmetri" +
       "c_key\030\002 \001(\tB\004\210\265\030\001\032+\n\010Response\022\037\n\007metrics" +
       "\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"X\n\017BatchLogF" +
-      "ailure\022\r\n\005index\030\001 \001(\003\022%\n\nerror_code\030\002 \001(" +
-      "\0162\021.mlflow.ErrorCode\022\017\n\007message\030\003 \001(\t\"\322\002" +
-      "\n\010LogBatch\022\020\n\010run_uuid\030\001 \001(\t\022\037\n\007metrics\030" +
-      "\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r." +
-      "mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunT" +
-      "ag\032\250\001\n\010Response\0224\n\023unprocessed_metrics\030\001" +
-      " \003(\0132\027.mlflow.BatchLogFailure\0223\n\022unproce" +
-      "ssed_params\030\002 \003(\0132\027.mlflow.BatchLogFailu" +
-      "re\0221\n\020unprocessed_tags\030\003 \003(\0132\027.mlflow.Ba" +
-      "tchLogFailure:+\342?(\n&com.databricks.rpc.R" +
-      "PC[$this.Response]*6\n\010ViewType\022\017\n\013ACTIVE" +
-      "_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSo" +
-      "urceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJE" +
-      "CT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStat" +
-      "us\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISH" +
-      "ED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*\342\002\n\tErrorCo" +
-      "de\022\022\n\016INTERNAL_ERROR\020\001\022\033\n\027TEMPORARILY_UN" +
-      "AVAILABLE\020\002\022\014\n\010IO_ERROR\020\003\022\017\n\013BAD_REQUEST" +
-      "\020\004\022\034\n\027INVALID_PARAMETER_VALUE\020\350\007\022\027\n\022ENDP" +
-      "OINT_NOT_FOUND\020\351\007\022\026\n\021MALFORMED_REQUEST\020\352" +
-      "\007\022\022\n\rINVALID_STATE\020\353\007\022\026\n\021PERMISSION_DENI" +
-      "ED\020\354\007\022\025\n\020FEATURE_DISABLED\020\355\007\022\032\n\025CUSTOMER" +
-      "_UNAUTHORIZED\020\356\007\022\033\n\026REQUEST_LIMIT_EXCEED" +
-      "ED\020\357\007\022\034\n\027RESOURCE_ALREADY_EXISTS\020\271\027\022\034\n\027R" +
-      "ESOURCE_DOES_NOT_EXIST\020\272\0272\246\023\n\rMlflowServ" +
-      "ice\022\234\001\n\020createExperiment\022\030.mlflow.Create" +
-      "Experiment\032!.mlflow.CreateExperiment.Res" +
-      "ponse\"K\202\265\030G\n0\n\004POST\022\"/preview/mlflow/exp" +
-      "eriments/create\032\004\010\002\020\000\020\001*\021Create Experime" +
-      "nt\022\225\001\n\017listExperiments\022\027.mlflow.ListExpe" +
-      "riments\032 .mlflow.ListExperiments.Respons" +
-      "e\"G\202\265\030C\n-\n\003GET\022 /preview/mlflow/experime" +
-      "nts/list\032\004\010\002\020\000\020\001*\020List Experiments\022\214\001\n\rg" +
-      "etExperiment\022\025.mlflow.GetExperiment\032\036.ml" +
-      "flow.GetExperiment.Response\"D\202\265\030@\n,\n\003GET" +
-      "\022\037/preview/mlflow/experiments/get\032\004\010\002\020\000\020" +
-      "\001*\016Get Experiment\022\234\001\n\020deleteExperiment\022\030" +
-      ".mlflow.DeleteExperiment\032!.mlflow.Delete" +
-      "Experiment.Response\"K\202\265\030G\n0\n\004POST\022\"/prev" +
-      "iew/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021D" +
-      "elete Experiment\022\241\001\n\021restoreExperiment\022\031" +
-      ".mlflow.RestoreExperiment\032\".mlflow.Resto" +
-      "reExperiment.Response\"M\202\265\030I\n1\n\004POST\022#/pr" +
-      "eview/mlflow/experiments/restore\032\004\010\002\020\000\020\001" +
-      "*\022Restore Experiment\022\234\001\n\020updateExperimen" +
-      "t\022\030.mlflow.UpdateExperiment\032!.mlflow.Upd" +
-      "ateExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/p" +
-      "review/mlflow/experiments/update\032\004\010\002\020\000\020\001" +
-      "*\021Update Experiment\022y\n\tcreateRun\022\021.mlflo" +
-      "w.CreateRun\032\032.mlflow.CreateRun.Response\"" +
-      "=\202\265\0309\n)\n\004POST\022\033/preview/mlflow/runs/crea" +
-      "te\032\004\010\002\020\000\020\001*\nCreate Run\022y\n\tupdateRun\022\021.ml" +
-      "flow.UpdateRun\032\032.mlflow.UpdateRun.Respon" +
-      "se\"=\202\265\0309\n)\n\004POST\022\033/preview/mlflow/runs/u" +
-      "pdate\032\004\010\002\020\000\020\001*\nUpdate Run\022m\n\tdeleteRun\022\021" +
-      ".mlflow.DeleteRun\032\032.mlflow.DeleteRun.Res" +
-      "ponse\"1\202\265\030-\n)\n\004POST\022\033/preview/mlflow/run" +
-      "s/delete\032\004\010\002\020\000\020\001\022q\n\nrestoreRun\022\022.mlflow." +
-      "RestoreRun\032\033.mlflow.RestoreRun.Response\"" +
-      "2\202\265\030.\n*\n\004POST\022\034/preview/mlflow/runs/rest" +
-      "ore\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021.mlflow.LogMet" +
-      "ric\032\032.mlflow.LogMetric.Response\"A\202\265\030=\n-\n" +
-      "\004POST\022\037/preview/mlflow/runs/log-metric\032\004" +
-      "\010\002\020\000\020\001*\nLog Metric\022|\n\010logParam\022\020.mlflow." +
-      "LogParam\032\031.mlflow.LogParam.Response\"C\202\265\030" +
-      "?\n0\n\004POST\022\"/preview/mlflow/runs/log-para" +
-      "meter\032\004\010\002\020\000\020\001*\tLog Param\022n\n\006setTag\022\016.mlf" +
-      "low.SetTag\032\027.mlflow.SetTag.Response\";\202\265\030" +
-      "7\n*\n\004POST\022\034/preview/mlflow/runs/set-tag\032" +
-      "\004\010\002\020\000\020\001*\007Set Tag\022i\n\006getRun\022\016.mlflow.GetR" +
-      "un\032\027.mlflow.GetRun.Response\"6\202\265\0302\n%\n\003GET" +
-      "\022\030/preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get " +
-      "Run\022\247\001\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033" +
-      ".mlflow.SearchRuns.Response\"h\202\265\030d\n)\n\004POS" +
-      "T\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\n(\n\003" +
-      "GET\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\020\001" +
-      "*\013Search Runs\022\213\001\n\rlistArtifacts\022\025.mlflow" +
-      ".ListArtifacts\032\036.mlflow.ListArtifacts.Re" +
-      "sponse\"C\202\265\030?\n+\n\003GET\022\036/preview/mlflow/art" +
-      "ifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\235\001\n\020" +
-      "getMetricHistory\022\030.mlflow.GetMetricHisto" +
-      "ry\032!.mlflow.GetMetricHistory.Response\"L\202" +
-      "\265\030H\n0\n\003GET\022#/preview/mlflow/metrics/get-" +
-      "history\032\004\010\002\020\000\020\001*\022Get Metric History\022e\n\010l" +
-      "ogBatch\022\020.mlflow.LogBatch\032\031.mlflow.LogBa" +
-      "tch.Response\",\202\265\030(\n&\n\004POST\022\036/preview/mlf" +
-      "low/runs/log-batchB\036\n\024org.mlflow.api.pro" +
-      "to\220\001\001\342?\002\020\001"
+      "cks.rpc.RPC[$this.Response]\"1\n\017BatchLogF" +
+      "ailure\022\r\n\005index\030\001 \001(\003\022\017\n\007message\030\002 \001(\t\"\322" +
+      "\002\n\010LogBatch\022\020\n\010run_uuid\030\001 \001(\t\022\037\n\007metrics" +
+      "\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r" +
+      ".mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.Run" +
+      "Tag\032\250\001\n\010Response\0224\n\023unprocessed_metrics\030" +
+      "\001 \003(\0132\027.mlflow.BatchLogFailure\0223\n\022unproc" +
+      "essed_params\030\002 \003(\0132\027.mlflow.BatchLogFail" +
+      "ure\0221\n\020unprocessed_tags\030\003 \003(\0132\027.mlflow.B" +
+      "atchLogFailure:+\342?(\n&com.databricks.rpc." +
+      "RPC[$this.Response]*6\n\010ViewType\022\017\n\013ACTIV" +
+      "E_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nS" +
+      "ourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJ" +
+      "ECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunSta" +
+      "tus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINIS" +
+      "HED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*\342\002\n\tErrorC" +
+      "ode\022\022\n\016INTERNAL_ERROR\020\001\022\033\n\027TEMPORARILY_U" +
+      "NAVAILABLE\020\002\022\014\n\010IO_ERROR\020\003\022\017\n\013BAD_REQUES" +
+      "T\020\004\022\034\n\027INVALID_PARAMETER_VALUE\020\350\007\022\027\n\022END" +
+      "POINT_NOT_FOUND\020\351\007\022\026\n\021MALFORMED_REQUEST\020" +
+      "\352\007\022\022\n\rINVALID_STATE\020\353\007\022\026\n\021PERMISSION_DEN" +
+      "IED\020\354\007\022\025\n\020FEATURE_DISABLED\020\355\007\022\032\n\025CUSTOME" +
+      "R_UNAUTHORIZED\020\356\007\022\033\n\026REQUEST_LIMIT_EXCEE" +
+      "DED\020\357\007\022\034\n\027RESOURCE_ALREADY_EXISTS\020\271\027\022\034\n\027" +
+      "RESOURCE_DOES_NOT_EXIST\020\272\0272\271\023\n\rMlflowSer" +
+      "vice\022\234\001\n\020createExperiment\022\030.mlflow.Creat" +
+      "eExperiment\032!.mlflow.CreateExperiment.Re" +
+      "sponse\"K\202\265\030G\n0\n\004POST\022\"/preview/mlflow/ex" +
+      "periments/create\032\004\010\002\020\000\020\001*\021Create Experim" +
+      "ent\022\225\001\n\017listExperiments\022\027.mlflow.ListExp" +
+      "eriments\032 .mlflow.ListExperiments.Respon" +
+      "se\"G\202\265\030C\n-\n\003GET\022 /preview/mlflow/experim" +
+      "ents/list\032\004\010\002\020\000\020\001*\020List Experiments\022\214\001\n\r" +
+      "getExperiment\022\025.mlflow.GetExperiment\032\036.m" +
+      "lflow.GetExperiment.Response\"D\202\265\030@\n,\n\003GE" +
+      "T\022\037/preview/mlflow/experiments/get\032\004\010\002\020\000" +
+      "\020\001*\016Get Experiment\022\234\001\n\020deleteExperiment\022" +
+      "\030.mlflow.DeleteExperiment\032!.mlflow.Delet" +
+      "eExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/pre" +
+      "view/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021" +
+      "Delete Experiment\022\241\001\n\021restoreExperiment\022" +
+      "\031.mlflow.RestoreExperiment\032\".mlflow.Rest" +
+      "oreExperiment.Response\"M\202\265\030I\n1\n\004POST\022#/p" +
+      "review/mlflow/experiments/restore\032\004\010\002\020\000\020" +
+      "\001*\022Restore Experiment\022\234\001\n\020updateExperime" +
+      "nt\022\030.mlflow.UpdateExperiment\032!.mlflow.Up" +
+      "dateExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/" +
+      "preview/mlflow/experiments/update\032\004\010\002\020\000\020" +
+      "\001*\021Update Experiment\022y\n\tcreateRun\022\021.mlfl" +
+      "ow.CreateRun\032\032.mlflow.CreateRun.Response" +
+      "\"=\202\265\0309\n)\n\004POST\022\033/preview/mlflow/runs/cre" +
+      "ate\032\004\010\002\020\000\020\001*\nCreate Run\022y\n\tupdateRun\022\021.m" +
+      "lflow.UpdateRun\032\032.mlflow.UpdateRun.Respo" +
+      "nse\"=\202\265\0309\n)\n\004POST\022\033/preview/mlflow/runs/" +
+      "update\032\004\010\002\020\000\020\001*\nUpdate Run\022m\n\tdeleteRun\022" +
+      "\021.mlflow.DeleteRun\032\032.mlflow.DeleteRun.Re" +
+      "sponse\"1\202\265\030-\n)\n\004POST\022\033/preview/mlflow/ru" +
+      "ns/delete\032\004\010\002\020\000\020\001\022q\n\nrestoreRun\022\022.mlflow" +
+      ".RestoreRun\032\033.mlflow.RestoreRun.Response" +
+      "\"2\202\265\030.\n*\n\004POST\022\034/preview/mlflow/runs/res" +
+      "tore\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021.mlflow.LogMe" +
+      "tric\032\032.mlflow.LogMetric.Response\"A\202\265\030=\n-" +
+      "\n\004POST\022\037/preview/mlflow/runs/log-metric\032" +
+      "\004\010\002\020\000\020\001*\nLog Metric\022|\n\010logParam\022\020.mlflow" +
+      ".LogParam\032\031.mlflow.LogParam.Response\"C\202\265" +
+      "\030?\n0\n\004POST\022\"/preview/mlflow/runs/log-par" +
+      "ameter\032\004\010\002\020\000\020\001*\tLog Param\022n\n\006setTag\022\016.ml" +
+      "flow.SetTag\032\027.mlflow.SetTag.Response\";\202\265" +
+      "\0307\n*\n\004POST\022\034/preview/mlflow/runs/set-tag" +
+      "\032\004\010\002\020\000\020\001*\007Set Tag\022i\n\006getRun\022\016.mlflow.Get" +
+      "Run\032\027.mlflow.GetRun.Response\"6\202\265\0302\n%\n\003GE" +
+      "T\022\030/preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get" +
+      " Run\022\247\001\n\nsearchRuns\022\022.mlflow.SearchRuns\032" +
+      "\033.mlflow.SearchRuns.Response\"h\202\265\030d\n)\n\004PO" +
+      "ST\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\n(\n" +
+      "\003GET\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\020" +
+      "\001*\013Search Runs\022\213\001\n\rlistArtifacts\022\025.mlflo" +
+      "w.ListArtifacts\032\036.mlflow.ListArtifacts.R" +
+      "esponse\"C\202\265\030?\n+\n\003GET\022\036/preview/mlflow/ar" +
+      "tifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\235\001\n" +
+      "\020getMetricHistory\022\030.mlflow.GetMetricHist" +
+      "ory\032!.mlflow.GetMetricHistory.Response\"L" +
+      "\202\265\030H\n0\n\003GET\022#/preview/mlflow/metrics/get" +
+      "-history\032\004\010\002\020\000\020\001*\022Get Metric History\022x\n\010" +
+      "logBatch\022\020.mlflow.LogBatch\032\031.mlflow.LogB" +
+      "atch.Response\"?\202\265\030;\n,\n\004POST\022\036/preview/ml" +
+      "flow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036" +
+      "\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -50121,7 +50106,7 @@ public final class Service {
     internal_static_mlflow_BatchLogFailure_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_BatchLogFailure_descriptor,
-        new java.lang.String[] { "Index", "ErrorCode", "Message", });
+        new java.lang.String[] { "Index", "Message", });
     internal_static_mlflow_LogBatch_descriptor =
       getDescriptor().getMessageTypes().get(33);
     internal_static_mlflow_LogBatch_fieldAccessorTable = new
