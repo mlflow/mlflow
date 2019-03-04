@@ -5,21 +5,6 @@ mlflow_rest_path <- function(version) {
   )
 }
 
-mlflow_rest_body <- function(data) {
-  data <- Filter(length, data)
-  paste0(
-    "\"",
-    gsub(
-      "\\\"",
-      "\\\\\"",
-      as.character(
-        jsonlite::toJSON(data, auto_unbox = TRUE)
-      )
-    ),
-    "\""
-  )
-}
-
 #' @importFrom httr timeout
 mlflow_rest_timeout <- function() {
   timeout(getOption("mlflow.rest.timeout", 60))
@@ -64,10 +49,11 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
       do.call(add_headers, headers)),
     POST = POST(
       api_url,
-      body = mlflow_rest_body(data),
+      body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+      encode = "json",
       mlflow_rest_timeout(),
       config = config,
-      do.call(add_headers, modifyList(headers, list("Content-Type" = "application/json")))
+      do.call(add_headers, headers)
     ),
     stop("Verb '", verb, "' is unsupported.")
   )
