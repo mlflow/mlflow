@@ -22,6 +22,7 @@ MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e7)
 
+
 def bad_path_message(name):
     return (
         "Names may be treated as files in certain cases, and must not resolve to other names"
@@ -91,6 +92,7 @@ def _validate_batch_log_limits(metrics, params, tags):
     _validate_batch_limit(entity_name="metrics, params, and tags",
                           limit=MAX_ENTITIES_PER_BATCH, length=total_length)
 
+
 def _validate_batch_log_data(metrics, params, tags):
     for metric in metrics:
         _validate_metric_name(metric.key)
@@ -117,6 +119,7 @@ def _validate_batch_log_api_req(json_req):
                      "request of size {size}.").format(
             limit=MAX_BATCH_LOG_REQUEST_SIZE, size=len(json_req))
         raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
+
 
 def _validate_experiment_name(experiment_name):
     """Check that `experiment_name` is a valid string and raise an exception if it isn't."""

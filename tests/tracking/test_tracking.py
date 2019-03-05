@@ -195,6 +195,7 @@ def test_log_metric(tracking_uri_mock):
     for metric in finished_run.data.metrics:
         assert expected_pairs[metric.key] == metric.value
 
+
 def test_log_metrics(tracking_uri_mock):
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
@@ -209,10 +210,12 @@ def test_log_metrics(tracking_uri_mock):
     for metric in finished_run.data.metrics:
         assert expected_metrics[metric.key] == metric.value
 
+
 @pytest.fixture
 def get_store_mock(tmpdir):
     with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
         yield _get_store_mock
+
 
 def test_log_batch_validations(tracking_uri_mock, get_store_mock):
     # Log same param with different values, verify error before we hit the store
@@ -223,7 +226,6 @@ def test_log_batch_validations(tracking_uri_mock, get_store_mock):
     params_with_bad_val = [Param("good-param-key", "hi"), Param("another-good-key", "but-bad-val" * 1000)]
     tags_with_bad_key = [RunTag("good-tag-key", "hi"), RunTag("super-long-bad-key" * 1000, "but-good-val")]
     tags_with_bad_val = [RunTag("good-tag-key", "hi"), RunTag("another-good-key", "but-bad-val" * 1000)]
-
 
     too_many_metrics = [Metric("metric-key-%s" % i, 1, 0) for i in range(1001)]
     too_many_params = [Param("param-key-%s" % i, "b") for i in range(101)]
@@ -256,7 +258,6 @@ def test_log_batch_validations(tracking_uri_mock, get_store_mock):
         with pytest.raises(MlflowException):
             mlflow.tracking.MlflowClient().log_batch(run_id=run_uuid, **too_many_entities)
             assert get_store_mock.not_called()
-
 
 
 def test_set_tags(tracking_uri_mock):
@@ -295,6 +296,7 @@ def test_log_param(tracking_uri_mock):
     expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
     for param in finished_run.data.params:
         assert expected_pairs[param.key] == param.value
+
 
 def test_log_params(tracking_uri_mock):
     expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}

@@ -279,14 +279,11 @@ service MlflowService {
 
   // Log a batch of metrics, params, and/or tags for a run. The server may respond with:
   //
-  // - A 500-level error on internal error (clients may retry on such failures)
-  // - A 400-level error if the request was invalid (i.e. too large, too many params, etc)
-  // - A 200 if data was persisted, describing any data that failed to be persisted (e.g.
-  //   rejected attempts to overwrite parameters, failures to write to persistent storage) via the
-  //   unprocessed_metrics, unprocessed_params, unprocessed_tags fields
-  //
-  // Note that clients must therefore inspect the response body of successful requests to this
-  // endpoint to determine whether all data in the request was persisted.
+  // - A 500-level error on internal error (clients may retry on such failures). Partial data may
+  //   be persisted in such cases.
+  // - A 400-level error if the request was invalid (i.e. too large, too many params, etc). Partial
+  //   data will not be persisted in such cases.
+  // - A 200 if all data was persisted.
   //
   rpc logBatch (LogBatch) returns (LogBatch.Response) {
     option (rpc) = {
@@ -836,79 +833,10 @@ message GetMetricHistory {
   }
 }
 
-
-enum ErrorCode {
-  //
-  // Internal, system-level error codes, which generally cannot be resolved by the user, but
-  // instead are due to service issues.
-  //
-  // Generic internal error occurred.
-  INTERNAL_ERROR = 1;
-
-  // An internal system could not be contacted due to a period of unavailability.
-  TEMPORARILY_UNAVAILABLE = 2;
-
-  // Indicates that an IOException has been internally thrown.
-  IO_ERROR = 3;
-
-  // The request is invalid.
-  BAD_REQUEST = 4;
-
-  //
-  // Common application-level error codes, which were caused by the user input but may be returned
-  // by multiple services.
-  //
-  // Supplied value for a parameter was invalid (e.g., giving a number for a string parameter).
-  INVALID_PARAMETER_VALUE = 1000;
-
-  // Indicates that the given API endpoint does not exist.
-  ENDPOINT_NOT_FOUND = 1001;
-
-  // Indicates that the given API request was malformed.
-  MALFORMED_REQUEST = 1002;
-
-  // If one or more of the inputs to a given RPC are not in a valid state for the action.
-  INVALID_STATE = 1003;
-
-  // If a given user/entity doesn't have the required permission(s) to perform an action
-  PERMISSION_DENIED = 1004;
-
-  // If a given user/entity is trying to use a feature which has been disabled
-  FEATURE_DISABLED = 1005;
-
-  // If customer-provided credentials are not authorized to perform an operation
-  CUSTOMER_UNAUTHORIZED = 1006;
-
-  // If the API request is rejected due to throttling
-  REQUEST_LIMIT_EXCEEDED = 1007;
-
-  ///////////////
-  // EXECUTION //
-  ///////////////
-
-  // Operation was performed on a resource that already exists.
-  RESOURCE_ALREADY_EXISTS = 3001;
-
-  // Operation was performed on a resource that does not exist.
-  RESOURCE_DOES_NOT_EXIST = 3002;
-
-}
-
-// For each metric, param, or tag comprising a batch logging request that fails to be persisted due
-// to  a retryable error (e.g. due to a failure writing to persistent storage) we include an
-// instance of BatchLogFailure in our response, in which we describe the items that were not
-// persisted and reasons why.
-message BatchLogFailure {
-  // Index of metric/param/tag that we failed to log in the original list
-  optional int64 index = 1;
-  // Message describing why the metric, param, or tag failed to be persisted
-  optional string message = 2;
-}
-
 message LogBatch {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   // ID of the run to log under
-  optional string run_uuid = 1;
+  optional string run_id = 1;
   // Metrics to log
   repeated Metric metrics = 2;
   // Params to log
@@ -916,14 +844,5 @@ message LogBatch {
   // Tags to log
   repeated RunTag tags = 4;
   message Response {
-    // List of failure protos corresponding to metrics that could not be logged due to
-    // retryable errors (e.g. due to a failure writing to persistent storage)
-    repeated BatchLogFailure unprocessed_metrics = 1;
-    // List of failure protos corresponding to params that could not be logged due to
-    // retryable errors (e.g. due to a failure writing to persistent storage)
-    repeated BatchLogFailure unprocessed_params = 2;
-    // List of failure protos corresponding to tags that could not be logged due to
-    // retryable errors (e.g. due to a failure writing to persistent storage)
-    repeated BatchLogFailure unprocessed_tags = 3;
   }
 }

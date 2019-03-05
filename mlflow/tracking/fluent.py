@@ -211,6 +211,7 @@ def log_metric(key, value):
     run_id = _get_or_start_run().info.run_uuid
     MlflowClient().log_metric(run_id, key, value, int(time.time()))
 
+
 def log_metrics(metrics):
     """
     Log multiple metrics for the current run, starting a run if no runs are active. `metrics` is a
@@ -222,6 +223,7 @@ def log_metrics(metrics):
     metrics_arr = [Metric(key, value, timestamp) for key, value in metrics.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
+
 def log_params(params):
     """
     Log a batch of params for the current run, starting a run if no runs
@@ -232,6 +234,7 @@ def log_params(params):
     run_id = _get_or_start_run().info.run_uuid
     params_arr = [Param(key, value) for key, value in params.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
 
 def set_tags(tags):
     """
