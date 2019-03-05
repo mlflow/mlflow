@@ -277,13 +277,8 @@ service MlflowService {
     };
   }
 
-  // Log a batch of metrics, params, and/or tags for a run. The server may respond with:
-  //
-  // - A 500-level error on internal error (clients may retry on such failures). Partial data may
-  //   be persisted in such cases.
-  // - A 400-level error if the request was invalid (i.e. too large, too many params, etc). Partial
-  //   data will not be persisted in such cases.
-  // - A 200 if all data was persisted.
+  // Log a batch of metrics, params, and/or tags for a run. The server will respond with an error
+  // if any data failed to be persisted.
   //
   rpc logBatch (LogBatch) returns (LogBatch.Response) {
     option (rpc) = {
