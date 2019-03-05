@@ -12,30 +12,23 @@ import tempfile
 import tensorflow as tf
 import os.path
 
-# Command-line arguments
 parser = argparse.ArgumentParser(description='Tensorflow Example')
-# parser.add_argument('--hidden_units', nargs='*', default='50 20'.split( ), metavar='L',
-#                    help='hidden units (default: [50, 20])')  #  https://docs.python.org/3/library/argparse.html#nargs
-parser.add_argument('--hidden_units', type=str, default='50 20', metavar='L',
-                    help='hidden units (default: "50 20")')
-parser.add_argument('--steps', type=int, default=1000, metavar='N',
-                    help='steps (default: 1000)')
-parser.add_argument('--tag_constants', type=str, default=tf.saved_model.tag_constants.SERVING, metavar='S',
-                    help='tf.saved_model.tag_constants (default: tf.saved_model.tag_constants.SERVING)')
+parser.add_argument('--hidden-units', type=str, default='50 20',
+                    help='The number of hidden units in each of the two hidden unit layers (default: %(default)s)')
+parser.add_argument('--steps', type=int, default=1000,
+                    help='The number of training steps (default: %(default)d)')
 args = parser.parse_args()
 
 if __name__ == "__main__":
-    # The Estimator periodically generates "INFO" logs; make these logs visible.
     tf.logging.set_verbosity(tf.logging.INFO)
-    #    tf.app.run(main=main)
 
     with mlflow.start_run() as tracked_run:
         tf.logging.set_verbosity(tf.logging.INFO)
-        # for key, value in vars(args).items():
-        #    mlflow.log_param(key, value)
-        hidden_units = [ int( s ) for s in args.hidden_units.split( ) ]  #  [50, 20]
-        steps = args.steps  #  1000
-        print( '(hdnNts, stp) = ' , hidden_units , steps )
+        hidden_units = [ int( s ) for s in args.hidden_units.split( ) ]
+        print("Hidden Units: {}".format(hidden_units))
+        print("Training Steps: {}".format(args.steps))
+        mlflow.log_param("hidden_units", hidden_units)
+        mlflow.log_param("training_steps", args.steps)
 
         # Builds, trains and evaluates a tf.estimator. Then, exports it for inference, logs the exported model
         # with MLflow, and loads the fitted model back as a PyFunc to make predictions.
@@ -57,10 +50,10 @@ if __name__ == "__main__":
         try:
             saved_estimator_path = regressor.export_savedmodel(temp, receiver_fn).decode("utf-8")
             # Logging the saved model
-            tensorflow.log_model( tf_saved_model_dir = saved_estimator_path , tf_signature_def_key = "predict" ,
-                tf_meta_graph_tags = [ args.tag_constants ] , artifact_path="model")
+            tensorflow.log_model(tf_saved_model_dir=saved_estimator_path, tf_signature_def_key="predict", artifact_path="model", \
+                tf_meta_graph_tags=[tf.saved_model.tag_constants.SERVING])  #  adding required parameter tf_meta_graph_tags
             # Reloading the model
-            pyfunc_model = pyfunc.load_pyfunc( os.path.join(mlflow.get_artifact_uri() , 'model' ) )  #  (saved_estimator_path)
+            pyfunc_model = pyfunc.load_pyfunc(os.path.join(mlflow.get_artifact_uri(), 'model'))  #  (saved_estimator_path)
             df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
             # Predicting on the loaded Python Function
             predict_df = pyfunc_model.predict(df)
