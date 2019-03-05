@@ -307,8 +307,11 @@ def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environmen
     assert os.path.exists(saved_conda_env_path)
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
-    assert any([
-        "cloudpickle" in dependency for dependency in saved_conda_env_parsed["dependencies"]])
+
+    pip_deps = [dependency for dependency in saved_conda_env_parsed["dependencies"]
+                if type(dependency) == dict and "pip" in dependency]
+    assert len(pip_deps) == 1
+    assert any(["cloudpickle" in pip_dep for pip_dep in pip_deps[0]["pip"]])
 
 
 def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda_environment(
