@@ -463,324 +463,6 @@ public final class Service {
     // @@protoc_insertion_point(enum_scope:mlflow.RunStatus)
   }
 
-  /**
-   * Protobuf enum {@code mlflow.ErrorCode}
-   */
-  public enum ErrorCode
-      implements com.google.protobuf.ProtocolMessageEnum {
-    /**
-     * <pre>
-     * Internal, system-level error codes, which generally cannot be resolved by the user, but
-     * instead are due to service issues.
-     * Generic internal error occurred.
-     * </pre>
-     *
-     * <code>INTERNAL_ERROR = 1;</code>
-     */
-    INTERNAL_ERROR(1),
-    /**
-     * <pre>
-     * An internal system could not be contacted due to a period of unavailability.
-     * </pre>
-     *
-     * <code>TEMPORARILY_UNAVAILABLE = 2;</code>
-     */
-    TEMPORARILY_UNAVAILABLE(2),
-    /**
-     * <pre>
-     * Indicates that an IOException has been internally thrown.
-     * </pre>
-     *
-     * <code>IO_ERROR = 3;</code>
-     */
-    IO_ERROR(3),
-    /**
-     * <pre>
-     * The request is invalid.
-     * </pre>
-     *
-     * <code>BAD_REQUEST = 4;</code>
-     */
-    BAD_REQUEST(4),
-    /**
-     * <pre>
-     * Common application-level error codes, which were caused by the user input but may be returned
-     * by multiple services.
-     * Supplied value for a parameter was invalid (e.g., giving a number for a string parameter).
-     * </pre>
-     *
-     * <code>INVALID_PARAMETER_VALUE = 1000;</code>
-     */
-    INVALID_PARAMETER_VALUE(1000),
-    /**
-     * <pre>
-     * Indicates that the given API endpoint does not exist.
-     * </pre>
-     *
-     * <code>ENDPOINT_NOT_FOUND = 1001;</code>
-     */
-    ENDPOINT_NOT_FOUND(1001),
-    /**
-     * <pre>
-     * Indicates that the given API request was malformed.
-     * </pre>
-     *
-     * <code>MALFORMED_REQUEST = 1002;</code>
-     */
-    MALFORMED_REQUEST(1002),
-    /**
-     * <pre>
-     * If one or more of the inputs to a given RPC are not in a valid state for the action.
-     * </pre>
-     *
-     * <code>INVALID_STATE = 1003;</code>
-     */
-    INVALID_STATE(1003),
-    /**
-     * <pre>
-     * If a given user/entity doesn't have the required permission(s) to perform an action
-     * </pre>
-     *
-     * <code>PERMISSION_DENIED = 1004;</code>
-     */
-    PERMISSION_DENIED(1004),
-    /**
-     * <pre>
-     * If a given user/entity is trying to use a feature which has been disabled
-     * </pre>
-     *
-     * <code>FEATURE_DISABLED = 1005;</code>
-     */
-    FEATURE_DISABLED(1005),
-    /**
-     * <pre>
-     * If customer-provided credentials are not authorized to perform an operation
-     * </pre>
-     *
-     * <code>CUSTOMER_UNAUTHORIZED = 1006;</code>
-     */
-    CUSTOMER_UNAUTHORIZED(1006),
-    /**
-     * <pre>
-     * If the API request is rejected due to throttling
-     * </pre>
-     *
-     * <code>REQUEST_LIMIT_EXCEEDED = 1007;</code>
-     */
-    REQUEST_LIMIT_EXCEEDED(1007),
-    /**
-     * <pre>
-     * Operation was performed on a resource that already exists.
-     * </pre>
-     *
-     * <code>RESOURCE_ALREADY_EXISTS = 3001;</code>
-     */
-    RESOURCE_ALREADY_EXISTS(3001),
-    /**
-     * <pre>
-     * Operation was performed on a resource that does not exist.
-     * </pre>
-     *
-     * <code>RESOURCE_DOES_NOT_EXIST = 3002;</code>
-     */
-    RESOURCE_DOES_NOT_EXIST(3002),
-    ;
-
-    /**
-     * <pre>
-     * Internal, system-level error codes, which generally cannot be resolved by the user, but
-     * instead are due to service issues.
-     * Generic internal error occurred.
-     * </pre>
-     *
-     * <code>INTERNAL_ERROR = 1;</code>
-     */
-    public static final int INTERNAL_ERROR_VALUE = 1;
-    /**
-     * <pre>
-     * An internal system could not be contacted due to a period of unavailability.
-     * </pre>
-     *
-     * <code>TEMPORARILY_UNAVAILABLE = 2;</code>
-     */
-    public static final int TEMPORARILY_UNAVAILABLE_VALUE = 2;
-    /**
-     * <pre>
-     * Indicates that an IOException has been internally thrown.
-     * </pre>
-     *
-     * <code>IO_ERROR = 3;</code>
-     */
-    public static final int IO_ERROR_VALUE = 3;
-    /**
-     * <pre>
-     * The request is invalid.
-     * </pre>
-     *
-     * <code>BAD_REQUEST = 4;</code>
-     */
-    public static final int BAD_REQUEST_VALUE = 4;
-    /**
-     * <pre>
-     * Common application-level error codes, which were caused by the user input but may be returned
-     * by multiple services.
-     * Supplied value for a parameter was invalid (e.g., giving a number for a string parameter).
-     * </pre>
-     *
-     * <code>INVALID_PARAMETER_VALUE = 1000;</code>
-     */
-    public static final int INVALID_PARAMETER_VALUE_VALUE = 1000;
-    /**
-     * <pre>
-     * Indicates that the given API endpoint does not exist.
-     * </pre>
-     *
-     * <code>ENDPOINT_NOT_FOUND = 1001;</code>
-     */
-    public static final int ENDPOINT_NOT_FOUND_VALUE = 1001;
-    /**
-     * <pre>
-     * Indicates that the given API request was malformed.
-     * </pre>
-     *
-     * <code>MALFORMED_REQUEST = 1002;</code>
-     */
-    public static final int MALFORMED_REQUEST_VALUE = 1002;
-    /**
-     * <pre>
-     * If one or more of the inputs to a given RPC are not in a valid state for the action.
-     * </pre>
-     *
-     * <code>INVALID_STATE = 1003;</code>
-     */
-    public static final int INVALID_STATE_VALUE = 1003;
-    /**
-     * <pre>
-     * If a given user/entity doesn't have the required permission(s) to perform an action
-     * </pre>
-     *
-     * <code>PERMISSION_DENIED = 1004;</code>
-     */
-    public static final int PERMISSION_DENIED_VALUE = 1004;
-    /**
-     * <pre>
-     * If a given user/entity is trying to use a feature which has been disabled
-     * </pre>
-     *
-     * <code>FEATURE_DISABLED = 1005;</code>
-     */
-    public static final int FEATURE_DISABLED_VALUE = 1005;
-    /**
-     * <pre>
-     * If customer-provided credentials are not authorized to perform an operation
-     * </pre>
-     *
-     * <code>CUSTOMER_UNAUTHORIZED = 1006;</code>
-     */
-    public static final int CUSTOMER_UNAUTHORIZED_VALUE = 1006;
-    /**
-     * <pre>
-     * If the API request is rejected due to throttling
-     * </pre>
-     *
-     * <code>REQUEST_LIMIT_EXCEEDED = 1007;</code>
-     */
-    public static final int REQUEST_LIMIT_EXCEEDED_VALUE = 1007;
-    /**
-     * <pre>
-     * Operation was performed on a resource that already exists.
-     * </pre>
-     *
-     * <code>RESOURCE_ALREADY_EXISTS = 3001;</code>
-     */
-    public static final int RESOURCE_ALREADY_EXISTS_VALUE = 3001;
-    /**
-     * <pre>
-     * Operation was performed on a resource that does not exist.
-     * </pre>
-     *
-     * <code>RESOURCE_DOES_NOT_EXIST = 3002;</code>
-     */
-    public static final int RESOURCE_DOES_NOT_EXIST_VALUE = 3002;
-
-
-    public final int getNumber() {
-      return value;
-    }
-
-    /**
-     * @deprecated Use {@link #forNumber(int)} instead.
-     */
-    @java.lang.Deprecated
-    public static ErrorCode valueOf(int value) {
-      return forNumber(value);
-    }
-
-    public static ErrorCode forNumber(int value) {
-      switch (value) {
-        case 1: return INTERNAL_ERROR;
-        case 2: return TEMPORARILY_UNAVAILABLE;
-        case 3: return IO_ERROR;
-        case 4: return BAD_REQUEST;
-        case 1000: return INVALID_PARAMETER_VALUE;
-        case 1001: return ENDPOINT_NOT_FOUND;
-        case 1002: return MALFORMED_REQUEST;
-        case 1003: return INVALID_STATE;
-        case 1004: return PERMISSION_DENIED;
-        case 1005: return FEATURE_DISABLED;
-        case 1006: return CUSTOMER_UNAUTHORIZED;
-        case 1007: return REQUEST_LIMIT_EXCEEDED;
-        case 3001: return RESOURCE_ALREADY_EXISTS;
-        case 3002: return RESOURCE_DOES_NOT_EXIST;
-        default: return null;
-      }
-    }
-
-    public static com.google.protobuf.Internal.EnumLiteMap<ErrorCode>
-        internalGetValueMap() {
-      return internalValueMap;
-    }
-    private static final com.google.protobuf.Internal.EnumLiteMap<
-        ErrorCode> internalValueMap =
-          new com.google.protobuf.Internal.EnumLiteMap<ErrorCode>() {
-            public ErrorCode findValueByNumber(int number) {
-              return ErrorCode.forNumber(number);
-            }
-          };
-
-    public final com.google.protobuf.Descriptors.EnumValueDescriptor
-        getValueDescriptor() {
-      return getDescriptor().getValues().get(ordinal());
-    }
-    public final com.google.protobuf.Descriptors.EnumDescriptor
-        getDescriptorForType() {
-      return getDescriptor();
-    }
-    public static final com.google.protobuf.Descriptors.EnumDescriptor
-        getDescriptor() {
-      return org.mlflow.api.proto.Service.getDescriptor().getEnumTypes().get(3);
-    }
-
-    private static final ErrorCode[] VALUES = values();
-
-    public static ErrorCode valueOf(
-        com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
-      if (desc.getType() != getDescriptor()) {
-        throw new java.lang.IllegalArgumentException(
-          "EnumValueDescriptor is not for this type.");
-      }
-      return VALUES[desc.getIndex()];
-    }
-
-    private final int value;
-
-    private ErrorCode(int value) {
-      this.value = value;
-    }
-
-    // @@protoc_insertion_point(enum_scope:mlflow.ErrorCode)
-  }
-
   public interface MetricOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.Metric)
       com.google.protobuf.MessageOrBuilder {
@@ -49713,79 +49395,70 @@ public final class Service {
       "ourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJ" +
       "ECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunSta" +
       "tus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINIS" +
-      "HED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005*\342\002\n\tErrorC" +
-      "ode\022\022\n\016INTERNAL_ERROR\020\001\022\033\n\027TEMPORARILY_U" +
-      "NAVAILABLE\020\002\022\014\n\010IO_ERROR\020\003\022\017\n\013BAD_REQUES" +
-      "T\020\004\022\034\n\027INVALID_PARAMETER_VALUE\020\350\007\022\027\n\022END" +
-      "POINT_NOT_FOUND\020\351\007\022\026\n\021MALFORMED_REQUEST\020" +
-      "\352\007\022\022\n\rINVALID_STATE\020\353\007\022\026\n\021PERMISSION_DEN" +
-      "IED\020\354\007\022\025\n\020FEATURE_DISABLED\020\355\007\022\032\n\025CUSTOME" +
-      "R_UNAUTHORIZED\020\356\007\022\033\n\026REQUEST_LIMIT_EXCEE" +
-      "DED\020\357\007\022\034\n\027RESOURCE_ALREADY_EXISTS\020\271\027\022\034\n\027" +
-      "RESOURCE_DOES_NOT_EXIST\020\272\0272\271\023\n\rMlflowSer" +
-      "vice\022\234\001\n\020createExperiment\022\030.mlflow.Creat" +
-      "eExperiment\032!.mlflow.CreateExperiment.Re" +
-      "sponse\"K\202\265\030G\n0\n\004POST\022\"/preview/mlflow/ex" +
-      "periments/create\032\004\010\002\020\000\020\001*\021Create Experim" +
-      "ent\022\225\001\n\017listExperiments\022\027.mlflow.ListExp" +
-      "eriments\032 .mlflow.ListExperiments.Respon" +
-      "se\"G\202\265\030C\n-\n\003GET\022 /preview/mlflow/experim" +
-      "ents/list\032\004\010\002\020\000\020\001*\020List Experiments\022\214\001\n\r" +
-      "getExperiment\022\025.mlflow.GetExperiment\032\036.m" +
-      "lflow.GetExperiment.Response\"D\202\265\030@\n,\n\003GE" +
-      "T\022\037/preview/mlflow/experiments/get\032\004\010\002\020\000" +
-      "\020\001*\016Get Experiment\022\234\001\n\020deleteExperiment\022" +
-      "\030.mlflow.DeleteExperiment\032!.mlflow.Delet" +
-      "eExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/pre" +
-      "view/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021" +
-      "Delete Experiment\022\241\001\n\021restoreExperiment\022" +
-      "\031.mlflow.RestoreExperiment\032\".mlflow.Rest" +
-      "oreExperiment.Response\"M\202\265\030I\n1\n\004POST\022#/p" +
-      "review/mlflow/experiments/restore\032\004\010\002\020\000\020" +
-      "\001*\022Restore Experiment\022\234\001\n\020updateExperime" +
-      "nt\022\030.mlflow.UpdateExperiment\032!.mlflow.Up" +
-      "dateExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/" +
-      "preview/mlflow/experiments/update\032\004\010\002\020\000\020" +
-      "\001*\021Update Experiment\022y\n\tcreateRun\022\021.mlfl" +
-      "ow.CreateRun\032\032.mlflow.CreateRun.Response" +
-      "\"=\202\265\0309\n)\n\004POST\022\033/preview/mlflow/runs/cre" +
-      "ate\032\004\010\002\020\000\020\001*\nCreate Run\022y\n\tupdateRun\022\021.m" +
-      "lflow.UpdateRun\032\032.mlflow.UpdateRun.Respo" +
+      "HED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\271\023\n\rMlflow" +
+      "Service\022\234\001\n\020createExperiment\022\030.mlflow.Cr" +
+      "eateExperiment\032!.mlflow.CreateExperiment" +
+      ".Response\"K\202\265\030G\n0\n\004POST\022\"/preview/mlflow" +
+      "/experiments/create\032\004\010\002\020\000\020\001*\021Create Expe" +
+      "riment\022\225\001\n\017listExperiments\022\027.mlflow.List" +
+      "Experiments\032 .mlflow.ListExperiments.Res" +
+      "ponse\"G\202\265\030C\n-\n\003GET\022 /preview/mlflow/expe" +
+      "riments/list\032\004\010\002\020\000\020\001*\020List Experiments\022\214" +
+      "\001\n\rgetExperiment\022\025.mlflow.GetExperiment\032" +
+      "\036.mlflow.GetExperiment.Response\"D\202\265\030@\n,\n" +
+      "\003GET\022\037/preview/mlflow/experiments/get\032\004\010" +
+      "\002\020\000\020\001*\016Get Experiment\022\234\001\n\020deleteExperime" +
+      "nt\022\030.mlflow.DeleteExperiment\032!.mlflow.De" +
+      "leteExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/" +
+      "preview/mlflow/experiments/delete\032\004\010\002\020\000\020" +
+      "\001*\021Delete Experiment\022\241\001\n\021restoreExperime" +
+      "nt\022\031.mlflow.RestoreExperiment\032\".mlflow.R" +
+      "estoreExperiment.Response\"M\202\265\030I\n1\n\004POST\022" +
+      "#/preview/mlflow/experiments/restore\032\004\010\002" +
+      "\020\000\020\001*\022Restore Experiment\022\234\001\n\020updateExper" +
+      "iment\022\030.mlflow.UpdateExperiment\032!.mlflow" +
+      ".UpdateExperiment.Response\"K\202\265\030G\n0\n\004POST" +
+      "\022\"/preview/mlflow/experiments/update\032\004\010\002" +
+      "\020\000\020\001*\021Update Experiment\022y\n\tcreateRun\022\021.m" +
+      "lflow.CreateRun\032\032.mlflow.CreateRun.Respo" +
       "nse\"=\202\265\0309\n)\n\004POST\022\033/preview/mlflow/runs/" +
-      "update\032\004\010\002\020\000\020\001*\nUpdate Run\022m\n\tdeleteRun\022" +
-      "\021.mlflow.DeleteRun\032\032.mlflow.DeleteRun.Re" +
-      "sponse\"1\202\265\030-\n)\n\004POST\022\033/preview/mlflow/ru" +
-      "ns/delete\032\004\010\002\020\000\020\001\022q\n\nrestoreRun\022\022.mlflow" +
-      ".RestoreRun\032\033.mlflow.RestoreRun.Response" +
-      "\"2\202\265\030.\n*\n\004POST\022\034/preview/mlflow/runs/res" +
-      "tore\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021.mlflow.LogMe" +
-      "tric\032\032.mlflow.LogMetric.Response\"A\202\265\030=\n-" +
-      "\n\004POST\022\037/preview/mlflow/runs/log-metric\032" +
-      "\004\010\002\020\000\020\001*\nLog Metric\022|\n\010logParam\022\020.mlflow" +
-      ".LogParam\032\031.mlflow.LogParam.Response\"C\202\265" +
-      "\030?\n0\n\004POST\022\"/preview/mlflow/runs/log-par" +
-      "ameter\032\004\010\002\020\000\020\001*\tLog Param\022n\n\006setTag\022\016.ml" +
-      "flow.SetTag\032\027.mlflow.SetTag.Response\";\202\265" +
-      "\0307\n*\n\004POST\022\034/preview/mlflow/runs/set-tag" +
-      "\032\004\010\002\020\000\020\001*\007Set Tag\022i\n\006getRun\022\016.mlflow.Get" +
-      "Run\032\027.mlflow.GetRun.Response\"6\202\265\0302\n%\n\003GE" +
-      "T\022\030/preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get" +
-      " Run\022\247\001\n\nsearchRuns\022\022.mlflow.SearchRuns\032" +
-      "\033.mlflow.SearchRuns.Response\"h\202\265\030d\n)\n\004PO" +
-      "ST\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\n(\n" +
-      "\003GET\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\020" +
-      "\001*\013Search Runs\022\213\001\n\rlistArtifacts\022\025.mlflo" +
-      "w.ListArtifacts\032\036.mlflow.ListArtifacts.R" +
-      "esponse\"C\202\265\030?\n+\n\003GET\022\036/preview/mlflow/ar" +
-      "tifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\235\001\n" +
-      "\020getMetricHistory\022\030.mlflow.GetMetricHist" +
-      "ory\032!.mlflow.GetMetricHistory.Response\"L" +
-      "\202\265\030H\n0\n\003GET\022#/preview/mlflow/metrics/get" +
-      "-history\032\004\010\002\020\000\020\001*\022Get Metric History\022x\n\010" +
-      "logBatch\022\020.mlflow.LogBatch\032\031.mlflow.LogB" +
-      "atch.Response\"?\202\265\030;\n,\n\004POST\022\036/preview/ml" +
-      "flow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036" +
-      "\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "create\032\004\010\002\020\000\020\001*\nCreate Run\022y\n\tupdateRun\022" +
+      "\021.mlflow.UpdateRun\032\032.mlflow.UpdateRun.Re" +
+      "sponse\"=\202\265\0309\n)\n\004POST\022\033/preview/mlflow/ru" +
+      "ns/update\032\004\010\002\020\000\020\001*\nUpdate Run\022m\n\tdeleteR" +
+      "un\022\021.mlflow.DeleteRun\032\032.mlflow.DeleteRun" +
+      ".Response\"1\202\265\030-\n)\n\004POST\022\033/preview/mlflow" +
+      "/runs/delete\032\004\010\002\020\000\020\001\022q\n\nrestoreRun\022\022.mlf" +
+      "low.RestoreRun\032\033.mlflow.RestoreRun.Respo" +
+      "nse\"2\202\265\030.\n*\n\004POST\022\034/preview/mlflow/runs/" +
+      "restore\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021.mlflow.Lo" +
+      "gMetric\032\032.mlflow.LogMetric.Response\"A\202\265\030" +
+      "=\n-\n\004POST\022\037/preview/mlflow/runs/log-metr" +
+      "ic\032\004\010\002\020\000\020\001*\nLog Metric\022|\n\010logParam\022\020.mlf" +
+      "low.LogParam\032\031.mlflow.LogParam.Response\"" +
+      "C\202\265\030?\n0\n\004POST\022\"/preview/mlflow/runs/log-" +
+      "parameter\032\004\010\002\020\000\020\001*\tLog Param\022n\n\006setTag\022\016" +
+      ".mlflow.SetTag\032\027.mlflow.SetTag.Response\"" +
+      ";\202\265\0307\n*\n\004POST\022\034/preview/mlflow/runs/set-" +
+      "tag\032\004\010\002\020\000\020\001*\007Set Tag\022i\n\006getRun\022\016.mlflow." +
+      "GetRun\032\027.mlflow.GetRun.Response\"6\202\265\0302\n%\n" +
+      "\003GET\022\030/preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007" +
+      "Get Run\022\247\001\n\nsearchRuns\022\022.mlflow.SearchRu" +
+      "ns\032\033.mlflow.SearchRuns.Response\"h\202\265\030d\n)\n" +
+      "\004POST\022\033/preview/mlflow/runs/search\032\004\010\002\020\000" +
+      "\n(\n\003GET\022\033/preview/mlflow/runs/search\032\004\010\002" +
+      "\020\000\020\001*\013Search Runs\022\213\001\n\rlistArtifacts\022\025.ml" +
+      "flow.ListArtifacts\032\036.mlflow.ListArtifact" +
+      "s.Response\"C\202\265\030?\n+\n\003GET\022\036/preview/mlflow" +
+      "/artifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022" +
+      "\235\001\n\020getMetricHistory\022\030.mlflow.GetMetricH" +
+      "istory\032!.mlflow.GetMetricHistory.Respons" +
+      "e\"L\202\265\030H\n0\n\003GET\022#/preview/mlflow/metrics/" +
+      "get-history\032\004\010\002\020\000\020\001*\022Get Metric History\022" +
+      "x\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlflow.L" +
+      "ogBatch.Response\"?\202\265\030;\n,\n\004POST\022\036/preview" +
+      "/mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batc" +
+      "hB\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
