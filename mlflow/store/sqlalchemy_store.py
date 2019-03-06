@@ -15,7 +15,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
-from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 
 
@@ -352,8 +351,6 @@ class SqlAlchemyStore(AbstractStore):
         return [run for run in exp.runs if run.lifecycle_stage in stages]
 
     def log_batch(self, run_uuid, metrics, params, tags):
-        _validate_batch_log_limits(metrics, params, tags)
-        _validate_batch_log_data(metrics, params, tags)
         run = self._get_run(run_uuid)
         self._check_run_is_active(run)
         try:

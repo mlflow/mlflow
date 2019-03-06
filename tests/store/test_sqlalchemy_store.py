@@ -11,7 +11,7 @@ import uuid
 from mlflow.entities import Metric, Param
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
@@ -920,6 +920,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.store.log_batch(run.run_uuid, metrics=[metric], params=[overwrite_param],
                                  tags=[tag])
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
         logged_run = self.store.get_run(run.run_uuid)
         assert len(logged_run.data.metrics) == 0
         assert len(logged_run.data.params) == 1
