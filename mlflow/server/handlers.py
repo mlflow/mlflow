@@ -69,18 +69,6 @@ def _get_request_message(request_message, flask_request=request):
     parse_dict(request_json, request_message)
     return request_message
 
-_exception_error_code_to_server_code = {
-    databricks_pb2.INTERNAL_ERROR: 500,
-    databricks_pb2.INVALID_PARAMETER_VALUE: 400,
-    databricks_pb2.INVALID_STATE: 400,
-    databricks_pb2.RESOURCE_DOES_NOT_EXIST: 400,
-    databricks_pb2.RESOURCE_ALREADY_EXISTS: 400,
-}
-
-def exception_error_code_to_server_code(exc_error_code):
-    if exc_error_code in _exception_error_code_to_server_code:
-        return _exception_error_code_to_server_code[exc_error_code]
-    return 500
 
 def catch_mlflow_exception(func):
     @wraps(func)
@@ -90,7 +78,7 @@ def catch_mlflow_exception(func):
         except MlflowException as e:
             response = Response(mimetype='application/json')
             response.set_data(e.serialize_as_json())
-            response.status_code = exception_error_code_to_server_code(e.error_code)
+            response.status_code = 500
             return response
     return wrapper
 
