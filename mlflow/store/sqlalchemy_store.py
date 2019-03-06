@@ -350,15 +350,17 @@ class SqlAlchemyStore(AbstractStore):
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
         return [run for run in exp.runs if run.lifecycle_stage in stages]
 
-    def log_batch(self, run_uuid, metrics, params, tags):
-        run = self._get_run(run_uuid)
+    def log_batch(self, run_id, metrics, params, tags):
+        run = self._get_run(run_id)
         self._check_run_is_active(run)
         try:
             for param in params:
-                self.log_param(run_uuid, param)
+                self.log_param(run_id, param)
             for metric in metrics:
-                self.log_metric(run_uuid, metric)
+                self.log_metric(run_id, metric)
             for tag in tags:
-                self.set_tag(run_uuid, tag)
+                self.set_tag(run_id, tag)
+        except MlflowException as e:
+            raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)

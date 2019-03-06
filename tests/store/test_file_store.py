@@ -534,7 +534,7 @@ class TestFileStore(unittest.TestCase):
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         fs.log_batch(
-            run_uuid=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
+            run_id=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
         run = fs.get_run(run_uuid)
         tags = [(t.key, t.value) for t in run.data.tags]
         metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]

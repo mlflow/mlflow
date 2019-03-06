@@ -169,7 +169,7 @@ class MlflowClient(object):
             _validate_param_name(param.key)
         for tag in tags:
             _validate_tag_name(tag.key)
-        self.store.log_batch(run_uuid=run_id, metrics=metrics, params=params, tags=tags)
+        self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
