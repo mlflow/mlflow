@@ -891,7 +891,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         assert set(params) == set([("p1", "p1val"), ("p2", "p2val")])
 
     def test_log_batch_limits(self):
-        # Test that log batch at the maximum allowed request size succeeds
+        # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
+        # SQL limitations, etc)
         experiment_id = self._experiment_factory('log_batch_limits')
         run_uuid = self._run_factory(self._get_run_configs('r1', experiment_id)).run_uuid
         metric_tuples = [("m%s" % i, i * 0.1, 12345) for i in range(1000)]

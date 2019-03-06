@@ -10,7 +10,7 @@ from six import iteritems
 
 from mlflow.tracking import utils
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-    _validate_tag_name, _validate_run_id, _validate_experiment_name, _validate_batch_log_limits
+    _validate_tag_name, _validate_run_id, _validate_experiment_name
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 
@@ -151,27 +151,6 @@ class MlflowClient(object):
         _validate_tag_name(key)
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
-
-    def log_batch(self, run_id, metrics, params, tags):
-        """
-        Log multiple metrics, params, and/or tags.
-
-        List("key" -> "metric-name",
-        :param `metrics` is a list of Metric(key, value, timestamp) instances.
-        :param `params` is a list of Param(key, value) instances.
-        :param `tags` is a list of RunTag(key, value) instances.
-
-        Raises an MlflowException if any errors occur.
-        :returns: None
-        """
-        _validate_batch_log_limits(metrics=metrics, params=params, tags=tags)
-        for metric in metrics:
-            _validate_metric_name(metric.key)
-        for param in params:
-            _validate_param_name(param.key)
-        for tag in tags:
-            _validate_tag_name(tag.key)
-        self.store.log_batch(run_uuid=run_id, metrics=metrics, params=params, tags=tags)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
