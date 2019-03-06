@@ -109,11 +109,11 @@ class TestRestStore(unittest.TestCase):
             metrics = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
             params = [Param("p1", "p1val"), Param("p2", "p2val")]
             tags = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
-            store.log_batch(run_uuid="u2", metrics=metrics, params=params, tags=tags)
+            store.log_batch(run_id="u2", metrics=metrics, params=params, tags=tags)
             metric_protos = [metric.to_proto() for metric in metrics]
             param_protos = [param.to_proto() for param in params]
             tag_protos = [tag.to_proto() for tag in tags]
-            body = message_to_json(LogBatch(run_uuid="u2", metrics=metric_protos,
+            body = message_to_json(LogBatch(run_id="u2", metrics=metric_protos,
                                             params=param_protos, tags=tag_protos))
             self._verify_requests(mock_http, creds,
                                   "runs/log-batch", "POST", body)

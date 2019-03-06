@@ -14,8 +14,7 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
-                                    _validate_tag_name, _validate_experiment_id,\
-                                    _validate_batch_log_limits, _validate_batch_log_data
+                                    _validate_tag_name, _validate_experiment_id
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,

@@ -195,82 +195,6 @@ def test_log_metric(tracking_uri_mock):
     for metric in finished_run.data.metrics:
         assert expected_pairs[metric.key] == metric.value
 
-def test_log_metrics(tracking_uri_mock):
-    active_run = start_run()
-    run_uuid = active_run.info.run_uuid
-    expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
-    with active_run:
-        mlflow.log_metric("name_1", 25)
-        mlflow.log_metric("nested/nested/name", 45)
-        mlflow.log_metrics(expected_metrics)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
-    # Validate metrics
-    assert len(finished_run.data.metrics) == 3
-    for metric in finished_run.data.metrics:
-        assert expected_metrics[metric.key] == metric.value
-
-@pytest.fixture
-def get_store_mock(tmpdir):
-    with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
-        yield _get_store_mock
-
-def test_log_batch_validations(tracking_uri_mock, get_store_mock):
-    # Log same param with different values, verify error before we hit the store
-    # Log metric/param/tag with bad keys, verify error before we hit the store
-    # TODO: Do we want to validate on long keys in the client? Would be a breaking behavior change
-    metrics_with_bad_key = [Metric("good-metric-key", 1.0, 0), Metric("super-long-bad-key" * 1000, 4.0, 0)]
-    params_with_bad_key = [Param("good-param-key", "hi"), Param("super-long-bad-key" * 1000, "but-good-val")]
-    params_with_bad_val = [Param("good-param-key", "hi"), Param("another-good-key", "but-bad-val" * 1000)]
-    tags_with_bad_key = [RunTag("good-tag-key", "hi"), RunTag("super-long-bad-key" * 1000, "but-good-val")]
-    tags_with_bad_val = [RunTag("good-tag-key", "hi"), RunTag("another-good-key", "but-bad-val" * 1000)]
-
-
-    too_many_metrics = [Metric("metric-key-%s" % i, 1, 0) for i in range(1001)]
-    too_many_params = [Param("param-key-%s" % i, "b") for i in range(101)]
-    too_many_tags = [RunTag("tag-key-%s" % i, "b") for i in range(101)]
-
-    overwriting_param = [Param("key", "val"), Param("key", "different-val")]
-
-    good_kwargs = {"metrics": [], "params": [], "tags": []}
-    bad_kwargs = {
-        "metrics": [metrics_with_bad_key, too_many_metrics],
-        "params": [params_with_bad_key, params_with_bad_val, too_many_params, overwriting_param],
-        "tags": [tags_with_bad_key, tags_with_bad_val, too_many_tags],
-    }
-    active_run = start_run()
-    run_uuid = active_run.info.run_uuid
-    with active_run:
-        for arg_name, arg_values in bad_kwargs.items():
-            for arg_value in arg_values:
-                final_kwargs = copy.deepcopy(good_kwargs)
-                final_kwargs[arg_name] = arg_value
-                with pytest.raises(MlflowException):
-                    mlflow.tracking.MlflowClient().log_batch(run_id=run_uuid, **final_kwargs)
-                assert get_store_mock.not_called()
-        # Test the case where there are too many entities in aggregate
-        too_many_entities = {
-            "metrics": too_many_metrics[:900],
-            "tags": too_many_tags[:50],
-            "params": too_many_params[:51],
-        }
-        with pytest.raises(MlflowException):
-            mlflow.tracking.MlflowClient().log_batch(run_id=run_uuid, **too_many_entities)
-            assert get_store_mock.not_called()
-
-
-
-def test_set_tags(tracking_uri_mock):
-    expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
-    active_run = start_run()
-    run_uuid = active_run.info.run_uuid
-    with active_run:
-        mlflow.set_tags(expected_tags)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
-    # Validate tags
-    assert len(finished_run.data.tags) == 3
-    for tag in finished_run.data.tags:
-        assert expected_tags[tag.key] == tag.value
-
 
 def test_log_metrics(tracking_uri_mock):
     active_run = start_run()
@@ -329,18 +253,6 @@ def test_log_param(tracking_uri_mock):
     expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
     for param in finished_run.data.params:
         assert expected_pairs[param.key] == param.value
-
-def test_log_params(tracking_uri_mock):
-    expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
-    active_run = start_run()
-    run_uuid = active_run.info.run_uuid
-    with active_run:
-        mlflow.log_params(expected_params)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
-    # Validate params
-    assert len(finished_run.data.params) == 3
-    for param in finished_run.data.params:
-        assert expected_params[param.key] == param.value
 
 
 def test_log_params(tracking_uri_mock):

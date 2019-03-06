@@ -19,7 +19,6 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.search_utils import SearchFilter
-from mlflow.utils.validation import _validate_batch_log_api_req, _validate_batch_log_limits
 
 
 _store = None
@@ -72,15 +71,10 @@ def _get_request_message(request_message, flask_request=request):
 
 _exception_error_code_to_server_code = {
     databricks_pb2.INTERNAL_ERROR: 500,
-    databricks_pb2.TEMPORARILY_UNAVAILABLE: 500,
-    databricks_pb2.IO_ERROR: 500,
-    databricks_pb2.MALFORMED_REQUEST: 400,
-    databricks_pb2.BAD_REQUEST: 400,
     databricks_pb2.INVALID_PARAMETER_VALUE: 400,
     databricks_pb2.INVALID_STATE: 400,
-    databricks_pb2.PERMISSION_DENIED: 401,
-    databricks_pb2.FEATURE_DISABLED: 401,
-    databricks_pb2.REQUEST_LIMIT_EXCEEDED: 429
+    databricks_pb2.RESOURCE_DOES_NOT_EXIST: 400,
+    databricks_pb2.RESOURCE_ALREADY_EXISTS: 400,
 }
 
 def exception_error_code_to_server_code(exc_error_code):
@@ -350,19 +344,13 @@ def _get_artifact_repo(run):
 
 @catch_mlflow_exception
 def _log_batch():
-    _validate_batch_log_api_req(request.get_json(force=True, silent=True))
     request_message = _get_request_message(ListExperiments())
-    _validate_batch_log_limits(metrics=request_message.metrics, params=request_message.params,
-                               tags=request_message.tags)
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
-    failed_metrics, failed_params, failed_tags = _get_store().log_batch(
-        run_uuid=request_message.run_uuid, metrics=metrics, params=params, tags=tags)
+    _get_store().log_batch(run_uuid=request_message.run_uuid, metrics=metrics, params=params,
+                           tags=tags)
     response_message = LogBatch.Response()
-    response_message.unprocessed_metrics = failed_metrics
-    response_message.unprocessed_params = failed_params
-    response_message.unprocessed_tags = failed_tags
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response
