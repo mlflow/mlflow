@@ -212,10 +212,10 @@ class AbstractStore:
         return [run.info for run in runs]
 
     @abstractmethod
-    def log_batch(self, run_uuid, metrics, params, tags):
+    def log_batch(self, run_id, metrics, params, tags):
         """
         Logs multiple metrics, params, and tags for the specified run
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
         :param params: List of :py:class:`mlflow.entities.Param` instances to log
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log

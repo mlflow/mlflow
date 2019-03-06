@@ -883,7 +883,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         self.store.log_batch(
-            run_uuid=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
+            run_id=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
         run = self.store.get_run(run_uuid)
         tags = [(t.key, t.value) for t in run.data.tags]
         metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]
@@ -899,7 +899,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run_uuid = self._run_factory(self._get_run_configs('r1', experiment_id)).run_uuid
         metric_tuples = [("m%s" % i, i * 0.1, 12345) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
-        self.store.log_batch(run_uuid=run_uuid, metrics=metric_entities, params=[], tags=[])
+        self.store.log_batch(run_id=run_uuid, metrics=metric_entities, params=[], tags=[])
         run = self.store.get_run(run_uuid)
         metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]
         assert set(metrics) == set(metric_tuples)

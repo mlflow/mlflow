@@ -1,8 +1,7 @@
 import time
-import uuid
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
-    Column, String, Float, ForeignKey, Index, Integer, CheckConstraint,
+    Column, String, Float, ForeignKey, Integer, CheckConstraint,
     BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
