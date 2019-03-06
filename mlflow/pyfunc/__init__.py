@@ -7,7 +7,7 @@ self contained in the sense that it includes all necessary information for anyon
 use it. Dependencies are either stored directly with the model or referenced via a Conda
 environment.
 
-The ``mlflow.pyfunc`` module also defines utilities for creating custom **pyfunc** models
+The ``mlflow.pyfunc`` module also defines utilities for creating custom ``pyfunc`` models
 using frameworks and inference logic that may not be natively included in MLflow. See
 :ref:`pyfunc-create-custom`.
 
@@ -26,8 +26,7 @@ configuration::
         <data>: data packaged with the model (specified in the MLmodel file)
         <env>: Conda environment definition (specified in the MLmodel file)
 
-* The directory structure may contain additional contents that can be referenced by the
-  ``MLmodel`` configuration.
+The directory structure may contain additional contents that can be referenced by the ``MLmodel`` configuration.
 
 .. _pyfunc-model-config:
 
@@ -60,8 +59,7 @@ following parameters:
          Relative path to an exported Conda environment. If present this environment
          should be activated prior to running the model.
 
-- **Optionally, any additional parameters necessary for interpreting the serialized model in pyfunc
-  format.**
+- Optionally, any additional parameters necessary for interpreting the serialized model in ``pyfunc`` format.
 
 .. rubric:: Example
 
@@ -108,20 +106,19 @@ Creating custom Pyfunc models
 ******************************
 
 MLflow's persistence modules provide convenience functions for creating models with the
-**pyfunc** flavor in a variety of machine learning frameworks (Scikit-learn, Keras, Pytorch, and
+``pyfunc`` flavor in a variety of machine learning frameworks (scikit-learn, Keras, Pytorch, and
 more); however, they do not cover every use case. For example, you may want to create an MLflow
-model with the **pyfunc** flavor using a framework that MLflow does not natively support.
+model with the ``pyfunc`` flavor using a framework that MLflow does not natively support.
 Alternatively, you may want to build an MLflow model that executes custom logic when evaluating
 queries, such as preprocessing and postprocessing routines. Therefore, ``mlflow.pyfunc``
-provides utilities for creating **pyfunc** models from arbitrary code and model data.
+provides utilities for creating ``pyfunc`` models from arbitrary code and model data.
 
 The :meth:`save_model()` and :meth:`log_model()` methods are designed to support multiple workflows
 for creating custom **pyfunc** models that incorporate custom inference logic and **artifacts**
 that the logic may require.
 
-    * An **artifact** is a file or directory, such as a serialized model or a CSV. For example, a
-      serialized TensorFlow graph is an **artifact**. An MLflow model directory is also an
-      **artifact**.
+An `artifact` is a file or directory, such as a serialized model or a CSV. For example, a
+serialized TensorFlow graph is an artifact. An MLflow model directory is also an artifact.
 
 .. _pyfunc-create-custom-workflows:
 
@@ -130,37 +127,37 @@ Workflows
 
 :meth:`save_model()` and :meth:`log_model()` support the following workflows:
 
-    1. Programmatically defining a new MLflow model, including its attributes and **artifacts**
+1. Programmatically defining a new MLflow model, including its attributes and artifacts.
 
-       Given a set of **artifact** URIs, :meth:`save_model()` and :meth:`log_model()` can
-       automatically download **artifacts** from their URIs and create an MLflow model directory.
+   Given a set of artifact URIs, :meth:`save_model()` and :meth:`log_model()` can
+   automatically download artifacts from their URIs and create an MLflow model directory.
 
-       In this case, you must define a Python class which inherits from :class:`~PythonModel`,
-       defining `predict()` and, optionally, `load_context()`. An instance of this class is
-       specified via the ``python_model`` parameter; it is automatically serialized and deserialized
-       as a Python class, including all of its attributes.
+   In this case, you must define a Python class which inherits from :class:`~PythonModel`,
+   defining ``predict()`` and, optionally, ``load_context()``. An instance of this class is
+   specified via the ``python_model`` parameter; it is automatically serialized and deserialized
+   as a Python class, including all of its attributes.
 
-    2. Interpreting pre-existing data as an MLflow model
+2. Interpreting pre-existing data as an MLflow model.
 
-       If you already have a directory containing model data, :meth:`save_model()` and
-       :meth:`log_model()` can import the data as an MLflow model. The ``data_path`` parameter
-       specifies the local filesystem path to the directory containing model data.
+   If you already have a directory containing model data, :meth:`save_model()` and
+   :meth:`log_model()` can import the data as an MLflow model. The ``data_path`` parameter
+   specifies the local filesystem path to the directory containing model data.
 
-       In this case, you must provide a Python module, called a **loader module**. The
-       **loader module** defines a ``_load_pyfunc()`` method that performs the following tasks:
+   In this case, you must provide a Python module, called a `loader module`. The
+   loader module defines a ``_load_pyfunc()`` method that performs the following tasks:
 
-           - Load data from the specified ``data_path``. For example, this process may include
-             deserializing pickled Python objects or models or parsing CSV files.
+   - Load data from the specified ``data_path``. For example, this process may include
+     deserializing pickled Python objects or models or parsing CSV files.
 
-           - Construct and return a pyfunc-compatible model wrapper. As in the first
-             use case, this wrapper must define a ``predict()`` method that is used to evaluate
-             queries. ``predict()`` must adhere to the :ref:`pyfunc-inference-api`.
+   - Construct and return a pyfunc-compatible model wrapper. As in the first
+     use case, this wrapper must define a ``predict()`` method that is used to evaluate
+     queries. ``predict()`` must adhere to the :ref:`pyfunc-inference-api`.
 
-       The ``loader_module`` parameter specifies the name of your **loader module**.
+   The ``loader_module`` parameter specifies the name of your loader module.
 
-       For an example **loader module** implementation, please refer to the `loader module
-       implementation in mlflow.keras <https://github.com/mlflow/mlflow/blob/
-       74d75109aaf2975f5026104d6125bb30f4e3f744/mlflow/keras.py#L157-L187>`_.
+   For an example loader module implementation, refer to the `loader module
+   implementation in mlflow.keras <https://github.com/mlflow/mlflow/blob/
+   74d75109aaf2975f5026104d6125bb30f4e3f744/mlflow/keras.py#L157-L187>`_.
 
 .. _pyfunc-create-custom-selecting-workflow:
 
@@ -170,23 +167,23 @@ Which workflow is right for my use case?
 We consider the first workflow to be more user-friendly and generally recommend it for the
 following reasons:
 
-    - It automatically resolves and collects specified model **artifacts**.
+- It automatically resolves and collects specified model artifacts.
 
-    - It automatically serializes and deserializes the ``python_model`` instance and all of
-      its attributes, reducing the amount of user logic that is required to load the model
+- It automatically serializes and deserializes the ``python_model`` instance and all of
+  its attributes, reducing the amount of user logic that is required to load the model
 
-    - Models can be creating using logic that is defined in the ``__main__`` scope. This allows
-      custom models to be constructed in interactive environments, such as notebooks and the Python
-      REPL.
+- You can create Models using logic that is defined in the ``__main__`` scope. This allows
+  custom models to be constructed in interactive environments, such as notebooks and the Python
+  REPL.
 
-Some users may prefer the second, lower-level workflow for the following reasons:
+You may prefer the second, lower-level workflow for the following reasons:
 
-    - Inference logic is always persisted as code, rather than a Python object. This makes logic
-      easier to inspect and modify later.
+- Inference logic is always persisted as code, rather than a Python object. This makes logic
+  easier to inspect and modify later.
 
-    - If the user has already collected all of their model data in a single location, the second
-      workflow allows it to be saved in MLflow format directly, without enumerating constituent
-      **artifacts**.
+- If the user has already collected all of their model data in a single location, the second
+  workflow allows it to be saved in MLflow format directly, without enumerating constituent
+  artifacts.
 """
 
 import importlib
@@ -224,11 +221,11 @@ _logger = logging.getLogger(__name__)
 
 def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs):
     """
-    Add a pyfunc spec to the model configuration.
+    Add a ``pyfunc`` spec to the model configuration.
 
-    Defines pyfunc configuration schema. Caller can use this to create a valid pyfunc model flavor
+    Defines ``pyfunc`` configuration schema. Caller can use this to create a valid pyfunc model flavor
     out of an existing directory structure. For example, other model flavors can use this to specify
-    how to use their output as a pyfunc.
+    how to use their output as a ``pyfunc``.
 
     NOTE:
 
@@ -239,7 +236,7 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     :param data: Path to the model data.
     :param code: Path to the code dependencies.
     :param env: Conda environment.
-    :param kwargs: Additional key-value pairs to include in the pyfunc flavor specification.
+    :param kwargs: Additional key-value pairs to include in the ``pyfunc`` flavor specification.
                    Values must be YAML-serializable.
     :return: Updated model configuration.
     """
@@ -448,7 +445,7 @@ def save_model(dst_path, loader_module=None, data_path=None, code_path=None, con
                       path before the model is loaded.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. This decribes the environment this model should
-                      be run in. If ``python_model`` is not *None*, the Conda environment must
+                      be run in. If ``python_model`` is not ``None``, the Conda environment must
                       at least specify the dependencies contained in
                       :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If `None`, the default
                       :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment will be added to the
@@ -535,12 +532,11 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
     """
     Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
 
-    For information about the workflows that this method supports, please see :ref:`"workflows for
-    creating custom pyfunc models" <pyfunc-create-custom-workflows>` and
-    :ref:`"which workflow is right for my use case?" <pyfunc-create-custom-selecting-workflow>`.
-    Note that the parameters for the first workflow: ``loader_module``, ``data_path`` and the
-    parameters for the second workflow: ``python_model``, ``artifacts``, cannot be
-    specified together.
+    For information about the workflows that this method supports, see :ref:`Workflows for
+    creating custom pyfunc models <pyfunc-create-custom-workflows>` and
+    :ref:`Which workflow is right for my use case? <pyfunc-create-custom-selecting-workflow>`.
+    You cannot specify the parameters for the first workflow: ``loader_module``, ``data_path``
+    and the parameters for the second workflow: ``python_model``, ``artifacts`` together.
 
     :param artifact_path: The run-relative artifact path to which to log the Python model.
     :param loader_module: The name of the Python module that will be used to load the model

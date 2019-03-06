@@ -6,7 +6,8 @@ MLflow Tracking
 
 The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files
 when running your machine learning code and for later visualizing the results.
-MLflow Tracking lets you log and query experiments using both :ref:`Python <python-api>` and :ref:`REST <rest-api>` APIs.
+MLflow Tracking lets you log and query experiments using both :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R-api`, 
+and :ref:`java_api` APIs.
 
 .. contents:: Table of Contents
   :local:
@@ -70,7 +71,7 @@ There are different kinds of remote tracking URIs:
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
 - Database encoded as a connection string (specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``)
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
-- Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_. This works only in workspaces for which the Databricks MLflow Tracking Server is enabled; contact Databricks if interested.
+- Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
 
 Logging Data to Runs
 ====================
