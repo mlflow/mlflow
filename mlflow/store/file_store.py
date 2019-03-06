@@ -10,7 +10,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \

@@ -142,13 +142,11 @@ class SqlMetric(Base):
     key = Column(String(250))
     value = Column(Float, nullable=False)
     timestamp = Column(BigInteger, default=lambda: int(time.time()))
-    _unused_metric_uuid = Column(String(32), default=lambda: uuid.uuid4().hex)
     run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     run = relationship('SqlRun', backref=backref('metrics', cascade='all'))
 
     __table_args__ = (
-        Index("metrics_index", 'run_uuid', 'key'),
-        PrimaryKeyConstraint('_unused_metric_uuid', name='metric_pk'),
+        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', name='metric_pk'),
     )
 
     def __repr__(self):

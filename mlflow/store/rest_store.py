@@ -3,6 +3,7 @@ import json
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
+from mlflow.exceptions import MlflowException
 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -233,3 +234,6 @@ class RestStore(AbstractStore):
     def restore_run(self, run_id):
         req_body = message_to_json(RestoreRun(run_id=run_id))
         self._call_endpoint(RestoreRun, req_body)
+
+    def log_batch(self, run_uuid, metrics, params, tags):
+        raise MlflowException("The LogBatch REST API is not yet implemented")

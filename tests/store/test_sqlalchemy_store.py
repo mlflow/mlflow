@@ -8,11 +8,10 @@ import time
 import mlflow
 import uuid
 
-from mlflow.entities import Metric, Param, ViewType, RunTag, SourceType, RunStatus
+from mlflow.entities import Metric, Param
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
-from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE, \
-    RESOURCE_ALREADY_EXISTS, INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
@@ -416,7 +415,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.assertTrue(found)
 
-    def test_log_metric_allows_duplicate_timestamp(self):
+    def test_log_metric_uniqueness(self):
         run = self._run_factory()
 
         self.session.commit()
@@ -426,7 +425,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         metric = entities.Metric(tkey, tval, int(time.time()))
         metric2 = entities.Metric(tkey, 1.02, int(time.time()))
         self.store.log_metric(run.run_uuid, metric)
-        self.store.log_metric(run.run_uuid, metric2)
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_metric(run.run_uuid, metric2)
+        self.assertIn("must be unique. Metric already logged value", e.exception.message)
 
     def test_log_null_metric(self):
         run = self._run_factory()
@@ -928,7 +929,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run = self._run_factory()
         self.session.commit()
 
-        def _raise_exception_fn(*args, **kwargs):
+        def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
             raise Exception("Some internal error")
         with mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore.log_metric") as metric_mock,\
                 mock.patch(
