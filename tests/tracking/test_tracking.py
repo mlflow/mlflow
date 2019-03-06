@@ -272,6 +272,40 @@ def test_set_tags(tracking_uri_mock):
         assert expected_tags[tag.key] == tag.value
 
 
+def test_log_metrics(tracking_uri_mock):
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
+    with active_run:
+        mlflow.log_metric("name_1", 25)
+        mlflow.log_metric("nested/nested/name", 45)
+        mlflow.log_metrics(expected_metrics)
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    # Validate metrics
+    assert len(finished_run.data.metrics) == 3
+    for metric in finished_run.data.metrics:
+        assert expected_metrics[metric.key] == metric.value
+
+
+@pytest.fixture
+def get_store_mock(tmpdir):
+    with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
+        yield _get_store_mock
+
+
+def test_set_tags(tracking_uri_mock):
+    expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    with active_run:
+        mlflow.set_tags(expected_tags)
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    # Validate tags
+    assert len(finished_run.data.tags) == 3
+    for tag in finished_run.data.tags:
+        assert expected_tags[tag.key] == tag.value
+
+
 def test_log_metric_validation(tracking_uri_mock):
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
@@ -295,6 +329,19 @@ def test_log_param(tracking_uri_mock):
     expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
     for param in finished_run.data.params:
         assert expected_pairs[param.key] == param.value
+
+def test_log_params(tracking_uri_mock):
+    expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    with active_run:
+        mlflow.log_params(expected_params)
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    # Validate params
+    assert len(finished_run.data.params) == 3
+    for param in finished_run.data.params:
+        assert expected_params[param.key] == param.value
+
 
 def test_log_params(tracking_uri_mock):
     expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}

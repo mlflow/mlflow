@@ -245,6 +245,40 @@ def set_tags(tags):
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
 
 
+def log_metrics(metrics):
+    """
+    Log multiple metrics for the current run, starting a run if no runs are active.
+    :param metrics: Dictionary of metric_name: String -> value: Float
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    timestamp = int(time.time())
+    metrics_arr = [Metric(key, value, timestamp) for key, value in metrics.items()]
+    MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
+
+
+def log_params(params):
+    """
+    Log a batch of params for the current run, starting a run if no runs are active.
+    :param params: Dictionary of param_name: String -> value: String
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    params_arr = [Param(key, value) for key, value in params.items()]
+    MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
+
+def set_tags(tags):
+    """
+    Log a batch of tags for the current run, starting a run if no runs are active.
+    :param tags: Dictionary of tag_name: String -> value: String
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    tags_arr = [RunTag(key, value) for key, value in tags.items()]
+    MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
+
+
 def log_artifact(local_path, artifact_path=None):
     """
     Log a local file or directory as an artifact of the currently active run.

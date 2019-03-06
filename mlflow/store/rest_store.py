@@ -3,6 +3,7 @@ import json
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
+from mlflow.exceptions import MlflowException
 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -235,24 +236,4 @@ class RestStore(AbstractStore):
         self._call_endpoint(RestoreRun, req_body)
 
     def log_batch(self, run_uuid, metrics, params, tags):
-        """
-        Logs multiple metrics, params, and tags for the specified run
-        :param run_uuid: String id for the run
-        :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
-        :param params: List of :py:class:`mlflow.entities.Param` instances to log
-        :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
-        """
-        metric_protos = [metric.to_proto() for metric in metrics]
-        param_protos = [param.to_proto() for param in params]
-        tag_protos = [tag.to_proto() for tag in tags]
-        req_body = message_to_json(
-            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos,
-                     run_uuid=run_uuid))
-        response_proto = self._call_endpoint(LogBatch, req_body)
-        # Add a new entity type to wrap this? Would that make sense? Like BatchLogsResponse?
-        # Then the server can convert that back into an actual response
-        return (
-            response_proto.unprocessed_metrics,
-            response_proto.unprocessed_params,
-            response_proto.unprocessed_tags
-        )
+        raise MlflowException("The LogBatch REST API is not yet implemented")

@@ -1,7 +1,8 @@
 import time
+import uuid
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
-    Column, String, Float, ForeignKey, Integer, CheckConstraint,
+    Column, String, Float, ForeignKey, Index, Integer, CheckConstraint,
     BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
@@ -140,7 +141,7 @@ class SqlMetric(Base):
 
     key = Column(String(250))
     value = Column(Float, nullable=False)
-    timestamp = Column(BigInteger, default=int(time.time()))
+    timestamp = Column(BigInteger, default=lambda: int(time.time()))
     run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     run = relationship('SqlRun', backref=backref('metrics', cascade='all'))
 

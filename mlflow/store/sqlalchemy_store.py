@@ -15,9 +15,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
-from mlflow.utils.search_utils import does_run_match_clause
-from mlflow.utils.validation import _validate_batch_log_limits
-from mlflow.protos.service_pb2 import BatchLogFailure
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 
 
@@ -90,26 +87,13 @@ class SqlAlchemyStore(AbstractStore):
         """
         Store in db
         """
-        # Wrap internal errors during the save step (e.g. DB connection exceptions) as
-        # MlflowExceptions as needed. We wrap internal DB errors with error code INTERNAL_ERROR to
-        # signify that the log_batch operation can be retried, and raise other error types as
-        # MlflowExceptions with the appropriate error code to indicate user error.
-        # See all SQLAlchemy exceptions at
-        # https://docs.sqlalchemy.org/en/latest/core/exceptions.html#sqlalchemy.exc.ResourceClosedError
-        # and DB-API exceptions at https://www.python.org/dev/peps/pep-0249/
-        try:
-            if type(objs) is list:
-                self.session.add_all(objs)
-            else:
-                # single object
-                self.session.add(objs)
+        if type(objs) is list:
+            self.session.add_all(objs)
+        else:
+            # single object
+            self.session.add(objs)
 
-            self.session.commit()
-        # See https://www.python.org/dev/peps/pep-0249/#integrityerror
-        except (sqlalchemy.exc.IntegrityError, sqlalchemy.exc.DataError) as e:
-            raise MlflowException(message=e.message, error_code=INVALID_PARAMETER_VALUE)
-        except Exception as e:
-            raise MlflowException(message=e.message, error_code=INTERNAL_ERROR)
+        self.session.commit()
 
     def _get_or_create(self, model, **kwargs):
         instance = self.session.query(model).filter_by(**kwargs).first()
@@ -352,8 +336,8 @@ class SqlAlchemyStore(AbstractStore):
     def set_tag(self, run_uuid, tag):
         run = self._get_run(run_uuid)
         self._check_run_is_active(run)
-        new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
-        self._save_to_db(new_tag)
+        self.session.merge(SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
+        self.session.commit()
 
     def search_runs(self, experiment_ids, search_filter, run_view_type):
         runs = [run.to_mlflow_entity()
@@ -366,18 +350,15 @@ class SqlAlchemyStore(AbstractStore):
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
         return [run for run in exp.runs if run.lifecycle_stage in stages]
 
-
     def log_batch(self, run_uuid, metrics, params, tags):
-        _validate_batch_log_limits(metrics, params, tags)
         run = self._get_run(run_uuid)
         self._check_run_is_active(run)
-        entities = [SqlMetric(key=metric.key, value=metric.value, timestamp=metric.timestamp,
-                              run_uuid=run_uuid) for metric in metrics]
-        entities.extend([SqlParam(key=param.key, value=param.value, run_uuid=run_uuid)
-                         for param in params])
-        entities.extend([SqlTag(key=tag.key, value=tag.value, run_uuid=run_uuid) for tag in tags])
-        # Note that the SQLAlchemy log_batch implementation is all-or-nothing (we either log the
-        # whole batch or none of it, in a transaction) - thus we attempt to save the entities here
-        # and return empty failure lists
-        self._save_to_db(entities)
-        return [], [], []
+        try:
+            for param in params:
+                self.log_param(run_uuid, param)
+            for metric in metrics:
+                self.log_metric(run_uuid, metric)
+            for tag in tags:
+                self.set_tag(run_uuid, tag)
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)

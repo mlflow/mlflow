@@ -156,15 +156,13 @@ class MlflowClient(object):
         """
         Log multiple metrics, params, and/or tags.
 
-        List("key" -> "metric-name",
-        :param `metrics` is a list of Metric(key, value, timestamp) instances.
-        :param `params` is a list of Param(key, value) instances.
-        :param `tags` is a list of RunTag(key, value) instances.
+        :param metrics: List of Metric(key, value, timestamp) instances.
+        :param params: List of Param(key, value) instances.
+        :param tags: List of RunTag(key, value) instances.
 
         Raises an MlflowException if any errors occur.
         :returns: None
         """
-        _validate_batch_log_limits(metrics=metrics, params=params, tags=tags)
         for metric in metrics:
             _validate_metric_name(metric.key)
         for param in params:
