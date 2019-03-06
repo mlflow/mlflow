@@ -360,9 +360,5 @@ class SqlAlchemyStore(AbstractStore):
                 self.log_metric(run_uuid, metric)
             for tag in tags:
                 self.set_tag(run_uuid, tag)
-        except MlflowException as e:
-            if "Changing param value" in e.message and e.error_code == INVALID_PARAMETER_VALUE:
-                raise MlflowException(e.message, INTERNAL_ERROR)
-            raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
