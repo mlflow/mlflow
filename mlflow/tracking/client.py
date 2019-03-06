@@ -152,6 +152,25 @@ class MlflowClient(object):
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
+    def log_batch(self, run_id, metrics, params, tags):
+        """
+        Log multiple metrics, params, and/or tags.
+
+        :param metrics: List of Metric(key, value, timestamp) instances.
+        :param params: List of Param(key, value) instances.
+        :param tags: List of RunTag(key, value) instances.
+
+        Raises an MlflowException if any errors occur.
+        :returns: None
+        """
+        for metric in metrics:
+            _validate_metric_name(metric.key)
+        for param in params:
+            _validate_param_name(param.key)
+        for tag in tags:
+            _validate_tag_name(tag.key)
+        self.store.log_batch(run_uuid=run_id, metrics=metrics, params=params, tags=tags)
+
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file to the remote ``artifact_uri``.
