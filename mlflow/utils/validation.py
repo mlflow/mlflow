@@ -17,6 +17,14 @@ _BAD_CHARACTERS_MESSAGE = (
     " spaces ( ), and slashes (/)."
 )
 
+MAX_PARAMS_TAGS_PER_BATCH = 100
+MAX_METRICS_PER_BATCH = 1000
+MAX_ENTITIES_PER_BATCH = 1000
+MAX_BATCH_LOG_REQUEST_SIZE = int(1e7)
+MAX_PARAM_LENGTH = 500
+MAX_TAG_LENGTH = (1 << 16) - 1
+MAX_ENTITY_KEY_LENGTH = 250
+
 
 def bad_path_message(name):
     return (
@@ -36,6 +44,7 @@ def _validate_metric_name(name):
         raise Exception("Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
     if path_not_unique(name):
         raise Exception("Invalid metric name: '%s'. %s" % (name, bad_path_message(name)))
+    _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, name)
 
 
 def _validate_param_name(name):
@@ -44,6 +53,7 @@ def _validate_param_name(name):
         raise Exception("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
     if path_not_unique(name):
         raise Exception("Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)))
+    _validate_length_limit("Param name", MAX_ENTITY_KEY_LENGTH, name)
 
 
 def _validate_tag_name(name):
@@ -53,6 +63,22 @@ def _validate_tag_name(name):
         raise Exception("Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
     if path_not_unique(name):
         raise Exception("Invalid tag name: '%s'. %s" % (name, bad_path_message(name)))
+    _validate_length_limit("Tag name", MAX_ENTITY_KEY_LENGTH, name)
+
+
+def _validate_length_limit(entity_name, limit, value):
+    if len(value) > limit:
+        raise MlflowException(
+            "%s %s had length %s, which exceeded length limit of %s" %
+            (entity_name, value, len(value), limit))
+
+
+def _validate_param_value(value):
+    _validate_length_limit("Param value", MAX_PARAM_LENGTH, value)
+
+
+def _validate_tag_value(value):
+    _validate_length_limit("Tag value", MAX_PARAM_LENGTH, value)
 
 
 def _validate_run_id(run_id):
@@ -68,6 +94,53 @@ def _validate_experiment_id(exp_id):
     except ValueError:
         raise MlflowException("Invalid experiment ID: '%s'" % exp_id,
                               error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_batch_limit(entity_name, limit, length):
+    if length > limit:
+        error_msg = ("A batch logging request can contain at most {limit} {name}. "
+                     "Got {count} {name}. Please split up {name} across multiple requests and try "
+                     "again.").format(name=entity_name, count=length, limit=limit)
+        raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_batch_log_limits(metrics, params, tags):
+    """Validate that the provided batched logging arguments are within expected limits."""
+    _validate_batch_limit(entity_name="metrics", limit=MAX_METRICS_PER_BATCH, length=len(metrics))
+    _validate_batch_limit(entity_name="params", limit=MAX_PARAMS_TAGS_PER_BATCH, length=len(params))
+    _validate_batch_limit(entity_name="tags", limit=MAX_PARAMS_TAGS_PER_BATCH, length=len(tags))
+    total_length = len(metrics) + len(params) + len(tags)
+    _validate_batch_limit(entity_name="metrics, params, and tags",
+                          limit=MAX_ENTITIES_PER_BATCH, length=total_length)
+
+
+def _validate_batch_log_data(metrics, params, tags):
+    for metric in metrics:
+        _validate_metric_name(metric.key)
+    for param in params:
+        _validate_param_name(param.key)
+        _validate_param_value(param.value)
+    for tag in tags:
+        _validate_tag_name(tag.key)
+        _validate_tag_value(tag.value)
+    # Verify upfront that the user isn't attempting to overwrite any params within their
+    # batched logging request
+    param_map = {}
+    for param in params:
+        if param.key not in param_map:
+            param_map[param.key] = param.value
+        elif param.key in param_map and param_map[param.key] != param.value:
+            raise MlflowException("Param %s had existing value %s, refusing to overwrite with "
+                                  "new value %s. Please log the new param value under a different "
+                                  "param name." % (param.key, param_map[param.key], param.value))
+
+
+def _validate_batch_log_api_req(json_req):
+    if len(json_req) > MAX_BATCH_LOG_REQUEST_SIZE:
+        error_msg = ("Batched logging API requests must be at most {limit} bytes, got "
+                     "request of size {size}.").format(
+            limit=MAX_BATCH_LOG_REQUEST_SIZE, size=len(json_req))
+        raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_experiment_name(experiment_name):

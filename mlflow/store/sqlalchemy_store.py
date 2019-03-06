@@ -16,6 +16,7 @@ from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -353,6 +354,8 @@ class SqlAlchemyStore(AbstractStore):
     def log_batch(self, run_id, metrics, params, tags):
         run = self._get_run(run_id)
         self._check_run_is_active(run)
+        _validate_batch_log_limits(metrics, params, tags)
+        _validate_batch_log_data(metrics, params, tags)
         try:
             for param in params:
                 self.log_param(run_id, param)
