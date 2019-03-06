@@ -535,17 +535,17 @@ class FileStore(AbstractStore):
         run_info_dict = _make_persisted_run_info_dict(run_info)
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict, overwrite=True)
 
-    def log_batch(self, run_uuid, metrics, params, tags):
-        _validate_run_id(run_uuid)
-        run = self.get_run(run_uuid)
+    def log_batch(self, run_id, metrics, params, tags):
+        _validate_run_id(run_id)
+        run = self.get_run(run_id)
         check_run_is_active(run.info)
         try:
             for param in params:
-                self.log_param(run_uuid, param)
+                self.log_param(run_id, param)
             for metric in metrics:
-                self.log_metric(run_uuid, metric)
+                self.log_metric(run_id, metric)
             for tag in tags:
-                self.set_tag(run_uuid, tag)
+                self.set_tag(run_id, tag)
         # TODO: disallow overwriting params & handle that case here similarly to in the SQLAlchemy
         # store
         except Exception as e:
