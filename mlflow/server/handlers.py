@@ -329,6 +329,7 @@ def _get_artifact_repo(run):
     store = _get_store()
     return get_artifact_repository(run.info.artifact_uri, store)
 
+
 @catch_mlflow_exception
 def _log_batch():
     request_message = _get_request_message(ListExperiments())
