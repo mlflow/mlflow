@@ -96,7 +96,7 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name,
                                                             source_type, ...) {
   if (exists("databricks_get_notebook_info")) {
     notebook_info <- do.call("databricks_get_notebook_info", list())
-    if(!is.na(notebook_info$id) && !is.na(notebook_info$path)) {
+    if (!is.na(notebook_info$id) && !is.na(notebook_info$path)) {
       tags <- list()
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID]] <- notebook_info$id
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_PATH]] <- notebook_info$path
