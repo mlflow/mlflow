@@ -11,8 +11,6 @@ MLFLOW_GIT_BRANCH = "mlflow.source.git.branch"
 MLFLOW_GIT_REPO_URL = "mlflow.source.git.repoURL"
 MLFLOW_PROJECT_ENV = "mlflow.project.env"
 MLFLOW_PROJECT_ENTRY_POINT = "mlflow.project.entryPoint"
-MLFLOW_DOCKER = "docker"
-MLFLOW_CONDA = "conda"
 MLFLOW_DOCKER_IMAGE_NAME = "mlflow.docker.image.name"
 MLFLOW_DOCKER_IMAGE_ID = "mlflow.docker.image.id"
 
