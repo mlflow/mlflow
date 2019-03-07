@@ -98,7 +98,6 @@ def test_log_batch_handler(mock_get_request_message, mock_store):
     assert [dict(t) for t in kwargs["tags"]] == [dict(t) for t in tags]
 
 
-
 def test_catch_mlflow_exception():
     @catch_mlflow_exception
     def test_handler():
