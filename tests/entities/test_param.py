@@ -26,3 +26,8 @@ class TestParam(unittest.TestCase):
 
         param3 = Param.from_dictionary(as_dict)
         self._check(param3, key, value)
+
+    def test_param_equality(self):
+        assert Param("abc", "def") == Param("abc", "def")
+        assert Param("abc", "dif-val") != Param("abc", "def")
+        assert Param("dif-key", "def") != Param("abc", "def")

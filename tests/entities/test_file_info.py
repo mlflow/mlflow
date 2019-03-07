@@ -27,3 +27,7 @@ class TestFileInfo(unittest.TestCase):
 
         fi3 = FileInfo.from_dictionary(as_dict)
         self._check(fi3, path, is_dir, size_in_bytes)
+
+    def test_file_info_equality(self):
+        assert FileInfo("abc", False, 123) == FileInfo("abc", False, 123)
+        assert FileInfo("def", True, 456) != FileInfo("abc", False, 123)
