@@ -1,20 +1,24 @@
+import logging
+
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 
 from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 
+_logger = logging.getLogger(__name__)
+
 
 def check_run_is_active(run_info):
     if run_info.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException("The run {} must be in 'active' lifecycle_stage."
-                              .format(run_info.run_uuid))
+                              .format(run_info.run_id))
 
 
 def check_run_is_deleted(run_info):
     if run_info.lifecycle_stage != LifecycleStage.DELETED:
         raise MlflowException("The run {} must be in 'deleted' lifecycle_stage."
-                              .format(run_info.run_uuid))
+                              .format(run_info.run_id))
 
 
 class RunInfo(_MLflowObject):
@@ -41,7 +45,7 @@ class RunInfo(_MLflowObject):
             raise Exception("status cannot be None")
         if start_time is None:
             raise Exception("start_time cannot be None")
-        self._run_uuid = run_uuid
+        self._run_id = run_uuid
         self._experiment_id = experiment_id
         self._name = name
         self._source_type = source_type
@@ -73,9 +77,16 @@ class RunInfo(_MLflowObject):
         return RunInfo.from_proto(proto)
 
     @property
+    def run_id(self):
+        """String containing run ID."""
+        return self._run_id
+
+    @property
     def run_uuid(self):
         """String containing run UUID."""
-        return self._run_uuid
+        _logger.warning(
+            "Support for RunInfo.run_uuid is deprecated and will be removed. Use RunInfo.run_id instead.")
+        return self._run_id
 
     @property
     def experiment_id(self):
@@ -146,7 +157,7 @@ class RunInfo(_MLflowObject):
 
     def to_proto(self):
         proto = ProtoRunInfo()
-        proto.run_uuid = self.run_uuid
+        proto.run_uuid = self.run_id  # TODO proto.run_uuid -> proto.run_id
         proto.experiment_id = self.experiment_id
         proto.name = self.name
         proto.source_type = self.source_type
