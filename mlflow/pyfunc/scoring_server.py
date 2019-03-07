@@ -104,9 +104,6 @@ def _handle_serving_error(error_message, error_code):
                 stack_trace=traceback_buf.getvalue()))
 
 
-logged_pandas_records_format_warning = False
-
-
 def init(model):
     """
     Initialize the server. Loads pyfunc model from the path.
@@ -136,31 +133,12 @@ def init(model):
             data = flask.request.data.decode('utf-8')
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type == CONTENT_TYPE_JSON:
-            global logged_pandas_records_format_warning
-            if not logged_pandas_records_format_warning:
-                _logger.warning(
-                    "**IMPORTANT UPDATE**: Starting in MLflow 0.9.0, requests received with a"
-                    " `Content-Type` header value of `%s` will be interpreted"
-                    " as JSON-serialized Pandas DataFrames with the `split` orient, instead"
-                    " of the `records` orient. The `records` orient is unsafe because"
-                    " it may not preserve column ordering. Client code should be updated to"
-                    " either send serialized DataFrames with the `split` orient and the"
-                    " `%s` content type (recommended) or use the `%s` content type with the"
-                    " `records` orient. For more information, see"
-                    " https://www.mlflow.org/docs/latest/models.html#pyfunc-deployment.\n",
-                    CONTENT_TYPE_JSON,
-                    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-                    CONTENT_TYPE_JSON_RECORDS_ORIENTED)
-                logged_pandas_records_format_warning = True
+        elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="records")
+                                    orient="split")
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orient="records")
-        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="split")
         else:
             return flask.Response(
                     response=("This predictor only supports the following content types,"
