@@ -37,8 +37,8 @@ def test_validate_tag_name():
 
 def test_validate_run_id():
     for good_id in ["a" * 32, "f0" * 16, "abcdef0123456789" * 2, "a" * 33, "a" * 31,
-                    "A" * 32, "g" * 32, "_" * 32]:
+                    "A" * 32, "g" * 32, "a_" * 32]:
         _validate_run_id(good_id)
-    for bad_id in ["a/bc" * 8, "a", "a" * 65, "*" * 5]:
+    for bad_id in ["a/bc" * 8, "", "a" * 129, "*" * 5]:
         with pytest.raises(Exception, match="Invalid run ID"):
             _validate_run_id(bad_id)
