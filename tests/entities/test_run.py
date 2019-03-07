@@ -1,5 +1,4 @@
-from mlflow.entities import Run, Metric, RunData, SourceType, RunStatus, RunInfo, LifecycleStage,\
-    Param, RunTag
+from mlflow.entities import Run, Metric, RunData, SourceType, RunStatus, RunInfo, LifecycleStage
 from tests.entities.test_run_data import TestRunData
 from tests.entities.test_run_info import TestRunInfo
 
@@ -65,31 +64,3 @@ class TestRun(TestRunInfo, TestRunData):
                    "source_name='source-name', source_type=3, source_version='version', " \
                    "start_time=0, status=4, user_id='user-id'>>"
         assert str(run1) == expected
-
-    def test_run_equality(self):
-        def _get_run_info():
-            return RunInfo(
-                run_uuid="hi", experiment_id=0, name="name", source_type=SourceType.PROJECT,
-                source_name="source-name", entry_point_name="entry-point-name",
-                user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
-                source_version="version", lifecycle_stage=LifecycleStage.ACTIVE)
-
-        def _get_run_data():
-            metrics = [Metric("metric-key", i, i * 2) for i in range(5)]
-            params = [Param("param-key", "param-val-%s" % i) for i in range(5)]
-            tags = [RunTag("tag-key", "tag-val-%s" % i) for i in range(5)]
-            return RunData(metrics=metrics, params=params, tags=tags)
-        run1 = Run(_get_run_info(), _get_run_data())
-        run2 = Run(_get_run_info(), _get_run_data())
-        assert(_get_run_info() == _get_run_info())
-        assert(_get_run_data() == _get_run_data())
-        assert(run1 == run2)
-        different_run_data = RunData([], [], [])
-        different_run_info = RunInfo(
-            run_uuid="different-id", experiment_id=0, name="name", source_type=SourceType.PROJECT,
-            source_name="source-name", entry_point_name="entry-point-name",
-            user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
-            source_version="version", lifecycle_stage=LifecycleStage.ACTIVE)
-        assert(different_run_info != _get_run_info())
-        assert(different_run_data != _get_run_data())
-        assert(Run(different_run_info, different_run_data) != run1)

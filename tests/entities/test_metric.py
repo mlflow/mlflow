@@ -29,7 +29,3 @@ class TestMetric(unittest.TestCase):
 
         metric3 = Metric.from_dictionary(as_dict)
         self._check(metric3, key, value, ts)
-
-    def test_metric_equality(self):
-        assert Metric("abc", 3.2, 123) == Metric("abc", 3.2, 123)
-        assert Metric("def", -3.2, 456) != Metric("abc", 3.2, 123)

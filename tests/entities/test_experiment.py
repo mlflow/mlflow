@@ -37,12 +37,3 @@ class TestExperiment(unittest.TestCase):
                          lifecycle_stage=LifecycleStage.ACTIVE)
         assert str(exp) == "<Experiment: artifact_location='hi', experiment_id=0, " \
                            "lifecycle_stage='active', name='myname'>"
-
-    def test_exp_equality(self):
-        def _get_exp():
-            return Experiment(experiment_id=0, name="myname", artifact_location="hi",
-                              lifecycle_stage=LifecycleStage.ACTIVE)
-        assert _get_exp() == _get_exp()
-        assert _get_exp() != Experiment(
-            experiment_id=0, name="different-name", artifact_location="artifact/location",
-            lifecycle_stage=LifecycleStage.ACTIVE)
