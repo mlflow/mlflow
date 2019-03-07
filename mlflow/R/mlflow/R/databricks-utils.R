@@ -92,16 +92,29 @@ get_databricks_config <- function(profile) {
   config
 }
 
-mlflow_get_context_tags.mlflow_client <- function(client) {
-  res <- list()
+
+
+
+mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name, source_version,
+                                                            source_type, ...) {
+  res <- NULL
   if (exists("databricks_get_notebook_id_and_path")) {
-    id_and_path <- do.call("databricks_get_notebook_id_and_path", list())
+    notebook_info <- do.call("databricks_get_notebook_info", list())
     if(!is.na(id_and_path$id) && !is.na(id_and_path$path)) {
-      res[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID]] <- id_and_path$id
-      res[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_PATH]] <- id_and_path$path
+      tags <- list()
+      tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID]] <- notebook_info$id
+      tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_PATH]] <- notebook_info$path
+      tags[[MLFLOW_DATABRICKS_WEBAPP_URL]] <- notebook_info$webappURL
+      res <- list(
+        client = client,
+        source_version = source_version %||% get_source_version(),
+        source_type =  MLFLOW_SOURCE_TYPE$NOTEBOOK,
+        source_name = notebook_info$path,
+        tags = tags
+      )
     }
   }
-  res
+  res %||% NextMethod()
 }
 
 MLFLOW_DATABRICKS_TAGS <- list(
