@@ -13,6 +13,7 @@ import mlflow
 from mlflow import tracking
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -205,10 +206,12 @@ def test_log_metrics(tracking_uri_mock):
         mlflow.log_metric("nested/nested/name", 45)
         mlflow.log_metrics(expected_metrics)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
-    # Validate metrics
+    # Validate metric key/values match what we expect, and that all metrics have the same timestamp
+    common_timestamp = finished_run.data.metrics[0].timestamp
     assert len(finished_run.data.metrics) == 3
     for metric in finished_run.data.metrics:
         assert expected_metrics[metric.key] == metric.value
+        assert metric.timestamp == common_timestamp
 
 
 @pytest.fixture
@@ -266,6 +269,25 @@ def test_log_params(tracking_uri_mock):
     assert len(finished_run.data.params) == 3
     for param in finished_run.data.params:
         assert expected_params[param.key] == param.value
+
+
+def test_log_batch_validates_names(tracking_uri_mock):
+    active_run = start_run()
+    bad_kwargs = {
+        "metrics": [[Metric(key="../bad/metric/name", value=0.3, timestamp=3)]],
+        "params": [[Param(key="../bad/param/name", value="my-val")]],
+        "tags": [[Param(key="../bad/tag/name", value="my-val")]],
+    }
+    with active_run:
+        for kwarg, bad_values in bad_kwargs.items():
+            for bad_kwarg_value in bad_values:
+                final_kwargs = {
+                    "run_id":  active_run.info.run_uuid, "metrics": [], "params": [], "tags": [],
+                }
+                final_kwargs[kwarg] = bad_kwarg_value
+                with pytest.raises(MlflowException) as e:
+                    tracking.MlflowClient().log_batch(**final_kwargs)
+                assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_log_artifact(tracking_uri_mock):

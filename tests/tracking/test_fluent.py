@@ -9,7 +9,7 @@ import mock
 import pytest
 
 import mlflow
-from mlflow.entities import Experiment, LifecycleStage, SourceType
+from mlflow.entities import Experiment, LifecycleStage, SourceType, Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 import mlflow.tracking.fluent
@@ -397,3 +397,27 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         with pytest.raises(MlflowException):
             start_run(run_id)
+
+
+@mock.patch("time.time", lambda: -1)
+@pytest.mark.parametrize("fluent_fn,fluent_kwargs,expected_client_kwargs", [
+    (mlflow.log_metrics, {"metrics": {"a": 0.1}},
+     {"run_id": "my-uuid", "metrics": [Metric("a", 0.1, -1)], "params": [], "tags": []}),
+    (mlflow.log_params, {"params": {"b": "c"}},
+     {"run_id": "my-uuid", "metrics": [], "params": [Param("b", "c")], "tags": []}),
+    (mlflow.set_tags, {"tags": {"d": "e"}},
+     {"run_id": "my-uuid", "metrics": [], "params": [], "tags": [RunTag("d", "e")]}),
+])
+def test_log_batch_apis_delegate_to_store(fluent_fn, fluent_kwargs, expected_client_kwargs):
+    # Test that the log_metrics, log_params, set_tags fluent APIs delegate to log_batch, which
+    # in turn delegates to an AbstractStore's log_batch implementation
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+    mock_run.info.run_uuid = "my-uuid"
+    mock_store = mock.Mock()
+    with mock.patch.object(mlflow.tracking.fluent, "_get_or_start_run", return_value=mock_run), \
+            mock.patch.object(mlflow.tracking.utils, "_get_store", return_value=mock_store):
+        fluent_fn(**fluent_kwargs)
+        mlflow.tracking.fluent._get_or_start_run.assert_called_once()
+        _, client_call_kwargs, = mock_store.log_batch.call_args
+        assert client_call_kwargs == expected_client_kwargs

@@ -25,6 +25,9 @@ class _MLflowObject(object):
     def __repr__(self):
         return to_string(self)
 
+    def __eq__(self, other):
+        return type(self) == type(other) and dict(self) == dict(other)
+
 
 def to_string(obj):
     return _MLflowObjectPrinter().to_string(obj)
