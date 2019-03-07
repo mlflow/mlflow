@@ -10,7 +10,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
 # Regex for valid run IDs: must be a 32-character hex string.
-_RUN_ID_REGEX = re.compile(r"^[0-9a-f]{32}$")
+_RUN_ID_REGEX = re.compile(r"^[0-9a-zA-Z_\-.]{2,64}$")
 
 _BAD_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
