@@ -121,12 +121,6 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_record_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="records")
-    response_default_content_type = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
-            data=pandas_record_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON)
-    assert response_default_content_type.status_code == 200
-
     response_records_content_type = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=pandas_record_content,
@@ -139,6 +133,12 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
+    response_default_content_type = pyfunc_serve_and_score_model(
+            model_path=os.path.abspath(model_path),
+            data=pandas_split_content,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON)
+    assert response_default_content_type.status_code == 200
+
     response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=pandas_split_content,

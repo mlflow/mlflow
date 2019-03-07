@@ -458,16 +458,12 @@ The local REST API server accepts the following data formats as inputs:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
   ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
-  request header value of ``application/json; format=pandas-split``. Starting in MLflow 0.9.0,
-  this will be the default format if ``Content-Type`` is ``application/json`` (i.e, with no format
-  specification).
+  request header value of ``application/json`` or ``application/json; format=pandas-split``.
 
 * JSON-serialized pandas DataFrames in the ``records`` orientation. *We do not recommend using
-  this format because it is not guaranteed to preserve column ordering.* Currently, this format is
-  specified using a ``Content-Type`` request header value of  ``application/json; format=pandas-records``
-  or ``application/json``. Starting in MLflow 0.9.0, ``application/json`` will refer to the
-  ``split`` format instead. For forwards compatibility, we recommend using the ``split`` format
-  or specifying the ``application/json; format=pandas-records`` content type.
+  this format because it is not guaranteed to preserve column ordering.* This format is
+  specified using a ``Content-Type`` request header value of
+  ``application/json; format=pandas-records``.
 
 * CSV-serialized pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
   specified using a ``Content-Type`` request header value of ``text/csv``.
