@@ -540,8 +540,6 @@ class FileStore(AbstractStore):
         _validate_run_id(run_id)
         run = self.get_run(run_id)
         check_run_is_active(run.info)
-        _validate_batch_log_limits(metrics, params, tags)
-        _validate_batch_log_data(metrics, params, tags)
         try:
             for param in params:
                 self.log_param(run_id, param)
@@ -549,7 +547,5 @@ class FileStore(AbstractStore):
                 self.log_metric(run_id, metric)
             for tag in tags:
                 self.set_tag(run_id, tag)
-        # TODO: disallow overwriting params & handle that case here similarly to in the SQLAlchemy
-        # store
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)

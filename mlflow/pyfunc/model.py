@@ -25,10 +25,10 @@ from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 # `mlflow.pyfunc.save_model()` and `mlflow.pyfunc.log_model()` when a user-defined subclass of
 # ``PythonModel`` is provided.
 DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=[
+    additional_conda_deps=None,
+    additional_pip_deps=[
         "cloudpickle=={}".format(cloudpickle.__version__),
     ],
-    additional_pip_deps=None,
     additional_conda_channels=None,
 )
 
