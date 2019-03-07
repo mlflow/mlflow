@@ -190,12 +190,12 @@ Now that you have your training code, you can package it so that other data scie
             - pip:
               - mlflow
 
-      To run this project, invoke ``mlflow run tutorial -P alpha=0.42``. After running
+      To run this project, invoke ``mlflow run . -P alpha=0.42`` from the project directory. After running
       this command, MLflow runs your training code in a new Conda environment with the dependencies
-      specified in ``conda.yaml``.
+      specified in ``conda.yaml``.  If you run the command again (perhaps with diferent parameters) the same conda environment will be reused.
 
       If the repository has an ``MLproject`` file in the root you can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/mlflow/mlflow-example repository
-      which you can run with ``mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.42``.
+      which you can run with ``mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=0.42`` (this will create a different conda environment).
 
     .. container:: R
 
