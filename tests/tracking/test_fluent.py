@@ -17,6 +17,7 @@ from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experimen
     _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import mlflow_tags
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 class HelperEnv:
@@ -400,7 +401,7 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
 
 
 @mock.patch("time.time", lambda: -1)
-@pytest.mark.parametrize("fluent_fn,fluent_kwargs,expected_client_kwargs", [
+@pytest.mark.parametrize("fluent_fn,fluent_kwargs,expected_store_kwargs", [
     (mlflow.log_metrics, {"metrics": {"a": 0.1}},
      {"run_id": "my-uuid", "metrics": [Metric("a", 0.1, -1)], "params": [], "tags": []}),
     (mlflow.log_params, {"params": {"b": "c"}},
@@ -408,9 +409,11 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
     (mlflow.set_tags, {"tags": {"d": "e"}},
      {"run_id": "my-uuid", "metrics": [], "params": [], "tags": [RunTag("d", "e")]}),
 ])
-def test_log_batch_apis_delegate_to_store(fluent_fn, fluent_kwargs, expected_client_kwargs):
-    # Test that the log_metrics, log_params, set_tags fluent APIs delegate to log_batch, which
-    # in turn delegates to an AbstractStore's log_batch implementation
+def test_log_batch_apis_delegate_to_store(
+        tracking_uri_mock,  # pylint: disable=unused-argument
+        fluent_fn, fluent_kwargs, expected_store_kwargs):
+    # Test that the log_metrics, log_params, set_tags fluent APIs call into to an AbstractStore
+    # instance's log_batch implementation
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
     mock_run.info.run_uuid = "my-uuid"
@@ -419,5 +422,37 @@ def test_log_batch_apis_delegate_to_store(fluent_fn, fluent_kwargs, expected_cli
             mock.patch.object(mlflow.tracking.utils, "_get_store", return_value=mock_store):
         fluent_fn(**fluent_kwargs)
         mlflow.tracking.fluent._get_or_start_run.assert_called_once()
+        # Assert backing store log_batch was called with expected arguments
+        _, store_call_kwargs, = mock_store.log_batch.call_args
+        assert store_call_kwargs["run_id"] == expected_store_kwargs["run_id"]
+        assert [dict(m) for m in store_call_kwargs["metrics"]] == \
+               [dict(m) for m in expected_store_kwargs["metrics"]]
+        assert [dict(p) for p in store_call_kwargs["params"]] == \
+               [dict(p) for p in expected_store_kwargs["params"]]
+        assert [dict(t) for t in store_call_kwargs["tags"]] == \
+               [dict(t) for t in expected_store_kwargs["tags"]]
+
+
+def test_log_batch_client_apis_delegate_to_store(
+        tracking_uri_mock):  # pylint: disable=unused-argument
+    # Test that the log_batch client API calls into an AbstractStore instance's log_batch
+    # implementation
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+    mock_run.info.run_uuid = "my-uuid"
+    mock_store = mock.Mock()
+    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run), \
+         mock.patch.object(mlflow.tracking.utils, "_get_store", return_value=mock_store):
+        metrics = [Metric(key="metric-key", value=3.2, timestamp=1)]
+        params = [Param(key="param-key", value="param-val")]
+        tags = [RunTag(key="tag-key", value="tag-val")]
+        MlflowClient().log_batch("my-uuid", metrics=metrics, params=params, tags=tags)
+        # Assert backing store log_batch was called with expected arguments
         _, client_call_kwargs, = mock_store.log_batch.call_args
-        assert client_call_kwargs == expected_client_kwargs
+        assert client_call_kwargs["run_id"] == "my-uuid"
+        assert [dict(m) for m in client_call_kwargs["metrics"]] == \
+               [dict(m) for m in metrics]
+        assert [dict(p) for p in client_call_kwargs["params"]] == \
+               [dict(p) for p in params]
+        assert [dict(t) for t in client_call_kwargs["tags"]] == \
+               [dict(t) for t in tags]
