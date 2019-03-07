@@ -30,3 +30,4 @@ class TestFileInfo(unittest.TestCase):
 
     def test_file_info_equality(self):
         assert FileInfo("abc", False, 123) == FileInfo("abc", False, 123)
+        assert FileInfo("def", True, 456) != FileInfo("abc", False, 123)

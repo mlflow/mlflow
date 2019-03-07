@@ -29,3 +29,5 @@ class TestParam(unittest.TestCase):
 
     def test_param_equality(self):
         assert Param("abc", "def") == Param("abc", "def")
+        assert Param("abc", "dif-val") != Param("abc", "def")
+        assert Param("dif-key", "def") != Param("abc", "def")

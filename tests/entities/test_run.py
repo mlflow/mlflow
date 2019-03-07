@@ -84,3 +84,12 @@ class TestRun(TestRunInfo, TestRunData):
         assert(_get_run_info() == _get_run_info())
         assert(_get_run_data() == _get_run_data())
         assert(run1 == run2)
+        different_run_data = RunData([], [], [])
+        different_run_info = RunInfo(
+            run_uuid="different-id", experiment_id=0, name="name", source_type=SourceType.PROJECT,
+            source_name="source-name", entry_point_name="entry-point-name",
+            user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
+            source_version="version", lifecycle_stage=LifecycleStage.ACTIVE)
+        assert(different_run_info != _get_run_info())
+        assert(different_run_data != _get_run_data())
+        assert(Run(different_run_info, different_run_data) != run1)

@@ -32,3 +32,4 @@ class TestMetric(unittest.TestCase):
 
     def test_metric_equality(self):
         assert Metric("abc", 3.2, 123) == Metric("abc", 3.2, 123)
+        assert Metric("def", -3.2, 456) != Metric("abc", 3.2, 123)

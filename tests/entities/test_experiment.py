@@ -43,3 +43,6 @@ class TestExperiment(unittest.TestCase):
             return Experiment(experiment_id=0, name="myname", artifact_location="hi",
                               lifecycle_stage=LifecycleStage.ACTIVE)
         assert _get_exp() == _get_exp()
+        assert _get_exp() != Experiment(
+            experiment_id=0, name="different-name", artifact_location="artifact/location",
+            lifecycle_stage=LifecycleStage.ACTIVE)
