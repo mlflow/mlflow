@@ -921,9 +921,29 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                                  tags=[tag])
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        logged_run = self.store.get_run(run.run_uuid)
-        assert len(logged_run.data.metrics) == 0
-        assert len(logged_run.data.params) == 1
+        self._verify_logged(run.run_uuid, metrics=[], params=[param], tags=[])
+
+    def test_log_batch_param_overwrite_disallowed_single_req(self):
+        # Test that attempting to overwrite a param via log_batch results in an exception
+        run = self._run_factory()
+        self.session.commit()
+        pkey = "common-key"
+        param0 = entities.Param(pkey, "orig-val")
+        param1 = entities.Param(pkey, 'newval')
+        tag = entities.RunTag("tag-key", "tag-val")
+        metric = entities.Metric("metric-key", 3.0, 12345)
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_batch(run.run_uuid, metrics=[metric], params=[param0, param1],
+                                 tags=[tag])
+        self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self._verify_logged(run.run_uuid, metrics=[], params=[param0], tags=[])
+
+    def test_log_batch_accepts_empty_payload(self):
+        run = self._run_factory()
+        self.session.commit()
+        self.store.log_batch(run.run_uuid, metrics=[], params=[], tags=[])
+        self._verify_logged(run.run_uuid, metrics=[], params=[], tags=[])
 
     def test_log_batch_internal_error(self):
         # Verify that internal errors during the DB save step for log_batch result in
@@ -975,6 +995,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.log_batch(run.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "val")])
         self.store.log_batch(run.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
         self._verify_logged(run.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
+
+    def test_log_batch_allows_tag_overwrite_single_req(self):
+        run = self._run_factory()
+        self.session.commit()
+        tags = [RunTag("t-key", "val"), RunTag("t-key", "newval")]
+        self.store.log_batch(run.run_uuid, metrics=[], params=[], tags=tags)
+        self._verify_logged(run.run_uuid, metrics=[], params=[], tags=[tags[-1]])
 
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
