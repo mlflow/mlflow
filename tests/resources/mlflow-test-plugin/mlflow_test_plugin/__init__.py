@@ -15,3 +15,4 @@ class PluginFileStore(FileStore):
 
 class PluginLocalArtifactRepository(LocalArtifactRepository):
     """LocalArtifactRepository provided through plugin system"""
+    is_plugin = True

@@ -276,6 +276,21 @@ service MlflowService {
       rpc_doc_title: "Get Metric History",
     };
   }
+
+  // Log a batch of metrics, params, and/or tags for a run. The server will respond with an error
+  // if any data failed to be persisted.
+  //
+  rpc logBatch (LogBatch) returns (LogBatch.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/log-batch"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Batch",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -720,9 +735,31 @@ message SearchRuns {
   // List of experiment IDs to search over.
   repeated int64 experiment_ids = 1;
 
+  // This field is deprecated and will be removed in MLflow 1.0.
   // Expressions describing runs (AND-ed together when filtering runs).
+  // See 'filter' for a simpler on-the-wire representation of these expressions.
   repeated SearchExpression anded_expressions = 2;
 
+  // A filter expression over params, metrics, and tags, allowing returning a subset of
+  // runs. The syntax is a subset of SQL which allows only ANDing together binary operations
+  // between a param/metric/tag and a constant.
+  //
+  // Example: ``metrics.rmse < 1 and params.model_class = 'LogisticRegression'``
+  //
+  // You can also select columns with spaces by using backticks or double quotes:
+  // ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
+  //
+  // Supported operators are =, !=, >, >=, <, <=, and LIKE.
+  // LIKE syntax: ``params.model_class LIKE 'Linear%'``
+  //
+  // 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+  // error will be returned if both are specified.
+  // If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
+  // will be returned.
+  optional string filter = 4;
+
+  // Whether to display only active, only deleted, or all runs.
+  // Defaults to only active runs.
   optional ViewType run_view_type = 3 [default = ACTIVE_ONLY];
 
   message Response {
@@ -788,5 +825,19 @@ message GetMetricHistory {
   message Response {
     // All logged values for this metric.
     repeated Metric metrics = 1;
+  }
+}
+
+message LogBatch {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // ID of the run to log under
+  optional string run_id = 1;
+  // Metrics to log
+  repeated Metric metrics = 2;
+  // Params to log
+  repeated Param params = 3;
+  // Tags to log
+  repeated RunTag tags = 4;
+  message Response {
   }
 }
