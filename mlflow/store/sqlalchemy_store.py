@@ -286,18 +286,10 @@ class SqlAlchemyStore(AbstractStore):
             # Querying metrics from run entails pushing the query down to DB layer.
             # Hence the rollback.
             self.session.rollback()
-            existing_metric = [m for m in run.metrics
-                               if m.key == metric.key and m.timestamp == metric.timestamp]
-            if len(existing_metric) == 0:
-                raise MlflowException("Log metric request failed for run ID={}. Attempted to log"
-                                      " metric={}. Error={}".format(run_uuid,
-                                                                    (metric.key, metric.value),
-                                                                    str(ie)))
-            else:
-                m = existing_metric[0]
-                raise MlflowException('Metric={} must be unique. Metric already logged value {} '
-                                      'at {}'.format(metric, m.value, m.timestamp),
-                                      INVALID_PARAMETER_VALUE)
+            raise MlflowException("Log metric request failed for run ID={}. Attempted to log"
+                                  " metric={}. Error={}".format(run_uuid,
+                                                                (metric.key, metric.value),
+                                                                str(ie)))
 
     def get_metric_history(self, run_uuid, metric_key):
         metrics = self.session.query(SqlMetric).filter_by(run_uuid=run_uuid, key=metric_key).all()
@@ -314,7 +306,7 @@ class SqlAlchemyStore(AbstractStore):
             self._get_or_create(SqlParam, run_uuid=run_uuid, key=param.key,
                                 value=param.value)
         except sqlalchemy.exc.IntegrityError as ie:
-            # Querying metrics from run entails pushing the query down to DB layer.
+            # Querying params from run entails pushing the query down to DB layer.
             # Hence the rollback.
             self.session.rollback()
             existing_params = [p.value for p in run.params if p.key == param.key]

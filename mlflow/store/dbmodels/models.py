@@ -44,7 +44,10 @@ def _create_entity(base, model):
                     # only get latest recorded metrics per key
                     metrics = {}
                     for o in obj:
-                        if o.key not in metrics or o.timestamp > metrics.get(o.key).timestamp:
+                        existing_metric = metrics.get(o.key)
+                        if existing_metric is None or (
+                                o.timestamp >= existing_metric.timestamp
+                                and o.value > existing_metric.value):
                             metrics[o.key] = Metric(o.key, o.value, o.timestamp)
                     obj = metrics.values()
                 elif k == 'params':
@@ -145,7 +148,7 @@ class SqlMetric(Base):
     run = relationship('SqlRun', backref=backref('metrics', cascade='all'))
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', name='metric_pk'),
+        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', 'value', name='metric_pk'),
     )
 
     def __repr__(self):
