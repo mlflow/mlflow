@@ -92,9 +92,6 @@ get_databricks_config <- function(profile) {
   config
 }
 
-
-
-
 mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name, source_version,
                                                             source_type, ...) {
   res <- NULL
