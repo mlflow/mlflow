@@ -336,7 +336,7 @@ def _log_batch():
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
-    _get_store().log_batch(run_uuid=request_message.run_uuid, metrics=metrics, params=params,
+    _get_store().log_batch(run_id=request_message.run_id, metrics=metrics, params=params,
                            tags=tags)
     response_message = LogBatch.Response()
     response = Response(mimetype='application/json')

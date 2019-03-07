@@ -3,12 +3,12 @@ import json
 import mock
 import pytest
 
-from mlflow.entities import ViewType
+from mlflow.entities import ViewType, Metric, RunTag, Param
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, ErrorCode
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
-    _search_runs, catch_mlflow_exception
-from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
+    _search_runs, _log_batch, catch_mlflow_exception
+from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns, LogBatch
 
 
 @pytest.fixture()
@@ -76,6 +76,24 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_store):
     _search_runs()
     args, _ = mock_store.search_runs.call_args
     assert args[2] == ViewType.ACTIVE_ONLY
+
+
+def test_log_batch_handler(mock_get_request_message, mock_store):
+    metrics = [Metric(key="my-metric-key", value=3.2, timestamp=1)]
+    params = [Param(key="my-param-key", value="my-param-val")]
+    tags = [RunTag(key="my-tag-key", value="my-tag-val")]
+    mock_get_request_message.return_value = LogBatch(
+        run_id="abc",
+        metrics=[m.to_proto() for m in metrics],
+        params=[p.to_proto() for p in params],
+        tags=[t.to_proto() for t in tags])
+    _log_batch()
+    _, kwargs = mock_store.log_batch.call_args
+    assert kwargs["run_id"] == "abc"
+    assert [dict(m) for m in kwargs["metrics"]] == [dict(m) for m in metrics]
+    assert [dict(p) for p in kwargs["params"]] == [dict(p) for p in params]
+    assert [dict(t) for t in kwargs["tags"]] == [dict(t) for t in tags]
+
 
 
 def test_catch_mlflow_exception():
