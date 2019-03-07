@@ -97,8 +97,8 @@ mlflow_get_context_tags.mlflow_client <- function(client) {
   if (exists("databricks_get_notebook_id_and_path")) {
     id_and_path <- do.call("databricks_get_notebook_id_and_path", list())
     if(!is.na(id_and_path$id) && !is.na(id_and_path$path)) {
-      res$MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID = id_and_path$id
-      res$MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_PATH = id_and_path$path
+      res[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID]] <- id_and_path$id
+      res[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_PATH]] <- id_and_path$path
     }
   }
   res
