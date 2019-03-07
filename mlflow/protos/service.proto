@@ -276,6 +276,21 @@ service MlflowService {
       rpc_doc_title: "Get Metric History",
     };
   }
+
+  // Log a batch of metrics, params, and/or tags for a run. The server will respond with an error
+  // if any data failed to be persisted.
+  //
+  rpc logBatch (LogBatch) returns (LogBatch.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/log-batch"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Batch",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -810,5 +825,19 @@ message GetMetricHistory {
   message Response {
     // All logged values for this metric.
     repeated Metric metrics = 1;
+  }
+}
+
+message LogBatch {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // ID of the run to log under
+  optional string run_id = 1;
+  // Metrics to log
+  repeated Metric metrics = 2;
+  // Params to log
+  repeated Param params = 3;
+  // Tags to log
+  repeated RunTag tags = 4;
+  message Response {
   }
 }
