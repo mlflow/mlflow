@@ -442,7 +442,7 @@ def test_log_batch_client_apis_delegate_to_store(
     mock_run.info.run_uuid = "my-uuid"
     mock_store = mock.Mock()
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run), \
-         mock.patch.object(mlflow.tracking.utils, "_get_store", return_value=mock_store):
+            mock.patch.object(mlflow.tracking.utils, "_get_store", return_value=mock_store):
         metrics = [Metric(key="metric-key", value=3.2, timestamp=1)]
         params = [Param(key="param-key", value="param-val")]
         tags = [RunTag(key="tag-key", value="tag-val")]
