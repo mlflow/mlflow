@@ -87,7 +87,10 @@ def test_log_batch_handler(mock_get_request_message, mock_store):
         metrics=[m.to_proto() for m in metrics],
         params=[p.to_proto() for p in params],
         tags=[t.to_proto() for t in tags])
-    _log_batch()
+    response = _log_batch()
+    assert response.status_code == 200
+    json_response = json.loads(response.get_data())
+    assert json_response == {}
     _, kwargs = mock_store.log_batch.call_args
     assert kwargs["run_id"] == "abc"
     assert [dict(m) for m in kwargs["metrics"]] == [dict(m) for m in metrics]
