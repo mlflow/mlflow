@@ -3,7 +3,6 @@ import json
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
-from mlflow.exceptions import MlflowException
 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
