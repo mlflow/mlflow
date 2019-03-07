@@ -1,6 +1,6 @@
 import unittest
 
-from mlflow.entities import Param
+from mlflow.entities import Param, RunTag
 from tests.helper_functions import random_str, random_int
 
 
@@ -31,3 +31,5 @@ class TestParam(unittest.TestCase):
         assert Param("abc", "def") == Param("abc", "def")
         assert Param("abc", "dif-val") != Param("abc", "def")
         assert Param("dif-key", "def") != Param("abc", "def")
+        # We detect type differences when field values are otherwise identical
+        assert Param(key="a", value="b") != RunTag(key="a", value="b")
