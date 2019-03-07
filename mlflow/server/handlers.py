@@ -332,7 +332,7 @@ def _get_artifact_repo(run):
 
 @catch_mlflow_exception
 def _log_batch():
-    request_message = _get_request_message(ListExperiments())
+    request_message = _get_request_message(LogBatch())
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
