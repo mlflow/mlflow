@@ -1029,6 +1029,53 @@ Tag for a run.
 | value      | ``STRING`` | The tag value. |
 +------------+------------+----------------+
 
+Tag keys that start with ``mlflow.`` are reserved for internal use. The following tags are set
+automatically by MLflow:
+
++-------------------------------+----------------------------------------------------------------------------------------+
+| Key                           | Description                                                                            |
++===============================+========================================================================================+
+| ``mlflow.runName``            | Human readable name that identifies this run.                                          |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.type``        | The source type, one of :ref:`mlflowsourcetype`.                                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.name``        | Source identifier: GitHub URL, name of notebook, name of job, etc.                     |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.git.commit``  | Commit hash of the executed code, if in a git repository.                              |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.git.branch``  | Name of the branch of the executed code, if in a git repository.                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.git.repoURL`` | URL that the executed code was clone from.                                             |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.project.env``        | One of "docker" or "conda", indicating the runtime context used by the mlflow project. |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.project.entryPoint`` | Name of the project entry point associated with the current run, if any.               |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.docker.image.name``  | Name of the Docker image used to execute this run.                                     |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.docker.image.id``    | ID of the Docker image used to execute this run.                                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+
+The following tags are set when running MLflow in Databricks:
+
++-------------------------------------+--------------------------------------------------------------+
+| Key                                 | Description                                                  |
++=====================================+==============================================================+
+| ``mlflow.databricks.notebookID``    | The ID of the Databricks notebook this run was created in.   |
++-------------------------------------+--------------------------------------------------------------+
+| ``mlflow.databricks.notebookPath``  | The path of the Databricks notebook this run was created in. |
++-------------------------------------+--------------------------------------------------------------+
+| ``mlflow.databricks.webappURL``     |                                                              |
++-------------------------------------+--------------------------------------------------------------+
+| ``mlflow.databricks.runURL``        |                                                              |
++-------------------------------------+--------------------------------------------------------------+
+| ``mlflow.databricks.shellJobID``    |                                                              |
++-------------------------------------+--------------------------------------------------------------+
+| ``mlflow.databricks.shellJobRunID`` |                                                              |
++-------------------------------------+--------------------------------------------------------------+
+
 .. _mlflowSearchExpression:
 
 SearchExpression
