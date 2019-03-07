@@ -28,7 +28,7 @@ import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, \
     LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME
-from mlflow.utils.mlflow_tags import MLFLOW_ENV, MLFLOW_CONDA, MLFLOW_DOCKER
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_CONDA, MLFLOW_DOCKER
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_NAME, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils import databricks_utils, file_utils
 from mlflow.utils.logging_utils import eprint
@@ -105,7 +105,8 @@ def _run(uri, entry_point="main", version=None, parameters=None,
         # If a docker_env attribute is defined in MLProject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_ENV, MLFLOW_DOCKER)
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_PROJECT_ENV,
+                                            MLFLOW_DOCKER)
             _validate_docker_env(project.docker_env)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
@@ -115,7 +116,8 @@ def _run(uri, entry_point="main", version=None, parameters=None,
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_ENV, MLFLOW_CONDA)
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_PROJECT_ENV,
+                                            MLFLOW_CONDA)
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
             command += _get_conda_command(conda_env_name)
