@@ -93,3 +93,11 @@ mlflow_user <- function() {
   else
     "unknown"
 }
+
+MLFLOW_SOURCE_TYPE <- list(
+  NOTEBOOK = 1,
+  JOB = 2,
+  PROJECT = 3,
+  LOCAL = 4,
+  UNKNOWN = 5
+)
