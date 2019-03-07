@@ -564,26 +564,6 @@ class TestFileStore(unittest.TestCase):
         logged_params = [(param.key, param.value) for param in run.data.params]
         assert set(logged_params) == set([(param.key, param.value) for param in params])
 
-    # def test_log_batch_param_overwrite_disallowed(self):
-    #     # Test that attempting to overwrite a param via log_batch results in an exception and that
-    #     # no partial data is logged
-    #     fs = FileStore(self.test_root)
-    #     run = self._create_run(fs)
-    #     tkey = 'my-param'
-    #     param = Param(tkey, 'orig-val')
-    #     fs.log_param(run.info.run_uuid, param)
-    #
-    #     overwrite_param = Param(tkey, 'newval')
-    #     tag = RunTag("tag-key", "tag-val")
-    #     metric = Metric("metric-key", 3.0, 12345)
-    #     with self.assertRaises(MlflowException) as e:
-    #         fs.log_batch(run.info.run_uuid, metrics=[metric], params=[overwrite_param],
-    #                              tags=[tag])
-    #     self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
-    #     logged_run = fs.get_run(run.info.run_uuid)
-    #     assert len(logged_run.data.metrics) == 0
-    #     assert len(logged_run.data.params) == 1
-
     def test_log_batch_internal_error(self):
         # Verify that internal errors during log_batch result in MlflowExceptions
         fs = FileStore(self.test_root)
@@ -656,3 +636,16 @@ class TestFileStore(unittest.TestCase):
         self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         fs.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])
         self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+
+    def test_log_batch_allows_tag_overwrite_single_req(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        tags = [RunTag("t-key", "val"), RunTag("t-key", "newval")]
+        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=tags)
+        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[], tags=[tags[-1]])
+
+    def test_log_batch_accepts_empty_payload(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[])
+        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[], tags=[])
