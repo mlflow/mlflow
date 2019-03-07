@@ -20,7 +20,6 @@ from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.search_utils import SearchFilter
 
-
 _store = None
 
 
