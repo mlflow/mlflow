@@ -106,7 +106,8 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name,
         source_version = source_version %||% get_source_version(),
         source_type =  MLFLOW_SOURCE_TYPE$NOTEBOOK,
         source_name = notebook_info$path,
-        tags = tags
+        tags = tags,
+        ...
       )
     } else {
       NextMethod()
