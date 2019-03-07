@@ -79,19 +79,18 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
     experiment_id <- as.integer(
       experiment_id %||% mlflow_get_active_experiment_id() %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
     )
-
     client <- mlflow_client()
-
+    context_tags <- mlflow_get_context_tags(client)
     mlflow_client_create_run(
       client = client,
       experiment_id = experiment_id,
       source_name = source_name %||% get_source_name(),
       source_version = source_version %||% get_source_version(),
       entry_point_name = entry_point_name,
-      source_type = source_type
+      source_type = source_type,
+      tags = context_tags
     )
   }
-
   mlflow_set_active_run(run)
 }
 

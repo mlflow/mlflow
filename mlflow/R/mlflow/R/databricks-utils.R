@@ -75,7 +75,7 @@ get_databricks_config_from_env <- function() {
 
 get_databricks_config <- function(profile) {
   config <- if (!is.na(profile)) {
-     get_databricks_config_for_profile(profile)
+    get_databricks_config_for_profile(profile)
   } else if (exists("databricks_authentication_provider")) {
     do.call("databricks_authentication_provider", list())
   } else {
@@ -91,3 +91,24 @@ get_databricks_config <- function(profile) {
   }
   config
 }
+
+mlflow_get_context_tags.mlflow_client <- function(client) {
+  res <- list()
+  if (exists("databricks_get_notebook_id_and_path")) {
+    id_and_path <- do.call("databricks_get_notebook_id_and_path", list())
+    if(!is.na(id_and_path$id && !is.na(id_and_path$path))) {
+      res$MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID = id_and_path$id
+      res$MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_PATH = id_and_path$path
+    }
+  }
+  res
+}
+
+MLFLOW_DATABRICKS_TAGS <- list(
+  MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
+  MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
+  MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL"
+  MLFLOW_DATABRICKS_RUN_URL = "mlflow.databricks.runURL"
+  MLFLOW_DATABRICKS_SHELL_JOB_ID = "mlflow.databricks.shellJobID"
+  MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID = "mlflow.databricks.shellJobRunID"
+)

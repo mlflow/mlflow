@@ -3,6 +3,14 @@ new_mlflow_client <- function(tracking_uri) {
   UseMethod("new_mlflow_client")
 }
 
+mlflow_get_context_tags <- function(client) {
+  UseMethod("mlflow_get_context_tags")
+}
+
+mlflow_get_context_tags.default <- function(client) {
+  list()
+}
+
 new_mlflow_uri <- function(raw_uri) {
   parts <- strsplit(raw_uri, "://")[[1]]
   structure(
