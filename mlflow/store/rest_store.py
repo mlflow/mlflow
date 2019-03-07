@@ -236,9 +236,4 @@ class RestStore(AbstractStore):
         self._call_endpoint(RestoreRun, req_body)
 
     def log_batch(self, run_id, metrics, params, tags):
-        metric_protos = [metric.to_proto() for metric in metrics]
-        param_protos = [param.to_proto() for param in params]
-        tag_protos = [tag.to_proto() for tag in tags]
-        req_body = message_to_json(
-            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id))
-        self._call_endpoint(LogBatch, req_body)
+        raise MlflowException("The LogBatch REST API is not yet implemented")

@@ -546,7 +546,5 @@ class FileStore(AbstractStore):
                 self.log_metric(run_id, metric)
             for tag in tags:
                 self.set_tag(run_id, tag)
-        # TODO: disallow overwriting params & handle that case here similarly to in the SQLAlchemy
-        # store
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
