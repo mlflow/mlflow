@@ -235,7 +235,7 @@ Iterating Quickly
 
 If you want to rapidly develop a project, we recommend creating an ``MLproject`` file with your
 main program specified as the ``main`` entry point, and running it with ``mlflow run .``.
-To avoid having to write parameters repeatedly you can add default parameters in your ``MLproject`` file.
+To avoid having to write parameters repeatedly, you can add default parameters in your ``MLproject`` file.
 
 Building Multistep Workflows
 -----------------------------
