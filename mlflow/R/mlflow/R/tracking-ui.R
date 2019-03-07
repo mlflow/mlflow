@@ -31,7 +31,7 @@ mlflow_ui <- function(x, ...) {
 
 #' @export
 mlflow_ui.mlflow_client <- function(x, ...) {
-  mlflow_view_url(x$server_url)
+  mlflow_view_url(x$get_host_creds()$host)
 }
 
 #' @export

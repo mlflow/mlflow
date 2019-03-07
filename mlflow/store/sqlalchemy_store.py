@@ -15,7 +15,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
-from mlflow.utils.search_utils import does_run_match_clause
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -87,7 +87,6 @@ class SqlAlchemyStore(AbstractStore):
         """
         Store in db
         """
-
         if type(objs) is list:
             self.session.add_all(objs)
         else:
@@ -241,12 +240,14 @@ class SqlAlchemyStore(AbstractStore):
     def _check_run_is_active(self, run):
         if run.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException("The run {} must be in 'active' state. Current state is {}."
-                                  .format(run.run_uuid, run.lifecycle_stage))
+                                  .format(run.run_uuid, run.lifecycle_stage),
+                                  INVALID_PARAMETER_VALUE)
 
     def _check_run_is_deleted(self, run):
         if run.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException("The run {} must be in 'deleted' state. Current state is {}."
-                                  .format(run.run_uuid, run.lifecycle_stage))
+                                  .format(run.run_uuid, run.lifecycle_stage),
+                                  INVALID_PARAMETER_VALUE)
 
     def update_run_info(self, run_uuid, run_status, end_time):
         run = self._get_run(run_uuid)
@@ -335,18 +336,31 @@ class SqlAlchemyStore(AbstractStore):
     def set_tag(self, run_uuid, tag):
         run = self._get_run(run_uuid)
         self._check_run_is_active(run)
-        new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
-        self._save_to_db(new_tag)
+        self.session.merge(SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
+        self.session.commit()
 
-    def search_runs(self, experiment_ids, search_expressions, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type):
         runs = [run.to_mlflow_entity()
                 for exp in experiment_ids
                 for run in self._list_runs(exp, run_view_type)]
-        if len(search_expressions) == 0:
-            return runs
-        return [r for r in runs if all([does_run_match_clause(r, s) for s in search_expressions])]
+        return [run for run in runs if not search_filter or search_filter.filter(run)]
 
     def _list_runs(self, experiment_id, run_view_type):
         exp = self._list_experiments(ids=[experiment_id], view_type=ViewType.ALL).first()
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
         return [run for run in exp.runs if run.lifecycle_stage in stages]
+
+    def log_batch(self, run_id, metrics, params, tags):
+        run = self._get_run(run_id)
+        self._check_run_is_active(run)
+        try:
+            for param in params:
+                self.log_param(run_id, param)
+            for metric in metrics:
+                self.log_metric(run_id, metric)
+            for tag in tags:
+                self.set_tag(run_id, tag)
+        except MlflowException as e:
+            raise e
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)

@@ -184,13 +184,15 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def search_runs(self, experiment_ids, search_expressions, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type):
         """
         Returns runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
 
         :param experiment_ids: List of experiment ids to scope the search
-        :param search_expression: list of search expressions
+        :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
+            search expression or filter string.
+        :param run_view_type: ACTIVE, DELETED, or ALL runs.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
@@ -206,5 +208,19 @@ class AbstractStore:
         :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
             search expressions
         """
-        runs = self.search_runs([experiment_id], [], run_view_type)
+        runs = self.search_runs([experiment_id], None, run_view_type)
         return [run.info for run in runs]
+
+    @abstractmethod
+    def log_batch(self, run_id, metrics, params, tags):
+        """
+        Logs multiple metrics, params, and tags for the specified run
+        :param run_id: String id for the run
+        :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
+        :param params: List of :py:class:`mlflow.entities.Param` instances to log
+        :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
+        :returns Tuple (failed_metrics, failed_params, failed_tags) where each element of
+                 the tuple is a list of of :py:class:`mlflow.protos.service_pb2.BatchLogFailure`
+                 protos describing metrics/params/tags that failed to be logged & why.
+        """
+        pass

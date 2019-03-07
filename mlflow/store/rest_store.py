@@ -3,6 +3,7 @@ import json
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
+from mlflow.exceptions import MlflowException
 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -195,20 +196,23 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric).value for metric in response_proto.metrics]
 
-    def search_runs(self, experiment_ids, search_expressions, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type):
         """
         Returns runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
 
         :param experiment_ids: List of experiment ids to scope the search
-        :param search_expression: list of search expressions
+        :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
+            search expression or filter string.
+        :param run_view_type: ACTIVE, DELETED, or ALL runs.
 
         :return: A list of Run objects that satisfy the search expressions
         """
-        search_expressions_protos = [expr.to_proto() for expr in search_expressions]
-        req_body = message_to_json(SearchRuns(experiment_ids=experiment_ids,
-                                              anded_expressions=search_expressions_protos,
-                                              run_view_type=ViewType.to_proto(run_view_type)))
+        sr = SearchRuns(experiment_ids=experiment_ids,
+                        anded_expressions=search_filter.search_expressions if search_filter else [],
+                        filter=search_filter.filter_string if search_filter else None,
+                        run_view_type=ViewType.to_proto(run_view_type))
+        req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
 
@@ -220,8 +224,7 @@ class RestStore(AbstractStore):
 
         :return: A list of RunInfo objects that satisfy the search expressions
         """
-        runs = self.search_runs(experiment_ids=[experiment_id], search_expressions=[],
-                                run_view_type=run_view_type)
+        runs = self.search_runs([experiment_id], None, run_view_type)
         return [run.info for run in runs]
 
     def delete_run(self, run_id):
@@ -231,3 +234,6 @@ class RestStore(AbstractStore):
     def restore_run(self, run_id):
         req_body = message_to_json(RestoreRun(run_id=run_id))
         self._call_endpoint(RestoreRun, req_body)
+
+    def log_batch(self, run_id, metrics, params, tags):
+        raise MlflowException("The LogBatch REST API is not yet implemented")
