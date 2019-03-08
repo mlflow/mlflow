@@ -336,6 +336,18 @@ class TestFileStore(unittest.TestCase):
         param = my_params[0]
         assert param.key == WEIRD_PARAM_NAME
         assert param.value == "Value"
+    
+    def test_log_empty_param(self):
+        PARAM_NAME = "new param"
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        fs.log_param(run_uuid, Param(PARAM_NAME, ""))
+        run = fs.get_run(run_uuid)
+        my_params = [p for p in run.data.params if p.key == PARAM_NAME]
+        assert len(my_params) == 1
+        param = my_params[0]
+        assert param.key == PARAM_NAME
+        assert param.value == ""
 
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"

@@ -465,6 +465,31 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run.run_uuid, param2)
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+    
+    def test_log_empty_param(self):
+        run = self._run_factory()
+
+        self.session.commit()
+
+        tkey = 'blahmetric'
+        tval = ''
+        param = entities.Param(tkey, tval)
+        param2 = entities.Param('new param', 'new key')
+        self.store.log_param(run.run_uuid, param)
+        self.store.log_param(run.run_uuid, param2)
+
+        actual = self.session.query(models.SqlParam).filter_by(key=tkey, value=tval)
+        self.assertIsNotNone(actual)
+
+        run = self.store.get_run(run.run_uuid)
+        self.assertEqual(2, len(run.data.params))
+
+        found = False
+        for m in run.data.params:
+            if m.key == tkey and m.value == tval:
+                found = True
+
+        self.assertTrue(found)
 
     def test_log_null_param(self):
         run = self._run_factory()
