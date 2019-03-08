@@ -138,10 +138,10 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
             run_name=run_name,
-            source_name=tags.get(MLFLOW_SOURCE_NAME),
-            source_version=tags.get(MLFLOW_GIT_COMMIT),
-            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),
-            source_type=tags.get(MLFLOW_SOURCE_TYPE),
+            source_name=tags.get(MLFLOW_SOURCE_NAME),  # For backwards compatability
+            source_version=tags.get(MLFLOW_GIT_COMMIT),  # For backwards compatability
+            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),  # For backwards compatability
+            source_type=tags.get(MLFLOW_SOURCE_TYPE),  # For backwards compatability
             tags=tags,
             parent_run_id=parent_run_id
         )
