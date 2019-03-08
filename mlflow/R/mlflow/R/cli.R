@@ -27,7 +27,7 @@ mlflow_cli <- function(...,
                        background = FALSE,
                        echo = TRUE,
                        stderr_callback = NULL,
-                       env = list()) {
+                       env = mlflow_client()$get_cli_env()) {
   args <- list(...)
   verbose <- mlflow_is_verbose()
 
