@@ -15,7 +15,8 @@ First, install MLflow (via ``pip install mlflow``) and install
 
 Then, build a docker image containing MLflow via
 
-.. code-block:: bash 
+.. code-block:: bash
+
   docker build -t mlflow-docker-example -f Dockerfile .
 
 Note that the name if the image used in the ``docker build`` command, ``mlflow-docker-example``, 
