@@ -2,7 +2,7 @@ from six.moves import urllib
 
 from mlflow.store.file_store import FileStore
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
-from mlflow.tracking.context import ContextProvider
+from mlflow.tracking.context import RunContextProvider
 
 
 class PluginFileStore(FileStore):
@@ -19,8 +19,8 @@ class PluginLocalArtifactRepository(LocalArtifactRepository):
     is_plugin = True
 
 
-class PluginContextProvider(ContextProvider):
-    """ContextProvider provided through plugin system"""
+class PluginRunContextProvider(RunContextProvider):
+    """RunContextProvider provided through plugin system"""
 
     def in_context(self):
         return True

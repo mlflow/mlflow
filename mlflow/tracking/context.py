@@ -65,7 +65,7 @@ def _get_source_type():
     return SourceType.LOCAL
 
 
-class ContextProvider(object):
+class RunContextProvider(object):
 
     __metaclass__ = ABCMeta
 
@@ -88,7 +88,7 @@ class ContextProvider(object):
         pass
 
 
-class DefaultContext(ContextProvider):
+class DefaultRunContext(RunContextProvider):
     def in_context(self):
         return True
 
@@ -99,7 +99,7 @@ class DefaultContext(ContextProvider):
         }
 
 
-class GitContext(ContextProvider):
+class GitRunContext(RunContextProvider):
 
     def __init__(self):
         self._cache = {}
@@ -119,7 +119,7 @@ class GitContext(ContextProvider):
         }
 
 
-class DatabricksNotebookContext(ContextProvider):
+class DatabricksNotebookRunContext(RunContextProvider):
     def in_context(self):
         return databricks_utils.is_in_databricks_notebook()
 
@@ -140,27 +140,27 @@ class DatabricksNotebookContext(ContextProvider):
         return tags
 
 
-class ContextProviderRegistry(object):
-    """Registry for context provider implementations
+class RunContextProviderRegistry(object):
+    """Registry for run context provider implementations
 
-    This class allows the registration of a context provider which can be used to infer meta
+    This class allows the registration of a run context provider which can be used to infer meta
     information about the context of an MLflow experiment run. Implementations declared though the
-    entrypoints `mlflow.context_provider` group can be automatically registered through the
+    entrypoints `mlflow.run_context_provider` group can be automatically registered through the
     `register_entrypoints` method.
 
-    Registered context providers can return tags that override those implemented in the core
+    Registered run context providers can return tags that override those implemented in the core
     library, however the order in which plugins are resolved is undefined.
     """
 
     def __init__(self):
         self._registry = []
 
-    def register(self, context_provider_cls):
-        self._registry.append(context_provider_cls())
+    def register(self, run_context_provider_cls):
+        self._registry.append(run_context_provider_cls())
 
     def register_entrypoints(self):
         """Register tracking stores provided by other packages"""
-        for entrypoint in entrypoints.get_group_all("mlflow.context_provider"):
+        for entrypoint in entrypoints.get_group_all("mlflow.run_context_provider"):
             try:
                 self.register(entrypoint.load())
             except (AttributeError, ImportError) as exc:
@@ -175,12 +175,12 @@ class ContextProviderRegistry(object):
         return iter(self._registry)
 
 
-_context_provider_registry = ContextProviderRegistry()
-_context_provider_registry.register(DefaultContext)
-_context_provider_registry.register(GitContext)
-_context_provider_registry.register(DatabricksNotebookContext)
+_run_context_provider_registry = RunContextProviderRegistry()
+_run_context_provider_registry.register(DefaultRunContext)
+_run_context_provider_registry.register(GitRunContext)
+_run_context_provider_registry.register(DatabricksNotebookRunContext)
 
-_context_provider_registry.register_entrypoints()
+_run_context_provider_registry.register_entrypoints()
 
 
 def _merge_tags(base, new):
@@ -190,7 +190,7 @@ def _merge_tags(base, new):
 def resolve_tags(tags=None):
 
     tag_sets = []
-    for provider in _context_provider_registry:
+    for provider in _run_context_provider_registry:
         if provider.in_context():
             tag_sets.append(provider.tags())
 

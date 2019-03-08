@@ -11,6 +11,6 @@ setup(
         "mlflow.tracking_store": "file-plugin=mlflow_test_plugin:PluginFileStore",
         "mlflow.artifact_repository":
             "file-plugin=mlflow_test_plugin:PluginLocalArtifactRepository",
-        "mlflow.context_provider": "unused=mlflow_test_plugin:PluginContextProvider"
+        "mlflow.run_context_provider": "unused=mlflow_test_plugin:PluginRunContextProvider"
     },
 )
