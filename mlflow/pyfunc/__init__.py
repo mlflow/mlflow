@@ -26,7 +26,8 @@ configuration::
         <data>: data packaged with the model (specified in the MLmodel file)
         <env>: Conda environment definition (specified in the MLmodel file)
 
-The directory structure may contain additional contents that can be referenced by the ``MLmodel`` configuration.
+The directory structure may contain additional contents that can be referenced by the ``MLmodel``
+configuration.
 
 .. _pyfunc-model-config:
 
@@ -59,7 +60,8 @@ following parameters:
          Relative path to an exported Conda environment. If present this environment
          should be activated prior to running the model.
 
-- Optionally, any additional parameters necessary for interpreting the serialized model in ``pyfunc`` format.
+- Optionally, any additional parameters necessary for interpreting the serialized model in
+  ``pyfunc`` format.
 
 .. rubric:: Example
 
@@ -114,7 +116,7 @@ queries, such as preprocessing and postprocessing routines. Therefore, ``mlflow.
 provides utilities for creating ``pyfunc`` models from arbitrary code and model data.
 
 The :meth:`save_model()` and :meth:`log_model()` methods are designed to support multiple workflows
-for creating custom **pyfunc** models that incorporate custom inference logic and **artifacts**
+for creating custom ``pyfunc`` models that incorporate custom inference logic and artifacts
 that the logic may require.
 
 An `artifact` is a file or directory, such as a serialized model or a CSV. For example, a
@@ -223,9 +225,9 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     """
     Add a ``pyfunc`` spec to the model configuration.
 
-    Defines ``pyfunc`` configuration schema. Caller can use this to create a valid pyfunc model flavor
-    out of an existing directory structure. For example, other model flavors can use this to specify
-    how to use their output as a ``pyfunc``.
+    Defines ``pyfunc`` configuration schema. Caller can use this to create a valid ``pyfunc`` model
+    flavor out of an existing directory structure. For example, other model flavors can use this to
+    specify how to use their output as a ``pyfunc``.
 
     NOTE:
 
