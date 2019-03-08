@@ -56,8 +56,8 @@ class ArtifactView extends Component {
                     <div className="artifact-info-link">
                       <a href={getSrc(this.state.activeNodeId, this.props.runUuid)}
                          target="_blank"
-                         title="Open in New Tab">
-                        <i className="fas fa-external-link-alt"/>
+                         title="Download artifact">
+                        <i className="fas fa-download"/>
                       </a>
                     </div>
                     <div className="artifact-info-path">
