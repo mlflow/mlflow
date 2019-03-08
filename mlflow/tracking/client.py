@@ -10,7 +10,7 @@ from six import iteritems
 
 from mlflow.tracking import utils
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-    _validate_tag_name, _validate_run_id, _validate_experiment_name
+    _validate_tag_name, _validate_run_id, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 
@@ -131,8 +131,8 @@ class MlflowClient(object):
         Log a metric against the run ID. If timestamp is not provided, uses
         the current timestamp.
         """
-        _validate_metric_name(key)
         timestamp = timestamp if timestamp is not None else int(time.time())
+        _validate_metric(key, value, timestamp)
         metric = Metric(key, value, timestamp)
         self.store.log_metric(run_id, metric)
 

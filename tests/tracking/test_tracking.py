@@ -272,10 +272,14 @@ def test_log_params(tracking_uri_mock):
         assert expected_params[param.key] == param.value
 
 
-def test_log_batch_validates_names(tracking_uri_mock):
+def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
     active_run = start_run()
     bad_kwargs = {
-        "metrics": [[Metric(key="../bad/metric/name", value=0.3, timestamp=3)]],
+        "metrics": [
+            [Metric(key="../bad/metric/name", value=0.3, timestamp=3)],
+            [Metric(key="ok-name", value="non-numerical-value", timestamp=3)],
+            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp")],
+        ],
         "params": [[Param(key="../bad/param/name", value="my-val")]],
         "tags": [[Param(key="../bad/tag/name", value="my-val")]],
     }

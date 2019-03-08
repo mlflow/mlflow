@@ -5,7 +5,6 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 
 from __future__ import print_function
 
-import numbers
 import os
 
 import atexit
@@ -204,10 +203,6 @@ def log_metric(key, value):
     :param key: Metric name (string).
     :param value: Metric value (float).
     """
-    if not isinstance(value, numbers.Number):
-        _logger.warning(
-            "The metric %s=%s was not logged because the value is not a number.", key, value)
-        return
     run_id = _get_or_start_run().info.run_uuid
     MlflowClient().log_metric(run_id, key, value, int(time.time()))
 
@@ -227,7 +222,8 @@ def log_metrics(metrics):
 def log_params(params):
     """
     Log a batch of params for the current run, starting a run if no runs are active.
-    :param params: Dictionary of param_name: String -> value: String
+    :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
+                   not)
     :returns: None
     """
     run_id = _get_or_start_run().info.run_uuid
@@ -238,7 +234,8 @@ def log_params(params):
 def set_tags(tags):
     """
     Log a batch of tags for the current run, starting a run if no runs are active.
-    :param tags: Dictionary of tag_name: String -> value: String
+    :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
+                 not)
     :returns: None
     """
     run_id = _get_or_start_run().info.run_uuid
