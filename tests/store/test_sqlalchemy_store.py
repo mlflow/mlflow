@@ -466,7 +466,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.store.log_param(run.run_uuid, param2)
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
     
-    def test_log_empty_param(self):
+    def test_log_empty_str(self):
         run = self._run_factory()
 
         self.session.commit()

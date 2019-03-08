@@ -337,7 +337,7 @@ class TestFileStore(unittest.TestCase):
         assert param.key == WEIRD_PARAM_NAME
         assert param.value == "Value"
     
-    def test_log_empty_param(self):
+    def test_log_empty_str(self):
         PARAM_NAME = "new param"
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
