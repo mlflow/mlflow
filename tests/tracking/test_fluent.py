@@ -1,18 +1,17 @@
-import mock
 import os
 import random
 import uuid
 
 import pytest
 import mock
-
-import pytest
+from six.moves import reload_module as reload
 
 import mlflow
 from mlflow.entities import Experiment, LifecycleStage, SourceType
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 import mlflow.tracking.fluent
+import mlflow.tracking.context
 from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experiment_id_from_env, \
     _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR
 from mlflow.utils.file_utils import TempDir
@@ -47,6 +46,12 @@ def reset_experiment_id():
     yield
     HelperEnv.set_values()
     mlflow.tracking.fluent._active_experiment_id = None
+
+
+@pytest.fixture(autouse=True)
+def reload_context_module():
+    """Reload the context module to clear caches."""
+    reload(mlflow.tracking.context)
 
 
 def test_get_experiment_id_from_env():
