@@ -147,6 +147,9 @@ class ContextProviderRegistry(object):
     information about the context of an MLflow experiment run. Implementations declared though the
     entrypoints `mlflow.context_provider` group can be automatically registered through the
     `register_entrypoints` method.
+
+    Registered context providers can return tags that override those implemented in the core
+    library, however the order in which plugins are resolved is undefined.
     """
 
     def __init__(self):
