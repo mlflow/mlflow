@@ -188,13 +188,16 @@ class Utils {
         if (revisionId) {
           url += `/revision/${revisionId}`;
         }
-        res = <Link
-          to={{ pathname: url, search: queryParams}}
+        if (queryParams) {
+          url += `${queryParams}`
+        }
+        res = <a
+          href={url}
           title={run.source_name}
           target='_top'
         >
           {Utils.baseName(run.source_name)}
-        </Link>;
+        </a>;
       }
       return res;
     } else {

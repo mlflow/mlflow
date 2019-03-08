@@ -269,7 +269,7 @@ class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
-    const parsedQueryParams = this.props.location ? this.props.location.search : "";
+    const queryParams = this.props.location ? this.props.location.search : "";
     return (
       <div className="ExperimentView runs-table-flex-container">
         <DeleteRunModal
@@ -430,7 +430,7 @@ class ExperimentView extends Component {
               runsSelected={this.state.runsSelected}
               runsExpanded={this.state.persistedState.runsExpanded}
               onExpand={this.onExpand}
-              queryParams={parsedQueryParams}
+              queryParams={queryParams}
             /> :
             <ExperimentRunsTableCompactView
               onCheckbox={this.onCheckbox}
@@ -453,7 +453,7 @@ class ExperimentView extends Component {
               unbaggedParams={unbaggedParamKeyList}
               onAddBagged={this.addBagged}
               onRemoveBagged={this.removeBagged}
-              queryParams={parsedQueryParams}
+              queryParams={queryParams}
             />
           }
         </div>
