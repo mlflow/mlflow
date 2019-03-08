@@ -191,7 +191,10 @@ def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
     from mlflow_test_plugin import PluginRunContextProvider
     assert PluginRunContextProvider in _currently_registered_run_context_provider_classes()
 
-    with mock.patch.object(PluginRunContextProvider, "tags", return_value={"test": "tag"}):
+    # The test plugin's context provider always returns False from in_context
+    # to avoid polluting tags in developers' environments. The following mock overrides this to
+    # perform the integration test
+    with mock.patch.object(PluginRunContextProvider, "in_context", return_value=True):
         assert resolve_tags()["test"] == "tag"
 
 

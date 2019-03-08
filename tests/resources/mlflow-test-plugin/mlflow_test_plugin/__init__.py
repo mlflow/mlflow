@@ -23,7 +23,7 @@ class PluginRunContextProvider(RunContextProvider):
     """RunContextProvider provided through plugin system"""
 
     def in_context(self):
-        return True
+        return False
 
     def tags(self):
-        return {}
+        return {"test": "tag"}
