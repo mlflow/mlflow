@@ -266,7 +266,9 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Job Output: </span>
               <span className="metadata-info">
-                <a href={tags['mlflow.databricks.runURL'].value + queryParams} target="_blank">Logs</a>
+                <a href={tags['mlflow.databricks.runURL'].value + queryParams} target="_blank">
+                  Logs
+                </a>
               </span>
             </div>
             : null
