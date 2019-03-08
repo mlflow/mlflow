@@ -10,19 +10,28 @@ for running dockerized projects e.g. on a Kubernetes cluster for scaleout.
 Running this Example
 ^^^^^^^^^^^^^^^^^^^^
 
-Install MLflow via `pip install mlflow` and `docker <https://www.docker.com/get-started>`_.
-Then, build a docker image containing MLflow via `docker build examples/docker -t mlflow-docker-example`
-and run the example project via `mlflow run examples/docker -P alpha=0.5`
+First, install MLflow (via ``pip install mlflow``) and install 
+`docker <https://www.docker.com/get-started>`_. 
+
+Then, build a docker image containing MLflow via
+
+.. code-block:: bash 
+  docker build -t mlflow-docker-example -f Dockerfile .
+
+Note that the name if the image used in the ``docker build`` command, ``mlflow-docker-example``, 
+matches the name of the image referenced in the ``MLProject`` file.
+
+Finally, run the example project via `mlflow run examples/docker -P alpha=0.5`
 
 What happens when the project is run?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Let's start by looking at the MLproject file, which specifies the docker image in which to run the
 project via a docker_env field:
 
-```
-docker_env:
-  image:  mlflow-docker-example
-```
+.. code-block:: yaml
+
+  docker_env:
+    image:  mlflow-docker-example
 
 Here, `image` can be any valid argument to `docker run`, such as the tag, ID or
 URL of a docker image (see `Docker docs <https://docs.docker.com/engine/reference/run/#general-form>`_).
