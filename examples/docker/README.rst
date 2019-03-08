@@ -6,28 +6,16 @@ training code. Running a project in a docker environment (as opposed to conda) a
 non-Python dependencies, e.g. Java libraries. In the future, we also hope to add tools to MLflow
 for running dockerized projects e.g. on a Kubernetes cluster for scaleout.
 
+Structure of this MLflow Project
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Running this Example
-^^^^^^^^^^^^^^^^^^^^
+This MLflow project contains a ``train.py`` file that trains a scikit-learn model and uses
+MLflow's Tracking APIs to log the model and its metadata (e.g, hyperparameters and metrics)
+for later use and reference. ``train.py`` operates on the Wine Quality Dataset, which is included
+in ``wine-quality.csv``.
 
-First, install MLflow (via ``pip install mlflow``) and install 
-`docker <https://www.docker.com/get-started>`_. 
-
-Then, build a docker image containing MLflow via
-
-.. code-block:: bash
-
-  docker build -t mlflow-docker-example -f Dockerfile .
-
-Note that the name if the image used in the ``docker build`` command, ``mlflow-docker-example``, 
-matches the name of the image referenced in the ``MLProject`` file.
-
-Finally, run the example project via `mlflow run examples/docker -P alpha=0.5`
-
-What happens when the project is run?
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Let's start by looking at the MLproject file, which specifies the docker image in which to run the
-project via a docker_env field:
+Most importantly, the project also includes an ``MLProject`` file, which specifies the docker
+container environment in which to run the project via the ``docker_env`` field:
 
 .. code-block:: yaml
 
@@ -37,6 +25,30 @@ project via a docker_env field:
 Here, `image` can be any valid argument to `docker run`, such as the tag, ID or
 URL of a docker image (see `Docker docs <https://docs.docker.com/engine/reference/run/#general-form>`_).
 The above example references a locally-stored image (mlflow-docker-example) by tag.
+
+Finally, the project includes a ``Dockerfile`` that is used to build the image referenced by the
+``MLProject`` file. The ``Dockerfile`` specifies library dependencies required by the project, such 
+as ``mlflow`` and ``scikit-learn``.
+
+Running this Example
+^^^^^^^^^^^^^^^^^^^^
+
+First, install MLflow (via ``pip install mlflow``) and install 
+`docker <https://www.docker.com/get-started>`_. 
+
+Then, build the image for the project's Docker container environment via
+
+.. code-block:: bash
+
+  docker build -t mlflow-docker-example -f Dockerfile .
+
+Note that the name if the image used in the ``docker build`` command, ``mlflow-docker-example``, 
+matches the name of the image referenced in the ``MLProject`` file.
+
+Finally, run the example project via ``mlflow run examples/docker -P alpha=0.5``.
+
+What happens when the project is run?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Running `mlflow run examples/docker` builds a new docker image based on `mlflow-docker-example`
 but also containing our project code, then executes the default (main) project entry point
