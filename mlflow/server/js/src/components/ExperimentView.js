@@ -87,6 +87,10 @@ class ExperimentView extends Component {
 
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
+
+    // Passed by withRouter, see https://github.com/ReactTraining/react-router/blob/
+    // f3ef7f496e40d54ddeae8635111347fa452a458e/packages/react-router/docs/api/withRouter.md
+    location: PropTypes.object.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -265,6 +269,7 @@ class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
+    const parsedQueryParams = this.props.location ? this.props.location.search : "";
     return (
       <div className="ExperimentView runs-table-flex-container">
         <DeleteRunModal
@@ -425,6 +430,7 @@ class ExperimentView extends Component {
               runsSelected={this.state.runsSelected}
               runsExpanded={this.state.persistedState.runsExpanded}
               onExpand={this.onExpand}
+              queryParams={parsedQueryParams}
             /> :
             <ExperimentRunsTableCompactView
               onCheckbox={this.onCheckbox}
@@ -447,6 +453,7 @@ class ExperimentView extends Component {
               unbaggedParams={unbaggedParamKeyList}
               onAddBagged={this.addBagged}
               onRemoveBagged={this.removeBagged}
+              queryParams={parsedQueryParams}
             />
           }
         </div>

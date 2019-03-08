@@ -40,10 +40,10 @@ export default class ExperimentViewUtil {
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
    * the display row for a run.
    */
-  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType) {
+  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType, queryParams) {
     const CellComponent = `${cellType}`;
     const user = Utils.formatUser(runInfo.user_id);
-    const sourceType = Utils.renderSource(runInfo, tags);
+    const sourceType = Utils.renderSource(runInfo, tags, queryParams);
     const startTime = runInfo.start_time;
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};

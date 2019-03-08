@@ -1,5 +1,7 @@
 import dateFormat from 'dateformat';
 import React from 'react';
+import { Link } from 'react-router-dom';
+
 import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
@@ -166,8 +168,9 @@ class Utils {
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param run MlflowMessages.RunInfo
    * @param tags Object containing tag key value pairs.
+   * @param queryParams Optional query parameters to use for the link.
    */
-  static renderSource(run, tags) {
+  static renderSource(run, tags, queryParams) {
     let res = Utils.formatSource(run);
     if (run.source_type === "PROJECT") {
       const url = Utils.getGitRepoUrl(run.source_name);
@@ -185,9 +188,13 @@ class Utils {
         if (revisionId) {
           url += `/revision/${revisionId}`;
         }
-        res = (<a title={run.source_name} href={url} target='_top'>
+        res = <Link
+          to={{ pathname: url, search: queryParams}}
+          title={run.source_name}
+          target='_top'
+        >
           {Utils.baseName(run.source_name)}
-        </a>);
+        </Link>;
       }
       return res;
     } else {

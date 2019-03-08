@@ -2,6 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { connect } from 'react-redux';
+import { withRouter } from "react-router";
 import './RunView.css';
 import HtmlTableView from './HtmlTableView';
 import { Link } from 'react-router-dom';
@@ -50,6 +51,9 @@ class RunView extends Component {
     getMetricPagePath: PropTypes.func.isRequired,
     runDisplayName: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
+    // Passed by withRouter, see https://github.com/ReactTraining/react-router/blob/
+    // f3ef7f496e40d54ddeae8635111347fa452a458e/packages/react-router/docs/api/withRouter.md
+    location: PropTypes.object.isRequired,
   };
 
   state = {
@@ -163,7 +167,8 @@ class RunView extends Component {
   }
 
   render() {
-    const { run, params, tags, latestMetrics, getMetricPagePath } = this.props;
+    const { run, params, tags, latestMetrics, getMetricPagePath, location } = this.props;
+    const queryString = location ? location.search : "";
     const noteInfo = NoteInfo.fromRunTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
@@ -220,7 +225,7 @@ class RunView extends Component {
             <span className="metadata-header">Source: </span>
             <span className="metadata-info">
               {Utils.renderSourceTypeIcon(run.source_type)}
-              {Utils.renderSource(run, tags)}
+              {Utils.renderSource(run, tags, queryString)}
             </span>
           </div>
           {run.source_version ?
@@ -369,7 +374,7 @@ const mapStateToProps = (state, ownProps) => {
   return { run, experiment, params, tags, latestMetrics, runDisplayName, runName};
 };
 
-export default connect(mapStateToProps)(RunView);
+export default withRouter(connect(mapStateToProps)(RunView));
 
 // Private helper functions.
 
