@@ -1,6 +1,5 @@
 import dateFormat from 'dateformat';
 import React from 'react';
-import { Link } from 'react-router-dom';
 
 import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
@@ -189,7 +188,7 @@ class Utils {
           url += `/revision/${revisionId}`;
         }
         if (queryParams) {
-          url += `${queryParams}`
+          url += `${queryParams}`;
         }
         res = <a
           href={url}
