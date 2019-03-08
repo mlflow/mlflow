@@ -185,7 +185,6 @@ class RunView extends Component {
       }
     };
     const runCommand = this.getRunCommand();
-    const jobLink = ".";
     return (
       <div className="RunView">
         <div className="header-container">
