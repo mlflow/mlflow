@@ -57,6 +57,21 @@ def test_git_context_tags(patch_script_name, patch_git_repo):
     }
 
 
+def test_git_context_caching(patch_script_name):
+    """Check that the git commit hash is only looked up once."""
+
+    mock_repo = mock.Mock()
+    mock_hexsha = mock.PropertyMock(return_value=MOCK_COMMIT_HASH)
+    type(mock_repo.head.commit).hexsha = mock_hexsha
+
+    with mock.patch("git.Repo", return_value=mock_repo):
+        context = GitContext()
+        context.in_context()
+        context.tags()
+
+    assert mock_hexsha.call_count == 1
+
+
 def test_databricks_notebook_in_context():
     with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook") as in_notebook_mock:
         assert DatabricksNotebookContext().in_context() == in_notebook_mock.return_value
