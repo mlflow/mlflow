@@ -188,6 +188,16 @@ def _merge_tags(base, new):
 
 
 def resolve_tags(tags=None):
+    """Generate a set of tags for the current run context.
+
+    This function iterates through all run context providers in the registry. Additional context
+    providers can be registered as described in
+    :py:class:`mlflow.tracking.context.RunContextProvider`.
+
+    :param tags: A dictionary of tags to override. If specified, tags passed in this argument will
+                 override those inferred from the context.
+    :return: A dicitonary of resolved tags.
+    """
 
     tag_sets = []
     for provider in _run_context_provider_registry:
