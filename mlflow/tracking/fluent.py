@@ -22,8 +22,8 @@ from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
     get_notebook_path, get_webapp_url
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
-    MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
-    MLFLOW_DATABRICKS_NOTEBOOK_ID
+    MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_GIT_COMMIT, \
+    MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -124,35 +124,44 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
             parent_run_id = None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
+
+        tags = {}
+
+        source_version = source_version or _get_source_version()
+        if source_version is not None:
+            tags[MLFLOW_GIT_COMMIT] = source_version
+        if entry_point_name is not None:
+            tags[MLFLOW_PROJECT_ENTRY_POINT] = entry_point_name
+
         if is_in_databricks_notebook():
-            databricks_tags = {}
             notebook_id = get_notebook_id()
             notebook_path = get_notebook_path()
             webapp_url = get_webapp_url()
             if notebook_id is not None:
-                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
+                tags[MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
             if notebook_path is not None:
-                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
+                tags[MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
             if webapp_url is not None:
-                databricks_tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
-            active_run_obj = MlflowClient().create_run(
-                experiment_id=exp_id_for_run,
-                run_name=run_name,
-                source_name=notebook_path,
-                source_version=source_version or _get_source_version(),
-                entry_point_name=entry_point_name,
-                source_type=SourceType.NOTEBOOK,
-                tags=databricks_tags,
-                parent_run_id=parent_run_id)
+                tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
+            source_name = notebook_path
+            source_type = SourceType.NOTEBOOK
         else:
-            active_run_obj = MlflowClient().create_run(
-                experiment_id=exp_id_for_run,
-                run_name=run_name,
-                source_name=source_name or _get_source_name(),
-                source_version=source_version or _get_source_version(),
-                entry_point_name=entry_point_name,
-                source_type=source_type or _get_source_type(),
-                parent_run_id=parent_run_id)
+            source_name = source_name or _get_source_name()
+            source_type = source_type or _get_source_type()
+
+        tags[MLFLOW_SOURCE_NAME] = source_name
+        tags[MLFLOW_SOURCE_TYPE] = source_type
+
+        active_run_obj = MlflowClient().create_run(
+            experiment_id=exp_id_for_run,
+            run_name=run_name,
+            source_name=source_name,
+            source_version=source_version,
+            entry_point_name=entry_point_name,
+            source_type=source_type,
+            tags=tags,
+            parent_run_id=parent_run_id)
+
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
 
