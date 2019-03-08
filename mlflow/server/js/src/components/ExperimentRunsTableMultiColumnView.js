@@ -36,8 +36,6 @@ class ExperimentRunsTableMultiColumnView extends Component {
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,
     metricRanges: PropTypes.object.isRequired,
-    // Current URL query params
-    queryParams: PropTypes.object.isRequired,
   };
 
   getRow({ idx, isParent, hasExpander, expanderOpen, childrenIds }) {
@@ -52,7 +50,6 @@ class ExperimentRunsTableMultiColumnView extends Component {
       tagsList,
       onExpand,
       metricRanges,
-      queryParams,
     } = this.props;
     const runInfo = runInfos[idx];
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
@@ -66,7 +63,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
         hasExpander, expanderOpen, () => onExpand(runInfo.run_uuid, childrenIds), runInfo.run_uuid,
         "td"),
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "td", queryParams)
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "td")
       .forEach((col) => rowContents.push(col));
     paramKeyList.forEach((paramKey) => {
       rowContents.push(ExperimentViewUtil.getUnbaggedParamCell(paramKey, paramsMap, "td"));

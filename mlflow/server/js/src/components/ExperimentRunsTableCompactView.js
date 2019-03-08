@@ -96,8 +96,6 @@ class ExperimentRunsTableCompactView extends PureComponent {
     unbaggedParams: PropTypes.arrayOf(String).isRequired,
     // Array of keys corresponding to unbagged metrics
     unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
-    // Current URL query params
-    queryParams: PropTypes.object.isRequired,
   };
 
 
@@ -119,7 +117,6 @@ class ExperimentRunsTableCompactView extends PureComponent {
       unbaggedMetrics,
       unbaggedParams,
       onRemoveBagged,
-      queryParams,
     } = this.props;
     const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[idx]);
     const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[idx]);
@@ -131,7 +128,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
         hasExpander, expanderOpen, () => onExpand(
           runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "div", queryParams)
+    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "div")
       .forEach((col) => rowContents.push(col));
 
     const unbaggedParamSet = new Set(unbaggedParams);
