@@ -50,23 +50,28 @@ if __name__ == "__main__":
     alpha = float(args.alpha)
     l1_ratio = float(args.l1_ratio)
 
-    with mlflow.start_run():
-        lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
-        lr.fit(train_x, train_y)
+    from mlflow.tracking.client import MlflowClient
+    client = MlflowClient()
+    # client.create_experiment("CATHAXHORSE")
 
-        predicted_qualities = lr.predict(test_x)
+    for _ in range(10):
+        with mlflow.start_run():
+            lr = ElasticNet(alpha=alpha, l1_ratio=l1_ratio, random_state=42)
+            lr.fit(train_x, train_y)
 
-        (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
+            predicted_qualities = lr.predict(test_x)
 
-        print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
-        print("  RMSE: %s" % rmse)
-        print("  MAE: %s" % mae)
-        print("  R2: %s" % r2)
+            (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
 
-        mlflow.log_param("alpha", alpha)
-        mlflow.log_param("l1_ratio", l1_ratio)
-        mlflow.log_metric("rmse", rmse)
-        mlflow.log_metric("r2", r2)
-        mlflow.log_metric("mae", mae)
+            print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
+            print("  RMSE: %s" % rmse)
+            print("  MAE: %s" % mae)
+            print("  R2: %s" % r2)
 
-        mlflow.sklearn.log_model(lr, "model")
+            mlflow.log_param("alpha", alpha)
+            mlflow.log_param("l1_ratio", l1_ratio)
+            mlflow.log_metric("rmse", rmse)
+            mlflow.log_metric("r2", r2)
+            mlflow.log_metric("mae", mae)
+
+            mlflow.sklearn.log_model(lr, "model")

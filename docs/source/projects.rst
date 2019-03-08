@@ -42,6 +42,39 @@ Entry Points
     a ``MLproject`` file, however, you can also specify *parameters* for them, including data
     types and default values.
 
+Environment
+    The software environment that should be used to execute project entrypoints. This includes all
+    library dependencies required by the project code. MLflow currently supports the following
+    project environments:
+
+    * **Conda Environments**
+
+      You can run MLflow Projects inside `Conda <https://conda.io/docs>`_ environments, which 
+      support both Python packages and native libraries (e.g, CuDNN or Intel MKL). When an MLflow 
+      Project specifies a Conda environment, it is activated before project code is executed.
+
+      By default, MLflow uses the system path to find and execute the ``conda`` binary. You can
+      use a different Conda installation by setting the ``MLFLOW_CONDA_HOME`` environment variable;
+      in this case, MLflow attempts to execute the binary at ``$MLFLOW_CONDA_HOME/bin/conda``.
+
+      For information about including a Conda environment in an MLflow Project, see 
+      :ref:`specifying-projects`.
+
+    * **Docker Containers**
+
+      You can also run MLflow Projects inside `Docker containers 
+      <https://www.docker.com/resources/what-container>`_. When an MLflow Project specifies a
+      Docker image, MLflow executes the image, copies the project directory into the resulting
+      container, and invokes the project entrypoint in the container. :ref:`Runs <concepts>` and 
+      :ref:`Experiments <organizing-runs-in-experiments>` created by the project are saved to the
+      tracking server specified by your :ref:`tracking URI <where-runs-are-recorded>`.
+    
+    * **System Environments**
+
+      You can also run MLflow Projects directly in your current system environment. This requires
+      all of the project's dependencies to be installed on your system prior to project execution.
+
+
 You can run any project from a Git URI or from a local directory using the ``mlflow run``
 command-line tool, or the :py:func:`mlflow.projects.run` Python API. These APIs also allow submitting the
 project for remote execution on `Databricks <https://databricks.com>`_.
@@ -52,6 +85,8 @@ project for remote execution on `Databricks <https://databricks.com>`_.
     This means that you should generally pass any file arguments to MLflow
     project using absolute, not relative, paths. If your project declares its parameters, MLflow
     automatically makes paths absolute for parameters of type ``path``.
+
+.. _specifying-projects:
 
 Specifying Projects
 -------------------
