@@ -1,6 +1,7 @@
 import shutil
 import unittest
 import warnings
+import random
 
 import sqlalchemy
 import time
@@ -397,6 +398,26 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 found = True
 
         self.assertTrue(found)
+
+    def test_log_metric_allows_multiple_values_at_same_timestamp_and_read_returns_max_value(self):
+        run = self._run_factory()
+
+        self.session.commit()
+
+        num_metrics_for_timestamp = 10
+        metric_key = "duplicate_timestamp_metric"
+        metric_vals = [random.random() for _ in range(num_metrics_for_timestamp)]
+        metric_timestamp = time.time()
+        for metric_val in metric_vals:
+            metric = entities.Metric(metric_key, metric_val, metric_timestamp)
+            self.store.log_metric(run.run_uuid, metric)
+
+        timestamp_duplicate_metrics = [
+            metric for metric in self.store.get_run(run.run_uuid).data.metrics
+            if metric.key == metric_key
+        ]
+        assert len(timestamp_duplicate_metrics) == 1
+        assert timestamp_duplicate_metrics[0].value == max(metric_vals)
 
     def test_log_metric_uniqueness(self):
         run = self._run_factory()
