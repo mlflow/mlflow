@@ -10,6 +10,8 @@ from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository
 HDFS_HOST = "localhost"
 HDFS_PORT = "8020"
 hadoop_url = "hdfs://" + HDFS_HOST + ":" + HDFS_PORT
+
+
 @pytest.fixture
 def hadoop_connection():
     if ("HADOOP_HOST" in os.environ):
