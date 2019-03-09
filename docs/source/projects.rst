@@ -37,7 +37,9 @@ Entry Points
 Environment
     The software environment that should be used to execute project entry points. This includes all
     library dependencies required by the project code. See :ref:`project-environments` for more
-    information about the software environments supported by MLflow Projects.
+    information about the software environments supported by MLflow Projects, including
+    :ref:`Conda environments <project-conda-environments>` and 
+    :ref:`Docker containers <project-docker-container-environments>`.
 
 You can run any project from a Git URI or from a local directory using the ``mlflow run``
 command-line tool, or the :py:func:`mlflow.projects.run` Python API. These APIs also allow submitting the
@@ -69,6 +71,8 @@ Project Environments
 ^^^^^^^^^^^^^^^^^^^^
 MLflow currently supports the following project environments:
 
+.. _project-conda-environments:
+
 Conda Environments
   You can run MLflow Projects inside `Conda <https://conda.io/docs>`_ environments, which support 
   both Python packages and native libraries (e.g, CuDNN or Intel MKL). When an MLflow Project 
@@ -83,14 +87,22 @@ Conda Environments
   ``MLProject`` file. For more information, see the :ref:`project-directories` and 
   :ref:`MLProject File <mlproject-file>` sections.
 
+.. _project-docker-container-environments:
+
 Docker Containers
   You can also run MLflow Projects inside 
   `Docker containers <https://www.docker.com/resources/what-container>`_. When you run an MLflow 
   Project that specifies a Docker image, MLflow executes the image, mounts the project directory 
   in the resulting container at ``/mlflow/projects/code``, and invokes the project entry point in 
-  the container. :ref:`Runs <concepts>` and :ref:`Experiments <organizing-runs-in-experiments>` 
-  created by the project are saved to the tracking server specified by your 
-  :ref:`tracking URI <where-runs-are-recorded>`.
+  the container. 
+ 
+  Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the Docker container 
+  during project execution. Additionally, :ref:`Runs <concepts>` and 
+  :ref:`Experiments <organizing-runs-in-experiments>` created by the project are saved to the 
+  tracking server specified by your :ref:`tracking URI <where-runs-are-recorded>`. When running 
+  against a local tracking URI, MLflow will mount the host system's tracking directory
+  (e.g., a local ``mlruns`` directory) inside the container so that metrics, parameters, and 
+  artifacts logged during project execution are accessible afterwards.
 
   See `here <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ for an example of an 
   MLflow project with a Docker environment.
@@ -290,6 +302,9 @@ Remote Execution on Databricks
 Support for running projects remotely on Databricks is in beta preview and requires a Databricks account. 
 To receive future updates about the feature, `sign up here <http://databricks.com/mlflow>`_.
 
+.. important::
+
+  Remote execution for MLflow projects with Docker environments is *not* currently supported.
 
 Launching a Remote Execution on Databricks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
