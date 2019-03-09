@@ -152,8 +152,9 @@ file, MLflow uses the following conventions to determine the project's attribute
 The MLProject File
 ^^^^^^^^^^^^^^^^^^
 
-You can get more control over a project by adding a ``MLproject``, which is simply a text file in
-YAML syntax. The following is an example of an ``MLProject`` file: 
+You can get more control over an MLflow Project by adding an ``MLproject`` file, which is a text
+file in YAML syntax, to the project's root directory. The following is an example of an 
+``MLProject`` file: 
 
 .. code-block:: yaml
 
