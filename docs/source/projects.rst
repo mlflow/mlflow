@@ -91,10 +91,10 @@ Conda Environments
 
 Docker Containers
   You can also run MLflow Projects inside 
-  `Docker containers <https://www.docker.com/resources/what-container>`_. When you run an MLflow 
-  Project that specifies a Docker image, MLflow executes the image, mounts the project directory 
-  in the resulting container at ``/mlflow/projects/code``, and invokes the project entry point in 
-  the container. 
+  `Docker containers <https://www.docker.com/resources/what-container>`_, which allows you to 
+  capture non-Python dependencies such as Java libraries. When you run an MLflow Project that 
+  specifies a Docker image, MLflow executes the image, mounts the project directory in the resulting 
+  container at ``/mlflow/projects/code``, and invokes the project entry point in the container. 
  
   Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the Docker container 
   during project execution. Additionally, :ref:`Runs <concepts>` and 
@@ -146,12 +146,6 @@ file, MLflow uses the following conventions to determine the project's attribute
   :py:func:`mlflow.projects.run` Python API. Runtime parameters are passed to the entry point on the 
   command line using ``--key value`` syntax. For more information about running projects and
   with runtime parameters, see :ref:`running-projects`. 
-
-.. DOES NOT BELONG HERE
-.. * Alternatively, you may provide a Docker environment for project execution, which allows for capturing
-..   non-Python dependencies such as Java libraries.
-..  `See here <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ for an example of an
-..   MLflow project with a Docker environment.
 
 .. _mlproject-file: 
 
