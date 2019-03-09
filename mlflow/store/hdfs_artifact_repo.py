@@ -1,6 +1,5 @@
 import os
 
-from hdfs3 import HDFileSystem
 from six.moves import urllib
 
 from mlflow.entities import FileInfo
@@ -32,6 +31,7 @@ class HdfsArtifactRepository(ArtifactRepository):
             raise MlflowException('hdfsArtifactRepository URI must start with hdfs:/')
 
     def _create_hdfs_conn(self):
+        from hdfs3 import HDFileSystem
         hdfs = HDFileSystem(host=self.config["host"],
                             port=int(self.config["port"]))
         return hdfs

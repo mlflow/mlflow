@@ -4,7 +4,6 @@ import mock
 import pytest
 import tempfile
 
-from hdfs3 import HDFileSystem
 
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository
@@ -73,6 +72,7 @@ def test_list_artifacts():
 
 
 def test_log_artifact():
+    hdfs=None
     if (not is_hadoop_installed):
         return True
     filepath="/test_hdfs/some/path"
@@ -100,10 +100,12 @@ def test_log_artifact():
 
 
 def _create_conn():
+    from hdfs3 import HDFileSystem
     hdfs = HDFileSystem(host=HDFS_HOST,port=int(HDFS_PORT))
     return hdfs
 
 def test_log_artifacts():
+    hdfs=None
     if(not is_hadoop_installed()):
         return True
     filepath="/test_hdfs/some/path"
@@ -121,7 +123,6 @@ def test_log_artifacts():
         f.write("C")
 
     repo.log_artifacts(subd,"test_model")
-    hdfs=None
     try:
         hdfs = _create_conn()
         assert hdfs.exists(filepath+"/test_model/subdir/a.txt")==True
@@ -133,6 +134,7 @@ def test_log_artifacts():
         clean_dir(filepath)
 
 def clean_dir(path):
+    hdfs=None
     try:
         if (not is_hadoop_installed()):
             return True
