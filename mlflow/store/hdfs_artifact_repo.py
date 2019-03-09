@@ -30,6 +30,10 @@ class HdfsArtifactRepository(ArtifactRepository):
         if not artifact_uri.startswith('hdfs:/'):
             raise MlflowException('hdfsArtifactRepository URI must start with hdfs:/')
 
+    def get_path_module(self):
+        import posixpath
+        return posixpath
+
     def _create_hdfs_conn(self):
         from hdfs3 import HDFileSystem
         hdfs = HDFileSystem(host=self.config["host"],
@@ -121,6 +125,6 @@ class HdfsArtifactRepository(ArtifactRepository):
             if hdfs:
                 hdfs.disconnect()
 
-    def _download_file(self, remote_path, local_path):
+    def _download_file(self, remote_file_path, local_path):
         self._hdfs_download(output_path=local_path,
-                            remote_path=remote_path)
+                            remote_path=remote_file_path)

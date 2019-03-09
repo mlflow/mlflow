@@ -1,6 +1,5 @@
 # pylint: disable=redefined-outer-name
 import os
-import mock
 import pytest
 import tempfile
 
@@ -19,8 +18,6 @@ def hadoop_connection():
 
     if ("HADOOP_PORT" in os.environ):
         HDFS_PORT = os.environ["HADOOP_PORT"]
-
-    hadoop_url = "hdfs://" + HDFS_HOST + ":" + HDFS_PORT
     # yield mock.MagicMock(autospec=))
 
 
