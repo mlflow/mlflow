@@ -59,8 +59,10 @@ class HdfsArtifactRepository(ArtifactRepository):
                 hdfs.mkdir(artifact_path)
             rootdir_name = os.path.split(os.path.dirname(local_dir))[1]
             for subdir, dirs, files in os.walk(local_dir):
-                hdfs_subdir_path = self.path + os.sep + artifact_path + os.sep + self.extract_child(subdir,
-                                                                                                    rootdir_name)
+                hdfs_subdir_path = self.path + os.sep \
+                                   + artifact_path + os.sep \
+                                   + self.extract_child(subdir,
+                                                        rootdir_name)
                 if not (hdfs.isdir(hdfs_subdir_path)):
                     hdfs.mkdir(hdfs_subdir_path)
                 for file in files:
@@ -88,12 +90,12 @@ class HdfsArtifactRepository(ArtifactRepository):
         hdfs = None
         try:
             hdfs = self._create_hdfs_conn()
-            if(hdfs.exists(hdfs_path)):
+            if (hdfs.exists(hdfs_path)):
                 paths = hdfs.glob(hdfs_path + "/*")
                 if (paths and len(paths) > 0):
                     infos = []
                     for f in paths:
-                        infos.append(FileInfo(f, hdfs.isdir(f),hdfs.info(f).get("size")))
+                        infos.append(FileInfo(f, hdfs.isdir(f), hdfs.info(f).get("size")))
                     return sorted(infos, key=lambda f: paths)
             return paths
         finally:
