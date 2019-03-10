@@ -22,7 +22,8 @@ from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.entities import RunStatus, SourceType, Param
-from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
+from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracking.context import _get_git_commit
 
 import mlflow.projects.databricks
 from mlflow.utils import process

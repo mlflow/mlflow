@@ -1,18 +1,17 @@
-import mock
 import os
 import random
 import uuid
 
 import pytest
 import mock
-
-import pytest
+from six.moves import reload_module as reload
 
 import mlflow
 from mlflow.entities import Experiment, LifecycleStage, SourceType
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 import mlflow.tracking.fluent
+import mlflow.tracking.context
 from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experiment_id_from_env, \
     _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR
 from mlflow.utils.file_utils import TempDir
@@ -47,6 +46,12 @@ def reset_experiment_id():
     yield
     HelperEnv.set_values()
     mlflow.tracking.fluent._active_experiment_id = None
+
+
+@pytest.fixture(autouse=True)
+def reload_context_module():
+    """Reload the context module to clear caches."""
+    reload(mlflow.tracking.context)
 
 
 def test_get_experiment_id_from_env():
@@ -157,15 +162,15 @@ def test_start_run_defaults(empty_active_run_stack):
     )
     mock_source_name = mock.Mock()
     source_name_patch = mock.patch(
-        "mlflow.tracking.fluent._get_source_name", return_value=mock_source_name
+        "mlflow.tracking.context._get_source_name", return_value=mock_source_name
     )
     mock_source_type = mock.Mock()
     source_type_patch = mock.patch(
-        "mlflow.tracking.fluent._get_source_type", return_value=mock_source_type
+        "mlflow.tracking.context._get_source_type", return_value=mock_source_type
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.fluent._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context._get_source_version", return_value=mock_source_version
     )
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
@@ -199,23 +204,23 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
     databricks_notebook_patch = mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=True
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.fluent._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context._get_source_version", return_value=mock_source_version
     )
     mock_notebook_id = mock.Mock()
     notebook_id_patch = mock.patch(
-        "mlflow.tracking.fluent.get_notebook_id", return_value=mock_notebook_id
+        "mlflow.utils.databricks_utils.get_notebook_id", return_value=mock_notebook_id
     )
     mock_notebook_path = mock.Mock()
     notebook_path_patch = mock.patch(
-        "mlflow.tracking.fluent.get_notebook_path", return_value=mock_notebook_path
+        "mlflow.utils.databricks_utils.get_notebook_path", return_value=mock_notebook_path
     )
     mock_webapp_url = mock.Mock()
     webapp_url_patch = mock.patch(
-        "mlflow.tracking.fluent.get_webapp_url", return_value=mock_webapp_url
+        "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
 
     expected_tags = {
@@ -289,31 +294,33 @@ def test_start_run_overrides(empty_active_run_stack):
 def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
 
     databricks_notebook_patch = mock.patch(
-        "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=True
+        "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
     )
     mock_notebook_id = mock.Mock()
     notebook_id_patch = mock.patch(
-        "mlflow.tracking.fluent.get_notebook_id", return_value=mock_notebook_id
+        "mlflow.utils.databricks_utils.get_notebook_id", return_value=mock_notebook_id
     )
     mock_notebook_path = mock.Mock()
     notebook_path_patch = mock.patch(
-        "mlflow.tracking.fluent.get_notebook_path", return_value=mock_notebook_path
+        "mlflow.utils.databricks_utils.get_notebook_path", return_value=mock_notebook_path
     )
     mock_webapp_url = mock.Mock()
     webapp_url_patch = mock.patch(
-        "mlflow.tracking.fluent.get_webapp_url", return_value=mock_webapp_url
+        "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
     mock_experiment_id = mock.Mock()
+    mock_source_name = mock.Mock()
+    mock_source_type = mock.Mock()
     mock_source_version = mock.Mock()
     mock_entry_point_name = mock.Mock()
     mock_run_name = mock.Mock()
 
     expected_tags = {
-        mlflow_tags.MLFLOW_SOURCE_NAME: mock_notebook_path,
-        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK,
+        mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
         mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
@@ -324,17 +331,17 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
     with databricks_notebook_patch, create_run_patch, notebook_id_patch, notebook_path_patch, \
             webapp_url_patch:
         active_run = start_run(
-            experiment_id=mock_experiment_id, source_name="ignored",
+            experiment_id=mock_experiment_id, source_name=mock_source_name,
             source_version=mock_source_version, entry_point_name=mock_entry_point_name,
-            source_type="ignored", run_name=mock_run_name
+            source_type=mock_source_type, run_name=mock_run_name
         )
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=mock_run_name,
-            source_name=mock_notebook_path,
+            source_name=mock_source_name,
             source_version=mock_source_version,
             entry_point_name=mock_entry_point_name,
-            source_type=SourceType.NOTEBOOK,
+            source_type=mock_source_type,
             tags=expected_tags,
             parent_run_id=None
         )
