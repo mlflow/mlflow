@@ -7,7 +7,7 @@ import time
 import mlflow
 import uuid
 
-from mlflow.entities import ViewType, RunTag, SourceType, RunStatus
+from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
 from mlflow.store.dbmodels import models
 from mlflow import entities
@@ -25,7 +25,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def _setup_database(self, filename=''):
         # use a static file name to initialize sqllite to test retention.
         self.store = SqlAlchemyStore(DB_URI + filename, ARTIFACT_URI)
-        self.ManagedSessionMaker = self.store.ManagedSessionMaker
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
@@ -52,16 +51,16 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(first.name, "Default")
 
     def test_default_experiment_lifecycle(self):
-        with TempDir(chdr=True) as tmp, self.ManagedSessionMaker() as session:
+        with TempDir(chdr=True) as tmp:
             tmp_file_name = "sqlite_file_to_lifecycle_test_{}.db".format(int(time.time()))
             self._setup_database("/" + tmp.path(tmp_file_name))
-            default = session.query(models.SqlExperiment).filter_by(name='Default').first()
-            self.assertEqual(default.experiment_id, 0)
-            self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+            
+            default_experiment = self.store.get_experiment(experiment_id=0)
+            self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
+            self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
             self._experiment_factory('aNothEr')
             all_experiments = [e.name for e in self.store.list_experiments()]
-
             self.assertSequenceEqual(set(['aNothEr', 'Default']), set(all_experiments))
 
             self.store.delete_experiment(0)
@@ -70,18 +69,18 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             another = self.store.get_experiment(1)
             self.assertEqual('aNothEr', another.name)
 
-            default = session.query(models.SqlExperiment).filter_by(name='Default').first()
-            self.assertEqual(default.experiment_id, 0)
-            self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.DELETED)
+            default_experiment = self.store.get_experiment(experiment_id=0)
+            self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
+            self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
             # destroy SqlStore and make a new one
             del self.store
             self._setup_database("/" + tmp.path(tmp_file_name))
 
             # test that default experiment is not reactivated
-            default = session.query(models.SqlExperiment).filter_by(name='Default').first()
-            self.assertEqual(default.experiment_id, 0)
-            self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.DELETED)
+            default_experiment = self.store.get_experiment(experiment_id=0)
+            self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
+            self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
             self.assertSequenceEqual(['aNothEr'], [e.name for e in self.store.list_experiments()])
             all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
@@ -90,6 +89,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             # ensure that experiment ID dor active experiment is unchanged
             another = self.store.get_experiment(1)
             self.assertEqual('aNothEr', another.name)
+
+            self.store = None
 
     def test_raise_duplicate_experiments(self):
         with self.assertRaises(Exception):
@@ -105,13 +106,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         all_experiments = self.store.list_experiments()
         self.assertEqual(len(all_experiments), len(experiments) + 1)  # default
 
-        exp = experiments[0]
-        self.store.delete_experiment(exp)
+        exp_id = experiments[0]
+        self.store.delete_experiment(exp_id)
 
-        actual = self.session.query(models.SqlExperiment).get(exp)
+        updated_exp = self.store.get_experiment(exp_id)
+        self.assertEqual(updated_exp.lifecycle_stage, entities.LifecycleStage.DELETED)
+
         self.assertEqual(len(self.store.list_experiments()), len(all_experiments) - 1)
-
-        self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
 
     def test_get_experiment(self):
         name = 'goku'
