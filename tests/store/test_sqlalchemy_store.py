@@ -16,8 +16,8 @@ from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
 
-DB_URI = 'sqlite://'
-# DB_URI = 'mysql://root:password@localhost:33060/kitty'
+# DB_URI = 'sqlite://'
+DB_URI = 'mysql://root:password@localhost:33060/kitty'
 ARTIFACT_URI = 'artifact_folder'
 
 
@@ -42,7 +42,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         return self.store.create_experiment(name=names)
 
-    def test_default_experiment(self):
+    def test_default_experiment_7(self):
         experiments = self.store.list_experiments()
         self.assertEqual(len(experiments), 1)
 
@@ -133,74 +133,74 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         self.assertEqual(len(experiments) + 1, len(actual))  # default
 
-        for experiment_id in experiments:
-            res = self.session.query(models.SqlExperiment).filter_by(
-                experiment_id=experiment_id).first()
-            self.assertIn(res.name, testnames)
-            self.assertEqual(res.experiment_id, experiment_id)
+        with self.store.ManagedSessionMaker() as session:
+            for experiment_id in experiments:
+                res = session.query(models.SqlExperiment).filter_by(
+                    experiment_id=experiment_id).first()
+                self.assertIn(res.name, testnames)
+                self.assertEqual(res.experiment_id, experiment_id)
 
     def test_create_experiments(self):
-        result = self.session.query(models.SqlExperiment).all()
-        self.assertEqual(len(result), 1)
+        with self.store.ManagedSessionMaker() as session:
+            result = session.query(models.SqlExperiment).all()
+            self.assertEqual(len(result), 1)
 
         experiment_id = self.store.create_experiment(name='test exp')
-        result = self.session.query(models.SqlExperiment).all()
-        self.assertEqual(len(result), 2)
 
-        test_exp = self.session.query(models.SqlExperiment).filter_by(name='test exp').first()
+        with self.store.ManagedSessionMaker() as session:
+            result = session.query(models.SqlExperiment).all()
+            self.assertEqual(len(result), 2)
 
-        self.assertEqual(test_exp.experiment_id, experiment_id)
-        self.assertEqual(test_exp.name, 'test exp')
+            test_exp = session.query(models.SqlExperiment).filter_by(name='test exp').first()
+            self.assertEqual(test_exp.experiment_id, experiment_id)
+            self.assertEqual(test_exp.name, 'test exp')
 
         actual = self.store.get_experiment(experiment_id)
         self.assertEqual(actual.experiment_id, experiment_id)
         self.assertEqual(actual.name, 'test exp')
 
     def test_run_tag_model(self):
-        run_data = models.SqlTag(run_uuid='tuuid', key='test', value='val')
-        self.session.add(run_data)
-        self.session.commit()
-        tags = self.session.query(models.SqlTag).all()
-        self.assertEqual(len(tags), 1)
+        with self.store.ManagedSessionMaker() as session:
+            run_data = models.SqlTag(run_uuid='tuuid', key='test', value='val')
+            session.add(run_data)
+            session.commit()
+            tags = session.query(models.SqlTag).all()
+            self.assertEqual(len(tags), 1)
 
-        actual = tags[0].to_mlflow_entity()
-
-        self.assertEqual(actual.value, run_data.value)
-        self.assertEqual(actual.key, run_data.key)
+            actual = tags[0].to_mlflow_entity()
+            self.assertEqual(actual.value, run_data.value)
+            self.assertEqual(actual.key, run_data.key)
 
     def test_metric_model(self):
-        run_data = models.SqlMetric(run_uuid='testuid', key='accuracy', value=0.89)
-        self.session.add(run_data)
-        self.session.commit()
-        metrics = self.session.query(models.SqlMetric).all()
-        self.assertEqual(len(metrics), 1)
+        with self.store.ManagedSessionMaker() as session:
+            run_data = models.SqlMetric(run_uuid='testuid', key='accuracy', value=0.89)
+            session.add(run_data)
+            session.commit()
+            metrics = session.query(models.SqlMetric).all()
+            self.assertEqual(len(metrics), 1)
 
-        actual = metrics[0].to_mlflow_entity()
-
-        self.assertEqual(actual.value, run_data.value)
-        self.assertEqual(actual.key, run_data.key)
+            actual = metrics[0].to_mlflow_entity()
+            self.assertEqual(actual.value, run_data.value)
+            self.assertEqual(actual.key, run_data.key)
 
     def test_param_model(self):
-        run_data = models.SqlParam(run_uuid='test', key='accuracy', value='test param')
-        self.session.add(run_data)
-        self.session.commit()
-        params = self.session.query(models.SqlParam).all()
-        self.assertEqual(len(params), 1)
+        with self.store.ManagedSessionMaker() as session:
+            run_data = models.SqlParam(run_uuid='test', key='accuracy', value='test param')
+            session.add(run_data)
+            session.commit()
+            params = session.query(models.SqlParam).all()
+            self.assertEqual(len(params), 1)
 
-        actual = params[0].to_mlflow_entity()
-
-        self.assertEqual(actual.value, run_data.value)
-        self.assertEqual(actual.key, run_data.key)
+            actual = params[0].to_mlflow_entity()
+            self.assertEqual(actual.value, run_data.value)
+            self.assertEqual(actual.key, run_data.key)
 
     def test_run_needs_uuid(self):
-        run = models.SqlRun()
-        self.session.add(run)
-
         with self.assertRaises(sqlalchemy.exc.IntegrityError):
-            warnings.simplefilter("ignore")
-            with warnings.catch_warnings():
-                self.session.commit()
-            warnings.resetwarnings()
+            with self.store.ManagedSessionMaker() as session, warnings.catch_warnings():
+                run = models.SqlRun()
+                session.add(run)
+                warnings.resetwarnings()
 
     def test_run_data_model(self):
         m1 = models.SqlMetric(key='accuracy', value=0.89)
