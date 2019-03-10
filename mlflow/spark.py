@@ -146,6 +146,8 @@ def _tmp_path(dfs_tmp):
 
 class _HadoopFileSystem:
     """
+    TODO: Refactor: Move this to units module. Create higher level abstraction(s) usable from
+                    other model types, write between local <--> driver, worker <--> shared location.
     Interface to org.apache.hadoop.fs.FileSystem.
 
     Spark ML models expect to read from and write to Hadoop FileSystem when running on a cluster.
@@ -157,11 +159,14 @@ class _HadoopFileSystem:
         raise Exception("This class should not be instantiated")
 
     _filesystem = None
-    _conf = None
+
+    @classmethod
+    def _sc(cls):
+        return SparkContext.getOrCreate()
 
     @classmethod
     def _jvm(cls):
-        return SparkContext._gateway.jvm
+        return cls._sc()._gateway.jvm
 
     @classmethod
     def _fs(cls):
@@ -171,8 +176,7 @@ class _HadoopFileSystem:
 
     @classmethod
     def _conf(cls):
-        sc = SparkContext.getOrCreate()
-        return sc._jsc.hadoopConfiguration()
+        return cls._sc()._jsc.hadoopConfiguration()
 
     @classmethod
     def _local_path(cls, path):
