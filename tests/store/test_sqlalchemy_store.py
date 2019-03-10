@@ -17,6 +17,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
 
 DB_URI = 'sqlite://'
+# DB_URI = 'mysql://root:password@localhost:33060/kitty'
 ARTIFACT_URI = 'artifact_folder'
 
 
@@ -24,12 +25,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def _setup_database(self, filename=''):
         # use a static file name to initialize sqllite to test retention.
         self.store = SqlAlchemyStore(DB_URI + filename, ARTIFACT_URI)
-        self.session = self.store.session
+        self.ManagedSessionMaker = self.store.ManagedSessionMaker
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
         self.store = None
-        self.session = None
         self._setup_database()
 
     def tearDown(self):
@@ -52,10 +52,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(first.name, "Default")
 
     def test_default_experiment_lifecycle(self):
-        with TempDir(chdr=True) as tmp:
+        with TempDir(chdr=True) as tmp, self.ManagedSessionMaker() as session:
             tmp_file_name = "sqlite_file_to_lifecycle_test_{}.db".format(int(time.time()))
             self._setup_database("/" + tmp.path(tmp_file_name))
-            default = self.session.query(models.SqlExperiment).filter_by(name='Default').first()
+            default = session.query(models.SqlExperiment).filter_by(name='Default').first()
             self.assertEqual(default.experiment_id, 0)
             self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
@@ -70,7 +70,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             another = self.store.get_experiment(1)
             self.assertEqual('aNothEr', another.name)
 
-            default = self.session.query(models.SqlExperiment).filter_by(name='Default').first()
+            default = session.query(models.SqlExperiment).filter_by(name='Default').first()
             self.assertEqual(default.experiment_id, 0)
             self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.DELETED)
 
@@ -79,7 +79,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self._setup_database("/" + tmp.path(tmp_file_name))
 
             # test that default experiment is not reactivated
-            default = self.session.query(models.SqlExperiment).filter_by(name='Default').first()
+            default = session.query(models.SqlExperiment).filter_by(name='Default').first()
             self.assertEqual(default.experiment_id, 0)
             self.assertEqual(default.lifecycle_stage, entities.LifecycleStage.DELETED)
 
@@ -90,9 +90,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             # ensure that experiment ID dor active experiment is unchanged
             another = self.store.get_experiment(1)
             self.assertEqual('aNothEr', another.name)
-
-            self.session.close()
-            self.store = None
 
     def test_raise_duplicate_experiments(self):
         with self.assertRaises(Exception):
