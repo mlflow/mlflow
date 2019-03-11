@@ -38,7 +38,7 @@ class MlflowClient(object):
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
-    def create_run(self, experiment_id, user_id=None, run_name=None, start_time=None, tags=None):
+    def create_run(self, experiment_id, user_id=None, start_time=None, tags=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -72,9 +72,10 @@ class MlflowClient(object):
         return self.store.create_run(
             experiment_id=experiment_id,
             user_id=user_id if user_id is not None else _get_user_id(),
-            run_name=run_name,
             start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
+            # Run name is now stored in a tag
+            run_name="",
             # The below arguments remain set for backwards compatability:
             parent_run_id=parent_run_id,
             source_type=source_type,
