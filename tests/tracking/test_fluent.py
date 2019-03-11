@@ -7,7 +7,7 @@ import mock
 from six.moves import reload_module as reload
 
 import mlflow
-from mlflow.entities import Experiment, LifecycleStage, SourceType, Metric, Param, RunTag
+from mlflow.entities import Experiment, LifecycleStage, SourceType
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 import mlflow.tracking.fluent
@@ -16,7 +16,6 @@ from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experimen
     _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import mlflow_tags
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 class HelperEnv:

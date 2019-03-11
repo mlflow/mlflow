@@ -9,8 +9,8 @@ import time
 from six import iteritems
 
 from mlflow.tracking import utils
-from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-    _validate_tag_name, _validate_run_id, _validate_experiment_name, _validate_metric
+from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
+    _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 
@@ -164,7 +164,7 @@ class MlflowClient(object):
         :returns: None
         """
         for metric in metrics:
-            _validate_metric_name(metric.key)
+            _validate_metric(metric.key, metric.value, metric.timestamp)
         for param in params:
             _validate_param_name(param.key)
         for tag in tags:

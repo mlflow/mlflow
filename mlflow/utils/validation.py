@@ -42,6 +42,7 @@ def _validate_metric_name(name):
         raise MlflowException("Invalid metric name: '%s'. %s" % (name, bad_path_message(name)),
                               INVALID_PARAMETER_VALUE)
 
+
 def _validate_metric(key, value, timestamp):
     _validate_metric_name(key)
     if not isinstance(value, numbers.Number) or value > np.finfo(np.float64).max \
@@ -51,10 +52,10 @@ def _validate_metric(key, value, timestamp):
             "double (64-bit floating point)" % (value, key, timestamp),
             INVALID_PARAMETER_VALUE)
 
-    if not isinstance(timestamp, numbers.Number) or timestamp > np.finfo(np.int64).max \
-            or timestamp < np.finfo(np.int64).min:
+    if not isinstance(timestamp, numbers.Number) or timestamp < 0 or \
+            timestamp < np.iinfo(np.int64).min:
         raise MlflowException(
-            "Got invalid timestamp %s for metric '%s' (value=%s). Timestamp must be a valid "
+            "Got invalid timestamp %s for metric '%s' (value=%s). Timestamp must be a nonnegative "
             "long (64-bit integer) " % (timestamp, key, value),
             INVALID_PARAMETER_VALUE)
 
