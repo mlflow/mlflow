@@ -112,11 +112,11 @@ Docker container
     :ref:`MLProject file <mlproject-file>`.
     
 System environment
-  All of the project's dependencies must be installed on your system prior to project execution. 
-  The system environment is supplied at runtime. It is not part of the MLflow Project's
-  directory contents or ``MLProject`` file. For information about using the current system
-  environment when running a project, see the ``Environment`` parameter description in the 
-  :ref:`running-projects` section. 
+  You can also run MLflow Projects directly in your current system environment. All of the 
+  project's dependencies must be installed on your system prior to project execution. The system 
+  environment is supplied at runtime. It is not part of the MLflow Project's directory contents 
+  or ``MLProject`` file. For information about using the current system environment when running 
+  a project, see the ``Environment`` parameter description in the :ref:`running-projects` section. 
 
 .. _project-directories:
 
