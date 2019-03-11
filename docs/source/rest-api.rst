@@ -1,10 +1,8 @@
-
 .. _rest-api:
 
 ========
 REST API
 ========
-
 
 The MLflow REST API allows you to create, list, and get experiments and runs, and log parameters, metrics, and artifacts.
 The API is hosted under the ``/api`` route on the MLflow tracking server. For example, to list
@@ -17,13 +15,10 @@ experiments on a tracking server hosted at ``http://localhost:5000``, access
 
 ===========================
 
-
-
 .. _mlflowMlflowServicecreateExperiment:
 
 Create Experiment
 =================
-
 
 +-------------------------------------------+-------------+
 |                 Endpoint                  | HTTP Method |
@@ -35,21 +30,12 @@ Create an experiment with a name. Returns the ID of the newly created experiment
 Validates that another experiment with the same name does not already exist and fails if
 another experiment with the same name already exists.
 
-
 Throws ``RESOURCE_ALREADY_EXISTS`` if a experiment with the given name exists.
-
-
-
 
 .. _mlflowCreateExperiment:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +-------------------+------------+------------------------------------------------------------------------+
 |    Field Name     |    Type    |                              Description                               |
@@ -67,11 +53,6 @@ Request Structure
 Response Structure
 ------------------
 
-
-
-
-
-
 +---------------+-----------+---------------------------------------+
 |  Field Name   |   Type    |              Description              |
 +===============+===========+=======================================+
@@ -80,13 +61,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicelistExperiments:
 
 List Experiments
 ================
-
 
 +-----------------------------------------+-------------+
 |                Endpoint                 | HTTP Method |
@@ -96,18 +74,10 @@ List Experiments
 
 Get a list of all experiments.
 
-
-
-
 .. _mlflowListExperiments:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +------------+-----------------------+---------------------------------------------------+
 | Field Name |         Type          |                    Description                    |
@@ -121,11 +91,6 @@ Request Structure
 Response Structure
 ------------------
 
-
-
-
-
-
 +-------------+-------------------------------------+-----------------+
 | Field Name  |                Type                 |   Description   |
 +=============+=====================================+=================+
@@ -134,13 +99,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicegetExperiment:
 
 Get Experiment
 ==============
-
 
 +----------------------------------------+-------------+
 |                Endpoint                | HTTP Method |
@@ -150,18 +112,10 @@ Get Experiment
 
 Get metadata for an experiment and a list of runs for the experiment.
 
-
-
-
 .. _mlflowGetExperiment:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +---------------+-----------+----------------------------------+
 |  Field Name   |   Type    |           Description            |
@@ -176,11 +130,6 @@ Request Structure
 Response Structure
 ------------------
 
-
-
-
-
-
 +------------+----------------------------------+---------------------------------------------------------------------+
 | Field Name |               Type               |                             Description                             |
 +============+==================================+=====================================================================+
@@ -191,13 +140,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicedeleteExperiment:
 
 Experiments Delete
 =========================
-
 
 +-------------------------------------------+-------------+
 |                 Endpoint                  | HTTP Method |
@@ -208,18 +154,10 @@ Experiments Delete
 Mark an experiment and associated runs, params, metrics, ... etc for deletion.
 If the experiment uses FileStore, artifacts associated with experiment are also deleted.
 
-
-
-
 .. _mlflowDeleteExperiment:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +---------------+-----------+---------------------------------+
 |  Field Name   |   Type    |           Description           |
@@ -231,13 +169,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicerestoreExperiment:
 
 Experiments Restore
 ==========================
-
 
 +--------------------------------------------+-------------+
 |                  Endpoint                  | HTTP Method |
@@ -251,18 +186,10 @@ artifacts associated with experiment are also restored.
 
 Throws ``RESOURCE_DOES_NOT_EXIST`` if experiment was never created or was permanently deleted.
 
-
-
-
 .. _mlflowRestoreExperiment:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +---------------+-----------+---------------------------------+
 |  Field Name   |   Type    |           Description           |
@@ -274,13 +201,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicecreateRun:
 
 Create Run
 ==========
-
 
 +------------------------------------+-------------+
 |              Endpoint              | HTTP Method |
@@ -292,18 +216,10 @@ Create a new run within an experiment. A run is usually a single execution of a
 machine learning or data ETL pipeline. MLflow uses runs to track :ref:`mlflowParam`,
 :ref:`mlflowMetric`, and :ref:`mlflowRunTag` associated with a single execution.
 
-
-
-
 .. _mlflowCreateRun:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +------------------+---------------------------------+------------------------------------------------------------------------------------------------+
 |    Field Name    |              Type               |                                          Description                                           |
@@ -333,11 +249,6 @@ Request Structure
 Response Structure
 ------------------
 
-
-
-
-
-
 +------------+------------------+------------------------+
 | Field Name |       Type       |      Description       |
 +============+==================+========================+
@@ -346,13 +257,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicegetRun:
 
 Get Run
 =======
-
 
 +---------------------------------+-------------+
 |            Endpoint             | HTTP Method |
@@ -363,18 +271,10 @@ Get Run
 Get metadata, params, tags, and metrics for a run. Only the last logged value for each metric
 is returned.
 
-
-
-
 .. _mlflowGetRun:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +------------+------------+-------------------------+
 | Field Name |    Type    |       Description       |
@@ -389,11 +289,6 @@ Request Structure
 Response Structure
 ------------------
 
-
-
-
-
-
 +------------+------------------+-----------------------------------------------------------------------+
 | Field Name |       Type       |                              Description                              |
 +============+==================+=======================================================================+
@@ -402,13 +297,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicelogMetric:
 
 Log Metric
 ==========
-
 
 +----------------------------------------+-------------+
 |                Endpoint                | HTTP Method |
@@ -416,22 +308,14 @@ Log Metric
 | ``2.0/preview/mlflow/runs/log-metric`` | ``POST``    |
 +----------------------------------------+-------------+
 
-Log a metric for a run. A metric is a key-value pair (string key, float value) with an 
-associated timestamp. Examples include the various metrics that represent ML model accuracy. 
+Log a metric for a run. A metric is a key-value pair (string key, float value) with an
+associated timestamp. Examples include the various metrics that represent ML model accuracy.
 A metric can be logged multiple times.
-
-
-
 
 .. _mlflowLogMetric:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +------------+------------+---------------------------------------------------------------+
 | Field Name |    Type    |                          Description                          |
@@ -455,13 +339,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicesetTag:
 
 Set Tag
 =======
-
 
 +-------------------------------------+-------------+
 |              Endpoint               | HTTP Method |
@@ -472,18 +353,10 @@ Set Tag
 Set a tag on a run. Tags are run metadata that can be updated during a run and after
 a run completes.
 
-
-
-
 .. _mlflowSetTag:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +------------+------------+------------------------------------------------------------------+
 | Field Name |    Type    |                           Description                            |
@@ -503,13 +376,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicelogParam:
 
 Log Param
 =========
-
 
 +-------------------------------------------+-------------+
 |                 Endpoint                  | HTTP Method |
@@ -521,18 +391,10 @@ Log a param used for a run. A param is a key-value pair (string key,
 string value). Examples include hyperparameters used for ML model training and
 constant dates and values used in an ETL pipeline. A param can be logged only once for a run.
 
-
-
-
 .. _mlflowLogParam:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +------------+------------+--------------------------------------------------------------------+
 | Field Name |    Type    |                            Description                             |
@@ -552,13 +414,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicegetMetricHistory:
 
 Get Metric History
 ==================
-
 
 +--------------------------------------------+-------------+
 |                  Endpoint                  | HTTP Method |
@@ -568,18 +427,10 @@ Get Metric History
 
 Get a list of all values for the specified metric for a given run.
 
-
-
-
 .. _mlflowGetMetricHistory:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +------------+------------+--------------------------------------------------+
 | Field Name |    Type    |                   Description                    |
@@ -598,11 +449,6 @@ Request Structure
 Response Structure
 ------------------
 
-
-
-
-
-
 +------------+---------------------------------+------------------------------------+
 | Field Name |              Type               |            Description             |
 +============+=================================+====================================+
@@ -611,13 +457,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicesearchRuns:
 
 Search Runs
 ===========
-
 
 +------------------------------------+-------------+
 |              Endpoint              | HTTP Method |
@@ -628,18 +471,10 @@ Search Runs
 Search for runs that satisfy expressions. Search expressions can use :ref:`mlflowMetric` and
 :ref:`mlflowParam` keys.
 
-
-
-
 .. _mlflowSearchRuns:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +-------------------+-------------------------------------------+--------------------------------------------------------------------+
 |    Field Name     |                   Type                    |                            Description                             |
@@ -654,11 +489,6 @@ Request Structure
 Response Structure
 ------------------
 
-
-
-
-
-
 +------------+------------------------------+--------------------------------------+
 | Field Name |             Type             |             Description              |
 +============+==============================+======================================+
@@ -667,13 +497,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicelistArtifacts:
 
 List Artifacts
 ==============
-
 
 +---------------------------------------+-------------+
 |               Endpoint                | HTTP Method |
@@ -684,18 +511,10 @@ List Artifacts
 List artifacts for a run. Takes an optional ``artifact_path`` prefix which if specified,
 the response contains only artifacts with the specified prefix.
 
-
-
-
 .. _mlflowListArtifacts:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +------------+------------+-----------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                       Description                                       |
@@ -710,11 +529,6 @@ Request Structure
 Response Structure
 ------------------
 
-
-
-
-
-
 +------------+-----------------------------------+-------------------------------------------+
 | Field Name |               Type                |                Description                |
 +============+===================================+===========================================+
@@ -725,13 +539,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServiceupdateRun:
 
 Update Run
 ==========
-
 
 +------------------------------------+-------------+
 |              Endpoint              | HTTP Method |
@@ -741,18 +552,10 @@ Update Run
 
 Update run metadata.
 
-
-
-
 .. _mlflowUpdateRun:
 
 Request Structure
 -----------------
-
-
-
-
-
 
 +------------+------------------------+-------------------------------------------------------+
 | Field Name |          Type          |                      Description                      |
@@ -771,11 +574,6 @@ Request Structure
 Response Structure
 ------------------
 
-
-
-
-
-
 +------------+----------------------+------------------------------+
 | Field Name |         Type         |         Description          |
 +============+======================+==============================+
@@ -787,17 +585,12 @@ Response Structure
 Data Structures
 ===============
 
-
-
 .. _mlflowExperiment:
 
 Experiment
 ----------
 
-
-
 Experiment
-
 
 +-------------------+------------+--------------------------------------------------------------------+
 |    Field Name     |    Type    |                            Description                             |
@@ -821,10 +614,7 @@ Experiment
 FileInfo
 --------
 
-
-
 Metadata of a single artifact file or directory.
-
 
 +------------+------------+---------------------------------------------------+
 | Field Name |    Type    |                    Description                    |
@@ -841,11 +631,6 @@ Metadata of a single artifact file or directory.
 FloatClause
 -----------
 
-
-
-
-
-
 +------------+------------+------------------------------------------+
 | Field Name |    Type    |               Description                |
 +============+============+==========================================+
@@ -859,10 +644,7 @@ FloatClause
 Metric
 ------
 
-
-
 Metric associated with a run, represented as a key-value pair.
-
 
 +------------+------------+--------------------------------------------------+
 | Field Name |    Type    |                   Description                    |
@@ -879,11 +661,6 @@ Metric associated with a run, represented as a key-value pair.
 MetricSearchExpression
 ----------------------
 
-
-
-
-
-
 +------------+--------------------------+--------------------------------------------+
 | Field Name |           Type           |                Description                 |
 +============+==========================+============================================+
@@ -899,10 +676,7 @@ MetricSearchExpression
 Param
 -----
 
-
-
 Param associated with a run.
-
 
 +------------+------------+-----------------------------------+
 | Field Name |    Type    |            Description            |
@@ -916,11 +690,6 @@ Param associated with a run.
 
 ParameterSearchExpression
 -------------------------
-
-
-
-
-
 
 +------------+---------------------------+----------------------------------------------+
 | Field Name |           Type            |                 Description                  |
@@ -937,10 +706,7 @@ ParameterSearchExpression
 Run
 ---
 
-
-
 A single run.
-
 
 +------------+----------------------+---------------+
 | Field Name |         Type         |  Description  |
@@ -955,10 +721,7 @@ A single run.
 RunData
 -------
 
-
-
 Run data (metrics, params, etc).
-
 
 +------------+---------------------------------+--------------------------------------+
 | Field Name |              Type               |             Description              |
@@ -975,10 +738,7 @@ Run data (metrics, params, etc).
 RunInfo
 -------
 
-
-
 Metadata of a single run.
-
 
 +------------------+-------------------------+----------------------------------------------------------------------------------+
 |    Field Name    |          Type           |                                   Description                                    |
@@ -1016,10 +776,7 @@ Metadata of a single run.
 RunTag
 ------
 
-
-
 Tag for a run.
-
 
 +------------+------------+----------------+
 | Field Name |    Type    | Description    |
@@ -1029,15 +786,39 @@ Tag for a run.
 | value      | ``STRING`` | The tag value. |
 +------------+------------+----------------+
 
+Tag keys that start with ``mlflow.`` are reserved for internal use. The following tags are set
+automatically by MLflow:
+
++-------------------------------+----------------------------------------------------------------------------------------+
+| Key                           | Description                                                                            |
++===============================+========================================================================================+
+| ``mlflow.runName``            | Human readable name that identifies this run.                                          |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.type``        | The source type, one of :ref:`mlflowsourcetype`.                                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.name``        | Source identifier: GitHub URL, name of notebook, name of job, etc.                     |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.git.commit``  | Commit hash of the executed code, if in a git repository.                              |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.git.branch``  | Name of the branch of the executed code, if in a git repository.                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.git.repoURL`` | URL that the executed code was clone from.                                             |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.project.env``        | One of "docker" or "conda", indicating the runtime context used by the mlflow project. |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.project.entryPoint`` | Name of the project entry point associated with the current run, if any.               |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.docker.image.name``  | Name of the Docker image used to execute this run.                                     |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.docker.image.id``    | ID of the Docker image used to execute this run.                                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+
 .. _mlflowSearchExpression:
 
 SearchExpression
 ----------------
-
-
-
-
-
 
 +-----------------------------+-------------------------------------------------------------------------------+--------------------------------------------------+
 |         Field Name          |                                     Type                                      |                   Description                    |
@@ -1058,11 +839,6 @@ SearchExpression
 StringClause
 ------------
 
-
-
-
-
-
 +------------+------------+------------------------------+
 | Field Name |    Type    |         Description          |
 +============+============+==============================+
@@ -1075,7 +851,6 @@ StringClause
 
 RunStatus
 ---------
-
 
 Status of a run.
 
@@ -1098,7 +873,6 @@ Status of a run.
 SourceType
 ----------
 
-
 Source that generated a run.
 
 +----------+------------------------------------------------------------------------+
@@ -1119,7 +893,6 @@ Source that generated a run.
 
 ViewType
 --------
-
 
 View type for ListExperiments query.
 
