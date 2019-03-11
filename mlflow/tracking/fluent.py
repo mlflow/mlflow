@@ -13,7 +13,7 @@ import time
 import logging
 
 import mlflow.tracking.utils
-from mlflow.entities import Experiment, Run, RunStatus
+from mlflow.entities import Experiment, Run, RunStatus, SourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -127,7 +127,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         if source_name is not None:
             user_specified_tags[MLFLOW_SOURCE_NAME] = source_name
         if source_type is not None:
-            user_specified_tags[MLFLOW_SOURCE_TYPE] = source_type
+            user_specified_tags[MLFLOW_SOURCE_TYPE] = SourceType.to_string(source_type)
         if source_version is not None:
             user_specified_tags[MLFLOW_GIT_COMMIT] = source_version
         if entry_point_name is not None:
@@ -135,13 +135,17 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
 
         tags = context.resolve_tags(user_specified_tags)
 
+        # Polling resolved tags for run meta data : source_name, source_version,
+        # entry_point_name, and source_type which is store in RunInfo for backward compatibility.
+        # TODO: Remove all 4 of the following annotated backward compatibility fixes with API
+        #  changes to create_run.
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
             run_name=run_name,
-            source_name=tags.get(MLFLOW_SOURCE_NAME),  # For backwards compatability
-            source_version=tags.get(MLFLOW_GIT_COMMIT),  # For backwards compatability
-            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),  # For backwards compatability
-            source_type=tags.get(MLFLOW_SOURCE_TYPE),  # For backwards compatability
+            source_name=tags.get(MLFLOW_SOURCE_NAME),  # TODO: for backward compatibility. Remove.
+            source_version=tags.get(MLFLOW_GIT_COMMIT),  # TODO: for backward compatibility. Remove.
+            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),  # TODO: remove
+            source_type=SourceType.from_string(tags.get(MLFLOW_SOURCE_TYPE)),  # TODO: Remove
             tags=tags,
             parent_run_id=parent_run_id
         )

@@ -152,6 +152,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
         if run_name:
+            # TODO: optimization: This is making 2 calls to backend store. Include with above call.
             self.set_tag(run.info.run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return run
 
