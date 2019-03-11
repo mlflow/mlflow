@@ -31,23 +31,22 @@ class SqlAlchemyStore(AbstractStore):
 
     Run artifacts are stored in a separate location using artifact stores conforming to
     :py:class:`mlflow.store.artifact_repo.ArtifactRepository`. Default artifact locations for
-    user experiments are stored in database along with meta data for with
-    :py:class:`mlflow.store.dbmodels.models.SqlExperiment`. Each run artifact location is recorded
-    in :py:class:`mlflow.store.dbmodels.models.SqlRun` and stored in backend DB.
+    user experiments are stored in the database along with metadata/ Each run artifact location
+    is recorded in :py:class:`mlflow.store.dbmodels.models.SqlRun` and stored in the backend DB.
     """
     ARTIFACTS_FOLDER_NAME = "artifacts"
 
     def __init__(self, db_uri, default_artifact_root):
         """
-        Creates a database backed store.
+        Create a database backed store.
 
         :param db_uri: SQL connection string used by SQLAlchemy Engine to connected to database.
                        Argument is expected to in this format:
                        ``db_type://<user_name>:<password>@<host>:<port>/<database_name>`
                        Supported database types are ``mysql``, ``mssql``, ``sqlite``,
                        and ``postgresql``.
-        :param default_artifact_root: Path/URI to location suitable for large data (such as an S3
-                                      bucket, DBFS path, or shared NFS file system).
+        :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
+                                      store object, DBFS path, or shared NFS file system).
         """
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri

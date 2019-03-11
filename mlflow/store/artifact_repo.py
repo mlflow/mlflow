@@ -29,7 +29,7 @@ class ArtifactRepository:
     @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):
         """
-        Logs a local file as an artifact, optionally taking an ``artifact_path`` to place it in
+        Log a local file as an artifact, optionally taking an ``artifact_path`` to place it in
         within the run's artifacts. Run artifacts can be organized into directories, so you can
         place the artifact in a directory this way.
 
@@ -42,7 +42,7 @@ class ArtifactRepository:
     @abstractmethod
     def log_artifacts(self, local_dir, artifact_path=None):
         """
-        Logs the files in the specified local directory as artifacts, optionally taking
+        Log the files in the specified local directory as artifacts, optionally taking
         an ``artifact_path`` to place them in within the run's artifacts.
 
         :param local_dir: Directory of local artifacts to log
@@ -115,7 +115,7 @@ class ArtifactRepository:
     @abstractmethod
     def _download_file(self, remote_file_path, local_path):
         """
-        Downloads the file at the specified relative remote path and saves
+        Download the file at the specified relative remote path and saves
         it at the specified local path.
 
         :param remote_file_path: Source path to the remote file, relative to the root

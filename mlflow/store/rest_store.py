@@ -22,7 +22,7 @@ def _get_path(endpoint_path):
 
 
 def _api_method_to_info():
-    """ Returns a dictionary mapping each API method to a tuple (path, HTTP method)"""
+    """ Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
     service_methods = MlflowService.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:
@@ -79,7 +79,7 @@ class RestStore(AbstractStore):
 
     def create_experiment(self, name, artifact_location=None):
         """
-        Creates a new experiment.
+        Create a new experiment.
         If an experiment with the given name already exists, throws exception.
 
         :param name: Desired name for an experiment
@@ -93,7 +93,7 @@ class RestStore(AbstractStore):
 
     def get_experiment(self, experiment_id):
         """
-        Fetches the experiment from the backend store.
+        Fetch the experiment from the backend store.
 
         :param experiment_id: Integer id for the experiment
 
@@ -119,7 +119,7 @@ class RestStore(AbstractStore):
 
     def get_run(self, run_uuid):
         """
-        Fetches the run from backend store
+        Fetch the run from backend store
 
         :param run_uuid: Unique identifier for the run
 
@@ -139,7 +139,7 @@ class RestStore(AbstractStore):
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
                    entry_point_name, start_time, source_version, tags, parent_run_id):
         """
-        Creates a run under the specified experiment ID, setting the run's status to "RUNNING"
+        Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
         :param experiment_id: ID of the experiment for this run
@@ -162,7 +162,7 @@ class RestStore(AbstractStore):
 
     def log_metric(self, run_uuid, metric):
         """
-        Logs a metric for the specified run
+        Log a metric for the specified run
 
         :param run_uuid: String id for the run
         :param metric: Metric instance to log
@@ -173,7 +173,7 @@ class RestStore(AbstractStore):
 
     def log_param(self, run_uuid, param):
         """
-        Logs a param for the specified run
+        Log a param for the specified run
 
         :param run_uuid: String id for the run
         :param param: Param instance to log
@@ -183,7 +183,7 @@ class RestStore(AbstractStore):
 
     def set_tag(self, run_uuid, tag):
         """
-        Sets a tag for the specified run
+        Set a tag for the specified run
 
         :param run_uuid: String id for the run
         :param tag: RunTag instance to log
@@ -193,7 +193,7 @@ class RestStore(AbstractStore):
 
     def get_metric_history(self, run_uuid, metric_key):
         """
-        Returns all logged value for a given metric.
+        Return all logged value for a given metric.
 
         :param run_uuid: Unique identifier for run
         :param metric_key: Metric name within the run
@@ -206,7 +206,7 @@ class RestStore(AbstractStore):
 
     def search_runs(self, experiment_ids, search_filter, run_view_type):
         """
-        Returns runs that match the given list of search expressions within the experiments.
+        Return runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
 
         :param experiment_ids: List of experiment ids to scope the search
@@ -226,7 +226,7 @@ class RestStore(AbstractStore):
 
     def list_run_infos(self, experiment_id, run_view_type):
         """
-        Returns run information for runs which belong to the experiment_id
+        Return run information for runs which belong to the experiment_id
 
         :param experiment_id: The experiment id which to search.
 

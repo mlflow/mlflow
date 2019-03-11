@@ -31,7 +31,7 @@ class AbstractStore:
     @abstractmethod
     def create_experiment(self, name, artifact_location):
         """
-        Creates a new experiment.
+        Create a new experiment.
         If an experiment with the given name already exists, throws exception.
 
         :param name: Desired name for an experiment
@@ -44,7 +44,7 @@ class AbstractStore:
     @abstractmethod
     def get_experiment(self, experiment_id):
         """
-        Fetches the experiment by ID from the backend store.
+        Fetch the experiment by ID from the backend store.
 
         :param experiment_id: Integer id for the experiment
 
@@ -56,7 +56,7 @@ class AbstractStore:
 
     def get_experiment_by_name(self, experiment_name):
         """
-        Fetches the experiment by name from the backend store.
+        Fetch the experiment by name from the backend store.
         This is a base implementation using ``list_experiments``, derived classes may have
         some specialized implementations.
 
@@ -72,7 +72,7 @@ class AbstractStore:
     @abstractmethod
     def delete_experiment(self, experiment_id):
         """
-        Deletes the experiment from the backend store. Deleted experiments can be restored until
+        Delete the experiment from the backend store. Deleted experiments can be restored until
         permanently deleted.
 
         :param experiment_id: Integer id for the experiment
@@ -100,7 +100,7 @@ class AbstractStore:
     @abstractmethod
     def get_run(self, run_uuid):
         """
-        Fetches the run from backend store
+        Fetch the run from backend store
 
         :param run_uuid: Unique identifier for the run
 
@@ -111,7 +111,7 @@ class AbstractStore:
 
     def update_run_info(self, run_uuid, run_status, end_time):
         """
-        Updates the metadata of the specified run.
+        Update the metadata of the specified run.
 
         :return: :py:class:`mlflow.entities.RunInfo` describing the updated run.
         """
@@ -120,7 +120,7 @@ class AbstractStore:
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
                    entry_point_name, start_time, source_version, tags, parent_run_id):
         """
-        Creates a run under the specified experiment ID, setting the run's status to "RUNNING"
+        Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
         :param experiment_id: ID of the experiment for this run
@@ -134,7 +134,7 @@ class AbstractStore:
     @abstractmethod
     def delete_run(self, run_id):
         """
-        Deletes a run.
+        Delete a run.
 
         :param run_id
         """
@@ -143,7 +143,7 @@ class AbstractStore:
     @abstractmethod
     def restore_run(self, run_id):
         """
-        Restores a run.
+        Restore a run.
 
         :param run_id
         """
@@ -151,7 +151,7 @@ class AbstractStore:
 
     def log_metric(self, run_uuid, metric):
         """
-        Logs a metric for the specified run
+        Log a metric for the specified run
 
         :param run_uuid: String id for the run
         :param metric: :py:class:`mlflow.entities.Metric` instance to log
@@ -160,7 +160,7 @@ class AbstractStore:
 
     def log_param(self, run_uuid, param):
         """
-        Logs a param for the specified run
+        Log a param for the specified run
 
         :param run_uuid: String id for the run
         :param param: :py:class:`mlflow.entities.Param` instance to log
@@ -169,7 +169,7 @@ class AbstractStore:
 
     def set_tag(self, run_uuid, tag):
         """
-        Sets a tag for the specified run
+        Set a tag for the specified run
 
         :param run_uuid: String id for the run
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
@@ -179,7 +179,7 @@ class AbstractStore:
     @abstractmethod
     def get_metric_history(self, run_uuid, metric_key):
         """
-        Returns all logged value for a given metric.
+        Return all logged value for a given metric.
 
         :param run_uuid: Unique identifier for run
         :param metric_key: Metric name within the run
@@ -191,7 +191,7 @@ class AbstractStore:
     @abstractmethod
     def search_runs(self, experiment_ids, search_filter, run_view_type):
         """
-        Returns runs that match the given list of search expressions within the experiments.
+        Return runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
 
         :param experiment_ids: List of experiment ids to scope the search
@@ -206,7 +206,7 @@ class AbstractStore:
 
     def list_run_infos(self, experiment_id, run_view_type):
         """
-        Returns run information for runs which belong to the experiment_id
+        Return run information for runs which belong to the experiment_id
 
         :param experiment_id: The experiment id which to search.
 
@@ -219,7 +219,7 @@ class AbstractStore:
     @abstractmethod
     def log_batch(self, run_id, metrics, params, tags):
         """
-        Logs multiple metrics, params, and tags for the specified run
+        Log multiple metrics, params, and tags for the specified run
 
         :param run_id: String id for the run
         :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
