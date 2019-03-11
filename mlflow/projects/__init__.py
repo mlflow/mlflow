@@ -547,7 +547,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
 
     tags = {
         MLFLOW_SOURCE_NAME: source_name,
-        MLFLOW_SOURCE_TYPE: SourceType.PROJECT,
+        MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PROJECT),
         MLFLOW_PROJECT_ENTRY_POINT: entry_point
     }
     if source_version is not None:

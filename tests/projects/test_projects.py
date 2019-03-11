@@ -218,7 +218,7 @@ def test_run_local_git_repo(local_git_repo,
 
     tags = {tag.key: tag.value for tag in run.data.tags}
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
-    assert tags[MLFLOW_SOURCE_TYPE] == str(SourceType.PROJECT)
+    assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
 
     if version == "master":
@@ -273,7 +273,7 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
 
     tags = {tag.key: tag.value for tag in run.data.tags}
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
-    assert tags[MLFLOW_SOURCE_TYPE] == str(SourceType.PROJECT)
+    assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
 
 
