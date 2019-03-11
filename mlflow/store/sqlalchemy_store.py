@@ -19,9 +19,36 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 
 
 class SqlAlchemyStore(AbstractStore):
+    """
+    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. Currently
+    supported database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. This store
+    interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
+    :py:class:`mlflow.store.dbmodels.models.SqlExperiment`,
+    :py:class:`mlflow.store.dbmodels.models.SqlRun`,
+    :py:class:`mlflow.store.dbmodels.models.SqlTag`,
+    :py:class:`mlflow.store.dbmodels.models.SqlMetric`, and
+    :py:class:`mlflow.store.dbmodels.models.SqlParam`.
+
+    Run artifacts are stored in a separate location using artifact stores conforming to
+    :py:class:`mlflow.store.artifact_repo.ArtifactRepository`. Default artifact locations for
+    user experiments are stored in database along with meta data for with
+    :py:class:`mlflow.store.dbmodels.models.SqlExperiment`. Each run artifact location is recorded
+    in :py:class:`mlflow.store.dbmodels.models.SqlRun` and stored in backend DB.
+    """
     ARTIFACTS_FOLDER_NAME = "artifacts"
 
     def __init__(self, db_uri, default_artifact_root):
+        """
+        Creates a database backed store.
+
+        :param db_uri: SQL connection string used by SQLAlchemy Engine to connected to database.
+                       Argument is expected to in this format:
+                       ``db_type://<user_name>:<password>@<host>:<port>/<database_name>`
+                       Supported database types are ``mysql``, ``mssql``, ``sqlite``,
+                       and ``postgresql``.
+        :param default_artifact_root: Path/URI to location suitable for large data (such as an S3
+                                      bucket, DBFS path, or shared NFS file system).
+        """
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri
         self.db_type = urllib.parse.urlparse(db_uri).scheme
@@ -54,7 +81,7 @@ class SqlAlchemyStore(AbstractStore):
         experiment table uses 'experiment_id' column is a PK and is also set to auto increment.
         MySQL and other implementation do not allow value '0' for such cases.
 
-        ToDo: Identify a less hack mechanism to create default experiment 0
+        ToDo: Identify a less hacky mechanism to create default experiment 0
         """
         table = SqlExperiment.__tablename__
         default_experiment = {

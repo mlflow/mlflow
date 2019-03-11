@@ -135,7 +135,8 @@ class AbstractStore:
     def delete_run(self, run_id):
         """
         Deletes a run.
-        :param run_id:
+
+        :param run_id
         """
         pass
 
@@ -143,13 +144,15 @@ class AbstractStore:
     def restore_run(self, run_id):
         """
         Restores a run.
-        :param run_id:
+
+        :param run_id
         """
         pass
 
     def log_metric(self, run_uuid, metric):
         """
         Logs a metric for the specified run
+
         :param run_uuid: String id for the run
         :param metric: :py:class:`mlflow.entities.Metric` instance to log
         """
@@ -158,6 +161,7 @@ class AbstractStore:
     def log_param(self, run_uuid, param):
         """
         Logs a param for the specified run
+
         :param run_uuid: String id for the run
         :param param: :py:class:`mlflow.entities.Param` instance to log
         """
@@ -166,6 +170,7 @@ class AbstractStore:
     def set_tag(self, run_uuid, tag):
         """
         Sets a tag for the specified run
+
         :param run_uuid: String id for the run
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
@@ -215,11 +220,13 @@ class AbstractStore:
     def log_batch(self, run_id, metrics, params, tags):
         """
         Logs multiple metrics, params, and tags for the specified run
+
         :param run_id: String id for the run
         :param metrics: List of :py:class:`mlflow.entities.Metric` instances to log
         :param params: List of :py:class:`mlflow.entities.Param` instances to log
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
-        :returns Tuple (failed_metrics, failed_params, failed_tags) where each element of
+
+        :return: Tuple (failed_metrics, failed_params, failed_tags) where each element of
                  the tuple is a list of of :py:class:`mlflow.protos.service_pb2.BatchLogFailure`
                  protos describing metrics/params/tags that failed to be logged & why.
         """

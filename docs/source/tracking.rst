@@ -250,7 +250,8 @@ You run an MLflow tracking server using ``mlflow server``.  An example configura
 Storage
 -------
 
-An MLflow tracking server has two properties related to how data is stored: file store and artifact store.
+An MLflow tracking server has two properties related to how data is stored: backend store and
+artifact store.
 
 The *backend store* (exposed as ``--backend-store-uri``) is where the *server* stores run and
 experiment metadata. For backward compatibility, ``--file-store`` option is an alias to this
@@ -259,8 +260,9 @@ option. This can be a local path **file store** specified as ``./path_to_store``
 latter, argument is expected to be a SQL connection string specified as
 ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported database types are
 ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
-It defaults to the local ``./mlruns`` directory (the same as when running ``mlflow run`` locally), but when
-running a server, make sure that this points to a persistent (that is, non-ephemeral) file system location.
+By default this is set to the local ``./mlruns`` directory (the same as when running ``mlflow run``
+locally), but when running a server, make sure that this points to a persistent (that is,
+non-ephemeral) file system location.
 
 The *artifact store* is a location suitable for large data (such as an S3 bucket or shared NFS file system)
 and is where *clients* log their artifact output (for example, models). The artifact store is a property

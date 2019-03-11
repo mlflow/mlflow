@@ -39,6 +39,7 @@ _METHOD_TO_INFO = _api_method_to_info()
 class RestStore(AbstractStore):
     """
     Client for a remote tracking server accessed via REST API calls
+
     :param get_host_creds: Method to be invoked prior to every REST request to get the
       :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
       is a function so that we can obtain fresh credentials in the case of expiry.
@@ -82,6 +83,7 @@ class RestStore(AbstractStore):
         If an experiment with the given name already exists, throws exception.
 
         :param name: Desired name for an experiment
+
         :return: experiment_id (integer) for the newly created experiment if successful, else None
         """
         req_body = message_to_json(CreateExperiment(
@@ -94,6 +96,7 @@ class RestStore(AbstractStore):
         Fetches the experiment from the backend store.
 
         :param experiment_id: Integer id for the experiment
+
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
         otherwise raises an Exception.
         """
@@ -119,6 +122,7 @@ class RestStore(AbstractStore):
         Fetches the run from backend store
 
         :param run_uuid: Unique identifier for the run
+
         :return: A single Run object if it exists, otherwise raises an Exception
         """
         req_body = message_to_json(GetRun(run_uuid=run_uuid))
@@ -141,6 +145,7 @@ class RestStore(AbstractStore):
         :param experiment_id: ID of the experiment for this run
         :param user_id: ID of the user launching this run
         :param source_type: Enum (integer) describing the source of the run
+
         :return: The created Run object
         """
         tag_protos = [tag.to_proto() for tag in tags]
@@ -158,6 +163,7 @@ class RestStore(AbstractStore):
     def log_metric(self, run_uuid, metric):
         """
         Logs a metric for the specified run
+
         :param run_uuid: String id for the run
         :param metric: Metric instance to log
         """
@@ -168,6 +174,7 @@ class RestStore(AbstractStore):
     def log_param(self, run_uuid, param):
         """
         Logs a param for the specified run
+
         :param run_uuid: String id for the run
         :param param: Param instance to log
         """
@@ -177,6 +184,7 @@ class RestStore(AbstractStore):
     def set_tag(self, run_uuid, tag):
         """
         Sets a tag for the specified run
+
         :param run_uuid: String id for the run
         :param tag: RunTag instance to log
         """

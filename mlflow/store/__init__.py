@@ -1,5 +1,9 @@
 """
-Constants shared by several backend store implementations.
+An MLflow tracking server has two properties related to how data is stored: *backend store* to
+record ML experiments, runs, parameters, metrics. ... etc and *artifact store* to store run
+artifacts like models, plots, images. ... etc.
+
+Several constants are used by multiple backend store implementations.
 """
 
 # Path to default location for backend when using local FileStore or ArtifactStore.
