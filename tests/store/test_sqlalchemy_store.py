@@ -16,8 +16,7 @@ from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
 
-# DB_URI = 'sqlite://'
-DB_URI = 'mysql://root:password@localhost:33060/kitty'
+DB_URI = 'sqlite://'
 ARTIFACT_URI = 'artifact_folder'
 
 
