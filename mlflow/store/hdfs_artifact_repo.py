@@ -35,9 +35,9 @@ class HdfsArtifactRepository(ArtifactRepository):
         return posixpath
 
     def _create_hdfs_conn(self):
-        from hdfs3 import HDFileSystem
-        hdfs = HDFileSystem(host=self.config["host"],
-                            port=int(self.config["port"]))
+        import pyarrow as pa
+        hdfs = pa.hdfs.connect(host=self.config["host"],
+                               port=int(self.config["port"]))
         return hdfs
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -47,38 +47,40 @@ class HdfsArtifactRepository(ArtifactRepository):
             dest_path = self.path
         try:
             hdfs = self._create_hdfs_conn()
-            hdfs.put(local_file, dest_path)
+            with hdfs.open(dest_path, 'wb') as hdf:
+                hdf.write(open(local_file, "rb").read())
         finally:
             if hdfs:
-                hdfs.disconnect()
+                hdfs.close()
 
     def log_artifacts(self, local_dir, artifact_path=None):
         if artifact_path and path_not_unique(artifact_path):
             raise Exception("Invalid artifact path: '%s'. %s" % (artifact_path,
                                                                  bad_path_message(artifact_path)))
+        hdfs = None
         try:
             hdfs = self._create_hdfs_conn()
             hdfs_model_path = self.path + os.sep + artifact_path + "/model/"
-            if not (hdfs.isdir(hdfs_model_path)):
+            if not (hdfs.exists(hdfs_model_path)):
                 hdfs.mkdir(artifact_path)
             rootdir_name = os.path.split(os.path.dirname(local_dir))[1]
-            for subdir, dirs, files in os.walk(local_dir):
+            for subdir, _dirs, files in os.walk(local_dir):
                 hdfs_subdir_path = self.path + os.sep \
                                    + artifact_path + os.sep \
                                    + self.extract_child(subdir,
                                                         rootdir_name)
-                if not (hdfs.isdir(hdfs_subdir_path)):
+                if not (hdfs.exists(hdfs_subdir_path)):
                     hdfs.mkdir(hdfs_subdir_path)
                 for file in files:
                     filepath = subdir + os.sep + file
-                    hdfs.put(filepath, hdfs_subdir_path + "/" + file)
+                    with hdfs.open(hdfs_subdir_path + os.sep + file, 'wb') as hdf:
+                        hdf.write(open(filepath, "rb").read())
         finally:
             if hdfs:
-                hdfs.disconnect()
+                hdfs.close()
 
     def extract_child(self, path, rootdir_name):
         splitpaths = path.split(os.sep + rootdir_name + os.sep)
-        index = 0
         child_dir_path = ''
         for index in range(1, len(splitpaths)):
             childdirs = splitpaths[index].split(os.sep)
@@ -95,16 +97,19 @@ class HdfsArtifactRepository(ArtifactRepository):
         try:
             hdfs = self._create_hdfs_conn()
             if (hdfs.exists(hdfs_path)):
-                paths = hdfs.glob(hdfs_path + "/*")
-                if (paths and len(paths) > 0):
-                    infos = []
-                    for f in paths:
-                        infos.append(FileInfo(f, hdfs.isdir(f), hdfs.info(f).get("size")))
-                    return sorted(infos, key=lambda f: paths)
+                infos = []
+                for subdir, _dirs, files in hdfs.walk(hdfs_path):
+                    infos.append(FileInfo(subdir, hdfs.isdir(subdir),
+                                          hdfs.info(subdir).get("size")))
+                    for file in files:
+                        filepath = subdir + os.sep + file
+                        infos.append(FileInfo(filepath, hdfs.isdir(filepath),
+                                              hdfs.info(filepath).get("size")))
+                return sorted(infos, key=lambda f: paths)
             return paths
         finally:
             if hdfs:
-                hdfs.disconnect()
+                hdfs.close()
 
     def _hdfs_download(self, output_path=None, remote_path=None):
         if (output_path is None or output_path == ''):
@@ -114,16 +119,17 @@ class HdfsArtifactRepository(ArtifactRepository):
         try:
             hdfs = self._create_hdfs_conn()
             rootdir_name = os.path.split(os.path.dirname(remote_path))[1]
-            for subdir, dirs, files in hdfs.walk(remote_path):
+            for subdir, _dirs, files in hdfs.walk(remote_path):
                 subdir_local_path = output_path + os.sep + self.extract_child(subdir, rootdir_name)
                 os.makedirs(subdir_local_path, exist_ok=True)
                 for file in files:
                     filepath = subdir + os.sep + file
-                    hdfs.get(filepath, subdir_local_path + "/" + file)
-                    # mv directory
+                    local_file_path = subdir_local_path + os.sep + file
+                    with open(local_file_path, 'wb') as f:
+                        f.write(hdfs.open(filepath, 'rb').read())
         finally:
             if hdfs:
-                hdfs.disconnect()
+                hdfs.close()
 
     def _download_file(self, remote_file_path, local_path):
         self._hdfs_download(output_path=local_path,

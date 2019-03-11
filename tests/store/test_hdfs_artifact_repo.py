@@ -1,6 +1,5 @@
 # pylint: disable=redefined-outer-name
 import os
-import pytest
 import tempfile
 
 from mlflow.store.artifact_repository_registry import get_artifact_repository
@@ -9,16 +8,6 @@ from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository
 HDFS_HOST = "localhost"
 HDFS_PORT = "8020"
 hadoop_url = "hdfs://" + HDFS_HOST + ":" + HDFS_PORT
-
-
-@pytest.fixture
-def hadoop_connection():
-    if ("HADOOP_HOST" in os.environ):
-        HDFS_HOST = os.environ["HADOOP_HOST"]
-
-    if ("HADOOP_PORT" in os.environ):
-        HDFS_PORT = os.environ["HADOOP_PORT"]
-    # yield mock.MagicMock(autospec=))
 
 
 def test_artifact_uri_factory():
@@ -54,9 +43,9 @@ def test_list_artifacts():
 
     repo.log_artifacts(subdir_path, 'test_model')
     artifacts = repo.list_artifacts(path=filepath + "/test_model/subdir")
-
-    assert len(artifacts) == 3
-    assert artifacts[0].path == filepath + "/test_model/subdir" + os.sep + "nested"
+    print(artifacts)
+    assert len(artifacts) == 5
+    assert artifacts[0].path == filepath + "/test_model/subdir"
     assert artifacts[0].is_dir is True
     assert artifacts[0].file_size == 0
     assert artifacts[1].path == filepath + '/test_model/subdir/a.txt'
@@ -65,6 +54,12 @@ def test_list_artifacts():
     assert artifacts[2].path == filepath + '/test_model/subdir/b.txt'
     assert artifacts[2].is_dir is False
     assert artifacts[2].file_size == 1
+    assert artifacts[3].path == filepath + '/test_model/subdir/nested'
+    assert artifacts[3].is_dir is True
+    assert artifacts[3].file_size == 0
+    assert artifacts[4].path == filepath + '/test_model/subdir/nested/c.txt'
+    assert artifacts[4].is_dir is False
+    assert artifacts[4].file_size == 1
 
 
 def test_log_artifact():
@@ -90,13 +85,13 @@ def test_log_artifact():
         assert hdfs.exists(filepath + "/test.txt") is True
     finally:
         if (hdfs):
-            hdfs.disconnect()
+            hdfs.close()
         clean_dir(filepath)
 
 
 def _create_conn():
-    from hdfs3 import HDFileSystem
-    hdfs = HDFileSystem(host=HDFS_HOST, port=int(HDFS_PORT))
+    import pyarrow as pa
+    hdfs = pa.hdfs.connect(host=HDFS_HOST, port=int(HDFS_PORT))
     return hdfs
 
 
@@ -126,7 +121,7 @@ def test_log_artifacts():
         assert hdfs.exists(filepath + "/test_model/subdir/c.txt") is True
     finally:
         if (hdfs):
-            hdfs.disconnect()
+            hdfs.close()
         clean_dir(filepath)
 
 
@@ -139,7 +134,7 @@ def clean_dir(path):
         hdfs.rm(path, True)
     finally:
         if (hdfs):
-            hdfs.disconnect()
+            hdfs.close()
 
 
 def is_hadoop_installed():

@@ -49,6 +49,7 @@ setup(
         'docker>=3.6.0',
         'entrypoints',
         'sqlparse',
+        'pyarrow>=0.12.0',
          'hdfs3==0.3.0'
     ],
     entry_points='''
