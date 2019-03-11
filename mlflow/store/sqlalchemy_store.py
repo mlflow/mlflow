@@ -318,9 +318,6 @@ class SqlAlchemyStore(AbstractStore):
                 self._get_or_create(model=SqlMetric, run_uuid=run_uuid, key=metric.key,
                                     value=metric.value, timestamp=metric.timestamp, session=session)
             except sqlalchemy.exc.IntegrityError as ie:
-                # Querying metrics from run entails pushing the query down to DB layer.
-                # Hence the rollback.
-                self.session.rollback()
                 existing_metric = [m for m in run.metrics
                                    if m.key == metric.key and m.timestamp == metric.timestamp]
                 if len(existing_metric) == 0:
@@ -334,8 +331,9 @@ class SqlAlchemyStore(AbstractStore):
                         " at {}".format(metric, m.value, m.timestamp), INVALID_PARAMETER_VALUE)
 
     def get_metric_history(self, run_uuid, metric_key):
-        metrics = self.session.query(SqlMetric).filter_by(run_uuid=run_uuid, key=metric_key).all()
-        return [metric.to_mlflow_entity() for metric in metrics]
+        with self.ManagedSessionMaker() as session:
+            metrics = session.query(SqlMetric).filter_by(run_uuid=run_uuid, key=metric_key).all()
+            return [metric.to_mlflow_entity() for metric in metrics]
 
     def log_param(self, run_uuid, param):
         with self.ManagedSessionMaker() as session:
@@ -349,9 +347,6 @@ class SqlAlchemyStore(AbstractStore):
                 self._get_or_create(model=SqlParam, session=session, run_uuid=run_uuid,
                                     key=param.key, value=param.value)
             except sqlalchemy.exc.IntegrityError as ie:
-                # Querying metrics from run entails pushing the query down to DB layer.
-                # Hence the rollback.
-                self.session.rollback()
                 existing_params = [p.value for p in run.params if p.key == param.key]
                 if len(existing_params) == 0:
                     raise MlflowException(
