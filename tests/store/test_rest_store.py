@@ -4,10 +4,11 @@ import unittest
 import mock
 import six
 
+import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.entities import Param, Metric, RunTag
+from mlflow.entities import Param, Metric, RunTag, SourceType
 from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogParam, LogMetric, \
-    SetTag, DeleteRun, RestoreRun
+    SetTag, DeleteRun, RestoreRun, CreateRun, RunTag as ProtoRunTag
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 
@@ -71,11 +72,20 @@ class TestRestStore(unittest.TestCase):
         assert len(experiments) == 1
         assert experiments[0].name == 'My experiment'
 
+    def _args(self, host_creds, endpoint, method, json_body):
+        return {'host_creds': host_creds,
+                'endpoint': "/api/2.0/preview/mlflow/%s" % endpoint,
+                'method': method,
+                'json': json.loads(json_body)}
+
     def _verify_requests(self, http_request, host_creds, endpoint, method, json_body):
-        http_request.assert_called_with(host_creds=host_creds,
-                                        endpoint="/api/2.0/preview/mlflow/%s" % endpoint,
-                                        method=method,
-                                        json=json.loads(json_body))
+        http_request.assert_called_with(**(self._args(host_creds, endpoint, method, json_body)))
+
+    def _verify_request_has_calls(self, http_request, host_creds, call_args):
+        http_request.assert_has_calls(calls=[mock.call(**(self._args(host_creds, endpoint, method,
+                                                                     json_body)))
+                                             for endpoint, method, json_body in call_args],
+                                      any_order=True)
 
     @mock.patch('requests.request')
     def test_requestor(self, request):
@@ -86,6 +96,27 @@ class TestRestStore(unittest.TestCase):
 
         creds = MlflowHostCreds('https://hello')
         store = RestStore(lambda: creds)
+
+        user_name = "mock user"
+        run_name = "rest run"
+        source_name = "rest test"
+
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http, \
+                mock.patch('mlflow.tracking.utils._get_store', return_value=store), \
+                mock.patch('mlflow.tracking.client._get_user_id', return_value=user_name), \
+                mock.patch('time.time', return_value=13579):
+            with mlflow.start_run(experiment_id=43, run_name=run_name, source_name=source_name):
+                cr_body = message_to_json(CreateRun(experiment_id=43, run_name='',
+                                                    user_id=user_name, source_type=SourceType.LOCAL,
+                                                    source_name=source_name, start_time=13579000,
+                                                    tags=[ProtoRunTag(key='mlflow.source.name',
+                                                                      value=source_name),
+                                                          ProtoRunTag(key='mlflow.source.type',
+                                                                      value='LOCAL')]))
+                st_body = message_to_json(SetTag(run_uuid='', key='mlflow.runName', value=run_name))
+                assert mock_http.call_count == 2
+                exp_calls = [("runs/create", "POST", cr_body), ("runs/set-tag", "POST", st_body)]
+                self._verify_request_has_calls(mock_http, creds, exp_calls)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
