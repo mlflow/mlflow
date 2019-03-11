@@ -53,7 +53,7 @@ What happens when the project is run?
 Running ``mlflow run examples/docker`` builds a new Docker image based on ``mlflow-docker-example``
 that also contains our project code. The resulting image is tagged as 
 ``mlflow-docker-example-<git-version>`` where ``<git-version>`` is the git commit ID. After the image is
-built, you can run the default (main) project entry point within the container using ``docker run``.
+built, MLflow executes the default (main) project entry point within the container using ``docker run``.
 
 Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the container during 
 project execution. When running against a local tracking URI, MLflow mounts the host system's 
