@@ -23,7 +23,6 @@ from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.entities import RunStatus, SourceType
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.tracking import context
 from mlflow.tracking.context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
@@ -556,14 +555,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
     if parent_run_id is not None:
         tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
 
-    active_run = tracking.MlflowClient().create_run(
-        experiment_id=experiment_id,
-        tags=tags,
-        source_name=source_name,
-        source_version=_get_git_commit(work_dir),
-        entry_point_name=entry_point,
-        source_type=SourceType.PROJECT,
-        parent_run_id=parent_run_id)
+    active_run = tracking.MlflowClient().create_run(experiment_id=experiment_id, tags=tags)
     return active_run
 
 

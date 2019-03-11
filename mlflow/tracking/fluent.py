@@ -21,7 +21,7 @@ from mlflow.tracking import context
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, \
-    MLFLOW_PROJECT_ENTRY_POINT
+    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -124,6 +124,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
         user_specified_tags = {}
+        if parent_run_id is not None:
+            user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if source_name is not None:
             user_specified_tags[MLFLOW_SOURCE_NAME] = source_name
         if source_type is not None:
@@ -138,13 +140,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
             run_name=run_name,
-            source_name=tags.get(MLFLOW_SOURCE_NAME),  # For backwards compatability
-            source_version=tags.get(MLFLOW_GIT_COMMIT),  # For backwards compatability
-            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),  # For backwards compatability
-            # For backwards compatability:
-            source_type=SourceType.from_string(tags.get(MLFLOW_SOURCE_TYPE)),
-            tags=tags,
-            parent_run_id=parent_run_id
+            tags=tags
         )
 
     _active_run_stack.append(ActiveRun(active_run_obj))

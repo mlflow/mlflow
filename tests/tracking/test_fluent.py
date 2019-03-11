@@ -186,12 +186,7 @@ def test_start_run_defaults(empty_active_run_stack):
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=None,
-            source_name=mock_source_name,
-            source_version=mock_source_version,
-            entry_point_name=None,
-            source_type=SourceType.NOTEBOOK,
-            tags=expected_tags,
-            parent_run_id=None
+            tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -239,12 +234,7 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=None,
-            source_name=mock_notebook_path,
-            source_version=mock_source_version,
-            entry_point_name=None,
-            source_type=SourceType.NOTEBOOK,
-            tags=expected_tags,
-            parent_run_id=None
+            tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -280,12 +270,7 @@ def test_start_run_overrides(empty_active_run_stack):
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=mock_run_name,
-            source_name=mock_source_name,
-            source_version=mock_source_version,
-            entry_point_name=mock_entry_point_name,
-            source_type=source_type,
-            tags=expected_tags,
-            parent_run_id=None
+            tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -337,12 +322,7 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=mock_run_name,
-            source_name=mock_source_name,
-            source_version=mock_source_version,
-            entry_point_name=mock_entry_point_name,
-            source_type=source_type,
-            tags=expected_tags,
-            parent_run_id=None
+            tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -369,7 +349,8 @@ def test_start_run_with_parent():
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(source_type),
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
-        mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name
+        mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name,
+        mlflow_tags.MLFLOW_PARENT_RUN_ID: parent_run.info.run_uuid
     }
 
     with databricks_notebook_patch, create_run_patch, active_run_stack_patch:
@@ -381,12 +362,7 @@ def test_start_run_with_parent():
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=mock_run_name,
-            source_name=mock_source_name,
-            source_version=mock_source_version,
-            entry_point_name=mock_entry_point_name,
-            source_type=source_type,
-            tags=expected_tags,
-            parent_run_id=parent_run.info.run_uuid
+            tags=expected_tags
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
