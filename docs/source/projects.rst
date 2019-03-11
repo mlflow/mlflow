@@ -69,18 +69,18 @@ that is used to execute project entry points.
 
 Project Environments
 ^^^^^^^^^^^^^^^^^^^^
-MLflow currently supports the following project environments:
+MLflow currently supports the following project environments: Conda environment, Docker container, and system environment.
 
 .. _project-conda-environments:
 
-Conda Environments
-  You can run MLflow Projects inside `Conda <https://conda.io/docs>`_ environments, which support 
+Conda environment
+  `Conda <https://conda.io/docs>`_ environments support 
   both Python packages and native libraries (e.g, CuDNN or Intel MKL). When an MLflow Project 
-  specifies a Conda environment, it is activated before project code is executed.
+  specifies a Conda environment, it is activated before project code is run.
 
-  By default, MLflow uses the system path to find and execute the ``conda`` binary. You can use a 
+  By default, MLflow uses the system path to find and run the ``conda`` binary. You can use a 
   different Conda installation by setting the ``MLFLOW_CONDA_HOME`` environment variable; in this 
-  case, MLflow attempts to execute the binary at ``$MLFLOW_CONDA_HOME/bin/conda``.
+  case, MLflow attempts to run the binary at ``$MLFLOW_CONDA_HOME/bin/conda``.
 
   You can specify a Conda environment for your MLflow project by including a ``conda.yaml``
   file in the root of the project directory, or by including a ``conda_env`` entry in your
@@ -89,33 +89,30 @@ Conda Environments
 
 .. _project-docker-container-environments:
 
-Docker Containers
-  You can also run MLflow Projects inside 
-  `Docker containers <https://www.docker.com/resources/what-container>`_, which allows you to 
+Docker container
+  `Docker containers <https://www.docker.com/resources/what-container>`_ allow you to 
   capture non-Python dependencies such as Java libraries. When you run an MLflow Project that 
-  specifies a Docker image, MLflow executes the image, mounts the project directory in the resulting 
+  specifies a Docker image, MLflow runs the image, mounts the project directory in the resulting 
   container at ``/mlflow/projects/code``, and invokes the project entry point in the container. 
  
   Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the Docker container 
-  during project execution. Additionally, :ref:`Runs <concepts>` and 
-  :ref:`Experiments <organizing-runs-in-experiments>` created by the project are saved to the 
+  during project execution. Additionally, :ref:`runs <concepts>` and 
+  :ref:`experiments <organizing-runs-in-experiments>` created by the project are saved to the 
   tracking server specified by your :ref:`tracking URI <where-runs-are-recorded>`. When running 
-  against a local tracking URI, MLflow will mount the host system's tracking directory
+  against a local tracking URI, MLflow mounts the host system's tracking directory
   (e.g., a local ``mlruns`` directory) inside the container so that metrics, parameters, and 
   artifacts logged during project execution are accessible afterwards.
 
-  See `here <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ for an example of an 
-  MLflow project with a Docker environment.
+  See `Dockerized Model Training with MLflow <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ 
+  for an example of an MLflow project with a Docker environment.
 
   .. important::
 
-    Docker container environments can only be specified using an 
+    You can specify Docker container environments only using an 
     :ref:`MLProject file <mlproject-file>`.
     
-System Environments
-  Finally, you can run MLflow Projects directly in your current system environment. All of the 
-  project's dependencies must be installed on your system prior to project execution.
-
+System environment
+  All of the project's dependencies must be installed on your system prior to project execution. 
   The system environment is supplied at runtime. It is not part of the MLflow Project's
   directory contents or ``MLProject`` file. For information about using the current system
   environment when running a project, see the ``Environment`` parameter description in the 
@@ -126,7 +123,7 @@ System Environments
 Project Directories
 ^^^^^^^^^^^^^^^^^^^
 
-When executing an MLflow Project directory or repository that does *not* contain an ``MLProject`` 
+When running an MLflow Project directory or repository that does *not* contain an ``MLProject`` 
 file, MLflow uses the following conventions to determine the project's attributes:
 
 * The project's name is the name of the directory.
