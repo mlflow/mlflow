@@ -71,9 +71,9 @@ class HdfsArtifactRepository(ArtifactRepository):
                                                         rootdir_name)
                 if not (hdfs.exists(hdfs_subdir_path)):
                     hdfs.mkdir(hdfs_subdir_path)
-                for file in files:
-                    filepath = subdir + os.sep + file
-                    with hdfs.open(hdfs_subdir_path + os.sep + file, 'wb') as hdf:
+                for each_file in files:
+                    filepath = subdir + os.sep + each_file
+                    with hdfs.open(hdfs_subdir_path + os.sep + each_file, 'wb') as hdf:
                         hdf.write(open(filepath, "rb").read())
         finally:
             if hdfs:
@@ -101,8 +101,8 @@ class HdfsArtifactRepository(ArtifactRepository):
                 for subdir, _dirs, files in hdfs.walk(hdfs_path):
                     infos.append(FileInfo(subdir, hdfs.isdir(subdir),
                                           hdfs.info(subdir).get("size")))
-                    for file in files:
-                        filepath = subdir + os.sep + file
+                    for each_file in files:
+                        filepath = subdir + os.sep + each_file
                         infos.append(FileInfo(filepath, hdfs.isdir(filepath),
                                               hdfs.info(filepath).get("size")))
                 return sorted(infos, key=lambda f: paths)
@@ -121,10 +121,11 @@ class HdfsArtifactRepository(ArtifactRepository):
             rootdir_name = os.path.split(os.path.dirname(remote_path))[1]
             for subdir, _dirs, files in hdfs.walk(remote_path):
                 subdir_local_path = output_path + os.sep + self.extract_child(subdir, rootdir_name)
-                os.makedirs(subdir_local_path, exist_ok=True)
-                for file in files:
-                    filepath = subdir + os.sep + file
-                    local_file_path = subdir_local_path + os.sep + file
+                if(not self.get_path_module().exists(subdir_local_path)):
+                    os.makedirs(subdir_local_path)
+                for each_file in files:
+                    filepath = subdir + os.sep + each_file
+                    local_file_path = subdir_local_path + os.sep + each_file
                     with open(local_file_path, 'wb') as f:
                         f.write(hdfs.open(filepath, 'rb').read())
         finally:
