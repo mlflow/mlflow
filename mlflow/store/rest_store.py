@@ -1,18 +1,13 @@
 import json
 
 from mlflow.store.abstract_store import AbstractStore
-
-from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
-
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import http_request_safe
-
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
     UpdateExperiment, LogBatch
-
 from mlflow.protos import databricks_pb2
 
 
@@ -144,15 +139,12 @@ class RestStore(AbstractStore):
         """
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(CreateRun(
-            experiment_id=experiment_id, user_id=user_id, run_name="",
+            experiment_id=experiment_id, user_id=user_id, run_name=run_name,
             source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,
             start_time=start_time, source_version=source_version, tags=tag_protos,
             parent_run_id=parent_run_id))
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
-        if run_name:
-            # TODO: optimization: This is making 2 calls to backend store. Include with above call.
-            self.set_tag(run.info.run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return run
 
     def log_metric(self, run_uuid, metric):

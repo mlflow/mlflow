@@ -18,7 +18,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 DB_URI = 'sqlite://'
 ARTIFACT_URI = 'artifact_folder'
@@ -324,37 +323,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.info.source_version, expected["source_version"])
         self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
         self.assertEqual(actual.info.start_time, expected["start_time"])
-        self.assertEqual(len(actual.data.tags), 3)
-
-        name_tag = models.SqlTag(key=MLFLOW_RUN_NAME, value='booyya').to_mlflow_entity()
-        self.assertListEqual(actual.data.tags, tags + [name_tag])
-
-    def test_create_run_with_parent_id(self):
-        exp = self._experiment_factory('test_create_run_with_parent_id')
-        expected = self._get_run_configs('booyya', experiment_id=exp)
-
-        tags = [RunTag('3', '4'), RunTag('1', '2')]
-        actual = self.store.create_run(expected["experiment_id"], expected["user_id"],
-                                       expected["name"],
-                                       SourceType.from_string(expected["source_type"]),
-                                       expected["source_name"], expected["entry_point_name"],
-                                       expected["start_time"], expected["source_version"],
-                                       tags, "parent_uuid_5")
-
-        self.assertEqual(actual.info.experiment_id, expected["experiment_id"])
-        self.assertEqual(actual.info.user_id, expected["user_id"])
-        self.assertEqual(actual.info.name, 'booyya')
-        self.assertEqual(actual.info.source_type, SourceType.from_string(expected["source_type"]))
-        self.assertEqual(actual.info.source_name, expected["source_name"])
-        self.assertEqual(actual.info.source_version, expected["source_version"])
-        self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
-        self.assertEqual(actual.info.start_time, expected["start_time"])
-        self.assertEqual(len(actual.data.tags), 4)
-
-        name_tag = models.SqlTag(key=MLFLOW_RUN_NAME, value='booyya').to_mlflow_entity()
-        parent_id_tag = models.SqlTag(key=MLFLOW_PARENT_RUN_ID,
-                                      value='parent_uuid_5').to_mlflow_entity()
-        self.assertListEqual(actual.data.tags, tags + [parent_id_tag, name_tag])
+        self.assertListEqual(actual.data.tags, tags)
 
     def test_to_mlflow_entity(self):
         run = self._run_factory()

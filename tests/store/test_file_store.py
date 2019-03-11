@@ -14,7 +14,6 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from tests.helper_functions import random_int, random_str
 
 
@@ -433,14 +432,6 @@ class TestFileStore(unittest.TestCase):
         with pytest.raises(MlflowException):
             fs.log_param(run_id, Param('a', 'b'))
 
-    def test_create_run_with_parent_id(self):
-        fs = FileStore(self.test_root)
-        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
-        run = fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name',
-                            'entry_point_name', 0, None, [], 'test_parent_run_id')
-        assert any([t.key == MLFLOW_PARENT_RUN_ID and t.value == 'test_parent_run_id'
-                    for t in fs.get_all_tags(run.info.run_uuid)])
-
     def test_default_experiment_initialization(self):
         fs = FileStore(self.test_root)
         fs.delete_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
@@ -537,7 +528,7 @@ class TestFileStore(unittest.TestCase):
     def test_log_batch(self):
         fs = FileStore(self.test_root)
         run = fs.create_run(
-            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
+            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, user_id='user', run_name='',
             source_type='source_type', source_name='source_name',
             entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
             parent_run_id=None)
@@ -557,7 +548,7 @@ class TestFileStore(unittest.TestCase):
 
     def _create_run(self, fs):
         return fs.create_run(
-            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
+            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, user_id='user', run_name='',
             source_type='source_type', source_name='source_name',
             entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
             parent_run_id=None)

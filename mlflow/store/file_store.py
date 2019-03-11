@@ -318,7 +318,7 @@ class FileStore(AbstractStore):
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id,
-                           name="",
+                           name=run_name,
                            artifact_uri=artifact_uri, source_type=source_type,
                            source_name=source_name,
                            entry_point_name=entry_point_name, user_id=user_id,
@@ -333,10 +333,6 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
-        if parent_run_id:
-            self.set_tag(run_uuid, RunTag(key=MLFLOW_PARENT_RUN_ID, value=parent_run_id))
-        if run_name:
-            self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return Run(run_info=run_info, run_data=None)
 
     def _make_experiment_dict(self, experiment):
