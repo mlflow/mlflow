@@ -1,12 +1,10 @@
 import os
 import sys
 import logging
-import itertools
 import warnings
 from abc import ABCMeta, abstractmethod
 
 import entrypoints
-from six.moves import reduce
 
 from mlflow.entities import SourceType
 from mlflow.utils import databricks_utils
@@ -183,12 +181,9 @@ _run_context_provider_registry.register(DatabricksNotebookRunContext)
 _run_context_provider_registry.register_entrypoints()
 
 
-def _merge_tags(base, new):
-    return dict(itertools.chain(base.items(), new.items()))
-
-
 def resolve_tags(tags=None):
-    """Generate a set of tags for the current run context.
+    """Generate a set of tags for the current run context. Tags are resolved in the order,
+    contexts are registered. Argument tags are applied last.
 
     This function iterates through all run context providers in the registry. Additional context
     providers can be registered as described in
@@ -199,12 +194,13 @@ def resolve_tags(tags=None):
     :return: A dicitonary of resolved tags.
     """
 
-    tag_sets = []
+    all_tags = {}
     for provider in _run_context_provider_registry:
         if provider.in_context():
-            tag_sets.append(provider.tags())
+            # TODO: Error out gracefully if provider's tags are not valid or have wrong types.
+            all_tags.update(provider.tags())
 
     if tags is not None:
-        tag_sets.append(tags)
+        all_tags.update(tags)
 
-    return reduce(_merge_tags, tag_sets)
+    return all_tags
