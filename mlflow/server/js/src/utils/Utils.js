@@ -4,6 +4,7 @@ import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
+import queryString from 'query-string';
 
 class Utils {
   /**
@@ -163,11 +164,28 @@ class Utils {
   }
 
   /**
+   * Adds the provided query params to the passed-in URL, returning the resulting URL
+   * @param url URL string like "http://my-mlflow-server.com/#/experiments/9.
+   * @param queryParams Optional query parameter string like "?param=12345". Query params provided
+   *        via this string will override existing query param values in `url`
+   */
+  static addQueryParams(url, queryParams) {
+    const urlObj = new URL(url);
+    const queryParamString = queryParams ? queryParams : "";
+    for (const [paramKey, paramVal] of Object.entries(queryString.parse(queryParamString))) {
+      urlObj.searchParams.append(paramKey, paramVal)
+    }
+    return urlObj.toString()
+  }
+
+  /**
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param run MlflowMessages.RunInfo
    * @param tags Object containing tag key value pairs.
+   * @param queryParams Query params to add to certain source type links (e.g. Databricks notebook
+   *                    links).
    */
-  static renderSource(run, tags) {
+  static renderSource(run, tags, queryParams) {
     let res = Utils.formatSource(run);
     if (run.source_type === "PROJECT") {
       const url = Utils.getGitRepoUrl(run.source_name);
@@ -181,12 +199,10 @@ class Utils {
       const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
       const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
       if (notebookId) {
-        let url = `../#notebook/${notebookId}`;
+        let url = Utils.addQueryParams(window.location.origin, queryParams);
+        url += `#notebook/${notebookId}`;
         if (revisionId) {
           url += `/revision/${revisionId}`;
-        }
-        if (window.location && window.location.search) {
-          url += window.location.search;
         }
         res = (<a title={run.source_name} href={url} target='_top'>
           {Utils.baseName(run.source_name)}

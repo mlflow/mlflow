@@ -222,7 +222,7 @@ class RunView extends Component {
             <span className="metadata-header">Source: </span>
             <span className="metadata-info">
               {Utils.renderSourceTypeIcon(run.source_type)}
-              {Utils.renderSource(run, tags)}
+              {Utils.renderSource(run, tags, queryParams)}
             </span>
           </div>
           {run.source_version ?
@@ -266,7 +266,10 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Job Output: </span>
               <span className="metadata-info">
-                <a href={tags['mlflow.databricks.runURL'].value + queryParams} target="_blank">
+                <a
+                  href={Utils.addQueryParams(tags['mlflow.databricks.runURL'].value, queryParams)}
+                   target="_blank"
+                >
                   Logs
                 </a>
               </span>

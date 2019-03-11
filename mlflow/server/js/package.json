@@ -18,6 +18,7 @@
     "plotly.js": "1.42.5",
     "prop-types": "15.6.1",
     "qs": "6.5.2",
+    "query-string": "^6.3.0",
     "react": "16.5.2",
     "react-app-rewire-polyfills": "^0.2.0",
     "react-bootstrap": "0.32.1",
@@ -25,8 +26,8 @@
     "react-mde": "5.8.0",
     "react-modal": "^3.4.4",
     "react-overlays": "^0.8.3",
-    "react-redux": "5.0.7",
     "react-plotly.js": "2.2.0",
+    "react-redux": "5.0.7",
     "react-router": "4.2.0",
     "react-router-dom": "4.2.2",
     "react-router-redux": "4.0.8",
@@ -59,9 +60,10 @@
     "eslint-plugin-promise": "3.6.0",
     "eslint-plugin-react": "7.4.0",
     "eslint-plugin-standard": "3.0.1",
+    "jest": "^24.3.1",
     "jest-localstorage-mock": "^2.3.0",
-    "react-app-rewired": "^1.5.2",
-    "react-app-rewire-define-plugin": "1.0.0"
+    "react-app-rewire-define-plugin": "1.0.0",
+    "react-app-rewired": "^1.5.2"
   },
   "scripts": {
     "start": "react-app-rewired start",
