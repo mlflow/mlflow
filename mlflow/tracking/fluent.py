@@ -137,13 +137,15 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
 
         # Polling resolved tags for run meta data : source_name, source_version,
         # entry_point_name, and source_type which is store in RunInfo for backward compatibility.
+        # TODO: Remove all 4 of the following annotated backward compatibility fixes with API
+        #  changes to create_run.
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
             run_name=run_name,
-            source_name=tags.get(MLFLOW_SOURCE_NAME),
-            source_version=tags.get(MLFLOW_GIT_COMMIT),
-            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),
-            source_type=SourceType.from_string(tags.get(MLFLOW_SOURCE_TYPE)),
+            source_name=tags.get(MLFLOW_SOURCE_NAME),  # TODO: for backward compatibility. Remove.
+            source_version=tags.get(MLFLOW_GIT_COMMIT),  # TODO: for backward compatibility. Remove.
+            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),  # TODO: remove
+            source_type=SourceType.from_string(tags.get(MLFLOW_SOURCE_TYPE)),  # TODO: Remove
             tags=tags,
             parent_run_id=parent_run_id
         )
