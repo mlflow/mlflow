@@ -14,7 +14,6 @@ import subprocess
 import tempfile
 import logging
 import posixpath
-import six
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
