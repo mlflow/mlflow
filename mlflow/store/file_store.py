@@ -21,7 +21,6 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
                                      read_yaml, find, read_file_lines, read_file, build_path,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all)
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
