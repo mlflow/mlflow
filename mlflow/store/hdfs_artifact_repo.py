@@ -36,8 +36,11 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def _create_hdfs_conn(self):
         import pyarrow as pa
+        driver = 'libhdfs'
+        if "MLFLOW_HDFS_DRIVER" in os.environ:
+            driver = os.environ["MLFLOW_HDFS_DRIVER"]
         hdfs = pa.hdfs.connect(host=self.config["host"],
-                               port=int(self.config["port"]))
+                               port=int(self.config["port"]), driver=driver)
         return hdfs
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -45,6 +48,7 @@ class HdfsArtifactRepository(ArtifactRepository):
             dest_path = artifact_path
         else:
             dest_path = self.path
+        hdfs = None
         try:
             hdfs = self._create_hdfs_conn()
             with hdfs.open(dest_path, 'wb') as hdf:
@@ -121,7 +125,7 @@ class HdfsArtifactRepository(ArtifactRepository):
             rootdir_name = os.path.split(os.path.dirname(remote_path))[1]
             for subdir, _dirs, files in hdfs.walk(remote_path):
                 subdir_local_path = output_path + os.sep + self.extract_child(subdir, rootdir_name)
-                if(not self.get_path_module().exists(subdir_local_path)):
+                if (not self.get_path_module().exists(subdir_local_path)):
                     os.makedirs(subdir_local_path)
                 for each_file in files:
                     filepath = subdir + os.sep + each_file

@@ -91,7 +91,10 @@ def test_log_artifact():
 
 def _create_conn():
     import pyarrow as pa
-    hdfs = pa.hdfs.connect(host=HDFS_HOST, port=int(HDFS_PORT))
+    driver = 'libhdfs'
+    if "MLFLOW_HDFS_DRIVER" in os.environ:
+        driver = os.environ["MLFLOW_HDFS_DRIVER"]
+    hdfs = pa.hdfs.connect(host=HDFS_HOST, port=int(HDFS_PORT), driver=driver)
     return hdfs
 
 
@@ -141,3 +144,5 @@ def is_hadoop_installed():
     if ("HADOOP_HOME" in os.environ or "HADOOP_CONF_DIR" in os.environ):
         return True
     return False
+
+test_list_artifacts()
