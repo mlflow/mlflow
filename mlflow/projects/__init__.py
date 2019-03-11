@@ -14,6 +14,7 @@ import subprocess
 import tempfile
 import logging
 import posixpath
+import docker
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
@@ -22,16 +23,14 @@ from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.entities import RunStatus, SourceType
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracking import context
 from mlflow.tracking.context import _get_git_commit
-
 import mlflow.projects.databricks
 from mlflow.utils import process
-from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, \
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
+    MLFLOW_DOCKER_IMAGE_ID, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, \
     LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
-from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_NAME, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils import databricks_utils, file_utils
-import docker
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
