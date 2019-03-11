@@ -28,8 +28,9 @@ from mlflow.tracking.context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
-    MLFLOW_DOCKER_IMAGE_ID, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, \
-    LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME
+    MLFLOW_DOCKER_IMAGE_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, \
+    MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
+    LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID
 from mlflow.utils import databricks_utils, file_utils
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
@@ -538,13 +539,26 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
         source_name = tracking.utils._get_git_url_if_present(_expand_uri(uri))
     else:
         source_name = _expand_uri(uri)
+    source_version = _get_git_commit(work_dir)
     existing_run = fluent.active_run()
     if existing_run:
         parent_run_id = existing_run.info.run_uuid
     else:
         parent_run_id = None
+
+    tags = {
+        MLFLOW_SOURCE_NAME: source_name,
+        MLFLOW_SOURCE_TYPE: SourceType.PROJECT,
+        MLFLOW_PROJECT_ENTRY_POINT: entry_point
+    }
+    if source_version is not None:
+        tags[MLFLOW_GIT_COMMIT] = source_version
+    if parent_run_id is not None:
+        tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
+
     active_run = tracking.MlflowClient().create_run(
         experiment_id=experiment_id,
+        tags=tags,
         source_name=source_name,
         source_version=_get_git_commit(work_dir),
         entry_point_name=entry_point,

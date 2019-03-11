@@ -8,11 +8,12 @@ import mock
 import pytest
 
 import mlflow
-from mlflow.entities import RunStatus, ViewType
+from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import env
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, \
-    LEGACY_MLFLOW_GIT_BRANCH_NAME, LEGACY_MLFLOW_GIT_REPO_URL
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
+    MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
+    LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
@@ -30,7 +31,7 @@ def _get_version_local_git_repo(local_git_repo):
     return repo.git.rev_parse("HEAD")
 
 
-@pytest.fixture()
+@pytest.fixture
 def local_git_repo(tmpdir):
     local_git = tmpdir.join('git_repo').strpath
     repo = git.Repo.init(local_git)
@@ -41,12 +42,12 @@ def local_git_repo(tmpdir):
     yield os.path.abspath(local_git)
 
 
-@pytest.fixture()
+@pytest.fixture
 def local_git_repo_uri(local_git_repo):
     return "file://%s" % local_git_repo
 
 
-@pytest.fixture()
+@pytest.fixture
 def zipped_repo(tmpdir):
     import zipfile
     zip_name = tmpdir.join('%s.zip' % TEST_PROJECT_NAME).strpath
@@ -215,9 +216,12 @@ def test_run_local_git_repo(local_git_repo,
     metrics = {metric.key: metric.value for metric in run.data.metrics}
     assert metrics == expected_metrics
 
-    # Validate the branch name tag is logged
+    tags = {tag.key: tag.value for tag in run.data.tags}
+    assert "file:" in tags[MLFLOW_SOURCE_NAME]
+    assert tags[MLFLOW_SOURCE_TYPE] == str(SourceType.PROJECT)
+    assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
+
     if version == "master":
-        tags = {tag.key: tag.value for tag in run.data.tags}
         assert tags[MLFLOW_GIT_BRANCH] == "master"
         assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri
         assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
@@ -266,6 +270,11 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     expected_metrics = {"some_key": 3}
     metrics = {metric.key: metric.value for metric in run.data.metrics}
     assert metrics == expected_metrics
+
+    tags = {tag.key: tag.value for tag in run.data.tags}
+    assert "file:" in tags[MLFLOW_SOURCE_NAME]
+    assert tags[MLFLOW_SOURCE_TYPE] == str(SourceType.PROJECT)
+    assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
 
 
 def test_run_with_parent(tmpdir, tracking_uri_mock):  # pylint: disable=unused-argument
