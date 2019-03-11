@@ -101,10 +101,12 @@ def get_artifact_handler():
     run = _get_store().get_run(request_dict['run_uuid'])
     filename = os.path.abspath(_get_artifact_repo(run).download_artifacts(request_dict['path']))
     extension = os.path.splitext(filename)[-1].replace(".", "")
+    # Always send artifacts as attachments to prevent the browser from displaying them on our web
+    # server's domain, which might enable XSS.
     if extension in _TEXT_EXTENSIONS:
-        return send_file(filename, mimetype='text/plain')
+        return send_file(filename, mimetype='text/plain', as_attachment=True)
     else:
-        return send_file(filename)
+        return send_file(filename, as_attachment=True)
 
 
 def _not_implemented():

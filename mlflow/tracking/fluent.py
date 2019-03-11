@@ -9,21 +9,19 @@ import numbers
 import os
 
 import atexit
-import sys
 import time
 import logging
 
 import mlflow.tracking.utils
-from mlflow.entities import Experiment, Run, SourceType, RunStatus
+from mlflow.entities import Experiment, Run, RunStatus, SourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
+from mlflow.tracking import context
 from mlflow.utils import env
-from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id, \
-    get_notebook_path, get_webapp_url
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_WEBAPP_URL, \
-    MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
-    MLFLOW_DATABRICKS_NOTEBOOK_ID
+from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, \
+    MLFLOW_PROJECT_ENTRY_POINT
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -124,35 +122,34 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
             parent_run_id = None
 
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
-        if is_in_databricks_notebook():
-            databricks_tags = {}
-            notebook_id = get_notebook_id()
-            notebook_path = get_notebook_path()
-            webapp_url = get_webapp_url()
-            if notebook_id is not None:
-                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
-            if notebook_path is not None:
-                databricks_tags[MLFLOW_DATABRICKS_NOTEBOOK_PATH] = notebook_path
-            if webapp_url is not None:
-                databricks_tags[MLFLOW_DATABRICKS_WEBAPP_URL] = webapp_url
-            active_run_obj = MlflowClient().create_run(
-                experiment_id=exp_id_for_run,
-                run_name=run_name,
-                source_name=notebook_path,
-                source_version=source_version or _get_source_version(),
-                entry_point_name=entry_point_name,
-                source_type=SourceType.NOTEBOOK,
-                tags=databricks_tags,
-                parent_run_id=parent_run_id)
-        else:
-            active_run_obj = MlflowClient().create_run(
-                experiment_id=exp_id_for_run,
-                run_name=run_name,
-                source_name=source_name or _get_source_name(),
-                source_version=source_version or _get_source_version(),
-                entry_point_name=entry_point_name,
-                source_type=source_type or _get_source_type(),
-                parent_run_id=parent_run_id)
+
+        user_specified_tags = {}
+        if source_name is not None:
+            user_specified_tags[MLFLOW_SOURCE_NAME] = source_name
+        if source_type is not None:
+            user_specified_tags[MLFLOW_SOURCE_TYPE] = SourceType.to_string(source_type)
+        if source_version is not None:
+            user_specified_tags[MLFLOW_GIT_COMMIT] = source_version
+        if entry_point_name is not None:
+            user_specified_tags[MLFLOW_PROJECT_ENTRY_POINT] = entry_point_name
+
+        tags = context.resolve_tags(user_specified_tags)
+
+        # Polling resolved tags for run meta data : source_name, source_version,
+        # entry_point_name, and source_type which is store in RunInfo for backward compatibility.
+        # TODO: Remove all 4 of the following annotated backward compatibility fixes with API
+        #  changes to create_run.
+        active_run_obj = MlflowClient().create_run(
+            experiment_id=exp_id_for_run,
+            run_name=run_name,
+            source_name=tags.get(MLFLOW_SOURCE_NAME),  # TODO: for backward compatibility. Remove.
+            source_version=tags.get(MLFLOW_GIT_COMMIT),  # TODO: for backward compatibility. Remove.
+            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),  # TODO: remove
+            source_type=SourceType.from_string(tags.get(MLFLOW_SOURCE_TYPE)),  # TODO: Remove
+            tags=tags,
+            parent_run_id=parent_run_id
+        )
+
     _active_run_stack.append(ActiveRun(active_run_obj))
     return _active_run_stack[-1]
 
@@ -273,30 +270,6 @@ def _get_or_start_run():
     return start_run()
 
 
-def _get_main_file():
-    if len(sys.argv) > 0:
-        return sys.argv[0]
-    return None
-
-
-def _get_source_name():
-    main_file = _get_main_file()
-    if main_file is not None:
-        return main_file
-    return "<console>"
-
-
-def _get_source_version():
-    main_file = _get_main_file()
-    if main_file is not None:
-        return _get_git_commit(main_file)
-    return None
-
-
-def _get_source_type():
-    return SourceType.LOCAL
-
-
 def _get_experiment_id_from_env():
     experiment_name = env.get_env(_EXPERIMENT_NAME_ENV_VAR)
     if experiment_name is not None:
@@ -310,21 +283,3 @@ def _get_experiment_id():
                _get_experiment_id_from_env() or
                (is_in_databricks_notebook() and get_notebook_id()) or
                Experiment.DEFAULT_EXPERIMENT_ID)
-
-
-def _get_git_commit(path):
-    try:
-        from git import Repo, InvalidGitRepositoryError, GitCommandNotFound, NoSuchPathError
-    except ImportError as e:
-        _logger.warning(
-            "Failed to import Git (the Git executable is probably not on your PATH),"
-            " so Git SHA is not available. Error: %s", e)
-        return None
-    try:
-        if os.path.isfile(path):
-            path = os.path.dirname(path)
-        repo = Repo(path, search_parent_directories=True)
-        commit = repo.head.commit.hexsha
-        return commit
-    except (InvalidGitRepositoryError, GitCommandNotFound, ValueError, NoSuchPathError):
-        return None
