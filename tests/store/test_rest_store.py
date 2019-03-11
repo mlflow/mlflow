@@ -11,7 +11,7 @@ from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogPa
     SetTag, DeleteRun, RestoreRun, CreateRun, RunTag as ProtoRunTag, LogBatch
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
-
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
@@ -81,12 +81,6 @@ class TestRestStore(unittest.TestCase):
     def _verify_requests(self, http_request, host_creds, endpoint, method, json_body):
         http_request.assert_called_with(**(self._args(host_creds, endpoint, method, json_body)))
 
-    def _verify_request_has_calls(self, http_request, host_creds, call_args):
-        http_request.assert_has_calls(calls=[mock.call(**(self._args(host_creds, endpoint, method,
-                                                                     json_body)))
-                                             for endpoint, method, json_body in call_args],
-                                      any_order=True)
-
     @mock.patch('requests.request')
     def test_requestor(self, request):
         response = mock.MagicMock
@@ -106,17 +100,16 @@ class TestRestStore(unittest.TestCase):
                 mock.patch('mlflow.tracking.client._get_user_id', return_value=user_name), \
                 mock.patch('time.time', return_value=13579):
             with mlflow.start_run(experiment_id=43, run_name=run_name, source_name=source_name):
-                cr_body = message_to_json(CreateRun(experiment_id=43, run_name='',
-                                                    user_id=user_name, source_type=SourceType.LOCAL,
-                                                    source_name=source_name, start_time=13579000,
-                                                    tags=[ProtoRunTag(key='mlflow.source.name',
-                                                                      value=source_name),
-                                                          ProtoRunTag(key='mlflow.source.type',
-                                                                      value='LOCAL')]))
-                st_body = message_to_json(SetTag(run_uuid='', key='mlflow.runName', value=run_name))
-                assert mock_http.call_count == 2
-                exp_calls = [("runs/create", "POST", cr_body), ("runs/set-tag", "POST", st_body)]
-                self._verify_request_has_calls(mock_http, creds, exp_calls)
+                body = message_to_json(CreateRun(
+                    experiment_id=43, run_name='', user_id=user_name, source_type=SourceType.LOCAL,
+                    source_name=source_name, start_time=13579000,
+                    tags=[
+                        ProtoRunTag(key=MLFLOW_SOURCE_NAME, value=source_name),
+                        ProtoRunTag(key=MLFLOW_SOURCE_TYPE, value='LOCAL'),
+                        ProtoRunTag(key=MLFLOW_RUN_NAME, value=run_name)
+                    ]
+                ))
+                self._verify_requests(mock_http, creds, "runs/create", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
