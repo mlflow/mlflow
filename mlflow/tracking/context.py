@@ -95,7 +95,7 @@ class DefaultRunContext(RunContextProvider):
     def tags(self):
         return {
             MLFLOW_SOURCE_NAME: _get_source_name(),
-            MLFLOW_SOURCE_TYPE: _get_source_type()
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(_get_source_type())
         }
 
 
@@ -129,7 +129,7 @@ class DatabricksNotebookRunContext(RunContextProvider):
         webapp_url = databricks_utils.get_webapp_url()
         tags = {
             MLFLOW_SOURCE_NAME: notebook_path,
-            MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK)
         }
         if notebook_id is not None:
             tags[MLFLOW_DATABRICKS_NOTEBOOK_ID] = notebook_id
