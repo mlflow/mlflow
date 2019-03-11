@@ -162,9 +162,14 @@ public class MlflowClientTest {
     long expId = client.createExperiment(expName);
     RunInfo parentRun = client.createRun(expId);
     String parentRunId = parentRun.getRunUuid();
+    RunTag parentRunIdTag = RunTag.newBuilder()
+      .setKey("mlflow.parentRunId")
+      .setValue(parentRunId)
+      .build()
     RunInfo childRun = client.createRun(CreateRun.newBuilder()
     .setExperimentId(expId)
     .setParentRunId(parentRunId)
+    .addTags(parentRunIdTag)
     .build());
     List<RunTag> childTags = client.getRun(childRun.getRunUuid()).getData().getTagsList();
     String parentRunIdTagValue = childTags.stream()
