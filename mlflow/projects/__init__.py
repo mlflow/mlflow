@@ -21,7 +21,7 @@ import mlflow.tracking.fluent as fluent
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException, MlflowException
-from mlflow.entities import RunStatus, SourceType, Param
+from mlflow.entities import RunStatus, SourceType
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.tracking.context import _get_git_commit
 
@@ -32,7 +32,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, \
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_NAME, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils import databricks_utils, file_utils
-from mlflow.utils.logging_utils import eprint
 import docker
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
