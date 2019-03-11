@@ -38,7 +38,7 @@ def test_default_run_context_in_context():
 def test_default_run_context_tags(patch_script_name):
     assert DefaultRunContext().tags() == {
         MLFLOW_SOURCE_NAME: MOCK_SCRIPT_NAME,
-        MLFLOW_SOURCE_TYPE: SourceType.LOCAL
+        MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL)
     }
 
 
@@ -86,7 +86,7 @@ def test_databricks_notebook_run_context_tags():
             patch_webapp_url as webapp_url_mock:
         assert DatabricksNotebookRunContext().tags() == {
             MLFLOW_SOURCE_NAME: notebook_path_mock.return_value,
-            MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK,
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
             MLFLOW_DATABRICKS_NOTEBOOK_ID: notebook_id_mock.return_value,
             MLFLOW_DATABRICKS_NOTEBOOK_PATH: notebook_path_mock.return_value,
             MLFLOW_DATABRICKS_WEBAPP_URL: webapp_url_mock.return_value
@@ -104,7 +104,7 @@ def test_databricks_notebook_run_context_tags_nones():
     with patch_notebook_id, patch_notebook_path, patch_webapp_url:
         assert DatabricksNotebookRunContext().tags() == {
             MLFLOW_SOURCE_NAME: None,
-            MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK,
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
         }
 
 
