@@ -173,16 +173,16 @@ def test_start_run_defaults(empty_active_run_stack):
         "mlflow.tracking.context._get_source_version", return_value=mock_source_version
     )
 
-    create_run_patch = mock.patch.object(MlflowClient, "create_run")
-
     expected_tags = {
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
-        mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: "some source",
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version
     }
 
     with experiment_id_patch, databricks_notebook_patch, source_name_patch, source_type_patch, \
-            source_version_patch, create_run_patch:
+            source_version_patch, mock.patch.object(MlflowClient, "create_run"), \
+            mock.patch.object(SourceType, "to_string", return_value="some source"), \
+            mock.patch.object(SourceType, "from_string", return_value=mock_source_type):
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
@@ -225,7 +225,7 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
 
     expected_tags = {
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_notebook_path,
-        mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.NOTEBOOK,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: "NOTEBOOK",
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_PATH: mock_notebook_path,
@@ -265,14 +265,17 @@ def test_start_run_overrides(empty_active_run_stack):
     mock_entry_point_name = mock.Mock()
     mock_run_name = mock.Mock()
 
+    to_str_patch = mock.patch.object(SourceType, "to_string", return_value="some source type")
+    from_str_patch = mock.patch.object(SourceType, "from_string", return_value=mock_source_type)
+
     expected_tags = {
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
-        mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: "some source type",
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
         mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name
     }
 
-    with databricks_notebook_patch, create_run_patch:
+    with databricks_notebook_patch, create_run_patch, to_str_patch, from_str_patch:
         active_run = start_run(
             experiment_id=mock_experiment_id, source_name=mock_source_name,
             source_version=mock_source_version, entry_point_name=mock_entry_point_name,
@@ -309,8 +312,6 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
         "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
 
-    create_run_patch = mock.patch.object(MlflowClient, "create_run")
-
     mock_experiment_id = mock.Mock()
     mock_source_name = mock.Mock()
     mock_source_type = mock.Mock()
@@ -320,7 +321,7 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
 
     expected_tags = {
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
-        mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: "overridden notebook",
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
         mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name,
         mlflow_tags.MLFLOW_DATABRICKS_NOTEBOOK_ID: mock_notebook_id,
@@ -328,8 +329,10 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
         mlflow_tags.MLFLOW_DATABRICKS_WEBAPP_URL: mock_webapp_url
     }
 
-    with databricks_notebook_patch, create_run_patch, notebook_id_patch, notebook_path_patch, \
-            webapp_url_patch:
+    with databricks_notebook_patch, notebook_id_patch, notebook_path_patch, webapp_url_patch, \
+            mock.patch.object(MlflowClient, "create_run"), \
+            mock.patch.object(SourceType, "to_string", return_value="overridden notebook"), \
+            mock.patch.object(SourceType, "from_string", return_value=mock_source_type):
         active_run = start_run(
             experiment_id=mock_experiment_id, source_name=mock_source_name,
             source_version=mock_source_version, entry_point_name=mock_entry_point_name,
@@ -357,8 +360,6 @@ def test_start_run_with_parent():
         "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
     )
 
-    create_run_patch = mock.patch.object(MlflowClient, "create_run")
-
     mock_experiment_id = mock.Mock()
     mock_source_name = mock.Mock()
     mock_source_type = mock.Mock()
@@ -368,12 +369,15 @@ def test_start_run_with_parent():
 
     expected_tags = {
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
-        mlflow_tags.MLFLOW_SOURCE_TYPE: mock_source_type,
+        mlflow_tags.MLFLOW_SOURCE_TYPE: "type_1248",
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
         mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name
     }
 
-    with databricks_notebook_patch, create_run_patch, active_run_stack_patch:
+    with databricks_notebook_patch, active_run_stack_patch, \
+            mock.patch.object(MlflowClient, "create_run"), \
+            mock.patch.object(SourceType, "to_string", return_value="type_1248"), \
+            mock.patch.object(SourceType, "from_string", return_value=mock_source_type):
         active_run = start_run(
             experiment_id=mock_experiment_id, source_name=mock_source_name,
             source_version=mock_source_version, entry_point_name=mock_entry_point_name,
