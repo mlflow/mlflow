@@ -169,14 +169,14 @@ def test_create_run_all_args(mlflow_client):
     source_version = "abc"
     create_run_kwargs = {
         "user_id": "123",
-        "run_name": "My name",
         "start_time": 456,
         "tags": {
+            MLFLOW_RUN_NAME: "My name",
+            MLFLOW_PARENT_RUN_ID: "7",
             MLFLOW_SOURCE_TYPE: "LOCAL",
             MLFLOW_SOURCE_NAME: source_name,
             MLFLOW_PROJECT_ENTRY_POINT: entry_point,
             MLFLOW_GIT_COMMIT: source_version,
-            MLFLOW_PARENT_RUN_ID: "7",
             "my": "tag",
             "other": "tag",
         }
@@ -196,9 +196,7 @@ def test_create_run_all_args(mlflow_client):
     assert run.info.start_time == create_run_kwargs["start_time"]
     assert run.info.source_version == source_version
     actual_tags = {t.key: t.value for t in run.data.tags}
-    for tag in create_run_kwargs["tags"]:
-        assert tag in actual_tags
-    assert actual_tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
+    assert actual_tags == create_run_kwargs["tags"]
 
     assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
