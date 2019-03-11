@@ -53,7 +53,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         with TempDir(chdr=True) as tmp:
             tmp_file_name = "sqlite_file_to_lifecycle_test_{}.db".format(int(time.time()))
             self._setup_database("/" + tmp.path(tmp_file_name))
-            
+
             default_experiment = self.store.get_experiment(experiment_id=0)
             self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
             self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)

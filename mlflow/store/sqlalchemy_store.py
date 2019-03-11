@@ -40,6 +40,13 @@ class SqlAlchemyStore(AbstractStore):
 
     @staticmethod
     def _get_managed_session_maker(SessionMaker):
+        """
+        Creates a factory for producing exception-safe SQLAlchemy sessions that are made available
+        using a context manager. Any session produced by this factory is automatically committed
+        if no exceptions are encountered within its associated context. If an exception is
+        encountered, the session is rolled back. Finally, any session produced by this factory is
+        automatically closed when the session's associated context is exited.
+        """
 
         @contextmanager
         def make_managed_session():
@@ -54,7 +61,7 @@ class SqlAlchemyStore(AbstractStore):
             finally:
                 session.close()
 
-        return make_managed_session 
+        return make_managed_session
 
     def _set_no_auto_for_zero_values(self, session):
         if self.db_type == MYSQL:
@@ -160,7 +167,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         with self.ManagedSessionMaker() as session:
-            return [exp.to_mlflow_entity() for exp in 
+            return [exp.to_mlflow_entity() for exp in
                     self._list_experiments(session=session, view_type=view_type)]
 
     def _get_experiment(self, experiment_id, view_type, session):
@@ -318,7 +325,7 @@ class SqlAlchemyStore(AbstractStore):
                                    if m.key == metric.key and m.timestamp == metric.timestamp]
                 if len(existing_metric) == 0:
                     raise MlflowException(
-                        "Log metric request failed for run ID={}. Attempted to log metric={}." 
+                        "Log metric request failed for run ID={}. Attempted to log metric={}."
                         " Error={}".format(run_uuid, (metric.key, metric.value), str(ie)))
                 else:
                     m = existing_metric[0]
@@ -339,7 +346,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 # This will check for various integrity checks for params table.
                 # ToDo: Consider prior checks for null, type, param name validations, ... etc.
-                self._get_or_create(model=SqlParam, session=session, run_uuid=run_uuid, 
+                self._get_or_create(model=SqlParam, session=session, run_uuid=run_uuid,
                                     key=param.key, value=param.value)
             except sqlalchemy.exc.IntegrityError as ie:
                 # Querying metrics from run entails pushing the query down to DB layer.
@@ -348,12 +355,12 @@ class SqlAlchemyStore(AbstractStore):
                 existing_params = [p.value for p in run.params if p.key == param.key]
                 if len(existing_params) == 0:
                     raise MlflowException(
-                        "Log param request failed for run ID={}. Attempted to log param={}." 
+                        "Log param request failed for run ID={}. Attempted to log param={}."
                         " Error={}".format(run_uuid, (param.key, param.value), str(ie)))
                 else:
                     old_value = existing_params[0]
                     raise MlflowException(
-                        "Changing param value is not allowed. Param with key='{}' was already" 
+                        "Changing param value is not allowed. Param with key='{}' was already"
                         " logged with value='{}' for run ID='{}. Attempted logging new value"
                         " '{}'.".format(
                             param.key, old_value, run_uuid, param.value), INVALID_PARAMETER_VALUE)
