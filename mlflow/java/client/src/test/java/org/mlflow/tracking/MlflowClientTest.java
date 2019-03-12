@@ -165,7 +165,7 @@ public class MlflowClientTest {
     RunTag parentRunIdTag = RunTag.newBuilder()
       .setKey("mlflow.parentRunId")
       .setValue(parentRunId)
-      .build()
+      .build();
     RunInfo childRun = client.createRun(CreateRun.newBuilder()
     .setExperimentId(expId)
     .setParentRunId(parentRunId)
