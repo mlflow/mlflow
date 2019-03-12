@@ -42,29 +42,34 @@ new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, toke
 
 #' @export
 print.mlflow_host_creds <- function(mlflow_host_creds) {
-  host <- if (is.na(mlflow_host_creds$host)) {
-    ""
-  } else {
-    paste ("host = ", mlflow_host_creds$host, sep = "")
-  }
-  username <- if (is.na(mlflow_host_creds$username)) {
-    ""
-  } else {
-    paste ("username = ", mlflow_host_creds$username, sep = "")
-  }
-  password <- if (is.na(mlflow_host_creds$password)) {
-    ""
-  } else {
-    paste ("password = *****", mlflow_host_creds$username, sep = "")
-  }
-  token <- if (is.na(mlflow_host_creds$token)) {
-    ""
-  } else {
-    paste ("token = *****", mlflow_host_creds$username, sep = "")
-  }
-  insecure <- paste("insecure = ", as.character(mlflow_host_creds$get_host_creds$insecure),
-                    sep = "")
-  cat("mlflow_host_creds(", host, username, password, token, insecure, ")\n", sep= ", ")
+  args = list(
+    host = if (is.na(mlflow_host_creds$host)) {
+      ""
+    } else {
+      paste ("host = ", mlflow_host_creds$host, sep = "")
+    },
+    username = if (is.na(mlflow_host_creds$username)) {
+      ""
+    } else {
+      paste ("username = ", mlflow_host_creds$username, sep = "")
+    },
+    password = if (is.na(mlflow_host_creds$password)) {
+      ""
+    } else {
+      "password = *****"
+    },
+    token = if (is.na(mlflow_host_creds$token)) {
+      ""
+    } else {
+      "token = *****"
+    },
+    insecure = paste("insecure = ", as.character(mlflow_host_creds$insecure),
+                     sep = ""),
+    sep = ", "
+  )
+  cat("mlflow_host_creds( ")
+  do.call(cat, args[args != ""])
+  cat(")\n")
 }
 
 new_mlflow_client.mlflow_file <- function(tracking_uri) {
