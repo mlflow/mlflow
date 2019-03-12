@@ -9,8 +9,8 @@ import time
 from six import iteritems
 
 from mlflow.tracking import utils
-from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-    _validate_tag_name, _validate_run_id, _validate_experiment_name
+from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
+    _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 
@@ -131,8 +131,8 @@ class MlflowClient(object):
         Log a metric against the run ID. If timestamp is not provided, uses
         the current timestamp.
         """
-        _validate_metric_name(key)
         timestamp = timestamp if timestamp is not None else int(time.time())
+        _validate_metric(key, value, timestamp)
         metric = Metric(key, value, timestamp)
         self.store.log_metric(run_id, metric)
 
@@ -151,6 +151,25 @@ class MlflowClient(object):
         _validate_tag_name(key)
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
+
+    def log_batch(self, run_id, metrics, params, tags):
+        """
+        Log multiple metrics, params, and/or tags.
+
+        :param metrics: List of Metric(key, value, timestamp) instances.
+        :param params: List of Param(key, value) instances.
+        :param tags: List of RunTag(key, value) instances.
+
+        Raises an MlflowException if any errors occur.
+        :returns: None
+        """
+        for metric in metrics:
+            _validate_metric(metric.key, metric.value, metric.timestamp)
+        for param in params:
+            _validate_param_name(param.key)
+        for tag in tags:
+            _validate_tag_name(tag.key)
+        self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
