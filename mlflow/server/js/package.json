@@ -16,7 +16,7 @@
     "jquery": "3.0.0",
     "json-bigint": "github:databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
     "merge": "1.2.1",
-    "plotly.js": "1.42.5",
+    "plotly.js": "1.45.2",
     "prop-types": "15.6.1",
     "qs": "6.5.2",
     "query-string": "^6.3.0",
@@ -67,7 +67,7 @@
   },
   "scripts": {
     "start": "react-app-rewired start",
-    "build": "react-app-rewired build",
+    "build": "react-app-rewired --max_old_space_size=8192 build",
     "test": "react-app-rewired test --env=jsdom",
     "eject": "react-scripts eject",
     "lint": "react-scripts run lint"
