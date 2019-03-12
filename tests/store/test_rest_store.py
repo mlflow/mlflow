@@ -8,7 +8,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Param, Metric, RunTag, SourceType
 from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogParam, LogMetric, \
-    SetTag, DeleteRun, RestoreRun, CreateRun, RunTag as ProtoRunTag
+    SetTag, DeleteRun, RestoreRun, CreateRun, RunTag as ProtoRunTag, LogBatch
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 
