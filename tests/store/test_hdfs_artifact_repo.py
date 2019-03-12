@@ -144,5 +144,3 @@ def is_hadoop_installed():
     if ("HADOOP_HOME" in os.environ or "HADOOP_CONF_DIR" in os.environ):
         return True
     return False
-
-test_list_artifacts()
