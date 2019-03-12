@@ -251,26 +251,37 @@ You run an MLflow tracking server using ``mlflow server``.  An example configura
 Storage
 -------
 
-An MLflow tracking server has two properties related to how data is stored: a backend store and
-an artifact store.
+An MLflow tracking server has two components for storage: a **backend store** and an
+**artifact store**.
 
-The *backend store* (exposed as ``--backend-store-uri``) is where the *server* stores run and
-experiment metadata. For backwards compatibility, ``--file-store`` is an alias for this option.
-This can be a local path *file store* specified as ``./path_to_store`` or
-``file:/path_to_store``, or a SQL connection string for a *database-backed store*. For the
-latter, the argument must be a SQL connection string specified as
-``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported database types are
-``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+The **backend store** is where MLflow Tracking Server stores experiment and run metadata as well as
+params, metrics, and tags for runs. MLflow supports two types of backend stores: *file store* and
+*database-backed store*.
+
+Use ``--backend-store-uri`` to configure type of backend store. This can be a local path *file
+store* specified as ``./path_to_store`` or ``file:/path_to_store``, or a SQL connection string
+for a *database-backed store*. For the latter, the argument must be a SQL connection string
+specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported
+database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+
 By default this is set to the local ``./mlruns`` directory (the same as when running ``mlflow run``
 locally), but when running a server, make sure that this points to a persistent (that is,
 non-ephemeral) file system location.
 
-The *artifact store* is a location suitable for large data (such as an S3 bucket or shared NFS file system)
-and is where *clients* log their artifact output (for example, models). The artifact store is a property
-of an experiment, but the ``--default-artifact-root`` flag sets the artifact root URI for
-newly-created experiments that do not specify one.
-Once you create an experiment, ``--default-artifact-root`` is no longer relevant to it.
-It defaults to the local ``./mlruns`` directory.
+.. note::
+  For backwards compatibility, ``--file-store`` is an alias for this option.
+
+The **artifact store** is a location suitable for large data (such as an S3 bucket or shared NFS
+file system) and is where clients log their artifact output (for example, models).
+``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
+default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
+is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
+this run are stored.
+
+Use ``--default-artifact-root`` (defaults to local ``./mlruns`` directory) to configure default
+location to server's artifact store. This will be used as artifact location for newly-created
+experiments that do not specify one. Once you create an experiment, ``--default-artifact-root``
+is no longer relevant to that experiment.
 
 To allow the server and clients to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
@@ -288,7 +299,8 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 Supported Artifact Stores
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In addition to local file paths, MLflow supports the following storage systems as artifact stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
+In addition to local file paths, MLflow supports the following storage systems as artifact
+stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 Amazon S3
 ^^^^^^^^^
