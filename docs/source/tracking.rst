@@ -251,10 +251,9 @@ You run an MLflow tracking server using ``mlflow server``.  An example configura
 Storage
 -------
 
-An MLflow tracking server has two components for storage: a **backend store** and an
-**artifact store**.
+An MLflow tracking server has two components for storage: a *backend store* and an *artifact store*.
 
-The **backend store** is where MLflow Tracking Server stores experiment and run metadata as well as
+The backend store is where MLflow Tracking Server stores experiment and run metadata as well as
 params, metrics, and tags for runs. MLflow supports two types of backend stores: *file store* and
 *database-backed store*.
 
@@ -271,7 +270,7 @@ persistent (that is, non-ephemeral) file system location.
 .. note::
   For backwards compatibility, ``--file-store`` is an alias for this option.
 
-The **artifact store** is a location suitable for large data (such as an S3 bucket or shared NFS
+The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
 ``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
 default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``

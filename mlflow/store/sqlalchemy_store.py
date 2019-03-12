@@ -40,7 +40,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         Create a database backed store.
 
-        :param db_uri: SQL connection string used by SQLAlchemy Engine to connect to database.
+        :param db_uri: SQL connection string used by SQLAlchemy Engine to connect to the database.
                        Argument is expected to be in the format:
                        ``db_type://<user_name>:<password>@<host>:<port>/<database_name>`
                        Supported database types are ``mysql``, ``mssql``, ``sqlite``,
