@@ -62,7 +62,8 @@ print.mlflow_host_creds <- function(mlflow_host_creds) {
   } else {
     paste ("token = *****", mlflow_host_creds$username, sep = "")
   }
-  insecure <- paste("insecure = ", as.character(mlflow$get_host_creds$insecure), sep = "")
+  insecure <- paste("insecure = ", as.character(mlflow_host_creds$get_host_creds$insecure),
+                    sep = "")
   cat("mlflow_host_creds(", host, username, password, token, insecure, ")\n", sep= ", ")
 }
 
