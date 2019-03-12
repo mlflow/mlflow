@@ -202,27 +202,28 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 warnings.resetwarnings()
 
     def test_run_data_model(self):
-        m1 = models.SqlMetric(key='accuracy', value=0.89)
-        m2 = models.SqlMetric(key='recal', value=0.89)
-        p1 = models.SqlParam(key='loss', value='test param')
-        p2 = models.SqlParam(key='blue', value='test param')
+        with self.store.ManagedSessionMaker() as session:
+            m1 = models.SqlMetric(key='accuracy', value=0.89)
+            m2 = models.SqlMetric(key='recal', value=0.89)
+            p1 = models.SqlParam(key='loss', value='test param')
+            p2 = models.SqlParam(key='blue', value='test param')
 
-        self.session.add_all([m1, m2, p1, p2])
+            session.add_all([m1, m2, p1, p2])
 
-        run_data = models.SqlRun(run_uuid=uuid.uuid4().hex)
-        run_data.params.append(p1)
-        run_data.params.append(p2)
-        run_data.metrics.append(m1)
-        run_data.metrics.append(m2)
+            run_data = models.SqlRun(run_uuid=uuid.uuid4().hex)
+            run_data.params.append(p1)
+            run_data.params.append(p2)
+            run_data.metrics.append(m1)
+            run_data.metrics.append(m2)
 
-        self.session.add(run_data)
-        self.session.commit()
+            session.add(run_data)
+            session.commit()
 
-        run_datums = self.session.query(models.SqlRun).all()
-        actual = run_datums[0]
-        self.assertEqual(len(run_datums), 1)
-        self.assertEqual(len(actual.params), 2)
-        self.assertEqual(len(actual.metrics), 2)
+            run_datums = session.query(models.SqlRun).all()
+            actual = run_datums[0]
+            self.assertEqual(len(run_datums), 1)
+            self.assertEqual(len(actual.params), 2)
+            self.assertEqual(len(actual.metrics), 2)
 
     def test_run_info(self):
         experiment_id = self._experiment_factory('test exp')
@@ -269,7 +270,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'artifact_uri': '//'
         }
 
-    def _run_factory(self, config=None):
+    def _run_factory(self, session, config=None):
         if not config:
             config = self._get_run_configs()
 
@@ -279,7 +280,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             config["experiment_id"] = experiment_id
 
         run = models.SqlRun(**config)
-        self.session.add(run)
+        session.add(run)
 
         return run
 
@@ -336,81 +337,68 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertListEqual(actual.data.tags, tags + [parent_id_tag, name_tag])
 
     def test_to_mlflow_entity(self):
-        run = self._run_factory()
-        run = run.to_mlflow_entity()
+        with self.store.ManagedSessionMaker() as session:
+            run = self._run_factory(session=session)
+            run = run.to_mlflow_entity()
 
-        self.assertIsInstance(run.info, entities.RunInfo)
-        self.assertIsInstance(run.data, entities.RunData)
+            self.assertIsInstance(run.info, entities.RunInfo)
+            self.assertIsInstance(run.data, entities.RunData)
 
-        for metric in run.data.metrics:
-            self.assertIsInstance(metric, entities.Metric)
+            for metric in run.data.metrics:
+                self.assertIsInstance(metric, entities.Metric)
 
-        for param in run.data.params:
-            self.assertIsInstance(param, entities.Param)
+            for param in run.data.params:
+                self.assertIsInstance(param, entities.Param)
 
-        for tag in run.data.tags:
-            self.assertIsInstance(tag, entities.RunTag)
+            for tag in run.data.tags:
+                self.assertIsInstance(tag, entities.RunTag)
 
     def test_delete_run(self):
-        run = self._run_factory()
-        self.session.commit()
+        with self.store.ManagedSessionMaker() as session:
+            run = self._run_factory(session=session).to_mlflow_entity()
+            session.commit()
 
-        run_uuid = run.run_uuid
-        self.store.delete_run(run_uuid)
-        actual = self.session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
-        self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
+            run_uuid = run.info.run_uuid
+            self.store.delete_run(run_uuid)
 
-        deleted_run = self.store.get_run(run_uuid)
-        self.assertEqual(actual.run_uuid, deleted_run.info.run_uuid)
+            actual = session.query(models.SqlRun).filter_by(run_uuid=run_uuid).first()
+            self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
+
+            deleted_run = self.store.get_run(run_uuid)
+            self.assertEqual(actual.run_uuid, deleted_run.info.run_uuid)
 
     def test_log_metric(self):
-        run = self._run_factory()
+        with self.store.ManagedSessionMaker() as session:
+            run = self._run_factory(session=session)
+            session.commit()
 
-        self.session.commit()
-
-        tkey = 'blahmetric'
-        tval = 100.0
-        metric = entities.Metric(tkey, tval, int(time.time()))
-        metric2 = entities.Metric(tkey, tval, int(time.time()) + 2)
-        self.store.log_metric(run.run_uuid, metric)
-        self.store.log_metric(run.run_uuid, metric2)
-
-        actual = self.session.query(models.SqlMetric).filter_by(key=tkey, value=tval)
-
-        self.assertIsNotNone(actual)
-
-        run = self.store.get_run(run.run_uuid)
-
-        # SQL store _get_run method returns full history of recorded metrics.
-        # Should return duplicates as well
-        # MLflow RunData contains only the last reported values for metrics.
-        sql_run_metrics = self.store._get_run(run.info.run_uuid).metrics
-        self.assertEqual(2, len(sql_run_metrics))
-        self.assertEqual(1, len(run.data.metrics))
-
-        found = False
-        for m in run.data.metrics:
-            if m.key == tkey and m.value == tval:
-                found = True
-
-        self.assertTrue(found)
-
-    def test_log_metric_uniqueness(self):
-        run = self._run_factory()
-
-        self.session.commit()
-
-        tkey = 'blahmetric'
-        tval = 100.0
-        metric = entities.Metric(tkey, tval, int(time.time()))
-        metric2 = entities.Metric(tkey, 1.02, int(time.time()))
-        self.store.log_metric(run.run_uuid, metric)
-
-        with self.assertRaises(MlflowException) as e:
+            tkey = 'blahmetric'
+            tval = 100.0
+            metric = entities.Metric(tkey, tval, int(time.time()))
+            metric2 = entities.Metric(tkey, tval, int(time.time()) + 2)
+            self.store.log_metric(run.run_uuid, metric)
             self.store.log_metric(run.run_uuid, metric2)
-        self.assertIn("must be unique. Metric already logged value", e.exception.message)
+
+            actual = session.query(models.SqlMetric).filter_by(key=tkey, value=tval)
+            self.assertIsNotNone(actual)
+        
+            run = self.store.get_run(run.run_uuid)
+            # SQL store _get_run method returns full history of recorded metrics.
+            # Should return duplicates as well
+            # MLflow RunData contains only the last reported values for metrics.
+            sql_run_metrics = self.store._get_run(run.info.run_uuid, session=session).metrics
+            self.assertEqual(2, len(sql_run_metrics))
+            self.assertEqual(1, len(run.data.metrics))
+
+            found = False
+            for m in run.data.metrics:
+                if m.key == tkey and m.value == tval:
+                    found = True
+
+            self.assertTrue(found)
 
     def test_log_null_metric(self):
+
         run = self._run_factory()
 
         self.session.commit()

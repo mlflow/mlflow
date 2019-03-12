@@ -55,7 +55,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 yield session
                 session.commit()
-            except Exception as e:
+            except:
                 session.rollback()
                 raise
             finally:
