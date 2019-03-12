@@ -397,6 +397,21 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
             self.assertTrue(found)
 
+    def test_log_metric_uniqueness(self):
+        with self.store.ManagedSessionMaker() as session:
+            run = self._run_factory(session=session)
+            session.commit()
+
+            tkey = 'blahmetric'
+            tval = 100.0
+            metric = entities.Metric(tkey, tval, int(time.time()))
+            metric2 = entities.Metric(tkey, 1.02, int(time.time()))
+            self.store.log_metric(run.run_uuid, metric)
+
+            with self.assertRaises(MlflowException) as e:
+                self.store.log_metric(run.run_uuid, metric2)
+            self.assertIn("must be unique. Metric already logged value", e.exception.message)
+
     def test_log_null_metric(self):
 
         run = self._run_factory()

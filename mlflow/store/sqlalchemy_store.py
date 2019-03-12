@@ -312,12 +312,28 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_uuid, session=session)
             self._check_run_is_active(run)
+
             try:
-                # This will check for various integrity checks for metrics table.
-                # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
                 self._get_or_create(model=SqlMetric, run_uuid=run_uuid, key=metric.key,
                                     value=metric.value, timestamp=metric.timestamp, session=session)
+                # Explicitly commit the session in order to catch potential integrity errors
+                # while maintaining the current managed session scope ("commit" checks that
+                # a transaction satisfies uniqueness constraints and throws integrity errors
+                # when they are violated; "get_or_create()" does not perform these checks). It is
+                # important that we maintain the same session scope because, in the case of
+                # an integrity error, we want to examine the uniqueness of metric (timestamp, value)
+                # tuples using the same database state that the session uses during "commit". 
+                # Creating a new session synchronizes the state with the database. As a result, if 
+                # the conflicting (timestamp, value) tuple were to be removed prior to the creation 
+                # of a new session, we would be unable to determine the cause of failure for the 
+                # first session's "commit" operation.
+                session.commit()
             except sqlalchemy.exc.IntegrityError as ie:
+                # Roll back the current session to make it usable for further transactions. In the
+                # event of an error during "commit", a rollback is required in order to continue 
+                # using the session. In this case, we re-use the session because the SqlRun, `run`,
+                # is lazily evaluated during the invocation of `run.metrics`.
+                session.rollback()
                 existing_metric = [m for m in run.metrics
                                    if m.key == metric.key and m.timestamp == metric.timestamp]
                 if len(existing_metric) == 0:
@@ -346,7 +362,24 @@ class SqlAlchemyStore(AbstractStore):
                 # ToDo: Consider prior checks for null, type, param name validations, ... etc.
                 self._get_or_create(model=SqlParam, session=session, run_uuid=run_uuid,
                                     key=param.key, value=param.value)
+                # Explicitly commit the session in order to catch potential integrity errors
+                # while maintaining the current managed session scope ("commit" checks that
+                # a transaction satisfies uniqueness constraints and throws integrity errors
+                # when they are violated; "get_or_create()" does not perform these checks). It is
+                # important that we maintain the same session scope because, in the case of
+                # an integrity error, we want to examine the uniqueness of parameter values using 
+                # the same database state that the session uses during "commit". Creating a new
+                # session synchronizes the state with the database. As a result, if the conflicting 
+                # parameter value were to be removed prior to the creation of a new session,
+                # we would be unable to determine the cause of failure for the first session's
+                # "commit" operation.
+                session.commit()
             except sqlalchemy.exc.IntegrityError as ie:
+                # Roll back the current session to make it usable for further transactions. In the
+                # event of an error during "commit", a rollback is required in order to continue 
+                # using the session. In this case, we re-use the session because the SqlRun, `run`,
+                # is lazily evaluated during the invocation of `run.params`.
+                session.rollback()
                 existing_params = [p.value for p in run.params if p.key == param.key]
                 if len(existing_params) == 0:
                     raise MlflowException(
