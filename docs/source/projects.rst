@@ -93,7 +93,7 @@ Docker container environment
   non-Python dependencies such as Java libraries.
 
   When you run an MLflow project that specifies a Docker image, MLflow adds a new Docker layer
-  that copies the project's contents into the `/mlflow/projects/code` directory. This step produces 
+  that copies the project's contents into the ``/mlflow/projects/code`` directory. This step produces 
   a new image. MLflow then runs the new image and invokes the project entrypoint in the resulting
   container.
  
