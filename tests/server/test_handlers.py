@@ -132,7 +132,7 @@ def test_log_batch_handler_success(mock_get_request_message, tmpdir):
                 run_id, expected_metrics or metric_entities, expected_params or param_entities,
                 expected_tags or tag_entities)
 
-    store = FileStore(tmpdir)
+    store = FileStore(tmpdir.strpath)
     with mock.patch('mlflow.tracking.utils._get_store', return_value=store):
         mlflow.set_experiment("log-batch-experiment")
         # Log an empty payload
