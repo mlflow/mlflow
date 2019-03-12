@@ -55,6 +55,8 @@ UI let you create and search for experiments.
 Once your runs have been recorded, you can query them using the :ref:`tracking_ui` or the MLflow
 API.
 
+.. _where-runs-are-recorded:
+
 Where Runs Are Recorded
 =======================
 
@@ -143,6 +145,8 @@ just one block of code as follows:
 
 The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
+
+.. _organizing-runs-in-experiments:
 
 Organizing Runs in Experiments
 ==============================
