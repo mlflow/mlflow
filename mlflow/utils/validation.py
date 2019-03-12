@@ -1,8 +1,11 @@
 """
 Utilities for validating user inputs such as metric names and parameter names.
 """
+import numbers
 import os.path
 import re
+
+import numpy as np
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -33,26 +36,49 @@ def path_not_unique(name):
 def _validate_metric_name(name):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
-        raise Exception("Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
+        raise MlflowException("Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+                              INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
-        raise Exception("Invalid metric name: '%s'. %s" % (name, bad_path_message(name)))
+        raise MlflowException("Invalid metric name: '%s'. %s" % (name, bad_path_message(name)),
+                              INVALID_PARAMETER_VALUE)
+
+
+def _validate_metric(key, value, timestamp):
+    _validate_metric_name(key)
+    if not isinstance(value, numbers.Number) or value > np.finfo(np.float64).max \
+            or value < np.finfo(np.float64).min:
+        raise MlflowException(
+            "Got invalid value %s for metric '%s' (timestamp=%s). Please specify value as a valid "
+            "double (64-bit floating point)" % (value, key, timestamp),
+            INVALID_PARAMETER_VALUE)
+
+    if not isinstance(timestamp, numbers.Number) or timestamp < 0 or \
+            timestamp < np.iinfo(np.int64).min:
+        raise MlflowException(
+            "Got invalid timestamp %s for metric '%s' (value=%s). Timestamp must be a nonnegative "
+            "long (64-bit integer) " % (timestamp, key, value),
+            INVALID_PARAMETER_VALUE)
 
 
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
-        raise Exception("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
+        raise MlflowException("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+                              INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
-        raise Exception("Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)))
+        raise MlflowException("Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)),
+                              INVALID_PARAMETER_VALUE)
 
 
 def _validate_tag_name(name):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
     # Reuse param & metric check.
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
-        raise Exception("Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
+        raise MlflowException("Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+                              INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
-        raise Exception("Invalid tag name: '%s'. %s" % (name, bad_path_message(name)))
+        raise MlflowException("Invalid tag name: '%s'. %s" % (name, bad_path_message(name)),
+                              INVALID_PARAMETER_VALUE)
 
 
 def _validate_run_id(run_id):

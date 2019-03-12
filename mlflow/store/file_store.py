@@ -439,12 +439,13 @@ class FileStore(AbstractStore):
     def _get_param_from_file(parent_path, param_name):
         _validate_param_name(param_name)
         param_data = read_file_lines(parent_path, param_name)
-        if len(param_data) == 0:
-            raise Exception("Param '%s' is malformed. No data found." % param_name)
         if len(param_data) > 1:
             raise Exception("Unexpected data for param '%s'. Param recorded more than once"
                             % param_name)
-        return Param(param_name, str(param_data[0].strip()))
+        # The only cause for param_data's length to be zero is the param's
+        # value is an empty string
+        value = '' if len(param_data) == 0 else str(param_data[0].strip())
+        return Param(param_name, value)
 
     @staticmethod
     def _get_tag_from_file(parent_path, tag_name):
