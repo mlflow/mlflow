@@ -8,13 +8,14 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
+import mlflow
 from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -330,6 +331,20 @@ def _list_experiments():
 def _get_artifact_repo(run):
     store = _get_store()
     return get_artifact_repository(run.info.artifact_uri, store)
+
+
+@catch_mlflow_exception
+def _log_batch():
+    request_message = _get_request_message(LogBatch())
+    metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
+    params = [Param.from_proto(proto_param) for proto_param in request_message.params]
+    tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
+    mlflow.tracking.utils._get_store().log_batch(
+        run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
+    response_message = LogBatch.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
 
 
 def _get_paths(base_path):
