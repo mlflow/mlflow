@@ -3,7 +3,6 @@
 new_mlflow_client.mlflow_databricks <- function(tracking_uri) {
   profile <- tracking_uri$path
   # make sure we can read the config
-  config <- get_databricks_config(profile)
   new_mlflow_client_impl(
     get_host_creds = function() {
       get_databricks_config(profile)
