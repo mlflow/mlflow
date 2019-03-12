@@ -8,7 +8,7 @@ import mock
 import pytest
 
 import mlflow
-from mlflow.entities import RunStatus, ViewType
+from mlflow.entities import RunStatus, ViewType, Experiment
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, \
@@ -17,7 +17,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_BRANCH, ML
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-
+from unittest.mock import patch
 
 def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
@@ -54,7 +54,7 @@ def zipped_repo(tmpdir):
         for root, _, files in os.walk(TEST_PROJECT_DIR):
             for file_name in files:
                 file_path = os.path.join(root, file_name)
-                zip_file.write(file_path, file_path[len(TEST_PROJECT_DIR)+len(os.sep):])
+                zip_file.write(file_path, file_path[len(TEST_PROJECT_DIR) + len(os.sep):])
     return zip_name
 
 
@@ -175,7 +175,7 @@ def test_is_valid_branch_name(local_git_repo):
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
 def test_run_local_git_repo(local_git_repo,
                             local_git_repo_uri,
-                            tracking_uri_mock,   # pylint: disable=unused-argument
+                            tracking_uri_mock,  # pylint: disable=unused-argument
                             use_start_run,
                             version):
     if version is not None:
@@ -222,8 +222,15 @@ def test_run_local_git_repo(local_git_repo,
         assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
 
 
+@patch('mlflow.tracking.MlflowClient')
+def test_run_experiment_id_resolution(mlflow_client_mock):
+    mlflow_client_mock().get_experiment_by_name.return_value = Experiment(experiment_id=33, name='Name', artifact_location=None, lifecycle_stage=None)
+    exp_id = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named', experiment_id=0)
+    assert exp_id == 33
+
+
 def test_invalid_version_local_git_repo(local_git_repo_uri,
-                                        tracking_uri_mock):   # pylint: disable=unused-argument
+                                        tracking_uri_mock):  # pylint: disable=unused-argument
     # Run project with invalid commit hash
     with pytest.raises(ExecutionException,
                        match=r'Unable to checkout version \'badc0de\''):
@@ -300,7 +307,7 @@ def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
         ({}, "conda", "activate"),
         ({mlflow.projects.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
          "/some/dir/bin/activate")
-     ]
+    ]
 )
 def test_conda_path(mock_env, expected_conda, expected_activate):
     """Verify that we correctly determine the path to conda executables"""
