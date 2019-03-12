@@ -71,9 +71,8 @@ def get_tracking_uri():
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
     else:
-        prefix = _LOCAL_FS_URI_PREFIX
-        if os.sep != "/":
-            prefix = prefix[:-1]
+        prefix = _LOCAL_FS_URI_PREFIX if os.sep == "/" else "file://"
+        # The extra / is removed from the prefix to avoid corrupting windows paths
         return prefix + os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
