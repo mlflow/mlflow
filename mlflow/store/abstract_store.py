@@ -6,7 +6,7 @@ from mlflow.entities import ViewType
 class AbstractStore:
     """
     Abstract class for Backend Storage.
-    This class will define API interface for front ends to connect with various types of backends
+    This class defines the API interface for front ends to connect with various types of backends.
     """
 
     __metaclass__ = ABCMeta
@@ -37,7 +37,7 @@ class AbstractStore:
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
 
-        :return: experiment_id (integer) for the newly created experiment if successful, else None
+        :return: experiment_id (integer) for the newly created experiment if successful, else None.
         """
         pass
 
@@ -179,7 +179,7 @@ class AbstractStore:
     @abstractmethod
     def get_metric_history(self, run_uuid, metric_key):
         """
-        Return all logged value for a given metric.
+        Return all logged values for a given metric.
 
         :param run_uuid: Unique identifier for run
         :param metric_key: Metric name within the run
@@ -196,8 +196,8 @@ class AbstractStore:
 
         :param experiment_ids: List of experiment ids to scope the search
         :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
-            search expression or filter string.
-        :param run_view_type: ACTIVE, DELETED, or ALL runs.
+            search expression or filter string
+        :param run_view_type: ACTIVE, DELETED, or ALL runs
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
@@ -208,7 +208,7 @@ class AbstractStore:
         """
         Return run information for runs which belong to the experiment_id
 
-        :param experiment_id: The experiment id which to search.
+        :param experiment_id: The experiment id which to search
 
         :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
             search expressions
@@ -226,8 +226,6 @@ class AbstractStore:
         :param params: List of :py:class:`mlflow.entities.Param` instances to log
         :param tags: List of :py:class:`mlflow.entities.RunTag` instances to log
 
-        :return: Tuple (failed_metrics, failed_params, failed_tags) where each element of
-                 the tuple is a list of of :py:class:`mlflow.protos.service_pb2.BatchLogFailure`
-                 protos describing metrics/params/tags that failed to be logged & why.
+        :return: None.
         """
         pass
