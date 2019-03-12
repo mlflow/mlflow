@@ -34,9 +34,12 @@ Running this Example
 ^^^^^^^^^^^^^^^^^^^^
 
 First, install MLflow (via ``pip install mlflow``) and install 
-`Docker <https://www.docker.com/get-started>`_. 
+`Docker <https://www.docker.com/get-started>`_.
 
-Then, build the image for the project's Docker container environment via
+Then, build the image for the project's Docker container environment. You must use the same image
+name that is given by the ``docker_env.image`` field of the MLproject file. In this example, the
+image name is ``mlflow-docker-example``. Issue the following command to build an image with this
+name:
 
 .. code-block:: bash
 
