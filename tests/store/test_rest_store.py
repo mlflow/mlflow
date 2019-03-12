@@ -8,7 +8,7 @@ import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Param, Metric, RunTag, SourceType
 from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogParam, LogMetric, \
-    SetTag, DeleteRun, RestoreRun, CreateRun, RunTag as ProtoRunTag
+    SetTag, DeleteRun, RestoreRun, CreateRun, RunTag as ProtoRunTag, LogBatch
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 
@@ -135,6 +135,19 @@ class TestRestStore(unittest.TestCase):
             body = message_to_json(LogMetric(run_uuid="u2", key="m1", value=0.87, timestamp=12345))
             self._verify_requests(mock_http, creds,
                                   "runs/log-metric", "POST", body)
+
+        with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
+            metrics = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
+            params = [Param("p1", "p1val"), Param("p2", "p2val")]
+            tags = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
+            store.log_batch(run_id="u2", metrics=metrics, params=params, tags=tags)
+            metric_protos = [metric.to_proto() for metric in metrics]
+            param_protos = [param.to_proto() for param in params]
+            tag_protos = [tag.to_proto() for tag in tags]
+            body = message_to_json(LogBatch(run_id="u2", metrics=metric_protos,
+                                            params=param_protos, tags=tag_protos))
+            self._verify_requests(mock_http, creds,
+                                  "runs/log-batch", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.delete_run("u25")
