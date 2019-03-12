@@ -3,7 +3,6 @@ import json
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
-from mlflow.exceptions import MlflowException
 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -12,7 +11,7 @@ from mlflow.utils.rest_utils import http_request_safe
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment
+    UpdateExperiment, LogBatch
 
 from mlflow.protos import databricks_pb2
 
@@ -245,4 +244,9 @@ class RestStore(AbstractStore):
         self._call_endpoint(RestoreRun, req_body)
 
     def log_batch(self, run_id, metrics, params, tags):
-        raise MlflowException("The LogBatch REST API is not yet implemented")
+        metric_protos = [metric.to_proto() for metric in metrics]
+        param_protos = [param.to_proto() for param in params]
+        tag_protos = [tag.to_proto() for tag in tags]
+        req_body = message_to_json(
+            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id))
+        self._call_endpoint(LogBatch, req_body)
