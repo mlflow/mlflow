@@ -264,9 +264,9 @@ for a *database-backed store*. For the latter, the argument must be a SQL connec
 specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported
 database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
 
-By default this is set to the local ``./mlruns`` directory (the same as when running ``mlflow run``
-locally), but when running a server, make sure that this points to a persistent (that is,
-non-ephemeral) file system location.
+By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (the same as when
+running ``mlflow run`` locally), but when running a server, make sure that this points to a
+persistent (that is, non-ephemeral) file system location.
 
 .. note::
   For backwards compatibility, ``--file-store`` is an alias for this option.
