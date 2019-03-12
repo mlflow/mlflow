@@ -100,15 +100,13 @@ class TestRestStore(unittest.TestCase):
                 mock.patch('mlflow.tracking.client._get_user_id', return_value=user_name), \
                 mock.patch('time.time', return_value=13579):
             with mlflow.start_run(experiment_id=43, run_name=run_name, source_name=source_name):
-                body = message_to_json(CreateRun(
-                    experiment_id=43, run_name='', user_id=user_name, source_type=SourceType.LOCAL,
-                    source_name=source_name, start_time=13579000,
-                    tags=[
-                        ProtoRunTag(key=MLFLOW_SOURCE_NAME, value=source_name),
-                        ProtoRunTag(key=MLFLOW_SOURCE_TYPE, value='LOCAL'),
-                        ProtoRunTag(key=MLFLOW_RUN_NAME, value=run_name)
-                    ]
-                ))
+                create_run = CreateRun(experiment_id=43, run_name=run_name, user_id=user_name,
+                                       source_type=SourceType.LOCAL, source_name=source_name,
+                                       start_time=13579000,
+                                       tags=[ProtoRunTag(key=MLFLOW_SOURCE_NAME, value=source_name),
+                                             ProtoRunTag(key=MLFLOW_SOURCE_TYPE, value='LOCAL'),
+                                             ProtoRunTag(key=MLFLOW_RUN_NAME, value=run_name)])
+                body = message_to_json(create_run)
                 self._verify_requests(mock_http, creds, "runs/create", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
