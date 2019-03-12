@@ -76,8 +76,8 @@ get_databricks_config_from_env <- function() {
 get_databricks_config <- function(profile) {
   config <- if (!is.na(profile)) {
     get_databricks_config_for_profile(profile)
-  } else if (exists("databricks_authentication_provider")) {
-    do.call("databricks_authentication_provider", list())
+  } else if (exists(".databricks_internals")) {
+    do.call(".authentication_provider", list(), envir = ".databricks_internals")
   } else {
     config <- get_databricks_config_from_env()
     if (databricks_config_is_valid(config)) {
@@ -94,8 +94,8 @@ get_databricks_config <- function(profile) {
 
 mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name, source_version,
                                                             source_type, ...) {
-  if (exists("databricks_get_notebook_info")) {
-    notebook_info <- do.call("databricks_get_notebook_info", list())
+  if (exists(".databricks_internals")) {
+    notebook_info <- do.call(".get_notebook_info", list(), envir = .databricks_internals)
     if (!is.na(notebook_info$id) && !is.na(notebook_info$path)) {
       tags <- list()
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID]] <- notebook_info$id

@@ -34,7 +34,36 @@ new_mlflow_client_impl <- function(get_host_creds, get_cli_env = list, class = c
 
 new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, token = NA,
                                    insecure = "False") {
-  list(host = host, username = username, password = password, token = token, insecure = insecure)
+  structure(
+    list(host = host, username = username, password = password, token = token, insecure = insecure),
+    class = "mlflow_host_creds"
+  )
+}
+
+#' @export
+print.mlflow_host_creds <- function(mlflow_host_creds) {
+  host <- if (is.na(mlflow_host_creds$host)) {
+    ""
+  } else {
+    paste ("host = ", mlflow_host_creds$host, sep = "")
+  }
+  username <- if (is.na(mlflow_host_creds$username)) {
+    ""
+  } else {
+    paste ("username = ", mlflow_host_creds$username, sep = "")
+  }
+  password <- if (is.na(mlflow_host_creds$password)) {
+    ""
+  } else {
+    paste ("password = *****", mlflow_host_creds$username, sep = "")
+  }
+  token <- if (is.na(mlflow_host_creds$token)) {
+    ""
+  } else {
+    paste ("token = *****", mlflow_host_creds$username, sep = "")
+  }
+  insecure <- paste("insecure = ", as.character(mlflow$get_host_creds$insecure), sep = "")
+  cat("mlflow_host_creds(", host, username, password, token, insecure, ")\n", sep= ", ")
 }
 
 new_mlflow_client.mlflow_file <- function(tracking_uri) {
