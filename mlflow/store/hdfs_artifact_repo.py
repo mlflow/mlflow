@@ -66,7 +66,7 @@ class HdfsArtifactRepository(ArtifactRepository):
             hdfs = self._create_hdfs_conn()
             hdfs_model_path = self.path + os.sep + artifact_path + "/model/"
             if not (hdfs.exists(hdfs_model_path)):
-                hdfs.mkdir(artifact_path)
+                hdfs.mkdir(hdfs_model_path)
             rootdir_name = os.path.split(os.path.dirname(local_dir))[1]
             for subdir, _dirs, files in os.walk(local_dir):
                 hdfs_subdir_path = self.path + os.sep \
