@@ -69,7 +69,7 @@ that is used to execute project entry points.
 
 Project Environments
 ^^^^^^^^^^^^^^^^^^^^
-MLflow currently supports the following project environments: Conda environment, Docker container, and system environment.
+MLflow currently supports the following project environments: Conda environment, Docker container environment, and system environment.
 
 .. _project-conda-environments:
 
@@ -83,13 +83,12 @@ Conda environment
   case, MLflow attempts to run the binary at ``$MLFLOW_CONDA_HOME/bin/conda``.
 
   You can specify a Conda environment for your MLflow project by including a ``conda.yaml``
-  file in the root of the project directory, or by including a ``conda_env`` entry in your
-  ``MLProject`` file. For more information, see the :ref:`project-directories` and 
-  :ref:`MLProject File <mlproject-file>` sections.
+  file in the root of the project directory or by including a ``conda_env`` entry in your
+  ``MLProject`` file. For details, see the :ref:`project-directories` and :ref:`mlproject-specify-environment` sections.
 
 .. _project-docker-container-environments:
 
-Docker container
+Docker container environment
   `Docker containers <https://www.docker.com/resources/what-container>`_ allow you to 
   capture non-Python dependencies such as Java libraries. When you run an MLflow Project that 
   specifies a Docker image, MLflow runs the image, mounts the project directory in the resulting 
@@ -107,18 +106,16 @@ Docker container
   <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ for an example of an MLflow 
   project with a Docker environment.
 
-  .. important::
-
-    In order to specify a Docker container environment, you must add an 
-    :ref:`MLProject file <mlproject-file>` to your project. For more information about specifying
-    a Docker container environment in an ``MLProject`` file, see
-    :ref:`Specifying an Environment in an MLProject file <mlproject-specify-environment>`.
+  To specify a Docker container environment, you *must* add an 
+  :ref:`MLProject file <mlproject-file>` to your project. For information about specifying
+  a Docker container environment in an ``MLProject`` file, see
+  :ref:`mlproject-specify-environment`.
     
 System environment
   You can also run MLflow Projects directly in your current system environment. All of the 
   project's dependencies must be installed on your system prior to project execution. The system 
   environment is supplied at runtime. It is not part of the MLflow Project's directory contents 
-  or ``MLProject`` file. For information about using the current system environment when running 
+  or ``MLProject`` file. For information about using the system environment when running 
   a project, see the ``Environment`` parameter description in the :ref:`running-projects` section. 
 
 .. _project-directories:
@@ -149,8 +146,8 @@ file, MLflow uses the following conventions to determine the project's attribute
 
 .. _mlproject-file: 
 
-The MLProject File
-^^^^^^^^^^^^^^^^^^
+MLProject File
+^^^^^^^^^^^^^^
 
 You can get more control over an MLflow Project by adding an ``MLproject`` file, which is a text
 file in YAML syntax, to the project's root directory. The following is an example of an 
@@ -176,7 +173,7 @@ file in YAML syntax, to the project's root directory. The following is an exampl
           data_file: path
         command: "python validate.py {data_file}"
 
-As you can see, the file can specify a name and :ref:`a Conda or Docker environment 
+The file can specify a name and :ref:`a Conda or Docker environment 
 <mlproject-specify-environment>`, as well as more detailed information about each entry point. 
 Specifically, each entry point defines a :ref:`command to run <mlproject-command-syntax>` and 
 :ref:`parameters to pass to the command <project_parameters>` (including data types). 
@@ -186,55 +183,51 @@ Specifically, each entry point defines a :ref:`command to run <mlproject-command
 Specifying an Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
+This section describes how to specify Conda and Docker container environments in an ``MLProject`` file.
+``MLProject`` files cannot specify *both* a Conda environment and a Docker environment.
+
 Conda environment
-  You can specify a Conda environment for an MLflow project by including a top-level ``conda_env`` 
-  entry in the ``MLProject`` file. The value of this entry should be a *relative* path to a
-  `Conda environment YAML file 
+  Include a top-level ``conda_env`` entry in the ``MLProject`` file.
+  The value of this entry must be a *relative* path to a `Conda environment YAML file 
   <https://conda.io/docs/user-guide/tasks/manage-environments.html#create-env-file-manually>`_
-  within the MLflow project's directory. Consider the following example: 
+  within the MLflow project's directory. In the following example: 
 
   .. code-block:: yaml
 
     conda_env: files/config/conda_environment.yaml
 
-  In this case, ``conda_env`` refers to an environment file located at 
+  ``conda_env`` refers to an environment file located at 
   ``<MLFLOW_PROJECT_DIRECTORY>/files/config/conda_environment.yaml``, where 
   ``<MLFLOW_PROJECT_DIRECTORY>`` is the path to the MLflow project's root directory.
 
-Docker environment
-  Alternatively, you can specify a Docker environment for an MLflow project by including a top-level
-  ``docker_env`` entry in the ``MLProject`` file. The value of this entry should be the name
+Docker container environment
+  Include a top-level ``docker_env`` entry in the ``MLProject`` file. The value of this entry must be the name
   of a Docker image that is accessible on the system executing the project; this image name
-  may include a registry path and tags. Consider the following examples:
+  may include a registry path and tags. Here are a couple of examples.
 
-  * **Example 1: Image without a registry path**
-
-    .. code-block:: yaml
-
-      docker_env: mlflow-docker-example-environment
-
-    In this case, ``docker_env`` refers to the Docker image with name 
-    ``mlflow-docker-example-environment`` and default tag ``latest``. Because no registry path is 
-    specified, Docker searches for this image on the system that executes the MLflow project. If the 
-    image is not found, Docker attempts to pull it from `DockerHub <https://hub.docker.com/>`_.
+  .. rubric:: Example 1: Image without a registry path
   
-  * **Example 2: Image in a remote registry**
+  .. code-block:: yaml
 
-    .. code-block:: yaml
-      
-      docker_env: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0
+    docker_env: mlflow-docker-example-environment
 
-    In this case, ``docker_env`` refers to the Docker image with name 
-    ``mlflow-docker-example-environment`` and tag ``7.0`` in the Docker registry with path
-    ``012345678910.dkr.ecr.us-west-2.amazonaws.com``, which corresponds to an 
-    `Amazon ECR registry <https://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html>`_.
-    Docker attempts to pull the image from the specified registry when the MLflow project is 
-    executed. The system executing the MLflow project must have credentials to pull this image from 
-    the specified registry.
+  In this example, ``docker_env`` refers to the Docker image with name 
+  ``mlflow-docker-example-environment`` and default tag ``latest``. Because no registry path is 
+  specified, Docker searches for this image on the system that runs the MLflow project. If the 
+  image is not found, Docker attempts to pull it from `DockerHub <https://hub.docker.com/>`_.
 
-.. important::
+  .. rubric:: Example 2: Image in a remote registry
 
-  ``MLProject`` files cannot specify *both* a Conda environment and a Docker environment.
+  .. code-block:: yaml
+    
+    docker_env: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0
+
+  In this example, ``docker_env`` refers to the Docker image with name 
+  ``mlflow-docker-example-environment`` and tag ``7.0`` in the Docker registry with path
+  ``012345678910.dkr.ecr.us-west-2.amazonaws.com``, which corresponds to an 
+  `Amazon ECR registry <https://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html>`_.
+  When the MLflow project is run, Docker attempts to pull the image from the specified registry. 
+  The system executing the MLflow project must have credentials to pull this image from  the specified registry.
 
 .. _mlproject-command-syntax:
 
