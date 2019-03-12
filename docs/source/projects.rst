@@ -89,10 +89,13 @@ Conda environment
 .. _project-docker-container-environments:
 
 Docker container environment
-  `Docker containers <https://www.docker.com/resources/what-container>`_ allow you to 
-  capture non-Python dependencies such as Java libraries. When you run an MLflow Project that 
-  specifies a Docker image, MLflow runs the image, mounts the project directory in the resulting 
-  container at ``/mlflow/projects/code``, and invokes the project entry point in the container. 
+  `Docker containers <https://www.docker.com/resources/what-container>`_ allow you to capture 
+  non-Python dependencies such as Java libraries.
+
+  When you run an MLflow project that specifies a Docker image, MLflow adds a new Docker layer
+  that copies the project's contents into the `/mlflow/projects/code` directory. This step produces 
+  a new image. MLflow then runs the new image and invokes the project entrypoint in the resulting
+  container.
  
   Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the Docker container 
   during project execution. Additionally, :ref:`runs <concepts>` and 
