@@ -454,7 +454,7 @@ mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NUL
              artifact_path,
              "--run-id",
              run_id,
-             env = client$cli_env())
+             client = client)
 
   invisible(NULL)
 }
@@ -498,7 +498,7 @@ mlflow_client_download_artifacts <- function(client, run_id, path) {
           call. = FALSE
         )
     },
-    env = client$cli_env()
+    client = client
   )
   gsub("\n", "", result$stdout)
 }
