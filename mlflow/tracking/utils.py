@@ -71,9 +71,10 @@ def get_tracking_uri():
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
     else:
-        path = os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-        # The Nones below are filling in missing values of the uri, no partial value method was found
-        return urllib.parse.urlunparse(("file", None, path, None, None, None))
+        prefix = _LOCAL_FS_URI_PREFIX
+        if os.sep != "/":
+            prefix = prefix[:-1]
+        return prefix + os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
 def get_artifact_uri(run_id, artifact_path=None):
@@ -146,11 +147,6 @@ def _is_databricks_uri(uri):
 
 def _get_file_store(store_uri, **_):
     path = urllib.parse.urlparse(store_uri).path if store_uri else None
-
-    if not os.path.exists(path) and path[0] == "/":
-        # Parse out starting / for windows paths, urlparse prepends / to paths
-        path = path[1:]
-
     return FileStore(path, path)
 
 
