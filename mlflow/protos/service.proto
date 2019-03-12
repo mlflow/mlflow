@@ -652,7 +652,7 @@ message SetTag {
   // String value of the tag being logged. Maximum size is 5000 bytes.
   optional string value = 3 [(validate_required) = true];
 
-  // UUID of the run under which to set the tag.
+  // ID of the run under which to set the tag.
   optional string run_id = 1 [(validate_required) = true];
 
   message Response {
