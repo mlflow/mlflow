@@ -81,7 +81,7 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_store):
     assert args[2] == ViewType.ACTIVE_ONLY
 
 
-def _verify_logged(run_id, metric_entities, param_entities, tag_entities):
+def _assert_logged_entities(run_id, metric_entities, param_entities, tag_entities):
     client = mlflow.tracking.MlflowClient()
     store = mlflow.tracking.utils._get_store()
     run = client.get_run(run_id)
@@ -107,12 +107,14 @@ def _verify_logged(run_id, metric_entities, param_entities, tag_entities):
 
 
 def test_log_batch_handler_success(mock_get_request_message, tmpdir):
+    # Test success cases for the LogBatch API
     def _test_log_batch_helper_success(
             metric_entities, param_entities, tag_entities,
             expected_metrics=None, expected_params=None, expected_tags=None):
         """
-        Makes a LogBatch API request using the provided metrics/params/tags, asserting that it
-        succeeds
+        Simulates a LogBatch API request using the provided metrics/params/tags, asserting that it
+        succeeds & that the backing store contains either the set of expected metrics/params/tags
+        (if provided) or, by default, the metrics/params/tags used in the API request.
         """
         with mlflow.start_run() as active_run:
             run_id = active_run.info.run_uuid
@@ -126,12 +128,13 @@ def test_log_batch_handler_success(mock_get_request_message, tmpdir):
             assert response.status_code == 200
             json_response = json.loads(response.get_data())
             assert json_response == {}
-            _verify_logged(run_id, expected_metrics or metric_entities,
-                           expected_params or param_entities, expected_tags or tag_entities)
+            _assert_logged_entities(
+                run_id, expected_metrics or metric_entities, expected_params or param_entities,
+                expected_tags or tag_entities)
 
     store = FileStore(tmpdir)
     with mock.patch('mlflow.tracking.utils._get_store', return_value=store):
-        mlflow.set_experiment("tmp/experiment")
+        mlflow.set_experiment("log-batch-experiment")
         # Log an empty payload
         _test_log_batch_helper_success([], [], [])
         # Log multiple metrics/params/tags
@@ -148,40 +151,6 @@ def test_log_batch_handler_success(mock_get_request_message, tmpdir):
         _test_log_batch_helper_success(
             metric_entities=[], param_entities=[], tag_entities=same_key_tags,
             expected_tags=[same_key_tags[-1]])
-
-
-def test_log_batch_handler_failure(mock_get_request_message, tmpdir):
-    def _test_log_batch_helper_failure(metric_entities, param_entities, tag_entities):
-        """
-        Makes a LogBatch API request using the provided metrics/params/tags, asserting that it fails
-        """
-        with mlflow.start_run() as active_run:
-            run_id = active_run.info.run_uuid
-            mock_get_request_message.return_value = LogBatch(
-                run_id=run_id,
-                metrics=[m.to_proto() for m in metric_entities],
-                params=[p.to_proto() for p in param_entities],
-                tags=[t.to_proto() for t in tag_entities])
-            response = _log_batch()
-            print(response, response.get_data())
-            assert response.status_code == 500
-            json_response = json.loads(response.get_data())
-            assert "INTERNAL_ERROR" in json_response["error_code"]
-
-    store = FileStore(tmpdir)
-    with mock.patch('mlflow.tracking.utils._get_store', return_value=store):
-        mlflow.set_experiment("tmp/experiment")
-        # Log multiple params with the same key (error case)
-        same_key_params = [Param(key="p-key", value="p-val-%s" % i) for i in range(5)]
-        _test_log_batch_helper_failure(
-            metric_entities=[], param_entities=same_key_params, tag_entities=[])
-        # Pass bad types to metrics/params/tags
-        _test_log_batch_helper_failure(
-            metric_entities=[Param("a", "b")], param_entities=[], tag_entities=[])
-        _test_log_batch_helper_failure(
-            metric_entities=[], param_entities=[Metric("k", 1.0, 3)], tag_entities=[])
-        _test_log_batch_helper_failure(
-            metric_entities=[], param_entities=[], tag_entities=[Metric("k", 1.0, 3)])
 
 
 def test_catch_mlflow_exception():
