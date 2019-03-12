@@ -376,7 +376,7 @@ message RunTag {
 
 // Metadata of a single run.
 message RunInfo {
-  // Unique identifier for the run.
+  // Unique uuid identifier for the run.
   optional string run_uuid = 1;
 
   // The experiment ID.
@@ -417,6 +417,9 @@ message RunInfo {
 
   // Current life cycle stage of the experiment : OneOf("active", "deleted")
   optional string lifecycle_stage = 14;
+
+  // Unique identifier for the run.
+  optional string run_id = 15;
 }
 
 // Experiment
@@ -561,7 +564,7 @@ message CreateRun {
 message UpdateRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run to update.
+  // UUID of the run to update.
   optional string run_uuid = 1 [(validate_required) = true];
 
   // Updated status of the run.
@@ -569,6 +572,9 @@ message UpdateRun {
 
   //Unix timestamp of when the run ended in milliseconds.
   optional int64 end_time = 3;
+
+  // ID of the run to update.
+  optional string run_id = 4 [(validate_required) = true];
 
   message Response {
     // Updated metadata of the run.
@@ -596,7 +602,7 @@ message RestoreRun {
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the metric.
+  // UUID of the run under which to log the metric.
   optional string run_uuid = 1 [(validate_required) = true];
 
   // Name of the metric.
@@ -608,6 +614,9 @@ message LogMetric {
   // Unix timestamp in milliseconds at the time metric was logged.
   optional int64 timestamp = 4 [(validate_required) = true];
 
+  // ID of the run under which to log the metric.
+  optional string run_id = 5 [(validate_required) = true];
+
   message Response {
   }
 }
@@ -615,7 +624,7 @@ message LogMetric {
 message LogParam {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the param.
+  // UUID of the run under which to log the param.
   optional string run_uuid = 1 [(validate_required) = true];
 
   // Name of the param. Maximum size is 255 bytes.
@@ -624,6 +633,9 @@ message LogParam {
   // String value of the param being logged. Maximum size is 500 bytes.
   optional string value = 3 [(validate_required) = true];
 
+  // ID of the run under which to log the param.
+  optional string run_id = 4 [(validate_required) = true];
+
   message Response {
   }
 }
@@ -631,7 +643,7 @@ message LogParam {
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to set the tag.
+  // UUID of the run under which to set the tag.
   optional string run_uuid = 1 [(validate_required) = true];
 
   // Name of the tag. Maximum size is 255 bytes.
@@ -640,6 +652,9 @@ message SetTag {
   // String value of the tag being logged. Maximum size is 5000 bytes.
   optional string value = 3 [(validate_required) = true];
 
+  // UUID of the run under which to set the tag.
+  optional string run_id = 1 [(validate_required) = true];
+
   message Response {
   }
 }
@@ -647,8 +662,11 @@ message SetTag {
 message GetRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run to fetch.
+  // UUID of the run to fetch.
   optional string run_uuid = 1 [(validate_required) = true];
+
+  // ID of the run to fetch.
+  optional string run_id = 2 [(validate_required) = true];
 
   message Response {
     // Run metadata (name, start time, etc) and data (metrics, params, etc).
@@ -756,11 +774,14 @@ message SearchRuns {
 message ListArtifacts {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run whose artifacts to list.
+  // UUID of the run whose artifacts to list.
   optional string run_uuid = 1;
 
   // Filter artifacts matching this path (a relative path from the root artifact directory).
   optional string path = 2;
+
+  // ID of the run whose artifacts to list.
+  optional string run_id = 3;
 
   message Response {
     // Root artifact directory for the run.
@@ -786,11 +807,14 @@ message FileInfo {
 message GetArtifact {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run from which to fetch the artifact.
+  // UUID of the run from which to fetch the artifact.
   optional string run_uuid = 1;
 
   // Path of the artifact to fetch (relative to the root artifact directory for the run).
   optional string path = 2;
+
+  // ID of the run from which to fetch the artifact.
+  optional string run_id = 3;
 
   message Response {
     // Empty because the data of the file will be streamed back in the HTTP response.
@@ -801,11 +825,14 @@ message GetArtifact {
 message GetMetricHistory {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run from which to fetch metric values.
+  // UUID of the run from which to fetch metric values.
   optional string run_uuid = 1 [(validate_required) = true];
 
   // Name of the metric.
   optional string metric_key = 2 [(validate_required) = true];
+
+  // ID of the run from which to fetch metric values.
+  optional string run_id = 3 [(validate_required) = true];
 
   message Response {
     // All logged values for this metric.
