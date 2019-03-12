@@ -13,8 +13,8 @@ from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _v
     _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
-    MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, \
+    MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
 
 _DEFAULT_USER_ID = "unknown"
 
@@ -58,6 +58,7 @@ class MlflowClient(object):
         # Extract run attributes from tags
         # This logic is temporary; by the 1.0 release, this information will only be stored in tags
         # and will not be available as attributes of the run
+        run_name = tags.get(MLFLOW_RUN_NAME, "")
         parent_run_id = tags.get(MLFLOW_PARENT_RUN_ID)
         source_name = tags.get(MLFLOW_SOURCE_NAME, "Python Application")
         source_version = tags.get(MLFLOW_GIT_COMMIT)
@@ -74,9 +75,8 @@ class MlflowClient(object):
             user_id=user_id if user_id is not None else _get_user_id(),
             start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
-            # Run name is now stored in a tag
-            run_name="",
             # The below arguments remain set for backwards compatability:
+            run_name=run_name,
             parent_run_id=parent_run_id,
             source_type=source_type,
             source_name=source_name,

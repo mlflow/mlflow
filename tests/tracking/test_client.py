@@ -3,8 +3,8 @@ import mock
 
 from mlflow.entities import RunTag, SourceType
 from mlflow.tracking import MlflowClient
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
-    MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, \
+    MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
 
 
 @pytest.fixture
@@ -52,6 +52,7 @@ def test_client_create_run_overrides(mock_store):
     user_id = mock.Mock()
     start_time = mock.Mock()
     tags = {
+        MLFLOW_RUN_NAME: mock.Mock(),
         MLFLOW_PARENT_RUN_ID: mock.Mock(),
         MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.JOB),
         MLFLOW_SOURCE_NAME: mock.Mock(),
@@ -65,7 +66,7 @@ def test_client_create_run_overrides(mock_store):
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
         user_id=user_id,
-        run_name="",
+        run_name=tags[MLFLOW_RUN_NAME],
         start_time=start_time,
         tags=[RunTag(key, value) for key, value in tags.items()],
         parent_run_id=tags[MLFLOW_PARENT_RUN_ID],
