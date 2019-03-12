@@ -162,7 +162,6 @@ service MlflowService {
     };
   }
 
-
   // Log a metric for a run. A metric is a key-value pair (string key, float value) with an
   // associated timestamp. Examples include the various metrics that represent ML model accuracy.
   // A metric can be logged multiple times.
@@ -276,6 +275,21 @@ service MlflowService {
       rpc_doc_title: "Get Metric History",
     };
   }
+
+  // Log a batch of metrics, params, and/or tags for a run. The server will respond with an error
+  // if any data failed to be persisted.
+  //
+  rpc logBatch (LogBatch) returns (LogBatch.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/log-batch"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Batch",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -383,12 +397,18 @@ message RunInfo {
   optional int64 experiment_id = 2;
 
   // Human readable name that identifies this run.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+  // instead.
   optional string name = 3;
 
   // Source type.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+  // tag instead.
   optional SourceType source_type = 4;
 
   // Source identifier: GitHub URL, name of notebook, name of job, etc.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+  // tag instead.
   optional string source_name = 5;
 
   // User who initiated the run.
@@ -404,9 +424,13 @@ message RunInfo {
   optional int64 end_time = 9;
 
   // Git commit hash of the code used for the run.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the
+  // ``mlflow.source.git.commit`` run tag instead.
   optional string source_version = 10;
 
   // Name of the entry point for the run.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the
+  // ``mlflow.project.entryPoint`` run tag instead.
   optional string entry_point_name = 11;
 
   // URI of the directory where artifacts should be uploaded.
@@ -528,22 +552,32 @@ message CreateRun {
   optional string user_id = 2;
 
   // Human readable name for the run.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+  // instead.
   optional string run_name = 3;
 
   // Originating source for the run.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+  // tag instead.
   optional SourceType source_type = 4;
 
   // String descriptor for the run's source. For example, name or description of a notebook, or the
   // URL or path to a project.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+  // tag instead.
   optional string source_name = 5;
 
   // Name of the project entry point associated with the current run, if any.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the
+  // ``mlflow.project.entryPoint`` run tag instead.
   optional string entry_point_name = 6;
 
   // Unix timestamp of when the run started in milliseconds.
   optional int64 start_time = 7;
 
   // Git commit hash of the source code used to create run.
+  // This field is deprecated and will be removed in MLflow 1.0. Use the
+  // ``mlflow.source.git.commit`` run tag instead.
   optional string source_version = 8;
 
   // Additional metadata for run.
@@ -591,7 +625,6 @@ message RestoreRun {
 
   message Response {}
 }
-
 
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
@@ -671,7 +704,7 @@ message MetricSearchExpression {
   optional string key = 1;
 
   oneof clause {
-    // [Deprecated in 0.7.0, to be removed in future version] 
+    // [Deprecated in 0.7.0, to be removed in future version]
     // Float clause for comparison. Use 'double' instead.
     FloatClause float = 2;
 
@@ -810,5 +843,19 @@ message GetMetricHistory {
   message Response {
     // All logged values for this metric.
     repeated Metric metrics = 1;
+  }
+}
+
+message LogBatch {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // ID of the run to log under
+  optional string run_id = 1;
+  // Metrics to log
+  repeated Metric metrics = 2;
+  // Params to log
+  repeated Param params = 3;
+  // Tags to log
+  repeated RunTag tags = 4;
+  message Response {
   }
 }

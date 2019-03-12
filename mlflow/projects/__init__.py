@@ -22,12 +22,14 @@ from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.entities import RunStatus, SourceType, Param
-from mlflow.tracking.fluent import _get_experiment_id, _get_git_commit
+from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracking.context import _get_git_commit
 
 import mlflow.projects.databricks
 from mlflow.utils import process
-from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH_NAME
-from mlflow.utils.mlflow_tags import MLFLOW_ENV, MLFLOW_CONDA, MLFLOW_DOCKER
+from mlflow.utils.mlflow_tags import MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, \
+    LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV
 from mlflow.utils.mlflow_tags import MLFLOW_DOCKER_IMAGE_NAME, MLFLOW_DOCKER_IMAGE_ID
 from mlflow.utils import databricks_utils, file_utils
 from mlflow.utils.logging_utils import eprint
@@ -83,11 +85,13 @@ def _run(uri, entry_point="main", version=None, parameters=None,
 
     repo_url = _get_git_repo_url(work_dir)
     if repo_url is not None:
-        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_REPO_URL, repo_url)
+        for tag in [MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_REPO_URL]:
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, tag, repo_url)
 
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
-        tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_GIT_BRANCH_NAME, version)
+        for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, tag, version)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
@@ -102,7 +106,7 @@ def _run(uri, entry_point="main", version=None, parameters=None,
         # If a docker_env attribute is defined in MLProject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_ENV, MLFLOW_DOCKER)
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_PROJECT_ENV, "docker")
             _validate_docker_env(project.docker_env)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
@@ -112,7 +116,7 @@ def _run(uri, entry_point="main", version=None, parameters=None,
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_ENV, MLFLOW_CONDA)
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_PROJECT_ENV, "conda")
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
             command += _get_conda_command(conda_env_name)

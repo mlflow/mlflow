@@ -11,7 +11,8 @@ import mlflow
 from mlflow.entities import RunStatus, ViewType
 from mlflow.exceptions import ExecutionException
 from mlflow.utils import env
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, \
+    LEGACY_MLFLOW_GIT_BRANCH_NAME, LEGACY_MLFLOW_GIT_REPO_URL
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
@@ -214,10 +215,11 @@ def test_run_local_git_repo(local_git_repo,
         assert metric.value == expected_metrics[metric.key]
     # Validate the branch name tag is logged
     if version == "master":
-        expected_tags = {"mlflow.gitBranchName": "master",
-                         "mlflow.gitRepoURL": local_git_repo_uri}
-        for tag in run.data.tags:
-            assert tag.value == expected_tags[tag.key]
+        tags = {tag.key: tag.value for tag in run.data.tags}
+        assert tags[MLFLOW_GIT_BRANCH] == "master"
+        assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri
+        assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
+        assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
 
 
 def test_invalid_version_local_git_repo(local_git_repo_uri,

@@ -11,7 +11,7 @@ from mlflow.utils.rest_utils import http_request_safe
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment
+    UpdateExperiment, LogBatch
 
 from mlflow.protos import databricks_pb2
 
@@ -151,6 +151,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
         if run_name:
+            # TODO: optimization: This is making 2 calls to backend store. Include with above call.
             self.set_tag(run.info.run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return run
 
@@ -233,3 +234,11 @@ class RestStore(AbstractStore):
     def restore_run(self, run_id):
         req_body = message_to_json(RestoreRun(run_id=run_id))
         self._call_endpoint(RestoreRun, req_body)
+
+    def log_batch(self, run_id, metrics, params, tags):
+        metric_protos = [metric.to_proto() for metric in metrics]
+        param_protos = [param.to_proto() for param in params]
+        tag_protos = [tag.to_proto() for tag in tags]
+        req_body = message_to_json(
+            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id))
+        self._call_endpoint(LogBatch, req_body)

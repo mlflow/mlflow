@@ -10,6 +10,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
@@ -438,12 +439,13 @@ class FileStore(AbstractStore):
     def _get_param_from_file(parent_path, param_name):
         _validate_param_name(param_name)
         param_data = read_file_lines(parent_path, param_name)
-        if len(param_data) == 0:
-            raise Exception("Param '%s' is malformed. No data found." % param_name)
         if len(param_data) > 1:
             raise Exception("Unexpected data for param '%s'. Param recorded more than once"
                             % param_name)
-        return Param(param_name, str(param_data[0].strip()))
+        # The only cause for param_data's length to be zero is the param's
+        # value is an empty string
+        value = '' if len(param_data) == 0 else str(param_data[0].strip())
+        return Param(param_name, value)
 
     @staticmethod
     def _get_tag_from_file(parent_path, tag_name):
@@ -533,3 +535,17 @@ class FileStore(AbstractStore):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         run_info_dict = _make_persisted_run_info_dict(run_info)
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict, overwrite=True)
+
+    def log_batch(self, run_id, metrics, params, tags):
+        _validate_run_id(run_id)
+        run = self.get_run(run_id)
+        check_run_is_active(run.info)
+        try:
+            for param in params:
+                self.log_param(run_id, param)
+            for metric in metrics:
+                self.log_metric(run_id, metric)
+            for tag in tags:
+                self.set_tag(run_id, tag)
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)

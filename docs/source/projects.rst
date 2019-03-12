@@ -296,7 +296,7 @@ uri
 Running Projects
 ----------------
 
-MLflow provides two simple ways to run projects: the ``mlflow run`` :ref:`command-line tool <cli>`, or
+MLflow provides two ways to run projects: the ``mlflow run`` :ref:`command-line tool <cli>`, or
 the :py:func:`mlflow.projects.run` Python API. Both tools take the following parameters:
 
 Project URI
@@ -320,7 +320,7 @@ Parameters
 
 Deployment Mode
     Both the command-line and API let you :ref:`launch projects remotely <databricks_execution>` on
-    a `Databricks <https://databricks.com>`_ environment if you have a Databricks account. This
+    a `Databricks <https://databricks.com>`_ environment. This
     includes setting cluster parameters such as a VM type. Of course, you can also run projects on
     any other computing infrastructure of your choice using the local version of the ``mlflow run``
     command (for example, submit a script that does ``mlflow run`` to a standard job queueing system).
@@ -331,7 +331,7 @@ Environment
     You can ignore a project's specified environment and run the project in the current
     system environment by supplying the ``--no-conda`` flag.
 
-For example, the tutorial creates and publishes an MLflow project that trains a linear model. The
+For example, the tutorial creates and publishes an MLflow Project that trains a linear model. The
 project is also published on GitHub at https://github.com/mlflow/mlflow-example. To run
 this project:
 
@@ -344,23 +344,16 @@ useful if you quickly want to test a project in your existing shell environment.
 
 .. _databricks_execution:
 
-Remote Execution on Databricks
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Run a project on Databricks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Support for running projects remotely on Databricks is in beta preview and requires a Databricks account. 
-To receive future updates about the feature, `sign up here <http://databricks.com/mlflow>`_.
+Support for running projects remotely on Databricks is in public preview. To use this feature, you must have an enterprise Databricks account (Community Edition is not supported) and you must have set up the `Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions in the Databricks docs (`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_, `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview of how to use the feature is as follows:
 
 .. important::
 
   Remote execution for MLflow projects with Docker environments is *not* currently supported.
 
-Launching a Remote Execution on Databricks
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To use this feature, you need to have a Databricks account (Community Edition is not yet supported)
-and you must have set up the `Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions in the Databricks docs (`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_, `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview of how to use the feature is as follows:
-
-First, create a JSON file containing the 
+Create a JSON file containing the 
 `cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
 for your run. Then, run your project using the command
 
@@ -377,7 +370,7 @@ Iterating Quickly
 
 If you want to rapidly develop a project, we recommend creating an ``MLproject`` file with your
 main program specified as the ``main`` entry point, and running it with ``mlflow run .``.
-To avoid repeatedly writing them you can add default parameters in your ``MLproject`` file.
+To avoid having to write parameters repeatedly, you can add default parameters in your ``MLproject`` file.
 
 Building Multistep Workflows
 -----------------------------

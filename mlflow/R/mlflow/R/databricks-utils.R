@@ -75,7 +75,7 @@ get_databricks_config_from_env <- function() {
 
 get_databricks_config <- function(profile) {
   config <- if (!is.na(profile)) {
-     get_databricks_config_for_profile(profile)
+    get_databricks_config_for_profile(profile)
   } else if (exists("databricks_authentication_provider")) {
     do.call("databricks_authentication_provider", list())
   } else {
@@ -91,3 +91,37 @@ get_databricks_config <- function(profile) {
   }
   config
 }
+
+mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name, source_version,
+                                                            source_type, ...) {
+  if (exists("databricks_get_notebook_info")) {
+    notebook_info <- do.call("databricks_get_notebook_info", list())
+    if (!is.na(notebook_info$id) && !is.na(notebook_info$path)) {
+      tags <- list()
+      tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_ID]] <- notebook_info$id
+      tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_NOTEBOOK_PATH]] <- notebook_info$path
+      tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_WEBAPP_URL]] <- notebook_info$webapp_url
+      list(
+        client = client,
+        source_version = source_version %||% get_source_version(),
+        source_type =  MLFLOW_SOURCE_TYPE$NOTEBOOK,
+        source_name = notebook_info$path,
+        tags = tags,
+        ...
+      )
+    } else {
+      NextMethod()
+    }
+  } else {
+    NextMethod()
+  }
+}
+
+MLFLOW_DATABRICKS_TAGS <- list(
+  MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID",
+  MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath",
+  MLFLOW_DATABRICKS_WEBAPP_URL = "mlflow.databricks.webappURL",
+  MLFLOW_DATABRICKS_RUN_URL = "mlflow.databricks.runURL",
+  MLFLOW_DATABRICKS_SHELL_JOB_ID = "mlflow.databricks.shellJobID",
+  MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID = "mlflow.databricks.shellJobRunID"
+)
