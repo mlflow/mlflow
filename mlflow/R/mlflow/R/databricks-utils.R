@@ -77,7 +77,7 @@ get_databricks_config <- function(profile) {
   config <- if (!is.na(profile)) {
     get_databricks_config_for_profile(profile)
   } else if (exists(".databricks_internals")) {
-    do.call(".authentication_provider", list(), envir = ".databricks_internals")
+    do.call(".authentication_provider", list(), envir = .databricks_internals)
   } else {
     config <- get_databricks_config_from_env()
     if (databricks_config_is_valid(config)) {
