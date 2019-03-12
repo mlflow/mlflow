@@ -209,7 +209,8 @@ class FileStore(AbstractStore):
 
     def get_experiment(self, experiment_id):
         """
-        Fetches the experiment. This will search for active as well as deleted experiments.
+        Fetch the experiment.
+        Note: This API will search for active as well as deleted experiments.
 
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
@@ -347,7 +348,7 @@ class FileStore(AbstractStore):
 
     def get_run(self, run_uuid):
         """
-        Will get both active and deleted runs.
+        Note: Will get both active and deleted runs.
         """
         _validate_run_id(run_uuid)
         run_info = self._get_run_info(run_uuid)
@@ -361,7 +362,7 @@ class FileStore(AbstractStore):
 
     def _get_run_info(self, run_uuid):
         """
-        Will get both active and deleted runs.
+        Note: Will get both active and deleted runs.
         """
         exp_id, run_dir = self._find_run_root(run_uuid)
         if run_dir is None:
