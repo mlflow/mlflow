@@ -54,12 +54,15 @@ Bug fixes and documentation updates:
 - [Export] Fix for missing run name in csv export (#864, @jimthompson5802)
 - [Scoring][R] Fix local serving of rfunc models (#874, @kevinykuo)
 - [Docs] 
+
   - Use literalinclude for examples. Fix formatting in models. (#845, @stbof)
   - Update quickstart documentation (#906, @4n4nd)
   - Improve TensorFlow API doc. Use correct spelling of TensorFlow throughout. (#857, @stbof)
   - correct missing tensorboardX module error in pytorch example when running in mlflow docker container (#809, @jimthompson5802)
   - Models docs: Improve flavor-specific documentation (#909, @dbczumar)
+
 - [Dependency Fixes]
+
   - Fix #828: add cloudpickle package to conda.yaml in examples/sklearn_elasticnet_wine running in docker (#829, @jimthompson5802)
   - Update version of jackson-databind (#824, @mateiz)
   - Bump click version (#872, @smurching)
