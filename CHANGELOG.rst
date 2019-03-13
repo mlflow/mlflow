@@ -6,9 +6,9 @@ Changelog
 
 Major features:
 
-- Support for running MLflow Projects in Docker containers. This allows users to include non-Python dependencies in their project environments and provides stronger isolation when running projects. See the [Projects documentation](https://mlflow.org/docs/latest/projects.html) for more information. (#555, @marcusrehm; #819, @mparkhe; #970, @dbczumar)
-- SqlAlchemyStore - New backend store implementation using SQLAlchemy for MLflow Tracking Server. Support for a scalable and performant backend store was one of the top community requests. This community contribution feature enables users to connect to local or remote SQLAlchemy compatible databases (currently supported flavors include MySQL, PostgreSQL, SQLite, and MS SQL) and is compatible with file backed store. See the [Tracking Store documentation](https://mlflow.org/docs/latest/tracking.html#storage) for more information. (#756, @AndersonReyes; #800, #844, #847, #848, #860, #868, #975, @mparkhe; #980, @dbczumar)
-- Simplified Python model customization. Custom preprocessing and postprocessing logic, as well as data dependencies, can be easily included in models with the python_function flavor using updated mlflow.pyfunc Python APIs. For more information, see the [Custom Python Models documentation](https://mlflow.org/docs/latest/models.html#custom-python-models). (#791, #792, #793, #830, #910, @dbczumar)
+- Support for running MLflow Projects in Docker containers. This allows users to include non-Python dependencies in their project environments and provides stronger isolation when running projects. See the `Projects documentation <https://mlflow.org/docs/latest/projects.html>`_ for more information. (#555, @marcusrehm; #819, @mparkhe; #970, @dbczumar)
+- SqlAlchemyStore: new backend store implementation using SQLAlchemy for MLflow Tracking Server. Support for a scalable and performant backend store was one of the top community requests. This community contribution feature enables users to connect to local or remote SQLAlchemy compatible databases (currently supported flavors include MySQL, PostgreSQL, SQLite, and MS SQL) and is compatible with file backed store. See the `Tracking Store documentation <https://mlflow.org/docs/latest/tracking.html#storage>`_ for more information. (#756, @AndersonReyes; #800, #844, #847, #848, #860, #868, #975, @mparkhe; #980, @dbczumar)
+- Simplified Python model customization. Custom preprocessing and postprocessing logic, as well as data dependencies, can be easily included in models with the python_function flavor using updated mlflow.pyfunc Python APIs. For more information, see the `Custom Python Models documentation <https://mlflow.org/docs/latest/models.html#custom-python-models>`_. (#791, #792, #793, #830, #910, @dbczumar)
 - Plugin systems allowing third party libraries to extend MLflow functionality (#881, @zblz; #882, @mociarain; #913, #926, #930, #978, @acroz). In particular:
 
   - Additional providers of tracking stores can be registered using the ``mlflow.tracking_store`` entrypoint. 
@@ -32,25 +32,25 @@ More features and improvements:
 - [Examples] Add Image classification example with Keras. (#743, @tomasatdatabricks )
 - [R][Runs] Allow client to infer context info when creating new run in fluent API (#958, @tomasatdatabricks)
 - [Logging] LogBatch support (#950, #951, #955, @smurching)
-- [Artifacts] Add get_artifact_uri() and _download_artifact_from_uri convenience functions (#779)
+- [Artifacts] Add ``get_artifact_uri()`` and ``_download_artifact_from_uri`` convenience functions (#779)
 - [Artifacts] Allow writing Spark models directly to the target artifact store when possible (#808, @smurching)
 - [Models] Make mlflow.pytorch.pickle_module the default when saving PyTorch models (#861)
-- [Models] Add "code paths" parameter to pytorch model persistence functions (#842, dbczumar)
+- [Models] Add ``code paths`` parameter to pytorch model persistence functions (#842, dbczumar)
 - [Models] Add CloudPickle serialization module for PyTorch model persistence (#851, @dbczumar)
 - [Projects] Add support for Gitlab and Bitbucket project repo url (#901)
 - [Search] Support for Search Runs API using "filter" string (#905, @mparke)
 - [Search] Search API: allowing param value to have any content for checks (#788, @mparkhe)
-- [Internal:Objects] Standardize _properties in mlflow.entities (#676, @mlaradji)
+- [Internal:Objects] Standardize ``_properties`` in ``mlflow.entities`` (#676, @mlaradji)
 - [Testing] Pin test requirements (#952, @dbczumar)
 
 
 Bug fixes and documentation updates:
 
 - [Artifacts] Post empty string instead of empty files in the DBFS artifact repo (#818, @smurching)
-- [Artifacts] Fix empty-file upload to DBFS in log_artifacts (#895, @smurching)
+- [Artifacts] Fix empty-file upload to DBFS in ``log_artifacts`` (#895, @smurching)
 - [Artifacts] S3 artifact store: fix path resolution error when artifact root is bucket root (#928, @dbczumar)
 - [UI][Runs] Use relative URL in notebook link (#891, @smurching)
-- [API] Remove get_metric & get_param API calls, and simplify list_run_infos (#879, @aarondav)
+- [API] Remove ``get_metric`` & ``get_param`` API calls, and simplify ``list_run_infos`` (#879, @aarondav)
 - [Export] Fix for missing run name in csv export (#864, @jimthompson5802)
 - [Scoring][R] Fix local serving of rfunc models (#874, @kevinykuo)
 - [Docs] 
