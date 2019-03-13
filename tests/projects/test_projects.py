@@ -17,7 +17,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_BRANCH, ML
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-from unittest.mock import patch
+
 
 def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
@@ -222,11 +222,11 @@ def test_run_local_git_repo(local_git_repo,
         assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
 
 
-@patch('mlflow.tracking.MlflowClient')
-def test_run_experiment_id_resolution(mlflow_client_mock):
-    mlflow_client_mock().get_experiment_by_name.return_value = Experiment(experiment_id=33, name='Name', artifact_location=None, lifecycle_stage=None)
-    exp_id = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named', experiment_id=0)
-    assert exp_id == 33
+def test__resolve_experiment_id():
+    with mock.patch('mlflow.tracking.MlflowClient.get_experiment_by_name') as get_experiment_by_name_mock:
+        get_experiment_by_name_mock.return_value = Experiment(experiment_id=33, name='Name', artifact_location=None, lifecycle_stage=None)
+        exp_id = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named', experiment_id=0)
+        assert exp_id == 33
 
 
 def test_invalid_version_local_git_repo(local_git_repo_uri,
