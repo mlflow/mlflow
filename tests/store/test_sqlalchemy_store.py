@@ -434,7 +434,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         six.assertCountEqual(
             self,
-            [metric.value for metric in 
+            [metric.value for metric in
              self.store.get_metric_history(run.info.run_uuid, metric_name)],
             [100.0, 1.02])
 
