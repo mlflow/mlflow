@@ -11,7 +11,8 @@ import uuid
 
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
+    INVALID_PARAMETER_VALUE, INTERNAL_ERROR 
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
@@ -233,12 +234,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # Depending on the implementation, a NULL identity key may result in different
         # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
         # Therefore, we check for the more generic 'SQLAlchemyError'
-        with self.assertRaises(sqlalchemy.exc.SQLAlchemyError):
+        with self.assertRaises(MlflowException) as exception_context:
             warnings.simplefilter("ignore")
             with self.store.ManagedSessionMaker() as session, warnings.catch_warnings():
                 run = models.SqlRun()
                 session.add(run)
                 warnings.resetwarnings()
+        assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     def test_run_data_model(self):
         with self.store.ManagedSessionMaker() as session:
@@ -440,8 +442,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = None
         metric = entities.Metric(tkey, tval, int(time.time()))
 
-        with self.assertRaises(sqlalchemy.exc.SQLAlchemyError):
+        with self.assertRaises(MlflowException) as exception_context:
             self.store.log_metric(run.info.run_uuid, metric)
+        assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     def test_log_param(self):
         run = self._run_factory()
@@ -503,8 +506,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = None
         param = entities.Param(tkey, tval)
 
-        with self.assertRaises(sqlalchemy.exc.SQLAlchemyError):
+        with self.assertRaises(MlflowException) as exception_context:
             self.store.log_param(run.info.run_uuid, param)
+        assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     def test_set_tag(self):
         run = self._run_factory()

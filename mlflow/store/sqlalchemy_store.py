@@ -11,11 +11,10 @@ from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
-    INVALID_STATE, RESOURCE_DOES_NOT_EXIST
+    INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -82,9 +81,12 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 yield session
                 session.commit()
-            except:
+            except MlflowException:
                 session.rollback()
                 raise
+            except Exception as e:
+                session.rollback()
+                raise MlflowException(message=e, error_code=INTERNAL_ERROR)
             finally:
                 session.close()
 
