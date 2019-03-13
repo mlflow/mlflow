@@ -425,20 +425,26 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def test_log_metric_allows_multiple_values_at_same_timestamp_and_read_returns_max_value(self):
         run = self._run_factory()
 
-        num_metrics_for_timestamp = 10
-        metric_key = "duplicate_timestamp_metric"
-        metric_vals = [random.random() for _ in range(num_metrics_for_timestamp)]
-        metric_timestamp = time.time()
-        for metric_val in metric_vals:
-            metric = entities.Metric(metric_key, metric_val, metric_timestamp)
-            self.store.log_metric(run.info.run_uuid, metric)
+        metric_name = "test-metric-1"
+        timestamp = time.time()
+        metric = entities.Metric(metric_name, 100.0, int(timestamp))
+        metric2 = entities.Metric(metric_name, 1.02, int(timestamp))
+        self.store.log_metric(run.info.run_uuid, metric)
+        self.store.log_metric(run.info.run_uuid, metric2)
 
-        timestamp_duplicate_metrics = [
-            metric for metric in self.store.get_run(run.info.run_uuid).data.metrics
-            if metric.key == metric_key
+        six.assertCountEqual(
+            self,
+            [metric.value for metric in 
+             self.store.get_metric_history(run.info.run_uuid, metric_name)],
+            [100.0, 1.02])
+
+        explicitly_logged_metrics = [
+           metric for metric in self.store.get_run(run.info.run_uuid).data.metrics
+           if metric.key == metric_name
         ]
-        assert len(timestamp_duplicate_metrics) == 1
-        assert timestamp_duplicate_metrics[0].value == max(metric_vals)
+        assert len(explicitly_logged_metrics) == 1
+        assert explicitly_logged_metrics[0].value == 100.0
+
 
     def test_log_null_metric(self):
         run = self._run_factory()
