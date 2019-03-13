@@ -201,7 +201,7 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException('Expected only 1 experiment with name={}. Found {}.'.format(
                     experiment_name, len(experiments)), INVALID_STATE)
 
-            return experiments[0]
+            return experiments[0].to_mlflow_entity()
 
     def delete_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
