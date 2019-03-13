@@ -407,24 +407,15 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_metric_from_file(parent_path, metric_name):
         _validate_metric_name(metric_name)
-        with open(os.path.join(parent_path, metric_name), "r") as f:
-            line = f.readline()
-            if line:
-                max_timestamp, max_value = line.strip().split(" ")
-                line = f.readline()
-            else:
-                raise Exception("Metric '%s' is malformed. No data found." % metric_name)
-
-            while line:
-                timestamp, value = line.strip().split(" ")
-                if timestamp > max_timestamp:
-                    max_timestamp = timestamp
-                    max_value = value
-                elif timestamp == max_timestamp:
-                    max_value = max(max_value, value)
-                line = f.readline()
-
-        return Metric(metric_name, float(max_value), int(max_timestamp))
+        metric_data = [
+           line.strip().split(" ") for line in read_file_lines(parent_path, metric_name)
+        ]
+        if len(metric_data) == 0:
+            raise ValueError("Metric '%s' is malformed. No data found." % metric_name)
+        max_timestamp = max(metric_datum[0] for metric_datum in metric_data)
+        timestamp_relative_max_value = max(
+            metric_datum[1] for metric_datum in metric_data if metric_datum[0] == max_timestamp)
+        return Metric(metric_name, float(timestamp_relative_max_value), int(max_timestamp))
 
     def get_all_metrics(self, run_uuid):
         _validate_run_id(run_uuid)
