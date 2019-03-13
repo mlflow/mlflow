@@ -230,6 +230,7 @@ def test_resolve_experiment_id():
                                                               lifecycle_stage=None)
         exp_id = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named',
                                                         experiment_id=0)
+
         assert exp_id == 33
 
 
