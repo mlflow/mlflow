@@ -1,6 +1,74 @@
 Changelog
 =========
 
+0.9.0 (2019-03-13)
+------------------
+
+Major features:
+
+- Support for running MLflow Projects in Docker containers. This allows users to include non-Python dependencies in their project environments and provides stronger isolation when running projects. See the [Projects documentation](https://mlflow.org/docs/latest/projects.html) for more information. (#555, @marcusrehm; #819, @mparkhe; #970, @dbczumar)
+- SqlAlchemyStore - New backend store implementation using SQLAlchemy for MLflow Tracking Server. Support for a scalable and performant backend store was one of the top community requests. This community contribution feature enables users to connect to local or remote SQLAlchemy compatible databases (currently supported flavors include MySQL, PostgreSQL, SQLite, and MS SQL) and is compatible with file backed store. See the [Tracking Store documentation](https://mlflow.org/docs/latest/tracking.html#storage) for more information. (#756, @AndersonReyes; #800, #844, #847, #848, #860, #868, #975, @mparkhe; #980, @dbczumar)
+- Simplified Python model customization. Custom preprocessing and postprocessing logic, as well as data dependencies, can be easily included in models with the python_function flavor using updated mlflow.pyfunc Python APIs. For more information, see the [Custom Python Models documentation](https://mlflow.org/docs/latest/models.html#custom-python-models). (#791, #792, #793, #830, #910, @dbczumar)
+- Plugin systems allowing third party libraries to extend MLflow functionality (#881, @zblz; #882, @mociarain; #913, #926, #930, #978, @acroz). In particular:
+
+  - Additional providers of tracking stores can be registered using the ``mlflow.tracking_store`` entrypoint. 
+  - Additional providers of artifact repository can be registered using the ``mlflow.artifact_repository`` entrypoint. 
+  - The logic generating run metadata from the run context (e.g. ``source_name``, ``source_version``) has been refactored into an extendable system of run context providers. Plugins can register additional providers using the `mlflow.run_context_provider` entrypoint, which add to or overwrite tags set by the base library.
+
+- Support for authentication to the tracking server in the R client. Now R users can connect to secure tracking servers via credentials set in environment variables, or provide custom plugins for setting the credentials. As an example, in this release is the Databricks plugin which can detect existing Databricks credentials to allow users to connect to the Databricks tracking server. (#938, #959, #992, @tomasatdatabricks)
+
+
+Breaking changes:
+
+- [Scoring] Use pandas-split format as default for JSON requests to pyfunc scoring server (#960, @dbczumar)
+- [Scoring] When reading pandas dataframes from json, do not infer data types (#916, @mparkhe)
+
+
+More features and improvements:
+
+- [UI] Add a button for downloading artifacts (#967, @mateiz)
+- [CLI] Add ``mlflow runs`` CLI utility (#720, @DorIndivo)
+- [CLI] ``MLFLOW_EXPERIMENT_NAME`` env variable and ``--experiment-name`` arguments for CLI command (#889, #894, @mparke)
+- [Examples] Add Image classification example with Keras. (#743, @tomasatdatabricks )
+- [R][Runs] Allow client to infer context info when creating new run in fluent API (#958, @tomasatdatabricks)
+- [Logging] LogBatch support (#950, #951, #955, @smurching)
+- [Artifacts] Add get_artifact_uri() and _download_artifact_from_uri convenience functions (#779)
+- [Artifacts] Allow writing Spark models directly to the target artifact store when possible (#808, @smurching)
+- [Models] Make mlflow.pytorch.pickle_module the default when saving PyTorch models (#861)
+- [Models] Add "code paths" parameter to pytorch model persistence functions (#842, dbczumar)
+- [Models] Add CloudPickle serialization module for PyTorch model persistence (#851, @dbczumar)
+- [Projects] Add support for Gitlab and Bitbucket project repo url (#901)
+- [Search] Support for Search Runs API using "filter" string (#905, @mparke)
+- [Search] Search API: allowing param value to have any content for checks (#788, @mparkhe)
+- [Internal:Objects] Standardize _properties in mlflow.entities (#676, @mlaradji)
+- [Testing] Pin test requirements (#952, @dbczumar)
+
+
+Bug fixes and documentation updates:
+
+- [Artifacts] Post empty string instead of empty files in the DBFS artifact repo (#818, @smurching)
+- [Artifacts] Fix empty-file upload to DBFS in log_artifacts (#895, @smurching)
+- [Artifacts] S3 artifact store: fix path resolution error when artifact root is bucket root (#928, @dbczumar)
+- [UI][Runs] Use relative URL in notebook link (#891, @smurching)
+- [API] Remove get_metric & get_param API calls, and simplify list_run_infos (#879, @aarondav)
+- [Export] Fix for missing run name in csv export (#864, @jimthompson5802)
+- [Scoring][R] Fix local serving of rfunc models (#874, @kevinykuo)
+- [Docs] 
+  - Use literalinclude for examples. Fix formatting in models. (#845, @stbof)
+  - Update quickstart documentation (#906, @4n4nd)
+  - Improve TensorFlow API doc. Use correct spelling of TensorFlow throughout. (#857, @stbof)
+  - correct missing tensorboardX module error in pytorch example when running in mlflow docker container (#809, @jimthompson5802)
+  - Models docs: Improve flavor-specific documentation (#909, @dbczumar)
+- [Dependency Fixes]
+  - Fix #828: add cloudpickle package to conda.yaml in examples/sklearn_elasticnet_wine running in docker (#829, @jimthompson5802)
+  - Update version of jackson-databind (#824, @mateiz)
+  - Bump click version (#872, @smurching)
+  - Add cloudpickle package to the dependencies (#777, @tmielika)
+  - Clean up shaded java artifact (#804, @alkersan)
+
+Small bug fixes and doc updates (#822, #899, #787, #785, #780, #942, @hanyucui; #862, #904, #954, #806, @stbof; #907, @smurching; #896, #858, #836, #859, #923, #939, #933, #931, @dbczumar; #880, @zblz; #876, @acroz; #827, #812, #816, @jimthompson5802; #837, #790, #897, #974, #900, @mparkhe; #831, #798, @aarondav; #814, @sueann; #912, @mateiz; #922, #947, @tomasatdatabricks; #795, @KevYuen)
+
+
 0.8.2 (2019-01-28)
 ------------------
 
