@@ -344,6 +344,10 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException(
                         "Metric={} must be unique. Metric already logged value {}"
                         " at {}".format(metric, m.value, m.timestamp), INVALID_PARAMETER_VALUE)
+            except sqlalchemy.exc.SQLAlchemyError as e:
+                raise MlflowException(
+                    "Log metric request failed for run ID={}. Attempted to log metric={}."
+                    " Error={}".format(run_uuid, (metric.key, metric.value), str(e)))
 
     def get_metric_history(self, run_uuid, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -391,6 +395,10 @@ class SqlAlchemyStore(AbstractStore):
                         " logged with value='{}' for run ID='{}. Attempted logging new value"
                         " '{}'.".format(
                             param.key, old_value, run_uuid, param.value), INVALID_PARAMETER_VALUE)
+            except sqlalchemy.exc.SQLAlchemyError as e:
+                raise MlflowException(
+                    "Log param request failed for run ID={}. Attempted to log param={}."
+                    " Error={}".format(run_uuid, (param.key, param.value), str(e)))
 
     def set_tag(self, run_uuid, tag):
         with self.ManagedSessionMaker() as session:
