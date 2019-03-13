@@ -10,7 +10,7 @@ import pytest
 import mlflow
 
 from mlflow.entities import RunStatus, ViewType, Experiment, SourceType
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
@@ -236,7 +236,6 @@ def test_resolve_experiment_id(experiment_id, expected):
         get_experiment_by_name_mock.return_value = None
         exp_id = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named',
                                                         experiment_id=experiment_id)
-
         assert exp_id == expected
 
 
@@ -249,6 +248,13 @@ def test_resolve_experiment_id_experiment_present():
         exp_id = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named',
                                                         experiment_id=None)
         assert exp_id == 33
+
+
+def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
+    with pytest.raises(MlflowException,
+                       match="Specify only one of 'experiment_name' or 'experiment_id'."):
+        _ = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named',
+                                                   experiment_id=44)
 
 
 def test_invalid_version_local_git_repo(local_git_repo_uri,

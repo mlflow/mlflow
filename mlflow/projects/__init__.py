@@ -47,6 +47,19 @@ _logger = logging.getLogger(__name__)
 
 
 def _resolve_experiment_id(experiment_name=None, experiment_id=None):
+    """
+    Resolve experiment.
+
+    Verifies either one or other is specified - cannot be both selected.
+
+    :param experiment_name: Name of experiment under which to launch the run.
+    :param experiment_id: ID of experiment under which to launch the run.
+    :return: int
+    """
+
+    if experiment_name and experiment_id:
+        raise MlflowException("Specify only one of 'experiment_name' or 'experiment_id'.")
+
     exp_id = experiment_id
     if experiment_name:
         client = tracking.MlflowClient()
@@ -57,18 +70,13 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
     return exp_id
 
 
-def _run(uri, entry_point="main", version=None, parameters=None,
-         experiment_name=None, experiment_id=None,
+def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
          mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
          storage_dir=None, block=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in mode.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
-    if mode == "databricks":
-        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
-
-    exp_id = _resolve_experiment_id(experiment_name=experiment_name, experiment_id=experiment_id)
 
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
@@ -79,7 +87,7 @@ def _run(uri, entry_point="main", version=None, parameters=None,
     if run_id:
         active_run = tracking.MlflowClient().get_run(run_id)
     else:
-        active_run = _create_run(uri, exp_id, work_dir, entry_point)
+        active_run = _create_run(uri, experiment_id, work_dir, entry_point)
 
     # Consolidate parameters for logging.
     # `storage_dir` is `None` since we want to log actual path not downloaded local path
@@ -103,7 +111,7 @@ def _run(uri, entry_point="main", version=None, parameters=None,
         return run_databricks(
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
-            experiment_id=exp_id, cluster_spec=cluster_spec)
+            experiment_id=experiment_id, cluster_spec=cluster_spec)
 
     elif mode == "local" or mode is None:
         command = []
@@ -131,10 +139,10 @@ def _run(uri, entry_point="main", version=None, parameters=None,
         if block:
             command += _get_entry_point_command(project, entry_point, parameters, storage_dir)
             command = command_separator.join(command)
-            return _run_entry_point(command, work_dir, exp_id, run_id=active_run.info.run_uuid)
+            return _run_entry_point(command, work_dir, experiment_id, run_id=active_run.info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
-            work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=exp_id,
+            work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_uuid)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -195,8 +203,6 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
     """
-    if experiment_name and experiment_id:
-        raise MlflowException("Specify only one of 'experiment_name' or 'experiment_id'.")
 
     cluster_spec_dict = cluster_spec
     if (cluster_spec and type(cluster_spec) != dict
@@ -209,9 +215,16 @@ def run(uri, entry_point="main", version=None, parameters=None,
                     "Error when attempting to load and parse JSON cluster spec from file %s",
                     cluster_spec)
                 raise
+
+    if mode == "databricks":
+        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
+
+    experiment_id = _resolve_experiment_id(experiment_name=experiment_name,
+                                           experiment_id=experiment_id)
+
     submitted_run_obj = _run(
-        uri=uri, entry_point=entry_point, version=version, parameters=parameters,
-        experiment_name=experiment_name, experiment_id=experiment_id,
+        uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
+        parameters=parameters,
         mode=mode, cluster_spec=cluster_spec_dict,
         git_username=git_username, git_password=git_password, use_conda=use_conda,
         storage_dir=storage_dir, block=block, run_id=run_id)
