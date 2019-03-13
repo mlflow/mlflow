@@ -106,7 +106,7 @@ class SqlAlchemyStore(AbstractStore):
         finally:
             self._unset_no_auto_for_zero_values(session)
 
-    def _save_to_db(self, objs, session):
+    def _save_to_db(self, session, objs):
         """
         Store in db
         """
@@ -116,7 +116,7 @@ class SqlAlchemyStore(AbstractStore):
             # single object
             session.add(objs)
 
-    def _get_or_create(self, model, session, **kwargs):
+    def _get_or_create(self, session, model, **kwargs):
         instance = session.query(model).filter_by(**kwargs).first()
         created = False
 
@@ -170,7 +170,7 @@ class SqlAlchemyStore(AbstractStore):
             return [exp.to_mlflow_entity() for exp in
                     self._list_experiments(session=session, view_type=view_type)]
 
-    def _get_experiment(self, experiment_id, view_type, session):
+    def _get_experiment(self, session, experiment_id, view_type):
         experiments = self._list_experiments(
             session=session, ids=[experiment_id], view_type=view_type).all()
         if len(experiments) == 0:
@@ -184,8 +184,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def get_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
-            return self._get_experiment(
-                experiment_id, ViewType.ALL, session=session).to_mlflow_entity()
+            return self._get_experiment(session, experiment_id, ViewType.ALL).to_mlflow_entity()
 
     def get_experiment_by_name(self, experiment_name):
         """
@@ -205,19 +204,19 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
-            experiment = self._get_experiment(experiment_id, ViewType.ACTIVE_ONLY, session=session)
+            experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY) 
             experiment.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=experiment, session=session)
 
     def restore_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
-            experiment = self._get_experiment(experiment_id, ViewType.DELETED_ONLY, session=session)
+            experiment = self._get_experiment(session, experiment_id, ViewType.DELETED_ONLY)
             experiment.lifecycle_stage = LifecycleStage.ACTIVE
             self._save_to_db(objs=experiment, session=session)
 
     def rename_experiment(self, experiment_id, new_name):
         with self.ManagedSessionMaker() as session:
-            experiment = self._get_experiment(experiment_id, ViewType.ALL, session=session)
+            experiment = self._get_experiment(session, experiment_id, ViewType.ALL)
             if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
                 raise MlflowException('Cannot rename a non-active experiment.', INVALID_STATE)
 
@@ -254,7 +253,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.to_mlflow_entity()
 
-    def _get_run(self, run_uuid, session):
+    def _get_run(self, session, run_uuid):
         runs = session.query(SqlRun).filter(SqlRun.run_uuid == run_uuid).all()
 
         if len(runs) == 0:
@@ -404,10 +403,10 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             runs = [run.to_mlflow_entity()
                     for exp in experiment_ids
-                    for run in self._list_runs(exp, run_view_type, session=session)]
+                    for run in self._list_runs(session, exp, run_view_type)]
             return [run for run in runs if not search_filter or search_filter.filter(run)]
 
-    def _list_runs(self, experiment_id, run_view_type, session):
+    def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(
             ids=[experiment_id], view_type=ViewType.ALL, session=session).first()
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))

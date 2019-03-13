@@ -378,7 +378,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # Should return duplicates as well
         # MLflow RunData contains only the last reported values for metrics.
         with self.store.ManagedSessionMaker() as session:
-            sql_run_metrics = self.store._get_run(run.info.run_uuid, session=session).metrics
+            sql_run_metrics = self.store._get_run(session, run.info.run_uuid).metrics
             self.assertEqual(2, len(sql_run_metrics))
             self.assertEqual(1, len(run.data.metrics))
 
