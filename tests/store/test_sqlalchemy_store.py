@@ -4,7 +4,6 @@ import unittest
 import warnings
 
 import mock
-import sqlalchemy
 import time
 import mlflow
 import uuid
