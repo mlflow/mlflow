@@ -222,15 +222,25 @@ def test_run_local_git_repo(local_git_repo,
         assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
 
 
-def test_resolve_experiment_id():
+@pytest.mark.parametrize("experiment_id,expected", [(1, 1), (None, 0)])
+def test_resolve_experiment_id(experiment_id, expected):
+    with mock.patch('mlflow.tracking.MlflowClient.get_experiment_by_name') \
+            as get_experiment_by_name_mock:
+        get_experiment_by_name_mock.return_value = None
+        exp_id = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named',
+                                                        experiment_id=experiment_id)
+
+        assert exp_id == expected
+
+
+def test_resolve_experiment_id_experiment_present():
     with mock.patch('mlflow.tracking.MlflowClient.get_experiment_by_name') \
             as get_experiment_by_name_mock:
         get_experiment_by_name_mock.return_value = Experiment(experiment_id=33, name='Name',
                                                               artifact_location=None,
                                                               lifecycle_stage=None)
         exp_id = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named',
-                                                        experiment_id=0)
-
+                                                        experiment_id=None)
         assert exp_id == 33
 
 
