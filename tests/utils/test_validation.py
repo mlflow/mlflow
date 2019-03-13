@@ -4,15 +4,17 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
+import os
+
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
                                     _validate_tag_name, _validate_run_id, \
                                     _validate_batch_log_data, _validate_batch_log_limits
 
 GOOD_METRIC_OR_PARAM_NAMES = [
-    "a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e.", "a b/c d",
+    "a", "Ab-5_", os.path.normpath("a/b/c"), "a.b.c", ".a", "b.", os.path.normpath("a..a/._./o_O/.e."), os.path.normpath("a b/c d"),
 ]
 BAD_METRIC_OR_PARAM_NAMES = [
-    "", ".", "/", "..", "//", "a//b", "a/./b", "/a", "a/", ":", "\\", "./", "/./",
+    "", ".", "/", "..", "//", "a//b", "a/./b", "/a", "a/", ":", "./", "/./",
 ]
 
 

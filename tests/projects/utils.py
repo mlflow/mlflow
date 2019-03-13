@@ -46,7 +46,7 @@ def build_docker_example_base_image():
 @pytest.fixture()
 def tracking_uri_mock(tmpdir):
     try:
-        mlflow.set_tracking_uri(os.path.join(tmpdir.strpath, 'mlruns'))
+        mlflow.set_tracking_uri("file://" + os.path.join(tmpdir.strpath, 'mlruns'))
         yield tmpdir
     finally:
         mlflow.set_tracking_uri(None)

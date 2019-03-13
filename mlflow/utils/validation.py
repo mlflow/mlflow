@@ -10,14 +10,14 @@ import numpy as np
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
-_VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
+_VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\\\w.\- ]*$")
 
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
 
 _BAD_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
-    " spaces ( ), and slashes (/)."
+    " spaces ( ), and slashes (/ or \)."
 )
 
 MAX_PARAMS_TAGS_PER_BATCH = 100

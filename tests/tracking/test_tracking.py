@@ -10,6 +10,8 @@ import attrdict
 import mock
 import pytest
 
+from six.moves import urllib
+
 import mlflow
 from mlflow import tracking
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
@@ -189,15 +191,16 @@ def test_log_batch(tracking_uri_mock):
 def test_log_metric(tracking_uri_mock):
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
+    path_name = os.path.normpath("nested/nested/name")
     with active_run:
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_2", -3)
         mlflow.log_metric("name_1", 30)
-        mlflow.log_metric("nested/nested/name", 40)
+        mlflow.log_metric(path_name, 40)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate metrics
     assert len(finished_run.data.metrics) == 3
-    expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
+    expected_pairs = {"name_1": 30, "name_2": -3, path_name: 40}
     for metric in finished_run.data.metrics:
         assert expected_pairs[metric.key] == metric.value
 
@@ -253,15 +256,16 @@ def test_log_metric_validation(tracking_uri_mock):
 def test_log_param(tracking_uri_mock):
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
+    path_name = os.path.normpath("nested/nested/name")
     with active_run:
         mlflow.log_param("name_1", "a")
         mlflow.log_param("name_2", "b")
         mlflow.log_param("name_1", "c")
-        mlflow.log_param("nested/nested/name", 5)
+        mlflow.log_param(path_name, 5)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate params
     assert len(finished_run.data.params) == 3
-    expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    expected_pairs = {"name_1": "c", "name_2": "b", path_name: "5"}
     for param in finished_run.data.params:
         assert expected_pairs[param.key] == param.value
 
@@ -315,7 +319,9 @@ def test_log_artifact(tracking_uri_mock):
     artifact_parent_dirs = ["some_parent_dir", None]
     for parent_dir in artifact_parent_dirs:
         with start_run():
-            run_artifact_dir = mlflow.get_artifact_uri()
+            artifact_uri = mlflow.get_artifact_uri()
+            scheme = urllib.parse.urlparse(artifact_uri).scheme
+            run_artifact_dir = artifact_uri[len(scheme + "://"):] if scheme != "" else artifact_uri
             mlflow.log_artifact(path0, parent_dir)
         expected_dir = os.path.join(run_artifact_dir, parent_dir) \
             if parent_dir is not None else run_artifact_dir
@@ -325,7 +331,9 @@ def test_log_artifact(tracking_uri_mock):
     # Log multiple artifacts, verify they exist in the directory returned by get_artifact_uri
     for parent_dir in artifact_parent_dirs:
         with start_run():
+            artifact_uri = mlflow.get_artifact_uri()
             run_artifact_dir = mlflow.get_artifact_uri()
+            run_artifact_dir = artifact_uri[len(scheme + "://"):] if scheme != "" else artifact_uri
             mlflow.log_artifacts(artifact_src_dir, parent_dir)
         # Check that the logged artifacts match
         expected_artifact_output_dir = os.path.join(run_artifact_dir, parent_dir) \
@@ -400,8 +408,8 @@ def test_start_deleted_run():
     with mlflow.start_run() as active_run:
         run_id = active_run.info.run_uuid
     tracking.MlflowClient().delete_run(run_id)
-    with pytest.raises(MlflowException, matches='because it is in the deleted state.'):
-        with mlflow.start_run(run_uuid=run_id):
+    with pytest.raises(MlflowException):
+        with mlflow.start_run(run_id=run_id):
             pass
     assert mlflow.active_run() is None
 
