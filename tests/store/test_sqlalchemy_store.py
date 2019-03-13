@@ -12,7 +12,7 @@ import uuid
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
-    INVALID_PARAMETER_VALUE, INTERNAL_ERROR 
+    INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
@@ -541,8 +541,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         actual = self.store.get_metric_history(run.info.run_uuid, key)
 
-        six.assertCountEqual(self, [(m.key, m.value, m.timestamp) for m in expected],
-                                 [(m.key, m.value, m.timestamp) for m in actual])
+        six.assertCountEqual(self,
+                             [(m.key, m.value, m.timestamp) for m in expected],
+                             [(m.key, m.value, m.timestamp) for m in actual])
 
     def test_list_run_infos(self):
         experiment_id = self._experiment_factory('test_exp')
