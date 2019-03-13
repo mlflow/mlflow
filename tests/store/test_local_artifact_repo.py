@@ -14,7 +14,7 @@ class TestLocalArtifactRepo(unittest.TestCase):
 
     def test_basic_functions(self):
         with TempDir() as test_root, TempDir() as tmp:
-            repo = get_artifact_repository(test_root.path(), Mock())
+            repo = get_artifact_repository("file://" + test_root.path(), Mock())
             self.assertIsInstance(repo, LocalArtifactRepository)
             self.assertListEqual(repo.list_artifacts(), [])
             with self.assertRaises(Exception):
@@ -46,7 +46,7 @@ class TestLocalArtifactRepo(unittest.TestCase):
             self.assertEqual(hidden_text, "42")
 
             # log artifacts in deep nested subdirs
-            nested_subdir = "bbb/ccc/ddd/eee/fghi"
+            nested_subdir = os.path.normpath("bbb/ccc/ddd/eee/fghi")
             repo.log_artifact(local_file, nested_subdir)
             text = open(repo.download_artifacts(os.path.join(nested_subdir, artifact_name))).read()
             self.assertEqual(text, "Hello world!")
@@ -69,7 +69,7 @@ class TestLocalArtifactRepo(unittest.TestCase):
             self.assertEqual(text, "A")
             text = open(repo.download_artifacts("b.txt")).read()
             self.assertEqual(text, "B")
-            text = open(repo.download_artifacts("nested/c.txt")).read()
+            text = open(repo.download_artifacts(os.path.normpath("nested/c.txt"))).read()
             self.assertEqual(text, "C")
             infos = self._get_contents(repo, None)
             self.assertListEqual(infos, [
@@ -82,18 +82,20 @@ class TestLocalArtifactRepo(unittest.TestCase):
             ])
 
             # Verify contents of subdirectories
-            self.assertListEqual(self._get_contents(repo, "nested"), [("nested/c.txt", False, 1)])
+            self.assertListEqual(self._get_contents(repo, "nested"), [(os.path.normpath("nested/c.txt"), False, 1)])
 
             infos = self._get_contents(repo, "aaa")
-            self.assertListEqual(infos, [("aaa/.mystery", False, 2), ("aaa/test.txt", False, 12)])
-            self.assertListEqual(self._get_contents(repo, "bbb"), [("bbb/ccc", True, None)])
-            self.assertListEqual(self._get_contents(repo, "bbb/ccc"), [("bbb/ccc/ddd", True, None)])
+            self.assertListEqual(infos, [(os.path.normpath("aaa/.mystery"), False, 2),
+                                         (os.path.normpath("aaa/test.txt"), False, 12)])
+            self.assertListEqual(self._get_contents(repo, "bbb"), [(os.path.normpath("bbb/ccc"), True, None)])
+            self.assertListEqual(self._get_contents(repo, os.path.normpath("bbb/ccc")),
+                                 [(os.path.normpath("bbb/ccc/ddd"), True, None)])
 
-            infos = self._get_contents(repo, "bbb/ccc/ddd/eee")
-            self.assertListEqual(infos, [("bbb/ccc/ddd/eee/fghi", True, None)])
+            infos = self._get_contents(repo, os.path.normpath("bbb/ccc/ddd/eee"))
+            self.assertListEqual(infos, [(os.path.normpath("bbb/ccc/ddd/eee/fghi"), True, None)])
 
-            infos = self._get_contents(repo, "bbb/ccc/ddd/eee/fghi")
-            self.assertListEqual(infos, [("bbb/ccc/ddd/eee/fghi/test.txt", False, 12)])
+            infos = self._get_contents(repo, os.path.normpath("bbb/ccc/ddd/eee/fghi"))
+            self.assertListEqual(infos, [(os.path.normpath("bbb/ccc/ddd/eee/fghi/test.txt"), False, 12)])
 
             # Download a subdirectory
             downloaded_dir = repo.download_artifacts("nested")
