@@ -42,7 +42,7 @@ new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, toke
 
 #' @export
 print.mlflow_host_creds <- function(mlflow_host_creds) {
-  args = list(
+  args <- list(
     host = if (is.na(mlflow_host_creds$host)) {
       ""
     } else {
