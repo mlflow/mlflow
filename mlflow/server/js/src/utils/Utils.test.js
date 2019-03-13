@@ -160,15 +160,12 @@ test("formatSource & renderSource", () => {
   // Query params must appear before the hash, see https://tools.ietf.org/html/rfc3986#section-4.2
   // and https://stackoverflow.com/a/34772568
   expect(wrapper3.props().href).toEqual("http://localhost/?o=123#notebook/13/revision/42");
-
 });
 
 test("addQueryParams", () => {
-  expect(Utils.addQueryParams("http://localhost/foo", "?o=123") === "http://localhost/foo/?o=123");
-  expect(Utils.addQueryParams("http://localhost/foo?param=val", "?o=123") ===
-    "http://localhost/foo?o=123&param=val");
-  expect(Utils.addQueryParams("http://localhost/foo?param=val", "?param=newval") ===
-    "http://localhost/foo?param=newval");
+  expect(Utils.addQueryParams("http://localhost/foo", "?o=123")).toEqual("http://localhost/foo?o=123");
+  expect(Utils.addQueryParams("http://localhost/foo?param=val", "?o=123")).toEqual("http://localhost/foo?param=val&o=123");
+  expect(Utils.addQueryParams("http://localhost/foo?param=val", "?param=newval")).toEqual("http://localhost/foo?param=newval");
 });
 
 test("dropExtension", () => {

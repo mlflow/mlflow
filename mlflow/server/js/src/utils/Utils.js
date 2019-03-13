@@ -171,11 +171,11 @@ class Utils {
    */
   static addQueryParams(url, queryParams) {
     const urlObj = new URL(url);
-    const queryParamString = queryParams ? queryParams : "";
+    const queryParamString = queryParams || "";
     for (const [paramKey, paramVal] of Object.entries(queryString.parse(queryParamString))) {
-      urlObj.searchParams.append(paramKey, paramVal)
+      urlObj.searchParams.set(paramKey, paramVal);
     }
-    return urlObj.toString()
+    return urlObj.toString();
   }
 
   /**
