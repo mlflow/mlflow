@@ -1,4 +1,5 @@
 import logging
+import uuid
 
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -26,11 +27,11 @@ class RunInfo(_MLflowObject):
     Metadata about a run.
     """
 
-    def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
+    def __init__(self, run_id, experiment_id, name, source_type, source_name, entry_point_name,
                  user_id, status, start_time, end_time, source_version, lifecycle_stage,
-                 artifact_uri=None):
-        if run_uuid is None:
-            raise Exception("run_uuid cannot be None")
+                 artifact_uri=None, run_uuid=None):
+        if run_id is None:
+            raise Exception("run_id cannot be None")
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
         if name is None:
@@ -45,7 +46,17 @@ class RunInfo(_MLflowObject):
             raise Exception("status cannot be None")
         if start_time is None:
             raise Exception("start_time cannot be None")
-        self._run_id = run_uuid
+        self._run_id = run_id
+
+        try:
+            uuid.UUID(self._run_id)
+            self._run_uuid = self._run_id
+
+            if run_uuid is not None:
+                _logger.warning("run_id was a GUID and overrode the passed in value of %s for run_uuid" % run_uuid)
+        except ValueError:
+            self._run_uuid = uuid.uuid4().hex if run_uuid is None else run_uuid
+
         self._experiment_id = experiment_id
         self._name = name
         self._source_type = source_type
@@ -77,9 +88,14 @@ class RunInfo(_MLflowObject):
         return RunInfo.from_proto(proto)
 
     @property
+    def run_id(self):
+        """String containing run ID."""
+        return self._run_id
+
+    @property
     def run_uuid(self):
         """String containing run UUID."""
-        return self._run_id
+        return self._run_uuid
 
     @property
     def experiment_id(self):
@@ -176,9 +192,9 @@ class RunInfo(_MLflowObject):
         # An absent end time is represented with a NoneType in the `RunInfo` class
         if end_time == 0:
             end_time = None
-        return cls(run_uuid=proto.run_uuid, experiment_id=proto.experiment_id, name=proto.name,
+        return cls(run_id=proto.run_uuid, experiment_id=proto.experiment_id, name=proto.name,
                    source_type=proto.source_type, source_name=proto.source_name,
                    entry_point_name=proto.entry_point_name, user_id=proto.user_id,
                    status=proto.status, start_time=proto.start_time, end_time=end_time,
                    source_version=proto.source_version, lifecycle_stage=proto.lifecycle_stage,
-                   artifact_uri=proto.artifact_uri)
+                   artifact_uri=proto.artifact_uri, run_uuid=proto.run_uuid)

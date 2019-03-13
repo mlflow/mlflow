@@ -13,7 +13,7 @@ class TestRun(TestRunInfo, TestRunData):
 
     def test_creation_and_hydration(self):
         run_data, metrics, params, tags = TestRunData._create()
-        (run_info, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
+        (run_info, run_id, experiment_id, name, source_type, source_name, entry_point_name,
          user_id, status, start_time, end_time, source_version, lifecycle_stage,
          artifact_uri) = TestRunInfo._create()
 
@@ -21,7 +21,8 @@ class TestRun(TestRunInfo, TestRunData):
 
         self._check_run(run1, run_info, run_data)
 
-        as_dict = {"info": {"run_uuid": run_uuid,
+        as_dict = {"info": {"run_id": run_id,
+                            "run_uuid": run_id,
                             "experiment_id": experiment_id,
                             "name": name,
                             "source_type": source_type,
@@ -49,7 +50,7 @@ class TestRun(TestRunInfo, TestRunData):
 
     def test_string_repr(self):
         run_info = RunInfo(
-            run_uuid="hi", experiment_id=0, name="name", source_type=SourceType.PROJECT,
+            run_id="hi", experiment_id=0, name="name", source_type=SourceType.PROJECT,
             source_name="source-name", entry_point_name="entry-point-name",
             user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
             source_version="version", lifecycle_stage=LifecycleStage.ACTIVE)
@@ -60,7 +61,7 @@ class TestRun(TestRunInfo, TestRunData):
                    "<Metric: key='key', timestamp=0, value=1>, ...], params=[], tags=[]>, " \
                    "info=<RunInfo: artifact_uri=None, end_time=1, " \
                    "entry_point_name='entry-point-name', experiment_id=0, " \
-                   "lifecycle_stage='active', name='name', run_uuid='hi', " \
+                   "lifecycle_stage='active', name='name', run_id='hi', run_uuid='{}', " \
                    "source_name='source-name', source_type=3, source_version='version', " \
-                   "start_time=0, status=4, user_id='user-id'>>"
+                   "start_time=0, status=4, user_id='user-id'>>".format(run1.info.run_uuid)
         assert str(run1) == expected
