@@ -8,6 +8,7 @@ from click.testing import CliRunner
 import pytest
 
 from mlflow import cli
+from mlflow.tracking import set_tracking_uri
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI,\
@@ -79,6 +80,8 @@ def test_run_databricks_cluster_spec(tmpdir):
     cluster_spec_path = str(tmpdir.join("cluster-spec.json"))
     with open(cluster_spec_path, "w") as handle:
         json.dump(cluster_spec, handle)
+
+    set_tracking_uri('databricks://profile')
 
     with mock.patch("mlflow.projects._run") as run_mock:
         for cluster_spec_arg in [json.dumps(cluster_spec), cluster_spec_path]:

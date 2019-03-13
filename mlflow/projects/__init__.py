@@ -63,9 +63,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
     exp_id = experiment_id
     if experiment_name:
         client = tracking.MlflowClient()
-        experiment = client.get_experiment_by_name(experiment_name)
-        if experiment is not None:
-            exp_id = experiment.experiment_id
+        exp_id = client.get_experiment_by_name(experiment_name).experiment_id
     exp_id = exp_id or _get_experiment_id()
     return exp_id
 
@@ -139,10 +137,12 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         if block:
             command += _get_entry_point_command(project, entry_point, parameters, storage_dir)
             command = command_separator.join(command)
-            return _run_entry_point(command, work_dir, experiment_id, run_id=active_run.info.run_uuid)
+            return _run_entry_point(command, work_dir, experiment_id,
+                                    run_id=active_run.info.run_uuid)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
-            work_dir=work_dir, entry_point=entry_point, parameters=parameters, experiment_id=experiment_id,
+            work_dir=work_dir, entry_point=entry_point, parameters=parameters,
+            experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_uuid)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
