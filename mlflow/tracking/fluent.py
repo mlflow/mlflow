@@ -20,7 +20,7 @@ from mlflow.tracking import context
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, \
-    MLFLOW_PROJECT_ENTRY_POINT
+    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -123,6 +123,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
         user_specified_tags = {}
+        if parent_run_id is not None:
+            user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if source_name is not None:
             user_specified_tags[MLFLOW_SOURCE_NAME] = source_name
         if source_type is not None:
@@ -134,19 +136,10 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
 
         tags = context.resolve_tags(user_specified_tags)
 
-        # Polling resolved tags for run meta data : source_name, source_version,
-        # entry_point_name, and source_type which is store in RunInfo for backward compatibility.
-        # TODO: Remove all 4 of the following annotated backward compatibility fixes with API
-        #  changes to create_run.
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
             run_name=run_name,
-            source_name=tags.get(MLFLOW_SOURCE_NAME),  # TODO: for backward compatibility. Remove.
-            source_version=tags.get(MLFLOW_GIT_COMMIT),  # TODO: for backward compatibility. Remove.
-            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),  # TODO: remove
-            source_type=SourceType.from_string(tags.get(MLFLOW_SOURCE_TYPE)),  # TODO: Remove
-            tags=tags,
-            parent_run_id=parent_run_id
+            tags=tags
         )
 
     _active_run_stack.append(ActiveRun(active_run_obj))
