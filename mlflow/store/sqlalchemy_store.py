@@ -15,12 +15,39 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 
 
 class SqlAlchemyStore(AbstractStore):
+    """
+    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. Currently
+    supported database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. This store
+    interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
+    :py:class:`mlflow.store.dbmodels.models.SqlExperiment`,
+    :py:class:`mlflow.store.dbmodels.models.SqlRun`,
+    :py:class:`mlflow.store.dbmodels.models.SqlTag`,
+    :py:class:`mlflow.store.dbmodels.models.SqlMetric`, and
+    :py:class:`mlflow.store.dbmodels.models.SqlParam`.
+
+    Run artifacts are stored in a separate location using artifact stores conforming to
+    :py:class:`mlflow.store.artifact_repo.ArtifactRepository`. Default artifact locations for
+    user experiments are stored in the database along with metadata. Each run artifact location
+    is recorded in :py:class:`mlflow.store.dbmodels.models.SqlRun` and stored in the backend DB.
+    """
     ARTIFACTS_FOLDER_NAME = "artifacts"
 
     def __init__(self, db_uri, default_artifact_root):
+        """
+        Create a database backed store.
+
+        :param db_uri: SQL connection string used by SQLAlchemy Engine to connect to the database.
+                       Argument is expected to be in the format:
+                       ``db_type://<user_name>:<password>@<host>:<port>/<database_name>`
+                       Supported database types are ``mysql``, ``mssql``, ``sqlite``,
+                       and ``postgresql``.
+        :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
+                                      store object, DBFS path, or shared NFS file system).
+        """
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri
         self.db_type = urllib.parse.urlparse(db_uri).scheme
@@ -79,7 +106,7 @@ class SqlAlchemyStore(AbstractStore):
         experiment table uses 'experiment_id' column is a PK and is also set to auto increment.
         MySQL and other implementation do not allow value '0' for such cases.
 
-        ToDo: Identify a less hack mechanism to create default experiment 0
+        ToDo: Identify a less hacky mechanism to create default experiment 0
         """
         table = SqlExperiment.__tablename__
         default_experiment = {
@@ -269,12 +296,14 @@ class SqlAlchemyStore(AbstractStore):
     def _check_run_is_active(self, run):
         if run.lifecycle_stage != LifecycleStage.ACTIVE:
             raise MlflowException("The run {} must be in 'active' state. Current state is {}."
-                                  .format(run.run_uuid, run.lifecycle_stage))
+                                  .format(run.run_uuid, run.lifecycle_stage),
+                                  INVALID_PARAMETER_VALUE)
 
     def _check_run_is_deleted(self, run):
         if run.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException("The run {} must be in 'deleted' state. Current state is {}."
-                                  .format(run.run_uuid, run.lifecycle_stage))
+                                  .format(run.run_uuid, run.lifecycle_stage),
+                                  INVALID_PARAMETER_VALUE)
 
     def update_run_info(self, run_uuid, run_status, end_time):
         with self.ManagedSessionMaker() as session:
@@ -392,8 +421,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_uuid, session=session)
             self._check_run_is_active(run)
-            new_tag = SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value)
-            self._save_to_db(objs=new_tag, session=session)
+            session.merge(SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
 
     def search_runs(self, experiment_ids, search_filter, run_view_type):
         with self.ManagedSessionMaker() as session:
@@ -407,3 +435,19 @@ class SqlAlchemyStore(AbstractStore):
             ids=[experiment_id], view_type=ViewType.ALL, session=session).first()
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
         return [run for run in exp.runs if run.lifecycle_stage in stages]
+
+    def log_batch(self, run_id, metrics, params, tags):
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+        try:
+            for param in params:
+                self.log_param(run_id, param)
+            for metric in metrics:
+                self.log_metric(run_id, metric)
+            for tag in tags:
+                self.set_tag(run_id, tag)
+        except MlflowException as e:
+            raise e
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)

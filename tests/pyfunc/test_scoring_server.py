@@ -12,7 +12,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -121,12 +121,6 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_record_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="records")
-    response_default_content_type = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
-            data=pandas_record_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON)
-    assert response_default_content_type.status_code == 200
-
     response_records_content_type = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=pandas_record_content,
@@ -139,6 +133,12 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
+    response_default_content_type = pyfunc_serve_and_score_model(
+            model_path=os.path.abspath(model_path),
+            data=pandas_split_content,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON)
+    assert response_default_content_type.status_code == 200
+
     response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=pandas_split_content,
@@ -156,3 +156,48 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
             data=pandas_split_content,
             content_type="not_a_supported_content_type")
     assert response.status_code == 415
+
+
+def test_parse_json_input_records_oriented():
+    size = 20
+    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
+            "col_z": [random_str(4) for _ in range(size)],
+            "col_a": [random_int() for _ in range(size)]}
+    p1 = pd.DataFrame.from_dict(data)
+    p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="records"), orient="records")
+    # "records" orient may shuffle column ordering. Hence comparing each column Series
+    for col in data.keys():
+        assert all(p1[col] == p2[col])
+
+
+def test_parse_json_input_split_oriented():
+    size = 200
+    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
+            "col_z": [random_str(4) for _ in range(size)],
+            "col_a": [random_int() for _ in range(size)]}
+    p1 = pd.DataFrame.from_dict(data)
+    p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="split"), orient="split")
+    assert all(p1 == p2)
+
+
+def test_records_oriented_json_to_df():
+    # test that datatype for "zip" column is not converted to "int64"
+    jstr = '[' \
+           '{"zip":"95120","cost":10.45,"score":8},' \
+           '{"zip":"95128","cost":23.0,"score":0},' \
+           '{"zip":"95128","cost":12.1,"score":10}' \
+           ']'
+    df = pyfunc_scoring_server.parse_json_input(jstr, orient="records")
+
+    assert set(df.columns) == {'zip', 'cost', 'score'}
+    assert set(str(dt) for dt in df.dtypes) == {'object', 'float64', 'int64'}
+
+
+def test_split_oriented_json_to_df():
+    # test that datatype for "zip" column is not converted to "int64"
+    jstr = '{"columns":["zip","cost","count"],"index":[0,1,2],' \
+           '"data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]}'
+    df = pyfunc_scoring_server.parse_json_input(jstr, orient="split")
+
+    assert set(df.columns) == {'zip', 'cost', 'count'}
+    assert set(str(dt) for dt in df.dtypes) == {'object', 'float64', 'int64'}

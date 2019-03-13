@@ -3,19 +3,22 @@ import six
 import unittest
 import warnings
 
+import mock
 import sqlalchemy
 import time
 import mlflow
 import uuid
 
-from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment
+from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 DB_URI = 'sqlite://'
 ARTIFACT_URI = 'artifact_folder'
@@ -42,6 +45,19 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             return [self.store.create_experiment(name=name) for name in names]
 
         return self.store.create_experiment(name=names)
+
+    def _verify_logged(self, run_uuid, metrics, params, tags):
+        run = self.store.get_run(run_uuid)
+        all_metrics = sum([self.store.get_metric_history(run_uuid, m.key)
+                           for m in run.data.metrics], [])
+        assert len(all_metrics) == len(metrics)
+        logged_metrics = [(m.key, m.value, m.timestamp) for m in all_metrics]
+        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp) for m in metrics])
+        logged_tags = set([(tag.key, tag.value) for tag in run.data.tags])
+        assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
+        assert len(run.data.params) == len(params)
+        logged_params = [(param.key, param.value) for param in run.data.params]
+        assert set(logged_params) == set([(param.key, param.value) for param in params])
 
     def test_default_experiment(self):
         experiments = self.store.list_experiments()
@@ -321,7 +337,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # Run creation should add an additional tag containing the run name. Check for
         # its existence
         self.assertEqual(len(actual.data.tags), len(tags) + 1)
-        name_tag = models.SqlTag(key='mlflow.runName', value=run_name).to_mlflow_entity()
+        name_tag = models.SqlTag(key=MLFLOW_RUN_NAME, value=run_name).to_mlflow_entity()
         self.assertListEqual(actual.data.tags, tags + [name_tag])
 
     def test_create_run_with_parent_id(self):
@@ -345,8 +361,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # Run creation should add two additional tags containing the run name and parent run id.
         # Check for the existence of these two tags
         self.assertEqual(len(actual.data.tags), 2)
-        name_tag = models.SqlTag(key='mlflow.runName', value=run_name).to_mlflow_entity()
-        parent_id_tag = models.SqlTag(key='mlflow.parentRunId',
+        name_tag = models.SqlTag(key=MLFLOW_RUN_NAME, value=run_name).to_mlflow_entity()
+        parent_id_tag = models.SqlTag(key=MLFLOW_PARENT_RUN_ID,
                                       value=parent_run_id).to_mlflow_entity()
         self.assertListEqual(actual.data.tags, [parent_id_tag, name_tag])
 
@@ -459,6 +475,26 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run.info.run_uuid, param2)
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+
+    def test_log_empty_str(self):
+        run = self._run_factory()
+
+        tkey = 'blahmetric'
+        tval = ''
+        param = entities.Param(tkey, tval)
+        param2 = entities.Param('new param', 'new key')
+        self.store.log_param(run.info.run_uuid, param)
+        self.store.log_param(run.info.run_uuid, param2)
+
+        run = self.store.get_run(run.info.run_uuid)
+        self.assertEqual(2, len(run.data.params))
+
+        found = False
+        for m in run.data.params:
+            if m.key == tkey and m.value == tval:
+                found = True
+
+        self.assertTrue(found)
 
     def test_log_null_param(self):
         run = self._run_factory()
@@ -840,3 +876,144 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         six.assertCountEqual(self, [], self._search(experiment_id,
                                                     param_expressions=[p_expr],
                                                     metrics_expressions=[m1_expr, m2_expr]))
+
+    def test_log_batch(self):
+        experiment_id = self._experiment_factory('log_batch')
+        run_uuid = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
+        metric_entities = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
+        param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
+        tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
+        self.store.log_batch(
+            run_id=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
+        run = self.store.get_run(run_uuid)
+        tags = [(t.key, t.value) for t in run.data.tags]
+        metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]
+        params = [(p.key, p.value) for p in run.data.params]
+        assert set([("t1", "t1val"), ("t2", "t2val")]) <= set(tags)
+        assert set(metrics) == set([("m1", 0.87, 12345), ("m2", 0.49, 12345)])
+        assert set(params) == set([("p1", "p1val"), ("p2", "p2val")])
+
+    def test_log_batch_limits(self):
+        # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
+        # SQL limitations, etc)
+        experiment_id = self._experiment_factory('log_batch_limits')
+        run_uuid = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
+        metric_tuples = [("m%s" % i, i, 12345) for i in range(1000)]
+        metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
+        self.store.log_batch(run_id=run_uuid, metrics=metric_entities, params=[], tags=[])
+        run = self.store.get_run(run_uuid)
+        metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]
+        assert set(metrics) == set(metric_tuples)
+
+    def test_log_batch_param_overwrite_disallowed(self):
+        # Test that attempting to overwrite a param via log_batch results in an exception and that
+        # no partial data is logged
+        run = self._run_factory()
+        tkey = 'my-param'
+        param = entities.Param(tkey, 'orig-val')
+        self.store.log_param(run.info.run_uuid, param)
+
+        overwrite_param = entities.Param(tkey, 'newval')
+        tag = entities.RunTag("tag-key", "tag-val")
+        metric = entities.Metric("metric-key", 3.0, 12345)
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_batch(run.info.run_uuid, metrics=[metric], params=[overwrite_param],
+                                 tags=[tag])
+        self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self._verify_logged(run.info.run_uuid, metrics=[], params=[param], tags=[])
+
+    def test_log_batch_param_overwrite_disallowed_single_req(self):
+        # Test that attempting to overwrite a param via log_batch results in an exception
+        run = self._run_factory()
+        pkey = "common-key"
+        param0 = entities.Param(pkey, "orig-val")
+        param1 = entities.Param(pkey, 'newval')
+        tag = entities.RunTag("tag-key", "tag-val")
+        metric = entities.Metric("metric-key", 3.0, 12345)
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_batch(run.info.run_uuid, metrics=[metric], params=[param0, param1],
+                                 tags=[tag])
+        self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+        assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+        self._verify_logged(run.info.run_uuid, metrics=[], params=[param0], tags=[])
+
+    def test_log_batch_accepts_empty_payload(self):
+        run = self._run_factory()
+        self.store.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[])
+        self._verify_logged(run.info.run_uuid, metrics=[], params=[], tags=[])
+
+    def test_log_batch_internal_error(self):
+        # Verify that internal errors during the DB save step for log_batch result in
+        # MlflowExceptions
+        run = self._run_factory()
+
+        def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
+            raise Exception("Some internal error")
+        with mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore.log_metric") as metric_mock,\
+                mock.patch(
+                    "mlflow.store.sqlalchemy_store.SqlAlchemyStore.log_param") as param_mock,\
+                mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore.set_tag") as tags_mock:
+            metric_mock.side_effect = _raise_exception_fn
+            param_mock.side_effect = _raise_exception_fn
+            tags_mock.side_effect = _raise_exception_fn
+            for kwargs in [{"metrics": [Metric("a", 3, 1)]}, {"params": [Param("b", "c")]},
+                           {"tags": [RunTag("c", "d")]}]:
+                log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
+                log_batch_kwargs.update(kwargs)
+                with self.assertRaises(MlflowException) as e:
+                    self.store.log_batch(run.info.run_uuid, **log_batch_kwargs)
+                self.assertIn(str(e.exception.message), "Some internal error")
+
+    def test_log_batch_nonexistent_run(self):
+        with self.assertRaises(MlflowException) as e:
+            self.store.log_batch("bad-run-uuid", [], [], [])
+        assert e.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert "Run with id=bad-run-uuid not found" in e.exception.message
+
+    def test_log_batch_params_idempotency(self):
+        run = self._run_factory()
+        params = [Param("p-key", "p-val")]
+        self.store.log_batch(run.info.run_uuid, metrics=[], params=params, tags=[])
+        self.store.log_batch(run.info.run_uuid, metrics=[], params=params, tags=[])
+        self._verify_logged(run.info.run_uuid, metrics=[], params=params, tags=[])
+
+    def test_log_batch_tags_idempotency(self):
+        run = self._run_factory()
+        self.store.log_batch(
+            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+        self.store.log_batch(
+            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+        self._verify_logged(
+            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+
+    def test_log_batch_allows_tag_overwrite(self):
+        run = self._run_factory()
+        self.store.log_batch(
+            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "val")])
+        self.store.log_batch(
+            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
+        self._verify_logged(
+            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
+
+    def test_log_batch_allows_tag_overwrite_single_req(self):
+        run = self._run_factory()
+        tags = [RunTag("t-key", "val"), RunTag("t-key", "newval")]
+        self.store.log_batch(run.info.run_uuid, metrics=[], params=[], tags=tags)
+        self._verify_logged(run.info.run_uuid, metrics=[], params=[], tags=[tags[-1]])
+
+    def test_log_batch_same_metric_repeated_single_req(self):
+        run = self._run_factory()
+        metric0 = Metric(key="metric-key", value=1, timestamp=2)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+
+    def test_log_batch_same_metric_repeated_multiple_reqs(self):
+        run = self._run_factory()
+        metric0 = Metric(key="metric-key", value=1, timestamp=2)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
+        self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
+        self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])
+        self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
