@@ -422,7 +422,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(2, len(sql_run_metrics))
             self.assertEqual(1, len(run.data.metrics))
 
-    def test_log_metric_allows_multiple_values_at_same_timestamp_and_read_returns_max_value(self):
+    def test_log_metric_allows_multiple_values_at_same_timestamp_and_run_data_uses_max_value(self):
         run = self._run_factory()
 
         metric_name = "test-metric-1"
@@ -438,13 +438,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
              self.store.get_metric_history(run.info.run_uuid, metric_name)],
             [100.0, 1.02])
 
-        explicitly_logged_metrics = [
-           metric for metric in self.store.get_run(run.info.run_uuid).data.metrics
-           if metric.key == metric_name
-        ]
-        assert len(explicitly_logged_metrics) == 1
-        assert explicitly_logged_metrics[0].value == 100.0
-
+        run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
+        assert len(run_metrics) == 1
+        assert run_metrics[0].key == metric_name
+        assert run_metrics[0].value == 100.0
 
     def test_log_null_metric(self):
         run = self._run_factory()
