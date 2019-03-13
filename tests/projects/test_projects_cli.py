@@ -96,3 +96,5 @@ def test_run_databricks_cluster_spec(tmpdir):
             cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec",
                       json.dumps(cluster_spec) + "JUNK", "-e", "greeter", "-P", "name=hi"])
         assert res.exit_code != 0
+
+        set_tracking_uri(None)
