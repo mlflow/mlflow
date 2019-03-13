@@ -204,7 +204,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_experiment(self, experiment_id):
         with self.ManagedSessionMaker() as session:
-            experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY) 
+            experiment = self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
             experiment.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=experiment, session=session)
 
@@ -321,33 +321,27 @@ class SqlAlchemyStore(AbstractStore):
                 # when they are violated; "get_or_create()" does not perform these checks). It is
                 # important that we maintain the same session scope because, in the case of
                 # an integrity error, we want to examine the uniqueness of metric (timestamp, value)
-                # tuples using the same database state that the session uses during "commit". 
-                # Creating a new session synchronizes the state with the database. As a result, if 
-                # the conflicting (timestamp, value) tuple were to be removed prior to the creation 
-                # of a new session, we would be unable to determine the cause of failure for the 
+                # tuples using the same database state that the session uses during "commit".
+                # Creating a new session synchronizes the state with the database. As a result, if
+                # the conflicting (timestamp, value) tuple were to be removed prior to the creation
+                # of a new session, we would be unable to determine the cause of failure for the
                 # first session's "commit" operation.
                 session.commit()
-            except sqlalchemy.exc.IntegrityError as ie:
+            except sqlalchemy.exc.IntegrityError:
                 # Roll back the current session to make it usable for further transactions. In the
-                # event of an error during "commit", a rollback is required in order to continue 
+                # event of an error during "commit", a rollback is required in order to continue
                 # using the session. In this case, we re-use the session because the SqlRun, `run`,
                 # is lazily evaluated during the invocation of `run.metrics`.
                 session.rollback()
                 existing_metric = [m for m in run.metrics
                                    if m.key == metric.key and m.timestamp == metric.timestamp]
-                if len(existing_metric) == 0:
-                    raise MlflowException(
-                        "Log metric request failed for run ID={}. Attempted to log metric={}."
-                        " Error={}".format(run_uuid, (metric.key, metric.value), str(ie)))
-                else:
+                if len(existing_metric) > 0:
                     m = existing_metric[0]
                     raise MlflowException(
                         "Metric={} must be unique. Metric already logged value {}"
                         " at {}".format(metric, m.value, m.timestamp), INVALID_PARAMETER_VALUE)
-            except sqlalchemy.exc.SQLAlchemyError as e:
-                raise MlflowException(
-                    "Log metric request failed for run ID={}. Attempted to log metric={}."
-                    " Error={}".format(run_uuid, (metric.key, metric.value), str(e)))
+                else:
+                    raise
 
     def get_metric_history(self, run_uuid, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -370,35 +364,29 @@ class SqlAlchemyStore(AbstractStore):
                 # a transaction satisfies uniqueness constraints and throws integrity errors
                 # when they are violated; "get_or_create()" does not perform these checks). It is
                 # important that we maintain the same session scope because, in the case of
-                # an integrity error, we want to examine the uniqueness of parameter values using 
+                # an integrity error, we want to examine the uniqueness of parameter values using
                 # the same database state that the session uses during "commit". Creating a new
-                # session synchronizes the state with the database. As a result, if the conflicting 
+                # session synchronizes the state with the database. As a result, if the conflicting
                 # parameter value were to be removed prior to the creation of a new session,
                 # we would be unable to determine the cause of failure for the first session's
                 # "commit" operation.
                 session.commit()
-            except sqlalchemy.exc.IntegrityError as ie:
+            except sqlalchemy.exc.IntegrityError:
                 # Roll back the current session to make it usable for further transactions. In the
-                # event of an error during "commit", a rollback is required in order to continue 
+                # event of an error during "commit", a rollback is required in order to continue
                 # using the session. In this case, we re-use the session because the SqlRun, `run`,
                 # is lazily evaluated during the invocation of `run.params`.
                 session.rollback()
                 existing_params = [p.value for p in run.params if p.key == param.key]
-                if len(existing_params) == 0:
-                    raise MlflowException(
-                        "Log param request failed for run ID={}. Attempted to log param={}."
-                        " Error={}".format(run_uuid, (param.key, param.value), str(ie)))
-                else:
+                if len(existing_params) > 0:
                     old_value = existing_params[0]
                     raise MlflowException(
                         "Changing param value is not allowed. Param with key='{}' was already"
                         " logged with value='{}' for run ID='{}. Attempted logging new value"
                         " '{}'.".format(
                             param.key, old_value, run_uuid, param.value), INVALID_PARAMETER_VALUE)
-            except sqlalchemy.exc.SQLAlchemyError as e:
-                raise MlflowException(
-                    "Log param request failed for run ID={}. Attempted to log param={}."
-                    " Error={}".format(run_uuid, (param.key, param.value), str(e)))
+                else:
+                    raise
 
     def set_tag(self, run_uuid, tag):
         with self.ManagedSessionMaker() as session:

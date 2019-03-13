@@ -214,7 +214,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(added_param.key, new_param.key)
 
     def test_run_needs_uuid(self):
-        # Depending on the implementation, a NULL identity key may result in different 
+        # Depending on the implementation, a NULL identity key may result in different
         # exceptions, including IntegrityError (sqlite) and FlushError (MysQL).
         # Therefore, we check for the more generic 'SQLAlchemyError'
         with self.assertRaises(sqlalchemy.exc.SQLAlchemyError):
@@ -317,7 +317,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.info.source_version, expected["source_version"])
         self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
         self.assertEqual(actual.info.start_time, expected["start_time"])
-        
+
         # Run creation should add an additional tag containing the run name. Check for
         # its existence
         self.assertEqual(len(actual.data.tags), len(tags) + 1)
@@ -342,7 +342,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
         self.assertEqual(actual.info.start_time, expected["start_time"])
 
-        # Run creation should add two additional tags containing the run name and parent run id. 
+        # Run creation should add two additional tags containing the run name and parent run id.
         # Check for the existence of these two tags
         self.assertEqual(len(actual.data.tags), 2)
         name_tag = models.SqlTag(key='mlflow.runName', value=run_name).to_mlflow_entity()
@@ -387,7 +387,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         metric2 = entities.Metric(tkey, tval, int(time.time()) + 2)
         self.store.log_metric(run.info.run_uuid, metric)
         self.store.log_metric(run.info.run_uuid, metric2)
-    
+
         run = self.store.get_run(run.info.run_uuid)
         found = False
         for m in run.data.metrics:
@@ -424,9 +424,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = None
         metric = entities.Metric(tkey, tval, int(time.time()))
 
-        with self.assertRaises(MlflowException) as e:
+        with self.assertRaises(sqlalchemy.exc.SQLAlchemyError):
             self.store.log_metric(run.info.run_uuid, metric)
-        self.assertIn("Log metric request failed for run ID=", e.exception.message)
 
     def test_log_param(self):
         run = self._run_factory()
@@ -468,9 +467,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = None
         param = entities.Param(tkey, tval)
 
-        with self.assertRaises(MlflowException) as e:
+        with self.assertRaises(sqlalchemy.exc.SQLAlchemyError):
             self.store.log_param(run.info.run_uuid, param)
-        self.assertIn("Log param request failed for run ID=", e.exception.message)
 
     def test_set_tag(self):
         run = self._run_factory()
