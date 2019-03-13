@@ -4,6 +4,8 @@ import os
 import uuid
 import six
 
+import mlflow.tracking
+
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
                             ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -25,7 +27,6 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
-_LOCAL_FS_URI_PREFIX = "file:///" if os.sep == "/" else "file://"
 
 
 def _default_root_dir():
@@ -319,7 +320,7 @@ class FileStore(AbstractStore):
                     "%s." % experiment_id,
                     databricks_pb2.INVALID_STATE)
         run_uuid = uuid.uuid4().hex
-        artifact_uri = _LOCAL_FS_URI_PREFIX + self._get_artifact_dir(experiment_id, run_uuid)
+        artifact_uri = mlflow.tracking.utils._LOCAL_FS_URI_PREFIX + self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id,
                            name="",
                            artifact_uri=artifact_uri, source_type=source_type,
