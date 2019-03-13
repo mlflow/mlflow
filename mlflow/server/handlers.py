@@ -337,27 +337,13 @@ def _get_artifact_repo(run):
 
 @catch_mlflow_exception
 def _log_batch():
-    request_message = _get_request_message(ListExperiments())
+    request_message = _get_request_message(LogBatch())
     _validate_batch_log_api_req(request.get_json(force=True, silent=True))
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
     _validate_batch_log_limits(metrics=metrics, params=params, tags=tags)
     _validate_batch_log_data(metrics=metrics, params=params, tags=tags)
-    _get_store().log_batch(run_id=request_message.run_uuid, metrics=metrics, params=params,
-                           tags=tags)
-    response_message = LogBatch.Response()
-    response = Response(mimetype='application/json')
-    response.set_data(message_to_json(response_message))
-    return response
-
-
-@catch_mlflow_exception
-def _log_batch():
-    request_message = _get_request_message(LogBatch())
-    metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
-    params = [Param.from_proto(proto_param) for proto_param in request_message.params]
-    tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
     mlflow.tracking.utils._get_store().log_batch(
         run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
     response_message = LogBatch.Response()
