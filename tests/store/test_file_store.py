@@ -46,7 +46,8 @@ class TestFileStore(unittest.TestCase):
                 self.exp_data[exp]["runs"].append(run_uuid)
                 run_folder = os.path.join(exp_folder, run_uuid)
                 os.makedirs(run_folder)
-                run_info = {"run_uuid": run_uuid,
+                run_info = {"run_id": run_uuid,
+                            "run_uuid": run_uuid,
                             "experiment_id": exp,
                             "name": random_str(random_int(10, 40)),
                             "source_type": random_int(1, 4),

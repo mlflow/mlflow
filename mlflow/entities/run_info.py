@@ -166,6 +166,7 @@ class RunInfo(_MLflowObject):
 
     def to_proto(self):
         proto = ProtoRunInfo()
+        proto.run_id = self.run_id
         proto.run_uuid = self.run_uuid
         proto.experiment_id = self.experiment_id
         proto.name = self.name
