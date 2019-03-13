@@ -23,7 +23,7 @@ config_variable_map <- list(
   token = "DATABRICKS_TOKEN",
   insecure = "DATABRICKS_INSECURE"
 )
-
+  
 databricks_config_as_env <- function(config) {
   if (config$config_source != "cfgfile") { # pass the auth info via environment vars
     res <- config[!is.na(config)]
