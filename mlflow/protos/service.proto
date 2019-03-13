@@ -653,7 +653,7 @@ message SetTag {
   optional string value = 3 [(validate_required) = true];
 
   // ID of the run under which to set the tag.
-  optional string run_id = 1 [(validate_required) = true];
+  optional string run_id = 4 [(validate_required) = true];
 
   message Response {
   }
