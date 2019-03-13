@@ -285,7 +285,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
-    def test_log_metric_allows_multiple_values_at_same_timestamp_and_read_returns_max_value(self):
+    def test_log_metric_allows_multiple_values_at_same_timestamp_and_run_data_uses_max_value(self):
         fs = FileStore(self.test_root)
         run_uuid = self._create_run(fs).info.run_uuid
         
