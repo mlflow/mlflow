@@ -5,7 +5,6 @@ import warnings
 import random
 
 import mock
-import sqlalchemy
 import time
 import mlflow
 import uuid
