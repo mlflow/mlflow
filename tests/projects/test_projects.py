@@ -237,6 +237,7 @@ def test_resolve_experiment_id(experiment_id, experiment_name, expected):
         get_experiment_by_name_mock.return_value = Experiment(experiment_id=33, name='Name',
                                                               artifact_location=None,
                                                               lifecycle_stage=None)
+
         exp_id = mlflow.projects._resolve_experiment_id(experiment_name=experiment_name,
                                                         experiment_id=experiment_id)
         assert exp_id == expected
