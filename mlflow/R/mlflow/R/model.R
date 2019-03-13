@@ -198,7 +198,7 @@ mlflow_rfunc_predict <- function(
 resolve_model_path <- function(model_path, run_uuid, client = mlflow_client()) {
   if (!is.null(run_uuid)) {
     result <- mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path,
-                         echo = FALSE, env = client$cli_env())
+                         echo = FALSE, client = client)
     gsub("\n", "", result$stdout)
   } else {
     model_path

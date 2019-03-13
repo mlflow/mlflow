@@ -5902,6 +5902,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name that identifies this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -5910,6 +5912,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name that identifies this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -5918,6 +5922,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name that identifies this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -5928,6 +5934,8 @@ public final class Service {
     /**
      * <pre>
      * Source type.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -5936,6 +5944,8 @@ public final class Service {
     /**
      * <pre>
      * Source type.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -5945,6 +5955,8 @@ public final class Service {
     /**
      * <pre>
      * Source identifier: GitHub URL, name of notebook, name of job, etc.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -5953,6 +5965,8 @@ public final class Service {
     /**
      * <pre>
      * Source identifier: GitHub URL, name of notebook, name of job, etc.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -5961,6 +5975,8 @@ public final class Service {
     /**
      * <pre>
      * Source identifier: GitHub URL, name of notebook, name of job, etc.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -6048,6 +6064,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the code used for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -6056,6 +6074,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the code used for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -6064,6 +6084,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the code used for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -6074,6 +6096,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the entry point for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 11;</code>
@@ -6082,6 +6106,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the entry point for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 11;</code>
@@ -6090,6 +6116,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the entry point for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 11;</code>
@@ -6416,6 +6444,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name that identifies this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -6426,6 +6456,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name that identifies this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -6447,6 +6479,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name that identifies this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string name = 3;</code>
@@ -6470,6 +6504,8 @@ public final class Service {
     /**
      * <pre>
      * Source type.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -6480,6 +6516,8 @@ public final class Service {
     /**
      * <pre>
      * Source type.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -6495,6 +6533,8 @@ public final class Service {
     /**
      * <pre>
      * Source identifier: GitHub URL, name of notebook, name of job, etc.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -6505,6 +6545,8 @@ public final class Service {
     /**
      * <pre>
      * Source identifier: GitHub URL, name of notebook, name of job, etc.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -6526,6 +6568,8 @@ public final class Service {
     /**
      * <pre>
      * Source identifier: GitHub URL, name of notebook, name of job, etc.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -6674,6 +6718,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the code used for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -6684,6 +6730,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the code used for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -6705,6 +6753,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the code used for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 10;</code>
@@ -6728,6 +6778,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the entry point for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 11;</code>
@@ -6738,6 +6790,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the entry point for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 11;</code>
@@ -6759,6 +6813,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the entry point for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 11;</code>
@@ -7674,6 +7730,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name that identifies this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -7684,6 +7742,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name that identifies this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -7705,6 +7765,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name that identifies this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -7725,6 +7787,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name that identifies this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -7742,6 +7806,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name that identifies this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -7755,6 +7821,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name that identifies this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string name = 3;</code>
@@ -7774,6 +7842,8 @@ public final class Service {
       /**
        * <pre>
        * Source type.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -7784,6 +7854,8 @@ public final class Service {
       /**
        * <pre>
        * Source type.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -7796,6 +7868,8 @@ public final class Service {
       /**
        * <pre>
        * Source type.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -7812,6 +7886,8 @@ public final class Service {
       /**
        * <pre>
        * Source type.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -7827,6 +7903,8 @@ public final class Service {
       /**
        * <pre>
        * Source identifier: GitHub URL, name of notebook, name of job, etc.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -7837,6 +7915,8 @@ public final class Service {
       /**
        * <pre>
        * Source identifier: GitHub URL, name of notebook, name of job, etc.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -7858,6 +7938,8 @@ public final class Service {
       /**
        * <pre>
        * Source identifier: GitHub URL, name of notebook, name of job, etc.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -7878,6 +7960,8 @@ public final class Service {
       /**
        * <pre>
        * Source identifier: GitHub URL, name of notebook, name of job, etc.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -7895,6 +7979,8 @@ public final class Service {
       /**
        * <pre>
        * Source identifier: GitHub URL, name of notebook, name of job, etc.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -7908,6 +7994,8 @@ public final class Service {
       /**
        * <pre>
        * Source identifier: GitHub URL, name of notebook, name of job, etc.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -8176,6 +8264,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the code used for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -8186,6 +8276,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the code used for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -8207,6 +8299,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the code used for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -8227,6 +8321,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the code used for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -8244,6 +8340,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the code used for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -8257,6 +8355,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the code used for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 10;</code>
@@ -8276,6 +8376,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the entry point for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 11;</code>
@@ -8286,6 +8388,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the entry point for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 11;</code>
@@ -8307,6 +8411,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the entry point for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 11;</code>
@@ -8327,6 +8433,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the entry point for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 11;</code>
@@ -8344,6 +8452,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the entry point for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 11;</code>
@@ -8357,6 +8467,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the entry point for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 11;</code>
@@ -17732,6 +17844,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string run_name = 3;</code>
@@ -17740,6 +17854,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string run_name = 3;</code>
@@ -17748,6 +17864,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string run_name = 3;</code>
@@ -17758,6 +17876,8 @@ public final class Service {
     /**
      * <pre>
      * Originating source for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -17766,6 +17886,8 @@ public final class Service {
     /**
      * <pre>
      * Originating source for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -17776,6 +17898,8 @@ public final class Service {
      * <pre>
      * String descriptor for the run's source. For example, name or description of a notebook, or the
      * URL or path to a project.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -17785,6 +17909,8 @@ public final class Service {
      * <pre>
      * String descriptor for the run's source. For example, name or description of a notebook, or the
      * URL or path to a project.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -17794,6 +17920,8 @@ public final class Service {
      * <pre>
      * String descriptor for the run's source. For example, name or description of a notebook, or the
      * URL or path to a project.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -17804,6 +17932,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the project entry point associated with the current run, if any.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 6;</code>
@@ -17812,6 +17942,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the project entry point associated with the current run, if any.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 6;</code>
@@ -17820,6 +17952,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the project entry point associated with the current run, if any.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 6;</code>
@@ -17847,6 +17981,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the source code used to create run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -17855,6 +17991,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the source code used to create run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -17863,6 +18001,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the source code used to create run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -17917,6 +18057,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -17925,6 +18067,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -17933,6 +18077,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -18851,6 +18997,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string run_name = 3;</code>
@@ -18861,6 +19009,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string run_name = 3;</code>
@@ -18882,6 +19032,8 @@ public final class Service {
     /**
      * <pre>
      * Human readable name for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+     * instead.
      * </pre>
      *
      * <code>optional string run_name = 3;</code>
@@ -18905,6 +19057,8 @@ public final class Service {
     /**
      * <pre>
      * Originating source for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -18915,6 +19069,8 @@ public final class Service {
     /**
      * <pre>
      * Originating source for the run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -18931,6 +19087,8 @@ public final class Service {
      * <pre>
      * String descriptor for the run's source. For example, name or description of a notebook, or the
      * URL or path to a project.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -18942,6 +19100,8 @@ public final class Service {
      * <pre>
      * String descriptor for the run's source. For example, name or description of a notebook, or the
      * URL or path to a project.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -18964,6 +19124,8 @@ public final class Service {
      * <pre>
      * String descriptor for the run's source. For example, name or description of a notebook, or the
      * URL or path to a project.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string source_name = 5;</code>
@@ -18987,6 +19149,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the project entry point associated with the current run, if any.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 6;</code>
@@ -18997,6 +19161,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the project entry point associated with the current run, if any.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 6;</code>
@@ -19018,6 +19184,8 @@ public final class Service {
     /**
      * <pre>
      * Name of the project entry point associated with the current run, if any.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.project.entryPoint`` run tag instead.
      * </pre>
      *
      * <code>optional string entry_point_name = 6;</code>
@@ -19064,6 +19232,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the source code used to create run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -19074,6 +19244,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the source code used to create run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -19095,6 +19267,8 @@ public final class Service {
     /**
      * <pre>
      * Git commit hash of the source code used to create run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the
+     * ``mlflow.source.git.commit`` run tag instead.
      * </pre>
      *
      * <code>optional string source_version = 8;</code>
@@ -19173,6 +19347,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -19183,6 +19359,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -19204,6 +19382,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -19951,6 +20131,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string run_name = 3;</code>
@@ -19961,6 +20143,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string run_name = 3;</code>
@@ -19982,6 +20166,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string run_name = 3;</code>
@@ -20002,6 +20188,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string run_name = 3;</code>
@@ -20019,6 +20207,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string run_name = 3;</code>
@@ -20032,6 +20222,8 @@ public final class Service {
       /**
        * <pre>
        * Human readable name for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
+       * instead.
        * </pre>
        *
        * <code>optional string run_name = 3;</code>
@@ -20051,6 +20243,8 @@ public final class Service {
       /**
        * <pre>
        * Originating source for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -20061,6 +20255,8 @@ public final class Service {
       /**
        * <pre>
        * Originating source for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -20073,6 +20269,8 @@ public final class Service {
       /**
        * <pre>
        * Originating source for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -20089,6 +20287,8 @@ public final class Service {
       /**
        * <pre>
        * Originating source for the run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional .mlflow.SourceType source_type = 4;</code>
@@ -20105,6 +20305,8 @@ public final class Service {
        * <pre>
        * String descriptor for the run's source. For example, name or description of a notebook, or the
        * URL or path to a project.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -20116,6 +20318,8 @@ public final class Service {
        * <pre>
        * String descriptor for the run's source. For example, name or description of a notebook, or the
        * URL or path to a project.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -20138,6 +20342,8 @@ public final class Service {
        * <pre>
        * String descriptor for the run's source. For example, name or description of a notebook, or the
        * URL or path to a project.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -20159,6 +20365,8 @@ public final class Service {
        * <pre>
        * String descriptor for the run's source. For example, name or description of a notebook, or the
        * URL or path to a project.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -20177,6 +20385,8 @@ public final class Service {
        * <pre>
        * String descriptor for the run's source. For example, name or description of a notebook, or the
        * URL or path to a project.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -20191,6 +20401,8 @@ public final class Service {
        * <pre>
        * String descriptor for the run's source. For example, name or description of a notebook, or the
        * URL or path to a project.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string source_name = 5;</code>
@@ -20210,6 +20422,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the project entry point associated with the current run, if any.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 6;</code>
@@ -20220,6 +20434,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the project entry point associated with the current run, if any.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 6;</code>
@@ -20241,6 +20457,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the project entry point associated with the current run, if any.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 6;</code>
@@ -20261,6 +20479,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the project entry point associated with the current run, if any.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 6;</code>
@@ -20278,6 +20498,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the project entry point associated with the current run, if any.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 6;</code>
@@ -20291,6 +20513,8 @@ public final class Service {
       /**
        * <pre>
        * Name of the project entry point associated with the current run, if any.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.project.entryPoint`` run tag instead.
        * </pre>
        *
        * <code>optional string entry_point_name = 6;</code>
@@ -20358,6 +20582,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the source code used to create run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -20368,6 +20594,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the source code used to create run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -20389,6 +20617,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the source code used to create run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -20409,6 +20639,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the source code used to create run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -20426,6 +20658,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the source code used to create run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -20439,6 +20673,8 @@ public final class Service {
       /**
        * <pre>
        * Git commit hash of the source code used to create run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the
+       * ``mlflow.source.git.commit`` run tag instead.
        * </pre>
        *
        * <code>optional string source_version = 8;</code>
@@ -20770,6 +21006,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -20780,6 +21018,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -20801,6 +21041,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -20821,6 +21063,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -20838,6 +21082,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -20851,6 +21097,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -31286,7 +31534,7 @@ public final class Service {
 
     /**
      * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version] 
+     * [Deprecated in 0.7.0, to be removed in future version]
      * Float clause for comparison. Use 'double' instead.
      * </pre>
      *
@@ -31295,7 +31543,7 @@ public final class Service {
     boolean hasFloat();
     /**
      * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version] 
+     * [Deprecated in 0.7.0, to be removed in future version]
      * Float clause for comparison. Use 'double' instead.
      * </pre>
      *
@@ -31304,7 +31552,7 @@ public final class Service {
     org.mlflow.api.proto.Service.FloatClause getFloat();
     /**
      * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version] 
+     * [Deprecated in 0.7.0, to be removed in future version]
      * Float clause for comparison. Use 'double' instead.
      * </pre>
      *
@@ -31541,7 +31789,7 @@ public final class Service {
     public static final int FLOAT_FIELD_NUMBER = 2;
     /**
      * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version] 
+     * [Deprecated in 0.7.0, to be removed in future version]
      * Float clause for comparison. Use 'double' instead.
      * </pre>
      *
@@ -31552,7 +31800,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version] 
+     * [Deprecated in 0.7.0, to be removed in future version]
      * Float clause for comparison. Use 'double' instead.
      * </pre>
      *
@@ -31566,7 +31814,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version] 
+     * [Deprecated in 0.7.0, to be removed in future version]
      * Float clause for comparison. Use 'double' instead.
      * </pre>
      *
@@ -32123,7 +32371,7 @@ public final class Service {
           org.mlflow.api.proto.Service.FloatClause, org.mlflow.api.proto.Service.FloatClause.Builder, org.mlflow.api.proto.Service.FloatClauseOrBuilder> floatBuilder_;
       /**
        * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version] 
+       * [Deprecated in 0.7.0, to be removed in future version]
        * Float clause for comparison. Use 'double' instead.
        * </pre>
        *
@@ -32134,7 +32382,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version] 
+       * [Deprecated in 0.7.0, to be removed in future version]
        * Float clause for comparison. Use 'double' instead.
        * </pre>
        *
@@ -32155,7 +32403,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version] 
+       * [Deprecated in 0.7.0, to be removed in future version]
        * Float clause for comparison. Use 'double' instead.
        * </pre>
        *
@@ -32176,7 +32424,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version] 
+       * [Deprecated in 0.7.0, to be removed in future version]
        * Float clause for comparison. Use 'double' instead.
        * </pre>
        *
@@ -32195,7 +32443,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version] 
+       * [Deprecated in 0.7.0, to be removed in future version]
        * Float clause for comparison. Use 'double' instead.
        * </pre>
        *
@@ -32222,7 +32470,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version] 
+       * [Deprecated in 0.7.0, to be removed in future version]
        * Float clause for comparison. Use 'double' instead.
        * </pre>
        *
@@ -32246,7 +32494,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version] 
+       * [Deprecated in 0.7.0, to be removed in future version]
        * Float clause for comparison. Use 'double' instead.
        * </pre>
        *
@@ -32257,7 +32505,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version] 
+       * [Deprecated in 0.7.0, to be removed in future version]
        * Float clause for comparison. Use 'double' instead.
        * </pre>
        *
@@ -32275,7 +32523,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version] 
+       * [Deprecated in 0.7.0, to be removed in future version]
        * Float clause for comparison. Use 'double' instead.
        * </pre>
        *

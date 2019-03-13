@@ -10,7 +10,7 @@ import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUt
 import { decorators, Treebeard } from 'react-treebeard';
 import bytes from 'bytes';
 import './ArtifactView.css';
-import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
+import ShowArtifactPage, {getSrc} from './artifact-view-components/ShowArtifactPage';
 import spinner from '../static/mlflow-spinner.png';
 
 class ArtifactView extends Component {
@@ -20,6 +20,7 @@ class ArtifactView extends Component {
     this.getTreebeardData = this.getTreebeardData.bind(this);
     this.getRealPath = this.getRealPath.bind(this);
     this.shouldShowTreebeard = this.shouldShowTreebeard.bind(this);
+    this.activeNodeIsDirectory = this.activeNodeIsDirectory.bind(this);
   }
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
@@ -52,12 +53,26 @@ class ArtifactView extends Component {
             <div className="artifact-right">
               <div className="artifact-info">
                 {this.state.activeNodeId ?
-                  (<div>
-                    <div>
+                  <div>
+                    {!this.activeNodeIsDirectory() ?
+                      <div className="artifact-info-link">
+                        <a href={getSrc(this.state.activeNodeId, this.props.runUuid)}
+                           target="_blank"
+                           title="Download artifact">
+                          <i className="fas fa-download"/>
+                        </a>
+                      </div>
+                      :
+                      null
+                    }
+                    <div className="artifact-info-path">
                       <label>Full Path:</label> {this.getRealPath()}
                     </div>
-                    <div className="artifact-info-size"><label>Size:</label> {this.getSize()}</div>
-                  </div>) :
+                    <div className="artifact-info-size">
+                      <label>Size:</label> {this.getSize()}
+                    </div>
+                  </div>
+                  :
                   null
                 }
               </div>
@@ -65,7 +80,8 @@ class ArtifactView extends Component {
             </div>
             <div className="artifact-center">
             </div>
-          </div> :
+          </div>
+          :
           <div className="empty-artifact-outer-container">
             <div className="empty-artifact-container">
               <div>
@@ -83,6 +99,7 @@ class ArtifactView extends Component {
       </div>
     );
   }
+
   onToggleTreebeard(dataNode, toggled) {
     const { id, loading } = dataNode;
     const newRequestedNodeIds = new Set(this.state.requestedNodeIds);
@@ -166,6 +183,16 @@ class ArtifactView extends Component {
       return bytes(parseInt(size, 10));
     }
     return bytes(0);
+  }
+
+  activeNodeIsDirectory() {
+    if (this.state.activeNodeId) {
+      const node = ArtifactUtils.findChild(this.props.artifactNode, this.state.activeNodeId);
+      return node.fileInfo.is_dir;
+    } else {
+      // No node is highlighted so we're displaying the root, which is a directory.
+      return true;
+    }
   }
 }
 

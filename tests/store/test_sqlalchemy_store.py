@@ -18,6 +18,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 DB_URI = 'sqlite://'
 ARTIFACT_URI = 'artifact_folder'
@@ -325,7 +326,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.info.start_time, expected["start_time"])
         self.assertEqual(len(actual.data.tags), 3)
 
-        name_tag = models.SqlTag(key='mlflow.runName', value='booyya').to_mlflow_entity()
+        name_tag = models.SqlTag(key=MLFLOW_RUN_NAME, value='booyya').to_mlflow_entity()
         self.assertListEqual(actual.data.tags, tags + [name_tag])
 
     def test_create_run_with_parent_id(self):
@@ -350,8 +351,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(actual.info.start_time, expected["start_time"])
         self.assertEqual(len(actual.data.tags), 4)
 
-        name_tag = models.SqlTag(key='mlflow.runName', value='booyya').to_mlflow_entity()
-        parent_id_tag = models.SqlTag(key='mlflow.parentRunId',
+        name_tag = models.SqlTag(key=MLFLOW_RUN_NAME, value='booyya').to_mlflow_entity()
+        parent_id_tag = models.SqlTag(key=MLFLOW_PARENT_RUN_ID,
                                       value='parent_uuid_5').to_mlflow_entity()
         self.assertListEqual(actual.data.tags, tags + [parent_id_tag, name_tag])
 
@@ -483,6 +484,31 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run.run_uuid, param2)
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
+
+    def test_log_empty_str(self):
+        run = self._run_factory()
+
+        self.session.commit()
+
+        tkey = 'blahmetric'
+        tval = ''
+        param = entities.Param(tkey, tval)
+        param2 = entities.Param('new param', 'new key')
+        self.store.log_param(run.run_uuid, param)
+        self.store.log_param(run.run_uuid, param2)
+
+        actual = self.session.query(models.SqlParam).filter_by(key=tkey, value=tval)
+        self.assertIsNotNone(actual)
+
+        run = self.store.get_run(run.run_uuid)
+        self.assertEqual(2, len(run.data.params))
+
+        found = False
+        for m in run.data.params:
+            if m.key == tkey and m.value == tval:
+                found = True
+
+        self.assertTrue(found)
 
     def test_log_null_param(self):
         run = self._run_factory()

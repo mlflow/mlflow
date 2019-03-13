@@ -5,7 +5,20 @@
   padding-top: 8px;
 }
 
+.artifact-info-link {
+  float: right;
+  width: 38px;
+  height: 40px;
+  padding-top: 5px;
+  font-size: 21px;
+}
+
+.artifact-info-path {
+  margin-right: 48px;
+}
+
 .artifact-info-size {
+  margin-right: 45px;
 }
 
 .view-button {

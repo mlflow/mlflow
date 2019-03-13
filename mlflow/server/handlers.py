@@ -8,6 +8,7 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
+import mlflow
 from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -103,10 +104,12 @@ def get_artifact_handler():
     run = _get_store().get_run(request_dict['run_uuid'])
     filename = os.path.abspath(_get_artifact_repo(run).download_artifacts(request_dict['path']))
     extension = os.path.splitext(filename)[-1].replace(".", "")
+    # Always send artifacts as attachments to prevent the browser from displaying them on our web
+    # server's domain, which might enable XSS.
     if extension in _TEXT_EXTENSIONS:
-        return send_file(filename, mimetype='text/plain')
+        return send_file(filename, mimetype='text/plain', as_attachment=True)
     else:
-        return send_file(filename)
+        return send_file(filename, as_attachment=True)
 
 
 def _not_implemented():
@@ -331,6 +334,7 @@ def _get_artifact_repo(run):
     store = _get_store()
     return get_artifact_repository(run.info.artifact_uri, store)
 
+
 @catch_mlflow_exception
 def _log_batch():
     request_message = _get_request_message(ListExperiments())
@@ -338,8 +342,24 @@ def _log_batch():
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
+    _validate_batch_log_limits(metrics=metrics, params=params, tags=tags)
+    _validate_batch_log_data(metrics=metrics, params=params, tags=tags)
     _get_store().log_batch(run_id=request_message.run_uuid, metrics=metrics, params=params,
                            tags=tags)
+    response_message = LogBatch.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _log_batch():
+    request_message = _get_request_message(LogBatch())
+    metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
+    params = [Param.from_proto(proto_param) for proto_param in request_message.params]
+    tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
+    mlflow.tracking.utils._get_store().log_batch(
+        run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
     response_message = LogBatch.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))

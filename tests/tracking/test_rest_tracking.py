@@ -18,7 +18,8 @@ from mlflow.entities import RunStatus
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
 from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR
 from mlflow.tracking import MlflowClient
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
+    MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
 
 
 LOCALHOST = '127.0.0.1'
@@ -163,38 +164,41 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
 
 
 def test_create_run_all_args(mlflow_client):
+    source_name = "Hello"
+    entry_point = "entry"
+    source_version = "abc"
     create_run_kwargs = {
         "user_id": "123",
         "run_name": "My name",
-        "source_type": "LOCAL",
-        "source_name": "Hello",
-        "entry_point_name": "entry",
         "start_time": 456,
-        "source_version": "abc",
         "tags": {
+            MLFLOW_SOURCE_TYPE: "LOCAL",
+            MLFLOW_SOURCE_NAME: source_name,
+            MLFLOW_PROJECT_ENTRY_POINT: entry_point,
+            MLFLOW_GIT_COMMIT: source_version,
+            MLFLOW_PARENT_RUN_ID: "7",
             "my": "tag",
             "other": "tag",
-        },
-        "parent_run_id": "7",
+        }
     }
     experiment_id = mlflow_client.create_experiment('Run A Lot')
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_uuid
     print("Run id=%s" % run_id)
+
     run = mlflow_client.get_run(run_id)
     assert run.info.run_uuid == run_id
     assert run.info.experiment_id == experiment_id
     assert run.info.user_id == create_run_kwargs["user_id"]
     assert run.info.source_type == SOURCE_TYPE_LOCAL
-    assert run.info.source_name == create_run_kwargs["source_name"]
-    assert run.info.entry_point_name == create_run_kwargs["entry_point_name"]
+    assert run.info.source_name == source_name
+    assert run.info.entry_point_name == entry_point
     assert run.info.start_time == create_run_kwargs["start_time"]
-    assert run.info.source_version == create_run_kwargs["source_version"]
+    assert run.info.source_version == source_version
     actual_tags = {t.key: t.value for t in run.data.tags}
     for tag in create_run_kwargs["tags"]:
         assert tag in actual_tags
     assert actual_tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
-    assert actual_tags.get(MLFLOW_PARENT_RUN_ID) == create_run_kwargs["parent_run_id"]
 
     assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 

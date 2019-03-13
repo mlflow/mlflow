@@ -31,7 +31,7 @@ def commands():
                    "run's artifact directory.")
 def log_artifact(local_file, run_id, artifact_path):
     """
-    Logs a local file as an artifact of a run, optionally within a run-specific
+    Log a local file as an artifact of a run, optionally within a run-specific
     artifact path. Run artifacts can be organized into directories, so you can
     place the artifact in a directory this way.
     """
@@ -53,7 +53,7 @@ def log_artifact(local_file, run_id, artifact_path):
                    "run's artifact directory.")
 def log_artifacts(local_dir, run_id, artifact_path):
     """
-    Logs the files within a local directory as an artifact of a run, optionally
+    Log the files within a local directory as an artifact of a run, optionally
     within a run-specific artifact path. Run artifacts can be organized into
     directories, so you can place the artifact in a directory this way.
     """
