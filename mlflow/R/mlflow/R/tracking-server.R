@@ -73,7 +73,8 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
       "server",
       args,
       list(
-        background = getOption("mlflow.ui.background", TRUE)
+        background = getOption("mlflow.ui.background", TRUE),
+        client = NULL
       )
     )
   )
