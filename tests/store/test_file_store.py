@@ -285,7 +285,30 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
+    def test_log_metric_allows_multiple_values_at_same_timestamp_and_read_returns_max_value(self):
+        fs = FileStore(self.test_root)
+        run_uuid = self._create_run(fs).info.run_uuid
+        
+        metric_name = "test-metric-1"
+        timestamp = int(time.time())
+        metric1 = Metric(metric_name, 100.0, timestamp)
+        metric2 = Metric(metric_name, 1.02, timestamp)
+
+        fs.log_metric(run_uuid, metric1)
+        fs.log_metric(run_uuid, metric2)
+
+        run_metrics = fs.get_run(run_uuid).data.metrics
+        assert len(run_metrics) == 1
+        assert run_metrics[0].key == metric_name
+        assert run_metrics[0].value == 100.0 
+
     def test_get_all_metrics(self):
+        def get_expected_metric_timestamp_and_value(metric_entries):
+            expected_timestamp = max(entry[0] for entry in metric_entries)
+            expected_value = max(
+                entry[1] for entry in metric_entries if entry[0] == expected_timestamp)
+            return expected_timestamp, expected_value
+
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
             runs = self.exp_data[exp_id]["runs"]
@@ -295,9 +318,10 @@ class TestFileStore(unittest.TestCase):
                 metrics_dict = run_info.pop("metrics")
                 for metric in metrics:
                     # just the last recorded value
-                    timestamp, metric_value = metrics_dict[metric.key][-1]
-                    self.assertEqual(metric.timestamp, timestamp)
-                    self.assertEqual(metric.value, metric_value)
+                    expected_timestamp, expected_value = get_expected_metric_timestamp_and_value(
+                        metrics_dict[metric.key])
+                    self.assertEqual(metric.timestamp, expected_timestamp)
+                    self.assertEqual(metric.value, expected_value)
 
     def test_get_metric_history(self):
         fs = FileStore(self.test_root)
