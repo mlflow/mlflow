@@ -18057,6 +18057,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -18065,6 +18067,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -18073,6 +18077,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -19341,6 +19347,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -19351,6 +19359,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -19372,6 +19382,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the parent run which started this run.
+     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+     * tag instead.
      * </pre>
      *
      * <code>optional string parent_run_id = 10;</code>
@@ -20994,6 +21006,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -21004,6 +21018,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -21025,6 +21041,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -21045,6 +21063,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -21062,6 +21082,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>
@@ -21075,6 +21097,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the parent run which started this run.
+       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
+       * tag instead.
        * </pre>
        *
        * <code>optional string parent_run_id = 10;</code>

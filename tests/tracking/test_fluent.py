@@ -349,7 +349,8 @@ def test_start_run_with_parent():
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(source_type),
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
-        mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name
+        mlflow_tags.MLFLOW_PROJECT_ENTRY_POINT: mock_entry_point_name,
+        mlflow_tags.MLFLOW_PARENT_RUN_ID: parent_run.info.run_uuid
     }
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")

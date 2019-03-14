@@ -3,6 +3,18 @@ new_mlflow_client <- function(tracking_uri) {
   UseMethod("new_mlflow_client")
 }
 
+mlflow_get_run_context <- function(client, source_name, source_version) {
+  UseMethod("mlflow_get_run_context")
+}
+
+mlflow_get_context_tags.default <- function(client, source_name, source_version) {
+  list(
+    source_name = source_name %||% get_source_name(),
+    source_version = source_version %||% get_source_version(),
+    tags = NULL,
+  )
+}
+
 new_mlflow_uri <- function(raw_uri) {
   parts <- strsplit(raw_uri, "://")[[1]]
   structure(
@@ -22,7 +34,42 @@ new_mlflow_client_impl <- function(get_host_creds, get_cli_env = list, class = c
 
 new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, token = NA,
                                    insecure = "False") {
-  list(host = host, username = username, password = password, token = token, insecure = insecure)
+  structure(
+    list(host = host, username = username, password = password, token = token, insecure = insecure),
+    class = "mlflow_host_creds"
+  )
+}
+
+#' @export
+print.mlflow_host_creds <- function(mlflow_host_creds) {
+  args <- list(
+    host = if (is.na(mlflow_host_creds$host)) {
+      ""
+    } else {
+      paste ("host = ", mlflow_host_creds$host, sep = "")
+    },
+    username = if (is.na(mlflow_host_creds$username)) {
+      ""
+    } else {
+      paste ("username = ", mlflow_host_creds$username, sep = "")
+    },
+    password = if (is.na(mlflow_host_creds$password)) {
+      ""
+    } else {
+      "password = *****"
+    },
+    token = if (is.na(mlflow_host_creds$token)) {
+      ""
+    } else {
+      "token = *****"
+    },
+    insecure = paste("insecure = ", as.character(mlflow_host_creds$insecure),
+                     sep = ""),
+    sep = ", "
+  )
+  cat("mlflow_host_creds( ")
+  do.call(cat, args[args != ""])
+  cat(")\n")
 }
 
 new_mlflow_client.mlflow_file <- function(tracking_uri) {
@@ -407,7 +454,7 @@ mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NUL
              artifact_path,
              "--run-id",
              run_id,
-             env = client$cli_env())
+             client = client)
 
   invisible(NULL)
 }
@@ -451,7 +498,7 @@ mlflow_client_download_artifacts <- function(client, run_id, path) {
           call. = FALSE
         )
     },
-    env = client$cli_env()
+    client = client
   )
   gsub("\n", "", result$stdout)
 }

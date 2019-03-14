@@ -167,11 +167,12 @@ def test_create_run_all_args(mlflow_client):
     source_name = "Hello"
     entry_point = "entry"
     source_version = "abc"
+    run_name = "My name"
     create_run_kwargs = {
         "user_id": "123",
         "start_time": 456,
         "tags": {
-            MLFLOW_RUN_NAME: "My name",
+            MLFLOW_RUN_NAME: run_name,
             MLFLOW_PARENT_RUN_ID: "7",
             MLFLOW_SOURCE_TYPE: "LOCAL",
             MLFLOW_SOURCE_NAME: source_name,
@@ -189,6 +190,7 @@ def test_create_run_all_args(mlflow_client):
     run = mlflow_client.get_run(run_id)
     assert run.info.run_uuid == run_id
     assert run.info.experiment_id == experiment_id
+    assert run.info.name == run_name
     assert run.info.user_id == create_run_kwargs["user_id"]
     assert run.info.source_type == SOURCE_TYPE_LOCAL
     assert run.info.source_name == source_name
