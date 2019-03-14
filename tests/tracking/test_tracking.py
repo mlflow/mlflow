@@ -206,16 +206,11 @@ def test_log_metrics(tracking_uri_mock):
     run_uuid = active_run.info.run_uuid
     expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     with active_run:
-        mlflow.log_metric("name_1", 25)
-        mlflow.log_metric("nested/nested/name", 45)
         mlflow.log_metrics(expected_metrics)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
-    # Validate metric key/values match what we expect, and that all metrics have the same timestamp
-    common_timestamp = finished_run.data.metrics[0].timestamp
-    assert len(finished_run.data.metrics) == 3
+    assert len(finished_run.data.metrics) == len(expected_metrics)
     for metric in finished_run.data.metrics:
         assert expected_metrics[metric.key] == metric.value
-        assert metric.timestamp == common_timestamp
 
 
 @pytest.fixture
