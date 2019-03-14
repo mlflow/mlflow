@@ -276,23 +276,58 @@ service MlflowService {
     };
   }
 
-  // Log a batch of metrics, params, and/or tags for a run. The server will respond with an error
-  // (non-200 status code) if any data failed to be persisted. In error cases, partial data may be
-  // written.
+  // Log a batch of metrics, params, and/or tags for a run.
+  // The server will respond with an error (non-200 status code) if any data failed to be persisted.
+  // In case of error (due to internal server error or an invalid request), partial data may
+  // be written.
   //
-  // Metrics, params, and tags are persisted in the order specified. The overwrite behavior for
-  // metrics, params, and tags is as follows:
+  // Metrics, params, and tags may be written in interleaving fashion, but within a given entity
+  // type, are guaranteed to follow the order specified in the request body. That is, for an API
+  // request like:
+  //
+  // {
+  //  "run_id": "2a14ed5c6a87499199e0106c3501eab8",
+  //  "metrics": [
+  //    {"key": "mae", "value": 2.5, "timestamp": 1552550804},
+  //    {"key": "rmse", "value": 2.7, "timestamp": 1552550804},
+  //  ],
+  //  "params": [
+  //    {"key": "model_class", "value": "LogisticRegression"},
+  //  ]
+  // }
+  //
+  // The server is guaranteed to write metric "rmse" after "mae", though it may write param
+  // "model_class" before both metrics, after "mae", or after both metrics.
+  //
+  // The overwrite behavior for metrics, params, and tags is as follows:
   //
   // Metrics: metric values are never overwritten. Logging a metric (key, value, timestamp)
   // appends to the set of values for the metric with the provided key.
   //
   // Tags: tag values may be overwritten by successive writes to the same tag key. That is, if
   // multiple tag values with the same key are provided in the same API request, the last-provided
-  // tag value is written.
+  // tag value is written. Logging the same tag (key, value) is permitted - that is, logging a tag
+  // is idempotent.
   //
   // Params: once written, param values may not be changed (attempting to overwrite a param value
   // will result in an error). However, logging the same param (key, value) is permitted - that is,
   // logging a param is idempotent.
+  //
+  // Request Limits
+  // --------------
+  // A single JSON-serialized API request may be up to 1 MB in size and contain:
+  //
+  // - No more than 1000 metrics, params, and tags in total
+  // - Up to 1000 metrics
+  // - Up to 100 params
+  // - Up to 100 tags
+  //
+  // For example, a valid request might contain 900 metrics, 50 params, and 50 tags, but logging
+  // 900 metrics, 50 params, and 51 tags would be invalid. The following limits also apply
+  // to metric, param, and tag keys & values:
+  //
+  // - Metric, param, and tag keys may be up to 250 characters in length
+  // - Param and tag values may be up to 250 characters in length
   //
   rpc logBatch (LogBatch) returns (LogBatch.Response) {
     option (rpc) = {
