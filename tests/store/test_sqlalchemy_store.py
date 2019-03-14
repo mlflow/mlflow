@@ -450,8 +450,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = None
         metric = entities.Metric(tkey, tval, int(time.time()))
 
-        with self.assertRaises(MlflowException) as exception_context:
+        warnings.simplefilter("ignore")
+        with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
             self.store.log_metric(run.info.run_uuid, metric)
+            warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     def test_log_param(self):
