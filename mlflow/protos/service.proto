@@ -902,11 +902,14 @@ message LogBatch {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
   // ID of the run to log under
   optional string run_id = 1;
-  // Metrics to log
+  // Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+  // metrics, params, and tags in total.
   repeated Metric metrics = 2;
-  // Params to log
+  // Params to log. A single request can contain up to 100 params, and up to 1000
+  // metrics, params, and tags in total.
   repeated Param params = 3;
-  // Tags to log
+  // Tags to log. A single request can contain up to 100 tags, and up to 1000
+  // metrics, params, and tags in total.
   repeated RunTag tags = 4;
   message Response {
   }
