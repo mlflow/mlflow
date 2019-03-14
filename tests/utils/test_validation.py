@@ -67,7 +67,6 @@ def test_validate_batch_log_limits():
         for arg_value in arg_values:
             final_kwargs = copy.deepcopy(good_kwargs)
             final_kwargs[arg_name] = arg_value
-            print(arg_value, len(arg_value))
             with pytest.raises(MlflowException):
                 _validate_batch_log_limits(**final_kwargs)
     # Test the case where there are too many entities in aggregate
@@ -103,3 +102,7 @@ def test_validate_batch_log_data():
             final_kwargs[arg_name] = arg_value
             with pytest.raises(MlflowException):
                 _validate_batch_log_data(**final_kwargs)
+    # Test that we don't reject entities within the limit
+    _validate_batch_log_data(
+        metrics=[Metric("metric-key", 1.0, 0)], params=[Param("param-key", "param-val")],
+        tags=[RunTag("tag-key", "tag-val")])

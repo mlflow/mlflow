@@ -24,8 +24,8 @@ MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
-MAX_PARAM_LENGTH = 500
-MAX_TAG_LENGTH = (1 << 16) - 1
+MAX_PARAM_VAL_LENGTH = 250
+MAX_TAG_VAL_LENGTH = 250
 MAX_ENTITY_KEY_LENGTH = 250
 
 
@@ -49,10 +49,13 @@ def _validate_metric_name(name):
     if path_not_unique(name):
         raise MlflowException("Invalid metric name: '%s'. %s" % (name, bad_path_message(name)),
                               INVALID_PARAMETER_VALUE)
-    _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, name)
 
 
 def _validate_metric(key, value, timestamp):
+    """
+    Check that a param with the specified key, value, timestamp is valid and raise an exception if
+    it isn't.
+    """
     _validate_metric_name(key)
     if not isinstance(value, numbers.Number) or value > np.finfo(np.float64).max \
             or value < np.finfo(np.float64).min:
@@ -68,6 +71,25 @@ def _validate_metric(key, value, timestamp):
             INVALID_PARAMETER_VALUE)
 
 
+def _validate_param(key, value):
+    """
+    Check that a param with the specified key & value is valid and raise an exception if it
+    isn't.
+    """
+    _validate_param_name(key)
+    _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key)
+    _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value)
+
+
+def _validate_tag(key, value):
+    """
+    Check that a tag with the specified key & value is valid and raise an exception if it isn't.
+    """
+    _validate_tag_name(key)
+    _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key)
+    _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value)
+
+
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
@@ -76,7 +98,6 @@ def _validate_param_name(name):
     if path_not_unique(name):
         raise MlflowException("Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)),
                               INVALID_PARAMETER_VALUE)
-    _validate_length_limit("Param name", MAX_ENTITY_KEY_LENGTH, name)
 
 
 def _validate_tag_name(name):
@@ -88,7 +109,6 @@ def _validate_tag_name(name):
     if path_not_unique(name):
         raise MlflowException("Invalid tag name: '%s'. %s" % (name, bad_path_message(name)),
                               INVALID_PARAMETER_VALUE)
-    _validate_length_limit("Tag name", MAX_ENTITY_KEY_LENGTH, name)
 
 
 def _validate_length_limit(entity_name, limit, value):
@@ -96,14 +116,6 @@ def _validate_length_limit(entity_name, limit, value):
         raise MlflowException(
             "%s %s had length %s, which exceeded length limit of %s" %
             (entity_name, value, len(value), limit))
-
-
-def _validate_param_value(value):
-    _validate_length_limit("Param value", MAX_PARAM_LENGTH, value)
-
-
-def _validate_tag_value(value):
-    _validate_length_limit("Tag value", MAX_PARAM_LENGTH, value)
 
 
 def _validate_run_id(run_id):
@@ -142,21 +154,23 @@ def _validate_batch_log_limits(metrics, params, tags):
 def _validate_batch_log_data(metrics, params, tags):
     for metric in metrics:
         _validate_metric(metric.key, metric.value, metric.timestamp)
+        # TODO: move _validate_length_limit calls into _validate_metric etc. This would be a
+        # breaking change as _validate_metric is also used in the single-entry log_metric API. Thus
+        # we defer it for now to allow for a release of the batched logging APIs without breaking
+        # changes to other APIs. See related discussion in
+        # https://github.com/mlflow/mlflow/issues/985
+        _validate_length_limit("Metric name", MAX_ENTITY_KEY_LENGTH, metric.key)
     for param in params:
-        _validate_param_name(param.key)
-        _validate_param_value(param.value)
+        _validate_param(param.key, param.value)
     for tag in tags:
-        _validate_tag_name(tag.key)
-        _validate_tag_value(tag.value)
+        _validate_tag(tag.key, tag.value)
 
 
 def _validate_batch_log_api_req(json_req):
-    print("Got request of size %s" % len(json_req), len(json_req) > MAX_BATCH_LOG_REQUEST_SIZE)
     if len(json_req) > MAX_BATCH_LOG_REQUEST_SIZE:
         error_msg = ("Batched logging API requests must be at most {limit} bytes, got "
                      "request of size {size}.").format(
             limit=MAX_BATCH_LOG_REQUEST_SIZE, size=len(json_req))
-        print("RAISING")
         raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
 
 
