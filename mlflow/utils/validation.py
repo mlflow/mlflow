@@ -86,7 +86,7 @@ def _validate_tag(key, value):
     Check that a tag with the specified key & value is valid and raise an exception if it isn't.
     """
     _validate_tag_name(key)
-    _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key)
+    _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key)
     _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value)
 
 
@@ -114,7 +114,7 @@ def _validate_tag_name(name):
 def _validate_length_limit(entity_name, limit, value):
     if len(value) > limit:
         raise MlflowException(
-            "%s %s had length %s, which exceeded length limit of %s" %
+            "%s '%s' had length %s, which exceeded length limit of %s" %
             (entity_name, value, len(value), limit))
 
 
@@ -168,7 +168,7 @@ def _validate_batch_log_data(metrics, params, tags):
 
 def _validate_batch_log_api_req(json_req):
     if len(json_req) > MAX_BATCH_LOG_REQUEST_SIZE:
-        error_msg = ("Batched logging API requests must be at most {limit} bytes, got "
+        error_msg = ("Batched logging API requests must be at most {limit} bytes, got a "
                      "request of size {size}.").format(
             limit=MAX_BATCH_LOG_REQUEST_SIZE, size=len(json_req))
         raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
