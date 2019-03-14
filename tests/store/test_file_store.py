@@ -292,7 +292,7 @@ class TestFileStore(unittest.TestCase):
         metric_name = "test-metric-1"
         timestamp = int(time.time())
         metric1 = Metric(metric_name, 100.0, timestamp)
-        metric2 = Metric(metric_name, 1.02, timestamp)
+        metric2 = Metric(metric_name, 2.02, timestamp)
 
         fs.log_metric(run_uuid, metric1)
         fs.log_metric(run_uuid, metric2)
