@@ -23,7 +23,7 @@ _BAD_CHARACTERS_MESSAGE = (
 MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
-MAX_BATCH_LOG_REQUEST_SIZE = int(1e7)
+MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_LENGTH = 500
 MAX_TAG_LENGTH = (1 << 16) - 1
 MAX_ENTITY_KEY_LENGTH = 250
@@ -61,8 +61,7 @@ def _validate_metric(key, value, timestamp):
             "double (64-bit floating point)" % (value, key, timestamp),
             INVALID_PARAMETER_VALUE)
 
-    if not isinstance(timestamp, numbers.Number) or timestamp < 0 or \
-            timestamp < np.iinfo(np.int64).min:
+    if not isinstance(timestamp, numbers.Number) or timestamp < 0:
         raise MlflowException(
             "Got invalid timestamp %s for metric '%s' (value=%s). Timestamp must be a nonnegative "
             "long (64-bit integer) " % (timestamp, key, value),
@@ -142,30 +141,22 @@ def _validate_batch_log_limits(metrics, params, tags):
 
 def _validate_batch_log_data(metrics, params, tags):
     for metric in metrics:
-        _validate_metric_name(metric.key)
+        _validate_metric(metric.key, metric.value, metric.timestamp)
     for param in params:
         _validate_param_name(param.key)
         _validate_param_value(param.value)
     for tag in tags:
         _validate_tag_name(tag.key)
         _validate_tag_value(tag.value)
-    # Verify upfront that the user isn't attempting to overwrite any params within their
-    # batched logging request
-    param_map = {}
-    for param in params:
-        if param.key not in param_map:
-            param_map[param.key] = param.value
-        elif param.key in param_map and param_map[param.key] != param.value:
-            raise MlflowException("Param %s had existing value %s, refusing to overwrite with "
-                                  "new value %s. Please log the new param value under a different "
-                                  "param name." % (param.key, param_map[param.key], param.value))
 
 
 def _validate_batch_log_api_req(json_req):
+    print("Got request of size %s" % len(json_req), len(json_req) > MAX_BATCH_LOG_REQUEST_SIZE)
     if len(json_req) > MAX_BATCH_LOG_REQUEST_SIZE:
         error_msg = ("Batched logging API requests must be at most {limit} bytes, got "
                      "request of size {size}.").format(
             limit=MAX_BATCH_LOG_REQUEST_SIZE, size=len(json_req))
+        print("RAISING")
         raise MlflowException(error_msg, error_code=INVALID_PARAMETER_VALUE)
 
 

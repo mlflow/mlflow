@@ -91,10 +91,9 @@ def test_validate_batch_log_data():
                          RunTag("super-long-bad-key" * 1000, "but-good-val")]
     tags_with_bad_val = [RunTag("good-tag-key", "hi"),
                          RunTag("another-good-key", "but-bad-val" * 1000)]
-    overwriting_param = [Param("key", "val"), Param("key", "different-val")]
     bad_kwargs = {
         "metrics": [metrics_with_bad_key],
-        "params": [params_with_bad_key, params_with_bad_val, overwriting_param],
+        "params": [params_with_bad_key, params_with_bad_val],
         "tags": [tags_with_bad_key, tags_with_bad_val],
     }
     good_kwargs = {"metrics": [], "params": [], "tags": []}

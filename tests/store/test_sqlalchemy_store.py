@@ -995,10 +995,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 self.assertIn(str(e.exception.message), "Some internal error")
 
     def test_log_batch_nonexistent_run(self):
+        nonexistent_run_uuid = uuid.uuid4().hex
         with self.assertRaises(MlflowException) as e:
-            self.store.log_batch("bad-run-uuid", [], [], [])
+            self.store.log_batch(nonexistent_run_uuid, [], [], [])
         assert e.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-        assert "Run with id=bad-run-uuid not found" in e.exception.message
+        assert "Run with id=%s not found" % nonexistent_run_uuid in e.exception.message
 
     def test_log_batch_params_idempotency(self):
         run = self._run_factory()

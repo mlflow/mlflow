@@ -20,8 +20,7 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.search_utils import SearchFilter
-from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
-    _validate_batch_log_api_req
+from mlflow.utils.validation import _validate_batch_log_api_req
 
 _store = None
 
@@ -44,6 +43,10 @@ def _get_store():
     return _store
 
 
+def _get_request_json(flask_request=request):
+    return flask_request.get_json(force=True, silent=True)
+
+
 def _get_request_message(request_message, flask_request=request):
     if flask_request.method == 'GET' and len(flask_request.query_string) > 0:
         # This is a hack to make arrays of length 1 work with the parser.
@@ -56,7 +59,7 @@ def _get_request_message(request_message, flask_request=request):
         parse_dict(request_dict, request_message)
         return request_message
 
-    request_json = flask_request.get_json(force=True, silent=True)
+    request_json = _get_request_json(flask_request)
 
     # Older clients may post their JSON double-encoded as strings, so the get_json
     # above actually converts it to a string. Therefore, we check this condition
@@ -337,13 +340,11 @@ def _get_artifact_repo(run):
 
 @catch_mlflow_exception
 def _log_batch():
+    _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(LogBatch())
-    _validate_batch_log_api_req(request.get_json(force=True, silent=True))
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
-    _validate_batch_log_limits(metrics=metrics, params=params, tags=tags)
-    _validate_batch_log_data(metrics=metrics, params=params, tags=tags)
     mlflow.tracking.utils._get_store().log_batch(
         run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
     response_message = LogBatch.Response()

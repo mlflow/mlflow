@@ -540,6 +540,8 @@ class FileStore(AbstractStore):
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
+        _validate_batch_log_data(metrics, params, tags)
+        _validate_batch_log_limits(metrics, params, tags)
         run = self.get_run(run_id)
         check_run_is_active(run.info)
         try:
