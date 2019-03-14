@@ -44514,7 +44514,8 @@ public final class Service {
 
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -44523,7 +44524,8 @@ public final class Service {
         getMetricsList();
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -44531,7 +44533,8 @@ public final class Service {
     org.mlflow.api.proto.Service.Metric getMetrics(int index);
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -44539,7 +44542,8 @@ public final class Service {
     int getMetricsCount();
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -44548,7 +44552,8 @@ public final class Service {
         getMetricsOrBuilderList();
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -44558,7 +44563,8 @@ public final class Service {
 
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -44567,7 +44573,8 @@ public final class Service {
         getParamsList();
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -44575,7 +44582,8 @@ public final class Service {
     org.mlflow.api.proto.Service.Param getParams(int index);
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -44583,7 +44591,8 @@ public final class Service {
     int getParamsCount();
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -44592,7 +44601,8 @@ public final class Service {
         getParamsOrBuilderList();
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -44602,7 +44612,8 @@ public final class Service {
 
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -44611,7 +44622,8 @@ public final class Service {
         getTagsList();
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -44619,7 +44631,8 @@ public final class Service {
     org.mlflow.api.proto.Service.RunTag getTags(int index);
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -44627,7 +44640,8 @@ public final class Service {
     int getTagsCount();
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -44636,7 +44650,8 @@ public final class Service {
         getTagsOrBuilderList();
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -45232,7 +45247,8 @@ public final class Service {
     private java.util.List<org.mlflow.api.proto.Service.Metric> metrics_;
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -45242,7 +45258,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -45253,7 +45270,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -45263,7 +45281,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -45273,7 +45292,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Metrics to log
+     * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -45287,7 +45307,8 @@ public final class Service {
     private java.util.List<org.mlflow.api.proto.Service.Param> params_;
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -45297,7 +45318,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -45308,7 +45330,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -45318,7 +45341,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -45328,7 +45352,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Params to log
+     * Params to log. A single request can contain up to 100 params, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.Param params = 3;</code>
@@ -45342,7 +45367,8 @@ public final class Service {
     private java.util.List<org.mlflow.api.proto.Service.RunTag> tags_;
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -45352,7 +45378,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -45363,7 +45390,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -45373,7 +45401,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -45383,7 +45412,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Tags to log
+     * Tags to log. A single request can contain up to 100 tags, and up to 1000
+     * metrics, params, and tags in total.
      * </pre>
      *
      * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -45988,7 +46018,8 @@ public final class Service {
 
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46002,7 +46033,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46016,7 +46048,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46030,7 +46063,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46051,7 +46085,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46069,7 +46104,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46089,7 +46125,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46110,7 +46147,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46128,7 +46166,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46146,7 +46185,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46165,7 +46205,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46182,7 +46223,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46199,7 +46241,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46210,7 +46253,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46224,7 +46268,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46239,7 +46284,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46250,7 +46296,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46262,7 +46309,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Metrics to log
+       * Metrics to log. A single request can contain up to 1000 metrics, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Metric metrics = 2;</code>
@@ -46300,7 +46348,8 @@ public final class Service {
 
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46314,7 +46363,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46328,7 +46378,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46342,7 +46393,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46363,7 +46415,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46381,7 +46434,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46401,7 +46455,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46422,7 +46477,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46440,7 +46496,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46458,7 +46515,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46477,7 +46535,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46494,7 +46553,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46511,7 +46571,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46522,7 +46583,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46536,7 +46598,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46551,7 +46614,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46562,7 +46626,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46574,7 +46639,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Params to log
+       * Params to log. A single request can contain up to 100 params, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.Param params = 3;</code>
@@ -46612,7 +46678,8 @@ public final class Service {
 
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46626,7 +46693,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46640,7 +46708,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46654,7 +46723,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46675,7 +46745,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46693,7 +46764,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46713,7 +46785,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46734,7 +46807,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46752,7 +46826,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46770,7 +46845,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46789,7 +46865,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46806,7 +46883,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46823,7 +46901,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46834,7 +46913,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46848,7 +46928,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46863,7 +46944,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46874,7 +46956,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
@@ -46886,7 +46969,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Tags to log
+       * Tags to log. A single request can contain up to 100 tags, and up to 1000
+       * metrics, params, and tags in total.
        * </pre>
        *
        * <code>repeated .mlflow.RunTag tags = 4;</code>
