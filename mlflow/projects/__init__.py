@@ -703,7 +703,6 @@ def _build_docker_image(work_dir, project, active_run):
     except Exception:  # pylint: disable=broad-except
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
-
                                     MLFLOW_DOCKER_IMAGE_NAME,
                                     tag_name)
     tracking.MlflowClient().set_tag(active_run.info.run_uuid,
