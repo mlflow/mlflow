@@ -110,11 +110,15 @@ with no active run automatically starts a new one.
 :py:func:`mlflow.active_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
 currently active run, if any.
 
-:py:func:`mlflow.log_param` logs a key-value parameter in the currently active run. The keys and
-values are both strings.
+:py:func:`mlflow.log_param` logs a key-value param in the currently active run. The keys and
+values are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
 
 :py:func:`mlflow.log_metric` logs a key-value metric. The value must always be a number. MLflow
-remembers the history of values for each metric.
+remembers the history of values for each metric. Use :py:func:`mlflow.log_metrics` to log multiple
+metrics at once.
+
+:py:func:`mlflow.set_tag` sets a key-value tag in the currently active run. The keys and
+values are both strings. Use :py:func:`mlflow.set_tags` to set multiple tags at once.
 
 :py:func:`mlflow.log_artifact` logs a local file as an artifact, optionally taking an
 ``artifact_path`` to place it in within the run's artifact URI. Run artifacts can be organized into
