@@ -62,8 +62,7 @@
     "eslint-plugin-standard": "3.0.1",
     "jest-localstorage-mock": "^2.3.0",
     "react-app-rewire-define-plugin": "1.0.0",
-    "react-app-rewired": "^2.1.1",
-    "webpack": "4.28.3"
+    "react-app-rewired": "^2.1.1"
   },
   "scripts": {
     "start": "react-app-rewired start",
