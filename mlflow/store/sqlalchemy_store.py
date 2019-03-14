@@ -345,7 +345,6 @@ class SqlAlchemyStore(AbstractStore):
             # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
             self._get_or_create(model=SqlMetric, run_uuid=run_uuid, key=metric.key,
                                 value=metric.value, timestamp=metric.timestamp, session=session)
-            session.commit()
 
     def get_metric_history(self, run_uuid, metric_key):
         with self.ManagedSessionMaker() as session:
