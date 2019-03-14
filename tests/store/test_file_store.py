@@ -288,7 +288,7 @@ class TestFileStore(unittest.TestCase):
     def test_log_metric_allows_multiple_values_at_same_timestamp_and_run_data_uses_max_value(self):
         fs = FileStore(self.test_root)
         run_uuid = self._create_run(fs).info.run_uuid
-        
+
         metric_name = "test-metric-1"
         timestamp = int(time.time())
         metric1 = Metric(metric_name, 100.0, timestamp)
@@ -300,7 +300,7 @@ class TestFileStore(unittest.TestCase):
         run_metrics = fs.get_run(run_uuid).data.metrics
         assert len(run_metrics) == 1
         assert run_metrics[0].key == metric_name
-        assert run_metrics[0].value == 100.0 
+        assert run_metrics[0].value == 100.0
 
     def test_get_all_metrics(self):
         def get_expected_metric_timestamp_and_value(metric_entries):
