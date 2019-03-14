@@ -182,8 +182,7 @@ class Utils {
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param run MlflowMessages.RunInfo
    * @param tags Object containing tag key value pairs.
-   * @param queryParams Query params to add to certain source type links (e.g. Databricks notebook
-   *                    links).
+   * @param queryParams Query params to add to certain source type links.
    */
   static renderSource(run, tags, queryParams) {
     let res = Utils.formatSource(run);
