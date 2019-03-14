@@ -6,7 +6,8 @@ MLflow Tracking
 
 The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files
 when running your machine learning code and for later visualizing the results.
-MLflow Tracking lets you log and query experiments using both :ref:`Python <python-api>` and :ref:`REST <rest-api>` APIs.
+MLflow Tracking lets you log and query experiments using :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R-api`, 
+and :ref:`java_api` APIs.
 
 .. contents:: Table of Contents
   :local:
@@ -54,6 +55,8 @@ UI let you create and search for experiments.
 Once your runs have been recorded, you can query them using the :ref:`tracking_ui` or the MLflow
 API.
 
+.. _where-runs-are-recorded:
+
 Where Runs Are Recorded
 =======================
 
@@ -70,7 +73,7 @@ There are different kinds of remote tracking URIs:
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
 - Database encoded as a connection string (specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``)
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
-- Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_. This works only in workspaces for which the Databricks MLflow Tracking Server is enabled; contact Databricks if interested.
+- Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
 
 Logging Data to Runs
 ====================
@@ -142,6 +145,8 @@ just one block of code as follows:
 
 The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
+
+.. _organizing-runs-in-experiments:
 
 Organizing Runs in Experiments
 ==============================
@@ -250,24 +255,36 @@ You run an MLflow tracking server using ``mlflow server``.  An example configura
 Storage
 -------
 
-An MLflow tracking server has two properties related to how data is stored: file store and artifact store.
+An MLflow tracking server has two components for storage: a *backend store* and an *artifact store*.
 
-The *backend store* (exposed as ``--backend-store-uri``) is where the *server* stores run and
-experiment metadata. For backward compatibility, ``--file-store`` option is an alias to this
-option. This can be a local path **file store** specified as ``./path_to_store`` or
-``file://path_to_store``, or a SQL connection string for a *Database backed store*. For the
-latter, argument is expected to be a SQL connection string specified as
-``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported database types are
-``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
-It defaults to the local ``./mlruns`` directory (the same as when running ``mlflow run`` locally), but when
-running a server, make sure that this points to a persistent (that is, non-ephemeral) file system location.
+The backend store is where MLflow Tracking Server stores experiment and run metadata as well as
+params, metrics, and tags for runs. MLflow supports two types of backend stores: *file store* and
+*database-backed store*.
 
-The *artifact store* is a location suitable for large data (such as an S3 bucket or shared NFS file system)
-and is where *clients* log their artifact output (for example, models). The artifact store is a property
-of an experiment, but the ``--default-artifact-root`` flag sets the artifact root URI for
-newly-created experiments that do not specify one.
-Once you create an experiment, ``--default-artifact-root`` is no longer relevant to it.
-It defaults to the local ``./mlruns`` directory.
+Use ``--backend-store-uri`` to configure type of backend store. This can be a local path *file
+store* specified as ``./path_to_store`` or ``file:/path_to_store``, or a SQL connection string
+for a *database-backed store*. For the latter, the argument must be a SQL connection string
+specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported
+database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+
+By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (the same as when
+running ``mlflow run`` locally), but when running a server, make sure that this points to a
+persistent (that is, non-ephemeral) file system location.
+
+.. note::
+  For backwards compatibility, ``--file-store`` is an alias for this option.
+
+The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
+file system) and is where clients log their artifact output (for example, models).
+``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
+default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
+is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
+this run are stored.
+
+Use ``--default-artifact-root`` (defaults to local ``./mlruns`` directory) to configure default
+location to server's artifact store. This will be used as artifact location for newly-created
+experiments that do not specify one. Once you create an experiment, ``--default-artifact-root``
+is no longer relevant to that experiment.
 
 To allow the server and clients to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
@@ -285,7 +302,8 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 Supported Artifact Stores
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In addition to local file paths, MLflow supports the following storage systems as artifact stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
+In addition to local file paths, MLflow supports the following storage systems as artifact
+stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 Amazon S3
 ^^^^^^^^^

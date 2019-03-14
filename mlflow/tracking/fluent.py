@@ -5,7 +5,6 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 
 from __future__ import print_function
 
-import numbers
 import os
 
 import atexit
@@ -13,7 +12,7 @@ import time
 import logging
 
 import mlflow.tracking.utils
-from mlflow.entities import Experiment, Run, RunStatus
+from mlflow.entities import Experiment, Run, SourceType, RunStatus, Param, RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -21,7 +20,7 @@ from mlflow.tracking import context
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, \
-    MLFLOW_PROJECT_ENTRY_POINT
+    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -124,10 +123,12 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         exp_id_for_run = experiment_id if experiment_id is not None else _get_experiment_id()
 
         user_specified_tags = {}
+        if parent_run_id is not None:
+            user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
         if source_name is not None:
             user_specified_tags[MLFLOW_SOURCE_NAME] = source_name
         if source_type is not None:
-            user_specified_tags[MLFLOW_SOURCE_TYPE] = source_type
+            user_specified_tags[MLFLOW_SOURCE_TYPE] = SourceType.to_string(source_type)
         if source_version is not None:
             user_specified_tags[MLFLOW_GIT_COMMIT] = source_version
         if entry_point_name is not None:
@@ -138,12 +139,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
             run_name=run_name,
-            source_name=tags.get(MLFLOW_SOURCE_NAME),  # For backwards compatability
-            source_version=tags.get(MLFLOW_GIT_COMMIT),  # For backwards compatability
-            entry_point_name=tags.get(MLFLOW_PROJECT_ENTRY_POINT),  # For backwards compatability
-            source_type=tags.get(MLFLOW_SOURCE_TYPE),  # For backwards compatability
-            tags=tags,
-            parent_run_id=parent_run_id
+            tags=tags
         )
 
     _active_run_stack.append(ActiveRun(active_run_obj))
@@ -197,12 +193,44 @@ def log_metric(key, value):
     :param key: Metric name (string).
     :param value: Metric value (float).
     """
-    if not isinstance(value, numbers.Number):
-        _logger.warning(
-            "The metric %s=%s was not logged because the value is not a number.", key, value)
-        return
     run_id = _get_or_start_run().info.run_uuid
     MlflowClient().log_metric(run_id, key, value, int(time.time()))
+
+
+def log_metrics(metrics):
+    """
+    Log multiple metrics for the current run, starting a run if no runs are active.
+    :param metrics: Dictionary of metric_name: String -> value: Float
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    timestamp = int(time.time())
+    metrics_arr = [Metric(key, value, timestamp) for key, value in metrics.items()]
+    MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
+
+
+def log_params(params):
+    """
+    Log a batch of params for the current run, starting a run if no runs are active.
+    :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
+                   not)
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    params_arr = [Param(key, value) for key, value in params.items()]
+    MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
+
+def set_tags(tags):
+    """
+    Log a batch of tags for the current run, starting a run if no runs are active.
+    :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
+                 not)
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    tags_arr = [RunTag(key, value) for key, value in tags.items()]
+    MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
 
 
 def log_artifact(local_path, artifact_path=None):
