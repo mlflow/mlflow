@@ -280,8 +280,8 @@ service MlflowService {
   // (non-200 status code) if any data failed to be persisted. In error cases, partial data may be
   // written.
   //
-  // Metrics, params, and tags are persisted in the order specified.
-  // The overwrite behavior for metrics, params, and tags is as follows:
+  // Metrics, params, and tags are persisted in the order specified. The overwrite behavior for
+  // metrics, params, and tags is as follows:
   //
   // Metrics: metric values are never overwritten. Logging a metric (key, value, timestamp)
   // appends to the set of values for the metric with the provided key.
