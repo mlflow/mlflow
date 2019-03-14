@@ -2,7 +2,6 @@ import shutil
 import six
 import unittest
 import warnings
-import random
 
 import mock
 import time
