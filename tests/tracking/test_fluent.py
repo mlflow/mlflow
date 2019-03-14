@@ -1,10 +1,8 @@
+import datetime
 import mock
 import os
 import random
 import uuid
-
-import pytest
-import mock
 
 import pytest
 
@@ -386,6 +384,37 @@ def test_start_run_existing_run_from_environment(empty_active_run_stack):
 
         assert is_from_run(active_run, mock_run)
         MlflowClient.get_run.assert_called_once_with(run_id)
+
+
+def test_start_run_existing_prefixed_guid_run_id_from_environment(empty_active_run_stack):
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+
+    unique_identifier = "my_cool_labeled_run_"
+    prefixed_guid_run_id = unique_identifier + uuid.uuid4().hex
+    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: prefixed_guid_run_id})
+
+    with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        active_run = start_run()
+
+        assert is_from_run(active_run, mock_run)
+        MlflowClient.get_run.assert_called_once_with(prefixed_guid_run_id)
+
+
+def test_start_run_existing_timestamp_run_id_from_environment(empty_active_run_stack):
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+
+    unique_identifier = "my_cool_run_at_this_time_"
+    timestamp = datetime.datetime.utcnow().isoformat().replace(":", "-").replace(".", "_")  # replace unsupported chars
+    prefixed_timestamp_run_id = unique_identifier + timestamp
+    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: prefixed_timestamp_run_id})
+
+    with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        active_run = start_run()
+
+        assert is_from_run(active_run, mock_run)
+        MlflowClient.get_run.assert_called_once_with(prefixed_timestamp_run_id)
 
 
 def test_start_run_existing_run_deleted(empty_active_run_stack):
