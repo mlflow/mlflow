@@ -43,7 +43,8 @@ export default class ExperimentViewUtil {
   static getRunInfoCellsForRow(runInfo, tags, isParent, cellType) {
     const CellComponent = `${cellType}`;
     const user = Utils.formatUser(runInfo.user_id);
-    const sourceType = Utils.renderSource(runInfo, tags);
+    const queryParams = window.location && window.location.search ? window.location.search : "";
+    const sourceType = Utils.renderSource(runInfo, tags, queryParams);
     const startTime = runInfo.start_time;
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};
