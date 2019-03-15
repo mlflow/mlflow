@@ -1,11 +1,11 @@
 #' @importFrom reticulate conda_list
 python_bin_conda <- function() {
-  envs <- conda_list()
+  conda = Sys.getenv("MLFLOW_CONDA_HOME", "auto")
+  envs <- conda_list(conda = conda)
   mlflow_env <- envs[envs$name == "r-mlflow", ]
   if (nrow(mlflow_env) == 0) {
     stop("MLflow not configured, please run mlflow_install().")
   }
-
   mlflow_env$python
 }
 
@@ -31,7 +31,7 @@ pip_run <- function(..., echo = TRUE) {
 #' @importFrom reticulate conda_binary
 python_conda_installed <- function() {
   tryCatch({
-    conda_binary()
+    conda_binary(conda = Sys.getenv("MLFLOW_CONDA_HOME", "auto"))
     TRUE
   }, error = function(err) {
     FALSE
@@ -40,7 +40,7 @@ python_conda_installed <- function() {
 
 #' @importFrom reticulate conda_binary
 python_conda_bin <- function() {
-  dirname(conda_binary())
+  dirname(conda_binary(conda = Sys.getenv("MLFLOW_CONDA_HOME", "auto")))
 }
 
 python_conda_home <- function() {
