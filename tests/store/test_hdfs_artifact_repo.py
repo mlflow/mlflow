@@ -42,24 +42,12 @@ def test_list_artifacts():
         f.write("C")
 
     repo.log_artifacts(subdir_path, 'test_model')
-    artifacts = repo.list_artifacts(path=filepath + "/test_model/subdir")
+    artifacts = repo.list_artifacts(path="/test_model/subdir")
     print(artifacts)
-    assert len(artifacts) == 5
-    assert artifacts[0].path == filepath + "/test_model/subdir"
+    assert len(artifacts) == 1
+    assert artifacts[0].path == filepath + "/test_model/subdir/nested"
     assert artifacts[0].is_dir is True
     assert artifacts[0].file_size == 0
-    assert artifacts[1].path == filepath + '/test_model/subdir/a.txt'
-    assert artifacts[1].is_dir is False
-    assert artifacts[1].file_size == 1
-    assert artifacts[2].path == filepath + '/test_model/subdir/b.txt'
-    assert artifacts[2].is_dir is False
-    assert artifacts[2].file_size == 1
-    assert artifacts[3].path == filepath + '/test_model/subdir/nested'
-    assert artifacts[3].is_dir is True
-    assert artifacts[3].file_size == 0
-    assert artifacts[4].path == filepath + '/test_model/subdir/nested/c.txt'
-    assert artifacts[4].is_dir is False
-    assert artifacts[4].file_size == 1
 
 
 def test_log_artifact():

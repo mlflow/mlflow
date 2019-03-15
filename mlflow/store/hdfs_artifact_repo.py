@@ -22,8 +22,11 @@ class HdfsArtifactRepository(ArtifactRepository):
             'host': parsed.hostname,
             'port': 8020 if parsed.port is None else parsed.port
         }
+        if "MLFLOW_HADOOP_HOST" in os.environ:
+            self.config['host'] = os.environ['MLFLOW_HADOOP_HOST']
+        if "MLFLOW_HADOOP_PORT" in os.environ:
+            self.config['port'] = os.environ['MLFLOW_HADOOP_PORT']
         self.path = parsed.path
-
         if self.config['host'] is None:
             self.config['host'] = 'localhost'
         super(HdfsArtifactRepository, self).__init__(artifact_uri)
@@ -64,10 +67,10 @@ class HdfsArtifactRepository(ArtifactRepository):
         hdfs = None
         try:
             hdfs = self._create_hdfs_conn()
-            hdfs_model_path = self.path + os.sep + artifact_path + "/model/"
+            hdfs_model_path = self.path + os.sep + artifact_path + os.sep
             if not (hdfs.exists(hdfs_model_path)):
                 hdfs.mkdir(hdfs_model_path)
-            rootdir_name = os.path.split(os.path.dirname(local_dir))[1]
+            rootdir_name = os.path.split(os.path.basename(local_dir))[1]
             for subdir, _dirs, files in os.walk(local_dir):
                 hdfs_subdir_path = self.path + os.sep \
                                    + artifact_path + os.sep \
@@ -96,19 +99,15 @@ class HdfsArtifactRepository(ArtifactRepository):
         paths = []
         hdfs_path = '/tmp/mlflow/'
         if path:
-            hdfs_path = path
+            hdfs_path = self.artifact_uri+os.sep+path
         hdfs = None
         try:
             hdfs = self._create_hdfs_conn()
             if (hdfs.exists(hdfs_path)):
                 infos = []
-                for subdir, _dirs, files in hdfs.walk(hdfs_path):
-                    infos.append(FileInfo(subdir, hdfs.isdir(subdir),
-                                          hdfs.info(subdir).get("size")))
-                    for each_file in files:
-                        filepath = subdir + os.sep + each_file
-                        infos.append(FileInfo(filepath, hdfs.isdir(filepath),
-                                              hdfs.info(filepath).get("size")))
+                for dir in hdfs.ls(hdfs_path):
+                    if hdfs.isdir(dir):
+                        infos.append(FileInfo(dir, hdfs.isdir(dir), hdfs.info(dir).get("size")))
                 return sorted(infos, key=lambda f: paths)
             return paths
         finally:
@@ -122,13 +121,13 @@ class HdfsArtifactRepository(ArtifactRepository):
         hdfs = None
         try:
             hdfs = self._create_hdfs_conn()
-            rootdir_name = os.path.split(os.path.dirname(remote_path))[1]
+            rootdir_name = os.path.split(os.path.basename(remote_path))[1]
             for subdir, _dirs, files in hdfs.walk(remote_path):
                 subdir_local_path = output_path + os.sep + self.extract_child(subdir, rootdir_name)
                 if (not self.get_path_module().exists(subdir_local_path)):
                     os.makedirs(subdir_local_path)
                 for each_file in files:
-                    filepath = subdir + os.sep + each_file
+                    filepath = subdir+os.sep + each_file
                     local_file_path = subdir_local_path + os.sep + each_file
                     with open(local_file_path, 'wb') as f:
                         f.write(hdfs.open(filepath, 'rb').read())
@@ -137,5 +136,7 @@ class HdfsArtifactRepository(ArtifactRepository):
                 hdfs.close()
 
     def _download_file(self, remote_file_path, local_path):
+        hdfs_file_path = self.artifact_uri + os.sep + remote_file_path
         self._hdfs_download(output_path=local_path,
-                            remote_path=remote_file_path)
+                            remote_path=hdfs_file_path)
+        return local_path
