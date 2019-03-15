@@ -413,7 +413,11 @@ class FileStore(AbstractStore):
             metric_data.append((int(metric_timestamp), float(metric_value)))
         if len(metric_data) == 0:
             raise ValueError("Metric '%s' is malformed. No data found." % metric_name)
-        max_timestamp, max_value = sorted(metric_data)[-1]
+        # Python performs element-wise comparsion of equal-length tuples, ordering them
+        # based on their first differing element. Therefore, we use max() operator to find the
+        # largest value at the largest timestamp. For more information, see
+        # https://docs.python.org/3/reference/expressions.html#value-comparisons
+        max_timestamp, max_value = max(metric_data)
         return Metric(metric_name, max_value, max_timestamp)
 
     def get_all_metrics(self, run_uuid):
