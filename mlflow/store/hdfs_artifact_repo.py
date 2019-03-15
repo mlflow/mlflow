@@ -22,10 +22,6 @@ class HdfsArtifactRepository(ArtifactRepository):
             'host': parsed.hostname,
             'port': 8020 if parsed.port is None else parsed.port
         }
-        if "MLFLOW_HADOOP_HOST" in os.environ:
-            self.config['host'] = os.environ['MLFLOW_HADOOP_HOST']
-        if "MLFLOW_HADOOP_PORT" in os.environ:
-            self.config['port'] = os.environ['MLFLOW_HADOOP_PORT']
         self.path = parsed.path
         if self.config['host'] is None:
             self.config['host'] = 'localhost'
