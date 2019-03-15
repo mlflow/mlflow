@@ -13,22 +13,22 @@ Major features:
 
   - You can register additional providers of tracking stores using the ``mlflow.tracking_store`` entrypoint. (#881, @zblz)
   - You can register additional providers of artifact repositories using the ``mlflow.artifact_repository`` entrypoint. (#882, @mociarain)
-  - The logic generating run metadata from the run context (e.g. ``source_name``, ``source_version``) has been refactored into an extendable system of run context providers. Plugins can register additional providers using the `mlflow.run_context_provider` entrypoint, which add to or overwrite tags set by the base library. (#913, #926, #930, #978, @acroz)
+  - The logic generating run metadata from the run context (e.g. ``source_name``, ``source_version``) has been refactored into an extendable system of run context providers. Plugins can register additional providers using the ``mlflow.run_context_provider`` entrypoint, which add to or overwrite tags set by the base library. (#913, #926, #930, #978, @acroz)
 
 - Support for HTTP authentication to the Tracking Server in the R client. Now you can connect to secure Tracking Servers using credentials set in environment variables, or provide custom plugins for setting the credentials. As an example, this release contains a Databricks plugin that can detect existing Databricks credentials to allow you to connect to the Databricks Tracking Server. (#938, #959, #992, @tomasatdatabricks)
 
 
 Breaking changes:
 
-- [Scoring] The `pyfunc` scoring server now expects requests with the `application/json` content type to contain json-serialized pandas dataframes in the split format, rather than the records format. See the `documentation on deployment <https://mlflow.org/docs/latest/models.html#deploy-a-python-function-model-as-a-local-rest-api-endpoint>`_ for more detail. (#960, @dbczumar) Also, when reading the pandas dataframes from JSON, the scoring server no longer automatically infers data types as it can result in unintentional conversion of data types (#916, @mparkhe).
-- [API] Remove ``GetMetric`` & ``GetParam`` from the REST API as they are subsumed by `GetRun`. (#879, @aarondav)
+- [Scoring] The ``pyfunc`` scoring server now expects requests with the ``application/json`` content type to contain json-serialized pandas dataframes in the split format, rather than the records format. See the `documentation on deployment <https://mlflow.org/docs/latest/models.html#deploy-a-python-function-model-as-a-local-rest-api-endpoint>`_ for more detail. (#960, @dbczumar) Also, when reading the pandas dataframes from JSON, the scoring server no longer automatically infers data types as it can result in unintentional conversion of data types (#916, @mparkhe).
+- [API] Remove ``GetMetric`` & ``GetParam`` from the REST API as they are subsumed by ``GetRun``. (#879, @aarondav)
 
 
 More features and improvements:
 
 - [UI] Add a button for downloading artifacts (#967, @mateiz)
-- [CLI] Add CLI commands for runs: now you can `list`, `delete`, `restore`, and `describe` runs through the CLI (#720, @DorIndivo)
-- [CLI] The `run` command now can take ``--experiment-name`` as an argument, as an alternative to the ``--experiment-id`` argument. You can also choose to set the ``_EXPERIMENT_NAME_ENV_VAR`` environment variable instead of passing in the value explicitly. (#889, #894, @mparke)
+- [CLI] Add CLI commands for runs: now you can ``list``, ``delete``, ``restore``, and ``describe`` runs through the CLI (#720, @DorIndivo)
+- [CLI] The ``run`` command now can take ``--experiment-name`` as an argument, as an alternative to the ``--experiment-id`` argument. You can also choose to set the ``_EXPERIMENT_NAME_ENV_VAR`` environment variable instead of passing in the value explicitly. (#889, #894, @mparke)
 - [Examples] Add Image classification example with Keras. (#743, @tomasatdatabricks )
 - [Artifacts] Add ``get_artifact_uri()`` and ``_download_artifact_from_uri`` convenience functions (#779)
 - [Artifacts] Allow writing Spark models directly to the target artifact store when possible (#808, @smurching)
