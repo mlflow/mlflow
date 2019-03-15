@@ -105,9 +105,9 @@ class HdfsArtifactRepository(ArtifactRepository):
             hdfs = self._create_hdfs_conn()
             if (hdfs.exists(hdfs_path)):
                 infos = []
-                for dir in hdfs.ls(hdfs_path):
-                    if hdfs.isdir(dir):
-                        infos.append(FileInfo(dir, hdfs.isdir(dir), hdfs.info(dir).get("size")))
+                for hdfs_dir in hdfs.ls(hdfs_path):
+                    if hdfs.isdir(hdfs_dir):
+                        infos.append(FileInfo(hdfs_dir, hdfs.isdir(hdfs_dir), hdfs.info(hdfs_dir).get("size")))
                 return sorted(infos, key=lambda f: paths)
             return paths
         finally:
