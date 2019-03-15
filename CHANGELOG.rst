@@ -39,7 +39,7 @@ More features and improvements:
 - [Runs][UI] Support Git Commit hyperlink for Gitlab and Bitbucket. Previously the clickable hyperlink was generated only for Github pages. (#901)
 - [Search][API] Allow param value to have any content, not just alphanumeric characters, ``.``, and ``-`` (#788, @mparkhe)
 - [Search][API] Support "filter" string in the ``SearchRuns`` API. Corresponding UI improvements are planned for the future (#905, @mparke)
-- [Logging] Basic functionality for LogBatch support. NOTE: The feature is currently experimental and the behavior is expected to change in the near future. (#950, #951, #955, @smurching)
+- [Logging] Basic support for LogBatch. NOTE: The feature is currently experimental and the behavior is expected to change in the near future. (#950, #951, #955, #1001, @smurching)
 
 
 Bug fixes and documentation updates:
