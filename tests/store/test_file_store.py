@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 import shutil
+import six
 import time
 import unittest
 import uuid
@@ -297,16 +298,16 @@ class TestFileStore(unittest.TestCase):
         logged_values = []
         for timestamp in [timestamp_high, timestamp_low]:
             for value in reversed(value_range):
-                self.store.log_metric(run.info.run_uuid, Metric(metric_name, value, timestamp))
+                fs.log_metric(run_uuid, Metric(metric_name, value, timestamp))
                 logged_values.append(value)
 
         six.assertCountEqual(
             self,
             [metric.value for metric in
-             self.store.get_metric_history(run.info.run_uuid, metric_name)],
+            fs.get_metric_history(run_uuid, metric_name)],
             logged_values)
 
-        run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
+        run_metrics = fs.get_run(run_uuid).data.metrics
         assert len(run_metrics) == 1
         assert run_metrics[0].key == metric_name
         assert run_metrics[0].value == max(value_range)
