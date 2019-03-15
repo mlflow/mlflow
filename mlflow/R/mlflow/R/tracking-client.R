@@ -282,7 +282,7 @@ mlflow_client_restore_experiment <- function(client, experiment_id) {
 
 #' Get Run
 #'
-#' Gets metadata, params, tags, and metrics for a run. For each metric, only the maximum value 
+#' Gets metadata, params, tags, and metrics for a run. For each metric, only the maximum value
 #' logged at the maximum timestamp is returned.
 #'
 #' @template roxlate-run-id
