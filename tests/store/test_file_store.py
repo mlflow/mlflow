@@ -314,12 +314,6 @@ class TestFileStore(unittest.TestCase):
         assert run_metrics[0].timestamp == timestamp_high
 
     def test_get_all_metrics(self):
-        def get_expected_metric_timestamp_and_value(metric_entries):
-            expected_timestamp = max(entry[0] for entry in metric_entries)
-            expected_value = max(
-                entry[1] for entry in metric_entries if entry[0] == expected_timestamp)
-            return expected_timestamp, expected_value
-
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
             runs = self.exp_data[exp_id]["runs"]
@@ -329,8 +323,7 @@ class TestFileStore(unittest.TestCase):
                 metrics_dict = run_info.pop("metrics")
                 for metric in metrics:
                     # just the last recorded value
-                    expected_timestamp, expected_value = get_expected_metric_timestamp_and_value(
-                        metrics_dict[metric.key])
+                    expected_timestamp, expected_value = max(metrics_dict[metric.key])
                     self.assertEqual(metric.timestamp, expected_timestamp)
                     self.assertEqual(metric.value, expected_value)
 
