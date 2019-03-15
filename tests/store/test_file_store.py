@@ -291,7 +291,6 @@ class TestFileStore(unittest.TestCase):
         run_uuid = self._create_run(fs).info.run_uuid
 
         metric_name = "test-metric-1"
-
         timestamp_values_mapping = {
             1000: map(float, range(-20, 20)),
             2000: map(float, range(-10, 10)),
