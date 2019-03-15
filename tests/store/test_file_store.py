@@ -285,22 +285,32 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
-    def test_log_metric_allows_multiple_values_at_same_timestamp_and_run_data_uses_max_value(self):
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_and_value(self):
         fs = FileStore(self.test_root)
         run_uuid = self._create_run(fs).info.run_uuid
 
         metric_name = "test-metric-1"
-        timestamp = int(time.time())
-        metric1 = Metric(metric_name, 100.0, timestamp)
-        metric2 = Metric(metric_name, 2.02, timestamp)
+        timestamp_low = 1000
+        timestamp_high = 2000
+        value_range = map(float, range(-10, 10))
 
-        fs.log_metric(run_uuid, metric1)
-        fs.log_metric(run_uuid, metric2)
+        logged_values = []
+        for timestamp in [timestamp_high, timestamp_low]:
+            for value in reversed(value_range):
+                self.store.log_metric(run.info.run_uuid, Metric(metric_name, value, timestamp))
+                logged_values.append(value)
 
-        run_metrics = fs.get_run(run_uuid).data.metrics
+        six.assertCountEqual(
+            self,
+            [metric.value for metric in
+             self.store.get_metric_history(run.info.run_uuid, metric_name)],
+            logged_values)
+
+        run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
         assert len(run_metrics) == 1
         assert run_metrics[0].key == metric_name
-        assert run_metrics[0].value == 100.0
+        assert run_metrics[0].value == max(value_range)
+        assert run_metrics[0].timestamp == timestamp_high
 
     def test_get_all_metrics(self):
         def get_expected_metric_timestamp_and_value(metric_entries):
