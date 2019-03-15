@@ -1,4 +1,6 @@
 import time
+from collections import defaultdict
+
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
     Column, String, Float, ForeignKey, Integer, CheckConstraint,
@@ -41,15 +43,15 @@ def _create_entity(base, model):
                 # Run data contains list for metrics, params and tags
                 # so obj will be a list so we need to convert those items
                 if k == 'metrics':
-                    # only get latest recorded metrics per key
-                    metrics = {}
-                    for o in obj:
-                        existing_metric = metrics.get(o.key)
-                        if (existing_metric is None) or (o.timestamp > existing_metric.timestamp)\
-                            or (o.timestamp == existing_metric.timestamp
-                                and o.value > existing_metric.value):
-                            metrics[o.key] = Metric(o.key, o.value, o.timestamp)
-                    obj = metrics.values()
+                    # obtain the maximum value at the maximum timestamp for each metric key
+                    metric_groups = defaultdict(list)
+                    for sql_metric in obj:
+                        metric_groups[sql_metric.key].append(
+                            Metric(sql_metric.key, sql_metric.value, sql_metric.timestamp))
+                    obj = [
+                        max(group, key=lambda m: (m.timestamp, m.value))
+                        for group in metric_groups.values()
+                    ]
                 elif k == 'params':
                     obj = [Param(o.key, o.value) for o in obj]
                 elif k == 'tags':
