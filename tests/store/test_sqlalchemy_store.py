@@ -421,26 +421,31 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(2, len(sql_run_metrics))
             self.assertEqual(1, len(run.data.metrics))
 
-    def test_log_metric_allows_multiple_values_at_same_timestamp_and_run_data_uses_max_value(self):
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_and_value(self):
         run = self._run_factory()
 
         metric_name = "test-metric-1"
-        timestamp = time.time()
-        metric = entities.Metric(metric_name, 100.0, int(timestamp))
-        metric2 = entities.Metric(metric_name, 1.02, int(timestamp))
-        self.store.log_metric(run.info.run_uuid, metric)
-        self.store.log_metric(run.info.run_uuid, metric2)
+        timestamp_low = 1000
+        timestamp_high = 2000
+        value_range = map(float, range(-10, 10))
+
+        logged_values = []
+        for timestamp in [timestamp_high, timestamp_low]:
+            for value in reversed(value_range):
+                self.store.log_metric(run.info.run_uuid, Metric(metric_name, value, timestamp))
+                logged_values.append(value)
 
         six.assertCountEqual(
             self,
             [metric.value for metric in
              self.store.get_metric_history(run.info.run_uuid, metric_name)],
-            [100.0, 1.02])
+            logged_values)
 
         run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
         assert len(run_metrics) == 1
         assert run_metrics[0].key == metric_name
-        assert run_metrics[0].value == 100.0
+        assert run_metrics[0].value == max(value_range) 
+        assert run_metrics[0].timestamp == timestamp_high 
 
     def test_log_null_metric(self):
         run = self._run_factory()

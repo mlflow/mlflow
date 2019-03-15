@@ -45,8 +45,8 @@ def _create_entity(base, model):
                     metrics = {}
                     for o in obj:
                         existing_metric = metrics.get(o.key)
-                        if existing_metric is None or (
-                                o.timestamp >= existing_metric.timestamp
+                        if (existing_metric is None) or (o.timestamp > existing_metric.timestamp)\
+                            or (o.timestamp == existing_metric.timestamp
                                 and o.value > existing_metric.value):
                             metrics[o.key] = Metric(o.key, o.value, o.timestamp)
                     obj = metrics.values()
