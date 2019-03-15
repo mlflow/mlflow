@@ -6,70 +6,53 @@ Changelog
 
 Major features:
 
-- Support for running MLflow Projects in Docker containers. This allows users to include non-Python dependencies in their project environments and provides stronger isolation when running projects. See the `Projects documentation <https://mlflow.org/docs/latest/projects.html>`_ for more information. (#555, @marcusrehm; #819, @mparkhe; #970, @dbczumar)
-- SqlAlchemyStore: new backend store implementation using SQLAlchemy for MLflow Tracking Server. Support for a scalable and performant backend store was one of the top community requests. This community contribution feature enables users to connect to local or remote SQLAlchemy compatible databases (currently supported flavors include MySQL, PostgreSQL, SQLite, and MS SQL) and is compatible with file backed store. See the `Tracking Store documentation <https://mlflow.org/docs/latest/tracking.html#storage>`_ for more information. (#756, @AndersonReyes; #800, #844, #847, #848, #860, #868, #975, @mparkhe; #980, @dbczumar)
-- Simplified Python model customization. Custom preprocessing and postprocessing logic, as well as data dependencies, can be easily included in models with the python_function flavor using updated mlflow.pyfunc Python APIs. For more information, see the `Custom Python Models documentation <https://mlflow.org/docs/latest/models.html#custom-python-models>`_. (#791, #792, #793, #830, #910, @dbczumar)
+- Support for running MLflow Projects in Docker containers. This allows you to include non-Python dependencies in their project environments and provides stronger isolation when running projects. See the `Projects documentation <https://mlflow.org/docs/latest/projects.html>`_ for more information. (#555, @marcusrehm; #819, @mparkhe; #970, @dbczumar)
+- Database stores for the MLflow Tracking Server. Support for a scalable and performant backend store was one of the top community requests. This feature enables you to connect to local or remote SQLAlchemy-compatible databases (currently supported flavors include MySQL, PostgreSQL, SQLite, and MS SQL) and is compatible with file backed store. See the `Tracking Store documentation <https://mlflow.org/docs/latest/tracking.html#storage>`_ for more information. (#756, @AndersonReyes; #800, #844, #847, #848, #860, #868, #975, @mparkhe; #980, @dbczumar)
+- Simplified custom Python model packaging. You can easily include custom preprocessing and postprocessing logic, as well as data dependencies in models with the ``python_function`` flavor using updated ``mlflow.pyfunc`` Python APIs. For more information, see the `Custom Python Models documentation <https://mlflow.org/docs/latest/models.html#custom-python-models>`_. (#791, #792, #793, #830, #910, @dbczumar)
 - Plugin systems allowing third party libraries to extend MLflow functionality. The `proposal document <https://gist.github.com/zblz/9e337a55a7ba73314890be68370fa69a>`_ gives the full detail of the three main changes: 
 
-  - Additional providers of tracking stores can be registered using the ``mlflow.tracking_store`` entrypoint. (#881, @zblz)
-  - Additional providers of artifact repository can be registered using the ``mlflow.artifact_repository`` entrypoint. (#882, @mociarain)
+  - You can register additional providers of tracking stores using the ``mlflow.tracking_store`` entrypoint. (#881, @zblz)
+  - You can register additional providers of artifact repositories using the ``mlflow.artifact_repository`` entrypoint. (#882, @mociarain)
   - The logic generating run metadata from the run context (e.g. ``source_name``, ``source_version``) has been refactored into an extendable system of run context providers. Plugins can register additional providers using the `mlflow.run_context_provider` entrypoint, which add to or overwrite tags set by the base library. (#913, #926, #930, #978, @acroz)
 
-- Support for authentication to the tracking server in the R client. Now R users can connect to secure tracking servers via credentials set in environment variables, or provide custom plugins for setting the credentials. As an example, in this release is the Databricks plugin which can detect existing Databricks credentials to allow users to connect to the Databricks tracking server. (#938, #959, #992, @tomasatdatabricks)
+- Support for HTTP authentication to the Tracking Server in the R client. Now you can connect to secure Tracking Servers using credentials set in environment variables, or provide custom plugins for setting the credentials. As an example, this release contains a Databricks plugin that can detect existing Databricks credentials to allow you to connect to the Databricks Tracking Server. (#938, #959, #992, @tomasatdatabricks)
 
 
 Breaking changes:
 
-- [Scoring] Use pandas-split format as default for JSON requests to pyfunc scoring server (#960, @dbczumar)
-- [Scoring] When reading pandas dataframes from json, do not infer data types (#916, @mparkhe)
+- [Scoring] The `pyfunc` scoring server now expects requests with the `application/json` content type to contain json-serialized pandas dataframes in the split format, rather than the records format. See the `documentation on deployment <https://mlflow.org/docs/latest/models.html#deploy-a-python-function-model-as-a-local-rest-api-endpoint>`_ for more detail. (#960, @dbczumar) Also, when reading the pandas dataframes from JSON, the scoring server no longer automatically infers data types as it can result in unintentional conversion of data types (#916, @mparkhe).
+- [API] Remove ``GetMetric`` & ``GetParam`` from the REST API as they are subsumed by `GetRun`. (#879, @aarondav)
 
 
 More features and improvements:
 
 - [UI] Add a button for downloading artifacts (#967, @mateiz)
-- [CLI] Add ``mlflow runs`` CLI utility (#720, @DorIndivo)
-- [CLI] ``MLFLOW_EXPERIMENT_NAME`` env variable and ``--experiment-name`` arguments for CLI command (#889, #894, @mparke)
+- [CLI] Add CLI commands for runs: now you can `list`, `delete`, `restore`, and `describe` runs through the CLI (#720, @DorIndivo)
+- [CLI] The `run` command now can take ``--experiment-name`` as an argument, as an alternative to the ``--experiment-id`` argument. You can also choose to set the ``_EXPERIMENT_NAME_ENV_VAR`` environment variable instead of passing in the value explicitly. (#889, #894, @mparke)
 - [Examples] Add Image classification example with Keras. (#743, @tomasatdatabricks )
-- [R][Runs] Allow client to infer context info when creating new run in fluent API (#958, @tomasatdatabricks)
-- [Logging] LogBatch support (#950, #951, #955, @smurching)
 - [Artifacts] Add ``get_artifact_uri()`` and ``_download_artifact_from_uri`` convenience functions (#779)
 - [Artifacts] Allow writing Spark models directly to the target artifact store when possible (#808, @smurching)
-- [Models] Make mlflow.pytorch.pickle_module the default when saving PyTorch models (#861)
-- [Models] Add ``code paths`` parameter to pytorch model persistence functions (#842, dbczumar)
-- [Models] Add CloudPickle serialization module for PyTorch model persistence (#851, @dbczumar)
-- [Projects] Add support for Gitlab and Bitbucket project repo url (#901)
-- [Search] Support for Search Runs API using "filter" string (#905, @mparke)
-- [Search] Search API: allowing param value to have any content for checks (#788, @mparkhe)
-- [Internal:Objects] Standardize ``_properties`` in ``mlflow.entities`` (#676, @mlaradji)
-- [Testing] Pin test requirements (#952, @dbczumar)
+- [Models] PyTorch model persistence improvements to allow persisting definitions and dependencies outside the immediate scope:
+  - Add a ``code_paths`` parameter to ``mlflow.pytorch.save_model`` and ``mlflow.pytorch.log_model`` to allow external module dependencies to be specified as paths to python files. (#842, @dbczumar)
+  - Improve ``mlflow.pytorch.save_model`` to capture class definitions from notebooks and the ``__main__`` scope (#851, #861, @dbczumar)
+- [Runs][R] Allow client to infer context info when creating new run in fluent API (#958, @tomasatdatabricks)
+- [Runs][UI] Support Git Commit hyperlink for Gitlab and Bitbucket. Previously the clickable hyperlink was generated only for Github pages. (#901)
+- [Search][API] Allow param value to have any content, not just alphanumeric characters, ``.``, and ``-`` (#788, @mparkhe)
+- [Search][API] Support "filter" string in the ``SearchRuns`` API. Corresponding UI improvements are planned for the future (#905, @mparke)
+- [Logging] Basic functionality for LogBatch support. NOTE: The feature is currently experimental and the behavior is expected to change in the near future. (#950, #951, #955, @smurching)
 
 
 Bug fixes and documentation updates:
 
-- [Artifacts] Post empty string instead of empty files in the DBFS artifact repo (#818, @smurching)
-- [Artifacts] Fix empty-file upload to DBFS in ``log_artifacts`` (#895, @smurching)
+- [Artifacts] Fix empty-file upload to DBFS in ``log_artifact`` and ``log_artifacts`` (#895, #818, @smurching)
 - [Artifacts] S3 artifact store: fix path resolution error when artifact root is bucket root (#928, @dbczumar)
-- [UI][Runs] Use relative URL in notebook link (#891, @smurching)
-- [API] Remove ``get_metric`` & ``get_param`` API calls, and simplify ``list_run_infos`` (#879, @aarondav)
+- [UI] Fix a bug with Databricks notebook URL links (#891, @smurching)
 - [Export] Fix for missing run name in csv export (#864, @jimthompson5802)
+- [Example] Correct missing tensorboardX module error in PyTorch example when running in MLflow Docker container (#809, @jimthompson5802)
 - [Scoring][R] Fix local serving of rfunc models (#874, @kevinykuo)
-- [Docs] 
+- [Docs] Improve flavor-specific documentation in Models documentation (#909, @dbczumar)
 
-  - Use literalinclude for examples. Fix formatting in models. (#845, @stbof)
-  - Update quickstart documentation (#906, @4n4nd)
-  - Improve TensorFlow API doc. Use correct spelling of TensorFlow throughout. (#857, @stbof)
-  - correct missing tensorboardX module error in pytorch example when running in mlflow docker container (#809, @jimthompson5802)
-  - Models docs: Improve flavor-specific documentation (#909, @dbczumar)
-
-- [Dependency Fixes]
-
-  - Fix #828: add cloudpickle package to conda.yaml in examples/sklearn_elasticnet_wine running in docker (#829, @jimthompson5802)
-  - Update version of jackson-databind (#824, @mateiz)
-  - Bump click version (#872, @smurching)
-  - Add cloudpickle package to the dependencies (#777, @tmielika)
-  - Clean up shaded java artifact (#804, @alkersan)
-
-Small bug fixes and doc updates (#822, #899, #787, #785, #780, #942, @hanyucui; #862, #904, #954, #806, @stbof; #907, @smurching; #896, #858, #836, #859, #923, #939, #933, #931, @dbczumar; #880, @zblz; #876, @acroz; #827, #812, #816, @jimthompson5802; #837, #790, #897, #974, #900, @mparkhe; #831, #798, @aarondav; #814, @sueann; #912, @mateiz; #922, #947, @tomasatdatabricks; #795, @KevYuen)
+Small bug fixes and doc updates (#822, #899, #787, #785, #780, #942, @hanyucui; #862, #904, #954, #806, #857, #845, @stbof; #907, #872, @smurching; #896, #858, #836, #859, #923, #939, #933, #931, #952, @dbczumar; #880, @zblz; #876, @acroz; #827, #812, #816, #829, @jimthompson5802; #837, #790, #897, #974, #900, @mparkhe; #831, #798, @aarondav; #814, @sueann; #824, #912, @mateiz; #922, #947, @tomasatdatabricks; #795, @KevYuen; #676, @mlaradji; #906, @4n4nd; #777, @tmielika; #804, @alkersan)
 
 
 0.8.2 (2019-01-28)
