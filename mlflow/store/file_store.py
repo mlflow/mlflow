@@ -407,12 +407,18 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_metric_from_file(parent_path, metric_name):
         _validate_metric_name(metric_name)
-        metric_data = read_file_lines(parent_path, metric_name)
+        metric_data = []
+        for line in read_file_lines(parent_path, metric_name):
+            metric_timestamp, metric_value = line.split()
+            metric_data.append((int(metric_timestamp), float(metric_value)))
         if len(metric_data) == 0:
-            raise Exception("Metric '%s' is malformed. No data found." % metric_name)
-        last_line = metric_data[-1]
-        timestamp, val = last_line.strip().split(" ")
-        return Metric(metric_name, float(val), int(timestamp))
+            raise ValueError("Metric '%s' is malformed. No data found." % metric_name)
+        # Python performs element-wise comparison of equal-length tuples, ordering them
+        # based on their first differing element. Therefore, we use max() operator to find the
+        # largest value at the largest timestamp. For more information, see
+        # https://docs.python.org/3/reference/expressions.html#value-comparisons
+        max_timestamp, max_value = max(metric_data)
+        return Metric(metric_name, max_value, max_timestamp)
 
     def get_all_metrics(self, run_uuid):
         _validate_run_id(run_uuid)
