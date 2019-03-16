@@ -444,8 +444,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
         assert len(run_metrics) == 1
         assert run_metrics[0].key == metric_name
-        assert run_metrics[0].value == max(value_range) 
-        assert run_metrics[0].timestamp == timestamp_high 
+        assert run_metrics[0].value == max(value_range)
+        assert run_metrics[0].timestamp == timestamp_high
 
     def test_log_null_metric(self):
         run = self._run_factory()
