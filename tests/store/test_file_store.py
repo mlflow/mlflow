@@ -292,8 +292,8 @@ class TestFileStore(unittest.TestCase):
 
         metric_name = "test-metric-1"
         timestamp_values_mapping = {
-            1000: map(float, range(-20, 20)),
-            2000: map(float, range(-10, 10)),
+            1000: [float(i) for i in range(-20, 20)],
+            2000: [float(i) for i in range(-10, 10)],
         }
 
         logged_values = []
