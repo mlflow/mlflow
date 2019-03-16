@@ -100,12 +100,16 @@ class AbstractStore:
     @abstractmethod
     def get_run(self, run_uuid):
         """
-        Fetch the run from backend store
+        Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
+        contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
+        as well as a collection of run parameters, tags and metrics -
+        :py:class`RunData <mlflow.entities.RunData>`. For each metric, only the maximum
+        value at the maximum timestamp is returned.
 
-        :param run_uuid: Unique identifier for the run
+        :param run_uuid: Unique identifier for the run.
 
-        :return: A single :py:class:`mlflow.entities.Run` object if it exists,
-            otherwise raises an exception
+        :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
+                 raises an exception.
         """
         pass
 

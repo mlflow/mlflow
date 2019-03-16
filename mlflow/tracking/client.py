@@ -34,7 +34,18 @@ class MlflowClient(object):
         self.store = utils._get_store(self.tracking_uri)
 
     def get_run(self, run_id):
-        """:return: :py:class:`mlflow.entities.Run` associated with the run ID."""
+        """
+        Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
+        contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
+        as well as a collection of run parameters, tags and metrics -
+        :py:class`RunData <mlflow.entities.RunData>`. For each metric, only the maximum
+        value at the maximum timestamp is returned.
+
+        :param run_uuid: Unique identifier for the run.
+
+        :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
+                 raises an exception.
+        """
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
