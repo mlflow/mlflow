@@ -33,10 +33,7 @@ matrix:
         - mvn clean package -q
     - language: node_js
       node_js:
-      # Pin NodeJS: to v10.6 to mitigate https://github.com/facebook/create-react-app/issues/6591
-      # Should eventually change back to "node" to use the latest node version as peer
-      # https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
-        - "10.6"
+        - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
       install:
       script:
         - cd mlflow/server/js
