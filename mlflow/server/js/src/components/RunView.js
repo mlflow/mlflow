@@ -168,8 +168,6 @@ class RunView extends Component {
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
-    const queryParams = window.location && window.location.search ?
-      window.location.search : "";
     const tableStyles = {
       table: {
         width: 'auto',
@@ -222,7 +220,7 @@ class RunView extends Component {
             <span className="metadata-header">Source: </span>
             <span className="metadata-info">
               {Utils.renderSourceTypeIcon(run.source_type)}
-              {Utils.renderSource(run, tags, queryParams)}
+              {Utils.renderSource(run, tags)}
             </span>
           </div>
           {run.source_version ?
@@ -266,12 +264,7 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Job Output: </span>
               <span className="metadata-info">
-                <a
-                  href={Utils.addQueryParams(tags['mlflow.databricks.runURL'].value, queryParams)}
-                   target="_blank"
-                >
-                  Logs
-                </a>
+                <a href={tags['mlflow.databricks.runURL'].value} target="_blank">Logs</a>
               </span>
             </div>
             : null
@@ -409,7 +402,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
 };
 
 const shellEscape = (str) => {
-  if ((/["\r\n\t ]/).test(str)) {
+  if (/["\r\n\t ]/.test(str)) {
     return '"' + str.replace(/"/g, '\\"') + '"';
   }
   return str;
