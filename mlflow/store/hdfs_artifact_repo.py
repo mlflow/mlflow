@@ -17,12 +17,11 @@ class HdfsArtifactRepository(ArtifactRepository):
     together with the RestStore.
     """
 
-    def __init__(self, artifact_uri, kerb_ticket=None, user=None):
+    def __init__(self, artifact_uri):
 
-        self.host, self.port, self.path = _resolve_connection_params(artifact_uri, 'localhost',
+        self.host, self.port, self.path = _resolve_connection_params(artifact_uri,
+                                                                     'localhost',
                                                                      8020)
-        self.kerb_ticket, self.user = _resolve_authorization(kerb_ticket, user)
-
         super(HdfsArtifactRepository, self).__init__(artifact_uri)
 
     def get_path_module(self):
@@ -34,10 +33,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         if path is None:
             path = self.path
 
-        with hdfs_system(host=self.host,
-                         port=self.port,
-                         kerb_ticket=self.kerb_ticket,
-                         user=self.user) \
+        with hdfs_system(host=self.host, port=self.port) \
                 as hdfs:
             with hdfs.open(path, 'wb') as output:
                 content = open(local_file, "rb").read()
@@ -107,15 +103,20 @@ class HdfsArtifactRepository(ArtifactRepository):
 
 
 @contextmanager
-def hdfs_system(host, port, driver='libhdfs', kerb_ticket=None, user=None):
+def hdfs_system(host, port):
     import pyarrow as pa
-    if "MLFLOW_HDFS_DRIVER" in os.environ:
-        driver = os.environ["MLFLOW_HDFS_DRIVER"]
 
-    hdfs_system = pa.hdfs.connect(host=host, port=port, user=user, driver=driver,
-                                  kerb_ticket=kerb_ticket)
-    yield hdfs_system
-    hdfs_system.close()
+    driver = os.getenv('MLFLOW_HDFS_DRIVER')
+    kerb_ticket = os.getenv('MLFLOW_KERBEROS_TICKET_CACHE')
+    kerberos_user = os.getenv('MLFLOW_KERBEROS_USER')
+
+    connected = pa.hdfs.connect(host=host,
+                                port=port,
+                                user=kerberos_user,
+                                driver=driver,
+                                kerb_ticket=kerb_ticket)
+    yield connected
+    connected.close()
 
 
 def _resolve_connection_params(artifact_uri, default_host, default_port):
@@ -127,16 +128,6 @@ def _resolve_connection_params(artifact_uri, default_host, default_port):
     if parsed.port:
         port = parsed.port
     return host, port, parsed.path
-
-
-def _resolve_authorization(kerb_ticket, user):
-    ticket_cache = kerb_ticket
-    kerberos_user = user
-    if "MLFLOW_KERBEROS_TICKET_CACHE" in os.environ:
-        ticket_cache = os.environ['MLFLOW_KERBEROS_TICKET_CACHE']
-    if "MLFLOW_KERBEROS_USER" in os.environ:
-        kerberos_user = os.environ['MLFLOW_KERBEROS_USER']
-    return ticket_cache, kerberos_user
 
 
 def _extract_child(path, rootdir_name):
