@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     with mlflow.start_run() as tracked_run:
         tf.logging.set_verbosity(tf.logging.INFO)
-        hidden_units = [ int( s ) for s in args.hidden_units.split( ) ]
+        hidden_units = [int(s) for s in args.hidden_units.split()]
         print("Hidden Units: {}".format(hidden_units))
         print("Training Steps: {}".format(args.steps))
         mlflow.log_param("hidden_units", hidden_units)
@@ -53,7 +53,7 @@ if __name__ == "__main__":
             tensorflow.log_model(tf_saved_model_dir=saved_estimator_path, tf_signature_def_key="predict", artifact_path="model", \
                 tf_meta_graph_tags=[tf.saved_model.tag_constants.SERVING])  #  adding required parameter tf_meta_graph_tags
             # Reloading the model
-            pyfunc_model = pyfunc.load_pyfunc(os.path.join(mlflow.get_artifact_uri(), 'model'))  #  (saved_estimator_path)
+            pyfunc_model = pyfunc.load_pyfunc(os.path.join(mlflow.get_artifact_uri(), 'model'))
             df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
             # Predicting on the loaded Python Function
             predict_df = pyfunc_model.predict(df)
