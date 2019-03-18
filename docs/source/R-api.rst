@@ -446,8 +446,9 @@ verbose compared to the Fluent API.
 Get Run
 =======
 
-Gets metadata, params, tags, and metrics for a run. For each metric, only
-the maximum value logged at the maximum timestamp is returned.
+Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the same
+key are logged for the run, returns only the value with the latest timestamp. If there are multiple
+values with the latest timestamp, returns the maximum of these values.
 
 .. code:: r
 
