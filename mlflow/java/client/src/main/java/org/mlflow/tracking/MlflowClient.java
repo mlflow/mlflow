@@ -50,7 +50,7 @@ public class MlflowClient {
    * same key are logged for the run, returns only the value with the latest timestamp. If there are
    * multiple values with the latest timestamp, returns the maximum of these values.
    *
-   * @return {@link org.mlflow.api.proto.Service#Run} associated with the id.
+   * @return Run associated with the id.
    */
   public Run getRun(String runUuid) {
     URIBuilder builder = newURIBuilder("runs/get").setParameter("run_uuid", runUuid);
