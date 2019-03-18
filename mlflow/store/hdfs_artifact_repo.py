@@ -19,12 +19,9 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri, kerb_ticket=None, user=None):
 
-        (host, port, path) = _resolve_connection_params(artifact_uri, 'localhost', 8020)
-        self.host = host
-        self.port = port
-        self.path = path
-        self.kerb_ticket = kerb_ticket
-        self.user = user
+        self.host, self.port, self.path = _resolve_connection_params(artifact_uri, 'localhost',
+                                                                     8020)
+        self.kerb_ticket, self.user = _resolve_authorization(kerb_ticket, user)
 
         super(HdfsArtifactRepository, self).__init__(artifact_uri)
 
@@ -130,6 +127,16 @@ def _resolve_connection_params(artifact_uri, default_host, default_port):
     if parsed.port:
         port = parsed.port
     return host, port, parsed.path
+
+
+def _resolve_authorization(kerb_ticket, user):
+    ticket_cache = kerb_ticket
+    kerberos_user = user
+    if "MLFLOW_KERBEROS_TICKET_CACHE" in os.environ:
+        ticket_cache = os.environ['MLFLOW_KERBEROS_TICKET_CACHE']
+    if "MLFLOW_KERBEROS_USER" in os.environ:
+        kerberos_user = os.environ['MLFLOW_KERBEROS_USER']
+    return ticket_cache, kerberos_user
 
 
 def _extract_child(path, rootdir_name):
