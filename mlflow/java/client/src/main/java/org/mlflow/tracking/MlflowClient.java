@@ -45,7 +45,13 @@ public class MlflowClient {
     this. artifactRepositoryFactory = new ArtifactRepositoryFactory(hostCredsProvider);
   }
 
-  /** @return run associated with the id. */
+  /**
+   * Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
+   * same key are logged for the run, returns only the value with the latest timestamp. If there are
+   * multiple values with the latest timestamp, returns the maximum of these values.
+   *
+   * @return Run associated with the id.
+   */
   public Run getRun(String runUuid) {
     URIBuilder builder = newURIBuilder("runs/get").setParameter("run_uuid", runUuid);
     return mapper.toGetRunResponse(httpCaller.get(builder.toString())).getRun();
