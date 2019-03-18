@@ -7,27 +7,33 @@ from mlflow.entities import FileInfo
 from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository
 
 
-@mock.patch('pyarrow.hdfs.connect')
-def test_list_artifacts(connect_mock):
+@mock.patch('pyarrow.hdfs.HadoopFileSystem')
+def test_list_artifacts(hdfs_system_mock):
     repo = HdfsArtifactRepository('hdfs://host_name:8020/maybe/path')
 
-    expected = [FileInfo('sub_dir_one', True, None),
-                FileInfo('sub_dir_one/file_one', False, None),
-                FileInfo('sub_dir_one/file_two', False, None),
-                FileInfo('sub_dir_two', True, None),
-                FileInfo('sub_dir_two/file_three', False, None)]
+    expected = [FileInfo('sub_dir_one', True, 33),
+                FileInfo('sub_dir_one/file_one', False, 33),
+                FileInfo('sub_dir_one/file_two', False, 33),
+                FileInfo('sub_dir_two', True, 33),
+                FileInfo('sub_dir_two/file_three', False, 33)]
 
-    with mock.patch('pyarrow.hdfs.HadoopFileSystem', spec=HadoopFileSystem) as hdfs_system_mock:
-        connect_mock.return_value = hdfs_system_mock
+    hdfs_system_mock.return_value.walk.return_value = [
+        ('sub_dir_one', None, ['file_one', 'file_two']),
+        ('sub_dir_two', None, ['file_three'])]
+    hdfs_system_mock.return_value.info.return_value.get.return_value = 33
+    hdfs_system_mock.return_value.isdir.side_effect = [True, False, False, True, False]
 
-        hdfs_system_mock.walk.return_value = [
-            ('sub_dir_one', None, ['file_one', 'file_two']),
-            ('sub_dir_two', None, ['file_three'])]
-        hdfs_system_mock.info.return_value = {'get': lambda _: 33}
-        hdfs_system_mock.isdir.side_effect = [True, False, False, True, False]
+    actual = repo.list_artifacts(path='/test_hdfs/some/path')
+    assert actual == expected
 
-        actual = repo.list_artifacts(path='/test_hdfs/some/path')
-        assert actual == expected
+
+@mock.patch('pyarrow.hdfs.HadoopFileSystem', spec=HadoopFileSystem)
+def test_list_artifacts_(hdfs_system_mock):
+    hdfs_system_mock.return_value.exists.return_value = False
+
+    repo = HdfsArtifactRepository('hdfs://host_name:8020/maybe/path')
+    actual = repo.list_artifacts(path='/test_hdfs/some/path')
+    assert actual == []
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
@@ -42,6 +48,12 @@ def test_log_artifact(hdfs_system_mock):
         name = tmp_local_file.name
         repo.log_artifact(name,
                           '/test_hdfs/some/path')
+
+        hdfs_system_mock.assert_called_once_with(driver='libhdfs', extra_conf=None,
+                                                 host='host_name',
+                                                 kerb_ticket='/tmp/krb5cc_22222222', port=8020,
+                                                 user='some_user')
+
         # TODO: refactor this magic ...
         write_mock = hdfs_system_mock.return_value.open.return_value.__enter__.return_value.write
         write_mock.assert_called_once_with(b'PyArrow Works')
