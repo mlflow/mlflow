@@ -6,7 +6,8 @@ from six.moves import urllib
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.validation import path_not_unique, bad_path_message
+from mlflow.store.local_artifact_repo import verify_artifact_path
+from mlflow.utils.validation import bad_path_message
 
 
 class HdfsArtifactRepository(ArtifactRepository):
@@ -29,39 +30,45 @@ class HdfsArtifactRepository(ArtifactRepository):
         return posixpath
 
     def log_artifact(self, local_file, artifact_path=None):
-        path = artifact_path
-        if path is None:
-            path = self.path
+        """
+            Log artifact in hdfs.
+        :param local_file: source file path
+        :param artifact_path: when specified will attempt to write under artifact_uri/artifact_path
+        """
+        hdfs_path = 'hdfs:' + _resolve_path(self.path, artifact_path)
+        verify_artifact_path(hdfs_path)
 
-        with hdfs_system(host=self.host, port=self.port) \
-                as hdfs:
-            with hdfs.open(path, 'wb') as output:
-                content = open(local_file, "rb").read()
-                output.write(content)
+        with hdfs_system(host=self.host, port=self.port) as hdfs:
+            with hdfs.open(hdfs_path, 'wb') as output:
+                output.write(open(local_file, "rb").read())
 
     def log_artifacts(self, local_dir, artifact_path=None):
-
-        _verify_artifact_path(artifact_path)
+        """
+            Log artifacts in hdfs.
+            Missing remote directories will be created if needed.
+        :param local_dir: source dir path
+        :param artifact_path: when specified will attempt to write under artifact_uri/artifact_path
+        """
+        hdfs_path = 'hdfs:' + _resolve_path(self.path, artifact_path)
+        verify_artifact_path(hdfs_path)
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
 
-            hdfs_model_path = self.path + os.sep + artifact_path + "/model/"
+            if not hdfs.exists(hdfs_path):
+                hdfs.mkdir(hdfs_path)
 
-            if not hdfs.exists(hdfs_model_path):
-                hdfs.mkdir(hdfs_model_path)
+            for subdir_path, _, files in os.walk(local_dir):
 
-            rootdir_name = os.path.split(os.path.dirname(local_dir))[1]
+                hdfs_subdir_path = _resolve_sub_dir(hdfs_path, subdir_path, local_dir)
 
-            for subdir, _dirs, files in os.walk(local_dir):
-                hdfs_subdir_path = self.path + os.sep \
-                                   + artifact_path + os.sep \
-                                   + _extract_child(subdir, rootdir_name)
                 if not hdfs.exists(hdfs_subdir_path):
                     hdfs.mkdir(hdfs_subdir_path)
+
                 for each_file in files:
-                    file_path = subdir + os.sep + each_file
-                    with hdfs.open(hdfs_subdir_path + os.sep + each_file, 'wb') as hdf:
-                        hdf.write(open(file_path, "rb").read())
+                    source = subdir_path + os.sep + each_file
+                    destination = hdfs_subdir_path + os.sep + each_file
+                    with hdfs.open(destination, 'wb') as output_stream:
+                        output_stream.write(open(source, "rb").read())
 
     def list_artifacts(self, path):
         paths = []
@@ -82,15 +89,15 @@ class HdfsArtifactRepository(ArtifactRepository):
             return paths
 
     def _download_file(self, remote_file_path, local_path):
-        if remote_file_path is None or remote_file_path == '':
-            raise MlflowException("Invalid output path: '%s'. %s" % (remote_file_path,
-                                                                     bad_path_message(
-                                                                         remote_file_path)))
+
+        _verify_remote_file_path(remote_file_path)
+
         with hdfs_system(host=self.host, port=self.port) as hdfs:
-            rootdir_name = os.path.split(os.path.dirname(local_path))[1]
+
+            root_dir = os.path.split(os.path.dirname(local_path))[1]
+
             for subdir, _dirs, files in hdfs.walk(local_path):
-                subdir_local_path = remote_file_path + os.sep + _extract_child(subdir,
-                                                                               rootdir_name)
+                subdir_local_path = remote_file_path + os.sep + _child_path(subdir, root_dir)
 
                 if not self.get_path_module().exists(subdir_local_path):
                     os.makedirs(subdir_local_path)
@@ -130,8 +137,8 @@ def _resolve_connection_params(artifact_uri, default_host, default_port):
     return host, port, parsed.path
 
 
-def _extract_child(path, rootdir_name):
-    split_paths = path.split(os.sep + rootdir_name + os.sep)
+def _child_path(path, root_dir):
+    split_paths = path.split(root_dir)
     child_dir_path = ''
     for index in range(1, len(split_paths)):
         child_dirs = split_paths[index].split(os.sep)
@@ -140,6 +147,22 @@ def _extract_child(path, rootdir_name):
     return child_dir_path
 
 
-def _verify_artifact_path(artifact_path):
-    if artifact_path and path_not_unique(artifact_path):
-        raise MlflowException("Invalid artifact path. %s" % (bad_path_message(artifact_path)))
+def _resolve_path(path, artifact_path):
+    if artifact_path:
+        return path + os.sep + artifact_path
+    return path
+
+
+def _resolve_sub_dir(hdfs_base_path, sub_dir, local_dir):
+    if sub_dir is local_dir:
+        return hdfs_base_path
+
+    import posixpath
+    _, tail = posixpath.split(sub_dir)
+    return hdfs_base_path + os.sep + tail
+
+
+def _verify_remote_file_path(remote_file_path):
+    if remote_file_path is None or remote_file_path == '':
+        message = bad_path_message(remote_file_path)
+        raise MlflowException("Invalid output path: '%s'. %s" % (remote_file_path, message))
