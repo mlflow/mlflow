@@ -425,27 +425,28 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run = self._run_factory()
 
         metric_name = "test-metric-1"
-        timestamp_low = 1000
-        timestamp_high = 2000
-        value_range = map(float, range(-10, 10))
+        timestamp_values_mapping = {
+            1000: [float(i) for i in range(-20, 20)],
+            2000: [float(i) for i in range(-10, 10)],
+        }
 
         logged_values = []
-        for timestamp in [timestamp_high, timestamp_low]:
+        for timestamp, value_range in timestamp_values_mapping.items():
             for value in reversed(value_range):
                 self.store.log_metric(run.info.run_uuid, Metric(metric_name, value, timestamp))
                 logged_values.append(value)
 
         six.assertCountEqual(
             self,
-            [metric.value for metric in
-             self.store.get_metric_history(run.info.run_uuid, metric_name)],
+            [metric.value for metric in self.store.get_metric_history(run.info.run_uuid, metric_name)],
             logged_values)
 
         run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
         assert len(run_metrics) == 1
         assert run_metrics[0].key == metric_name
-        assert run_metrics[0].value == max(value_range)
-        assert run_metrics[0].timestamp == timestamp_high
+        max_timestamp = max(timestamp_values_mapping)
+        assert run_metrics[0].timestamp == max_timestamp
+        assert run_metrics[0].value == max(timestamp_values_mapping[max_timestamp])
 
     def test_log_null_metric(self):
         run = self._run_factory()
