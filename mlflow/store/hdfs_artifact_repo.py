@@ -9,7 +9,6 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import mkdir
-from mlflow.utils.validation import bad_path_message
 
 
 def _download_hdfs_file(hdfs, remote_file_path, local_file_path):
@@ -60,11 +59,10 @@ class HdfsArtifactRepository(ArtifactRepository):
 
             for subdir_path, _, files in os.walk(local_dir):
 
-                hdfs_subdir_path = hdfs_base_path
-                subdir_name = _relative_path(local_dir, subdir_path)
+                relative_path = _relative_path(local_dir, subdir_path)
 
-                if subdir_name:
-                    hdfs_subdir_path = self._join(hdfs_base_path, subdir_name)
+                hdfs_subdir_path = self._join(hdfs_base_path, relative_path) \
+                    if relative_path else hdfs_base_path
 
                 if not hdfs.exists(hdfs_subdir_path):
                     hdfs.mkdir(hdfs_subdir_path)
@@ -109,7 +107,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         """
 
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
-        local_dir = _create_temporary_if_needed(dst_path)
+        local_dir = _tmp_dir(dst_path)
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
             for path, is_dir, _ in self._walk_path(hdfs, hdfs_base_path):
@@ -172,13 +170,7 @@ def _relative_path(base_dir, subdir_path):
     return relative_path if relative_path is not '.' else None
 
 
-def _verify_remote_file_path(remote_file_path):
-    if not remote_file_path:
-        message = bad_path_message(remote_file_path)
-        raise MlflowException("Invalid output path: '%s'. %s" % (remote_file_path, message))
-
-
-def _create_temporary_if_needed(local_path):
+def _tmp_dir(local_path):
     if local_path is None:
         return os.path.abspath(tempfile.mkdtemp())
     else:
