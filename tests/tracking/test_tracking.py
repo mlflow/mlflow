@@ -250,7 +250,6 @@ def test_log_metric_validation(tracking_uri_mock):
 
 
 def test_log_param(tracking_uri_mock):
-    print(tracking.get_tracking_uri())
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
     with active_run:

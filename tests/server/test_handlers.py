@@ -6,17 +6,24 @@ import pytest
 import mlflow
 from mlflow.entities import ViewType, Metric, RunTag, Param
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, ErrorCode
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
     _search_runs, _log_batch, catch_mlflow_exception
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns, LogBatch
 from mlflow.store.file_store import FileStore
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME
+from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
 @pytest.fixture()
 def mock_get_request_message():
     with mock.patch('mlflow.server.handlers._get_request_message') as m:
+        yield m
+
+
+@pytest.fixture()
+def mock_get_request_json():
+    with mock.patch('mlflow.server.handlers._get_request_json') as m:
         yield m
 
 
@@ -106,7 +113,7 @@ def _assert_logged_entities(run_id, metric_entities, param_entities, tag_entitie
             assert dict(t) in tag_entities_dict
 
 
-def test_log_batch_handler_success(mock_get_request_message, tmpdir):
+def test_log_batch_handler_success(mock_get_request_message, mock_get_request_json, tmpdir):
     # Test success cases for the LogBatch API
     def _test_log_batch_helper_success(
             metric_entities, param_entities, tag_entities,
@@ -124,7 +131,6 @@ def test_log_batch_handler_success(mock_get_request_message, tmpdir):
                 params=[p.to_proto() for p in param_entities],
                 tags=[t.to_proto() for t in tag_entities])
             response = _log_batch()
-            print(response, response.get_data())
             assert response.status_code == 200
             json_response = json.loads(response.get_data())
             assert json_response == {}
@@ -133,6 +139,7 @@ def test_log_batch_handler_success(mock_get_request_message, tmpdir):
                 expected_tags or tag_entities)
 
     store = FileStore(tmpdir.strpath)
+    mock_get_request_json.return_value = "{}"  # Mock request JSON so it passes length validation
     with mock.patch('mlflow.tracking.utils._get_store', return_value=store):
         mlflow.set_experiment("log-batch-experiment")
         # Log an empty payload
@@ -151,6 +158,16 @@ def test_log_batch_handler_success(mock_get_request_message, tmpdir):
         _test_log_batch_helper_success(
             metric_entities=[], param_entities=[], tag_entities=same_key_tags,
             expected_tags=[same_key_tags[-1]])
+
+
+def test_log_batch_api_req(mock_get_request_json):
+    mock_get_request_json.return_value = "a" * (MAX_BATCH_LOG_REQUEST_SIZE + 1)
+    response = _log_batch()
+    assert response.status_code == 500
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert ("Batched logging API requests must be at most %s bytes" % MAX_BATCH_LOG_REQUEST_SIZE
+            in json_response["message"])
 
 
 def test_catch_mlflow_exception():
