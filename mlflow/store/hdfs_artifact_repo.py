@@ -40,7 +40,9 @@ class HdfsArtifactRepository(ArtifactRepository):
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
-            with hdfs.open(hdfs_base_path, 'wb') as output:
+            _, file_name = posixpath.split(local_file)
+            destination = self._join(hdfs_base_path, file_name)
+            with hdfs.open(destination, 'wb') as output:
                 output.write(open(local_file, "rb").read())
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -103,7 +105,8 @@ class HdfsArtifactRepository(ArtifactRepository):
                              unspecified, the artifacts will be downloaded to a new, uniquely-named
                              directory on the local filesystem.
 
-            :return: Absolute path of the local filesystem location containing the downloaded artifacts.
+            :return: Absolute path of the local filesystem location containing the downloaded
+            artifacts.
         """
 
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)

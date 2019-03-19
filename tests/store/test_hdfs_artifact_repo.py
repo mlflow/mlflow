@@ -14,20 +14,24 @@ from mlflow.utils.file_utils import TempDir
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
 def test_log_artifact(hdfs_system_mock):
-    repo = HdfsArtifactRepository('hdfs://host_name:8020/maybe/path')
+    repo = HdfsArtifactRepository('hdfs://host_name:8020/hdfs/path')
 
-    with NamedTemporaryFile() as tmp_local_file:
-        tmp_local_file.write(b'PyArrow Works')
-        tmp_local_file.seek(0)
+    with TempDir() as tmp_dir:
+        local_file = tmp_dir.path('sample_file')
+        with open(local_file, "w") as f:
+            f.write('PyArrow Works')
 
-        repo.log_artifact(tmp_local_file.name, 'test_hdfs/some/path')
+        repo.log_artifact(local_file, 'more_path/some')
 
         hdfs_system_mock.assert_called_once_with(driver='libhdfs', extra_conf=None,
                                                  host='host_name',
                                                  kerb_ticket=None, port=8020,
                                                  user=None)
 
-        write_mock = hdfs_system_mock.return_value.open.return_value.__enter__.return_value.write
+        open_mock = hdfs_system_mock.return_value.open
+        open_mock.assert_called_once_with('/hdfs/path/more_path/some/sample_file', 'wb')
+
+        write_mock = open_mock.return_value.__enter__.return_value.write
         write_mock.assert_called_once_with(b'PyArrow Works')
 
 
@@ -59,7 +63,7 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
 def test_log_artifact_with_invalid_local_dir(hdfs_system_mock):  # pylint: disable=unused-argument
     repo = HdfsArtifactRepository('hdfs://host_name:8020/maybe/path')
 
-    with pytest.raises(FileNotFoundError,
+    with pytest.raises(Exception,
                        match="No such file or directory: '/not/existing/local/path'"):
         repo.log_artifact('/not/existing/local/path', 'test_hdfs/some/path')
 
