@@ -15,9 +15,7 @@ class LocalArtifactRepository(ArtifactRepository):
     def log_artifact(self, local_file, artifact_path=None):
 
         verify_artifact_path(artifact_path)
-
-        artifact_dir = self.get_path_module().join(self.artifact_uri, artifact_path) \
-            if artifact_path else self.artifact_uri
+        artifact_dir = self._resolve_path(artifact_path)
 
         if not self.get_path_module().exists(artifact_dir):
             mkdir(artifact_dir)
@@ -26,9 +24,7 @@ class LocalArtifactRepository(ArtifactRepository):
     def log_artifacts(self, local_dir, artifact_path=None):
 
         verify_artifact_path(artifact_path)
-
-        artifact_dir = self.get_path_module().join(self.artifact_uri, artifact_path) \
-            if artifact_path else self.artifact_uri
+        artifact_dir = self._resolve_path(artifact_path)
 
         if not self.get_path_module().exists(artifact_dir):
             mkdir(artifact_dir)
@@ -36,8 +32,9 @@ class LocalArtifactRepository(ArtifactRepository):
 
     def list_artifacts(self, path=None):
 
+        list_dir = self._resolve_path(path)
+
         artifact_dir = self.artifact_uri
-        list_dir = self.get_path_module().join(artifact_dir, path) if path else artifact_dir
 
         if self.get_path_module().isdir(list_dir):
             artifact_files = list_all(list_dir, full_path=True)
@@ -50,3 +47,8 @@ class LocalArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         shutil.copyfile(
             self.get_path_module().join(self.artifact_uri, remote_file_path), local_path)
+
+    def _resolve_path(self, artifact_path):
+        artifact_dir = self.get_path_module().join(self.artifact_uri, artifact_path) \
+            if artifact_path else self.artifact_uri
+        return artifact_dir

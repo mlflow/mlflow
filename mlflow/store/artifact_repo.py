@@ -71,7 +71,7 @@ class ArtifactRepository:
         local path for it.
         The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
-        :param path: Relative source path to the desired artifacts.
+        :param artifact_path: Relative source path to the desired artifacts.
         :param dst_path: Absolute path of the local filesystem destination directory to which to
                          download the specified artifacts. This directory must already exist. If
                          unspecified, the artifacts will be downloaded to a new, uniquely-named

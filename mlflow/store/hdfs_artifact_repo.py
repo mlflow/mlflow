@@ -64,13 +64,15 @@ class HdfsArtifactRepository(ArtifactRepository):
                     with hdfs.open(destination, 'wb') as output_stream:
                         output_stream.write(open(source, "rb").read())
 
-    def list_artifacts(self, path):
-        paths = []
+    def list_artifacts(self, path=None):
+
+        hdfs_path = _resolve_path(self.path, path)
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
-            if hdfs.exists(path):
+            paths = []
+            if hdfs.exists(hdfs_path):
                 files_info = []
-                for subdir, _, files in hdfs.walk(path):
+                for subdir, _, files in hdfs.walk(hdfs_path):
                     files_info.append(FileInfo(subdir,
                                                hdfs.isdir(subdir),
                                                hdfs.info(subdir).get("size")))
@@ -88,7 +90,7 @@ class HdfsArtifactRepository(ArtifactRepository):
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
 
-            hdfs_path = 'hdfs:' + _resolve_path(self.path, remote_file_path)
+            hdfs_path = _resolve_path(self.path, remote_file_path)
 
             for subdir, _, files in hdfs.walk(hdfs_path):
                 local = _resolve_sub_dir(local_path, subdir, hdfs_path)
@@ -132,6 +134,8 @@ def _resolve_connection_params(artifact_uri):
 
 
 def _resolve_path(path, artifact_path):
+    if path == artifact_path:
+        return path
     if artifact_path:
         return path + os.sep + artifact_path
     return path
@@ -143,7 +147,7 @@ def _resolve_sub_dir(base_path, sub_dir, local_dir):
 
     import posixpath
     _, tail = posixpath.split(sub_dir)
-    return base_path + os.sep + tail
+    return posixpath.join(base_path, tail)
 
 
 def _verify_remote_file_path(remote_file_path):
