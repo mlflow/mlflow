@@ -2,16 +2,14 @@ import os
 from tempfile import NamedTemporaryFile
 
 import mock
-from mlflow.utils.validation import bad_path_message
-
-from mlflow.exceptions import MlflowException
-from mock import call
 import pytest
-from mlflow.utils.file_utils import TempDir
+from mock import call
 from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
-from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository, _resolve_path
+from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository, _resolve_base_path, \
+    _relative_path
+from mlflow.utils.file_utils import TempDir
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
@@ -113,21 +111,11 @@ def test_list_artifacts(hdfs_system_mock):
         ('sub_dir_one', None, ['file_one', 'file_two']),
         ('sub_dir_two', None, ['file_three'])]
     hdfs_system_mock.return_value.info.return_value.get.return_value = 33
-    hdfs_system_mock.return_value.isdir.side_effect = [True, False, False, True, False]
+    hdfs_system_mock.return_value.isdir.side_effect = [True, True, False, False, True, False]
 
     actual = repo.list_artifacts()
 
     assert actual == expected
-
-
-def test_resolve_path():
-    assert _resolve_path('/dir/some/path', None) == '/dir/some/path'
-    assert _resolve_path('/dir/some/path', 'subdir/path') == '/dir/some/path/subdir/path'
-    for bad_path in ['/dir/path', '..dir', '.']:
-        with pytest.raises(MlflowException,
-                           match="Invalid artifact path: '%s'. %s" % (bad_path,
-                                                                      bad_path_message(bad_path))):
-            _resolve_path('/dir/some/path', bad_path)
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem', spec=HadoopFileSystem)
@@ -138,3 +126,12 @@ def test_list_artifacts_empty_hdfs_dir(hdfs_system_mock):
     actual = repo.list_artifacts()
     assert actual == []
 
+
+def test_resolve_path():
+    assert _resolve_base_path('/dir/some/path', None) == '/dir/some/path'
+    assert _resolve_base_path('/dir/some/path', 'subdir/path') == '/dir/some/path/subdir/path'
+
+
+def test_relative_path():
+    assert _relative_path('/dir/some', '/dir/some/path/file.txt') == 'path/file.txt'
+    assert _relative_path('/dir/some', '/dir/some') is None
