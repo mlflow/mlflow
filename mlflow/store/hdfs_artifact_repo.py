@@ -89,8 +89,8 @@ class HdfsArtifactRepository(ArtifactRepository):
         if hdfs.exists(hdfs_path) and hdfs.isdir(hdfs_path):
             for subdir, _, files in hdfs.walk(hdfs_path):
                 yield subdir, hdfs.isdir(subdir), hdfs.info(subdir).get("size")
-                for file in files:
-                    file_path = self._join(subdir, file)
+                for f in files:
+                    file_path = self._join(subdir, f)
                     yield file_path, hdfs.isdir(file_path), hdfs.info(file_path).get("size")
 
     def download_artifacts(self, artifact_path, dst_path=None):
