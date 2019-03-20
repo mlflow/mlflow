@@ -98,10 +98,12 @@ mlflow_get_run_context <- function(client, ...) {
   UseMethod("mlflow_get_run_context")
 }
 
-mlflow_get_run_context.default <- function(client, source_name, source_version, ...) {
+mlflow_get_run_context.default <- function(client, source_name, source_version, experiment_id,
+                                           ...) {
   list(client = client,
        source_name = source_name %||% get_source_name(),
        source_version = source_version %||% get_source_version(),
+       experiment_id = experiment_id %||% 0,
        ...)
 }
 
