@@ -92,7 +92,7 @@ get_databricks_config <- function(profile) {
 }
 
 mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name, source_version,
-                                                            source_type, ...) {
+                                                            source_type, experiment_id, ...) {
   if (exists(".databricks_internals")) {
     notebook_info <- do.call(".get_notebook_info", list(), envir = .databricks_internals)
     if (!is.na(notebook_info$id) && !is.na(notebook_info$path)) {
@@ -106,6 +106,7 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name,
         source_type =  MLFLOW_SOURCE_TYPE$NOTEBOOK,
         source_name = notebook_info$path,
         tags = tags,
+        experiment_id = experiment_id %||% notebook_info$id,
         ...
       )
     } else {
