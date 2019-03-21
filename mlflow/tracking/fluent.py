@@ -303,7 +303,12 @@ def _get_experiment_id_from_env():
 
 
 def _get_experiment_id():
-    return int(_active_experiment_id or
-               _get_experiment_id_from_env() or
-               (is_in_databricks_notebook() and get_notebook_id()) or
-               Experiment.DEFAULT_EXPERIMENT_ID)
+    exp_id = int(_active_experiment_id or _get_experiment_id_from_env() or
+                 (is_in_databricks_notebook() and get_notebook_id()))
+    if not exp_id:
+        experiment = MlflowClient().get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME)
+        exp_id = experiment.experiment_id if experiment else None
+        if exp_id is None:
+            print("INFO: '{}' does not exist. Creating a new experiment".format(Experiment.DEFAULT_EXPERIMENT_NAME))
+            exp_id = MlflowClient().create_experiment(Experiment.DEFAULT_EXPERIMENT_NAME)
+    return exp_id
