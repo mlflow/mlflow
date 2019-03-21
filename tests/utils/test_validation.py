@@ -47,7 +47,7 @@ def test_validate_run_id():
     for good_id in ["a" * 32, "f0" * 16, "abcdef0123456789" * 2, "a" * 33, "a" * 31,
                     "A" * 32, "g" * 32, "a_" * 32]:
     for bad_id in ["a/bc" * 8, "", "a" * 129, "*" * 5]:
-        with pytest.raises(Exception, match="Invalid run ID"):
+        with pytest.raises(MlflowException, match="Invalid run ID"):
             _validate_run_id(bad_id)
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
