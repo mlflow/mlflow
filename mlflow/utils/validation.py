@@ -1,8 +1,11 @@
 """
 Utilities for validating user inputs such as metric names and parameter names.
 """
+import numbers
 import os.path
 import re
+
+import numpy as np
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -41,7 +44,8 @@ def path_not_unique(name):
 def _validate_metric_name(name):
     """Check that `name` is a valid metric name and raise an exception if it isn't."""
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
-        raise Exception("Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
+        raise MlflowException("Invalid metric name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+                              INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
         raise MlflowException("Invalid metric name: '%s'. %s" % (name, bad_path_message(name)),
                               INVALID_PARAMETER_VALUE)
@@ -89,18 +93,22 @@ def _validate_tag(key, value):
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
-        raise Exception("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
+        raise MlflowException("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+                              INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
-        raise Exception("Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)))
+        raise MlflowException("Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)),
+                              INVALID_PARAMETER_VALUE)
 
 
 def _validate_tag_name(name):
     """Check that `name` is a valid tag name and raise an exception if it isn't."""
     # Reuse param & metric check.
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
-        raise Exception("Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE))
+        raise MlflowException("Invalid tag name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+                              INVALID_PARAMETER_VALUE)
     if path_not_unique(name):
-        raise Exception("Invalid tag name: '%s'. %s" % (name, bad_path_message(name)))
+        raise MlflowException("Invalid tag name: '%s'. %s" % (name, bad_path_message(name)),
+                              INVALID_PARAMETER_VALUE)
 
 
 def _validate_length_limit(entity_name, limit, value):
