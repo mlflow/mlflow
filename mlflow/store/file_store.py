@@ -181,7 +181,7 @@ class FileStore(AbstractStore):
         # Get all existing experiments and find the one with largest ID.
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [e.experiment_id for e in self.list_experiments(ViewType.ALL)]
-        experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
+        experiment_id = max(experiments_ids) + 1 if experiments_ids else Experiment.DEFAULT_EXPERIMENT_ID
         return self._create_experiment_with_id(name, experiment_id, artifact_location)
 
     def _has_experiment(self, experiment_id):
