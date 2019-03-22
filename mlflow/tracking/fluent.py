@@ -40,19 +40,14 @@ def set_experiment(experiment_name):
 
     :param experiment_name: Name of experiment to be activated.
     """
-    client = MlflowClient()
-    experiment = client.get_experiment_by_name(experiment_name)
-    exp_id = experiment.experiment_id if experiment else None
-    if exp_id is None:  # id can be 0
-        print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
-        exp_id = client.create_experiment(experiment_name)
-    elif experiment.lifecycle_stage == LifecycleStage.DELETED:
+    experiment = _get_or_create_experiment(experiment_name)
+    if experiment.lifecycle_stage == LifecycleStage.DELETED:
         raise MlflowException(
             "Cannot set a deleted experiment '%s' as the active experiment."
             " You can restore the experiment, or permanently delete the "
             " experiment to create a new one." % experiment.name)
     global _active_experiment_id
-    _active_experiment_id = exp_id
+    _active_experiment_id = experiment.experiment_id
 
 
 class ActiveRun(Run):  # pylint: disable=W0223
@@ -302,13 +297,20 @@ def _get_experiment_id_from_env():
     return env.get_env(_EXPERIMENT_ID_ENV_VAR)
 
 
+def _get_or_create_experiment(experiment_name):
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name(experiment_name)
+    exp_id = experiment.experiment_id if experiment else None
+    if exp_id is None:
+        print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+        exp_id = client.create_experiment(experiment_name)
+    return client.get_experiment(exp_id)
+
+
 def _get_experiment_id():
     exp_id = int(_active_experiment_id or _get_experiment_id_from_env() or
                  (is_in_databricks_notebook() and get_notebook_id()))
     if not exp_id:
-        experiment = MlflowClient().get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME)
-        exp_id = experiment.experiment_id if experiment else None
-        if exp_id is None:
-            print("INFO: '{}' does not exist. Creating a new experiment".format(Experiment.DEFAULT_EXPERIMENT_NAME))
-            exp_id = MlflowClient().create_experiment(Experiment.DEFAULT_EXPERIMENT_NAME)
+        exp = _get_or_create_experiment(Experiment.DEFAULT_EXPERIMENT_NAME)
+        return exp.experiment_id if exp else None
     return exp_id
