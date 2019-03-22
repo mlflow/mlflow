@@ -11,6 +11,7 @@ import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
 import yaml
+from mlflow.utils.file_utils import TempDir
 
 import mlflow
 import mlflow.keras
@@ -24,6 +25,7 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+from numpy.testing import assert_array_almost_equal
 
 
 @pytest.fixture(scope='module')
@@ -66,33 +68,35 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
-def test_model_save_load(model, model_path, data, predicted):
-    x, y = data
-    mlflow.keras.save_model(model, model_path)
+def test_model_save_load(model, _, data, predicted):
+    with TempDir() as model_path:
+        x, _ = data
+        mlflow.keras.save_model(model, model_path)
 
-    # Loading Keras model
-    model_loaded = mlflow.keras.load_model(model_path)
-    assert all(model_loaded.predict(x) == predicted)
+        # Loading Keras model
+        model_loaded = mlflow.keras.load_model(model_path)
+        assert all(model_loaded.predict(x) == predicted)
 
-    # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
-    assert all(pyfunc_loaded.predict(x).values == predicted)
+        # Loading pyfunc model
+        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+        assert all(pyfunc_loaded.predict(x).values == predicted)
 
-    # pyfunc serve
-    scoring_response = pyfunc_serve_and_score_model(
-        model_path=os.path.abspath(model_path),
-        data=pd.DataFrame(x),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
-               == predicted)
+        # pyfunc serve
+        scoring_response = pyfunc_serve_and_score_model(
+            model_path=os.path.abspath(model_path),
+            data=pd.DataFrame(x),
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
 
-    # test spark udf
-    spark_udf_preds = score_model_as_udf(os.path.abspath(model_path),
-                                         run_id=None,
-                                         pandas_df=pd.DataFrame(x),
-                                         result_type="float")
-    np.testing.assert_array_almost_equal(
-        np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=4)
+        read_df = pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
+        assert all(read_df == predicted)
+
+        # test spark udf
+        spark_udf_preds = score_model_as_udf(os.path.abspath(model_path),
+                                             run_id=None,
+                                             pandas_df=pd.DataFrame(x),
+                                             result_type="float")
+        assert_array_almost_equal(
+            np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=4)
 
 
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
