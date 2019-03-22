@@ -190,7 +190,7 @@ Now that you have your training code, you can package it so that other data scie
             - pip:
               - mlflow
 
-      To run this project, invoke ``mlflow run tutorial -P alpha=0.42``. After running
+      To run this project, invoke ``mlflow run tutorial -P alpha=0.42``(tutorial being the name of the project you want to run). After running
       this command, MLflow runs your training code in a new Conda environment with the dependencies
       specified in ``conda.yaml``.
 
