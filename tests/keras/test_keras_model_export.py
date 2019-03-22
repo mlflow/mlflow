@@ -68,22 +68,22 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
-def test_model_save_load(model, _, data, predicted):
-    with TempDir() as model_path:
+def test_model_save_load(model, model_path, data, predicted):
+    with TempDir() as tmp_dir:
         x, _ = data
-        mlflow.keras.save_model(model, model_path)
+        mlflow.keras.save_model(model, tmp_dir)
 
         # Loading Keras model
-        model_loaded = mlflow.keras.load_model(model_path)
+        model_loaded = mlflow.keras.load_model(tmp_dir)
         assert all(model_loaded.predict(x) == predicted)
 
         # Loading pyfunc model
-        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+        pyfunc_loaded = mlflow.pyfunc.load_pyfunc(tmp_dir)
         assert all(pyfunc_loaded.predict(x).values == predicted)
 
         # pyfunc serve
         scoring_response = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_path=os.path.abspath(tmp_dir),
             data=pd.DataFrame(x),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
 
@@ -91,7 +91,7 @@ def test_model_save_load(model, _, data, predicted):
         assert all(read_df == predicted)
 
         # test spark udf
-        spark_udf_preds = score_model_as_udf(os.path.abspath(model_path),
+        spark_udf_preds = score_model_as_udf(os.path.abspath(tmp_dir),
                                              run_id=None,
                                              pandas_df=pd.DataFrame(x),
                                              result_type="float")
