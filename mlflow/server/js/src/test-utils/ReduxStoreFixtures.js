@@ -14,7 +14,7 @@ export const addApiToState = (state, api) => {
       ...oldApi,
       [api.id]: api,
     }
-  }
+  };
 };
 
 export const addExperimentToState = (state, experiment) => {
@@ -28,10 +28,10 @@ export const addExperimentToState = (state, experiment) => {
         [experiment.experiment_id]: experiment,
       }
     }
-  }
-
+  };
 };
 
 export const createPendingApi = (id) => {
   return { id, active: true };
 };
+

@@ -49,7 +49,7 @@ export class RequestStateWrapper extends Component {
       if (typeof children === "function") {
         const child = children(!shouldRender, shouldRenderError, requests);
         if (child) {
-          return child
+          return child;
         }
         triggerError(requests);
       }

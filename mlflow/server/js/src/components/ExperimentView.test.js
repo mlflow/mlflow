@@ -30,12 +30,13 @@ test("ExperimentView will show spinner if isLoading prop is true", () => {
       lifecycleFilter={LIFECYCLE_FILTER.ACTIVE}
       searchInput={''}
       searchRunsError={''}
-      isLoading={true}
+      isLoading
     />);
   expect(wrapper.find(Spinner)).toHaveLength(1);
 });
 
-// mapStateToProps should only be run after the call to getExperiment from ExperimentPage is resolved
+// mapStateToProps should only be run after the call to getExperiment from ExperimentPage is
+// resolved
 test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
   const searchRunsId = getUUID();
   let state = emptyState;

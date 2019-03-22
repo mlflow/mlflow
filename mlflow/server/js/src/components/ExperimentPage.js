@@ -12,7 +12,6 @@ import { ExperimentPagePersistedState } from "../sdk/MlflowLocalStorageMessages"
 import Utils from "../utils/Utils";
 import ErrorCodes from "../sdk/ErrorCodes";
 import PermissionDeniedView from "./PermissionDeniedView";
-import spinner from '../static/mlflow-spinner.png';
 import {Spinner} from "./Spinner";
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
@@ -49,7 +48,14 @@ class ExperimentPage extends Component {
       lastExperimentId: undefined,
       // Lifecycle filter of runs to display
       lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
-    }; } /** * Returns a LocalStorageStore instance that can be used to persist data associated with the * ExperimentPage component (e.g. component state like metric/param filter info), for the * specified experiment. */
+    };
+  }
+
+  /**
+   * Returns a LocalStorageStore instance that can be used to persist data associated with the
+   * ExperimentPage component (e.g. component state like metric/param filter info), for the
+   * specified experiment.
+   */
   static getLocalStore(experimentId) {
     return LocalStorageUtils.getStoreForComponent("ExperimentPage", experimentId);
   }
@@ -115,9 +121,11 @@ class ExperimentPage extends Component {
             if (shouldRenderError) {
               const searchRunsRequest = Utils.getRequestWithId(
                 requests, this.state.searchRunsRequestId);
-              if (searchRunsRequest.error && searchRunsRequest.error.getErrorCode() === ErrorCodes.INVALID_PARAMETER_VALUE) {
+              if (searchRunsRequest.error && searchRunsRequest.error.getErrorCode() ===
+                  ErrorCodes.INVALID_PARAMETER_VALUE) {
                 searchRunsError = searchRunsRequest.error.getMessageField();
-              } else if (getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
+              } else if (getExperimentRequest.error.getErrorCode() ===
+                  ErrorCodes.PERMISSION_DENIED) {
                 return (<PermissionDeniedView
                   errorMessage={getExperimentRequest.error.xhr.responseJSON.message}
                 />);

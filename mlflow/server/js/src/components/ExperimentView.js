@@ -1,5 +1,4 @@
 import React, { Component } from 'react';
-import spinner from '../static/mlflow-spinner.png';
 import PropTypes from 'prop-types';
 import classNames from 'classnames';
 import { connect } from 'react-redux';
@@ -416,7 +415,7 @@ export class ExperimentView extends Component {
             </span>
           </div>
           {this.props.isLoading ?
-            <Spinner showImmediately/>:
+            <Spinner showImmediately/> :
             (this.state.persistedState.showMultiColumns ?
                 <ExperimentRunsTableMultiColumnView
                   onCheckbox={this.onCheckbox}
