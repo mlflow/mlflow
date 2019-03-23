@@ -274,7 +274,7 @@ database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
 By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (the same as when
 running ``mlflow run`` locally). But when running a server, make sure that this points to a
 location on a persistent (that is, non-ephemeral) file system. If the location already exists,
-it must be a valid backend store, othterwise it will be created automatically.
+it must be a valid backend store, otherwise it will be created automatically.
 
 .. note::
   For backwards compatibility, ``--file-store`` is an alias for this option.
