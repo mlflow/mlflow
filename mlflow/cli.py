@@ -148,7 +148,8 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
 @cli.command()
 @click.option("--backend-store-uri", "--file-store", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI or path for backend store implementation. Acceptable backend store "
+              help="URI or path for backend store implementation. If it already exists, "
+                   "it must be a valid backend store. Acceptable backend store "
                    "are SQLAlchemy compatible implementation or local storage. "
                    "Example 'sqlite:///path/to/file.db'. "
                    "By default file backed store will be used. (default: ./mlruns).")
@@ -205,7 +206,8 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @cli.command()
 @click.option("--backend-store-uri", "--file-store", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI or path for backend store implementation. Acceptable backend store "
+              help="URI or path for backend store implementation. If it already exists, "
+                   "it must be a valid backend store. Acceptable backend store "
                    "are SQLAlchemy compatible implementation or local storage. Supports "
                    "various SQLAlchemy compatible database like SQLite, MySQL, PostgreSQL. As an "
                    "example MySQL backed store can be configured using connection string. "

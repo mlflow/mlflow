@@ -6,7 +6,7 @@ MLflow Tracking
 
 The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files
 when running your machine learning code and for later visualizing the results.
-MLflow Tracking lets you log and query experiments using :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R-api`, 
+MLflow Tracking lets you log and query experiments using :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R-api`,
 and :ref:`java_api` APIs.
 
 .. contents:: Table of Contents
@@ -63,9 +63,9 @@ Where Runs Are Recorded
 MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely
 to a tracking server.
 By default, the MLflow Python API logs runs locally to files in an ``mlruns`` directory wherever you
-ran your program. You can then run ``mlflow ui`` to see the logged runs. 
+ran your program. You can then run ``mlflow ui`` to see the logged runs.
 
-To log runs remotely, set the ``MLFLOW_TRACKING_URI`` environment variable to a tracking server's URI or 
+To log runs remotely, set the ``MLFLOW_TRACKING_URI`` environment variable to a tracking server's URI or
 call :py:func:`mlflow.set_tracking_uri`.
 
 There are different kinds of remote tracking URIs:
@@ -182,7 +182,7 @@ Managing Experiments and Runs with the Tracking Service API
 
 MLflow provides a more detailed Tracking Service API for managing experiments and runs directly,
 which is available through client SDK in the :py:mod:`mlflow.tracking` module.
-This makes it possible to query data about past runs, log additional information about them, create experiments, 
+This makes it possible to query data about past runs, log additional information about them, create experiments,
 add tags to a run, and more.
 
 .. rubric:: Example
@@ -206,7 +206,7 @@ The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom
 .. code-block:: py
 
   client.set_tag(run.info.run_uuid, "tag_key", "tag_value")
-  
+
 .. important:: Do not use the prefix ``mlflow`` for a tag.  This prefix is reserved for use by MLflow.
 
 
@@ -232,7 +232,7 @@ Querying Runs Programmatically
 
 All of the functions in the Tracking UI can be accessed programmatically. This makes it easy to do several common tasks:
 
-* Query and compare runs using any data analysis tool of your choice, for example, **pandas**. 
+* Query and compare runs using any data analysis tool of your choice, for example, **pandas**.
 * Determine the artifact URI for a run to feed some of its artifacts into a new run when executing a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
 * Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
@@ -272,8 +272,9 @@ specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``.
 database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
 
 By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (the same as when
-running ``mlflow run`` locally), but when running a server, make sure that this points to a
-persistent (that is, non-ephemeral) file system location.
+running ``mlflow run`` locally). But when running a server, make sure that this points to a
+location on a persistent (that is, non-ephemeral) file system. If the location already exists,
+it must be a valid backend store, othterwise it will be created automatically.
 
 .. note::
   For backwards compatibility, ``--file-store`` is an alias for this option.
@@ -349,7 +350,7 @@ to access Google Cloud Storage; MLflow does not declare a dependency on this pac
 FTP server
 ^^^^^^^^^^^
 
-Specify a URI of the form ftp://user@host/path/to/directory to store artifacts in a FTP server. 
+Specify a URI of the form ftp://user@host/path/to/directory to store artifacts in a FTP server.
 The URI may optionally include a password for logging into the server, e.g. ``ftp://user:pass@host/path/to/directory``
 
 SFTP Server
@@ -382,10 +383,10 @@ Additionally, you should ensure that the ``--backend-store-uri`` (which defaults
 Logging to a Tracking Server
 ----------------------------
 
-To log to a tracking server, set the ``MLFLOW_TRACKING_URI`` environment variable to the server's URI, 
-along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :py:func:`mlflow.set_tracking_uri`. 
+To log to a tracking server, set the ``MLFLOW_TRACKING_URI`` environment variable to the server's URI,
+along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :py:func:`mlflow.set_tracking_uri`.
 
-The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls 
+The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls
 then make API requests to your remote tracking server.
 
 .. code-block:: py
