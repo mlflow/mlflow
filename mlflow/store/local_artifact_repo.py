@@ -11,7 +11,7 @@ from mlflow.utils.validation import path_not_unique, bad_path_message
 class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(LocalArtifactRepository, self).__init__(*args, **kwargs)
         scheme = urllib.parse.urlparse(self.artifact_uri).scheme
         if scheme != "":
             self.artifact_dir = self.artifact_uri[len(scheme + "://"):]
