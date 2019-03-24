@@ -69,7 +69,10 @@ def keras_custom_env(tmpdir):
 
 
 def test_model_save_load(model, model_path, data, predicted):
-    with TempDir() as tmp_dir:
+    with TempDir() as dir:
+
+        tmp_dir = dir.path('save_test')
+
         x, _ = data
         mlflow.keras.save_model(model, tmp_dir)
 
