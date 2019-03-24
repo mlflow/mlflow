@@ -1,4 +1,5 @@
 import distutils.dir_util as dir_util
+import os
 import shutil
 
 from six.moves import urllib
@@ -12,9 +13,12 @@ class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
     def __init__(self, *args, **kwargs):
         super(LocalArtifactRepository, self).__init__(*args, **kwargs)
-        scheme = urllib.parse.urlparse(self.artifact_uri).scheme
-        if scheme != "":
-            self.artifact_dir = self.artifact_uri[len(scheme + "://"):]
+
+        parsed_url = urllib.parse.urlparse(self.artifact_uri)
+        if parsed_url.scheme != "":
+            #  Windows paths are not registered as url paths.
+            #  file:(//)DRIVE://file\path\file.txt" is parsed with "file\path\file.txt" as netloc
+            self.artifact_dir = parsed_url.path if os.sep == "/" else parsed_url.netloc
         else:
             self.artifact_dir = self.artifact_uri
 
