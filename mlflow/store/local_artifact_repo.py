@@ -16,9 +16,8 @@ class LocalArtifactRepository(ArtifactRepository):
 
         parsed_url = urllib.parse.urlparse(self.artifact_uri)
         if parsed_url.scheme != "":
-            #  Windows paths are not registered as url paths.
-            #  file:(//)DRIVE://file\path\file.txt" is parsed with "file\path\file.txt" as netloc
-            self.artifact_dir = parsed_url.path if os.sep == "/" else parsed_url.netloc
+            #  If path is "", use the netloc instead, this handles the case of windows and file:// as prefix
+            self.artifact_dir = parsed_url.path if parsed_url.path else  parsed_url.netloc
         else:
             self.artifact_dir = self.artifact_uri
 

@@ -1,5 +1,6 @@
 import os
 import pytest
+import sys
 
 from mock import Mock
 
@@ -16,6 +17,9 @@ class TestLocalArtifactRepo(object):
 
     @pytest.mark.parametrize("prefix", [mlflow.tracking.utils._LOCAL_FS_URI_PREFIX, "file:", ""])
     def test_basic_functions(self, prefix):
+        if prefix == "" and not os.sep == "/":
+            pytest.skip("skipping direct path as artifact_uri, not supported on windows")
+
         with TempDir() as test_root, TempDir() as tmp:
             repo = get_artifact_repository(prefix + test_root.path(), Mock())
             assert isinstance(repo, LocalArtifactRepository)
