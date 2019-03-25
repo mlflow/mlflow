@@ -1,15 +1,8 @@
-import logging
-import mock
 import os
+import mock
 import pytest
 
-_logger = logging.getLogger(__name__)
-
-try:
-    from azure.storage.blob import Blob, BlobPrefix, BlobProperties, BlockBlobService
-except ImportError:
-    _logger.warning("Failed to import azure, related tests will fail")
-
+from azure.storage.blob import Blob, BlobPrefix, BlobProperties, BlockBlobService
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repository_registry import get_artifact_repository
