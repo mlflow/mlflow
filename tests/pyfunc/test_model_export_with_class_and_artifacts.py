@@ -193,8 +193,10 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
+    response_json = json.loads(scoring_response.text)
+    assert response_json["predictions"]
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)),
+        np.array(response_json["predictions"]),
         loaded_pyfunc_model.predict(sample_input))
 
 
@@ -220,8 +222,10 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
             data=sample_input,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert scoring_response.status_code == 200
+    response_json = json.loads(scoring_response.text)
+    assert response_json["predictions"]
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)),
+        np.array(response_json["predictions"]),
         loaded_pyfunc_model.predict(sample_input))
 
 
@@ -249,8 +253,10 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
+    response_json = json.loads(scoring_response.text)
+    assert response_json["predictions"]
     np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)),
+        np.array(response_json["predictions"]),
         loaded_pyfunc_model.predict(sample_input))
 
 
@@ -640,7 +646,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(
             data=inference_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
 
     pandas.testing.assert_frame_equal(
         deployed_model_preds,

@@ -83,8 +83,11 @@ def test_model_save_load(model, model_path, data, predicted):
         model_path=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
-               == predicted)
+    assert all(
+        pd.DataFrame(
+            json.loads(scoring_response.content)["predictions"]
+        ).values.astype(np.float32) == predicted
+    )
 
     # test spark udf
     spark_udf_preds = score_model_as_udf(os.path.abspath(model_path),

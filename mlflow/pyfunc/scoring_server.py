@@ -161,7 +161,7 @@ def init(model):
                     error_code=BAD_REQUEST)
 
         predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
-        result = json.dumps(predictions, cls=NumpyEncoder)
+        result = json.dumps({"predictions": predictions}, cls=NumpyEncoder)
         return flask.Response(response=result, status=200, mimetype='application/json')
 
     return app

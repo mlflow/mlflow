@@ -162,7 +162,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
             flavor=mlflow.pyfunc.FLAVOR_NAME)
     np.testing.assert_array_almost_equal(
             spark_model_iris.predictions,
-            np.array(json.loads(scoring_response_1.content)),
+            np.array(json.loads(scoring_response_1.content)["predictions"]),
             decimal=4)
     # 2. score and compare mleap deployed in Sagemaker docker container
     scoring_response_2 = score_model_in_sagemaker_docker_container(

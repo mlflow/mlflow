@@ -361,7 +361,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=module_scoped_subclassed_model, data=data),
@@ -383,7 +383,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=main_scoped_subclassed_model, data=data),
@@ -434,7 +434,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
 
-    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
+    deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content)["predictions"])
     np.testing.assert_array_almost_equal(
         deployed_model_preds.values[:, 0],
         _predict(model=module_scoped_subclassed_model, data=data),

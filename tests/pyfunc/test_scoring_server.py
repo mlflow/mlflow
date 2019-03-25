@@ -126,6 +126,8 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
             data=pandas_record_content,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED)
     assert response_records_content_type.status_code == 200
+    response_json = json.loads(response_records_content_type.content)
+    assert response_json["predictions"]
 
 
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_split_orientation(
