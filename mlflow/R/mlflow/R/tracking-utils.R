@@ -101,18 +101,3 @@ MLFLOW_SOURCE_TYPE <- list(
   LOCAL = 4,
   UNKNOWN = 5
 )
-
-MLFLOW_TAGS <- list(
-  MLFLOW_RUN_NAME = "mlflow.runName",
-  MLFLOW_PARENT_RUN_ID = "mlflow.parentRunId",
-  MLFLOW_SOURCE_TYPE = "mlflow.source.type",
-  MLFLOW_SOURCE_NAME = "mlflow.source.name",
-  MLFLOW_GIT_COMMIT = "mlflow.source.git.commit",
-  MLFLOW_GIT_BRANCH = "mlflow.source.git.branch",
-  MLFLOW_GIT_REPO_URL = "mlflow.source.git.repoURL",
-  MLFLOW_PROJECT_ENV = "mlflow.project.env",
-  MLFLOW_PROJECT_ENTRY_POINT = "mlflow.project.entryPoint",
-  MLFLOW_DOCKER_IMAGE_NAME = "mlflow.docker.image.name",
-  MLFLOW_DOCKER_IMAGE_ID = "mlflow.docker.image.id"
-)
-
