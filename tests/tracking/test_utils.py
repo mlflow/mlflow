@@ -1,4 +1,3 @@
-import logging
 import mock
 import os
 import pytest
@@ -8,17 +7,10 @@ import mlflow
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
-
+from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
     get_db_profile_from_uri, _download_artifact_from_uri, TrackingStoreRegistry
-
-test_logger = logging.getLogger(__name__)
-
-try:
-    from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-except ImportError as import_error:
-    test_logger.warning("Failed to import SqlAlchemyStore, related tests will fail!")
 
 
 def test_get_store_file_store(tmp_wkdir):

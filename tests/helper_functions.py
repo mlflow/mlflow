@@ -1,4 +1,3 @@
-import logging
 import os
 import random
 import re
@@ -10,14 +9,8 @@ from subprocess import Popen, PIPE, STDOUT
 
 import pandas as pd
 
-_logger = logging.getLogger(__name__)
-
-try:
-    import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
-    import mlflow.pyfunc
-except ImportError:
-    _logger.warning(
-            "Failed to import mlflow.pyfunc, some tests may fail when using related utils")
+import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+import mlflow.pyfunc
 
 
 def random_int(lo=1, hi=1e10):
@@ -33,7 +26,7 @@ def random_file(ext):
 
 
 def score_model_in_sagemaker_docker_container(
-        model_path, data, content_type, flavor=None,
+        model_path, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME,
         activity_polling_timeout_seconds=500):
     """
     :param model_path: Path to the model to be served.
@@ -45,7 +38,6 @@ def score_model_in_sagemaker_docker_container(
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     """
-    flavor = mlflow.pyfunc.FLAVOR_NAME if flavor is None else flavor
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = _start_scoring_proc(
