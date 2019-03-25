@@ -1,5 +1,4 @@
 import distutils.dir_util as dir_util
-import os
 import shutil
 
 from six.moves import urllib
@@ -15,11 +14,8 @@ class LocalArtifactRepository(ArtifactRepository):
         super(LocalArtifactRepository, self).__init__(*args, **kwargs)
 
         parsed_url = urllib.parse.urlparse(self.artifact_uri)
-        if parsed_url.scheme != "":
-            #  If path is "", use the netloc instead, this handles the case of windows and file:// as prefix
-            self.artifact_dir = parsed_url.path if parsed_url.path else  parsed_url.netloc
-        else:
-            self.artifact_dir = self.artifact_uri
+        #  If path is "", use the netloc instead, this handles the case of windows and file:// as prefix
+        self.artifact_dir = parsed_url.path if parsed_url.path else parsed_url.netloc
 
     def get_path_module(self):
         import os

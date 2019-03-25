@@ -320,8 +320,9 @@ def test_log_artifact(tracking_uri_mock):
     for parent_dir in artifact_parent_dirs:
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
-            scheme = urllib.parse.urlparse(artifact_uri).scheme
-            run_artifact_dir = artifact_uri[len(scheme + "://"):] if scheme != "" else artifact_uri
+            parsed_url = urllib.parse.urlparse(artifact_uri)
+            run_artifact_dir = parse_url.path if parsed_url.path else parsed_url.netloc
+
             mlflow.log_artifact(path0, parent_dir)
         expected_dir = os.path.join(run_artifact_dir, parent_dir) \
             if parent_dir is not None else run_artifact_dir
@@ -332,8 +333,9 @@ def test_log_artifact(tracking_uri_mock):
     for parent_dir in artifact_parent_dirs:
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
-            run_artifact_dir = mlflow.get_artifact_uri()
-            run_artifact_dir = artifact_uri[len(scheme + "://"):] if scheme != "" else artifact_uri
+            parsed_url = urllib.parse.urlparse(artifact_uri)
+            run_artifact_dir = parse_url.path if parsed_url.path else parsed_url.netloc
+
             mlflow.log_artifacts(artifact_src_dir, parent_dir)
         # Check that the logged artifacts match
         expected_artifact_output_dir = os.path.join(run_artifact_dir, parent_dir) \
@@ -350,6 +352,7 @@ def test_uri_types():
     assert utils._is_local_uri("mlruns")
     assert utils._is_local_uri("./mlruns")
     assert utils._is_local_uri("file:///foo/mlruns")
+    assert utils._is_local_uri("file:/foo/mlruns")
     assert not utils._is_local_uri("https://whatever")
     assert not utils._is_local_uri("http://whatever")
     assert not utils._is_local_uri("databricks")
