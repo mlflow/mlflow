@@ -12,14 +12,14 @@
    */
   min-width: 0px;
   flex: 1 1;
-  margin: 0 64px 0 32px;
+  padding: 0 64px 0 32px;
 }
 
 
 /* BEGIN css for when experiment list collapsed */
 .experiment-page-container {
   width: 100%;
-  margin: 0 64px 0 32px;
+  padding: 0 64px 0 32px;
 }
 .collapsed-expander-container {
   float: left;

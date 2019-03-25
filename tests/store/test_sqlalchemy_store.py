@@ -421,18 +421,33 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(2, len(sql_run_metrics))
             self.assertEqual(1, len(run.data.metrics))
 
-    def test_log_metric_uniqueness(self):
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_and_value(self):
         run = self._run_factory()
 
-        tkey = 'blahmetric'
-        tval = 100.0
-        metric = entities.Metric(tkey, tval, int(time.time()))
-        metric2 = entities.Metric(tkey, 1.02, int(time.time()))
-        self.store.log_metric(run.info.run_uuid, metric)
+        metric_name = "test-metric-1"
+        timestamp_values_mapping = {
+            1000: [float(i) for i in range(-20, 20)],
+            2000: [float(i) for i in range(-10, 10)],
+        }
 
-        with self.assertRaises(MlflowException) as e:
-            self.store.log_metric(run.info.run_uuid, metric2)
-        self.assertIn("must be unique. Metric already logged value", e.exception.message)
+        logged_values = []
+        for timestamp, value_range in timestamp_values_mapping.items():
+            for value in reversed(value_range):
+                self.store.log_metric(run.info.run_uuid, Metric(metric_name, value, timestamp))
+                logged_values.append(value)
+
+        six.assertCountEqual(
+            self,
+            [metric.value for metric in
+             self.store.get_metric_history(run.info.run_uuid, metric_name)],
+            logged_values)
+
+        run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
+        assert len(run_metrics) == 1
+        assert run_metrics[0].key == metric_name
+        max_timestamp = max(timestamp_values_mapping)
+        assert run_metrics[0].timestamp == max_timestamp
+        assert run_metrics[0].value == max(timestamp_values_mapping[max_timestamp])
 
     def test_log_null_metric(self):
         run = self._run_factory()
@@ -441,8 +456,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = None
         metric = entities.Metric(tkey, tval, int(time.time()))
 
-        with self.assertRaises(MlflowException) as exception_context:
+        warnings.simplefilter("ignore")
+        with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
             self.store.log_metric(run.info.run_uuid, metric)
+            warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     def test_log_param(self):
@@ -970,10 +987,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 self.assertIn(str(e.exception.message), "Some internal error")
 
     def test_log_batch_nonexistent_run(self):
+        nonexistent_run_uuid = uuid.uuid4().hex
         with self.assertRaises(MlflowException) as e:
-            self.store.log_batch("bad-run-uuid", [], [], [])
+            self.store.log_batch(nonexistent_run_uuid, [], [], [])
         assert e.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-        assert "Run with id=bad-run-uuid not found" in e.exception.message
+        assert "Run with id=%s not found" % nonexistent_run_uuid in e.exception.message
 
     def test_log_batch_params_idempotency(self):
         run = self._run_factory()
