@@ -11,11 +11,6 @@ from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import mkdir
 
 
-def _download_hdfs_file(hdfs, remote_file_path, local_file_path):
-    with open(local_file_path, 'wb') as f:
-        f.write(hdfs.open(remote_file_path, 'rb').read())
-
-
 class HdfsArtifactRepository(ArtifactRepository):
     """
     Stores artifacts on HDFS.
@@ -178,3 +173,8 @@ def _tmp_dir(local_path):
         return os.path.abspath(tempfile.mkdtemp())
     else:
         return local_path
+
+
+def _download_hdfs_file(hdfs, remote_file_path, local_file_path):
+    with open(local_file_path, 'wb') as f:
+        f.write(hdfs.open(remote_file_path, 'rb').read())
