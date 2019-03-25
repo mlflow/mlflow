@@ -75,8 +75,11 @@ get_databricks_config_from_env <- function() {
 get_databricks_config <- function(profile) {
   config <- if (!is.na(profile)) {
     get_databricks_config_for_profile(profile)
-  } else if (exists(".databricks_internals")) {
-    do.call(".authentication_provider", list(), envir = .databricks_internals)
+  } else if (exists("spark.databricks.token") && exists("spark.databricks.api.url")) {
+    # linter does not like '.' in variable names.
+    # Escape it here since we do not control names of the variables.
+    new_mlflow_host_creds(host = spark.databricks.api.url, # nolint
+                          token = spark.databricks.token)  # nolint
   } else {
     config <- get_databricks_config_from_env()
     if (databricks_config_is_valid(config)) {
@@ -92,7 +95,7 @@ get_databricks_config <- function(profile) {
 }
 
 mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name, source_version,
-                                                            source_type, ...) {
+                                                            source_type, experiment_id, ...) {
   if (exists(".databricks_internals")) {
     notebook_info <- do.call(".get_notebook_info", list(), envir = .databricks_internals)
     if (!is.na(notebook_info$id) && !is.na(notebook_info$path)) {
@@ -106,6 +109,7 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, source_name,
         source_type =  MLFLOW_SOURCE_TYPE$NOTEBOOK,
         source_name = notebook_info$path,
         tags = tags,
+        experiment_id = experiment_id %||% notebook_info$id,
         ...
       )
     } else {

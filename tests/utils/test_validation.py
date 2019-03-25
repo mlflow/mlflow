@@ -1,9 +1,12 @@
+import copy
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-                                    _validate_tag_name, _validate_run_id
+                                    _validate_tag_name, _validate_run_id, \
+                                    _validate_batch_log_data, _validate_batch_log_limits
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e.", "a b/c d",
@@ -47,3 +50,59 @@ def test_validate_run_id():
         with pytest.raises(MlflowException, match="Invalid run ID") as e:
             _validate_run_id(bad_id)
         assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_validate_batch_log_limits():
+    too_many_metrics = [Metric("metric-key-%s" % i, 1, 0) for i in range(1001)]
+    too_many_params = [Param("param-key-%s" % i, "b") for i in range(101)]
+    too_many_tags = [RunTag("tag-key-%s" % i, "b") for i in range(101)]
+
+    good_kwargs = {"metrics": [], "params": [], "tags": []}
+    bad_kwargs = {
+        "metrics": [too_many_metrics],
+        "params": [too_many_params],
+        "tags": [too_many_tags],
+    }
+    for arg_name, arg_values in bad_kwargs.items():
+        for arg_value in arg_values:
+            final_kwargs = copy.deepcopy(good_kwargs)
+            final_kwargs[arg_name] = arg_value
+            with pytest.raises(MlflowException):
+                _validate_batch_log_limits(**final_kwargs)
+    # Test the case where there are too many entities in aggregate
+    with pytest.raises(MlflowException):
+        _validate_batch_log_limits(too_many_metrics[:900], too_many_params[:51],
+                                   too_many_tags[:50])
+    # Test that we don't reject entities within the limit
+    _validate_batch_log_limits(too_many_metrics[:1000], [], [])
+    _validate_batch_log_limits([], too_many_params[:100], [])
+    _validate_batch_log_limits([], [], too_many_tags[:100])
+
+
+def test_validate_batch_log_data():
+    metrics_with_bad_key = [Metric("good-metric-key", 1.0, 0),
+                            Metric("super-long-bad-key" * 1000, 4.0, 0)]
+    params_with_bad_key = [Param("good-param-key", "hi"),
+                           Param("super-long-bad-key" * 1000, "but-good-val")]
+    params_with_bad_val = [Param("good-param-key", "hi"),
+                           Param("another-good-key", "but-bad-val" * 1000)]
+    tags_with_bad_key = [RunTag("good-tag-key", "hi"),
+                         RunTag("super-long-bad-key" * 1000, "but-good-val")]
+    tags_with_bad_val = [RunTag("good-tag-key", "hi"),
+                         RunTag("another-good-key", "but-bad-val" * 1000)]
+    bad_kwargs = {
+        "metrics": [metrics_with_bad_key],
+        "params": [params_with_bad_key, params_with_bad_val],
+        "tags": [tags_with_bad_key, tags_with_bad_val],
+    }
+    good_kwargs = {"metrics": [], "params": [], "tags": []}
+    for arg_name, arg_values in bad_kwargs.items():
+        for arg_value in arg_values:
+            final_kwargs = copy.deepcopy(good_kwargs)
+            final_kwargs[arg_name] = arg_value
+            with pytest.raises(MlflowException):
+                _validate_batch_log_data(**final_kwargs)
+    # Test that we don't reject entities within the limit
+    _validate_batch_log_data(
+        metrics=[Metric("metric-key", 1.0, 0)], params=[Param("param-key", "param-val")],
+        tags=[RunTag("tag-key", "tag-val")])

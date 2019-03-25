@@ -76,9 +76,9 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
     client <- mlflow_client()
     mlflow_client_get_run(client, existing_run_uuid)
   } else {
-    experiment_id <- as.integer(
-      experiment_id %||% mlflow_get_active_experiment_id() %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = "0")
-    )
+    experiment_id <- experiment_id %||% mlflow_get_active_experiment_id()
+    experiment_id <- experiment_id %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = NA)
+    experiment_id <- if (is.na(experiment_id)) NULL else experiment_id
     client <- mlflow_client()
     args <- mlflow_get_run_context(
       client,
@@ -98,10 +98,12 @@ mlflow_get_run_context <- function(client, ...) {
   UseMethod("mlflow_get_run_context")
 }
 
-mlflow_get_run_context.default <- function(client, source_name, source_version, ...) {
+mlflow_get_run_context.default <- function(client, source_name, source_version, experiment_id,
+                                           ...) {
   list(client = client,
        source_name = source_name %||% get_source_name(),
        source_version = source_version %||% get_source_version(),
+       experiment_id = experiment_id %||% 0,
        ...)
 }
 
