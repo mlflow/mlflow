@@ -306,7 +306,7 @@ in MLflow saved the model as an artifact within the run.
 
       the server should respond with output similar to::
 
-          {"predictions": [6.379428821398614]}
+          [6.379428821398614]
 
     .. container:: R
 
