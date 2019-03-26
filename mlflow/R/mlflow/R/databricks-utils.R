@@ -75,8 +75,14 @@ get_databricks_config_from_env <- function() {
 get_databricks_config <- function(profile) {
   config <- if (!is.na(profile)) {
     get_databricks_config_for_profile(profile)
-  } else if (exists(".databricks_internals")) {
-    do.call(".authentication_provider", list(), envir = .databricks_internals)
+  } else if (exists("spark.databricks.token") && exists("spark.databricks.api.url")) {
+    # linter does not like '.' in variable names.
+    # Escape it here since we do not control names of the variables.
+    config_vars <- list(
+      host = spark.databricks.api.url, # nolint
+      token = spark.databricks.token # nolint
+    )
+    new_databricks_config(config_source = "db_dynamic", config_vars = config_vars)
   } else {
     config <- get_databricks_config_from_env()
     if (databricks_config_is_valid(config)) {
