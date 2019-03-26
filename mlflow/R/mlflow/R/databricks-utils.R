@@ -51,7 +51,7 @@ get_databricks_config_for_profile <- function(profile) {
     stop(paste("Databricks configuration file is missing. Expected config file ", config_path))
   }
   config <- read.ini(config_path)
-  if (!("config" %in% names(profile))) {
+  if (!(profile %in% names(config))) {
     stop(paste("Missing profile '", profile, "'.", sep = ""))
   }
   new_databricks_config(config_source = "cfgfile", config[[profile]])
