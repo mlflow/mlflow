@@ -4,6 +4,7 @@ import os
 import shutil
 import tarfile
 import tempfile
+from six.moves import urllib
 
 import yaml
 
@@ -342,3 +343,11 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
 
 def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
+
+
+def parse_path(uri):
+    parsed_url = urllib.parse.urlparse(uri)
+    if os.sep != "/":
+        if parsed_url.path.startswith("/"):
+            return os.path.join(parsed_url.netloc, parsed_url.path[1:])
+    return os.path.join(parsed_url.netloc, parsed_url.path)

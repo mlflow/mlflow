@@ -20,7 +20,7 @@ from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 # The extra / is removed from the prefix to avoid corrupting windows paths
-_LOCAL_FS_URI_PREFIX = "file://"
+_LOCAL_FS_URI_PREFIX = "file:///"
 _REMOTE_URI_PREFIX = "http://"
 
 # Extra environment variables which take precedence for setting the basic/bearer
@@ -71,8 +71,10 @@ def get_tracking_uri():
         return _tracking_uri
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
-    else:
+    elif os.sep != "/":
         return _LOCAL_FS_URI_PREFIX + os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+    else:
+        return os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
 def get_artifact_uri(run_id, artifact_path=None):

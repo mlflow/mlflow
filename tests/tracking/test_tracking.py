@@ -19,6 +19,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
+from mlflow.utils.file_utils import parse_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
 from tests.projects.utils import tracking_uri_mock
 
@@ -208,7 +209,8 @@ def test_log_metric(tracking_uri_mock):
 def test_log_metrics(tracking_uri_mock):
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
-    expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
+    path = os.path.normpath("nested/nested/name")
+    expected_metrics = {"name_1": 30, "name_2": -3, path: 40}
     with active_run:
         mlflow.log_metrics(expected_metrics)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
@@ -227,7 +229,8 @@ def get_store_mock(tmpdir):
 
 
 def test_set_tags(tracking_uri_mock):
-    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    path = os.path.normpath("nested/nested/name")
+    exact_expected_tags = {"name_1": "c", "name_2": "b", path: "5"}
     approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
@@ -271,7 +274,8 @@ def test_log_param(tracking_uri_mock):
 
 
 def test_log_params(tracking_uri_mock):
-    expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    path = os.path.normpath("nested/nested/name")
+    expected_params = {"name_1": "c", "name_2": "b", path: "5"}
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
     with active_run:
@@ -321,7 +325,7 @@ def test_log_artifact(tracking_uri_mock):
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
             parsed_url = urllib.parse.urlparse(artifact_uri)
-            run_artifact_dir = parse_url.path if parsed_url.path else parsed_url.netloc
+            run_artifact_dir = parse_path(artifact_uri)
 
             mlflow.log_artifact(path0, parent_dir)
         expected_dir = os.path.join(run_artifact_dir, parent_dir) \
@@ -333,8 +337,7 @@ def test_log_artifact(tracking_uri_mock):
     for parent_dir in artifact_parent_dirs:
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
-            parsed_url = urllib.parse.urlparse(artifact_uri)
-            run_artifact_dir = parse_url.path if parsed_url.path else parsed_url.netloc
+            run_artifact_dir = parse_path(artifact_uri)
 
             mlflow.log_artifacts(artifact_src_dir, parent_dir)
         # Check that the logged artifacts match

@@ -4,7 +4,7 @@ import shutil
 from six.moves import urllib
 
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import mkdir, list_all, get_file_info
+from mlflow.utils.file_utils import mkdir, list_all, get_file_info, parse_path
 from mlflow.utils.validation import path_not_unique, bad_path_message
 
 
@@ -12,10 +12,7 @@ class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
     def __init__(self, *args, **kwargs):
         super(LocalArtifactRepository, self).__init__(*args, **kwargs)
-
-        parsed_url = urllib.parse.urlparse(self.artifact_uri)
-        #  If path is "", use the netloc instead, this handles the case of windows and file:// as prefix
-        self.artifact_dir = parsed_url.path if parsed_url.path else parsed_url.netloc
+        self.artifact_dir = parse_path(self.artifact_uri)
 
     def get_path_module(self):
         import os
