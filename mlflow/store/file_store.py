@@ -157,7 +157,10 @@ class FileStore(AbstractStore):
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        artifact_path = parse_path(artifact_uri) if artifact_uri else build_path(self.artifact_root_uri, str(experiment_id))
+        if artifact_uri:
+            artifact_path = parse_path(artifact_uri)
+        else:
+            artifact_path = build_path(self.artifact_root_uri, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_path, LifecycleStage.ACTIVE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id

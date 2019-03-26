@@ -1,7 +1,5 @@
 import os
 import pytest
-import sys
-
 from mock import Mock
 
 import mlflow.tracking
@@ -15,7 +13,8 @@ class TestLocalArtifactRepo(object):
     def _get_contents(self, repo, dir_name):
         return sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts(dir_name)])
 
-    @pytest.mark.parametrize("prefix", [mlflow.tracking.utils._LOCAL_FS_URI_PREFIX[:-1], "file:", ""])
+    @pytest.mark.parametrize(
+        "prefix", [mlflow.tracking.utils._LOCAL_FS_URI_PREFIX[:-1], "file:", ""])
     def test_basic_functions(self, prefix):
         if prefix == "" and not os.sep == "/":
             pytest.skip("skipping direct path as artifact_uri, not supported on windows")
@@ -89,7 +88,8 @@ class TestLocalArtifactRepo(object):
             ]
 
             # Verify contents of subdirectories
-            assert self._get_contents(repo, "nested") == [(os.path.normpath("nested/c.txt"), False, 1)]
+            path = os.path.normpath("nested/c.txt")
+            assert self._get_contents(repo, "nested") == [(path, False, 1)]
 
             infos = self._get_contents(repo, "aaa")
             assert infos == [
