@@ -21,7 +21,7 @@ SystemRequirements: MLflow (https://www.mlflow.org/)
 Encoding: UTF-8
 LazyData: true
 Depends:
-  R (>= 3.1.2)
+  R (>= 3.3.0)
 Imports:
   aws.s3,
   base64enc,
