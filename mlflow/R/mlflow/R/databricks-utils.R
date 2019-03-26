@@ -44,7 +44,6 @@ databricks_config_is_valid <- function(config) {
 }
 
 #' @importFrom ini read.ini
-#' @importFrom utils hasName
 get_databricks_config_for_profile <- function(profile) {
   config_path <- Sys.getenv("DATABRICKS_CONFIG_FILE", NA)
   config_path <- if (is.na(config_path)) path.expand("~/.databrickscfg") else config_path
@@ -52,7 +51,7 @@ get_databricks_config_for_profile <- function(profile) {
     stop(paste("Databricks configuration file is missing. Expected config file ", config_path))
   }
   config <- read.ini(config_path)
-  if (!hasName(config, profile)) {
+  if (!(profile %in% names(config))) {
     stop(paste("Missing profile '", profile, "'.", sep = ""))
   }
   new_databricks_config(config_source = "cfgfile", config[[profile]])
