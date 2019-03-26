@@ -701,27 +701,66 @@ class TestFileStore(unittest.TestCase):
     def test_search_metrics(self):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
-        m0 = Metric(key="test_search_params_m0", value=0, timestamp=200)
-        m1 = Metric(key="test_search_params_m1", value=1, timestamp=3000)
+        m0 = Metric(key="test_search_m0", value=0, timestamp=200)
+        m1 = Metric(key="test_search_m1", value=1, timestamp=3000)
         fs.log_batch(run.info.run_uuid, params=[], metrics=[m0, m1], tags=[])
 
-        for q in ('metrics.test_search_params_m0 = 0',
-                  'metrics.test_search_params_m0 != 1',
-                  'metrics.test_search_params_m0 >= 0',
-                  'metrics.test_search_params_m0 <= 0',
-                  'metrics.test_search_params_m0 <= 0.12',
-                  'metrics.test_search_params_m0 >= -1',
-                  'metrics.test_search_params_m0 != 1',
-                  'metrics.test_search_params_m1 = 1',
-                  'metrics.test_search_params_m1 > 0',
-                  'metrics.test_search_params_m1 < 100',
-                  'metrics.test_search_params_m1 != 0'):
+        for q in ('metrics.test_search_m0 = 0',
+                  'metrics.test_search_m0 != 1',
+                  'metrics.test_search_m0 >= 0',
+                  'metrics.test_search_m0 <= 0',
+                  'metrics.test_search_m0 <= 0.12',
+                  'metrics.test_search_m0 >= -1',
+                  'metrics.test_search_m0 != 1',
+                  'metrics.test_search_m1 = 1',
+                  'metrics.test_search_m1 > 0',
+                  'metrics.test_search_m1 < 100',
+                  'metrics.test_search_m1 != 0'):
             self.assertSequenceEqual([run.info.run_uuid],
                                      self._search(fs, Experiment.DEFAULT_EXPERIMENT_ID, q))
 
-        for q in ('metrics.test_search_params_m0 > 0',
-                  'metrics.test_search_params_m0 != 0',
-                  'metrics.test_search_params_random_name = 0',
-                  'metrics.test_search_params_m1 = 0'):
-            self.assertSequenceEqual([],
+        for q in ('metrics.test_search_m0 > 0',
+                  'metrics.test_search_m0 != 0',
+                  'metrics.test_search_random_name = 0',
+                  'metrics.test_search_m1 = 0'):
+            self.assertSequenceEqual([], self._search(fs, Experiment.DEFAULT_EXPERIMENT_ID, q))
+
+    def test_search_params(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        p0 = Param(key="test_search_params_p0", value='a')
+        p1 = Param(key="test_search_params_p1", value='aaa')
+        fs.log_batch(run.info.run_uuid, params=[p0, p1], metrics=[], tags=[])
+
+        for q in ("params.test_search_params_p0 = 'a'",
+                  "params.test_search_params_p0 != 'aaa'",
+                  "params.test_search_params_p0 != 'ab'",
+                  "params.test_search_params_p1 = 'aaa'"):
+            self.assertSequenceEqual([run.info.run_uuid],
                                      self._search(fs, Experiment.DEFAULT_EXPERIMENT_ID, q))
+
+        for q in ("params.test_search_params_p0 != 'a'",
+                  "params.some_random_name = 'a'",
+                  'metrics.test_search_params_m1 = 0'):
+            self.assertSequenceEqual([], self._search(fs, Experiment.DEFAULT_EXPERIMENT_ID, q))
+
+    def test_search_combo(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        p = Param(key="test_search_combo_p", value='a')
+        m = Metric(key="test_search_combo_m", value=1, timestamp=200)
+        fs.log_batch(run.info.run_uuid, params=[p], metrics=[m], tags=[])
+
+        for q in ("params.test_search_combo_p = 'a'",
+                  "params.test_search_combo_p != 'aaa'",
+                  "metrics.test_search_combo_m = 1",
+                  "metrics.test_search_combo_m < 100",
+                  "params.test_search_combo_p = 'a' and metrics.test_search_combo_m = 1.0"):
+            self.assertSequenceEqual([run.info.run_uuid],
+                                     self._search(fs, Experiment.DEFAULT_EXPERIMENT_ID, q))
+
+        for q in ("params.test_search_params_p0 != 'a'",
+                  "params.some_random_name = 'a'",
+                  'metrics.test_search_params_m1 = 0',
+                  "params.test_search_combo_p = 'a' and metrics.test_search_combo_m = 200"):
+            self.assertSequenceEqual([], self._search(fs, Experiment.DEFAULT_EXPERIMENT_ID, q))
