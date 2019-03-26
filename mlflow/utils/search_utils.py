@@ -37,11 +37,27 @@ class SearchFilter(object):
         return self._search_expressions
 
     @classmethod
+    def _trim_ends(cls, string_value):
+        return string_value[1:-1]
+
+    @classmethod
     def _trim_backticks(cls, entity_type):
         if entity_type.startswith("`"):
             assert entity_type.endswith("`")
-            return entity_type[1:-1]
+            return cls._trim_ends(entity_type)
         return entity_type
+
+    @classmethod
+    def _strip_quotes(cls, value):
+        if value.startswith("'"):
+            assert value.endswith("'")
+            return cls._trim_ends(value)
+        elif value.startswith('"'):
+            assert value.endswith('"')
+            return cls._trim_ends(value)
+        else:
+            raise MlflowException("Parameter value is either not quoted or unidentified quote "
+                                  "types for string value type %s" % value)
 
     @classmethod
     def _valid_entity_type(cls, entity_type):
@@ -70,24 +86,46 @@ class SearchFilter(object):
         return {"type": cls._valid_entity_type(entity_type), "key": key}
 
     @classmethod
-    def _process_token(cls, token):
-        if token.ttype == TokenType.Operator.Comparison:
-            return {"comparator": token.value}
-        elif token.ttype in cls.NUMERIC_VALUE_TYPES:
-            return {"value": token.value}
-        elif token.ttype in cls.STRING_VALUE_TYPES:
-            return {"value": token.value.strip("'")}  # strip quotes
+    def _get_value(cls, identifier_type, token):
+        if identifier_type == cls._METRIC_IDENTIFIER:
+            if token.ttype not in cls.NUMERIC_VALUE_TYPES:
+                raise MlflowException("Expected numeric value type for metric. "
+                                      "Found {}".format(token.value))
+            return token.value
         else:
-            return {}
+            assert identifier_type == cls._PARAM_IDENTIFIER
+            if token.ttype in cls.STRING_VALUE_TYPES:
+                return cls._strip_quotes(token.value)
+            elif isinstance(token, Identifier):
+                return cls._strip_quotes(token.value)
+            raise MlflowException("Expected string value type for parameter. "
+                                  "Found {}".format(token.value))
+
+    @classmethod
+    def _validate_comparison(cls, tokens):
+        base_error_string = "Invalid comparison clause"
+        if len(tokens) != 3:
+            raise MlflowException("{}. Expected 3 tokens found {}".format(base_error_string,
+                                                                          len(tokens)))
+        if not isinstance(tokens[0], Identifier):
+            raise MlflowException("{}. Expected 'Identifier' found '{}'".format(base_error_string,
+                                                                                str(tokens[0])))
+        if not isinstance(tokens[1], Token) and tokens[1].ttype != TokenType.Operator.Comparison:
+            raise MlflowException("{}. Expected comparison found '{}'".format(base_error_string,
+                                                                              str(tokens[1])))
+        if not isinstance(tokens[2], Token) and \
+                (tokens[2].ttype not in cls.STRING_VALUE_TYPES.union(cls.NUMERIC_VALUE_TYPES) or
+                 isinstance(tokens[2], Identifier)):
+            raise MlflowException("{}. Expected value token found '{}'".format(base_error_string,
+                                                                               str(tokens[2])))
 
     @classmethod
     def _get_comparison(cls, comparison):
-        comp = {}
-        for t in comparison.tokens:
-            if isinstance(t, Identifier):
-                comp.update(cls._get_identifier(t.value))
-            elif isinstance(t, Token):
-                comp.update(cls._process_token(t))
+        stripped_comparison = list(filter(lambda x: not x.is_whitespace, comparison.tokens))
+        cls._validate_comparison(stripped_comparison)
+        comp = cls._get_identifier(stripped_comparison[0].value)
+        comp["comparator"] = stripped_comparison[1].value
+        comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
         return comp
 
     @classmethod

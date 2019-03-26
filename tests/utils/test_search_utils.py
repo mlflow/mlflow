@@ -53,6 +53,8 @@ def test_anded_expression_2():
 
 @pytest.mark.parametrize("filter_string, parsed_filter", [
     ("metric.acc >= 0.94", [{'comparator': '>=', 'key': 'acc', 'type': 'metric', 'value': '0.94'}]),
+    ("metric.acc>=100", [{'comparator': '>=', 'key': 'acc', 'type': 'metric', 'value': '100'}]),
+    ("params.m!='tf'", [{'comparator': '!=', 'key': 'm', 'type': 'parameter', 'value': 'tf'}]),
     ('metric."legit name" >= 0.243', [{'comparator': '>=',
                                        'key': '"legit name"',
                                        'type': 'metric',
@@ -76,6 +78,17 @@ def test_filter(filter_string, parsed_filter):
     assert SearchFilter(SearchRuns(filter=filter_string))._parse() == parsed_filter
 
 
+@pytest.mark.parametrize("filter_string, parsed_filter", [
+    ("params.m = 'LR'", [{'type': 'parameter', 'comparator': '=', 'key': 'm', 'value': 'LR'}]),
+    ("params.m = \"LR\"", [{'type': 'parameter', 'comparator': '=', 'key': 'm', 'value': 'LR'}]),
+    ('params.m = "LR"', [{'type': 'parameter', 'comparator': '=', 'key': 'm', 'value': 'LR'}]),
+    ('params.m = "L\'Hosp"', [{'type': 'parameter', 'comparator': '=',
+                               'key': 'm', 'value': "L'Hosp"}]),
+])
+def test_correct_quote_trimming(filter_string, parsed_filter):
+    assert SearchFilter(SearchRuns(filter=filter_string))._parse() == parsed_filter
+
+
 @pytest.mark.parametrize("filter_string, error_message", [
     ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression"),
     ("m.acc >= 0.94", "Invalid search expression type"),
@@ -92,6 +105,29 @@ def test_filter(filter_string, parsed_filter):
     ("metrics.crazy.name > 0.1", "Invalid filter string"),
 ])
 def test_error_filter(filter_string, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchFilter(SearchRuns(filter=filter_string))._parse()
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize("filter_string, error_message", [
+    ("metric.model = 'LR'", "Expected numeric value type for metric"),
+    ("metric.model = '5'", "Expected numeric value type for metric"),
+    ("params.acc = 5", "Expected string value type for param"),
+])
+def test_error_comparison_clauses(filter_string, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchFilter(SearchRuns(filter=filter_string))._parse()
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize("filter_string, error_message", [
+    ("params.acc LR !=", "Invalid clause(s) in filter string"),
+    ("params.acc LR", "Invalid clause(s) in filter string"),
+    ("metric.acc !=", "Invalid clause(s) in filter string"),
+    ("params.acc = LR", "value is either not quoted or unidentified quote types"),
+])
+def test_invalid_clauses(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
         SearchFilter(SearchRuns(filter=filter_string))._parse()
     assert error_message in e.value.message
