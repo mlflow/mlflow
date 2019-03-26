@@ -41,30 +41,36 @@ class SearchFilter(object):
         return string_value[1:-1]
 
     @classmethod
+    def _is_quoted(cls, value, pattern):
+        if (value.startswith(pattern) and not value.endswith(pattern)) or \
+                (not value.startswith(pattern) and value.endswith(pattern)):
+            raise MlflowException("Mismatched quote types in argument {}" % value,
+                                  error_code=INVALID_PARAMETER_VALUE)
+        return value.startswith(pattern) and value.endswith(pattern)
+
+    @classmethod
     def _trim_backticks(cls, entity_type):
-        if entity_type.startswith("`"):
-            assert entity_type.endswith("`")
+        """Remove backticks from identifier like `param`, if they exist."""
+        if cls._is_quoted(entity_type, "`"):
             return cls._trim_ends(entity_type)
         return entity_type
 
     @classmethod
     def _strip_quotes(cls, value):
-        if value.startswith("'"):
-            assert value.endswith("'")
+        """Argument value is of type string and expected to have quotes."""
+        if cls._is_quoted(value, "'") or cls._is_quoted(value, '"'):
             return cls._trim_ends(value)
-        elif value.startswith('"'):
-            assert value.endswith('"')
-            return cls._trim_ends(value)
-        else:
-            raise MlflowException("Parameter value is either not quoted or unidentified quote "
-                                  "types for string value type %s" % value)
+        raise MlflowException("Parameter value is either not quoted or unidentified quote "
+                              "types for string value type %s" % value,
+                              error_code=INVALID_PARAMETER_VALUE)
 
     @classmethod
     def _valid_entity_type(cls, entity_type):
         entity_type = cls._trim_backticks(entity_type)
         if entity_type not in cls.VALID_KEY_TYPE:
             raise MlflowException("Invalid search expression type '%s'. "
-                                  "Valid values are '%s" % (entity_type, cls.VALID_KEY_TYPE))
+                                  "Valid values are '%s" % (entity_type, cls.VALID_KEY_TYPE),
+                                  error_code=INVALID_PARAMETER_VALUE)
 
         if entity_type in cls._ALTERNATE_PARAM_IDENTIFIERS:
             return cls._PARAM_IDENTIFIER
@@ -90,38 +96,47 @@ class SearchFilter(object):
         if identifier_type == cls._METRIC_IDENTIFIER:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException("Expected numeric value type for metric. "
-                                      "Found {}".format(token.value))
+                                      "Found {}".format(token.value),
+                                      error_code=INVALID_PARAMETER_VALUE)
             return token.value
         else:
-            assert identifier_type == cls._PARAM_IDENTIFIER
+            if identifier_type != cls._PARAM_IDENTIFIER:
+                # Expected to be either "param" or "metric".
+                raise MlflowException("Invalid identifier type. Expected one of "
+                                      "{}" % [cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER])
             if token.ttype in cls.STRING_VALUE_TYPES:
                 return cls._strip_quotes(token.value)
             elif isinstance(token, Identifier):
                 return cls._strip_quotes(token.value)
             raise MlflowException("Expected string value type for parameter. "
-                                  "Found {}".format(token.value))
+                                  "Found {}".format(token.value),
+                                  error_code=INVALID_PARAMETER_VALUE)
 
     @classmethod
     def _validate_comparison(cls, tokens):
         base_error_string = "Invalid comparison clause"
         if len(tokens) != 3:
             raise MlflowException("{}. Expected 3 tokens found {}".format(base_error_string,
-                                                                          len(tokens)))
+                                                                          len(tokens)),
+                                  error_code=INVALID_PARAMETER_VALUE)
         if not isinstance(tokens[0], Identifier):
             raise MlflowException("{}. Expected 'Identifier' found '{}'".format(base_error_string,
-                                                                                str(tokens[0])))
+                                                                                str(tokens[0])),
+                                  error_code=INVALID_PARAMETER_VALUE)
         if not isinstance(tokens[1], Token) and tokens[1].ttype != TokenType.Operator.Comparison:
             raise MlflowException("{}. Expected comparison found '{}'".format(base_error_string,
-                                                                              str(tokens[1])))
+                                                                              str(tokens[1])),
+                                  error_code=INVALID_PARAMETER_VALUE)
         if not isinstance(tokens[2], Token) and \
                 (tokens[2].ttype not in cls.STRING_VALUE_TYPES.union(cls.NUMERIC_VALUE_TYPES) or
                  isinstance(tokens[2], Identifier)):
             raise MlflowException("{}. Expected value token found '{}'".format(base_error_string,
-                                                                               str(tokens[2])))
+                                                                               str(tokens[2])),
+                                  error_code=INVALID_PARAMETER_VALUE)
 
     @classmethod
     def _get_comparison(cls, comparison):
-        stripped_comparison = list(filter(lambda x: not x.is_whitespace, comparison.tokens))
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
         comp = cls._get_identifier(stripped_comparison[0].value)
         comp["comparator"] = stripped_comparison[1].value
@@ -145,7 +160,8 @@ class SearchFilter(object):
         invalids = list(filter(cls._invalid_statement_token, statement.tokens))
         if len(invalids) > 0:
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
-            raise MlflowException("Invalid clause(s) in filter string: %s" % invalid_clauses)
+            raise MlflowException("Invalid clause(s) in filter string: %s" % invalid_clauses,
+                                  error_code=INVALID_PARAMETER_VALUE)
         return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, Comparison)]
 
     @classmethod
@@ -161,7 +177,8 @@ class SearchFilter(object):
                 comparator = search_expression.metric.double.comparator
                 value = search_expression.metric.double.value
             else:
-                raise MlflowException("Invalid metric type: '%s', expected float or double")
+                raise MlflowException("Invalid metric type: '%s', expected float or double",
+                                      error_code=INVALID_PARAMETER_VALUE)
             return {
                 "type": cls._METRIC_IDENTIFIER,
                 "key": key,
@@ -179,7 +196,8 @@ class SearchFilter(object):
                 "value": value
             }
         else:
-            raise MlflowException("Invalid search expression type '%s'" % key_type)
+            raise MlflowException("Invalid search expression type '%s'" % key_type,
+                                  error_code=INVALID_PARAMETER_VALUE)
 
     def _parse(self):
         if self._filter_string:
@@ -210,18 +228,22 @@ class SearchFilter(object):
         if key_type == cls._METRIC_IDENTIFIER:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
-                                      "not one of '%s" % (comparator, cls.VALID_METRIC_COMPARATORS))
+                                      "not one of '%s" % (comparator,
+                                                          cls.VALID_METRIC_COMPARATORS),
+                                      error_code=INVALID_PARAMETER_VALUE)
             metric = next((m for m in run.data.metrics if m.key == key), None)
             lhs = metric.value if metric else None
             value = float(value)
         elif key_type == cls._PARAM_IDENTIFIER:
             if comparator not in cls.VALID_PARAM_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
-                                      "not one of '%s" % (comparator, cls.VALID_PARAM_COMPARATORS))
+                                      "not one of '%s" % (comparator, cls.VALID_PARAM_COMPARATORS),
+                                      error_code=INVALID_PARAMETER_VALUE)
             param = next((p for p in run.data.params if p.key == key), None)
             lhs = param.value if param else None
         else:
-            raise MlflowException("Invalid search expression type '%s'" % key_type)
+            raise MlflowException("Invalid search expression type '%s'" % key_type,
+                                  error_code=INVALID_PARAMETER_VALUE)
 
         if lhs is None:
             return False
