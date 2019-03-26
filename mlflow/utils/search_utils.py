@@ -103,7 +103,7 @@ class SearchFilter(object):
             if identifier_type != cls._PARAM_IDENTIFIER:
                 # Expected to be either "param" or "metric".
                 raise MlflowException("Invalid identifier type. Expected one of "
-                                      "{}" % [cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER])
+                                      "{}".format([cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER]))
             if token.ttype in cls.STRING_VALUE_TYPES:
                 return cls._strip_quotes(token.value)
             elif isinstance(token, Identifier):
