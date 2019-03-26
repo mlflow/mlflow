@@ -12,10 +12,12 @@ import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, LifecycleStage
 from mlflow.exceptions import MlflowException, MissingConfigException
+from mlflow.protos.service_pb2 import SearchRuns
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.search_utils import SearchFilter
 from tests.helper_functions import random_int, random_str
 
 
@@ -689,3 +691,37 @@ class TestFileStore(unittest.TestCase):
         run = self._create_run(fs)
         fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[])
         self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[], tags=[])
+
+    def _search(self, fs, experiment_id, filter):
+        sr = SearchRuns()
+        sr.filter = filter
+        return [r.info.run_uuid
+                for r in fs.search_runs([experiment_id], SearchFilter(sr), ViewType.ACTIVE_ONLY)]
+
+    def test_search_metrics(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        m0 = Metric(key="test_search_params_m0", value=0, timestamp=200)
+        m1 = Metric(key="test_search_params_m1", value=1, timestamp=3000)
+        fs.log_batch(run.info.run_uuid, params=[], metrics=[m0, m1], tags=[])
+
+        for q in ('metrics.test_search_params_m0 = 0',
+                  'metrics.test_search_params_m0 != 1',
+                  'metrics.test_search_params_m0 >= 0',
+                  'metrics.test_search_params_m0 <= 0',
+                  'metrics.test_search_params_m0 <= 0.12',
+                  'metrics.test_search_params_m0 >= -1',
+                  'metrics.test_search_params_m0 != 1',
+                  'metrics.test_search_params_m1 = 1',
+                  'metrics.test_search_params_m1 > 0',
+                  'metrics.test_search_params_m1 < 100',
+                  'metrics.test_search_params_m1 != 0'):
+            self.assertSequenceEqual([run.info.run_uuid],
+                                     self._search(fs, Experiment.DEFAULT_EXPERIMENT_ID, q))
+
+        for q in ('metrics.test_search_params_m0 > 0',
+                  'metrics.test_search_params_m0 != 0',
+                  'metrics.test_search_params_random_name = 0',
+                  'metrics.test_search_params_m1 = 0'):
+            self.assertSequenceEqual([],
+                                     self._search(fs, Experiment.DEFAULT_EXPERIMENT_ID, q))
