@@ -23,7 +23,6 @@ LazyData: true
 Depends:
   R (>= 3.3.0)
 Imports:
-  aws.s3,
   base64enc,
   forge,
   fs,
