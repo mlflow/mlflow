@@ -61,16 +61,16 @@ def test_anded_expression_2():
     ("params.model = 'LinearRegression'", [{'comparator': '=',
                                             'key': 'model',
                                             'type': 'parameter',
-                                            'value': "'LinearRegression'"}]),
+                                            'value': "LinearRegression"}]),
     ("metrics.rmse < 1 and params.model_class = 'LR'", [
         {'comparator': '<', 'key': 'rmse', 'type': 'metric', 'value': '1'},
-        {'comparator': '=', 'key': 'model_class', 'type': 'parameter', 'value': "'LR'"}
+        {'comparator': '=', 'key': 'model_class', 'type': 'parameter', 'value': "LR"}
     ]),
     ("`metric`.a >= 0.1", [{'comparator': '>=', 'key': 'a', 'type': 'metric', 'value': '0.1'}]),
     ("`params`.model >= 'LR'", [{'comparator': '>=',
                                  'key': 'model',
                                  'type': 'parameter',
-                                 'value': "'LR'"}]),
+                                 'value': "LR"}]),
 ])
 def test_filter(filter_string, parsed_filter):
     assert SearchFilter(SearchRuns(filter=filter_string))._parse() == parsed_filter
