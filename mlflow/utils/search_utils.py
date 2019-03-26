@@ -15,9 +15,8 @@ class SearchFilter(object):
     _ALTERNATE_PARAM_IDENTIFIERS = set(["param", "params"])
     VALID_KEY_TYPE = set([_METRIC_IDENTIFIER] + list(_ALTERNATE_METRIC_IDENTIFIERS)
                          + [_PARAM_IDENTIFIER] + list(_ALTERNATE_PARAM_IDENTIFIERS))
-    VALUE_TYPES = set([TokenType.Literal.String.Single,
-                       TokenType.Literal.Number.Integer,
-                       TokenType.Literal.Number.Float])
+    STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
+    NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
 
     def __init__(self, search_runs=None):
         self._filter_string = search_runs.filter if search_runs else None
@@ -74,8 +73,10 @@ class SearchFilter(object):
     def _process_token(cls, token):
         if token.ttype == TokenType.Operator.Comparison:
             return {"comparator": token.value}
-        elif token.ttype in cls.VALUE_TYPES:
+        elif token.ttype in cls.NUMERIC_VALUE_TYPES:
             return {"value": token.value}
+        elif token.ttype in cls.STRING_VALUE_TYPES:
+            return {"value": token.value.strip("'")}  # strip quotes
         else:
             return {}
 
