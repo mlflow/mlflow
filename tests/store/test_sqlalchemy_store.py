@@ -686,11 +686,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                          [(t.key, t.value) for t in run.data.tags if t.key == "t1345"])
 
     # Tests for Search API
-    def _search(self, experiment_id, metrics_expressions=None, param_expressions=None,
+    def _search(self, experiment_id, metrics_expressions=None, param_expressions=None, filter="",
                 run_view_type=ViewType.ALL):
         search_runs = SearchRuns()
         search_runs.anded_expressions.extend(metrics_expressions or [])
         search_runs.anded_expressions.extend(param_expressions or [])
+        search_runs.filter = filter
         search_filter = SearchFilter(search_runs)
         return [r.info.run_uuid
                 for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
@@ -747,29 +748,48 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # test search returns both runs
         expr = self._param_expression("generic_param", "=", "p_val")
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="params.generic_param = 'p_val'"))
 
         # test search returns appropriate run (same key different values per run)
         expr = self._param_expression("generic_2", "=", "some value")
         six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter="params.generic_2 = "
+                                                                            "'some value'"))
+
         expr = self._param_expression("generic_2", "=", "another value")
         six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id,
+                                                      filter="params.generic_2 = 'another value'"))
 
         expr = self._param_expression("generic_param", "=", "wrong_val")
         six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id,
+                                                    filter="params.generic_param = 'wrong_value'"))
 
         expr = self._param_expression("generic_param", "!=", "p_val")
         six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id,
+                                                    filter="params.generic_param != 'p_val'"))
 
         expr = self._param_expression("generic_param", "!=", "wrong_val")
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="params.generic_param != "
+                                                                 "'wrong_val'"))
+
         expr = self._param_expression("generic_2", "!=", "wrong_val")
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="params.generic_2 != 'wrong_val'"))
 
         expr = self._param_expression("p_a", "=", "abc")
         six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter="params.p_a = 'abc'"))
 
         expr = self._param_expression("p_b", "=", "ABC")
         six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter="params.p_b = 'ABC'"))
 
     def test_search_metrics(self):
         experiment_id = self._experiment_factory('search_params')
@@ -789,65 +809,106 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3))
 
         expr = self._metric_expression("common", "=", 1.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="metrics.common = 1.0"))
 
         expr = self._metric_expression("common", ">", 0.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="metrics.common > 0"))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="metrics.common > 0.0"))
 
         expr = self._metric_expression("common", ">=", 0.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="metrics.common >= 0.0"))
 
         expr = self._metric_expression("common", "<", 4.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="metrics.common < 4.0"))
 
         expr = self._metric_expression("common", "<=", 4.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="metrics.common <= 4.0"))
 
         expr = self._metric_expression("common", "!=", 1.0)
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id, filter="metrics.common != 1.0"))
 
         expr = self._metric_expression("common", ">=", 3.0)
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id, filter="metrics.common >= 3.0"))
 
         expr = self._metric_expression("common", "<=", 0.75)
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id,filter="metrics.common <= 0.75"))
 
         # tests for same metric name across runs with different values and timestamps
         expr = self._metric_expression("measure_a", ">", 0.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="metrics.measure_a > 0.0"))
 
         expr = self._metric_expression("measure_a", "<", 50.0)
-        six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1], self._search(experiment_id,
+                                                      filter="metrics.measure_a < 50.0"))
 
         expr = self._metric_expression("measure_a", "<", 1000.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="metrics.measure_a < 1000.0"))
 
         expr = self._metric_expression("measure_a", "!=", -12.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="metrics.measure_a != -12.0"))
 
         expr = self._metric_expression("measure_a", ">", 50.0)
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id,
+                                                      filter="metrics.measure_a > 50.0"))
 
         expr = self._metric_expression("measure_a", "=", 1.0)
-        six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1], self._search(experiment_id,
+                                                      filter="metrics.measure_a = 1.0"))
 
         expr = self._metric_expression("measure_a", "=", 400.0)
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id,
+                                                      filter="metrics.measure_a = 400.0"))
 
         # test search with unique metric keys
         expr = self._metric_expression("m_a", ">", 1.0)
-        six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r1], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter="metrics.m_a > 1.0"))
 
         expr = self._metric_expression("m_b", ">", 1.0)
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter="metrics.m_b > 1.0"))
 
         # there is a recorded metric this threshold but not last timestamp
         expr = self._metric_expression("m_b", ">", 5.0)
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [], self._search(experiment_id,filter="metrics.m_b>5.0"))
 
         # metrics matches last reported timestamp for 'm_b'
         expr = self._metric_expression("m_b", "=", 4.0)
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id, metrics_expressions=[expr]))
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter="metrics.m_b  =   4.0"))
 
     def test_search_full(self):
         experiment_id = self._experiment_factory('search_params')
@@ -873,6 +934,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
                                                           param_expressions=[p_expr],
                                                           metrics_expressions=[m_expr]))
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
+                                                          filter="params.generic_param = 'p_val' "
+                                                                 "and metrics.common = 1.0"))
 
         # all params and metrics match
         p_expr = self._param_expression("generic_param", "=", "p_val")
@@ -881,6 +945,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         six.assertCountEqual(self, [r1], self._search(experiment_id,
                                                       param_expressions=[p_expr],
                                                       metrics_expressions=[m1_expr, m2_expr]))
+        six.assertCountEqual(self, [r1],
+                             self._search(experiment_id,
+                                          filter="params.generic_param = 'p_val' and "
+                                                 "metrics.common = 1.0 and "
+                                                 "metrics.m_a > 1.0"))
 
         # test with mismatch param
         p_expr = self._param_expression("random_bad_name", "=", "p_val")
@@ -889,6 +958,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         six.assertCountEqual(self, [], self._search(experiment_id,
                                                     param_expressions=[p_expr],
                                                     metrics_expressions=[m1_expr, m2_expr]))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter="params.random_bad_name = 'p_val' and "
+                                                 "metrics.common = 1.0 and "
+                                                 "metrics.m_a > 1.0"))
 
         # test with mismatch metric
         p_expr = self._param_expression("generic_param", "=", "p_val")
@@ -897,6 +971,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         six.assertCountEqual(self, [], self._search(experiment_id,
                                                     param_expressions=[p_expr],
                                                     metrics_expressions=[m1_expr, m2_expr]))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter="params.generic = 'p_val' and "
+                                                 "metrics.common = 1.0 and "
+                                                 "metrics.m_a > 100.0"))
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
