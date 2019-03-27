@@ -17,7 +17,7 @@ _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
 
 _BAD_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
-    " spaces ( ), and slashes (/ or \)."
+    " spaces ( ), and slashes (/ or \\)."
 )
 
 MAX_PARAMS_TAGS_PER_BATCH = 100
