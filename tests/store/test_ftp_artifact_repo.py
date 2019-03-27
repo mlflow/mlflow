@@ -5,7 +5,7 @@ import os
 import ftplib
 from ftplib import FTP
 
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.ftp_artifact_repo import FTPArtifactRepository
 
 
@@ -15,7 +15,7 @@ def ftp_mock():
 
 
 def test_artifact_uri_factory():
-    repo = ArtifactRepository.from_artifact_uri("ftp://user:pass@test_ftp:123/some/path", Mock())
+    repo = get_artifact_repository("ftp://user:pass@test_ftp:123/some/path", Mock())
     assert isinstance(repo, FTPArtifactRepository)
 
 

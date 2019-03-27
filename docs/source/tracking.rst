@@ -6,7 +6,8 @@ MLflow Tracking
 
 The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files
 when running your machine learning code and for later visualizing the results.
-MLflow Tracking lets you log and query experiments using both :ref:`Python <python-api>` and :ref:`REST <rest-api>` APIs.
+MLflow Tracking lets you log and query experiments using :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R-api`, 
+and :ref:`java_api` APIs.
 
 .. contents:: Table of Contents
   :local:
@@ -19,14 +20,14 @@ MLflow Tracking is organized around the concept of *runs*, which are executions 
 data science code. Each run records the following information:
 
 Code Version
-    Git commit hash used to execute the run, if it was executed from an :ref:`MLflow Project <projects>`.
+    Git commit hash used for the run, if it was run from an :ref:`MLflow Project <projects>`.
 
 Start & End Time
     Start and end time of the run
 
 Source
-    Name of the file executed to launch the run, or the project name and entry point for the run
-    if the run was executed from an :ref:`MLflow Project <projects>`.
+    Name of the file to launch the run, or the project name and entry point for the run
+    if run from an :ref:`MLflow Project <projects>`.
 
 Parameters
     Key-value input parameters of your choice. Both keys and values are strings.
@@ -34,7 +35,7 @@ Parameters
 Metrics
     Key-value metrics where the value is numeric. Each metric can be updated throughout the
     course of the run (for example, to track how your model's loss function is converging), and
-    MLflow will record and let you visualize the metric's full history.
+    MLflow records and lets you visualize the metric's full history.
 
 Artifacts
     Output files in any format. For example, you can record images (for example, PNGs), models
@@ -54,6 +55,8 @@ UI let you create and search for experiments.
 Once your runs have been recorded, you can query them using the :ref:`tracking_ui` or the MLflow
 API.
 
+.. _where-runs-are-recorded:
+
 Where Runs Are Recorded
 =======================
 
@@ -70,7 +73,7 @@ There are different kinds of remote tracking URIs:
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
 - Database encoded as a connection string (specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``)
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
-- Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_. This works only in workspaces for which the Databricks MLflow Tracking Server is enabled; contact Databricks if interested.
+- Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
 
 Logging Data to Runs
 ====================
@@ -100,18 +103,22 @@ runs are launched under this experiment.
 :py:func:`mlflow.start_run` returns the currently active run (if one exists), or starts a new run
 and returns a :py:class:`mlflow.ActiveRun` object usable as a context manager for the
 current run. You do not need to call ``start_run`` explicitly: calling one of the logging functions
-with no active run will automatically start a new one.
+with no active run automatically starts a new one.
 
 :py:func:`mlflow.end_run` ends the currently active run, if any, taking an optional run status.
 
 :py:func:`mlflow.active_run` returns a :py:class:`mlflow.entities.Run` object corresponding to the
 currently active run, if any.
 
-:py:func:`mlflow.log_param` logs a key-value parameter in the currently active run. The keys and
-values are both strings.
+:py:func:`mlflow.log_param` logs a single key-value param in the currently active run. The key and
+value are both strings. Use :py:func:`mlflow.log_params` to log multiple params at once.
 
-:py:func:`mlflow.log_metric` logs a key-value metric. The value must always be a number. MLflow will
-remember the history of values for each metric.
+:py:func:`mlflow.log_metric` logs a single key-value metric. The value must always be a number.
+MLflow remembers the history of values for each metric. Use :py:func:`mlflow.log_metrics` to log
+multiple metrics at once.
+
+:py:func:`mlflow.set_tag` sets a single key-value tag in the currently active run. The key and
+value are both strings. Use :py:func:`mlflow.set_tags` to set multiple tags at once.
 
 :py:func:`mlflow.log_artifact` logs a local file as an artifact, optionally taking an
 ``artifact_path`` to place it in within the run's artifact URI. Run artifacts can be organized into
@@ -127,13 +134,13 @@ logged to.
 Launching Multiple Runs in One Program
 --------------------------------------
 
-Sometimes you want to execute multiple MLflow runs in the same program: for example, maybe you are
+Sometimes you want to launch multiple MLflow runs in the same program: for example, maybe you are
 performing a hyperparameter search locally or your experiments are just very fast to run. This is
 easy to do because the ``ActiveRun`` object returned by :py:func:`mlflow.start_run` is a Python
 `context manager <https://docs.python.org/2.5/whatsnew/pep-343.html>`_. You can "scope" each run to
 just one block of code as follows:
 
-.. code:: python
+.. code-block:: py
 
    with mlflow.start_run():
        mlflow.log_param("x", 1)
@@ -142,6 +149,8 @@ just one block of code as follows:
 
 The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
+
+.. _organizing-runs-in-experiments:
 
 Organizing Runs in Experiments
 ==============================
@@ -152,14 +161,14 @@ the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment 
 using the CLI (for example, ``mlflow run ... --experiment-id [ID]``) or the ``MLFLOW_EXPERIMENT_ID``
 environment variable.
 
-.. code:: bash
+.. code-block:: bash
 
     # Prints "created an experiment with ID <id>
     mlflow experiments create fraud-detection
     # Set the ID via environment variables
     export MLFLOW_EXPERIMENT_ID=<id>
 
-.. code:: python
+.. code-block:: py
 
     # Launch a run. The experiment ID is inferred from the MLFLOW_EXPERIMENT_ID environment
     # variable, or from the --experiment-id parameter passed to the MLflow CLI (the latter
@@ -178,7 +187,7 @@ add tags to a run, and more.
 
 .. rubric:: Example
 
-.. code:: python
+.. code-block:: py
 
     from  mlflow.tracking import MlflowClient
     client = MlflowClient()
@@ -194,7 +203,7 @@ Adding Tags to Runs
 
 The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. For example:
 
-.. code:: python
+.. code-block:: py
 
   client.set_tag(run.info.run_uuid, "tag_key", "tag_value")
   
@@ -206,7 +215,7 @@ Tracking UI
 
 The Tracking UI lets you visualize, search and compare runs, as well as download run artifacts or
 metadata for analysis in other tools. If you have been logging runs to a local ``mlruns`` directory,
-run ``mlflow ui`` in the directory above it, and it will load the corresponding runs.
+run ``mlflow ui`` in the directory above it, and it loads the corresponding runs.
 Alternatively, the :ref:`MLflow tracking server <tracking_server>` serves the same UI and enables remote storage of run artifacts.
 
 The UI contains the following key features:
@@ -240,7 +249,7 @@ MLflow Tracking Servers
 
 You run an MLflow tracking server using ``mlflow server``.  An example configuration for a server is:
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow server \
         --backend-store-uri /mnt/persistent-disk \
@@ -250,24 +259,36 @@ You run an MLflow tracking server using ``mlflow server``.  An example configura
 Storage
 -------
 
-An MLflow tracking server has two properties related to how data is stored: file store and artifact store.
+An MLflow tracking server has two components for storage: a *backend store* and an *artifact store*.
 
-The *backend store* (exposed as ``--backend-store-uri``) is where the *server* stores run and
-experiment metadata. For backward compatibility, ``--file-store`` option is an alias to this
-option. This can be a local path **file store** specified as ``./path_to_store`` or
-``file://path_to_store``, or a SQL connection string for a *Database backed store*. For the
-latter, argument is expected to be a SQL connection string specified as
-``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported database types are
-``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
-It defaults to the local ``./mlruns`` directory (the same as when running ``mlflow run`` locally), but when
-running a server, make sure that this points to a persistent (that is, non-ephemeral) file system location.
+The backend store is where MLflow Tracking Server stores experiment and run metadata as well as
+params, metrics, and tags for runs. MLflow supports two types of backend stores: *file store* and
+*database-backed store*.
 
-The *artifact store* is a location suitable for large data (such as an S3 bucket or shared NFS file system)
-and is where *clients* log their artifact output (for example, models). The artifact store is a property
-of an experiment, but the ``--default-artifact-root`` flag sets the artifact root URI for
-newly-created experiments that do not specify one.
-Once you create an experiment, ``--default-artifact-root`` is no longer relevant to it.
-It defaults to the local ``./mlruns`` directory.
+Use ``--backend-store-uri`` to configure type of backend store. This can be a local path *file
+store* specified as ``./path_to_store`` or ``file:/path_to_store``, or a SQL connection string
+for a *database-backed store*. For the latter, the argument must be a SQL connection string
+specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported
+database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+
+By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (the same as when
+running ``mlflow run`` locally), but when running a server, make sure that this points to a
+persistent (that is, non-ephemeral) file system location.
+
+.. note::
+  For backwards compatibility, ``--file-store`` is an alias for this option.
+
+The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
+file system) and is where clients log their artifact output (for example, models).
+``artifact_location`` is a property recorded on :py:class:`mlflow.entities.Experiment` for
+default location to store artifacts for all runs in this experiment. Additional, ``artifact_uri``
+is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
+this run are stored.
+
+Use ``--default-artifact-root`` (defaults to local ``./mlruns`` directory) to configure default
+location to server's artifact store. This will be used as artifact location for newly-created
+experiments that do not specify one. Once you create an experiment, ``--default-artifact-root``
+is no longer relevant to that experiment.
 
 To allow the server and clients to access the artifact location, you should configure your cloud
 provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
@@ -280,12 +301,13 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   If you do not specify a ``--default-artifact-root`` or an artifact URI when creating the experiment
   (for example, ``mlflow experiments create --artifact-location s3://<my-bucket>``), the artifact root
   is a path inside the file store. Typically this is not an appropriate location, as the client and
-  server will probably be referring to different physical locations (that is, the same path on different disks).
+  server probably refer to different physical locations (that is, the same path on different disks).
 
 Supported Artifact Stores
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
-In addition to local file paths, MLflow supports the following storage systems as artifact stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
+In addition to local file paths, MLflow supports the following storage systems as artifact
+stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
 
 Amazon S3
 ^^^^^^^^^
@@ -299,7 +321,7 @@ these are available. For more information on how to set credentials, see
 To store artifacts in a custom endpoint, set the ``MLFLOW_S3_ENDPOINT_URL`` to your endpoint's URL.
 For example, if you have a Minio server at 1.2.3.4 on port 9000:
 
-.. code:: bash
+.. code-block:: bash
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
 
@@ -310,8 +332,8 @@ To store artifacts in Azure Blob Storage, specify a URI of the form
 ``wasbs://<container>@<storage-account>.blob.core.windows.net/<path>``.
 MLflow expects Azure Storage access credentials in the
 ``AZURE_STORAGE_CONNECTION_STRING`` or ``AZURE_STORAGE_ACCESS_KEY`` environment variables (preferring
-a connection string if one is set), so you will need to set one of these variables on both your client
-application and your MLflow tracking server. Finally, you will need to ``pip install azure-storage``
+a connection string if one is set), so you must set one of these variables on both your client
+application and your MLflow tracking server. Finally, you must run ``pip install azure-storage``
 separately (on both your client and the server) to access Azure Blob Storage; MLflow does not declare
 a dependency on this package by default.
 
@@ -321,11 +343,12 @@ Google Cloud Storage
 To store artifacts in Google Cloud Storage, specify a URI of the form ``gs://<bucket>/<path>``.
 You should configure credentials for accessing the GCS container on the client and server as described
 in the `GCS documentation <https://google-cloud.readthedocs.io/en/latest/core/auth.html>`_.
-Finally, you will need to ``pip install google-cloud-storage`` (on both your client and the server)
+Finally, you must run ``pip install google-cloud-storage`` (on both your client and the server)
 to access Google Cloud Storage; MLflow does not declare a dependency on this package by default.
 
 FTP server
-~~~
+^^^^^^^^^^^
+
 Specify a URI of the form ftp://user@host/path/to/directory to store artifacts in a FTP server. 
 The URI may optionally include a password for logging into the server, e.g. ``ftp://user:pass@host/path/to/directory``
 
@@ -365,7 +388,7 @@ along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :
 The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls 
 then make API requests to your remote tracking server.
 
-.. code:: python
+.. code-block:: py
 
     import mlflow
     with mlflow.start_run():

@@ -9,7 +9,8 @@ Installing MLflow
 You install MLflow by running:
 
 .. code-section::
-    .. code-block:: bash
+  
+    .. code-block:: python
 
         pip install mlflow
 
@@ -46,6 +47,7 @@ science code and see a history of your runs. You can try it out by writing a sim
 as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
 
 .. code-section::
+
     .. code-block:: python
 
         import os
@@ -64,6 +66,7 @@ as follows (this example is also included in ``quickstart/mlflow_tracking.py``):
             with open("output.txt", "w") as f:
                 f.write("Hello world!")
             log_artifact("output.txt")
+            
     .. code-block:: R
 
         library(mlflow)
@@ -87,9 +90,11 @@ By default, wherever you run your program, the tracking API writes data into fil
 You can then run MLflow's Tracking UI:
 
 .. code-section::
-    .. code-block:: bash
+  
+    .. code-block:: python
 
         mlflow ui
+        
     .. code-block:: R
 
         mlflow_ui()
@@ -113,11 +118,11 @@ project and what arguments they take.
 You can easily run existing projects with the ``mlflow run`` command, which runs a project from
 either a local directory or a GitHub URI:
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow run sklearn_elasticnet_wine -P alpha=0.5
 
-    mlflow run git@github.com:mlflow/mlflow-example.git -P alpha=5
+    mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=5
 
 There's a sample project in ``tutorial``, including a ``MLproject`` file that
 specifies its dependencies. if you haven't configured a :ref:`tracking server <tracking_server>`,
@@ -145,7 +150,7 @@ To illustrate this functionality, the ``mlflow.sklearn`` package can log scikit-
 MLflow artifacts and then load them again for serving. There is an example training application in
 ``sklearn_logistic_regression/train.py`` that you can run as follows:
 
-.. code:: bash
+.. code-block:: bash
 
     python sklearn_logistic_regression/train.py
 
@@ -155,7 +160,7 @@ description file and a pickled scikit-learn model. You can pass the run ID and t
 within the artifacts directory (here "model") to various tools. For example, MLflow includes a
 simple REST server for python-based models:
 
-.. code:: bash
+.. code-block:: bash
 
     mlflow pyfunc serve -r <RUN_ID> -m model
 
@@ -171,7 +176,7 @@ The following example uses ``curl`` to send a JSON-serialized pandas DataFrame w
 orientation to the pyfunc server. For more information about the input data formats accepted by
 the pyfunc model server, see the :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
 
-.. code:: bash
+.. code-block:: bash
 
     curl -d '{"columns":["x"], "data":[[1], [-1]]}' -H 'Content-Type: application/json; format=pandas-split' -X POST localhost:5000/invocations
 

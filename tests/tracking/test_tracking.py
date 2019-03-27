@@ -1,7 +1,9 @@
+import copy
 import filecmp
 import os
 import random
 import tempfile
+import time
 
 import attrdict
 import mock
@@ -9,11 +11,12 @@ import pytest
 
 import mlflow
 from mlflow import tracking
-from mlflow.entities import RunStatus, LifecycleStage
+from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
 from tests.projects.utils import tracking_uri_mock
 
 
@@ -148,6 +151,40 @@ def test_start_and_end_run(tracking_uri_mock):
         assert expected_pairs[metric.key] == metric.value
 
 
+def test_log_batch(tracking_uri_mock):
+    expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
+    expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
+    exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
+    approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
+
+    t = int(time.time())
+    metrics = [Metric(key=key, value=value, timestamp=t) for key, value in expected_metrics.items()]
+    params = [Param(key=key, value=value) for key, value in expected_params.items()]
+    tags = [RunTag(key=key, value=value) for key, value in exact_expected_tags.items()]
+
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    with active_run:
+        mlflow.tracking.MlflowClient().log_batch(run_id=run_uuid, metrics=metrics, params=params,
+                                                 tags=tags)
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    # Validate metrics
+    assert len(finished_run.data.metrics) == 2
+    for metric in finished_run.data.metrics:
+        assert expected_metrics[metric.key] == metric.value
+    # Validate tags (for automatically-set tags)
+    assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
+    for tag in finished_run.data.tags:
+        if tag.key in approx_expected_tags:
+            pass
+        else:
+            assert exact_expected_tags[tag.key] == tag.value
+    # Validate params
+    assert len(finished_run.data.params) == 2
+    for param in finished_run.data.params:
+        assert expected_params[param.key] == param.value
+
+
 def test_log_metric(tracking_uri_mock):
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
@@ -164,17 +201,55 @@ def test_log_metric(tracking_uri_mock):
         assert expected_pairs[metric.key] == metric.value
 
 
-def test_log_metric_validation(tracking_uri_mock):
+def test_log_metrics(tracking_uri_mock):
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
+    with active_run:
+        mlflow.log_metrics(expected_metrics)
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    # Validate metric key/values match what we expect, and that all metrics have the same timestamp
+    common_timestamp = finished_run.data.metrics[0].timestamp
+    assert len(finished_run.data.metrics) == len(expected_metrics)
+    for metric in finished_run.data.metrics:
+        assert expected_metrics[metric.key] == metric.value
+        assert metric.timestamp == common_timestamp
+
+
+@pytest.fixture
+def get_store_mock(tmpdir):
+    with mock.patch("mlflow.store.file_store.FileStore.log_batch") as _get_store_mock:
+        yield _get_store_mock
+
+
+def test_set_tags(tracking_uri_mock):
+    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
     with active_run:
+        mlflow.set_tags(exact_expected_tags)
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    # Validate tags
+    assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
+    for tag in finished_run.data.tags:
+        if tag.key in approx_expected_tags:
+            pass
+        else:
+            assert exact_expected_tags[tag.key] == tag.value
+
+
+def test_log_metric_validation(tracking_uri_mock):
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    with active_run, pytest.raises(MlflowException) as e:
         mlflow.log_metric("name_1", "apple")
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     assert len(finished_run.data.metrics) == 0
 
 
 def test_log_param(tracking_uri_mock):
-    print(tracking.get_tracking_uri())
     active_run = start_run()
     run_uuid = active_run.info.run_uuid
     with active_run:
@@ -188,6 +263,42 @@ def test_log_param(tracking_uri_mock):
     expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
     for param in finished_run.data.params:
         assert expected_pairs[param.key] == param.value
+
+
+def test_log_params(tracking_uri_mock):
+    expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    active_run = start_run()
+    run_uuid = active_run.info.run_uuid
+    with active_run:
+        mlflow.log_params(expected_params)
+    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    # Validate params
+    assert len(finished_run.data.params) == 3
+    for param in finished_run.data.params:
+        assert expected_params[param.key] == param.value
+
+
+def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
+    active_run = start_run()
+    bad_kwargs = {
+        "metrics": [
+            [Metric(key="../bad/metric/name", value=0.3, timestamp=3)],
+            [Metric(key="ok-name", value="non-numerical-value", timestamp=3)],
+            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp")],
+        ],
+        "params": [[Param(key="../bad/param/name", value="my-val")]],
+        "tags": [[Param(key="../bad/tag/name", value="my-val")]],
+    }
+    with active_run:
+        for kwarg, bad_values in bad_kwargs.items():
+            for bad_kwarg_value in bad_values:
+                final_kwargs = {
+                    "run_id":  active_run.info.run_uuid, "metrics": [], "params": [], "tags": [],
+                }
+                final_kwargs[kwarg] = bad_kwarg_value
+                with pytest.raises(MlflowException) as e:
+                    tracking.MlflowClient().log_batch(**final_kwargs)
+                assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
 def test_log_artifact(tracking_uri_mock):

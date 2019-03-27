@@ -10,10 +10,12 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
-                                    _validate_tag_name, _validate_experiment_id
+                                    _validate_tag_name, _validate_experiment_id,\
+                                    _validate_batch_log_limits, _validate_batch_log_data
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
@@ -21,7 +23,6 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
-from mlflow.utils.search_utils import does_run_match_clause
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -209,7 +210,8 @@ class FileStore(AbstractStore):
 
     def get_experiment(self, experiment_id):
         """
-        Fetches the experiment. This will search for active as well as deleted experiments.
+        Fetch the experiment.
+        Note: This API will search for active as well as deleted experiments.
 
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
@@ -347,7 +349,7 @@ class FileStore(AbstractStore):
 
     def get_run(self, run_uuid):
         """
-        Will get both active and deleted runs.
+        Note: Will get both active and deleted runs.
         """
         _validate_run_id(run_uuid)
         run_info = self._get_run_info(run_uuid)
@@ -361,7 +363,7 @@ class FileStore(AbstractStore):
 
     def _get_run_info(self, run_uuid):
         """
-        Will get both active and deleted runs.
+        Note: Will get both active and deleted runs.
         """
         exp_id, run_dir = self._find_run_root(run_uuid)
         if run_dir is None:
@@ -406,12 +408,18 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_metric_from_file(parent_path, metric_name):
         _validate_metric_name(metric_name)
-        metric_data = read_file_lines(parent_path, metric_name)
+        metric_data = []
+        for line in read_file_lines(parent_path, metric_name):
+            metric_timestamp, metric_value = line.split()
+            metric_data.append((int(metric_timestamp), float(metric_value)))
         if len(metric_data) == 0:
-            raise Exception("Metric '%s' is malformed. No data found." % metric_name)
-        last_line = metric_data[-1]
-        timestamp, val = last_line.strip().split(" ")
-        return Metric(metric_name, float(val), int(timestamp))
+            raise ValueError("Metric '%s' is malformed. No data found." % metric_name)
+        # Python performs element-wise comparison of equal-length tuples, ordering them
+        # based on their first differing element. Therefore, we use max() operator to find the
+        # largest value at the largest timestamp. For more information, see
+        # https://docs.python.org/3/reference/expressions.html#value-comparisons
+        max_timestamp, max_value = max(metric_data)
+        return Metric(metric_name, max_value, max_timestamp)
 
     def get_all_metrics(self, run_uuid):
         _validate_run_id(run_uuid)
@@ -439,12 +447,13 @@ class FileStore(AbstractStore):
     def _get_param_from_file(parent_path, param_name):
         _validate_param_name(param_name)
         param_data = read_file_lines(parent_path, param_name)
-        if len(param_data) == 0:
-            raise Exception("Param '%s' is malformed. No data found." % param_name)
         if len(param_data) > 1:
             raise Exception("Unexpected data for param '%s'. Param recorded more than once"
                             % param_name)
-        return Param(param_name, str(param_data[0].strip()))
+        # The only cause for param_data's length to be zero is the param's
+        # value is an empty string
+        value = '' if len(param_data) == 0 else str(param_data[0].strip())
+        return Param(param_name, value)
 
     @staticmethod
     def _get_tag_from_file(parent_path, tag_name):
@@ -487,15 +496,12 @@ class FileStore(AbstractStore):
                                 exc_info=True)
         return run_infos
 
-    def search_runs(self, experiment_ids, search_expressions, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type):
         runs = []
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self.get_run(r.run_uuid) for r in run_infos)
-        if len(search_expressions) == 0:
-            return runs
-        return [run for run in runs if
-                all([does_run_match_clause(run, s) for s in search_expressions])]
+        return [run for run in runs if not search_filter or search_filter.filter(run)]
 
     def log_metric(self, run_uuid, metric):
         _validate_run_id(run_uuid)
@@ -537,3 +543,19 @@ class FileStore(AbstractStore):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         run_info_dict = _make_persisted_run_info_dict(run_info)
         write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict, overwrite=True)
+
+    def log_batch(self, run_id, metrics, params, tags):
+        _validate_run_id(run_id)
+        _validate_batch_log_data(metrics, params, tags)
+        _validate_batch_log_limits(metrics, params, tags)
+        run = self.get_run(run_id)
+        check_run_is_active(run.info)
+        try:
+            for param in params:
+                self.log_param(run_id, param)
+            for metric in metrics:
+                self.log_metric(run_id, metric)
+            for tag in tags:
+                self.set_tag(run_id, tag)
+        except Exception as e:
+            raise MlflowException(e, INTERNAL_ERROR)

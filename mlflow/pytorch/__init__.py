@@ -123,11 +123,12 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     >>>    y_pred = model(x_data)
     >>>    # Compute and print loss
     >>>    loss = criterion(y_pred, y_data)
-    >>>    print(epoch, loss.data[0])
-    >>>   #Zero gradients, perform a backward pass, and update the weights.
-    >>>   optimizer.zero_grad()
-    >>>   loss.backward()
-    >>>   optimizer.step()
+    >>>    print(epoch, loss.data.item())
+    >>>    #Zero gradients, perform a backward pass, and update the weights.
+    >>>    optimizer.zero_grad()
+    >>>    loss.backward()
+    >>>    optimizer.step()
+    >>>
     >>> # After training
     >>> for hv in [4.0, 5.0, 6.0]:
     >>>     hour_var = torch.Tensor([[hv]])
@@ -136,7 +137,7 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     >>> # log the model
     >>> with mlflow.start_run() as run:
     >>>   mlflow.log_param("epochs", 500)
-    >>>   mlflow.pytorch.log_model(pytorch_model, "models")
+    >>>   mlflow.pytorch.log_model(model, "models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
               conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module, **kwargs)

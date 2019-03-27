@@ -191,7 +191,7 @@ class RunView extends Component {
              <Dropdown.Toggle noCaret className="mlflow-dropdown-button">
                <i className="fas fa-caret-down"/>
              </Dropdown.Toggle>
-             <Dropdown.Menu className="mlflow-menu">
+             <Dropdown.Menu className="mlflow-menu header-menu">
                <MenuItem
                  className="mlflow-menu-item"
                  onClick={this.handleRenameRunClick}
@@ -264,7 +264,7 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Job Output: </span>
               <span className="metadata-info">
-                <a href={tags['mlflow.databricks.runURL'].value}>Logs</a>
+                <a href={tags['mlflow.databricks.runURL'].value} target="_blank">Logs</a>
               </span>
             </div>
             : null

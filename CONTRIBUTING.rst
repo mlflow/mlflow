@@ -15,7 +15,7 @@ Prerequisites
 
 We recommend installing MLflow in its own conda environment for development, as follows:
 
-.. code:: bash
+.. code-block:: bash
 
     conda create --name mlflow-dev-env
     source activate mlflow-dev-env
@@ -33,7 +33,7 @@ Install Node Modules
 Before running the Javascript dev server or building a distributable wheel, install Javascript
 dependencies via:
 
-.. code:: bash
+.. code-block:: bash
 
    cd mlflow/server/js
    npm install
@@ -55,7 +55,7 @@ the Python package in a conda environment as described above.
 the Java 8 JDK (or above), and `download <https://maven.apache.org/download.cgi>`_
 and `install <https://maven.apache.org/install.html>`_ Maven. You can then build and run tests via:
 
-.. code:: bash
+.. code-block:: bash
 
   cd mlflow/java
   mvn compile test
@@ -67,7 +67,7 @@ The ``mlflow/R/mlflow`` directory contains R wrappers for the Projects, Tracking
 components. These wrappers depend on the Python package, so first install
 the Python package in a conda environment:
 
-.. code:: bash
+.. code-block:: bash
 
   # Note that we don't pass the -e flag to pip, as the R tests attempt to run the MLflow UI
   # via the CLI, which will not work if we run against the development tracking server
@@ -77,7 +77,7 @@ the Python package in a conda environment:
 `Install R <https://cloud.r-project.org/>`_, then run the following to install dependencies for
 building MLflow locally:
 
-.. code:: bash
+.. code-block:: bash
 
   cd mlflow/R/mlflow
   NOT_CRAN=true Rscript -e 'install.packages("devtools", repos = "https://cloud.r-project.org")'
@@ -85,13 +85,13 @@ building MLflow locally:
 
 Build the R client via:
 
-.. code:: bash
+.. code-block:: bash
 
   R CMD build .
 
 Run tests:
 
-.. code:: bash
+.. code-block:: bash
 
   R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
   cd tests
@@ -100,14 +100,14 @@ Run tests:
 
 Run linter:
 
-.. code:: bash
+.. code-block:: bash
 
   Rscript -e 'lintr::lint_package()'
 
 
 When developing, you can make Python changes available in R by running (from mlflow/R/mlflow):
 
-.. code:: bash
+.. code-block:: bash
 
   Rscript -e 'reticulate::conda_install("r-mlflow", "../../../.", pip = TRUE)'
 
@@ -127,7 +127,7 @@ Tests and Lint
 --------------
 Verify that the unit tests & linter pass before submitting a pull request by running:
 
-.. code:: bash
+.. code-block:: bash
 
     pytest
     ./lint.sh
@@ -143,13 +143,13 @@ Running the Javascript Dev Server
 
 In one shell:
 
-.. code:: bash
+.. code-block:: bash
 
    mlflow ui
 
 In another shell:
 
-.. code:: bash
+.. code-block:: bash
 
    cd mlflow/server/js
    npm start
@@ -162,14 +162,14 @@ Building a Distributable Artifact
 
 Generate JS files in ``mlflow/server/js/build``:
 
-.. code:: bash
+.. code-block:: bash
 
    cd mlflow/server/js
    npm run build
 
 Build a pip-installable wheel in ``dist/``:
 
-.. code:: bash
+.. code-block:: bash
 
    cd -
    python setup.py bdist_wheel
@@ -183,7 +183,7 @@ Writing Docs
 ------------
 Install the necessary Python dependencies via ``pip install -r dev-requirements.txt``. Then run
 
-.. code:: bash
+.. code-block:: bash
 
    cd docs
    make livehtml

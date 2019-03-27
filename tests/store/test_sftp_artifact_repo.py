@@ -2,7 +2,7 @@ from mock import Mock, MagicMock
 import pytest
 from tempfile import NamedTemporaryFile
 import pysftp
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.utils.file_utils import TempDir
 import os
@@ -16,7 +16,7 @@ def sftp_mock():
 def test_artifact_uri_factory():
     from paramiko.ssh_exception import SSHException
     with pytest.raises(SSHException):
-        ArtifactRepository.from_artifact_uri(
+        get_artifact_repository(
             "sftp://user:pass@test_sftp:123/some/path",
             Mock())
 

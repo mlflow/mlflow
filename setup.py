@@ -46,7 +46,9 @@ setup(
         'simplejson',
         'mleap>=0.8.1',
         'cloudpickle',
-        'docker>=3.6.0'
+        'docker>=3.6.0',
+        'entrypoints',
+        'sqlparse',
     ],
     entry_points='''
         [console_scripts]

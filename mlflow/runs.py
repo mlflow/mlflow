@@ -38,7 +38,7 @@ def list_run(experiment_id, view):
     """
     store = _get_store()
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
-    runs = store.search_runs([experiment_id], [], view_type)
+    runs = store.search_runs([experiment_id], None, view_type)
     table = []
     for run in runs:
         tags = {t.key: t.value for t in run.data.tags}

@@ -10,10 +10,9 @@ import pytest
 from mlflow import cli
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
-from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI,\
+from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI, \
     TEST_NO_SPEC_PROJECT_DIR
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
-
 
 _logger = logging.getLogger(__name__)
 
@@ -84,12 +83,14 @@ def test_run_databricks_cluster_spec(tmpdir):
         for cluster_spec_arg in [json.dumps(cluster_spec), cluster_spec_path]:
             invoke_cli_runner(
                 cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec",
-                          cluster_spec_arg, "-e", "greeter", "-P", "name=hi"])
+                          cluster_spec_arg, "-e", "greeter", "-P", "name=hi"],
+                env={'MLFLOW_TRACKING_URI': 'databricks://profile'})
             assert run_mock.call_count == 1
             _, run_kwargs = run_mock.call_args_list[0]
             assert run_kwargs["cluster_spec"] == cluster_spec
             run_mock.reset_mock()
         res = CliRunner().invoke(
             cli.run, [TEST_PROJECT_DIR, "-m", "databricks", "--cluster-spec",
-                      json.dumps(cluster_spec) + "JUNK", "-e", "greeter", "-P", "name=hi"])
+                      json.dumps(cluster_spec) + "JUNK", "-e", "greeter", "-P", "name=hi"],
+            env={'MLFLOW_TRACKING_URI': 'databricks://profile'})
         assert res.exit_code != 0
