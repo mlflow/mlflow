@@ -162,7 +162,7 @@ class AbstractStore:
         :param run_uuid: String id for the run
         :param metric: :py:class:`mlflow.entities.Metric` instance to log
         """
-        pass
+        self.log_batch(run_uuid, metrics=[metric], params=[], tags=[])
 
     def log_param(self, run_uuid, param):
         """
@@ -171,7 +171,7 @@ class AbstractStore:
         :param run_uuid: String id for the run
         :param param: :py:class:`mlflow.entities.Param` instance to log
         """
-        pass
+        self.log_batch(run_uuid, metrics=[], params=[param], tags=[])
 
     def set_tag(self, run_uuid, tag):
         """
@@ -180,7 +180,7 @@ class AbstractStore:
         :param run_uuid: String id for the run
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
-        pass
+        self.log_batch(run_uuid, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
     def get_metric_history(self, run_uuid, metric_key):
