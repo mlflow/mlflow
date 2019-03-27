@@ -3,6 +3,18 @@ new_mlflow_client <- function(tracking_uri) {
   UseMethod("new_mlflow_client")
 }
 
+mlflow_get_run_context <- function(client, source_name, source_version) {
+  UseMethod("mlflow_get_run_context")
+}
+
+mlflow_get_context_tags.default <- function(client, source_name, source_version) {
+  list(
+    source_name = source_name %||% get_source_name(),
+    source_version = source_version %||% get_source_version(),
+    tags = NULL,
+  )
+}
+
 new_mlflow_uri <- function(raw_uri) {
   parts <- strsplit(raw_uri, "://")[[1]]
   structure(
@@ -210,18 +222,6 @@ mlflow_client_create_run <- function(
     purrr::imap(~ list(key = .y, value = .x)) %>%
     unname()
 
-  if (!is.null(source_name)) {
-    tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- source_name
-  }
-  if (!is.null(source_type)) {
-    tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- source_type
-  }
-  if (!is.null(source_version)){
-     tags[[MLFLOW_TAGS$MLFLOW_GIT_COMMIT]] <- source_version
-  }
-  if (!is.null(entry_point_name)) {
-    tags[[MLFLOW_PROJECT_ENTRY_POINT]] <- entry_point_name
-  }
   start_time <- start_time %||% current_time()
   user_id <- user_id %||% mlflow_user()
 
