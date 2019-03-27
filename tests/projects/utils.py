@@ -5,9 +5,10 @@ import docker
 import pytest
 
 import mlflow
-import mlflow.tracking
+
 from mlflow.entities import RunStatus
 from mlflow.projects import _project_spec
+from mlflow.tracking.utils import _LOCAL_FS_URI_PREFIX
 
 
 TEST_DIR = "tests"
@@ -47,7 +48,7 @@ def build_docker_example_base_image():
 @pytest.fixture()
 def tracking_uri_mock(tmpdir):
     try:
-        prefix = mlflow.tracking.utils._LOCAL_FS_URI_PREFIX if os.sep != "/" else ""
+        prefix = _LOCAL_FS_URI_PREFIX if os.sep != "/" else ""
         mlflow.set_tracking_uri(prefix + os.path.join(tmpdir.strpath, 'mlruns'))
         yield tmpdir
     finally:

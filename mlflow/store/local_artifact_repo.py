@@ -40,10 +40,8 @@ class LocalArtifactRepository(ArtifactRepository):
         dir_util.copy_tree(src=local_dir, dst=artifact_dir)
 
     def list_artifacts(self, path=None):
-        if path:
-            list_dir = self.get_path_module().join(self.artifact_dir, path)
-        else:
-            list_dir = self.artifact_dir
+        list_dir = self.get_path_module().join(self.artifact_dir, path) \
+            if path else self.artifact_dir
         if self.get_path_module().isdir(list_dir):
             artifact_files = list_all(list_dir, full_path=True)
             infos = [get_file_info(f, self.get_path_module().relpath(f, self.artifact_dir))
