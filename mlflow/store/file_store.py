@@ -161,7 +161,7 @@ class FileStore(AbstractStore):
         if artifact_uri:
             artifact_path = parse_path(artifact_uri)
         else:
-            artifact_path = build_path(self.artifact_root_uri, str(experiment_id))
+            artifact_path = build_path(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_path, LifecycleStage.ACTIVE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
