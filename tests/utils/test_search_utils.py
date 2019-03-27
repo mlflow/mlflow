@@ -68,6 +68,7 @@ def test_anded_expression_2():
         {'comparator': '<', 'key': 'rmse', 'type': 'metric', 'value': '1'},
         {'comparator': '=', 'key': 'model_class', 'type': 'parameter', 'value': "LR"}
     ]),
+    ('', []),
     ("`metric`.a >= 0.1", [{'comparator': '>=', 'key': 'a', 'type': 'metric', 'value': '0.1'}]),
     ("`params`.model >= 'LR'", [{'comparator': '>=',
                                  'key': 'model',
@@ -125,6 +126,12 @@ def test_error_comparison_clauses(filter_string, error_message):
     ("params.acc LR !=", "Invalid clause(s) in filter string"),
     ("params.acc LR", "Invalid clause(s) in filter string"),
     ("metric.acc !=", "Invalid clause(s) in filter string"),
+    ("acc != 1.0", "Invalid filter string"),
+    ("foo is null", "Invalid clause(s) in filter string"),
+    ("1=1", "Expected 'Identifier' found"),
+    ("1==2", "Expected 'Identifier' found"),
+    ("metrics.acc != metrics.acc", "Expected numeric value type for metric"),
+    ("1.0 > metrics.acc", "Expected 'Identifier' found"),
     ("params.acc = LR", "value is either not quoted or unidentified quote types"),
 ])
 def test_invalid_clauses(filter_string, error_message):

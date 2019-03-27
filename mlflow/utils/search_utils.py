@@ -46,7 +46,7 @@ class SearchFilter(object):
                 (not value.startswith(pattern) and value.endswith(pattern)):
             raise MlflowException("Mismatched quote types in argument {}" % value,
                                   error_code=INVALID_PARAMETER_VALUE)
-        return value.startswith(pattern) and value.endswith(pattern)
+        return len(value) >= 2 and value.startswith(pattern) and value.endswith(pattern)
 
     @classmethod
     def _trim_backticks(cls, entity_type):
@@ -61,8 +61,8 @@ class SearchFilter(object):
         if cls._is_quoted(value, "'") or cls._is_quoted(value, '"'):
             return cls._trim_ends(value)
         raise MlflowException("Parameter value is either not quoted or unidentified quote "
-                              "types for string value type %s" % value,
-                              error_code=INVALID_PARAMETER_VALUE)
+                              "types used for string value %s. Use either single or double "
+                              "quotes." % value, error_code=INVALID_PARAMETER_VALUE)
 
     @classmethod
     def _valid_entity_type(cls, entity_type):
@@ -99,11 +99,7 @@ class SearchFilter(object):
                                       "Found {}".format(token.value),
                                       error_code=INVALID_PARAMETER_VALUE)
             return token.value
-        else:
-            if identifier_type != cls._PARAM_IDENTIFIER:
-                # Expected to be either "param" or "metric".
-                raise MlflowException("Invalid identifier type. Expected one of "
-                                      "{}".format([cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER]))
+        elif identifier_type == cls._PARAM_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES:
                 return cls._strip_quotes(token.value)
             elif isinstance(token, Identifier):
@@ -111,6 +107,11 @@ class SearchFilter(object):
             raise MlflowException("Expected string value type for parameter. "
                                   "Found {}".format(token.value),
                                   error_code=INVALID_PARAMETER_VALUE)
+        else:
+            # Expected to be either "param" or "metric".
+            raise MlflowException("Invalid identifier type. Expected one of "
+                                  "{}.".format([cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER]))
+
 
     @classmethod
     def _validate_comparison(cls, tokens):
