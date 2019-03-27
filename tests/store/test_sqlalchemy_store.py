@@ -850,7 +850,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         expr = self._metric_expression("common", "<=", 0.75)
         six.assertCountEqual(self, [], self._search(experiment_id, metrics_expressions=[expr]))
-        six.assertCountEqual(self, [], self._search(experiment_id,filter="metrics.common <= 0.75"))
+        six.assertCountEqual(self, [], self._search(experiment_id, filter="metrics.common <= 0.75"))
 
         # tests for same metric name across runs with different values and timestamps
         expr = self._metric_expression("measure_a", ">", 0.0)
@@ -903,7 +903,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # there is a recorded metric this threshold but not last timestamp
         expr = self._metric_expression("m_b", ">", 5.0)
         six.assertCountEqual(self, [], self._search(experiment_id, metrics_expressions=[expr]))
-        six.assertCountEqual(self, [], self._search(experiment_id,filter="metrics.m_b>5.0"))
+        six.assertCountEqual(self, [], self._search(experiment_id, filter="metrics.m_b>5.0"))
 
         # metrics matches last reported timestamp for 'm_b'
         expr = self._metric_expression("m_b", "=", 4.0)
