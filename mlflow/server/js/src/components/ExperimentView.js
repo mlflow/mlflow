@@ -28,7 +28,7 @@ import Utils from '../utils/Utils';
 export const DEFAULT_EXPANDED_VALUE = false;
 
 
-class ExperimentView extends Component {
+export class ExperimentView extends Component {
   constructor(props) {
     super(props);
     this.onCheckbox = this.onCheckbox.bind(this);
