@@ -3,18 +3,6 @@ new_mlflow_client <- function(tracking_uri) {
   UseMethod("new_mlflow_client")
 }
 
-mlflow_get_run_context <- function(client, source_name, source_version) {
-  UseMethod("mlflow_get_run_context")
-}
-
-mlflow_get_context_tags.default <- function(client, source_name, source_version) {
-  list(
-    source_name = source_name %||% get_source_name(),
-    source_version = source_version %||% get_source_version(),
-    tags = NULL,
-  )
-}
-
 new_mlflow_uri <- function(raw_uri) {
   parts <- strsplit(raw_uri, "://")[[1]]
   structure(
@@ -41,7 +29,8 @@ new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, toke
 }
 
 #' @export
-print.mlflow_host_creds <- function(mlflow_host_creds) {
+print.mlflow_host_creds <- function(x, ...) {
+  mlflow_host_creds <- x
   args <- list(
     host = if (is.na(mlflow_host_creds$host)) {
       ""
