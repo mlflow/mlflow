@@ -49,6 +49,10 @@ setup(
         'docker>=3.6.0',
         'entrypoints',
         'sqlparse',
+        'sqlalchemy==1.3.0',
+        'psycopg2',
+        'mysqlclient',
+        'pyodbc',
     ],
     entry_points='''
         [console_scripts]
