@@ -1036,45 +1036,6 @@ Response Structure
 | run_info   | :ref:`mlflowruninfo` | Updated metadata of the run. |
 +------------+----------------------+------------------------------+
 
-===========================
-
-
-
-.. _mlflowMlflowServicepurgeDeletedState:
-
-Purge Deleted State
-===================
-
-
-+------------------------------+-------------+
-|           Endpoint           | HTTP Method |
-+==============================+=============+
-| ``2.0/preview/mlflow/purge`` | ``POST``    |
-+------------------------------+-------------+
-
-Purges (permanently deletes) experiments and runs which were deleted prior to some timestamp.
-
-
-
-
-.. _mlflowPurgeDeletedState:
-
-Request Structure
------------------
-
-
-
-
-
-
-+-------------------+-----------+-----------------------------------------------------------------------------------------+
-|    Field Name     |   Type    |                                       Description                                       |
-+===================+===========+=========================================================================================+
-| horizon_timestamp | ``INT64`` | Horizon for deleted experiments and runs. Any experiments or runs deleted prior to this |
-|                   |           | timestamp (UTC) will be permanently deleted.                                            |
-|                   |           | If this value is not provided, the server will pick the current timestamp.              |
-+-------------------+-----------+-----------------------------------------------------------------------------------------+
-
 .. _RESTadd:
 
 Data Structures
