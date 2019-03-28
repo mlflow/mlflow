@@ -33,10 +33,7 @@ export class ConfirmModal extends Component {
     handleSubmit: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
     title: PropTypes.string.isRequired,
-    helpText: PropTypes.oneOfType([
-      PropTypes.string,
-      PropTypes.element,
-    ]).isRequired,
+    helpText: PropTypes.node.isRequired,
     confirmButtonText: PropTypes.string.isRequired,
   };
 
