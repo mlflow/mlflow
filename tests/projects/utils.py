@@ -49,8 +49,8 @@ def build_docker_example_base_image():
 def tracking_uri_mock(tmpdir):
     try:
         path = os.path.abspath(os.path.join(tmpdir.strpath, 'mlruns'))
-        tracking_uri = path if os.sep == "/" else _LOCAL_FS_URI_PREFIX + path
-        mlflow.set_tracking_uri(tracking_uri)
+        path = path[1:] if path.startswith("/") else path # Remove prefix / from linux abs paths
+        mlflow.set_tracking_uri(_LOCAL_FS_URI_PREFIX + path)
         yield tmpdir
     finally:
         mlflow.set_tracking_uri(None)
