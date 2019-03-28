@@ -115,6 +115,7 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
     def update_run_info(self, run_uuid, run_status, end_time):
         """
         Update the metadata of the specified run.
@@ -123,6 +124,7 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
                    entry_point_name, start_time, source_version, tags, parent_run_id):
         """
@@ -210,6 +212,7 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
     def list_run_infos(self, experiment_id, run_view_type):
         """
         Return run information for runs which belong to the experiment_id
