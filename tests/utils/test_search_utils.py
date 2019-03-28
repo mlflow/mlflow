@@ -55,11 +55,21 @@ def test_anded_expression_2():
     ("metric.acc >= 0.94", [{'comparator': '>=', 'key': 'acc', 'type': 'metric', 'value': '0.94'}]),
     ("metric.acc>=100", [{'comparator': '>=', 'key': 'acc', 'type': 'metric', 'value': '100'}]),
     ("params.m!='tf'", [{'comparator': '!=', 'key': 'm', 'type': 'parameter', 'value': 'tf'}]),
+    ('params."m"!="tf"', [{'comparator': '!=', 'key': 'm', 'type': 'parameter', 'value': 'tf'}]),
     ('metric."legit name" >= 0.243', [{'comparator': '>=',
-                                       'key': '"legit name"',
+                                       'key': 'legit name',
                                        'type': 'metric',
                                        'value': '0.243'}]),
     ("metrics.XYZ = 3", [{'comparator': '=', 'key': 'XYZ', 'type': 'metric', 'value': '3'}]),
+    ('params."cat dog" = "pets"', [{'comparator': '=',
+                                    'key': 'cat dog',
+                                    'type': 'parameter',
+                                    'value': 'pets'}]),
+    ('metrics."X-Y-Z" = 3', [{'comparator': '=', 'key': 'X-Y-Z', 'type': 'metric', 'value': '3'}]),
+    ('metrics."X//Y#$$@&Z" = 3', [{'comparator': '=',
+                                   'key': 'X//Y#$$@&Z',
+                                   'type': 'metric',
+                                   'value': '3'}]),
     ("params.model = 'LinearRegression'", [{'comparator': '=',
                                             'key': 'model',
                                             'type': 'parameter',
@@ -115,8 +125,23 @@ def test_error_filter(filter_string, error_message):
     ("metric.model = 'LR'", "Expected numeric value type for metric"),
     ("metric.model = '5'", "Expected numeric value type for metric"),
     ("params.acc = 5", "Expected string value type for param"),
+    ("metrics.acc != metrics.acc", "Expected numeric value type for metric"),
+    ("1.0 > metrics.acc", "Expected 'Identifier' found"),
 ])
 def test_error_comparison_clauses(filter_string, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchFilter(SearchRuns(filter=filter_string))._parse()
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize("filter_string, error_message", [
+    ("params.acc = LR", "value is either not quoted or unidentified quote types"),
+    ("params.'acc = LR", "Invalid clause(s) in filter string"),
+    ("params.acc = 'LR", "Invalid clause(s) in filter string"),
+    ("params.acc = LR'", "Invalid clause(s) in filter string"),
+    ("params.acc = \"LR'", "Invalid clause(s) in filter string"),
+])
+def test_bad_quotes(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
         SearchFilter(SearchRuns(filter=filter_string))._parse()
     assert error_message in e.value.message
@@ -130,9 +155,6 @@ def test_error_comparison_clauses(filter_string, error_message):
     ("foo is null", "Invalid clause(s) in filter string"),
     ("1=1", "Expected 'Identifier' found"),
     ("1==2", "Expected 'Identifier' found"),
-    ("metrics.acc != metrics.acc", "Expected numeric value type for metric"),
-    ("1.0 > metrics.acc", "Expected 'Identifier' found"),
-    ("params.acc = LR", "value is either not quoted or unidentified quote types"),
 ])
 def test_invalid_clauses(filter_string, error_message):
     with pytest.raises(MlflowException) as e:

@@ -42,10 +42,6 @@ class SearchFilter(object):
 
     @classmethod
     def _is_quoted(cls, value, pattern):
-        if (value.startswith(pattern) and not value.endswith(pattern)) or \
-                (not value.startswith(pattern) and value.endswith(pattern)):
-            raise MlflowException("Mismatched quote types in argument {}" % value,
-                                  error_code=INVALID_PARAMETER_VALUE)
         return len(value) >= 2 and value.startswith(pattern) and value.endswith(pattern)
 
     @classmethod
@@ -56,13 +52,19 @@ class SearchFilter(object):
         return entity_type
 
     @classmethod
-    def _strip_quotes(cls, value):
-        """Argument value is of type string and expected to have quotes."""
+    def _strip_quotes(cls, value, expect_quoted_value=False):
+        """
+        Argument values is of type string and expected to have quotes.
+        Keys with special characters are required to quoted a well.
+        """
         if cls._is_quoted(value, "'") or cls._is_quoted(value, '"'):
             return cls._trim_ends(value)
-        raise MlflowException("Parameter value is either not quoted or unidentified quote "
-                              "types used for string value %s. Use either single or double "
-                              "quotes." % value, error_code=INVALID_PARAMETER_VALUE)
+        elif expect_quoted_value:
+            raise MlflowException("Parameter value is either not quoted or unidentified quote "
+                                  "types used for string value %s. Use either single or double "
+                                  "quotes." % value, error_code=INVALID_PARAMETER_VALUE)
+        else:
+            return value
 
     @classmethod
     def _valid_entity_type(cls, entity_type):
@@ -89,7 +91,7 @@ class SearchFilter(object):
                                   "'metric.<key> <comparator> <value>' or"
                                   "'params.<key> <comparator> <value>'." % identifier,
                                   error_code=INVALID_PARAMETER_VALUE)
-        return {"type": cls._valid_entity_type(entity_type), "key": key}
+        return {"type": cls._valid_entity_type(entity_type), "key": cls._strip_quotes(key)}
 
     @classmethod
     def _get_value(cls, identifier_type, token):
@@ -100,10 +102,8 @@ class SearchFilter(object):
                                       error_code=INVALID_PARAMETER_VALUE)
             return token.value
         elif identifier_type == cls._PARAM_IDENTIFIER:
-            if token.ttype in cls.STRING_VALUE_TYPES:
-                return cls._strip_quotes(token.value)
-            elif isinstance(token, Identifier):
-                return cls._strip_quotes(token.value)
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+                return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException("Expected string value type for parameter. "
                                   "Found {}".format(token.value),
                                   error_code=INVALID_PARAMETER_VALUE)
