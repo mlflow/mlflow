@@ -934,7 +934,7 @@ Details
 
 MLflow requires Python and Conda to be installed. See
 https://www.python.org/getit/ and
-https://conda.io/docs/installation.html.
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/.
 
 .. _examples-2:
 
