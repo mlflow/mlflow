@@ -796,9 +796,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             experiment_id, "tags.generic_tag = 'p_val'"))
         # test search returns appropriate run (same key different values per run)
         six.assertCountEqual(self, [r1], self._search_with_filter_string(
-            experiment_id, "tags.generic_2 = 'some 'value"))
+            experiment_id, "tags.generic_2 = 'some value'"))
         six.assertCountEqual(self, [r2], self._search_with_filter_string(
-            experiment_id, "tags.generic_2 = 'another 'value"))
+            experiment_id, "tags.generic_2 = 'another value'"))
         six.assertCountEqual(self, [], self._search_with_filter_string(
             experiment_id, "tags.generic_tag = 'wrong_val'"))
         six.assertCountEqual(self, [], self._search_with_filter_string(
