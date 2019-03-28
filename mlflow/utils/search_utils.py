@@ -9,12 +9,16 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 class SearchFilter(object):
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
     VALID_PARAM_COMPARATORS = set(['!=', '='])
+    VALID_TAG_COMPARATORS = set(['!=', '='])
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
     _ALTERNATE_PARAM_IDENTIFIERS = set(["param", "params"])
+    _TAG_IDENTIFIER = "tag"
+    _ALTERNATE_TAG_IDENTIFIERS = set(["tags"])
     VALID_KEY_TYPE = set([_METRIC_IDENTIFIER] + list(_ALTERNATE_METRIC_IDENTIFIERS)
-                         + [_PARAM_IDENTIFIER] + list(_ALTERNATE_PARAM_IDENTIFIERS))
+                         + [_PARAM_IDENTIFIER] + list(_ALTERNATE_PARAM_IDENTIFIERS)
+                         + [_TAG_IDENTIFIER] + list(_ALTERNATE_TAG_IDENTIFIERS))
     VALUE_TYPES = set([TokenType.Literal.String.Single,
                        TokenType.Literal.Number.Integer,
                        TokenType.Literal.Number.Float])
@@ -55,6 +59,8 @@ class SearchFilter(object):
             return cls._PARAM_IDENTIFIER
         elif entity_type in cls._ALTERNATE_METRIC_IDENTIFIERS:
             return cls._METRIC_IDENTIFIER
+        elif entity_type in cls._ALTERNATE_TAG_IDENTIFIERS:
+            return cls._TAG_IDENTIFIER
         else:
             # either "metric" or "parameter", since valid type
             return entity_type
@@ -65,7 +71,8 @@ class SearchFilter(object):
             entity_type, key = identifier.split(".")
         except ValueError:
             raise MlflowException("Invalid filter string '%s'. Filter comparison is expected as "
-                                  "'metric.<key> <comparator> <value>' or"
+                                  "'metric.<key> <comparator> <value>', "
+                                  "'tag.<key> <comparator> <value>', or"
                                   "'params.<key> <comparator> <value>'." % identifier,
                                   error_code=INVALID_PARAMETER_VALUE)
         return {"type": cls._valid_entity_type(entity_type), "key": key}
@@ -181,9 +188,17 @@ class SearchFilter(object):
                                       "not one of '%s" % (comparator, cls.VALID_PARAM_COMPARATORS))
             param = next((p for p in run.data.params if p.key == key), None)
             lhs = param.value if param else None
+        elif key_type == cls._TAG_IDENTIFIER:
+            if comparator not in cls.VALID_TAG_COMPARATORS:
+                raise MlflowException("Invalid comparator '%s' "
+                                      "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS))
+            tag = next((t for t in run.data.tags if t.key == key), None)
+            lhs = tag.value if tag else None
         else:
             raise MlflowException("Invalid search expression type '%s'" % key_type)
 
+        import pdb
+        pdb.set_trace()
         if lhs is None:
             return False
         elif comparator == '>':
