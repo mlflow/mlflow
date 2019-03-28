@@ -346,19 +346,19 @@ def get_parent_dir(path):
 
 
 def parse_path(uri):
-    relative_path_prefix = "file:"
+    relative_path_uri_prefix = "file:"
     backslash_count = int(os.sep == "/")  # Keep / for linux abs paths
     fs_prefix_with_localhost = tracking.utils._LOCAL_FS_URI_PREFIX[:-1] + "localhost/"
     if uri.startswith(fs_prefix_with_localhost):
         return uri[fs_prefix_with_localhost - backslash_count:]
     elif uri.startswith(tracking.utils._LOCAL_FS_URI_PREFIX):
         return uri[len(tracking.utils._LOCAL_FS_URI_PREFIX) - backslash_count:]
-    elif uri.startswith(relative_path_prefix):
-        return uri[len(relative_path_prefix):]
+    elif uri.startswith(relative_path_uri_prefix):
+        return uri[len(relative_path_uri_prefix):]
     elif os.sep == "/":
         return uri
     else:
-        raise Exception("Unsupported uri: %s, please pass a uri with prefix %s." %
+        raise Exception("Unsupported uri: %s, use a uri for an absolute path with prefix %s." %
                         (uri, tracking.utils._LOCAL_FS_URI_PREFIX))
 
 
