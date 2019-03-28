@@ -21,11 +21,11 @@ from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
                                      read_yaml, find, read_file_lines, read_file, build_path,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
-                                     list_all, parse_path)
+                                     list_all, parse_path, local_uri_from_path)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
+from mlflow import tracking
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
-_LOCAL_FS_URI_PREFIX = "file:///" if os.sep == "/" else "file://"
 
 
 def _default_root_dir():
@@ -61,7 +61,7 @@ class FileStore(AbstractStore):
         """
         super(FileStore, self).__init__()
         self.root_directory = parse_path(root_directory or _default_root_dir())
-        self.artifact_root_uri = artifact_root_uri or "file://" + self.root_directory
+        self.artifact_root_uri = artifact_root_uri or local_uri_from_path(self.root_directory)
         self.trash_folder = build_path(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
@@ -158,9 +158,8 @@ class FileStore(AbstractStore):
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        artifact_path = parse_path(artifact_uri) if artifact_uri \
-            else build_path(self.root_directory, str(experiment_id))
-        experiment = Experiment(experiment_id, name, artifact_path, LifecycleStage.ACTIVE)
+        artifact_uri = artifact_uri or local_uri_from_path(build_path(self.artifact_root_uri, str(experiment_id)))
+        experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
@@ -320,7 +319,7 @@ class FileStore(AbstractStore):
                     "%s." % experiment_id,
                     databricks_pb2.INVALID_STATE)
         run_uuid = uuid.uuid4().hex
-        artifact_uri = _LOCAL_FS_URI_PREFIX + self._get_artifact_dir(experiment_id, run_uuid)
+        artifact_uri = tracking.utils._LOCAL_FS_URI_PREFIX + self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(run_uuid=run_uuid, experiment_id=experiment_id,
                            name="",
                            artifact_uri=artifact_uri, source_type=source_type,

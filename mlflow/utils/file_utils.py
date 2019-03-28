@@ -9,7 +9,7 @@ import yaml
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
-from mlflow.tracking.utils import _LOCAL_FS_URI_PREFIX
+from mlflow import tracking
 
 ENCODING = "utf-8"
 
@@ -346,12 +346,23 @@ def get_parent_dir(path):
 
 
 def parse_path(uri):
-    if not uri.startswith(_LOCAL_FS_URI_PREFIX):
-        raise Exception("Unsupported uri: %s, does not start with %s" % (uri, _LOCAL_FS_URI_PREFIX))
-
-    fs_prefix_with_localhost = uri.startswith(_LOCAL_FS_URI_PREFIX[:-1] + "localhost/")
+    relative_path_prefix = "file:"
     backslash_count = int(os.sep == "/")  # Keep / for linux abs paths
+    fs_prefix_with_localhost = tracking.utils._LOCAL_FS_URI_PREFIX[:-1] + "localhost/"
     if uri.startswith(fs_prefix_with_localhost):
         return uri[fs_prefix_with_localhost - backslash_count:]
+    elif uri.startswith(tracking.utils._LOCAL_FS_URI_PREFIX):
+        return uri[len(tracking.utils._LOCAL_FS_URI_PREFIX) - backslash_count:]
+    elif uri.startswith(relative_path_prefix):
+        return uri[len(relative_path_prefix):]
+    elif os.sep == "/":
+        return uri
+    else:
+        raise Exception("Unsupported uri: %s, please pass a uri with prefix %s." %
+                        (uri, tracking.utils._LOCAL_FS_URI_PREFIX))
 
-    return uri[_LOCAL_FS_URI_PREFIX - backslash_count:]
+
+def local_uri_from_path(path):
+    path = os.path.abspath(path)
+    prefix = tracking.utils._LOCAL_FS_URI_PREFIX[1:] if os.sep == "/" else tracking.utils._LOCAL_FS_URI_PREFIX
+    return prefix + path
