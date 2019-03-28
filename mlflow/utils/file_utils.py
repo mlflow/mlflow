@@ -355,14 +355,15 @@ def parse_path(uri):
         return uri[len(tracking.utils._LOCAL_FS_URI_PREFIX) - backslash_count:]
     elif uri.startswith(relative_path_uri_prefix):
         return uri[len(relative_path_uri_prefix):]
-    elif os.sep == "/":
-        return uri
     else:
-        raise Exception("Unsupported uri: %s, use a uri for an absolute path with prefix %s." %
-                        (uri, tracking.utils._LOCAL_FS_URI_PREFIX))
+        try:
+            return os.path.abspath(uri)
+        except Exception:
+            raise Exception("Unsupported uri: %s, use a uri for an absolute path with prefix %s." %
+                            (uri, tracking.utils._LOCAL_FS_URI_PREFIX))
 
 
 def local_uri_from_path(path):
     path = os.path.abspath(path)
-    prefix = tracking.utils._LOCAL_FS_URI_PREFIX[1:] if os.sep == "/" else tracking.utils._LOCAL_FS_URI_PREFIX
+    prefix = tracking.utils._LOCAL_FS_URI_PREFIX[:-1] if os.sep == "/" else tracking.utils._LOCAL_FS_URI_PREFIX
     return prefix + path
