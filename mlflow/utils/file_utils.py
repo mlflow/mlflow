@@ -346,8 +346,8 @@ def get_parent_dir(path):
 
 
 def parse_path(uri):
-    parsed_url = urllib.parse.urlparse(uri)
-    if os.sep != "/":
-        if parsed_url.path.startswith("/"):
-            return os.path.join(parsed_url.netloc, parsed_url.path[1:])
-    return os.path.join(parsed_url.netloc, parsed_url.path)
+    if not uri.startwith(_LOCAL_FS_URI_PREFIX:
+        raise Exception("Unsupported uri: %s, does not start with %s" % (uri, _LOCAL_FS_URI_PREFIX)
+
+    prefix_length = len(_LOCAL_FS_URI_PREFIX) - int(os.sep == "/")  # Keep / for linux abs paths
+    return  uri[prefix_length:]

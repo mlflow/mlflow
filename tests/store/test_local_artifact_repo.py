@@ -3,10 +3,10 @@ import pytest
 from mock import Mock
 
 
+from mlflow import tracking
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.file_utils import TempDir
-from mlflow.tracking.utils import _LOCAL_FS_URI_PREFIX
 
 
 class TestLocalArtifactRepo(object):
@@ -14,7 +14,7 @@ class TestLocalArtifactRepo(object):
         return sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts(dir_name)])
 
     @pytest.mark.parametrize(
-        "prefix", [_LOCAL_FS_URI_PREFIX[:-1], "file:", ""])
+        "prefix", [tracking.utils._LOCAL_FS_URI_PREFIX[:-1], "file:", ""])
     def test_basic_functions(self, prefix):
         if prefix == "" and not os.sep == "/":
             pytest.skip("skipping direct path as artifact_uri, not supported on windows")

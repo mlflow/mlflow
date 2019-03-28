@@ -10,9 +10,8 @@ import attrdict
 import mock
 import pytest
 
-from six.moves import urllib
-
 import mlflow
+
 from mlflow import tracking
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
@@ -324,7 +323,6 @@ def test_log_artifact(tracking_uri_mock):
     for parent_dir in artifact_parent_dirs:
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
-            parsed_url = urllib.parse.urlparse(artifact_uri)
             run_artifact_dir = parse_path(artifact_uri)
 
             mlflow.log_artifact(path0, parent_dir)
