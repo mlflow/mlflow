@@ -559,9 +559,4 @@ class ExperimentRunsTableCompactView extends PureComponent {
   }
 }
 
-const mapStateToProps = (state, ownProps) => {
-  const { metricsList } = ownProps;
-  return {metricRanges: ExperimentViewUtil.computeMetricRanges(metricsList)};
-};
-
-export default connect(mapStateToProps)(ExperimentRunsTableCompactView);
+export default ExperimentRunsTableCompactView;
