@@ -112,7 +112,6 @@ class SearchFilter(object):
             raise MlflowException("Invalid identifier type. Expected one of "
                                   "{}.".format([cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER]))
 
-
     @classmethod
     def _validate_comparison(cls, tokens):
         base_error_string = "Invalid comparison clause"
