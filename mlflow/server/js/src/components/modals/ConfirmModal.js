@@ -73,9 +73,9 @@ export class ConfirmModal extends Component {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p style={{ marginBottom: '10px' }}>
+          <div style={{ marginBottom: '10px' }}>
             {this.props.helpText}
-          </p>
+          </div>
         </Modal.Body>
         <Modal.Footer>
           <Button
