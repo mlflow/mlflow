@@ -70,10 +70,9 @@ def get_tracking_uri():
         return _tracking_uri
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
-    elif os.sep != "/":
-        return _LOCAL_FS_URI_PREFIX + os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
     else:
-        return os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+        # If linux based path, remove extra /
+        return _LOCAL_FS_URI_PREFIX + os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)[int(os.sep == "/"):]
 
 
 def get_artifact_uri(run_id, artifact_path=None):

@@ -4,12 +4,12 @@ import os
 import shutil
 import tarfile
 import tempfile
-from six.moves import urllib
 
 import yaml
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
+from mlflow.tracking.utils import _LOCAL_FS_URI_PREFIX
 
 ENCODING = "utf-8"
 
@@ -346,8 +346,12 @@ def get_parent_dir(path):
 
 
 def parse_path(uri):
-    if not uri.startwith(_LOCAL_FS_URI_PREFIX:
-        raise Exception("Unsupported uri: %s, does not start with %s" % (uri, _LOCAL_FS_URI_PREFIX)
+    if not uri.startswith(_LOCAL_FS_URI_PREFIX):
+        raise Exception("Unsupported uri: %s, does not start with %s" % (uri, _LOCAL_FS_URI_PREFIX))
 
-    prefix_length = len(_LOCAL_FS_URI_PREFIX) - int(os.sep == "/")  # Keep / for linux abs paths
-    return  uri[prefix_length:]
+    fs_prefix_with_localhost = uri.startswith(_LOCAL_FS_URI_PREFIX[:-1] + "localhost/")
+    backslash_count = int(os.sep == "/")  # Keep / for linux abs paths
+    if uri.startswith(fs_prefix_with_localhost):
+        return uri[fs_prefix_with_localhost - backslash_count:]
+
+    return uri[_LOCAL_FS_URI_PREFIX - backslash_count:]
