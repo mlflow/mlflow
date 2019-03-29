@@ -6007,7 +6007,7 @@ public final class Service {
      * The experiment ID.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 2;</code>
+     * <code>optional string experiment_id = 2;</code>
      */
     boolean hasExperimentId();
     /**
@@ -6015,9 +6015,18 @@ public final class Service {
      * The experiment ID.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 2;</code>
+     * <code>optional string experiment_id = 2;</code>
      */
-    long getExperimentId();
+    java.lang.String getExperimentId();
+    /**
+     * <pre>
+     * The experiment ID.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 2;</code>
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdBytes();
 
     /**
      * <pre>
@@ -6324,7 +6333,7 @@ public final class Service {
     }
     private RunInfo() {
       runUuid_ = "";
-      experimentId_ = 0L;
+      experimentId_ = "";
       name_ = "";
       sourceType_ = 1;
       sourceName_ = "";
@@ -6368,9 +6377,10 @@ public final class Service {
               runUuid_ = bs;
               break;
             }
-            case 16: {
+            case 18: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000002;
-              experimentId_ = input.readInt64();
+              experimentId_ = bs;
               break;
             }
             case 26: {
@@ -6537,13 +6547,13 @@ public final class Service {
     }
 
     public static final int EXPERIMENT_ID_FIELD_NUMBER = 2;
-    private long experimentId_;
+    private volatile java.lang.Object experimentId_;
     /**
      * <pre>
      * The experiment ID.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 2;</code>
+     * <code>optional string experiment_id = 2;</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -6553,10 +6563,41 @@ public final class Service {
      * The experiment ID.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 2;</code>
+     * <code>optional string experiment_id = 2;</code>
      */
-    public long getExperimentId() {
-      return experimentId_;
+    public java.lang.String getExperimentId() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          experimentId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * The experiment ID.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 2;</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdBytes() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        experimentId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     public static final int NAME_FIELD_NUMBER = 3;
@@ -7088,7 +7129,7 @@ public final class Service {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runUuid_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        output.writeInt64(2, experimentId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, experimentId_);
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 3, name_);
@@ -7136,8 +7177,7 @@ public final class Service {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runUuid_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(2, experimentId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, experimentId_);
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, name_);
@@ -7199,8 +7239,8 @@ public final class Service {
       }
       result = result && (hasExperimentId() == other.hasExperimentId());
       if (hasExperimentId()) {
-        result = result && (getExperimentId()
-            == other.getExperimentId());
+        result = result && getExperimentId()
+            .equals(other.getExperimentId());
       }
       result = result && (hasName() == other.hasName());
       if (hasName()) {
@@ -7272,8 +7312,7 @@ public final class Service {
       }
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            getExperimentId());
+        hash = (53 * hash) + getExperimentId().hashCode();
       }
       if (hasName()) {
         hash = (37 * hash) + NAME_FIELD_NUMBER;
@@ -7460,7 +7499,7 @@ public final class Service {
         super.clear();
         runUuid_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
-        experimentId_ = 0L;
+        experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
         name_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -7619,7 +7658,9 @@ public final class Service {
           onChanged();
         }
         if (other.hasExperimentId()) {
-          setExperimentId(other.getExperimentId());
+          bitField0_ |= 0x00000002;
+          experimentId_ = other.experimentId_;
+          onChanged();
         }
         if (other.hasName()) {
           bitField0_ |= 0x00000004;
@@ -7798,13 +7839,13 @@ public final class Service {
         return this;
       }
 
-      private long experimentId_ ;
+      private java.lang.Object experimentId_ = "";
       /**
        * <pre>
        * The experiment ID.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 2;</code>
+       * <code>optional string experiment_id = 2;</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
@@ -7814,20 +7855,55 @@ public final class Service {
        * The experiment ID.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 2;</code>
+       * <code>optional string experiment_id = 2;</code>
        */
-      public long getExperimentId() {
-        return experimentId_;
+      public java.lang.String getExperimentId() {
+        java.lang.Object ref = experimentId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
        * The experiment ID.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 2;</code>
+       * <code>optional string experiment_id = 2;</code>
        */
-      public Builder setExperimentId(long value) {
-        bitField0_ |= 0x00000002;
+      public com.google.protobuf.ByteString
+          getExperimentIdBytes() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * The experiment ID.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 2;</code>
+       */
+      public Builder setExperimentId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
         experimentId_ = value;
         onChanged();
         return this;
@@ -7837,11 +7913,28 @@ public final class Service {
        * The experiment ID.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 2;</code>
+       * <code>optional string experiment_id = 2;</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000002);
-        experimentId_ = 0L;
+        experimentId_ = getDefaultInstance().getExperimentId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * The experiment ID.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 2;</code>
+       */
+      public Builder setExperimentIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000002;
+        experimentId_ = value;
         onChanged();
         return this;
       }
@@ -8883,7 +8976,7 @@ public final class Service {
      * Unique identifier for the experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1;</code>
+     * <code>optional string experiment_id = 1;</code>
      */
     boolean hasExperimentId();
     /**
@@ -8891,9 +8984,18 @@ public final class Service {
      * Unique identifier for the experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1;</code>
+     * <code>optional string experiment_id = 1;</code>
      */
-    long getExperimentId();
+    java.lang.String getExperimentId();
+    /**
+     * <pre>
+     * Unique identifier for the experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1;</code>
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdBytes();
 
     /**
      * <pre>
@@ -9027,7 +9129,7 @@ public final class Service {
       super(builder);
     }
     private Experiment() {
-      experimentId_ = 0L;
+      experimentId_ = "";
       name_ = "";
       artifactLocation_ = "";
       lifecycleStage_ = "";
@@ -9059,9 +9161,10 @@ public final class Service {
             case 0:
               done = true;
               break;
-            case 8: {
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              experimentId_ = input.readInt64();
+              experimentId_ = bs;
               break;
             }
             case 18: {
@@ -9126,13 +9229,13 @@ public final class Service {
 
     private int bitField0_;
     public static final int EXPERIMENT_ID_FIELD_NUMBER = 1;
-    private long experimentId_;
+    private volatile java.lang.Object experimentId_;
     /**
      * <pre>
      * Unique identifier for the experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1;</code>
+     * <code>optional string experiment_id = 1;</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -9142,10 +9245,41 @@ public final class Service {
      * Unique identifier for the experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1;</code>
+     * <code>optional string experiment_id = 1;</code>
      */
-    public long getExperimentId() {
-      return experimentId_;
+    public java.lang.String getExperimentId() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          experimentId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Unique identifier for the experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1;</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdBytes() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        experimentId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     public static final int NAME_FIELD_NUMBER = 2;
@@ -9374,7 +9508,7 @@ public final class Service {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        output.writeInt64(1, experimentId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, name_);
@@ -9401,8 +9535,7 @@ public final class Service {
 
       size = 0;
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(1, experimentId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, name_);
@@ -9439,8 +9572,8 @@ public final class Service {
       boolean result = true;
       result = result && (hasExperimentId() == other.hasExperimentId());
       if (hasExperimentId()) {
-        result = result && (getExperimentId()
-            == other.getExperimentId());
+        result = result && getExperimentId()
+            .equals(other.getExperimentId());
       }
       result = result && (hasName() == other.hasName());
       if (hasName()) {
@@ -9480,8 +9613,7 @@ public final class Service {
       hash = (19 * hash) + getDescriptor().hashCode();
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            getExperimentId());
+        hash = (53 * hash) + getExperimentId().hashCode();
       }
       if (hasName()) {
         hash = (37 * hash) + NAME_FIELD_NUMBER;
@@ -9642,7 +9774,7 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        experimentId_ = 0L;
+        experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         name_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -9756,7 +9888,9 @@ public final class Service {
       public Builder mergeFrom(org.mlflow.api.proto.Service.Experiment other) {
         if (other == org.mlflow.api.proto.Service.Experiment.getDefaultInstance()) return this;
         if (other.hasExperimentId()) {
-          setExperimentId(other.getExperimentId());
+          bitField0_ |= 0x00000001;
+          experimentId_ = other.experimentId_;
+          onChanged();
         }
         if (other.hasName()) {
           bitField0_ |= 0x00000002;
@@ -9809,13 +9943,13 @@ public final class Service {
       }
       private int bitField0_;
 
-      private long experimentId_ ;
+      private java.lang.Object experimentId_ = "";
       /**
        * <pre>
        * Unique identifier for the experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -9825,20 +9959,55 @@ public final class Service {
        * Unique identifier for the experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
-      public long getExperimentId() {
-        return experimentId_;
+      public java.lang.String getExperimentId() {
+        java.lang.Object ref = experimentId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
        * Unique identifier for the experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
-      public Builder setExperimentId(long value) {
-        bitField0_ |= 0x00000001;
+      public com.google.protobuf.ByteString
+          getExperimentIdBytes() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Unique identifier for the experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1;</code>
+       */
+      public Builder setExperimentId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
         experimentId_ = value;
         onChanged();
         return this;
@@ -9848,11 +10017,28 @@ public final class Service {
        * Unique identifier for the experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        experimentId_ = 0L;
+        experimentId_ = getDefaultInstance().getExperimentId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Unique identifier for the experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1;</code>
+       */
+      public Builder setExperimentIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentId_ = value;
         onChanged();
         return this;
       }
@@ -10464,7 +10650,7 @@ public final class Service {
        * Unique identifier for the experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
       boolean hasExperimentId();
       /**
@@ -10472,9 +10658,18 @@ public final class Service {
        * Unique identifier for the experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
-      long getExperimentId();
+      java.lang.String getExperimentId();
+      /**
+       * <pre>
+       * Unique identifier for the experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1;</code>
+       */
+      com.google.protobuf.ByteString
+          getExperimentIdBytes();
     }
     /**
      * Protobuf type {@code mlflow.CreateExperiment.Response}
@@ -10489,7 +10684,7 @@ public final class Service {
         super(builder);
       }
       private Response() {
-        experimentId_ = 0L;
+        experimentId_ = "";
       }
 
       @java.lang.Override
@@ -10516,9 +10711,10 @@ public final class Service {
               case 0:
                 done = true;
                 break;
-              case 8: {
+              case 10: {
+                com.google.protobuf.ByteString bs = input.readBytes();
                 bitField0_ |= 0x00000001;
-                experimentId_ = input.readInt64();
+                experimentId_ = bs;
                 break;
               }
               default: {
@@ -10555,13 +10751,13 @@ public final class Service {
 
       private int bitField0_;
       public static final int EXPERIMENT_ID_FIELD_NUMBER = 1;
-      private long experimentId_;
+      private volatile java.lang.Object experimentId_;
       /**
        * <pre>
        * Unique identifier for the experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -10571,10 +10767,41 @@ public final class Service {
        * Unique identifier for the experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
-      public long getExperimentId() {
-        return experimentId_;
+      public java.lang.String getExperimentId() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof java.lang.String) {
+          return (java.lang.String) ref;
+        } else {
+          com.google.protobuf.ByteString bs = 
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentId_ = s;
+          }
+          return s;
+        }
+      }
+      /**
+       * <pre>
+       * Unique identifier for the experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1;</code>
+       */
+      public com.google.protobuf.ByteString
+          getExperimentIdBytes() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof java.lang.String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
       }
 
       private byte memoizedIsInitialized = -1;
@@ -10592,7 +10819,7 @@ public final class Service {
       public void writeTo(com.google.protobuf.CodedOutputStream output)
                           throws java.io.IOException {
         if (((bitField0_ & 0x00000001) == 0x00000001)) {
-          output.writeInt64(1, experimentId_);
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
         }
         unknownFields.writeTo(output);
       }
@@ -10604,8 +10831,7 @@ public final class Service {
 
         size = 0;
         if (((bitField0_ & 0x00000001) == 0x00000001)) {
-          size += com.google.protobuf.CodedOutputStream
-            .computeInt64Size(1, experimentId_);
+          size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
         }
         size += unknownFields.getSerializedSize();
         memoizedSize = size;
@@ -10625,8 +10851,8 @@ public final class Service {
         boolean result = true;
         result = result && (hasExperimentId() == other.hasExperimentId());
         if (hasExperimentId()) {
-          result = result && (getExperimentId()
-              == other.getExperimentId());
+          result = result && getExperimentId()
+              .equals(other.getExperimentId());
         }
         result = result && unknownFields.equals(other.unknownFields);
         return result;
@@ -10641,8 +10867,7 @@ public final class Service {
         hash = (19 * hash) + getDescriptor().hashCode();
         if (hasExperimentId()) {
           hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
-          hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-              getExperimentId());
+          hash = (53 * hash) + getExperimentId().hashCode();
         }
         hash = (29 * hash) + unknownFields.hashCode();
         memoizedHashCode = hash;
@@ -10777,7 +11002,7 @@ public final class Service {
         @java.lang.Override
         public Builder clear() {
           super.clear();
-          experimentId_ = 0L;
+          experimentId_ = "";
           bitField0_ = (bitField0_ & ~0x00000001);
           return this;
         }
@@ -10861,7 +11086,9 @@ public final class Service {
         public Builder mergeFrom(org.mlflow.api.proto.Service.CreateExperiment.Response other) {
           if (other == org.mlflow.api.proto.Service.CreateExperiment.Response.getDefaultInstance()) return this;
           if (other.hasExperimentId()) {
-            setExperimentId(other.getExperimentId());
+            bitField0_ |= 0x00000001;
+            experimentId_ = other.experimentId_;
+            onChanged();
           }
           this.mergeUnknownFields(other.unknownFields);
           onChanged();
@@ -10893,13 +11120,13 @@ public final class Service {
         }
         private int bitField0_;
 
-        private long experimentId_ ;
+        private java.lang.Object experimentId_ = "";
         /**
          * <pre>
          * Unique identifier for the experiment.
          * </pre>
          *
-         * <code>optional int64 experiment_id = 1;</code>
+         * <code>optional string experiment_id = 1;</code>
          */
         public boolean hasExperimentId() {
           return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -10909,20 +11136,55 @@ public final class Service {
          * Unique identifier for the experiment.
          * </pre>
          *
-         * <code>optional int64 experiment_id = 1;</code>
+         * <code>optional string experiment_id = 1;</code>
          */
-        public long getExperimentId() {
-          return experimentId_;
+        public java.lang.String getExperimentId() {
+          java.lang.Object ref = experimentId_;
+          if (!(ref instanceof java.lang.String)) {
+            com.google.protobuf.ByteString bs =
+                (com.google.protobuf.ByteString) ref;
+            java.lang.String s = bs.toStringUtf8();
+            if (bs.isValidUtf8()) {
+              experimentId_ = s;
+            }
+            return s;
+          } else {
+            return (java.lang.String) ref;
+          }
         }
         /**
          * <pre>
          * Unique identifier for the experiment.
          * </pre>
          *
-         * <code>optional int64 experiment_id = 1;</code>
+         * <code>optional string experiment_id = 1;</code>
          */
-        public Builder setExperimentId(long value) {
-          bitField0_ |= 0x00000001;
+        public com.google.protobuf.ByteString
+            getExperimentIdBytes() {
+          java.lang.Object ref = experimentId_;
+          if (ref instanceof String) {
+            com.google.protobuf.ByteString b = 
+                com.google.protobuf.ByteString.copyFromUtf8(
+                    (java.lang.String) ref);
+            experimentId_ = b;
+            return b;
+          } else {
+            return (com.google.protobuf.ByteString) ref;
+          }
+        }
+        /**
+         * <pre>
+         * Unique identifier for the experiment.
+         * </pre>
+         *
+         * <code>optional string experiment_id = 1;</code>
+         */
+        public Builder setExperimentId(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
           experimentId_ = value;
           onChanged();
           return this;
@@ -10932,11 +11194,28 @@ public final class Service {
          * Unique identifier for the experiment.
          * </pre>
          *
-         * <code>optional int64 experiment_id = 1;</code>
+         * <code>optional string experiment_id = 1;</code>
          */
         public Builder clearExperimentId() {
           bitField0_ = (bitField0_ & ~0x00000001);
-          experimentId_ = 0L;
+          experimentId_ = getDefaultInstance().getExperimentId();
+          onChanged();
+          return this;
+        }
+        /**
+         * <pre>
+         * Unique identifier for the experiment.
+         * </pre>
+         *
+         * <code>optional string experiment_id = 1;</code>
+         */
+        public Builder setExperimentIdBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+          experimentId_ = value;
           onChanged();
           return this;
         }
@@ -13166,7 +13445,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
     boolean hasExperimentId();
     /**
@@ -13174,9 +13453,18 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
-    long getExperimentId();
+    java.lang.String getExperimentId();
+    /**
+     * <pre>
+     * ID of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.GetExperiment}
@@ -13191,7 +13479,7 @@ public final class Service {
       super(builder);
     }
     private GetExperiment() {
-      experimentId_ = 0L;
+      experimentId_ = "";
     }
 
     @java.lang.Override
@@ -13218,9 +13506,10 @@ public final class Service {
             case 0:
               done = true;
               break;
-            case 8: {
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              experimentId_ = input.readInt64();
+              experimentId_ = bs;
               break;
             }
             default: {
@@ -14413,13 +14702,13 @@ public final class Service {
 
     private int bitField0_;
     public static final int EXPERIMENT_ID_FIELD_NUMBER = 1;
-    private long experimentId_;
+    private volatile java.lang.Object experimentId_;
     /**
      * <pre>
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -14429,10 +14718,41 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
-    public long getExperimentId() {
-      return experimentId_;
+    public java.lang.String getExperimentId() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          experimentId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdBytes() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        experimentId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     private byte memoizedIsInitialized = -1;
@@ -14450,7 +14770,7 @@ public final class Service {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        output.writeInt64(1, experimentId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
       }
       unknownFields.writeTo(output);
     }
@@ -14462,8 +14782,7 @@ public final class Service {
 
       size = 0;
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(1, experimentId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -14483,8 +14802,8 @@ public final class Service {
       boolean result = true;
       result = result && (hasExperimentId() == other.hasExperimentId());
       if (hasExperimentId()) {
-        result = result && (getExperimentId()
-            == other.getExperimentId());
+        result = result && getExperimentId()
+            .equals(other.getExperimentId());
       }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
@@ -14499,8 +14818,7 @@ public final class Service {
       hash = (19 * hash) + getDescriptor().hashCode();
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            getExperimentId());
+        hash = (53 * hash) + getExperimentId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -14635,7 +14953,7 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        experimentId_ = 0L;
+        experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         return this;
       }
@@ -14719,7 +15037,9 @@ public final class Service {
       public Builder mergeFrom(org.mlflow.api.proto.Service.GetExperiment other) {
         if (other == org.mlflow.api.proto.Service.GetExperiment.getDefaultInstance()) return this;
         if (other.hasExperimentId()) {
-          setExperimentId(other.getExperimentId());
+          bitField0_ |= 0x00000001;
+          experimentId_ = other.experimentId_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -14751,13 +15071,13 @@ public final class Service {
       }
       private int bitField0_;
 
-      private long experimentId_ ;
+      private java.lang.Object experimentId_ = "";
       /**
        * <pre>
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -14767,20 +15087,55 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
-      public long getExperimentId() {
-        return experimentId_;
+      public java.lang.String getExperimentId() {
+        java.lang.Object ref = experimentId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
-      public Builder setExperimentId(long value) {
-        bitField0_ |= 0x00000001;
+      public com.google.protobuf.ByteString
+          getExperimentIdBytes() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       */
+      public Builder setExperimentId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
         experimentId_ = value;
         onChanged();
         return this;
@@ -14790,11 +15145,28 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        experimentId_ = 0L;
+        experimentId_ = getDefaultInstance().getExperimentId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       */
+      public Builder setExperimentIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentId_ = value;
         onChanged();
         return this;
       }
@@ -14860,7 +15232,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
     boolean hasExperimentId();
     /**
@@ -14868,9 +15240,18 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
-    long getExperimentId();
+    java.lang.String getExperimentId();
+    /**
+     * <pre>
+     * ID of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.DeleteExperiment}
@@ -14885,7 +15266,7 @@ public final class Service {
       super(builder);
     }
     private DeleteExperiment() {
-      experimentId_ = 0L;
+      experimentId_ = "";
     }
 
     @java.lang.Override
@@ -14912,9 +15293,10 @@ public final class Service {
             case 0:
               done = true;
               break;
-            case 8: {
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              experimentId_ = input.readInt64();
+              experimentId_ = bs;
               break;
             }
             default: {
@@ -15363,13 +15745,13 @@ public final class Service {
 
     private int bitField0_;
     public static final int EXPERIMENT_ID_FIELD_NUMBER = 1;
-    private long experimentId_;
+    private volatile java.lang.Object experimentId_;
     /**
      * <pre>
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -15379,10 +15761,41 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
-    public long getExperimentId() {
-      return experimentId_;
+    public java.lang.String getExperimentId() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          experimentId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdBytes() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        experimentId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     private byte memoizedIsInitialized = -1;
@@ -15400,7 +15813,7 @@ public final class Service {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        output.writeInt64(1, experimentId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
       }
       unknownFields.writeTo(output);
     }
@@ -15412,8 +15825,7 @@ public final class Service {
 
       size = 0;
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(1, experimentId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -15433,8 +15845,8 @@ public final class Service {
       boolean result = true;
       result = result && (hasExperimentId() == other.hasExperimentId());
       if (hasExperimentId()) {
-        result = result && (getExperimentId()
-            == other.getExperimentId());
+        result = result && getExperimentId()
+            .equals(other.getExperimentId());
       }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
@@ -15449,8 +15861,7 @@ public final class Service {
       hash = (19 * hash) + getDescriptor().hashCode();
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            getExperimentId());
+        hash = (53 * hash) + getExperimentId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -15585,7 +15996,7 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        experimentId_ = 0L;
+        experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         return this;
       }
@@ -15669,7 +16080,9 @@ public final class Service {
       public Builder mergeFrom(org.mlflow.api.proto.Service.DeleteExperiment other) {
         if (other == org.mlflow.api.proto.Service.DeleteExperiment.getDefaultInstance()) return this;
         if (other.hasExperimentId()) {
-          setExperimentId(other.getExperimentId());
+          bitField0_ |= 0x00000001;
+          experimentId_ = other.experimentId_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -15701,13 +16114,13 @@ public final class Service {
       }
       private int bitField0_;
 
-      private long experimentId_ ;
+      private java.lang.Object experimentId_ = "";
       /**
        * <pre>
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -15717,20 +16130,55 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
-      public long getExperimentId() {
-        return experimentId_;
+      public java.lang.String getExperimentId() {
+        java.lang.Object ref = experimentId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
-      public Builder setExperimentId(long value) {
-        bitField0_ |= 0x00000001;
+      public com.google.protobuf.ByteString
+          getExperimentIdBytes() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       */
+      public Builder setExperimentId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
         experimentId_ = value;
         onChanged();
         return this;
@@ -15740,11 +16188,28 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        experimentId_ = 0L;
+        experimentId_ = getDefaultInstance().getExperimentId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       */
+      public Builder setExperimentIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentId_ = value;
         onChanged();
         return this;
       }
@@ -15810,7 +16275,7 @@ public final class Service {
      * Identifier to get an experiment
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
     boolean hasExperimentId();
     /**
@@ -15818,9 +16283,18 @@ public final class Service {
      * Identifier to get an experiment
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
-    long getExperimentId();
+    java.lang.String getExperimentId();
+    /**
+     * <pre>
+     * Identifier to get an experiment
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.RestoreExperiment}
@@ -15835,7 +16309,7 @@ public final class Service {
       super(builder);
     }
     private RestoreExperiment() {
-      experimentId_ = 0L;
+      experimentId_ = "";
     }
 
     @java.lang.Override
@@ -15862,9 +16336,10 @@ public final class Service {
             case 0:
               done = true;
               break;
-            case 8: {
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              experimentId_ = input.readInt64();
+              experimentId_ = bs;
               break;
             }
             default: {
@@ -16313,13 +16788,13 @@ public final class Service {
 
     private int bitField0_;
     public static final int EXPERIMENT_ID_FIELD_NUMBER = 1;
-    private long experimentId_;
+    private volatile java.lang.Object experimentId_;
     /**
      * <pre>
      * Identifier to get an experiment
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -16329,10 +16804,41 @@ public final class Service {
      * Identifier to get an experiment
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
-    public long getExperimentId() {
-      return experimentId_;
+    public java.lang.String getExperimentId() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          experimentId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * Identifier to get an experiment
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdBytes() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        experimentId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     private byte memoizedIsInitialized = -1;
@@ -16350,7 +16856,7 @@ public final class Service {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        output.writeInt64(1, experimentId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
       }
       unknownFields.writeTo(output);
     }
@@ -16362,8 +16868,7 @@ public final class Service {
 
       size = 0;
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(1, experimentId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -16383,8 +16888,8 @@ public final class Service {
       boolean result = true;
       result = result && (hasExperimentId() == other.hasExperimentId());
       if (hasExperimentId()) {
-        result = result && (getExperimentId()
-            == other.getExperimentId());
+        result = result && getExperimentId()
+            .equals(other.getExperimentId());
       }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
@@ -16399,8 +16904,7 @@ public final class Service {
       hash = (19 * hash) + getDescriptor().hashCode();
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            getExperimentId());
+        hash = (53 * hash) + getExperimentId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -16535,7 +17039,7 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        experimentId_ = 0L;
+        experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         return this;
       }
@@ -16619,7 +17123,9 @@ public final class Service {
       public Builder mergeFrom(org.mlflow.api.proto.Service.RestoreExperiment other) {
         if (other == org.mlflow.api.proto.Service.RestoreExperiment.getDefaultInstance()) return this;
         if (other.hasExperimentId()) {
-          setExperimentId(other.getExperimentId());
+          bitField0_ |= 0x00000001;
+          experimentId_ = other.experimentId_;
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -16651,13 +17157,13 @@ public final class Service {
       }
       private int bitField0_;
 
-      private long experimentId_ ;
+      private java.lang.Object experimentId_ = "";
       /**
        * <pre>
        * Identifier to get an experiment
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -16667,20 +17173,55 @@ public final class Service {
        * Identifier to get an experiment
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
-      public long getExperimentId() {
-        return experimentId_;
+      public java.lang.String getExperimentId() {
+        java.lang.Object ref = experimentId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
        * Identifier to get an experiment
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
-      public Builder setExperimentId(long value) {
-        bitField0_ |= 0x00000001;
+      public com.google.protobuf.ByteString
+          getExperimentIdBytes() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * Identifier to get an experiment
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       */
+      public Builder setExperimentId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
         experimentId_ = value;
         onChanged();
         return this;
@@ -16690,11 +17231,28 @@ public final class Service {
        * Identifier to get an experiment
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        experimentId_ = 0L;
+        experimentId_ = getDefaultInstance().getExperimentId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Identifier to get an experiment
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       */
+      public Builder setExperimentIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentId_ = value;
         onChanged();
         return this;
       }
@@ -16760,7 +17318,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
     boolean hasExperimentId();
     /**
@@ -16768,9 +17326,18 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
-    long getExperimentId();
+    java.lang.String getExperimentId();
+    /**
+     * <pre>
+     * ID of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdBytes();
 
     /**
      * <pre>
@@ -16811,7 +17378,7 @@ public final class Service {
       super(builder);
     }
     private UpdateExperiment() {
-      experimentId_ = 0L;
+      experimentId_ = "";
       newName_ = "";
     }
 
@@ -16839,9 +17406,10 @@ public final class Service {
             case 0:
               done = true;
               break;
-            case 8: {
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              experimentId_ = input.readInt64();
+              experimentId_ = bs;
               break;
             }
             case 18: {
@@ -17296,13 +17864,13 @@ public final class Service {
 
     private int bitField0_;
     public static final int EXPERIMENT_ID_FIELD_NUMBER = 1;
-    private long experimentId_;
+    private volatile java.lang.Object experimentId_;
     /**
      * <pre>
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -17312,10 +17880,41 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
      */
-    public long getExperimentId() {
-      return experimentId_;
+    public java.lang.String getExperimentId() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          experimentId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdBytes() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        experimentId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     public static final int NEW_NAME_FIELD_NUMBER = 2;
@@ -17387,7 +17986,7 @@ public final class Service {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        output.writeInt64(1, experimentId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, newName_);
@@ -17402,8 +18001,7 @@ public final class Service {
 
       size = 0;
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(1, experimentId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, newName_);
@@ -17426,8 +18024,8 @@ public final class Service {
       boolean result = true;
       result = result && (hasExperimentId() == other.hasExperimentId());
       if (hasExperimentId()) {
-        result = result && (getExperimentId()
-            == other.getExperimentId());
+        result = result && getExperimentId()
+            .equals(other.getExperimentId());
       }
       result = result && (hasNewName() == other.hasNewName());
       if (hasNewName()) {
@@ -17447,8 +18045,7 @@ public final class Service {
       hash = (19 * hash) + getDescriptor().hashCode();
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            getExperimentId());
+        hash = (53 * hash) + getExperimentId().hashCode();
       }
       if (hasNewName()) {
         hash = (37 * hash) + NEW_NAME_FIELD_NUMBER;
@@ -17587,7 +18184,7 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        experimentId_ = 0L;
+        experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         newName_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -17677,7 +18274,9 @@ public final class Service {
       public Builder mergeFrom(org.mlflow.api.proto.Service.UpdateExperiment other) {
         if (other == org.mlflow.api.proto.Service.UpdateExperiment.getDefaultInstance()) return this;
         if (other.hasExperimentId()) {
-          setExperimentId(other.getExperimentId());
+          bitField0_ |= 0x00000001;
+          experimentId_ = other.experimentId_;
+          onChanged();
         }
         if (other.hasNewName()) {
           bitField0_ |= 0x00000002;
@@ -17714,13 +18313,13 @@ public final class Service {
       }
       private int bitField0_;
 
-      private long experimentId_ ;
+      private java.lang.Object experimentId_ = "";
       /**
        * <pre>
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -17730,20 +18329,55 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
-      public long getExperimentId() {
-        return experimentId_;
+      public java.lang.String getExperimentId() {
+        java.lang.Object ref = experimentId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
-      public Builder setExperimentId(long value) {
-        bitField0_ |= 0x00000001;
+      public com.google.protobuf.ByteString
+          getExperimentIdBytes() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       */
+      public Builder setExperimentId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
         experimentId_ = value;
         onChanged();
         return this;
@@ -17753,11 +18387,28 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1 [(.validate_required) = true];</code>
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        experimentId_ = 0L;
+        experimentId_ = getDefaultInstance().getExperimentId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1 [(.validate_required) = true];</code>
+       */
+      public Builder setExperimentIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentId_ = value;
         onChanged();
         return this;
       }
@@ -17923,7 +18574,7 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1;</code>
+     * <code>optional string experiment_id = 1;</code>
      */
     boolean hasExperimentId();
     /**
@@ -17931,9 +18582,18 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1;</code>
+     * <code>optional string experiment_id = 1;</code>
      */
-    long getExperimentId();
+    java.lang.String getExperimentId();
+    /**
+     * <pre>
+     * ID of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1;</code>
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdBytes();
 
     /**
      * <pre>
@@ -18219,7 +18879,7 @@ public final class Service {
       super(builder);
     }
     private CreateRun() {
-      experimentId_ = 0L;
+      experimentId_ = "";
       userId_ = "";
       runName_ = "";
       sourceType_ = 1;
@@ -18255,9 +18915,10 @@ public final class Service {
             case 0:
               done = true;
               break;
-            case 8: {
+            case 10: {
+              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
-              experimentId_ = input.readInt64();
+              experimentId_ = bs;
               break;
             }
             case 18: {
@@ -19036,13 +19697,13 @@ public final class Service {
 
     private int bitField0_;
     public static final int EXPERIMENT_ID_FIELD_NUMBER = 1;
-    private long experimentId_;
+    private volatile java.lang.Object experimentId_;
     /**
      * <pre>
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1;</code>
+     * <code>optional string experiment_id = 1;</code>
      */
     public boolean hasExperimentId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -19052,10 +19713,41 @@ public final class Service {
      * ID of the associated experiment.
      * </pre>
      *
-     * <code>optional int64 experiment_id = 1;</code>
+     * <code>optional string experiment_id = 1;</code>
      */
-    public long getExperimentId() {
-      return experimentId_;
+    public java.lang.String getExperimentId() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          experimentId_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <pre>
+     * ID of the associated experiment.
+     * </pre>
+     *
+     * <code>optional string experiment_id = 1;</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdBytes() {
+      java.lang.Object ref = experimentId_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        experimentId_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
     }
 
     public static final int USER_ID_FIELD_NUMBER = 2;
@@ -19537,7 +20229,7 @@ public final class Service {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        output.writeInt64(1, experimentId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, userId_);
@@ -19576,8 +20268,7 @@ public final class Service {
 
       size = 0;
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeInt64Size(1, experimentId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, experimentId_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, userId_);
@@ -19627,8 +20318,8 @@ public final class Service {
       boolean result = true;
       result = result && (hasExperimentId() == other.hasExperimentId());
       if (hasExperimentId()) {
-        result = result && (getExperimentId()
-            == other.getExperimentId());
+        result = result && getExperimentId()
+            .equals(other.getExperimentId());
       }
       result = result && (hasUserId() == other.hasUserId());
       if (hasUserId()) {
@@ -19684,8 +20375,7 @@ public final class Service {
       hash = (19 * hash) + getDescriptor().hashCode();
       if (hasExperimentId()) {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
-        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
-            getExperimentId());
+        hash = (53 * hash) + getExperimentId().hashCode();
       }
       if (hasUserId()) {
         hash = (37 * hash) + USER_ID_FIELD_NUMBER;
@@ -19858,7 +20548,7 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        experimentId_ = 0L;
+        experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000001);
         userId_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -20005,7 +20695,9 @@ public final class Service {
       public Builder mergeFrom(org.mlflow.api.proto.Service.CreateRun other) {
         if (other == org.mlflow.api.proto.Service.CreateRun.getDefaultInstance()) return this;
         if (other.hasExperimentId()) {
-          setExperimentId(other.getExperimentId());
+          bitField0_ |= 0x00000001;
+          experimentId_ = other.experimentId_;
+          onChanged();
         }
         if (other.hasUserId()) {
           bitField0_ |= 0x00000002;
@@ -20099,13 +20791,13 @@ public final class Service {
       }
       private int bitField0_;
 
-      private long experimentId_ ;
+      private java.lang.Object experimentId_ = "";
       /**
        * <pre>
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
       public boolean hasExperimentId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -20115,20 +20807,55 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
-      public long getExperimentId() {
-        return experimentId_;
+      public java.lang.String getExperimentId() {
+        java.lang.Object ref = experimentId_;
+        if (!(ref instanceof java.lang.String)) {
+          com.google.protobuf.ByteString bs =
+              (com.google.protobuf.ByteString) ref;
+          java.lang.String s = bs.toStringUtf8();
+          if (bs.isValidUtf8()) {
+            experimentId_ = s;
+          }
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
       }
       /**
        * <pre>
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
-      public Builder setExperimentId(long value) {
-        bitField0_ |= 0x00000001;
+      public com.google.protobuf.ByteString
+          getExperimentIdBytes() {
+        java.lang.Object ref = experimentId_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          experimentId_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <pre>
+       * ID of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1;</code>
+       */
+      public Builder setExperimentId(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
         experimentId_ = value;
         onChanged();
         return this;
@@ -20138,11 +20865,28 @@ public final class Service {
        * ID of the associated experiment.
        * </pre>
        *
-       * <code>optional int64 experiment_id = 1;</code>
+       * <code>optional string experiment_id = 1;</code>
        */
       public Builder clearExperimentId() {
         bitField0_ = (bitField0_ & ~0x00000001);
-        experimentId_ = 0L;
+        experimentId_ = getDefaultInstance().getExperimentId();
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * ID of the associated experiment.
+       * </pre>
+       *
+       * <code>optional string experiment_id = 1;</code>
+       */
+      public Builder setExperimentIdBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000001;
+        experimentId_ = value;
         onChanged();
         return this;
       }
@@ -36349,15 +37093,16 @@ public final class Service {
      * List of experiment IDs to search over.
      * </pre>
      *
-     * <code>repeated int64 experiment_ids = 1;</code>
+     * <code>repeated string experiment_ids = 1;</code>
      */
-    java.util.List<java.lang.Long> getExperimentIdsList();
+    java.util.List<java.lang.String>
+        getExperimentIdsList();
     /**
      * <pre>
      * List of experiment IDs to search over.
      * </pre>
      *
-     * <code>repeated int64 experiment_ids = 1;</code>
+     * <code>repeated string experiment_ids = 1;</code>
      */
     int getExperimentIdsCount();
     /**
@@ -36365,9 +37110,18 @@ public final class Service {
      * List of experiment IDs to search over.
      * </pre>
      *
-     * <code>repeated int64 experiment_ids = 1;</code>
+     * <code>repeated string experiment_ids = 1;</code>
      */
-    long getExperimentIds(int index);
+    java.lang.String getExperimentIds(int index);
+    /**
+     * <pre>
+     * List of experiment IDs to search over.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 1;</code>
+     */
+    com.google.protobuf.ByteString
+        getExperimentIdsBytes(int index);
 
     /**
      * <pre>
@@ -36531,7 +37285,7 @@ public final class Service {
       super(builder);
     }
     private SearchRuns() {
-      experimentIds_ = java.util.Collections.emptyList();
+      experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       andedExpressions_ = java.util.Collections.emptyList();
       filter_ = "";
       runViewType_ = 1;
@@ -36562,25 +37316,13 @@ public final class Service {
             case 0:
               done = true;
               break;
-            case 8: {
-              if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
-                experimentIds_ = new java.util.ArrayList<java.lang.Long>();
-                mutable_bitField0_ |= 0x00000001;
-              }
-              experimentIds_.add(input.readInt64());
-              break;
-            }
             case 10: {
-              int length = input.readRawVarint32();
-              int limit = input.pushLimit(length);
-              if (!((mutable_bitField0_ & 0x00000001) == 0x00000001) && input.getBytesUntilLimit() > 0) {
-                experimentIds_ = new java.util.ArrayList<java.lang.Long>();
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+                experimentIds_ = new com.google.protobuf.LazyStringArrayList();
                 mutable_bitField0_ |= 0x00000001;
               }
-              while (input.getBytesUntilLimit() > 0) {
-                experimentIds_.add(input.readInt64());
-              }
-              input.popLimit(limit);
+              experimentIds_.add(bs);
               break;
             }
             case 18: {
@@ -36631,7 +37373,7 @@ public final class Service {
             e).setUnfinishedMessage(this);
       } finally {
         if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
-          experimentIds_ = java.util.Collections.unmodifiableList(experimentIds_);
+          experimentIds_ = experimentIds_.getUnmodifiableView();
         }
         if (((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
           andedExpressions_ = java.util.Collections.unmodifiableList(andedExpressions_);
@@ -37549,15 +38291,15 @@ public final class Service {
 
     private int bitField0_;
     public static final int EXPERIMENT_IDS_FIELD_NUMBER = 1;
-    private java.util.List<java.lang.Long> experimentIds_;
+    private com.google.protobuf.LazyStringList experimentIds_;
     /**
      * <pre>
      * List of experiment IDs to search over.
      * </pre>
      *
-     * <code>repeated int64 experiment_ids = 1;</code>
+     * <code>repeated string experiment_ids = 1;</code>
      */
-    public java.util.List<java.lang.Long>
+    public com.google.protobuf.ProtocolStringList
         getExperimentIdsList() {
       return experimentIds_;
     }
@@ -37566,7 +38308,7 @@ public final class Service {
      * List of experiment IDs to search over.
      * </pre>
      *
-     * <code>repeated int64 experiment_ids = 1;</code>
+     * <code>repeated string experiment_ids = 1;</code>
      */
     public int getExperimentIdsCount() {
       return experimentIds_.size();
@@ -37576,10 +38318,21 @@ public final class Service {
      * List of experiment IDs to search over.
      * </pre>
      *
-     * <code>repeated int64 experiment_ids = 1;</code>
+     * <code>repeated string experiment_ids = 1;</code>
      */
-    public long getExperimentIds(int index) {
+    public java.lang.String getExperimentIds(int index) {
       return experimentIds_.get(index);
+    }
+    /**
+     * <pre>
+     * List of experiment IDs to search over.
+     * </pre>
+     *
+     * <code>repeated string experiment_ids = 1;</code>
+     */
+    public com.google.protobuf.ByteString
+        getExperimentIdsBytes(int index) {
+      return experimentIds_.getByteString(index);
     }
 
     public static final int ANDED_EXPRESSIONS_FIELD_NUMBER = 2;
@@ -37799,7 +38552,7 @@ public final class Service {
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
       for (int i = 0; i < experimentIds_.size(); i++) {
-        output.writeInt64(1, experimentIds_.get(i));
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentIds_.getRaw(i));
       }
       for (int i = 0; i < andedExpressions_.size(); i++) {
         output.writeMessage(2, andedExpressions_.get(i));
@@ -37825,8 +38578,7 @@ public final class Service {
       {
         int dataSize = 0;
         for (int i = 0; i < experimentIds_.size(); i++) {
-          dataSize += com.google.protobuf.CodedOutputStream
-            .computeInt64SizeNoTag(experimentIds_.get(i));
+          dataSize += computeStringSizeNoTag(experimentIds_.getRaw(i));
         }
         size += dataSize;
         size += 1 * getExperimentIdsList().size();
@@ -38045,7 +38797,7 @@ public final class Service {
       @java.lang.Override
       public Builder clear() {
         super.clear();
-        experimentIds_ = java.util.Collections.emptyList();
+        experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000001);
         if (andedExpressionsBuilder_ == null) {
           andedExpressions_ = java.util.Collections.emptyList();
@@ -38088,7 +38840,7 @@ public final class Service {
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (((bitField0_ & 0x00000001) == 0x00000001)) {
-          experimentIds_ = java.util.Collections.unmodifiableList(experimentIds_);
+          experimentIds_ = experimentIds_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000001);
         }
         result.experimentIds_ = experimentIds_;
@@ -38239,10 +38991,10 @@ public final class Service {
       }
       private int bitField0_;
 
-      private java.util.List<java.lang.Long> experimentIds_ = java.util.Collections.emptyList();
+      private com.google.protobuf.LazyStringList experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureExperimentIdsIsMutable() {
         if (!((bitField0_ & 0x00000001) == 0x00000001)) {
-          experimentIds_ = new java.util.ArrayList<java.lang.Long>(experimentIds_);
+          experimentIds_ = new com.google.protobuf.LazyStringArrayList(experimentIds_);
           bitField0_ |= 0x00000001;
          }
       }
@@ -38251,18 +39003,18 @@ public final class Service {
        * List of experiment IDs to search over.
        * </pre>
        *
-       * <code>repeated int64 experiment_ids = 1;</code>
+       * <code>repeated string experiment_ids = 1;</code>
        */
-      public java.util.List<java.lang.Long>
+      public com.google.protobuf.ProtocolStringList
           getExperimentIdsList() {
-        return java.util.Collections.unmodifiableList(experimentIds_);
+        return experimentIds_.getUnmodifiableView();
       }
       /**
        * <pre>
        * List of experiment IDs to search over.
        * </pre>
        *
-       * <code>repeated int64 experiment_ids = 1;</code>
+       * <code>repeated string experiment_ids = 1;</code>
        */
       public int getExperimentIdsCount() {
         return experimentIds_.size();
@@ -38272,9 +39024,9 @@ public final class Service {
        * List of experiment IDs to search over.
        * </pre>
        *
-       * <code>repeated int64 experiment_ids = 1;</code>
+       * <code>repeated string experiment_ids = 1;</code>
        */
-      public long getExperimentIds(int index) {
+      public java.lang.String getExperimentIds(int index) {
         return experimentIds_.get(index);
       }
       /**
@@ -38282,11 +39034,25 @@ public final class Service {
        * List of experiment IDs to search over.
        * </pre>
        *
-       * <code>repeated int64 experiment_ids = 1;</code>
+       * <code>repeated string experiment_ids = 1;</code>
+       */
+      public com.google.protobuf.ByteString
+          getExperimentIdsBytes(int index) {
+        return experimentIds_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * List of experiment IDs to search over.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 1;</code>
        */
       public Builder setExperimentIds(
-          int index, long value) {
-        ensureExperimentIdsIsMutable();
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
         experimentIds_.set(index, value);
         onChanged();
         return this;
@@ -38296,10 +39062,14 @@ public final class Service {
        * List of experiment IDs to search over.
        * </pre>
        *
-       * <code>repeated int64 experiment_ids = 1;</code>
+       * <code>repeated string experiment_ids = 1;</code>
        */
-      public Builder addExperimentIds(long value) {
-        ensureExperimentIdsIsMutable();
+      public Builder addExperimentIds(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
         experimentIds_.add(value);
         onChanged();
         return this;
@@ -38309,10 +39079,10 @@ public final class Service {
        * List of experiment IDs to search over.
        * </pre>
        *
-       * <code>repeated int64 experiment_ids = 1;</code>
+       * <code>repeated string experiment_ids = 1;</code>
        */
       public Builder addAllExperimentIds(
-          java.lang.Iterable<? extends java.lang.Long> values) {
+          java.lang.Iterable<java.lang.String> values) {
         ensureExperimentIdsIsMutable();
         com.google.protobuf.AbstractMessageLite.Builder.addAll(
             values, experimentIds_);
@@ -38324,11 +39094,28 @@ public final class Service {
        * List of experiment IDs to search over.
        * </pre>
        *
-       * <code>repeated int64 experiment_ids = 1;</code>
+       * <code>repeated string experiment_ids = 1;</code>
        */
       public Builder clearExperimentIds() {
-        experimentIds_ = java.util.Collections.emptyList();
+        experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000001);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of experiment IDs to search over.
+       * </pre>
+       *
+       * <code>repeated string experiment_ids = 1;</code>
+       */
+      public Builder addExperimentIdsBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureExperimentIdsIsMutable();
+        experimentIds_.add(value);
         onChanged();
         return this;
       }
@@ -47684,7 +48471,7 @@ public final class Service {
       "w.Metric\022\035\n\006params\030\002 \003(\0132\r.mlflow.Param\022" +
       "\034\n\004tags\030\003 \003(\0132\016.mlflow.RunTag\"$\n\006RunTag\022" +
       "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\271\002\n\007RunInfo\022" +
-      "\020\n\010run_uuid\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\003" +
+      "\020\n\010run_uuid\030\001 \001(\t\022\025\n\rexperiment_id\030\002 \001(\t" +
       "\022\014\n\004name\030\003 \001(\t\022\'\n\013source_type\030\004 \001(\0162\022.ml" +
       "flow.SourceType\022\023\n\013source_name\030\005 \001(\t\022\017\n\007" +
       "user_id\030\006 \001(\t\022!\n\006status\030\007 \001(\0162\021.mlflow.R" +
@@ -47692,31 +48479,31 @@ public final class Service {
       "\030\t \001(\003\022\026\n\016source_version\030\n \001(\t\022\030\n\020entry_" +
       "point_name\030\013 \001(\t\022\024\n\014artifact_uri\030\r \001(\t\022\027" +
       "\n\017lifecycle_stage\030\016 \001(\t\"\226\001\n\nExperiment\022\025" +
-      "\n\rexperiment_id\030\001 \001(\003\022\014\n\004name\030\002 \001(\t\022\031\n\021a" +
+      "\n\rexperiment_id\030\001 \001(\t\022\014\n\004name\030\002 \001(\t\022\031\n\021a" +
       "rtifact_location\030\003 \001(\t\022\027\n\017lifecycle_stag" +
       "e\030\004 \001(\t\022\030\n\020last_update_time\030\005 \001(\003\022\025\n\rcre" +
       "ation_time\030\006 \001(\003\"\221\001\n\020CreateExperiment\022\022\n" +
       "\004name\030\001 \001(\tB\004\210\265\030\001\022\031\n\021artifact_location\030\002" +
-      " \001(\t\032!\n\010Response\022\025\n\rexperiment_id\030\001 \001(\003:" +
+      " \001(\t\032!\n\010Response\022\025\n\rexperiment_id\030\001 \001(\t:" +
       "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
       "nse]\"\230\001\n\017ListExperiments\022#\n\tview_type\030\001 " +
       "\001(\0162\020.mlflow.ViewType\0323\n\010Response\022\'\n\013exp" +
       "eriments\030\001 \003(\0132\022.mlflow.Experiment:+\342?(\n" +
       "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\254\001\n\rGetExperiment\022\033\n\rexperiment_id\030\001 \001(\003" +
+      "\254\001\n\rGetExperiment\022\033\n\rexperiment_id\030\001 \001(\t" +
       "B\004\210\265\030\001\032Q\n\010Response\022&\n\nexperiment\030\001 \001(\0132\022" +
       ".mlflow.Experiment\022\035\n\004runs\030\002 \003(\0132\017.mlflo" +
       "w.RunInfo:+\342?(\n&com.databricks.rpc.RPC[$" +
       "this.Response]\"h\n\020DeleteExperiment\022\033\n\rex" +
-      "periment_id\030\001 \001(\003B\004\210\265\030\001\032\n\n\010Response:+\342?(" +
+      "periment_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Response:+\342?(" +
       "\n&com.databricks.rpc.RPC[$this.Response]" +
       "\"i\n\021RestoreExperiment\022\033\n\rexperiment_id\030\001" +
-      " \001(\003B\004\210\265\030\001\032\n\n\010Response:+\342?(\n&com.databri" +
+      " \001(\tB\004\210\265\030\001\032\n\n\010Response:+\342?(\n&com.databri" +
       "cks.rpc.RPC[$this.Response]\"z\n\020UpdateExp" +
-      "eriment\022\033\n\rexperiment_id\030\001 \001(\003B\004\210\265\030\001\022\020\n\010" +
+      "eriment\022\033\n\rexperiment_id\030\001 \001(\tB\004\210\265\030\001\022\020\n\010" +
       "new_name\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.dat" +
       "abricks.rpc.RPC[$this.Response]\"\321\002\n\tCrea" +
-      "teRun\022\025\n\rexperiment_id\030\001 \001(\003\022\017\n\007user_id\030" +
+      "teRun\022\025\n\rexperiment_id\030\001 \001(\t\022\017\n\007user_id\030" +
       "\002 \001(\t\022\020\n\010run_name\030\003 \001(\t\022\'\n\013source_type\030\004" +
       " \001(\0162\022.mlflow.SourceType\022\023\n\013source_name\030" +
       "\005 \001(\t\022\030\n\020entry_point_name\030\006 \001(\t\022\022\n\nstart" +
@@ -47761,7 +48548,7 @@ public final class Service {
       "lause\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005value\030\002 \001(\002" +
       "\"1\n\014DoubleClause\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005" +
       "value\030\002 \001(\001\"\216\002\n\nSearchRuns\022\026\n\016experiment" +
-      "_ids\030\001 \003(\003\0223\n\021anded_expressions\030\002 \003(\0132\030." +
+      "_ids\030\001 \003(\t\0223\n\021anded_expressions\030\002 \003(\0132\030." +
       "mlflow.SearchExpression\022\016\n\006filter\030\004 \001(\t\022" +
       "4\n\rrun_view_type\030\003 \001(\0162\020.mlflow.ViewType" +
       ":\013ACTIVE_ONLY\022\031\n\013max_results\030\005 \001(\005:\0041000" +
