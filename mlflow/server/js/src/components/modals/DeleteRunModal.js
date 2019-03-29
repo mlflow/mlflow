@@ -36,7 +36,22 @@ class DeleteRunModal extends Component {
         onClose={this.props.onClose}
         handleSubmit={this.handleSubmit}
         title={`Delete Experiment ${Utils.pluralize("Run", number)}`}
-        helpText={`${number} experiment ${Utils.pluralize('run', number)} will be deleted.`}
+        helpText={
+          <div>
+            <p>
+              <b>{number} experiment {Utils.pluralize('run', number)} will be deleted.</b>
+            </p>
+            {
+              process.env.SHOW_GDPR_PURGING_MESSAGES === 'true' ?
+              <p>
+                Deleted runs are restorable for 30 days, after which they are purged along with
+                associated metrics, params and tags.
+                <br />
+                Artifacts are not automatically purged and must be manually deleted.
+              </p> : ""
+            }
+          </div>
+        }
         confirmButtonText={"Delete"}
       />
     );
