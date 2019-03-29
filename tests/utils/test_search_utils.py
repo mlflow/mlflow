@@ -102,9 +102,9 @@ def test_anded_expression_2():
                                     'type': 'parameter',
                                     'value': 'a'}]),
     ('tags."t.a.g" = "a"', [{'comparator': '=',
-                              'key': 't.a.g',
-                              'type': 'tag',
-                              'value': 'a'}]),
+                             'key': 't.a.g',
+                             'type': 'tag',
+                             'value': 'a'}]),
 ])
 def test_filter(filter_string, parsed_filter):
     assert SearchFilter(filter_string=filter_string)._parse() == parsed_filter
