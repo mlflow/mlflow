@@ -67,19 +67,19 @@ export default {
   // Create some dummy runs e.g. two top level runs, one of which has a few child runs
   runInfos: [
     createRunInfo({
-      run_uuid: 'top-level-run-no-child-runs', experiment_id: 1, start_time: 7777, end_time: 8888,
+      run_uuid: 'top-level-run-no-child-runs', experiment_id: 1, start_time: 0, end_time: 3,
     }),
-    createRunInfo({ run_uuid: 'parent-run-uuid', experiment_id: 1, start_time: 0, end_time: 60}),
-    createRunInfo({ run_uuid: 'child-run-uuid-0', experiment_id: 1, start_time: 0, end_time: 20}),
-    createRunInfo({ run_uuid: 'child-run-uuid-1', experiment_id: 1, start_time: 20, end_time: 40}),
-    createRunInfo({ run_uuid: 'child-run-uuid-2', experiment_id: 1, start_time: 40, end_time: 60}),
+    createRunInfo({ run_uuid: 'parent-run-id', experiment_id: 1, start_time: 100, end_time: 200}),
+    createRunInfo({ run_uuid: 'child-run-id-0', experiment_id: 1, start_time: 100, end_time: 133}),
+    createRunInfo({ run_uuid: 'child-run-id-1', experiment_id: 1, start_time: 133, end_time: 166}),
+    createRunInfo({ run_uuid: 'child-run-id-2', experiment_id: 1, start_time: 166, end_time: 200}),
   ],
   createTag,
   tagsList: [
     toTagsDict([]),
     toTagsDict([]),
-    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-uuid'})]),
-    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-uuid'})]),
-    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-uuid'})]),
+    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-id'})]),
+    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-id'})]),
+    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-id'})]),
   ],
 };

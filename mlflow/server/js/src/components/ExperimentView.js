@@ -30,7 +30,6 @@ export const DEFAULT_EXPANDED_VALUE = false;
 
 export class ExperimentView extends Component {
   constructor(props) {
-    debugger;
     super(props);
     this.onCheckbox = this.onCheckbox.bind(this);
     this.onCompare = this.onCompare.bind(this);
