@@ -9,6 +9,7 @@ import time
 from six import iteritems
 
 from mlflow.tracking import utils
+from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
     _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
@@ -273,6 +274,20 @@ class MlflowClient(object):
         Restores a deleted run with the given ID.
         """
         self.store.restore_run(run_id)
+
+    def search_runs(self, experiment_ids, filter_string, run_view_type=ViewType.ACTIVE_ONLY):
+        """
+        Search experiments that fit the search criteria.
+
+        :param experiment_ids: List of experiment IDs
+        :param filter_string: Filter query string.
+        :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+                              defined in :py:class:`mlflow.entities.ViewType`.
+        :return:
+        """
+        return self.store.search_runs(experiment_ids=experiment_ids,
+                                      search_filter=SearchFilter(filter_string=filter_string),
+                                      run_view_type=run_view_type)
 
 
 def _get_user_id():
