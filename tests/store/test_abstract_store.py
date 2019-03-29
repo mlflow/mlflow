@@ -19,7 +19,6 @@ def mock_abstract_methods():
         mock.patch.object(AbstractStore, "restore_run"), \
         mock.patch.object(AbstractStore, "get_metric_history"), \
         mock.patch.object(AbstractStore, "search_runs"), \
-        mock.patch.object(AbstractStore, "list_run_infos"), \
             mock.patch.object(AbstractStore, "log_batch"):
         yield
 
