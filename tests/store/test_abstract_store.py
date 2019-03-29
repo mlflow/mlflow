@@ -23,7 +23,7 @@ def mock_abstract_methods():
         yield
 
 
-def test_log_metric(mock_abstract_methods):
+def test_log_metric(mock_abstract_methods):  # pylint: disable=unused-argument
     run_id = mock.Mock()
     metric = mock.Mock()
 
@@ -34,7 +34,7 @@ def test_log_metric(mock_abstract_methods):
     )
 
 
-def test_log_param(mock_abstract_methods):
+def test_log_param(mock_abstract_methods):  # pylint: disable=unused-argument
     run_id = mock.Mock()
     param = mock.Mock()
 
@@ -45,7 +45,7 @@ def test_log_param(mock_abstract_methods):
     )
 
 
-def test_set_tag(mock_abstract_methods):
+def test_set_tag(mock_abstract_methods):  # pylint: disable=unused-argument
     run_id = mock.Mock()
     tag = mock.Mock()
 
