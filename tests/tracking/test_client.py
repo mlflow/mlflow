@@ -1,7 +1,7 @@
 import pytest
 import mock
 
-from mlflow.entities import RunTag, SourceType
+from mlflow.entities import RunTag, SourceType, ViewType
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
     MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
@@ -24,6 +24,12 @@ def mock_time():
     time = 1552319350.244724
     with mock.patch("time.time", return_value=time):
         yield time
+
+
+@pytest.fixture
+def mock_search_filter():
+    with mock.patch("mlflow.tracking.client.SearchFilter") as mock_search_filter:
+        yield mock_search_filter.return_value
 
 
 def test_client_create_run(mock_store, mock_user_id, mock_time):
@@ -75,3 +81,13 @@ def test_client_create_run_overrides(mock_store):
         entry_point_name=tags[MLFLOW_PROJECT_ENTRY_POINT],
         source_version=tags[MLFLOW_GIT_COMMIT]
     )
+
+
+def test_client_search_runs(mock_store, mock_search_filter):
+    experiment_ids = [mock.Mock() for _ in range(5)]
+
+    MlflowClient().search_runs(experiment_ids, "metrics.acc > 0.93")
+
+    mock_store.search_runs.assert_called_once_with(experiment_ids=experiment_ids,
+                                                   search_filter=mock_search_filter,
+                                                   run_view_type=ViewType.ACTIVE_ONLY)

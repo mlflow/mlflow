@@ -691,7 +691,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         search_runs = SearchRuns()
         search_runs.anded_expressions.extend(metrics_expressions or [])
         search_runs.anded_expressions.extend(param_expressions or [])
-        search_filter = SearchFilter(search_runs)
+        search_filter = SearchFilter(anded_expressions=search_runs.anded_expressions)
         return [r.info.run_uuid
                 for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
 
