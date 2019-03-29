@@ -97,7 +97,7 @@ def test_filter(filter_string, parsed_filter):
                                'key': 'm', 'value': "L'Hosp"}]),
 ])
 def test_correct_quote_trimming(filter_string, parsed_filter):
-    assert SearchFilter(SearchRuns(filter=filter_string))._parse() == parsed_filter
+    assert SearchFilter(filter_string=filter_string)._parse() == parsed_filter
 
 
 @pytest.mark.parametrize("filter_string, error_message", [
@@ -130,7 +130,7 @@ def test_error_filter(filter_string, error_message):
 ])
 def test_error_comparison_clauses(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
-        SearchFilter(SearchRuns(filter=filter_string))._parse()
+        SearchFilter(filter_string=filter_string)._parse()
     assert error_message in e.value.message
 
 
@@ -143,7 +143,7 @@ def test_error_comparison_clauses(filter_string, error_message):
 ])
 def test_bad_quotes(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
-        SearchFilter(SearchRuns(filter=filter_string))._parse()
+        SearchFilter(filter_string=filter_string)._parse()
     assert error_message in e.value.message
 
 
@@ -158,5 +158,5 @@ def test_bad_quotes(filter_string, error_message):
 ])
 def test_invalid_clauses(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
-        SearchFilter(SearchRuns(filter=filter_string))._parse()
+        SearchFilter(filter_string=filter_string)._parse()
     assert error_message in e.value.message
