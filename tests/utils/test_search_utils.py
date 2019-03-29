@@ -93,6 +93,18 @@ def test_anded_expression_2():
                                             'key': 'source_name',
                                             'type': 'tag',
                                             'value': "a notebook"}]),
+    ('metrics."accuracy.2.0" > 5', [{'comparator': '>',
+                                     'key': 'accuracy.2.0',
+                                     'type': 'metric',
+                                     'value': '5'}]),
+    ('params."p.a.r.a.m" != "a"', [{'comparator': '!=',
+                                    'key': 'p.a.r.a.m',
+                                    'type': 'parameter',
+                                    'value': 'a'}]),
+    ('tags."t.a.g" = "a"', [{'comparator': '=',
+                              'key': 't.a.g',
+                              'type': 'tag',
+                              'value': 'a'}]),
 ])
 def test_filter(filter_string, parsed_filter):
     assert SearchFilter(filter_string=filter_string)._parse() == parsed_filter
@@ -122,8 +134,6 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     ("param`.A > 0.1", "Invalid clause(s) in filter string"),
     ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
     ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
-    ("metrics.crazy.name > 0.1", "Invalid filter string"),
-    ("tags.crazy.name = 'abc'", "Invalid filter string"),
 ])
 def test_error_filter(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
