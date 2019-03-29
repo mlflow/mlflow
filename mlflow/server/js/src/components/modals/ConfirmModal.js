@@ -33,7 +33,7 @@ export class ConfirmModal extends Component {
     handleSubmit: PropTypes.func.isRequired,
     onClose: PropTypes.func.isRequired,
     title: PropTypes.string.isRequired,
-    helpText: PropTypes.string.isRequired,
+    helpText: PropTypes.node.isRequired,
     confirmButtonText: PropTypes.string.isRequired,
   };
 
@@ -70,9 +70,9 @@ export class ConfirmModal extends Component {
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p style={{ marginBottom: '10px' }}>
+          <div style={{ marginBottom: '10px' }}>
             {this.props.helpText}
-          </p>
+          </div>
         </Modal.Body>
         <Modal.Footer>
           <Button
