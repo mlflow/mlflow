@@ -5,22 +5,24 @@ from six.moves import shlex_quote
 import subprocess
 import sys
 import logging
+import shlex
 
 import click
 import pandas
 
 from mlflow.projects import _get_conda_bin_executable, _get_or_create_conda_env
-from mlflow.pyfunc import load_pyfunc, scoring_server, _load_model_env
+from mlflow.pyfunc import load_pyfunc, _load_model_env
+from mlflow.pyfunc.scoring_server import MODEL_ARTIFACT_PATH_VAR
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils import cli_args
-
+from mlflow.utils.process import exec_cmd
 
 _logger = logging.getLogger(__name__)
 
 
 def _rerun_in_conda(conda_env_path):
     """ Rerun CLI command inside a to-be-created conda environment."""
-    conda_env_name = _get_or_create_conda_env(conda_env_path)
+    conda_env_name = _get_or_create_conda_env(conda_env_path, is_web_server_deploy=True)
     activate_path = _get_conda_bin_executable("activate")
     commands = []
     commands.append("source {} {}".format(activate_path, conda_env_name))
@@ -50,7 +52,11 @@ def commands():
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--host", "-h", default="127.0.0.1", help="Server host. [default: 127.0.0.1]")
 @cli_args.NO_CONDA
-def serve(model_path, run_id, port, host, no_conda):
+@click.option("--workers", "-w", default=4,
+              help="Number of gunicorn worker processes to handle requests (default: 4).")
+@click.option("--gunicorn-opts", default=None,
+              help="Additional command line options forwarded to gunicorn processes.")
+def serve(model_path, run_id, port, host, no_conda, workers, gunicorn_opts):
     """
     Serve a pyfunc model saved with MLflow by launching a webserver on the specified
     host and port. For information about the input data formats accepted by the webserver,
@@ -60,16 +66,18 @@ def serve(model_path, run_id, port, host, no_conda):
     If a ``run_id`` is specified, ``model-path`` is treated as an artifact path within that run;
     otherwise it is treated as a local path.
     """
+    env_map = {}
     if run_id:
         model_path = _get_model_log_dir(model_path, run_id)
-
     model_env_file = _load_model_env(model_path)
     if not no_conda and model_env_file is not None:
         conda_env_path = os.path.join(model_path, model_env_file)
         return _rerun_in_conda(conda_env_path)
-
-    app = scoring_server.init(load_pyfunc(model_path))
-    app.run(port=port, host=host)
+    bind_address = "%s:%s" % (host, port)
+    env_map[MODEL_ARTIFACT_PATH_VAR] = model_path
+    opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
+    exec_cmd(["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.pyfunc.scoring_server:app"],
+             env=env_map, stream_output=True)
 
 
 @commands.command("predict")

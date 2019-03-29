@@ -342,3 +342,11 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
 
 def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
+
+
+def clean_up_file(path):
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+    except OSError as e:
+        raise e

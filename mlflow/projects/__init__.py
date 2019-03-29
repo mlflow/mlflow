@@ -15,6 +15,7 @@ import tempfile
 import logging
 import posixpath
 import docker
+import yaml
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
@@ -31,6 +32,9 @@ from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAM
     MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
     LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID
 from mlflow.utils import databricks_utils, file_utils
+from mlflow.utils.environment import (DEFAULT_PIP_DEPENDENCIES, \
+                                        update_conda_env_deps)
+from mlflow.utils.file_utils import clean_up_file
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -437,7 +441,18 @@ def _get_conda_bin_executable(executable_name):
     return executable_name
 
 
-def _get_or_create_conda_env(conda_env_path):
+def _update_web_server_deps(conda_env_path):
+    with open(conda_env_path, "r") as f:
+        conda_env = yaml.safe_load(f)
+    updated_conda_env = update_conda_env_deps(conda_env, DEFAULT_PIP_DEPENDENCIES)
+    base_path , file_ext = conda_env_path.split('.')
+    updated_env_path = base_path + '_' + 'temp.' + file_ext
+    with open(updated_env_path, "w") as f:
+        yaml.safe_dump(updated_conda_env, stream=f, default_flow_style=False)
+    return updated_env_path
+
+
+def _get_or_create_conda_env(conda_env_path, is_web_server_deploy=False):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
@@ -454,12 +469,16 @@ def _get_or_create_conda_env(conda_env_path):
                                  "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
+    if is_web_server_deploy:
+        conda_env_path = _update_web_server_deps(conda_env_path)
     project_env_name = _get_conda_env_name(conda_env_path)
     if project_env_name not in env_names:
         _logger.info('=== Creating conda environment %s ===', project_env_name)
         if conda_env_path:
             process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
                               conda_env_path], stream_output=True)
+            if is_web_server_deploy:
+                clean_up_file(conda_env_path)
         else:
             process.exec_cmd(
                 [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)

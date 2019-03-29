@@ -37,6 +37,8 @@ CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
 CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
 
+MODEL_ARTIFACT_PATH_VAR = 'MLFLOW_MODEL_ARTIFACT_PATH'
+
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
@@ -104,64 +106,73 @@ def _handle_serving_error(error_message, error_code):
                 stack_trace=traceback_buf.getvalue()))
 
 
-def init(model):
+def _load_model():
+    import os
+    from mlflow.pyfunc import load_pyfunc
+    model_path = os.environ.get(MODEL_ARTIFACT_PATH_VAR)
+    model_obj = None
+    if model_path:
+        model_obj = load_pyfunc(model_path)
+    return model_obj
+
+
+app = flask.Flask(__name__)
+model = _load_model()
+
+
+@app.route('/ping', methods=['GET'])
+def ping():  # pylint: disable=unused-variable
     """
-    Initialize the server. Loads pyfunc model from the path.
+    Determine if the container is working and healthy.
+    We declare it healthy if we can load the model successfully.
     """
-    app = flask.Flask(__name__)
+    health = model is not None
+    status = 200 if health else 404
+    response = 'Model Loaded' if health else 'Model not found'
+    return flask.Response(response=response, status=status, mimetype='application/json')
 
-    @app.route('/ping', methods=['GET'])
-    def ping():  # pylint: disable=unused-variable
-        """
-        Determine if the container is working and healthy.
-        We declare it healthy if we can load the model successfully.
-        """
-        health = model is not None
-        status = 200 if health else 404
-        return flask.Response(response='\n', status=status, mimetype='application/json')
 
-    @app.route('/invocations', methods=['POST'])
-    @catch_mlflow_exception
-    def transformation():  # pylint: disable=unused-variable
-        """
-        Do an inference on a single batch of data. In this sample server,
-        we take data as CSV or json, convert it to a Pandas DataFrame,
-        generate predictions and convert them back to CSV.
-        """
-        # Convert from CSV to pandas
-        if flask.request.content_type == CONTENT_TYPE_CSV:
-            data = flask.request.data.decode('utf-8')
-            csv_input = StringIO(data)
-            data = parse_csv_input(csv_input=csv_input)
-        elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="split")
-        elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
-            data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
-                                    orient="records")
-        else:
-            return flask.Response(
-                    response=("This predictor only supports the following content types,"
-                              " {supported_content_types}. Got '{received_content_type}'.".format(
-                                  supported_content_types=CONTENT_TYPES,
-                                  received_content_type=flask.request.content_type)),
-                    status=415,
-                    mimetype='text/plain')
+@app.route('/invocations', methods=['POST'])
+@catch_mlflow_exception
+def transformation():  # pylint: disable=unused-variable
+    """
+    Do an inference on a single batch of data. In this sample server,
+    we take data as CSV or json, convert it to a Pandas DataFrame,
+    generate predictions and convert them back to CSV.
+    """
+    # Convert from CSV to pandas
+    if flask.request.content_type == CONTENT_TYPE_CSV:
+        data = flask.request.data.decode('utf-8')
+        csv_input = StringIO(data)
+        data = parse_csv_input(csv_input=csv_input)
+    elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
+        data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
+                                orient="split")
+    elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
+        data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
+                                orient="records")
+    else:
+        return flask.Response(
+                response=("This predictor only supports the following content types,"
+                          " {supported_content_types}. Got '{received_content_type}'.".format(
+                              supported_content_types=CONTENT_TYPES,
+                              received_content_type=flask.request.content_type)),
+                status=415,
+                mimetype='text/plain')
 
-        # Do the prediction
-        # pylint: disable=broad-except
-        try:
-            raw_predictions = model.predict(data)
-        except Exception:
-            _handle_serving_error(
-                    error_message=(
-                        "Encountered an unexpected error while evaluating the model. Verify"
-                        " that the serialized input Dataframe is compatible with the model for"
-                        " inference."),
-                    error_code=BAD_REQUEST)
+    # Do the prediction
+    # pylint: disable=broad-except
+    try:
+        raw_predictions = model.predict(data)
+    except Exception:
+        _handle_serving_error(
+                error_message=(
+                    "Encountered an unexpected error while evaluating the model. Verify"
+                    " that the serialized input Dataframe is compatible with the model for"
+                    " inference."),
+                error_code=BAD_REQUEST)
 
-        predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
-        result = json.dumps(predictions, cls=NumpyEncoder)
-        return flask.Response(response=result, status=200, mimetype='application/json')
+    predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
+    result = json.dumps(predictions, cls=NumpyEncoder)
+    return flask.Response(response=result, status=200, mimetype='application/json')
 
-    return app
