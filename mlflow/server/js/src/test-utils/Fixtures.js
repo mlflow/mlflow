@@ -8,7 +8,6 @@ const createExperiment = ({
   Experiment.fromJs({ experiment_id, name, lifecycle_stage })
 );
 
-// TODO delete fields that have been migrated to tags?
 const createRunInfo = ({
   run_uuid = 'some-run-uuid',
   experiment_id = 0,
