@@ -45,7 +45,7 @@ class Experiment(_MLflowObject):
 
     def to_proto(self):
         proto = ProtoExperiment()
-        proto.experiment_id = self.experiment_id
+        proto.experiment_id = str(self.experiment_id)
         proto.name = self.name
         proto.artifact_location = self.artifact_location
         proto.lifecycle_stage = self.lifecycle_stage

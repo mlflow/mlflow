@@ -20,6 +20,6 @@ def test_parse_dict():
     message = ProtoExperiment()
     parse_dict(in_json, message)
     experiment = Experiment.from_proto(message)
-    assert experiment.experiment_id == 123
+    assert experiment.experiment_id == "123"
     assert experiment.name == 'name'
     assert experiment.artifact_location == ''

@@ -54,7 +54,7 @@ class TestRestStore(unittest.TestCase):
     @mock.patch('requests.request')
     def test_response_with_unknown_fields(self, request):
         experiment_json = {
-            "experiment_id": 1,
+            "experiment_id": "1",
             "name": "My experiment",
             "artifact_location": "foo",
             "lifecycle_stage": "deleted",
@@ -162,13 +162,13 @@ class TestRestStore(unittest.TestCase):
                                   message_to_json(RestoreRun(run_id="u76")))
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            store.delete_experiment(0)
+            store.delete_experiment("0")
             self._verify_requests(mock_http, creds,
                                   "experiments/delete", "POST",
                                   message_to_json(DeleteExperiment(experiment_id=0)))
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            store.restore_experiment(0)
+            store.restore_experiment("0")
             self._verify_requests(mock_http, creds,
                                   "experiments/restore", "POST",
                                   message_to_json(RestoreExperiment(experiment_id=0)))

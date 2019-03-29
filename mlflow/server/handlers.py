@@ -125,6 +125,7 @@ def _create_experiment():
     request_message = _get_request_message(CreateExperiment())
     experiment_id = _get_store().create_experiment(request_message.name,
                                                    request_message.artifact_location)
+    experiment_id = str(experiment_id)  # local stores use integer instead of str
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id
     response = Response(mimetype='application/json')
@@ -136,9 +137,10 @@ def _create_experiment():
 def _get_experiment():
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
-    response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
-                                          .to_proto())
-    run_info_entities = _get_store().list_run_infos(request_message.experiment_id,
+    local_store_experiment_id = int(request_message.experiment_id)
+    experiment = _get_store().get_experiment(local_store_experiment_id).to_proto()
+    response_message.experiment.MergeFrom(experiment)
+    run_info_entities = _get_store().list_run_infos(local_store_experiment_id,
                                                     run_view_type=ViewType.ACTIVE_ONLY)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
     response = Response(mimetype='application/json')
@@ -149,7 +151,8 @@ def _get_experiment():
 @catch_mlflow_exception
 def _delete_experiment():
     request_message = _get_request_message(DeleteExperiment())
-    _get_store().delete_experiment(request_message.experiment_id)
+    local_store_experiment_id = int(request_message.experiment_id)
+    _get_store().delete_experiment(local_store_experiment_id)
     response_message = DeleteExperiment.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -159,7 +162,8 @@ def _delete_experiment():
 @catch_mlflow_exception
 def _restore_experiment():
     request_message = _get_request_message(RestoreExperiment())
-    _get_store().restore_experiment(request_message.experiment_id)
+    local_store_experiment_id = int(request_message.experiment_id)
+    _get_store().restore_experiment(local_store_experiment_id)
     response_message = RestoreExperiment.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -170,7 +174,8 @@ def _restore_experiment():
 def _update_experiment():
     request_message = _get_request_message(UpdateExperiment())
     if request_message.new_name:
-        _get_store().rename_experiment(request_message.experiment_id, request_message.new_name)
+        local_store_experiment_id = int(request_message.experiment_id)
+        _get_store().rename_experiment(local_store_experiment_id, request_message.new_name)
     response_message = UpdateExperiment.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
