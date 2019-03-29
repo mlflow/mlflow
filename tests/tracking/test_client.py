@@ -86,7 +86,7 @@ def test_client_create_run_overrides(mock_store):
 def test_client_search_runs(mock_store, mock_search_filter):
     experiment_ids = [mock.Mock() for _ in range(5)]
 
-    MlflowClient().search_runs(experiment_ids, "metrics.acc > 0.93", ViewType.ACTIVE_ONLY)
+    MlflowClient().search_runs(experiment_ids, "metrics.acc > 0.93")
 
     mock_store.search_runs.assert_called_once_with(experiment_ids=experiment_ids,
                                                    search_filter=mock_search_filter,

@@ -453,23 +453,21 @@ def test_search_runs(tracking_uri_mock, reset_active_experiment):
 
     # 2 runs in this experiment
     assert len(MlflowClient().list_run_infos(experiment_id, ViewType.ACTIVE_ONLY)) == 2
-    for r in MlflowClient().list_run_infos(experiment_id, ViewType.ACTIVE_ONLY):
-        print(MlflowClient().get_run(r.run_uuid).data.metrics)
 
     # 2 runs that have metric "m1" > 0.001
-    runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.0001", ViewType.ACTIVE_ONLY)
+    runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.0001")
     verify_runs(runs, ["first", "second"])
 
     # 1 run with has metric "m1" > 0.002
-    runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.002", ViewType.ACTIVE_ONLY)
+    runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.002")
     verify_runs(runs, ["second"])
 
     # no runs with metric "m1" > 0.1
-    runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.1", ViewType.ACTIVE_ONLY)
+    runs = MlflowClient().search_runs([experiment_id], "metrics.m1 > 0.1")
     verify_runs(runs, [])
 
     # 1 run with metric "m2" > 0
-    runs = MlflowClient().search_runs([experiment_id], "metrics.m2 > 0", ViewType.ACTIVE_ONLY)
+    runs = MlflowClient().search_runs([experiment_id], "metrics.m2 > 0")
     verify_runs(runs, ["first"])
 
     # 1 run each with param "p1" and "p2"
