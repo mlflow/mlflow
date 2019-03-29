@@ -78,26 +78,23 @@ test('Command or ctrl-clicking a parent run selects or deselects all child runs'
   });
 });
 
-
 test('Shift-clicking across runs selects multiple runs: top level runs', () => {
   const wrapper = getExperimentViewMock();
-  wrapper.instance().onCheckbox({}, Fixtures.childRunIds, 4, Fixtures.sortedRunIds);
-  expect(wrapper.state('runsSelected')).toEqual({[Fixtures.runInfos[4].run_uuid]: true});
-  wrapper.instance().onCheckbox({shiftKey: true}, Fixtures.childRunIds, 6, Fixtures.sortedRunIds);
-  expect(wrapper.state('runsSelected')).toEqual({
-    'top-level-childless-run-0': true,
-    'top-level-childless-run-1': true,
-    'top-level-childless-run-2': true,
-  });
-  wrapper.instance().onCheckbox({shiftKey: true}, Fixtures.childRunIds, 4, Fixtures.sortedRunIds);
+  wrapper.instance().onCheckbox({}, [], 0, Fixtures.topLevelRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({[Fixtures.topLevelRunIds[0]]: true});
+  wrapper.instance().onCheckbox({shiftKey: true}, [], 2, Fixtures.topLevelRunIds);
+  const expectedSelected = {};
+  Fixtures.topLevelRunIds.slice(0, 3).forEach((runId) => expectedSelected[runId] = true);
+  expect(wrapper.state('runsSelected')).toEqual(expectedSelected);
+  wrapper.instance().onCheckbox({shiftKey: true}, [], 0, Fixtures.topLevelRunIds);
   expect(wrapper.state('runsSelected')).toEqual({});
 });
 
 test('Shift-clicking across runs selects multiple runs: mixed top level and child runs', () => {
   const wrapper = getExperimentViewMock();
-  wrapper.instance().onCheckbox({}, Fixtures.childRunIds, 2, Fixtures.sortedRunIds);
+  wrapper.instance().onCheckbox({}, [], 2, Fixtures.sortedRunIds);
   expect(wrapper.state('runsSelected')).toEqual({'child-run-id-1': true});
-  wrapper.instance().onCheckbox({shiftKey: true}, Fixtures.childRunIds, 6, Fixtures.sortedRunIds);
+  wrapper.instance().onCheckbox({shiftKey: true}, [], 6, Fixtures.sortedRunIds);
   expect(wrapper.state('runsSelected')).toEqual({
     'child-run-id-1': true,
     'child-run-id-2': true,
@@ -105,7 +102,7 @@ test('Shift-clicking across runs selects multiple runs: mixed top level and chil
     'top-level-childless-run-1': true,
     'top-level-childless-run-2': true,
   });
-  wrapper.instance().onCheckbox({shiftKey: true}, Fixtures.childRunIds, 3, Fixtures.sortedRunIds);
+  wrapper.instance().onCheckbox({shiftKey: true}, [], 3, Fixtures.sortedRunIds);
   expect(wrapper.state('runsSelected')).toEqual({'child-run-id-1': true});
 });
 
