@@ -134,8 +134,8 @@ def test_error_filter(filter_string, error_message):
 @pytest.mark.parametrize("filter_string, error_message", [
     ("metric.model = 'LR'", "Expected numeric value type for metric"),
     ("metric.model = '5'", "Expected numeric value type for metric"),
-    ("params.acc = 5", "Expected single-quoted string value for param"),
-    ("tags.acc = 5", "Expected single-quoted string value for tag"),
+    ("params.acc = 5", "Expected a quoted string value for param"),
+    ("tags.acc = 5", "Expected a quoted string value for tag"),
     ("metrics.acc != metrics.acc", "Expected numeric value type for metric"),
     ("1.0 > metrics.acc", "Expected 'Identifier' found"),
 ])

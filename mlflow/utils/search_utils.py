@@ -112,7 +112,7 @@ class SearchFilter(object):
         elif identifier_type == cls._PARAM_IDENTIFIER or identifier_type == cls._TAG_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
-            raise MlflowException("Expected single-quoted string value for "
+            raise MlflowException("Expected a quoted string value for "
                                   "{identifier_type} (e.g. 'my-value'). Got value "
                                   "{value}".format(identifier_type=identifier_type,
                                                    value=token.value),
