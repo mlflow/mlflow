@@ -123,9 +123,10 @@ def _not_implemented():
 @catch_mlflow_exception
 def _create_experiment():
     request_message = _get_request_message(CreateExperiment())
-    experiment_id = _get_store().create_experiment(request_message.name,
-                                                   request_message.artifact_location)
-    experiment_id = str(experiment_id)  # local stores use integer instead of str
+    # experiment_id is int for local stores but string for rest requests and responses
+    local_store_experiment_id = _get_store().create_experiment(request_message.name,
+                                                               Arequest_message.artifact_location)
+    experiment_id = str(local_store_experiment_id)
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id
     response = Response(mimetype='application/json')
