@@ -58,14 +58,9 @@ class SearchFilter(object):
     @classmethod
     def _strip_quotes(cls, value, expect_quoted_value=False):
         """
-<<<<<<< HEAD
-        Argument values is of type string and expected to have quotes.
-        Keys with special characters are required to quoted a well.
-=======
         Remove quotes for input string.
         Values of type strings are expected to have quotes.
         Keys containing special characters are also expected to be enclose in quotes.
->>>>>>> master
         """
         if cls._is_quoted(value, "'") or cls._is_quoted(value, '"'):
             return cls._trim_ends(value)
