@@ -268,7 +268,7 @@ class RunView extends Component {
               <span className="metadata-info">
                 <a
                   href={Utils.setQueryParams(tags['mlflow.databricks.runURL'].value, queryParams)}
-                   target="_blank"
+                  target="_blank"
                 >
                   Logs
                 </a>
