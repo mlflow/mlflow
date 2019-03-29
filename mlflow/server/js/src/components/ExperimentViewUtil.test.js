@@ -1,7 +1,6 @@
 import Fixtures from '../test-utils/Fixtures';
 import ExperimentViewUtil from "./ExperimentViewUtil";
 
-
 test('getRowRenderMetadata identifies parent-child run relationships based on run tags', () => {
   const rowRenderMetadata = ExperimentViewUtil.getRowRenderMetadata(
     {
@@ -23,7 +22,6 @@ test('getRowRenderMetadata identifies parent-child run relationships based on ru
   };
   expect(rowRenderMetadata).toContainEqual(parentRunMetadata);
 });
-
 
 test('getRowRenderMetadata sorts top-level and child runs', () => {
   const runsExpanded = {};
