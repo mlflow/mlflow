@@ -353,8 +353,8 @@ class TestFileStore(unittest.TestCase):
         assert len(fs.search_runs([self.experiments[0]], None, ViewType.ALL)) == 2
         assert len(fs.search_runs([self.experiments[0]], None, ViewType.DELETED_ONLY)) == 0
 
-    def _search_with_filter_string(self, fs, experiment_id, filter, run_view_type=ViewType.ALL):
-        search_filter = SearchFilter(search_runs=SearchRuns(filter=filter))
+    def _search_with_filter_string(self, fs, experiment_id, filter_str, run_view_type=ViewType.ALL):
+        search_filter = SearchFilter(search_runs=SearchRuns(filter=filter_str))
         return [r.info.run_uuid
                 for r in fs.search_runs([experiment_id], search_filter, run_view_type)]
 
