@@ -10,7 +10,7 @@ export class RequestStateWrapper extends Component {
     // Should this component render the child before all the requests are complete?
     shouldOptimisticallyRender: PropTypes.bool,
     requests: PropTypes.arrayOf(PropTypes.object).isRequired,
-    // (shouldRenderError: boolean, requests) => undefined | React Node.
+    // (isLoading: boolean, shouldRenderError: boolean, requests) => undefined | React Node.
     // This function is called when all requests are complete.
     // The function can choose to render an error view depending on the
     // type of errors received. If undefined is returned, then render the AppErrorBoundary view.
