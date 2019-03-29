@@ -371,7 +371,7 @@ export default class ExperimentViewUtil {
         ExperimentViewUtil.toMetricsMap(metricsList[idx]),
         ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
       return [{
-        idx,
+        idxsearch_utils,
         isParent: true,
         hasExpander,
         expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
