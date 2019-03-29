@@ -15,7 +15,6 @@ from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
-from mlflow.protos.service_pb2 import SearchRuns
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.search_utils import SearchFilter
 from tests.helper_functions import random_int, random_str
@@ -354,7 +353,7 @@ class TestFileStore(unittest.TestCase):
         assert len(fs.search_runs([self.experiments[0]], None, ViewType.DELETED_ONLY)) == 0
 
     def _search_with_filter_string(self, fs, experiment_id, filter_str, run_view_type=ViewType.ALL):
-        search_filter = SearchFilter(search_runs=SearchRuns(filter=filter_str))
+        search_filter = SearchFilter(filter_string=filter_str)
         return [r.info.run_uuid
                 for r in fs.search_runs([experiment_id], search_filter, run_view_type)]
 

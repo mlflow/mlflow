@@ -112,9 +112,10 @@ class SearchFilter(object):
         elif identifier_type == cls._PARAM_IDENTIFIER or identifier_type == cls._TAG_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
-            raise MlflowException("Expected string value type for {identifier_type}. "
-                                  "Got value {value}".format(identifier_type=identifier_type,
-                                                             value=token.value),
+            raise MlflowException("Expected single-quoted string value for "
+                                  "{identifier_type} (e.g. 'my-value'). Got value "
+                                  "{value}".format(identifier_type=identifier_type,
+                                                   value=token.value),
                                   error_code=INVALID_PARAMETER_VALUE)
         else:
             # Expected to be either "param" or "metric".
@@ -259,7 +260,6 @@ class SearchFilter(object):
         else:
             raise MlflowException("Invalid search expression type '%s'" % key_type,
                                   error_code=INVALID_PARAMETER_VALUE)
-
         if lhs is None:
             return False
         elif comparator == '>':

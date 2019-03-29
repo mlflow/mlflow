@@ -696,7 +696,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
 
     def _search_with_filter_string(self, experiment_id, filter_str, run_view_type=ViewType.ALL):
-        search_filter = SearchFilter(search_runs=SearchRuns(filter=filter_str))
+        search_filter = SearchFilter(filter_string=filter_str)
         return [r.info.run_uuid
                 for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
 
