@@ -3,6 +3,7 @@
 import os
 import shutil
 import six
+import tempfile
 import time
 import unittest
 import uuid
@@ -21,7 +22,7 @@ from tests.helper_functions import random_int, random_str
 
 
 class TestFileStore(unittest.TestCase):
-    ROOT_LOCATION = "/tmp"
+    ROOT_LOCATION = tempfile.gettempdir()
 
     def setUp(self):
         self._create_root(TestFileStore.ROOT_LOCATION)

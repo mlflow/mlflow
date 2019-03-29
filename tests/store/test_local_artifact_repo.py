@@ -14,7 +14,7 @@ class TestLocalArtifactRepo(object):
         return sorted([(f.path, f.is_dir, f.file_size) for f in repo.list_artifacts(dir_name)])
 
     @pytest.mark.parametrize(
-        "prefix", [tracking.utils._LOCAL_FS_URI_PREFIX[:-1], "file:", ""])
+        "prefix", [tracking.utils._LOCAL_FS_URI_PREFIX, "file:", ""])
     def test_basic_functions(self, prefix):
         if prefix == "" and not os.sep == "/":
             pytest.skip("skipping direct path as artifact_uri, not supported on windows")
