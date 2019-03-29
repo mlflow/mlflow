@@ -1,15 +1,9 @@
 import React from 'react';
-import { shallow, mount } from 'enzyme';
+import { shallow } from 'enzyme';
 import { ExperimentView } from './ExperimentView';
-import ExperimentRunsTableCompactView from './ExperimentRunsTableCompactView';
 import KeyFilter from "../utils/KeyFilter";
 import {LIFECYCLE_FILTER} from "./ExperimentPage";
 import Fixtures from '../test-utils/Fixtures';
-import ExperimentViewUtil from "./ExperimentViewUtil";
-import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
-import { BrowserRouter as Router } from 'react-router-dom';
-import { Provider } from 'react-redux';
-import configureStore from 'redux-mock-store' //ES6 modules
 
 
 const getExperimentViewMock = () => {
@@ -68,17 +62,20 @@ test('Clicking on run checkbox selects/deselects the run and updates lastCheckbo
   expect(wrapper.state('runsSelected')).toEqual({});
 });
 
-test('Command-clicking a parent run selects or deselects all child runs', () => {
+test('Command or ctrl-clicking a parent run selects or deselects all child runs', () => {
   const wrapper = getExperimentViewMock();
-  wrapper.instance().onCheckbox({metaKey: true}, Fixtures.childRunIds, 0, Fixtures.sortedRunIds);
-  expect(wrapper.state('runsSelected')).toEqual({
-    'parent-run-id': true,
-    'child-run-id-0': true,
-    'child-run-id-1': true,
-    'child-run-id-2': true,
+  const clickEvents = [{metaKey: true}, {ctrlKey: true}];
+  clickEvents.forEach((event) => {
+    wrapper.instance().onCheckbox(event, Fixtures.childRunIds, 0, Fixtures.sortedRunIds);
+    expect(wrapper.state('runsSelected')).toEqual({
+      'parent-run-id': true,
+      'child-run-id-0': true,
+      'child-run-id-1': true,
+      'child-run-id-2': true,
+    });
+    wrapper.instance().onCheckbox({metaKey: true}, Fixtures.childRunIds, 0, Fixtures.sortedRunIds);
+    expect(wrapper.state('runsSelected')).toEqual({});
   });
-  wrapper.instance().onCheckbox({metaKey: true}, Fixtures.childRunIds, 0, Fixtures.sortedRunIds);
-  expect(wrapper.state('runsSelected')).toEqual({});
 });
 
 

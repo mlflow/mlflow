@@ -437,7 +437,6 @@ export class ExperimentView extends Component {
               metricKeyList={metricKeyList}
               paramsList={this.props.paramsList}
               metricsList={this.props.metricsList}
-              metricRanges={ExperimentViewUtil.computeMetricRanges(this.props.metricsList)}
               tagsList={this.props.tagsList}
               onCheckAll={this.onCheckAll}
               isAllChecked={this.isAllChecked()}
