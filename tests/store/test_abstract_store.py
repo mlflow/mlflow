@@ -35,7 +35,7 @@ def test_log_metric(mock_abstract_methods):
     )
 
 
-def test_log_param():
+def test_log_param(mock_abstract_methods):
     run_id = mock.Mock()
     param = mock.Mock()
 
@@ -46,7 +46,7 @@ def test_log_param():
     )
 
 
-def test_set_tag():
+def test_set_tag(mock_abstract_methods):
     run_id = mock.Mock()
     tag = mock.Mock()
 
