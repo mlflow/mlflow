@@ -212,7 +212,6 @@ class AbstractStore:
         """
         pass
 
-    @abstractmethod
     def list_run_infos(self, experiment_id, run_view_type):
         """
         Return run information for runs which belong to the experiment_id
