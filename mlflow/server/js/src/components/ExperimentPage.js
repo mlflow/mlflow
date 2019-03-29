@@ -121,8 +121,7 @@ class ExperimentPage extends Component {
             if (shouldRenderError) {
               const searchRunsRequest = Utils.getRequestWithId(
                 requests, this.state.searchRunsRequestId);
-              if (searchRunsRequest.error && searchRunsRequest.error.getErrorCode() ===
-                  ErrorCodes.INVALID_PARAMETER_VALUE) {
+              if (searchRunsRequest.error) {
                 searchRunsError = searchRunsRequest.error.getMessageField();
               } else if (getExperimentRequest.error.getErrorCode() ===
                   ErrorCodes.PERMISSION_DENIED) {
