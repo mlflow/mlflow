@@ -16,6 +16,7 @@ from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.search_utils import SearchFilter
 from tests.helper_functions import random_int, random_str
 
 
@@ -350,6 +351,51 @@ class TestFileStore(unittest.TestCase):
         assert len(fs.search_runs([self.experiments[0]], None, ViewType.ACTIVE_ONLY)) == 2
         assert len(fs.search_runs([self.experiments[0]], None, ViewType.ALL)) == 2
         assert len(fs.search_runs([self.experiments[0]], None, ViewType.DELETED_ONLY)) == 0
+
+    def _search_with_filter_string(self, fs, experiment_id, filter_str, run_view_type=ViewType.ALL):
+        search_filter = SearchFilter(filter_string=filter_str)
+        return [r.info.run_uuid
+                for r in fs.search_runs([experiment_id], search_filter, run_view_type)]
+
+    def test_search_tags(self):
+        fs = FileStore(self.test_root)
+        experiment_id = self.experiments[0]
+        r1 = fs.create_run(
+            experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
+            None, [], None).info.run_uuid
+        r2 = fs.create_run(
+            experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
+            None, [], None).info.run_uuid
+
+        fs.set_tag(r1, RunTag('generic_tag', 'p_val'))
+        fs.set_tag(r2, RunTag('generic_tag', 'p_val'))
+
+        fs.set_tag(r1, RunTag('generic_2', 'some value'))
+        fs.set_tag(r2, RunTag('generic_2', 'another value'))
+
+        fs.set_tag(r1, RunTag('p_a', 'abc'))
+        fs.set_tag(r2, RunTag('p_b', 'ABC'))
+
+        # test search returns both runs
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag = 'p_val'"))
+        # test search returns appropriate run (same key different values per run)
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_2 = 'some value'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_2 = 'another value'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag = 'wrong_val'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag != 'p_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag != 'wrong_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_2 != 'wrong_val'"))
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            fs, experiment_id, "tags.p_a = 'abc'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.p_b = 'ABC'"))
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
