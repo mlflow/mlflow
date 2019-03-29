@@ -89,9 +89,9 @@ def test_anded_expression_2():
                                        'type': 'tag',
                                        'value': "commit-hash"}]),
     ("`tags`.source_name = 'a notebook'", [{'comparator': '=',
-                                             'key': 'source_name',
-                                             'type': 'tag',
-                                             'value': "a notebook"}]),
+                                            'key': 'source_name',
+                                            'type': 'tag',
+                                            'value': "a notebook"}]),
 ])
 def test_filter(filter_string, parsed_filter):
     assert SearchFilter(SearchRuns(filter=filter_string))._parse() == parsed_filter
