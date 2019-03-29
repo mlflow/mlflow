@@ -76,7 +76,8 @@ def serve(model_path, run_id, port, host, no_conda, workers, gunicorn_opts):
     bind_address = "%s:%s" % (host, port)
     env_map[MODEL_ARTIFACT_PATH_VAR] = model_path
     opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
-    exec_cmd(["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.pyfunc.scoring_server:app"],
+    exec_cmd(["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers,
+                                    "mlflow.pyfunc.scoring_server:app"],
              env=env_map, stream_output=True)
 
 

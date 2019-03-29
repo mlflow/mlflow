@@ -175,4 +175,3 @@ def transformation():  # pylint: disable=unused-variable
     predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
     result = json.dumps(predictions, cls=NumpyEncoder)
     return flask.Response(response=result, status=200, mimetype='application/json')
-

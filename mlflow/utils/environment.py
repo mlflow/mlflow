@@ -8,20 +8,9 @@ channels:
   - defaults
 """
 
-DEFAULT_PIP_DEPENDENCIES = ['gunicorn',
-                        'docker>=3.6.0',
-                        'entrypoints',
-                        'protobuf>=3.6.0',
-                        'numpy',
-                        'pandas',
-                        'pyyaml',
-                        'boto3',
-                        'click',
-                        'Flask',
-                        'databricks-cli>=0.8.0',
-                        'querystring_parser',
-                        'sqlparse',
-                        ]
+DEFAULT_PIP_DEPENDENCIES = ['gunicorn', 'docker>=3.6.0', 'entrypoints', 'protobuf>=3.6.0',
+                            'numpy', 'pandas', 'pyyaml', 'boto3', 'click', 'Flask',
+                            'databricks-cli>=0.8.0', 'querystring_parser', 'sqlparse']
 
 
 def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps=None,
@@ -59,7 +48,8 @@ def _prepare_dependency_map(dependencies):
     """
     Helper method to get the dictionary of package name and dependency
     :param dependencies: list of packages
-    :return: dictionary with key as package name and value with package name along with version if any
+    :return: dictionary with key as package name and value with package name along
+            with version if any
     Input:['gunicorn', 'docker>=3.6.0', 'protobuf>=3.6.0', 'cloudpickle==0.6.1', 'python=3.6.1']
     Output: {'gunicorn': 'gunicorn', 'docker': 'docker>=3.6.0', 'protobuf': 'protobuf>=3.6.0',
                 'cloudpickle': 'cloudpickle==0.6.1',  'python': 'python=3.6.1'}
@@ -80,9 +70,9 @@ def _prepare_dependency_map(dependencies):
 
 def update_conda_env_deps(conda_env, pip_dependencies):
     """
-    Updates the conda env with providing pip_dependencies while checking for existing ones in conda env.
-    If same package is provided in conda_env and pip_dependencies , package in conda_env will be preceded
-    and the one in pip_dependencies will be ignored
+    Updates the conda env with providing pip_dependencies while checking for existing
+    ones in conda env.If same package is provided in conda_env and pip_dependencies ,
+    package in conda_env will be preceded and the one in pip_dependencies will be ignored
     :param conda_env: dict of conda yaml file
     :param pip_dependencies: list of pip packages
     :return: Updated conda env dict

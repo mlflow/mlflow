@@ -32,8 +32,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAM
     MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
     LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID
 from mlflow.utils import databricks_utils, file_utils
-from mlflow.utils.environment import (DEFAULT_PIP_DEPENDENCIES, \
-                                        update_conda_env_deps)
+from mlflow.utils.environment import (DEFAULT_PIP_DEPENDENCIES, update_conda_env_deps)
 from mlflow.utils.file_utils import clean_up_file
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
@@ -445,7 +444,7 @@ def _update_web_server_deps(conda_env_path):
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
     updated_conda_env = update_conda_env_deps(conda_env, DEFAULT_PIP_DEPENDENCIES)
-    base_path , file_ext = conda_env_path.split('.')
+    base_path, file_ext = conda_env_path.split('.')
     updated_env_path = base_path + '_' + 'temp.' + file_ext
     with open(updated_env_path, "w") as f:
         yaml.safe_dump(updated_conda_env, stream=f, default_flow_style=False)
