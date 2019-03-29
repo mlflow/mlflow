@@ -5,7 +5,6 @@ import KeyFilter from "../utils/KeyFilter";
 import {LIFECYCLE_FILTER} from "./ExperimentPage";
 import Fixtures from '../test-utils/Fixtures';
 
-
 const getExperimentViewMock = () => {
   return shallow(<ExperimentView
     onSearch={() => {}}
@@ -105,4 +104,3 @@ test('Shift-clicking across runs selects multiple runs: mixed top level and chil
   wrapper.instance().onCheckbox({shiftKey: true}, [], 3, Fixtures.sortedRunIds);
   expect(wrapper.state('runsSelected')).toEqual({'child-run-id-1': true});
 });
-
