@@ -13,28 +13,6 @@ import configureStore from 'redux-mock-store' //ES6 modules
 
 
 const getExperimentViewMock = () => {
-  const initialState = {};
-  const middlewares = []
-  const mockStore = configureStore(middlewares)
-  const store = mockStore(initialState);
-  return mount(<Provider store={store}><Router><ExperimentView
-    onSearch={() => {}}
-    runInfos={Fixtures.runInfos}
-    experiment={Fixtures.experiments[0]}
-    history={[]}
-    paramKeyList={[]}
-    metricKeyList={[]}
-    paramsList={Array(Fixtures.runInfos.length).fill([])}
-    metricsList={Array(Fixtures.runInfos.length).fill([])}
-    tagsList={Fixtures.tagsList}
-    paramKeyFilter={new KeyFilter("")}
-    metricKeyFilter={new KeyFilter("")}
-    lifecycleFilter={LIFECYCLE_FILTER.ACTIVE}
-    searchInput={""}
-  /></Router></Provider>);
-};
-
-const getShallowExperimentViewMock = () => {
   return shallow(<ExperimentView
     onSearch={() => {}}
     runInfos={Fixtures.runInfos}
@@ -53,7 +31,7 @@ const getShallowExperimentViewMock = () => {
 };
 
 test('Entering filter input updates component state', () => {
-  const wrapper = getShallowExperimentViewMock();
+  const wrapper = getExperimentViewMock();
   wrapper.instance().setState = jest.fn();
   // Test entering param filter input
   wrapper.find('.ExperimentView-paramKeyFilter input').first().simulate(
@@ -69,65 +47,68 @@ test('Entering filter input updates component state', () => {
   expect(wrapper.instance().setState).toBeCalledWith({searchInput: 'search input string'});
 });
 
-test('Child runs can be expanded and collapsed', () => {
+test('Expanding and collapsing a parent run updates component state', () => {
   const wrapper = getExperimentViewMock();
-  const tableView = wrapper.find(ExperimentRunsTableCompactView);
-  expect(tableView).toHaveLength(1);
-  // The test data should contain two top-level runs, one of which has three child runs
-  const tableRows = tableView.find('.ReactVirtualized__Table__row');
-  expect(tableRows).toHaveLength(2);
-  const expanders = tableView.find('.ExperimentView-expander');
-  expect(expanders).toHaveLength(1);
-  expanders.simulate('click');
-  wrapper.update();
-  const tableRows1 = wrapper.find('.ReactVirtualized__Table__row');
-  expect(tableRows1).toHaveLength(5);
-  // Collapse the expanded runs
-  const expanders1 = tableView.find('.ExperimentView-expander');
-  expanders1.simulate('click');
-  wrapper.update();
-  const tableRows2 =  wrapper.find('.ReactVirtualized__Table__row');
-  expect(tableRows2).toHaveLength(2);
+  wrapper.instance().onExpand(Fixtures.sortedRunIds[0], Fixtures.childRunIds);
+  expect(wrapper.state('persistedState')['runsExpanded']).toEqual(
+    {[Fixtures.sortedRunIds[0]]: true});
+  wrapper.instance().onExpand(Fixtures.sortedRunIds[0], Fixtures.childRunIds);
+  expect(wrapper.state('persistedState')['runsExpanded']).toEqual(
+    {[Fixtures.sortedRunIds[0]]: false});
 });
 
-test('Clicking on run checkbox selects or deselects the run', () => {
+test('Clicking on run checkbox selects/deselects the run and updates lastCheckboxIndex', () => {
   const wrapper = getExperimentViewMock();
-  const checkboxes = wrapper.find('.ReactVirtualized__Table__row input');
-  checkboxes.first().simulate('click');
-  console.log(wrapper.find(ExperimentView).get(0).state);
-  expect(wrapper.state().runsSelected).toEqual({"abc": "def"});
-  // const tableView = wrapper.find(ExperimentRunsTableCompactView).dive();
+  expect(wrapper.state('runsSelected')).toEqual({});
+  expect(wrapper.state('lastCheckboxIndex')).not.toEqual(1);
+  wrapper.instance().onCheckbox({}, Fixtures.childRunIds, 1, Fixtures.sortedRunIds);
+  expect(wrapper.state('lastCheckboxIndex')).toEqual(1);
+  expect(wrapper.state('runsSelected')).toEqual({[Fixtures.runInfos[1].run_uuid]: true});
+  wrapper.instance().onCheckbox({}, Fixtures.childRunIds, 1, Fixtures.sortedRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({});
 });
 
 test('Command-clicking a parent run selects or deselects all child runs', () => {
   const wrapper = getExperimentViewMock();
-  const checkboxes = wrapper.find('.ReactVirtualized__Table__row input');
-  checkboxes.first().simulate('click', {metaKey: true});
+  wrapper.instance().onCheckbox({metaKey: true}, Fixtures.childRunIds, 0, Fixtures.sortedRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({
+    'parent-run-id': true,
+    'child-run-id-0': true,
+    'child-run-id-1': true,
+    'child-run-id-2': true,
+  });
+  wrapper.instance().onCheckbox({metaKey: true}, Fixtures.childRunIds, 0, Fixtures.sortedRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({});
 });
 
 
-test('Shift-clicking across runs selects multiple runs', () => {
+test('Shift-clicking across runs selects multiple runs: top level runs', () => {
   const wrapper = getExperimentViewMock();
-  const checkboxes = wrapper.find('.ReactVirtualized__Table__row input');
-  checkboxes.first().simulate('click', {metaKey: true});
+  wrapper.instance().onCheckbox({}, Fixtures.childRunIds, 4, Fixtures.sortedRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({[Fixtures.runInfos[4].run_uuid]: true});
+  wrapper.instance().onCheckbox({shiftKey: true}, Fixtures.childRunIds, 6, Fixtures.sortedRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({
+    'top-level-childless-run-0': true,
+    'top-level-childless-run-1': true,
+    'top-level-childless-run-2': true,
+  });
+  wrapper.instance().onCheckbox({shiftKey: true}, Fixtures.childRunIds, 4, Fixtures.sortedRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({});
 });
 
+test('Shift-clicking across runs selects multiple runs: mixed top level and child runs', () => {
+  const wrapper = getExperimentViewMock();
+  wrapper.instance().onCheckbox({}, Fixtures.childRunIds, 2, Fixtures.sortedRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({'child-run-id-1': true});
+  wrapper.instance().onCheckbox({shiftKey: true}, Fixtures.childRunIds, 6, Fixtures.sortedRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({
+    'child-run-id-1': true,
+    'child-run-id-2': true,
+    'top-level-childless-run-0': true,
+    'top-level-childless-run-1': true,
+    'top-level-childless-run-2': true,
+  });
+  wrapper.instance().onCheckbox({shiftKey: true}, Fixtures.childRunIds, 3, Fixtures.sortedRunIds);
+  expect(wrapper.state('runsSelected')).toEqual({'child-run-id-1': true});
+});
 
-
-//
-// test('We correctly identify child runs and compute correct sort orderings', () => {
-//   ExperimentViewUtil.getRowRenderMetadata(
-//     {
-//       runInfos: Fixtures.runInfos,
-//       sortState: {},
-//       paramsList: Fixtures.paramsList,
-//       metricsList: Fixtures.metricsList,
-//       tagsList: Fixtures.tagsList,
-//       runsExpanded: {}
-//     });
-//   const wrapper = getExperimentViewMock();
-//   wrapper.find('.ExperimentView-search-input input').first().simulate(
-//     'change', {target: { value: 'search input string'}});
-//
-// });
-//

@@ -57,29 +57,43 @@ const toTagsDict = (tags) => {
   return res;
 };
 
+const generateFixtureRunInfos = () => {
+  return [
+    createRunInfo({ run_uuid: 'parent-run-id', experiment_id: 1, start_time: 100, end_time: 200}),
+    createRunInfo({ run_uuid: 'child-run-id-0', experiment_id: 1, start_time: 100, end_time: 133}),
+    createRunInfo({ run_uuid: 'child-run-id-1', experiment_id: 1, start_time: 133, end_time: 166}),
+    createRunInfo({ run_uuid: 'child-run-id-2', experiment_id: 1, start_time: 166, end_time: 200}),
+    createRunInfo({
+      run_uuid: 'top-level-childless-run-0', experiment_id: 1, start_time: 0, end_time: 1,
+    }),
+    createRunInfo({
+      run_uuid: 'top-level-childless-run-1', experiment_id: 1, start_time: 1, end_time: 2,
+    }),
+    createRunInfo({
+      run_uuid: 'top-level-childless-run-2', experiment_id: 1, start_time: 2, end_time: 3,
+    }),
+  ];
+};
+
 export default {
   createExperiment,
+  childRunIds: ['child-run-id-0', 'child-run-id-1', 'child-run-id-2'],
+  sortedRunIds: generateFixtureRunInfos().map((runInfo) => runInfo.run_uuid),
   experiments: [
     createExperiment(),
     createExperiment({ experiment_id: '1', name: 'Test'}),
   ],
   createRunInfo,
   // Create some dummy runs e.g. two top level runs, one of which has a few child runs
-  runInfos: [
-    createRunInfo({
-      run_uuid: 'top-level-run-no-child-runs', experiment_id: 1, start_time: 0, end_time: 3,
-    }),
-    createRunInfo({ run_uuid: 'parent-run-id', experiment_id: 1, start_time: 100, end_time: 200}),
-    createRunInfo({ run_uuid: 'child-run-id-0', experiment_id: 1, start_time: 100, end_time: 133}),
-    createRunInfo({ run_uuid: 'child-run-id-1', experiment_id: 1, start_time: 133, end_time: 166}),
-    createRunInfo({ run_uuid: 'child-run-id-2', experiment_id: 1, start_time: 166, end_time: 200}),
-  ],
+  runInfos: generateFixtureRunInfos(),
   createTag,
   tagsList: [
     toTagsDict([]),
+    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-id'})]),
+    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-id'})]),
+    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-id'})]),
     toTagsDict([]),
-    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-id'})]),
-    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-id'})]),
-    toTagsDict([createTag({key: 'mlflow.parentRunId', value: 'parent-run-id'})]),
+    toTagsDict([]),
+    toTagsDict([]),
   ],
 };
