@@ -86,7 +86,7 @@ class SearchFilter(object):
     @classmethod
     def _get_identifier(cls, identifier):
         try:
-            entity_type, key = identifier.split(".")
+            entity_type, key = identifier.split(".", 1)
         except ValueError:
             raise MlflowException("Invalid filter string '%s'. Filter comparison is expected as "
                                   "'metric.<key> <comparator> <value>' or"
