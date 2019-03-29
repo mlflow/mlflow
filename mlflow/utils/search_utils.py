@@ -18,9 +18,9 @@ class SearchFilter(object):
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
 
-    def __init__(self, search_runs=None):
-        self._filter_string = search_runs.filter if search_runs else None
-        self._search_expressions = search_runs.anded_expressions if search_runs else None
+    def __init__(self, filter_string=None, anded_expressions=None):
+        self._filter_string = filter_string
+        self._search_expressions = anded_expressions
         if self._filter_string and self._search_expressions:
             raise MlflowException("Can specify only one of 'filter' or 'search_expression'",
                                   error_code=INVALID_PARAMETER_VALUE)
