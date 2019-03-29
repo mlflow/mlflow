@@ -431,7 +431,7 @@ def test_get_artifact_uri_uses_currently_active_run_id():
                 run_id=active_run.info.run_uuid, artifact_path=artifact_path)
 
 
-def test_search_runs(tracking_uri_mock):
+def test_search_runs(tracking_uri_mock, reset_active_experiment):
     mlflow.set_experiment("exp-for-search")
     # Create a run and verify that the current active experiment is the one we just set
     logged_runs = {}
@@ -492,7 +492,7 @@ def test_search_runs(tracking_uri_mock):
     verify_runs(runs, [])
 
 
-def test_search_runs_multiple_experiments(tracking_uri_mock):
+def test_search_runs_multiple_experiments(tracking_uri_mock, reset_active_experiment):
     experiment_ids = [mlflow.create_experiment("exp__{}".format(id)) for id in range(1, 4)]
     for eid in experiment_ids:
         with mlflow.start_run(experiment_id=eid):
