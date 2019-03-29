@@ -695,6 +695,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         return [r.info.run_uuid
                 for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
 
+    def _search_with_filter_string(self, experiment_id, filter_str, run_view_type=ViewType.ALL):
+        search_filter = SearchFilter(filter_string=filter_str)
+        return [r.info.run_uuid
+                for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
+
     def _param_expression(self, key, comparator, val):
         expr = SearchExpression()
         expr.parameter.key = key
@@ -770,6 +775,41 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         expr = self._param_expression("p_b", "=", "ABC")
         six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+
+    def test_search_tags(self):
+        experiment_id = self._experiment_factory('search_tags')
+        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
+        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_uuid
+
+        self.store.set_tag(r1, entities.RunTag('generic_tag', 'p_val'))
+        self.store.set_tag(r2, entities.RunTag('generic_tag', 'p_val'))
+
+        self.store.set_tag(r1, entities.RunTag('generic_2', 'some value'))
+        self.store.set_tag(r2, entities.RunTag('generic_2', 'another value'))
+
+        self.store.set_tag(r1, entities.RunTag('p_a', 'abc'))
+        self.store.set_tag(r2, entities.RunTag('p_b', 'ABC'))
+
+        # test search returns both runs
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            experiment_id, "tags.generic_tag = 'p_val'"))
+        # test search returns appropriate run (same key different values per run)
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            experiment_id, "tags.generic_2 = 'some value'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            experiment_id, "tags.generic_2 = 'another value'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            experiment_id, "tags.generic_tag = 'wrong_val'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            experiment_id, "tags.generic_tag != 'p_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            experiment_id, "tags.generic_tag != 'wrong_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            experiment_id, "tags.generic_2 != 'wrong_val'"))
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            experiment_id, "tags.p_a = 'abc'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            experiment_id, "tags.p_b = 'ABC'"))
 
     def test_search_metrics(self):
         experiment_id = self._experiment_factory('search_params')

@@ -441,10 +441,12 @@ def test_search_runs(tracking_uri_mock, reset_active_experiment):
         mlflow.log_metric("m2", 0.002)
         mlflow.log_metric("m1", 0.002)
         mlflow.log_param("p1", "a")
+        mlflow.set_tag("t1", "first-tag-val")
     with mlflow.start_run() as active_run:
         logged_runs["second"] = active_run.info.run_uuid
         mlflow.log_metric("m1", 0.008)
         mlflow.log_param("p2", "aa")
+        mlflow.set_tag("t2", "second-tag-val")
 
     def verify_runs(runs, expected_set):
         assert set([r.info.run_uuid for r in runs]) == set([logged_runs[r] for r in expected_set])
@@ -476,6 +478,14 @@ def test_search_runs(tracking_uri_mock, reset_active_experiment):
     runs = MlflowClient().search_runs([experiment_id], "params.p2 != 'a'", ViewType.ALL)
     verify_runs(runs, ["second"])
     runs = MlflowClient().search_runs([experiment_id], "params.p2 = 'aa'", ViewType.ALL)
+    verify_runs(runs, ["second"])
+
+    # 1 run each with tag "t1" and "t2"
+    runs = MlflowClient().search_runs([experiment_id], "tags.t1 = 'first-tag-val'", ViewType.ALL)
+    verify_runs(runs, ["first"])
+    runs = MlflowClient().search_runs([experiment_id], "tags.t2 != 'qwerty'", ViewType.ALL)
+    verify_runs(runs, ["second"])
+    runs = MlflowClient().search_runs([experiment_id], "tags.t2 = 'second-tag-val'", ViewType.ALL)
     verify_runs(runs, ["second"])
 
     # delete "first" run
