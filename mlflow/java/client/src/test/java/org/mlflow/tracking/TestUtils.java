@@ -15,7 +15,7 @@ public class TestUtils {
   }
 
   static void assertRunInfo(RunInfo runInfo, long experimentId, String sourceName) {
-    Assert.assertEquals(runInfo.getExperimentId(), experimentId);
+    Assert.assertEquals(runInfo.getExperimentId(), Long.toString(experimentId));
     Assert.assertEquals(runInfo.getSourceName(), sourceName);
     Assert.assertNotEquals(runInfo.getUserId(), "");
   }
