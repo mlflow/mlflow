@@ -18,19 +18,19 @@ class MlflowProtobufMapper {
 
   String makeDeleteExperimentRequest(long experimentId) {
     DeleteExperiment.Builder builder = DeleteExperiment.newBuilder();
-    builder.setExperimentId(experimentId);
+    builder.setExperimentId(Long.toString(experimentId));
     return print(builder);
   }
 
   String makeRestoreExperimentRequest(long experimentId) {
     RestoreExperiment.Builder builder = RestoreExperiment.newBuilder();
-    builder.setExperimentId(experimentId);
+    builder.setExperimentId(Long.toString(experimentId));
     return print(builder);
   }
 
   String makeUpdateExperimentRequest(long experimentId, String newExperimentName) {
     UpdateExperiment.Builder builder = UpdateExperiment.newBuilder();
-    builder.setExperimentId(experimentId);
+    builder.setExperimentId(Long.toString(experimentId));
     builder.setNewName(newExperimentName);
     return print(builder);
   }

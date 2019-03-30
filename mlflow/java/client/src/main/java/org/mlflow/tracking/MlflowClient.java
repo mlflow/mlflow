@@ -173,7 +173,7 @@ public class MlflowClient {
   /** @return  an experiment with the given id. */
   public GetExperiment.Response getExperiment(long experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
-      .setParameter("experiment_id", "" + experimentId);
+      .setParameter("experiment_id", Long.toString(experimentId));
     return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
   }
 
@@ -191,7 +191,7 @@ public class MlflowClient {
   public long createExperiment(String experimentName) {
     String ijson = mapper.makeCreateExperimentRequest(experimentName);
     String ojson = httpCaller.post("experiments/create", ijson);
-    return mapper.toCreateExperimentResponse(ojson).getExperimentId();
+    return Long.parseLong(mapper.toCreateExperimentResponse(ojson).getExperimentId());
   }
 
   /** Mark an experiment and associated runs, params, metrics, etc for deletion. */
