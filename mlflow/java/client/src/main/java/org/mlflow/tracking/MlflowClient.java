@@ -81,7 +81,7 @@ public class MlflowClient {
    */
   public RunInfo createRun(long experimentId, String appName) {
     CreateRun.Builder request = CreateRun.newBuilder();
-    request.setExperimentId(experimentId);
+    request.setExperimentId(Long.toString(experimentId));
     request.setSourceName(appName);
     request.setSourceType(SourceType.LOCAL);
     request.setStartTime(System.currentTimeMillis());
@@ -117,7 +117,7 @@ public class MlflowClient {
    */
   public List<RunInfo> listRunInfos(long experimentId) {
     List<Long> experimentIds = new ArrayList<>();
-    experimentIds.add(experimentId);
+    experimentIds.add(Long.toString(experimentId));
     return searchRuns(experimentIds, null);
   }
 
@@ -132,6 +132,7 @@ public class MlflowClient {
    * @return a list of all RunInfos that satisfy search filter.
    */
   public List<RunInfo> searchRuns(List<Long> experimentIds, String searchFilter) {
+    SearchRuns request = SearchRuns.newBuilder().addExperimentIds(Long.toString(experimentId)).build();
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
   }
 
@@ -150,7 +151,12 @@ public class MlflowClient {
   public List<RunInfo> searchRuns(List<Long> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType) {
+    List<String> experimentIdsAsString = new ArrayList<String>(experimentIds.size());
+    for (Long experimentId : experimentIds){
+      experimentIdsAsString.add(Long.toString(experimentId));
+    }
     SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIds);
+
     if (searchFilter != null) {
       builder.setFilter(searchFilter);
     }
