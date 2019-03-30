@@ -117,7 +117,7 @@ public class MlflowClient {
    */
   public List<RunInfo> listRunInfos(long experimentId) {
     List<Long> experimentIds = new ArrayList<>();
-    experimentIds.add(Long.toString(experimentId));
+    experimentIds.add(experimentId);
     return searchRuns(experimentIds, null);
   }
 
