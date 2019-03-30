@@ -42,6 +42,13 @@ def _get_store():
     return _store
 
 
+def _get_local_store_experiment_id(request_message):
+    try:
+        return int(request_message.experiment_id)
+    except ValueError:
+        return request_message.experiment_id
+
+
 def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
@@ -138,7 +145,7 @@ def _create_experiment():
 def _get_experiment():
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
-    local_store_experiment_id = int(request_message.experiment_id)
+    local_store_experiment_id = _get_local_store_experiment_id(request_message)
     experiment = _get_store().get_experiment(local_store_experiment_id).to_proto()
     response_message.experiment.MergeFrom(experiment)
     run_info_entities = _get_store().list_run_infos(local_store_experiment_id,
@@ -152,7 +159,7 @@ def _get_experiment():
 @catch_mlflow_exception
 def _delete_experiment():
     request_message = _get_request_message(DeleteExperiment())
-    local_store_experiment_id = int(request_message.experiment_id)
+    local_store_experiment_id = _get_local_store_experiment_id(request_message)
     _get_store().delete_experiment(local_store_experiment_id)
     response_message = DeleteExperiment.Response()
     response = Response(mimetype='application/json')
@@ -163,7 +170,7 @@ def _delete_experiment():
 @catch_mlflow_exception
 def _restore_experiment():
     request_message = _get_request_message(RestoreExperiment())
-    local_store_experiment_id = int(request_message.experiment_id)
+    local_store_experiment_id = _get_local_store_experiment_id(request_message)
     _get_store().restore_experiment(local_store_experiment_id)
     response_message = RestoreExperiment.Response()
     response = Response(mimetype='application/json')
