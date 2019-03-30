@@ -70,7 +70,12 @@ class RunInfo(_MLflowObject):
             proto.end_time = end_time
         if lifecycle_stage:
             proto.lifecycle_stage = lifecycle_stage
-        return RunInfo.from_proto(proto)
+        run_info = RunInfo.from_proto(proto)
+
+        # preserve _experiment_id type, temporary resolution while local stores use int ids
+        if isinstance(self._experiment_id, int):
+            run_info._experiment_id = int(run_info._experiment_id)
+        return run_info
 
     @property
     def run_uuid(self):
@@ -79,7 +84,7 @@ class RunInfo(_MLflowObject):
 
     @property
     def experiment_id(self):
-        """Integer ID of the experiment for the current run."""
+        """ID of the experiment for the current run."""
         return self._experiment_id
 
     @property
@@ -147,7 +152,7 @@ class RunInfo(_MLflowObject):
     def to_proto(self):
         proto = ProtoRunInfo()
         proto.run_uuid = self.run_uuid
-        proto.experiment_id = self.experiment_id
+        proto.experiment_id = str(self.experiment_id)
         proto.name = self.name
         proto.source_type = self.source_type
         proto.source_name = self.source_name
