@@ -2,7 +2,8 @@ from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
-from mlflow.protos.service_pb2 import RunData as ProtoRunData
+from mlflow.protos.service_pb2 import RunData as ProtoRunData, Param as ProtoParam,\
+    RunTag as ProtoRunTag
 
 
 class RunData(_MLflowObject):
@@ -12,9 +13,9 @@ class RunData(_MLflowObject):
     def __init__(self, metrics=None, params=None, tags=None):
         """
         Construct a new :py:class:`mlflow.entities.RunData` instance.
-        :param metrics: List of :py:class:`mlflow.entities.Metric`. We expect a ingl
-        :param params:
-        :param tags:
+        :param metrics: Dictionary of metric key (string) to :py:class:`mlflow.entities.Metric`.
+        :param params: Dictionary of param key (string) to param value (string).
+        :param tags: Dictionary of tag key (string) to tag value (string).
         """
         self._metrics = metrics or {}
         self._params = params or {}
@@ -55,13 +56,17 @@ class RunData(_MLflowObject):
 
     def to_proto(self):
         run_data = ProtoRunData()
-        run_data.metrics.extend([m.to_proto() for m in self.metrics])
-        run_data.params.extend([p.to_proto() for p in self.params])
-        run_data.tags.extend([t.to_proto() for t in self.tags])
+        run_data.metrics.extend([m.to_proto() for m in self.metrics.values()])
+        run_data.params.extend([ProtoParam(key=key, value=val) for key, val in self.params.items()])
+        run_data.tags.extend([ProtoRunTag(key=key, value=val) for key, val in self.tags.items()])
         return run_data
 
     def to_dictionary(self):
-        return {p: [dict(val) for val in getattr(self, p)] for p in RunData._properties()}
+        return {
+            "metrics": {key: dict(metric) for key, metric in self.metrics.items()},
+            "params": self.params,
+            "tags": self.tags,
+        }
 
     @classmethod
     def from_proto(cls, proto):
@@ -79,10 +84,8 @@ class RunData(_MLflowObject):
     @classmethod
     def from_dictionary(cls, the_dict):
         run_data = cls()
-        for p in the_dict.get("metrics", []):
-            run_data._add_metric(p)
-        for p in the_dict.get("params", []):
-            run_data._add_param(p)
-        for t in the_dict.get("tags", []):
-            run_data._add_tag(t)
+        for m_obj in the_dict.get("metrics", {}).values():
+            run_data._add_metric(m_obj)
+        run_data._params = the_dict.get("params", {})
+        run_data._tags = the_dict.get("tags", [])
         return run_data
