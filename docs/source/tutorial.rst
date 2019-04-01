@@ -99,13 +99,13 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     .. code-block:: R
 
-        mlflow_run(uri = "tutorial", entry_point = "train.R")
+        mlflow_run(uri = "examples/r_wine", entry_point = "train.R")
 
     Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
 
     .. code-block:: R
 
-        mlflow_run(uri = "", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5))
+        mlflow_run(uri = "examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5))
 
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
