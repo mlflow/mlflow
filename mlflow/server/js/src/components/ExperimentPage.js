@@ -85,10 +85,12 @@ class ExperimentPage extends Component {
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
+      const filterString = newState.persistedState.searchInput;
+      SearchUtils.validateSearchInput(filterString);
       props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
       props.dispatch(searchRunsApi(
         [props.experimentId],
-        SearchUtils.parseSearchInput(newState.persistedState.searchInput),
+        filterString,
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
         newState.searchRunsRequestId));
       return newState;
@@ -97,7 +99,7 @@ class ExperimentPage extends Component {
   }
 
   onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
-    const andedExpressions = SearchUtils.parseSearchInput(searchInput);
+    SearchUtils.validateSearchInput(searchInput);
     this.setState({
       persistedState: new ExperimentPagePersistedState({
         paramKeyFilterString,
@@ -107,7 +109,7 @@ class ExperimentPage extends Component {
       lifecycleFilter: lifecycleFilterInput,
     });
     const searchRunsRequestId = this.props.dispatchSearchRuns(
-      this.props.experimentId, andedExpressions, lifecycleFilterInput);
+      this.props.experimentId, searchInput, lifecycleFilterInput);
     this.setState({ searchRunsRequestId });
   }
 

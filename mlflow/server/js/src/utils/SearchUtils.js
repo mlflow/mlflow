@@ -1,51 +1,40 @@
 export class SearchUtils {
-  static parseSearchInput(searchInput) {
+  static validateSearchInput(searchInput) {
     const trimmedInput = searchInput.trim();
     if (trimmedInput === '') {
-      return [];
+      return;
     }
     const searchClauses = searchInput.split("and");
-    return searchClauses.map((clause) => Private.parseSearchClause(clause));
+    searchClauses.forEach((clause) => Private.validateSearchClause(clause));
   }
 }
 
-const METRIC_CLAUSE_REGEX = /metrics\.([a-zA-z0-9]+)\s{0,}(=|!=|>|>=|<=|<)\s{0,}(\d+\.{0,}\d{0,}|\.+\d+)/;
-const PARAM_CLAUSE_REGEX = /params\.([a-zA-z0-9]+)\s{0,}(=|!=)\s{0,}"(.*)"/;
+const METRIC_CLAUSE_REGEX = /metrics\.([a-zA-z0-9.]+)\s{0,}(=|!=|>|>=|<=|<)\s{0,}(\d+\.{0,}\d{0,}|\.+\d+)/;
+const PARAM_CLAUSE_REGEX = /params\.([a-zA-z0-9.]+)\s{0,}(=|!=)\s{0,}"(.*)"/;
+const TAG_CLAUSE_REGEX = /tags\.([a-zA-z0-9.]+)\s{0,}(=|!=)\s{0,}"(.*)"/;
+
 class Private {
-  static parseSearchClause(searchClauseString) {
+  static validateSearchClause(searchClauseString) {
     const trimmedInput = searchClauseString.trim();
     const metricMatches = METRIC_CLAUSE_REGEX.exec(trimmedInput);
-    if (metricMatches) {
-      return {
-        metric: {
-          key: metricMatches[1],
-          double: {
-            comparator: metricMatches[2],
-            value: parseFloat(metricMatches[3]),
-          }
-        }
-      };
-    }
     const paramMatches = PARAM_CLAUSE_REGEX.exec(trimmedInput);
-    if (paramMatches) {
-      return {
-        parameter: {
-          key: paramMatches[1],
-          string: {
-            comparator: paramMatches[2],
-            value: paramMatches[3],
-          }
-        }
-      };
+    const tagMatches = TAG_CLAUSE_REGEX.exec(trimmedInput);
+    if (!metricMatches && !paramMatches && !tagMatches) {
+      throw new SearchError("The search input should be like 'metrics.alpha >= 0.9', " +
+        "'params.file = \"test.txt\"', or 'tags.mlflow.parentRunId = \"abc\"'.");
     }
-    throw new SearchError("The search input should be like 'metrics.alpha >= 0.9' or " +
-     "'params.file = \"test.txt\"'.");
   }
 }
 
-export class SearchError {
-  constructor(errorMessage) {
-    this.errorMessage = errorMessage;
+export class SearchError extends Error {
+  constructor(...params) {
+    super(...params);
+    // Code copied from https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/
+    // Global_Objects/Error#Custom_Error_Types
+    // Maintains proper stack trace for where our error was thrown (only available on V8)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, SearchError);
+    }
   }
 }
 

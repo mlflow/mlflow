@@ -310,7 +310,10 @@ class ExperimentView extends Component {
                   <label className="filter-label">Search Runs:</label>
                   <div className="filter-wrapper">
                     <input type="text"
-                           placeholder={'metrics.rmse < 1 and params.model = "tree"'}
+                           placeholder={
+                             'metrics.rmse < 1 and params.model = "tree" and ' +
+                             'tags.mlflow.parentRunId = "abc"'
+                           }
                            value={this.state.searchInput}
                            onChange={this.onSearchInput}
                     />
