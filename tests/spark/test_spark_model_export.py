@@ -58,7 +58,11 @@ def spark_context():
              value='ml.combust.mleap:mleap-spark-base_2.11:0.12.0,'
                    'ml.combust.mleap:mleap-spark_2.11:0.12.0')
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    sc = pyspark.SparkContext(master="local-cluster[2, 1, 1024]", conf=conf).getOrCreate()
+    spark = pyspark.sql.SparkSession.builder\
+        .config(conf=conf)\
+        .master("local-cluster[2, 1, 1024]")\
+        .getOrCreate()
+    sc = spark.sparkContext
     return sc
 
 

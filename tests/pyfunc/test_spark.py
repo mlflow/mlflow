@@ -22,9 +22,11 @@ types = [np.int32, np.int, np.str, np.float32, np.double]
 
 
 def score_model_as_udf(model_path, run_id, pandas_df, result_type="double"):
-    spark = pyspark.sql.SparkSession.builder \
-        .config(key="spark.python.worker.reuse", value=True) \
-        .master("local-cluster[2, 1, 1024]") \
+    spark = pyspark.sql.SparkSession.builder\
+        .config(key="spark.python.worker.reuse", value=True)\
+        .config(key="spark.jars.packages", value='ml.combust.mleap:mleap-spark-base_2.11:0.12.0,'
+                                                 'ml.combust.mleap:mleap-spark_2.11:0.12.0')\
+        .master("local-cluster[2, 1, 1024]")\
         .getOrCreate()
     spark_df = spark.createDataFrame(pandas_df)
     pyfunc_udf = spark_udf(spark, model_path, run_id, result_type=result_type)
