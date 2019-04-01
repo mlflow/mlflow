@@ -18,7 +18,8 @@ import mlflow.sagemaker.cli
 import mlflow.runs
 
 from mlflow.entities.experiment import Experiment
-from mlflow.tracking.utils import _is_local_uri
+from mlflow.store.artifact_repository_registry import get_artifact_repository
+from mlflow.tracking.utils import _is_local_uri, _get_store
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
@@ -172,6 +173,40 @@ def _server_options(function):
     return function
 
 
+def _set_and_validate_uris(backend_store_uri, default_artifact_root):
+    """
+    Sets the URIs to their default values if either is equal to None.
+
+    Validates the URIs to ensure that they work.
+    """
+    if not backend_store_uri:
+        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+
+    if not default_artifact_root:
+        if _is_local_uri(backend_store_uri):
+            default_artifact_root = backend_store_uri
+        else:
+            eprint("Option 'default-artifact-root' is required, when backend store is not "
+                   "local file based.")
+            sys.exit(1)
+
+    try:
+        _get_store(backend_store_uri)
+    except Exception as e:
+        eprint("Error related to option backend_store_uri '{}': {}".format(
+            backend_store_uri, e))
+        sys.exit(1)
+    try:
+        artifact_repo = get_artifact_repository(default_artifact_root)
+        artifact_repo.list_artifacts(default_artifact_root)
+    except Exception as e:
+        eprint("Error related to option default-artifact-root '{}': {}".format(
+            default_artifact_root, e))
+        sys.exit(1)
+
+    return backend_store_uri, default_artifact_root
+
+
 @cli.command()
 @_server_options
 def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
@@ -180,16 +215,10 @@ def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
 
     The UI will be visible at http://localhost:5000 by default.
     """
+    # Keep server() and ui() in sync
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
-    if not backend_store_uri:
-        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-
-    if not default_artifact_root:
-        if _is_local_uri(backend_store_uri):
-            default_artifact_root = backend_store_uri
-        else:
-            default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-
+    backend_store_uri, default_artifact_root = _set_and_validate_uris(backend_store_uri,
+                                                                      default_artifact_root)
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port, 1, None, gunicorn_opts)
@@ -219,8 +248,6 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option("--static-prefix", default=None,
               callback=_validate_static_prefix,
               help="A prefix which will be prepended to the path of all static paths.")
-@click.option("--gunicorn-opts", default=None,
-              help="Additional command line options forwarded to gunicorn processes.")
 def server(backend_store_uri, default_artifact_root, host, port,
            workers, static_prefix, gunicorn_opts):
     """
@@ -230,19 +257,10 @@ def server(backend_store_uri, default_artifact_root, host, port,
     the local machine. To let the server accept connections from other machines, you will need to
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
-
+    # Keep server() and ui() in sync
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
-    if not backend_store_uri:
-        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-
-    if not default_artifact_root:
-        if _is_local_uri(backend_store_uri):
-            default_artifact_root = backend_store_uri
-        else:
-            eprint("Option 'default-artifact-root' is required, when backend store is not "
-                   "local file based.")
-            sys.exit(1)
-
+    backend_store_uri, default_artifact_root = _set_and_validate_uris(backend_store_uri,
+                                                                      default_artifact_root)
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
                     gunicorn_opts)

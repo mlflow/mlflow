@@ -4,6 +4,29 @@ from mock import mock
 from mlflow.cli import server, run
 
 
+def test_server_uri_validation():
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        # SQLAlchemy expects postgresql:// not postgres://
+        CliRunner().invoke(server, ["--backend-store-uri", "postgres://user:pwd@host:5432/mydb"])
+        run_server_mock.assert_not_called()
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        # Option 'default-artifact-root' is required in this case
+        CliRunner().invoke(server, ["--backend-store-uri", "sqlite://"])
+        run_server_mock.assert_not_called()
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        # Shouldn't have access to the S3 bucket
+        CliRunner().invoke(server, ["--default-artifact-root", "bad-scheme://afdf/dfd"])
+        run_server_mock.assert_not_called()
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        # Shouldn't have access to the S3 bucket
+        CliRunner().invoke(server, ["--default-artifact-root", "s3://private-bucket"])
+        run_server_mock.assert_not_called()
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        # Requires the dependency google-cloud-storage
+        CliRunner().invoke(server, ["--default-artifact-root", "gs://private-bucket"])
+        run_server_mock.assert_not_called()
+
+
 def test_server_static_prefix_validation():
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
         CliRunner().invoke(server)
