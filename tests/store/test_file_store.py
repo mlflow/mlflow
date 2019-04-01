@@ -323,8 +323,9 @@ class TestFileStore(unittest.TestCase):
                 run_info = self.run_data[run_uuid]
                 metrics = fs.get_all_metrics(run_uuid)
                 metrics_dict = run_info.pop("metrics")
-                for metric in metrics:
+                for key, metric in metrics.items():
                     expected_timestamp, expected_value = max(metrics_dict[metric.key])
+                    self.assertEqual(metric.key, key)
                     self.assertEqual(metric.timestamp, expected_timestamp)
                     self.assertEqual(metric.value, expected_value)
 
@@ -512,8 +513,8 @@ class TestFileStore(unittest.TestCase):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run = fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name',
                             'entry_point_name', 0, None, [], 'test_parent_run_id')
-        assert any([t.key == MLFLOW_PARENT_RUN_ID and t.value == 'test_parent_run_id'
-                    for t in fs.get_all_tags(run.info.run_uuid)])
+        assert any([key == MLFLOW_PARENT_RUN_ID and value == 'test_parent_run_id'
+                    for key, value in fs.get_all_tags(run.info.run_uuid).items()])
 
     def test_default_experiment_initialization(self):
         fs = FileStore(self.test_root)

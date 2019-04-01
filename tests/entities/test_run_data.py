@@ -7,7 +7,7 @@ from tests.helper_functions import random_str, random_int
 
 class TestRunData(unittest.TestCase):
     def _check_metrics(self, metrics_1, metrics_2):
-        for metric in metrics_1:
+        for key, metric in metrics_1.items():
             self.assertIsInstance(metric, Metric)
         self.assertEqual(set([m.key for m in metrics_1]), set([m.key for m in metrics_2]))
         self.assertEqual(set([m.value for m in metrics_1]), set([m.value for m in metrics_2]))
@@ -34,18 +34,14 @@ class TestRunData(unittest.TestCase):
 
     @staticmethod
     def _create():
-        metrics = [Metric(random_str(10), random_int(0, 1000),
-                          int(time.time() + random_int(-1e4, 1e4)))
-                   for _ in range(100)]
-        params = [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
-        tags = [RunTag(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
-        rd = RunData()
-        for p in params:
-            rd._add_param(p)
-        for m in metrics:
-            rd._add_metric(m)
-        for t in tags:
-            rd._add_tag(t)
+        metrics = {}
+        for _ in range(100):
+            key = random_str(10)
+            metrics[key] = Metric(key, random_int(0, 1000),
+                                  int(time.time()) + random_int(-1e4, 1e4))
+        params = {random_str(10): random_str(random_int(10, 35)) for _ in range(10)}  # noqa
+        tags = {random_str(10): random_str(random_int(10, 35)) for _ in range(10)}  # noqa
+        rd = RunData(metrics=metrics, params=params, tags=tags)
         return rd, metrics, params, tags
 
     def test_creation_and_hydration(self):

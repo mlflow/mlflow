@@ -10,48 +10,48 @@ class RunData(_MLflowObject):
     Run data (metrics and parameters).
     """
     def __init__(self, metrics=None, params=None, tags=None):
-        self._metrics = []
-        self._params = []
-        self._tags = []
-        if metrics is not None:
-            for m in metrics:
-                self._add_metric(m)
-        if params is not None:
-            for p in params:
-                self._add_param(p)
-        if tags is not None:
-            for t in tags:
-                self._add_tag(t)
+        """
+        Construct a new :py:class:`mlflow.entities.RunData` instance.
+        :param metrics: List of :py:class:`mlflow.entities.Metric`. We expect a ingl
+        :param params:
+        :param tags:
+        """
+        self._metrics = metrics or {}
+        self._params = params or {}
+        self._tags = tags or {}
 
     @property
     def metrics(self):
-        """List of :py:class:`mlflow.entities.Metric` for the current run."""
+        """
+        Dictionary of string key -> :py:class:`mlflow.entities.Metric` for the current run.
+        For each metric key, the maximum metric value at the maximum timestamp is returned.
+        """
         return self._metrics
 
     @property
     def params(self):
-        """List of :py:class:`mlflow.entities.Param` for the current run."""
+        """Dictionary of param key (string) -> param value (string) for the current run."""
         return self._params
 
     @property
     def tags(self):
-        """List of :py:class:`mlflow.entities.RunTag` for the current run."""
+        """Dictionary of tag key (string) -> tag value (string) for the current run."""
         return self._tags
 
     def _add_metric(self, metric):
         if isinstance(metric, dict):
             metric = Metric(metric['key'], metric['value'], metric['timestamp'])
-        self._metrics.append(metric)
+        self._metrics[metric.key] = metric
 
     def _add_param(self, param):
         if isinstance(param, dict):
             param = Param(param['key'], param['value'])
-        self._params.append(param)
+        self._params[param.key] = param.value
 
     def _add_tag(self, tag):
         if isinstance(tag, dict):
             tag = RunTag(tag['key'], tag['value'])
-        self._tags.append(tag)
+        self._tags[tag.key] = tag.value
 
     def to_proto(self):
         run_data = ProtoRunData()

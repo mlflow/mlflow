@@ -355,6 +355,7 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
         assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
         _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
+    print("LOOKING FOR '%s'" % res)
     if not os.path.exists(res):
         raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
     return res

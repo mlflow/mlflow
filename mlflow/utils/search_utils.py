@@ -241,7 +241,7 @@ class SearchFilter(object):
                                       "not one of '%s" % (comparator,
                                                           cls.VALID_METRIC_COMPARATORS),
                                       error_code=INVALID_PARAMETER_VALUE)
-            metric = next((m for m in run.data.metrics if m.key == key), None)
+            metric = next((m for m in run.data.metrics.values() if m.key == key), None)
             lhs = metric.value if metric else None
             value = float(value)
         elif key_type == cls._PARAM_IDENTIFIER:
@@ -249,14 +249,12 @@ class SearchFilter(object):
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s" % (comparator, cls.VALID_PARAM_COMPARATORS),
                                       error_code=INVALID_PARAMETER_VALUE)
-            param = next((p for p in run.data.params if p.key == key), None)
-            lhs = param.value if param else None
+            lhs = next((value for p_key, p_value in run.data.params.items() if p_key == key), None)
         elif key_type == cls._TAG_IDENTIFIER:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS))
-            tag = next((t for t in run.data.tags if t.key == key), None)
-            lhs = tag.value if tag else None
+            lhs = next((value for t_key, t_value in run.data.tags.items() if t_key == key), None)
         else:
             raise MlflowException("Invalid search expression type '%s'" % key_type,
                                   error_code=INVALID_PARAMETER_VALUE)
