@@ -192,14 +192,18 @@ def _set_and_validate_uris(backend_store_uri, default_artifact_root):
 
     try:
         _get_store(backend_store_uri)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
+        # We need a broad exception here to catch exceptions in optional
+        # dependencies like SQLAlchemy
         eprint("Error related to option backend_store_uri '{}': {}".format(
             backend_store_uri, e))
         sys.exit(1)
     try:
         artifact_repo = get_artifact_repository(default_artifact_root)
         artifact_repo.list_artifacts(default_artifact_root)
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
+        # We need a broad exception here to catch exceptions in optional
+        # dependencies like boto3 or google-cloud-storage.
         eprint("Error related to option default-artifact-root '{}': {}".format(
             default_artifact_root, e))
         sys.exit(1)
