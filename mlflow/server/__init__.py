@@ -45,7 +45,7 @@ def serve():
     return send_from_directory(STATIC_DIR, 'index.html')
 
 
-def _run_server(file_store_path, default_artifact_root, host, port, workers, static_prefix,
+def _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
                 gunicorn_opts):
     """
     Run the MLflow server, wrapping it in gunicorn
@@ -54,8 +54,8 @@ def _run_server(file_store_path, default_artifact_root, host, port, workers, sta
     :return: None
     """
     env_map = {}
-    if file_store_path:
-        env_map[BACKEND_STORE_URI_ENV_VAR] = file_store_path
+    if backend_store_uri:
+        env_map[BACKEND_STORE_URI_ENV_VAR] = backend_store_uri
     if default_artifact_root:
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
     if static_prefix:

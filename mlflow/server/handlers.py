@@ -39,7 +39,7 @@ def _get_store():
             _store = FileStore(store_dir, artifact_root)
         else:
             raise MlflowException("Unexpected URI type '{}' for backend store. "
-                                  "Expext local file or database type.".format(store_dir))
+                                  "Expect local file or database type.".format(store_dir))
     return _store
 
 
