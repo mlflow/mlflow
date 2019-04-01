@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Arrays;
 
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -196,6 +197,33 @@ public class MlflowClientTest {
   }
 
   @Test
+  public void testBatchedLogging() {
+    // Create exp
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+    logger.debug(">> TEST.0");
+
+    // Test logging just metrics
+    {
+      RunInfo runCreated = client.createRun(expId);
+      String runId = runCreated.getRunUuid();
+      logger.debug("runUuid1=" + runId);
+
+      client.logBatch(runId,
+              Arrays.asList(createMetric("m1", 0.0001, 10), createMetric("mtwo", 0.002, 100)),
+              null, null);
+
+      Run run = client.getRun(runId);
+      Assert.assertEquals(run.getInfo().getRunUuid(), runId);
+
+      List<Metric> metrics = run.getData().getMetricsList();
+      Assert.assertEquals(metrics.size(), 2);
+      assertMetric(metrics, "m1", 0.0001);
+      assertMetric(metrics, "mtwo", 0.04);
+    }
+  }
+
+//  @Test
   public void deleteAndRestoreRun() {
     String expName = createExperimentName();
     long expId = client.createExperiment(expName);

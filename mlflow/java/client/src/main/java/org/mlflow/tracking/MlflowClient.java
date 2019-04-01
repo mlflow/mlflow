@@ -207,6 +207,14 @@ public class MlflowClient {
     sendPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
   }
 
+  /**
+   * Log multiple metrics, params, and/or tags against a given run (argument runUuid).
+   * Argument metrics, params, and tas lists can be nulls.
+   */
+  public void logBatch(String runUuid, List<Metric> metrics, List<Param> params,List<RunTag> tags) {
+    sendPost("runs/log-batch", mapper.makeLogBatch(runUuid, metrics, params, tags));
+  }
+
   /** Sets the status of a run to be FINISHED at the current time. */
   public void setTerminated(String runUuid) {
     setTerminated(runUuid, RunStatus.FINISHED);

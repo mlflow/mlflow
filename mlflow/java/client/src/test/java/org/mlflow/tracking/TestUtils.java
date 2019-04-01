@@ -38,4 +38,12 @@ public class TestUtils {
   static public String createExperimentName() {
     return "JavaTestExp_" + UUID.randomUUID().toString();
   }
+
+  public static Metric createMetric(String name, double value, long timestamp) {
+    Metric.Builder builder = Metric.newBuilder();
+    builder.setKey(name)
+            .setValue(value)
+            .setTimestamp(timestamp);
+    return builder.build();
+  }
 }
