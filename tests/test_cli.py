@@ -6,24 +6,37 @@ from mlflow.cli import server, run
 
 def test_server_uri_validation():
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        result = CliRunner().invoke(server, ["--backend-store-uri", "sqlite://"])
+        assert result.output.startswith("Option 'default-artifact-root' is required")
+        run_server_mock.assert_not_called()
+
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
         # SQLAlchemy expects postgresql:// not postgres://
-        CliRunner().invoke(server, ["--backend-store-uri", "postgres://user:pwd@host:5432/mydb"])
+        result = CliRunner().invoke(server,
+                                    ["--backend-store-uri", "postgres://user:pwd@host:5432/mydb",
+                                     "--default-artifact-root", "./mlruns"])
+        assert result.output.startswith("Error related to option backend_store_uri")
         run_server_mock.assert_not_called()
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
-        # Option 'default-artifact-root' is required in this case
-        CliRunner().invoke(server, ["--backend-store-uri", "sqlite://"])
+        result = CliRunner().invoke(server,
+                                    ["--backend-store-uri", "sqlite://invalid-sqlite-url",
+                                     "--default-artifact-root", "./mlruns"])
+        assert result.output.startswith("Error related to option backend_store_uri")
+        run_server_mock.assert_not_called()
+
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        result = CliRunner().invoke(server, ["--default-artifact-root", "bad-scheme://afdf/dfd"])
+        assert result.output.startswith("Error related to option default-artifact-root")
         run_server_mock.assert_not_called()
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
-        # Shouldn't have access to the S3 bucket
-        CliRunner().invoke(server, ["--default-artifact-root", "bad-scheme://afdf/dfd"])
+        result = CliRunner().invoke(server, ["--default-artifact-root", "s3://unauthorized-bucket"])
+        assert result.output.startswith("Error related to option default-artifact-root")
         run_server_mock.assert_not_called()
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
-        # Shouldn't have access to the S3 bucket
-        CliRunner().invoke(server, ["--default-artifact-root", "s3://private-bucket"])
-        run_server_mock.assert_not_called()
-    with mock.patch("mlflow.cli._run_server") as run_server_mock:
-        # Requires the dependency google-cloud-storage
-        CliRunner().invoke(server, ["--default-artifact-root", "gs://private-bucket"])
+        result = CliRunner().invoke(server,
+                                    ["--default-artifact-root", "gs://some-bucket"],
+                                    env={'GOOGLE_APPLICATION_CREDENTIALS': '/etc/not-exists.json'})
+        assert result.output.startswith("Error related to option default-artifact-root")
         run_server_mock.assert_not_called()
 
 
