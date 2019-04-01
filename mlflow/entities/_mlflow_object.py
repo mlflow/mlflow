@@ -35,7 +35,6 @@ def get_classname(obj):
 
 
 class _MLflowObjectPrinter(object):
-    _MAX_LIST_LEN = 2
 
     def __init__(self):
         super(_MLflowObjectPrinter, self).__init__()
