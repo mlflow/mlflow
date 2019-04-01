@@ -145,25 +145,35 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
         sys.exit(1)
 
 
+def _server_options(function):
+    function = click.option("--backend-store-uri", "--file-store", metavar="PATH",
+                            default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+                            help="URI or path for backend store implementation. Acceptable backend"
+                                 "store are SQLAlchemy compatible implementation or local storage."
+                                 " Supports various SQLAlchemy compatible database like SQLite,"
+                                 " MySQL, PostgreSQL. As an example MySQL backed store can be"
+                                 " configured using connection string."
+                                 "'mysql://<user_name>:<password>@<host>:<port>/<database_name>' "
+                                 "By default file based backed store"
+                                 " will be used. (default: ./mlruns).")(function)
+    function = click.option("--default-artifact-root", metavar="URI", default=None,
+                            help="Local or S3 URI to store artifacts, for new experiments. "
+                                 "Note that this flag does not impact already-created experiments. "
+                                 "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)(function)
+    function = click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
+                            help="The network address to listen on (default: 127.0.0.1). "
+                                 "Use 0.0.0.0 to bind to all addresses if you want to"
+                                 " access the tracking server from other machines.")(function)
+    function = click.option("--port", "-p", default=5000,
+                            help="The port to listen on (default: 5000).")(function)
+    function = click.option("--gunicorn-opts", default=None,
+                            help="Additional command line options forwarded to gunicorn"
+                                 " processes.")(function)
+    return function
+
+
 @cli.command()
-@click.option("--backend-store-uri", "--file-store", metavar="PATH",
-              default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI or path for backend store implementation. Acceptable backend store "
-                   "are SQLAlchemy compatible implementation or local storage. "
-                   "Example 'sqlite:///path/to/file.db'. "
-                   "By default file backed store will be used. (default: ./mlruns).")
-@click.option("--default-artifact-root", metavar="URI", default=None,
-              help="Path to local directory to store artifacts, for new experiments. "
-                   "Note that this flag does not impact already-created experiments. "
-                   "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
-              help="The network address to listen on (default: 127.0.0.1). "
-                   "Use 0.0.0.0 to bind to all addresses if you want to access the UI from "
-                   "other machines.")
-@click.option("--port", "-p", default=5000,
-              help="The port to listen on (default: 5000).")
-@click.option("--gunicorn-opts", default=None,
-              help="Additional command line options forwarded to gunicorn processes.")
+@_server_options
 def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
     """
     Launch the MLflow tracking UI.
@@ -203,27 +213,11 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 
 
 @cli.command()
-@click.option("--backend-store-uri", "--file-store", metavar="PATH",
-              default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI or path for backend store implementation. Acceptable backend store "
-                   "are SQLAlchemy compatible implementation or local storage. Supports "
-                   "various SQLAlchemy compatible database like SQLite, MySQL, PostgreSQL. As an "
-                   "example MySQL backed store can be configured using connection string. "
-                   "'mysql://<user_name>:<password>@<host>:<port>/<database_name>' "
-                   "By default file based backed store will be used. (default: ./mlruns).")
-@click.option("--default-artifact-root", metavar="URI", default=None,
-              help="Local or S3 URI to store artifacts, for new experiments. "
-                   "Note that this flag does not impact already-created experiments. "
-                   "Default: Within file store")
-@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
-              help="The network address to listen on (default: 127.0.0.1). "
-                   "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
-                   "server from other machines.")
-@click.option("--port", "-p", default=5000,
-              help="The port to listen on (default: 5000).")
+@_server_options
 @click.option("--workers", "-w", default=4,
               help="Number of gunicorn worker processes to handle requests (default: 4).")
-@click.option("--static-prefix", default=None, callback=_validate_static_prefix,
+@click.option("--static-prefix", default=None,
+              callback=_validate_static_prefix,
               help="A prefix which will be prepended to the path of all static paths.")
 @click.option("--gunicorn-opts", default=None,
               help="Additional command line options forwarded to gunicorn processes.")
