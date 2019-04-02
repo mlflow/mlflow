@@ -120,15 +120,31 @@ public class MlflowClient {
   }
 
   /**
-    * @return a list of all RunInfos that satisfy search filter.
-    */
+   * Returns runs from provided list of experiments, that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc > 0.9"
+   *
+   * @return a list of all RunInfos that satisfy search filter.
+   */
   public List<RunInfo> searchRuns(List<Long> experimentIds, String searchFilter) {
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
   }
 
-   /**
-    * @return a list of all RunInfos of specific ViewType, that satisfy search filter
-    */
+  /**
+   * Returns runs from provided list of experiments, that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc > 0.9"
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    Defaults to ACTIVE_ONLY.
+   *
+   * @return a list of all RunInfos that satisfy search filter.
+   */
   public List<RunInfo> searchRuns(List<Long> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType) {
@@ -143,7 +159,7 @@ public class MlflowClient {
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
     return mapper.toSearchRunsResponse(ojson).getRunsList().stream().map(Run::getInfo)
-            .collect(Collectors.toList());
+      .collect(Collectors.toList());
   }
 
   /** @return  a list of all Experiments. */
