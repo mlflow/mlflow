@@ -235,8 +235,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     >>> print("Saving model...")
     >>> model_path = "pytorch_model"
     >>> mlflow.pytorch.save_model(pytorch_model, model_path)
-    >>> print("Artifact path: {}".format(artifact_path))
-    >>> print("Run ID: {}".format(mlflow.active_run().info.run_uuid))
+    >>> print("Model path: {}".format(model_path))
     """
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
