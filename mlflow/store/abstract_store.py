@@ -185,12 +185,12 @@ class AbstractStore:
     @abstractmethod
     def get_metric_history(self, run_uuid, metric_key):
         """
-        Return all logged values for a given metric.
+        Return all Metric entities for a given metric.
 
         :param run_uuid: Unique identifier for run
         :param metric_key: Metric name within the run
 
-        :return: A list of float values logged for the give metric if logged, else empty list
+        :return: A list of Metric entities logged for the given metric if logged, else empty list
         """
         pass
 
