@@ -3,6 +3,7 @@ import { RequestStateWrapper } from './RequestStateWrapper';
 import ErrorCodes from '../sdk/ErrorCodes';
 import { ErrorWrapper } from '../Actions';
 import { shallow } from 'enzyme';
+import {Spinner} from "./Spinner";
 
 const activeRequest = {
   id: 'a',
@@ -31,7 +32,7 @@ test("Renders loading page when requests are not complete", () => {
       <div>I am the child</div>
     </RequestStateWrapper>
   );
-  expect(wrapper.find('.RequestStateWrapper-spinner')).toHaveLength(1);
+  expect(wrapper.find(Spinner)).toHaveLength(1);
 });
 
 test("Renders children when requests are complete", () => {
@@ -46,7 +47,7 @@ test("Renders children when requests are complete", () => {
   expect(wrapper.find('div.child').text()).toContain("I am the child");
 });
 
-test("Throws exception if errorRenderFunc is not defined and wrapper has bad request.", () => {
+test("Throws exception if child is a React element and wrapper has bad request.", () => {
   try {
     shallow(
       <RequestStateWrapper
@@ -72,21 +73,22 @@ test("Throws exception if errorRenderFunc returns undefined and wrapper has bad 
         <div className='child'>I am the child</div>
       </RequestStateWrapper>
     );
+    assert.fail();
   } catch (e) {
     expect(e.message).toContain("GOTO error boundary");
   }
 });
 
-test("Renders errorRenderFunc if wrapper has bad request.", () => {
+test("Render func works if wrapper has bad request.", () => {
   const wrapper = shallow(
-    <RequestStateWrapper
-      requests={[errorRequest]}
-      errorRenderFunc={(requests) => {
-        expect(requests).toEqual([errorRequest]);
-        return <div className='error'>Error!</div>;
+    <RequestStateWrapper requests={[errorRequest]}>
+      {(isLoading, shouldRenderError, requests) => {
+        if (shouldRenderError) {
+          expect(requests).toEqual([errorRequest]);
+          return <div className='error'>Error!</div>;
+        }
+        return <div className='child'>I am the child</div>;
       }}
-    >
-      <div className='child'>I am the child</div>
     </RequestStateWrapper>
   );
   expect(wrapper.find('div.error')).toHaveLength(1);
