@@ -384,7 +384,7 @@ public class MlflowClientTest {
     }
   }
 
-//  @Test
+  @Test
   public void deleteAndRestoreRun() {
     String expName = createExperimentName();
     long expId = client.createExperiment(expName);
