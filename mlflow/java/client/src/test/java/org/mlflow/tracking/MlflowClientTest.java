@@ -12,6 +12,8 @@ import java.util.HashSet;
 import java.util.Stack;
 import java.util.Vector;
 import java.util.LinkedList;
+import java.util.Map;
+import java.util.HashMap;
 
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -22,6 +24,7 @@ import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.Test;
 
 import org.mlflow.api.proto.Service.*;
+import static org.mlflow.tracking.MlflowProtobufMapper.*;
 
 import static org.mlflow.tracking.TestUtils.*;
 
@@ -384,7 +387,53 @@ public class MlflowClientTest {
     }
   }
 
-//  @Test
+  @Test
+  public void testBatchedLogging2() {
+    // Create exp
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+    logger.debug(">> TEST.0");
+
+    RunInfo runCreated = client.createRun(expId);
+    String runUuid = runCreated.getRunUuid();
+    logger.debug("runUuid=" + runUuid);
+
+    Map<String, Double> metrics = new HashMap<>();
+    metrics.put("m1", 12.45D);
+    metrics.put("acc", 0.92D);
+
+    Map<String, String> params = new HashMap<>();
+    params.put("model", "Logistic Regression");
+    params.put("lambda", "0.001");
+
+    Map<String, String> tags = new HashMap<>();
+    tags.put("T1", "t1");
+    tags.put("tag2", "xx");
+    tags.put("tag3", "YYY");
+
+    client.logBatch(runUuid, metrics, params, tags);
+
+    Run run = client.getRun(runUuid);
+    Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+
+    List<Metric> loggedMetrics = run.getData().getMetricsList();
+    Assert.assertEquals(loggedMetrics.size(), 2);
+    assertMetric(loggedMetrics, "m1", 12.45D);
+    assertMetric(loggedMetrics, "acc", 0.92D);
+
+    List<Param> loggedParams = run.getData().getParamsList();
+    Assert.assertEquals(loggedParams.size(), 2);
+    assertParam(loggedParams, "lambda", "0.001");
+    assertParam(loggedParams, "model", "Logistic Regression");
+
+    List<RunTag> loggedTags = run.getData().getTagsList();
+    Assert.assertEquals(loggedTags.size(), 3);
+    assertTag(loggedTags, "T1", "t1");
+    assertTag(loggedTags, "tag2", "xx");
+    assertTag(loggedTags, "tag3", "YYY");
+  }
+
+  @Test
   public void deleteAndRestoreRun() {
     String expName = createExperimentName();
     long expId = client.createExperiment(expName);

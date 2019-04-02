@@ -5,6 +5,9 @@ import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.util.JsonFormat;
 
 import java.lang.Iterable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import org.mlflow.api.proto.Service.*;
 
@@ -76,6 +79,49 @@ class MlflowProtobufMapper {
       builder.addAllTags(tags);
     }
     return print(builder);
+  }
+
+
+  public static Metric createMetric(String name, double value, long timestamp) {
+    Metric.Builder builder = Metric.newBuilder();
+    builder.setKey(name).setValue(value).setTimestamp(timestamp);
+    return builder.build();
+  }
+
+  List<Metric> makeMetricList(Map<String, Double> metrics) {
+    List<Metric> metricList = new ArrayList<>();
+    for (Map.Entry<String, Double> entry: metrics.entrySet()) {
+      metricList.add(createMetric(entry.getKey(), entry.getValue(), System.currentTimeMillis()));
+    }
+    return metricList;
+  }
+
+  public static Param createParam(String name, String value) {
+    Param.Builder builder = Param.newBuilder();
+    builder.setKey(name).setValue(value);
+    return builder.build();
+  }
+
+  List<Param> makeParamList(Map<String, String> params) {
+    List<Param> paramList = new ArrayList<>();
+    for (Map.Entry<String, String> entry : params.entrySet()) {
+      paramList.add(createParam(entry.getKey(), entry.getValue()));
+    }
+    return paramList;
+  }
+
+  public static RunTag createTag(String name, String value) {
+    RunTag.Builder builder = RunTag.newBuilder();
+    builder.setKey(name).setValue(value);
+    return builder.build();
+  }
+
+  List<RunTag> makeTagList(Map<String, String> params) {
+    List<RunTag> tagList = new ArrayList<>();
+    for (Map.Entry<String, String> entry : params.entrySet()) {
+      tagList.add(createTag(entry.getKey(), entry.getValue()));
+    }
+    return tagList;
   }
 
   String makeUpdateRun(String runUuid, RunStatus status, long endTime) {

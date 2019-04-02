@@ -12,6 +12,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.lang.Iterable;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -112,7 +113,9 @@ public class MlflowClient {
     return mapper.toCreateRunResponse(ojson).getRun().getInfo();
   }
 
-  /** @return  a list of all RunInfos associated with the given experiment. */
+  /**
+   * @return  a list of all RunInfos associated with the given experiment.
+   */
   public List<RunInfo> listRunInfos(long experimentId) {
     List<Long> experimentIds = new ArrayList<>();
     experimentIds.add(experimentId);
@@ -259,6 +262,21 @@ public class MlflowClient {
       Iterable<Param> params,
       Iterable<RunTag> tags) {
     sendPost("runs/log-batch", mapper.makeLogBatch(runUuid, metrics, params, tags));
+  }
+
+  /**
+   * Log multiple metrics, params, and/or tags against a given run (argument runUuid).
+   * Arguments metrics, params, and tags can be nulls.
+   */
+  public void logBatch(String runUuid,
+      Map<String, Double> metrics,
+      Map<String, String> params,
+      Map<String, String> tags) {
+    List<Metric> metricList = (metrics == null) ? null : mapper.makeMetricList(metrics);
+    List<Param> paramList = (params == null) ? null : mapper.makeParamList(params);
+    List<RunTag> tagList = (tags == null) ? null : mapper.makeTagList(tags);
+
+    sendPost("runs/log-batch", mapper.makeLogBatch(runUuid, metricList, paramList, tagList));
   }
 
   /** Sets the status of a run to be FINISHED at the current time. */
