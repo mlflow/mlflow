@@ -5,7 +5,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.Stack;
+import java.util.Vector;
+import java.util.LinkedList;
 
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
@@ -276,6 +282,106 @@ public class MlflowClientTest {
     List<RunTag> tags = run.getData().getTagsList();
     Assert.assertEquals(tags.size(), 1);
     assertTag(tags, "user_email", USER_EMAIL);
+  }
+
+  @Test
+  public void testBatchedLogging() {
+    // Create exp
+    String expName = createExperimentName();
+    long expId = client.createExperiment(expName);
+    logger.debug(">> TEST.0");
+
+    // Test logging just metrics
+    {
+      RunInfo runCreated = client.createRun(expId);
+      String runUuid = runCreated.getRunUuid();
+      logger.debug("runUuid=" + runUuid);
+
+      List<Metric> metrics = new ArrayList<>(Arrays.asList(createMetric("met1", 0.081D, 10),
+        createMetric("metric2", 82.3D, 100)));
+      client.logBatch(runUuid, metrics, null, null);
+
+      Run run = client.getRun(runUuid);
+      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+
+      List<Metric> loggedMetrics = run.getData().getMetricsList();
+      Assert.assertEquals(loggedMetrics.size(), 2);
+      assertMetric(loggedMetrics, "met1", 0.081D);
+      assertMetric(loggedMetrics, "metric2", 82.3D);
+    }
+
+    // Test logging just params
+    {
+      RunInfo runCreated = client.createRun(expId);
+      String runUuid = runCreated.getRunUuid();
+      logger.debug("runUuid=" + runUuid);
+
+      Set<Param> params = new HashSet<Param>(Arrays.asList(
+        createParam("p1", "this is a param string"),
+        createParam("p2", "a b"),
+        createParam("3", "x")));
+      client.logBatch(runUuid, null, params, null);
+
+      Run run = client.getRun(runUuid);
+      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+
+      List<Param> loggedParams = run.getData().getParamsList();
+      Assert.assertEquals(loggedParams.size(), 3);
+      assertParam(loggedParams, "p1", "this is a param string");
+      assertParam(loggedParams, "p2", "a b");
+      assertParam(loggedParams, "3", "x");
+    }
+
+    // Test logging just tags
+    {
+      RunInfo runCreated = client.createRun(expId);
+      String runUuid = runCreated.getRunUuid();
+      logger.debug("runUuid=" + runUuid);
+
+      Stack<RunTag> tags = new Stack();
+      tags.push(createTag("t1", "tagtagtag"));
+      client.logBatch(runUuid, null, null, tags);
+
+      Run run = client.getRun(runUuid);
+      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+
+      List<RunTag> loggedTags = run.getData().getTagsList();
+      Assert.assertEquals(loggedTags.size(), 1);
+      assertTag(loggedTags, "t1", "tagtagtag");
+    }
+
+    // All
+    {
+      RunInfo runCreated = client.createRun(expId);
+      String runUuid = runCreated.getRunUuid();
+      logger.debug("runUuid=" + runUuid);
+
+      List<Metric> metrics = new LinkedList<>(Arrays.asList(createMetric("m1", 32.23D, 12)));
+      Vector<Param> params = new Vector<>(Arrays.asList(createParam("p1", "param1"),
+        createParam("p2", "another param")));
+      Set<RunTag> tags = new HashSet<>(Arrays.asList(createTag("t1", "t1"),
+        createTag("t2", "xx"),
+        createTag("t3", "xx")));
+      client.logBatch(runUuid, metrics, params, tags);
+
+      Run run = client.getRun(runUuid);
+      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+
+      List<Metric> loggedMetrics = run.getData().getMetricsList();
+      Assert.assertEquals(loggedMetrics.size(), 1);
+      assertMetric(loggedMetrics, "m1", 32.23D);
+
+      List<Param> loggedParams = run.getData().getParamsList();
+      Assert.assertEquals(loggedParams.size(), 2);
+      assertParam(loggedParams, "p1", "param1");
+      assertParam(loggedParams, "p2", "another param");
+
+      List<RunTag> loggedTags = run.getData().getTagsList();
+      Assert.assertEquals(loggedTags.size(), 3);
+      assertTag(loggedTags, "t1", "t1");
+      assertTag(loggedTags, "t2", "xx");
+      assertTag(loggedTags, "t3", "xx");
+    }
   }
 
   @Test
