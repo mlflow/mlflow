@@ -1,51 +1,56 @@
 import mock
 
 from mlflow.store.abstract_store import AbstractStore
+from mlflow.entities import ViewType
 
 
 class ConcreteStore(AbstractStore):
 
+    def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
+        raise NotImplementedError()
+
+    def create_experiment(self, name, artifact_location):
+        raise NotImplementedError()
+
+    def get_experiment(self, experiment_id):
+        raise NotImplementedError()
+
+    def delete_experiment(self, experiment_id):
+        raise NotImplementedError()
+
+    def restore_experiment(self, experiment_id):
+        raise NotImplementedError()
+
+    def rename_experiment(self, experiment_id, new_name):
+        raise NotImplementedError()
+
+    def get_run(self, run_uuid):
+        raise NotImplementedError()
+
+    def update_run_info(self, run_uuid, run_status, end_time):
+        raise NotImplementedError()
+
+    def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
+                   entry_point_name, start_time, source_version, tags, parent_run_id):
+        raise NotImplementedError()
+
+    def delete_run(self, run_id):
+        raise NotImplementedError()
+
+    def restore_run(self, run_id):
+        raise NotImplementedError()
+
+    def get_metric_history(self, run_uuid, metric_key):
+        raise NotImplementedError()
+
+    def search_runs(self, experiment_ids, search_filter, run_view_type):
+        raise NotImplementedError()
+
+    def log_batch(self, run_id, metrics, params, tags):
+        raise NotImplementedError()
+
     def list_experiments(self, *args, **kwargs):
-        pass
-
-    def create_experiment(self, *args, **kwargs):
-        pass
-
-    def get_experiment(self, *args, **kwargs):
-        pass
-
-    def delete_experiment(self, *args, **kwargs):
-        pass
-
-    def restore_experiment(self, *args, **kwargs):
-        pass
-
-    def rename_experiment(self, *args, **kwargs):
-        pass
-
-    def get_run(self, *args, **kwargs):
-        pass
-
-    def update_run_info(self, *args, **kwargs):
-        pass
-
-    def create_run(self, *args, **kwargs):
-        pass
-
-    def delete_run(self, *args, **kwargs):
-        pass
-
-    def restore_run(self, *args, **kwargs):
-        pass
-
-    def get_metric_history(self, *args, **kwargs):
-        pass
-
-    def search_runs(self, *args, **kwargs):
-        pass
-
-    def log_batch(self, *args, **kwargs):
-        pass
+        raise NotImplementedError()
 
 
 def test_log_metric():
