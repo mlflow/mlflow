@@ -6,6 +6,13 @@ services:
 
 matrix:
   include:
+    - name: "Lint (Python and RST)"
+      python:
+        - 3.6
+      install:
+        - pip install pylint pycodestyle rstcheck
+      script:
+        - ./lint.sh
     - python: 2.7
     - python: 3.6
     - language: r
@@ -40,14 +47,6 @@ matrix:
         - npm i
         - ./lint.sh
         - npm test -- --coverage
-    - name: "Lint (Python and RST)"
-      python:
-        - 3.6
-      install:
-        - pip install pylint
-        - pip install rstcheck
-      script:
-        - ./lint.sh
 
 install:
   - sudo mkdir -p /travis-install
