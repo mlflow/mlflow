@@ -49,9 +49,6 @@ class ConcreteStore(AbstractStore):
     def log_batch(self, run_id, metrics, params, tags):
         raise NotImplementedError()
 
-    def list_experiments(self, *args, **kwargs):
-        raise NotImplementedError()
-
 
 def test_log_metric():
     run_id = mock.Mock()
