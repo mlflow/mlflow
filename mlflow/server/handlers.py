@@ -8,7 +8,6 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-import mlflow
 from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -345,8 +344,7 @@ def _log_batch():
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
-    mlflow.tracking.utils._get_store().log_batch(
-        run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
+    _get_store().log_batch(run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
     response_message = LogBatch.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -390,6 +388,7 @@ HANDLERS = {
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetTag: _set_tag,
+    LogBatch: _log_batch,
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,
