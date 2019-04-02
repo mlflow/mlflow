@@ -340,6 +340,7 @@ def test_mleap_model_log(spark_model_iris):
     mlflow_model = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in mlflow_model.flavors
     assert mleap.FLAVOR_NAME in mlflow_model.flavors
+    mlflow.end_run()
 
 
 def test_mleap_output_json_format(spark_model_iris, model_path):
