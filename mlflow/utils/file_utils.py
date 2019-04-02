@@ -347,7 +347,7 @@ def get_parent_dir(path):
 
 def parse_path(uri):
     relative_path_uri_prefix = "file:"
-    backslash_count = int(os.sep == "/")  # Keep / for linux abs paths
+    backslash_count = 1 if os.sep == "/" else 0  # Keep / for linux abs paths
     fs_prefix_with_localhost = tracking.utils._LOCAL_FS_URI_PREFIX[:-1] + "localhost/"
     if uri.startswith(fs_prefix_with_localhost):
         return uri[fs_prefix_with_localhost - backslash_count:]
@@ -365,5 +365,5 @@ def parse_path(uri):
 
 def local_uri_from_path(path):
     path = os.path.abspath(path)
-    prefix = tracking.utils._LOCAL_FS_URI_PREFIX[:-1] if os.sep == "/" else tracking.utils._LOCAL_FS_URI_PREFIX
+    prefix = "file://" if os.sep == "/" else tracking.utils._LOCAL_FS_URI_PREFIX
     return prefix + path
