@@ -41,9 +41,19 @@ public class TestUtils {
 
   public static Metric createMetric(String name, double value, long timestamp) {
     Metric.Builder builder = Metric.newBuilder();
-    builder.setKey(name)
-            .setValue(value)
-            .setTimestamp(timestamp);
+    builder.setKey(name).setValue(value).setTimestamp(timestamp);
+    return builder.build();
+  }
+
+  public static Param createParam(String name, String value) {
+    Param.Builder builder = Param.newBuilder();
+    builder.setKey(name).setValue(value);
+    return builder.build();
+  }
+
+  public static RunTag createTag(String name, String value) {
+    RunTag.Builder builder = RunTag.newBuilder();
+    builder.setKey(name).setValue(value);
     return builder.build();
   }
 }

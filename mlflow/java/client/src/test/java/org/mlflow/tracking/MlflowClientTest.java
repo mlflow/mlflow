@@ -211,7 +211,8 @@ public class MlflowClientTest {
 
       client.logBatch(runUuid,
               Arrays.asList(createMetric("met1", 0.081D, 10), createMetric("metric2", 82.3D, 100)),
-              null, null);
+              null,
+              null);
 
       Run run = client.getRun(runUuid);
       Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
@@ -220,6 +221,78 @@ public class MlflowClientTest {
       Assert.assertEquals(metrics.size(), 2);
       assertMetric(metrics, "met1", 0.081D);
       assertMetric(metrics, "metric2", 82.3D);
+    }
+
+    // Test logging just params
+    {
+      RunInfo runCreated = client.createRun(expId);
+      String runUuid = runCreated.getRunUuid();
+      logger.debug("runUuid=" + runUuid);
+
+      client.logBatch(runUuid,
+              null,
+              Arrays.asList(createParam("p1", "this is a param string"),
+                      createParam("p2", "a b"),
+                      createParam("3", "x")),
+              null);
+
+      Run run = client.getRun(runUuid);
+      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+
+      List<Param> params = run.getData().getParamsList();
+      Assert.assertEquals(params.size(), 3);
+      assertParam(params, "p1", "this is a param string");
+      assertParam(params, "p2", "a b");
+      assertParam(params, "3", "x");
+    }
+
+    // Test logging just tags
+    {
+      RunInfo runCreated = client.createRun(expId);
+      String runUuid = runCreated.getRunUuid();
+      logger.debug("runUuid=" + runUuid);
+
+      client.logBatch(runUuid,
+              null,
+              null,
+              Arrays.asList(createTag("t1", "tagtagtag")));
+
+      Run run = client.getRun(runUuid);
+      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+
+      List<RunTag> tags = run.getData().getTagsList();
+      Assert.assertEquals(tags.size(), 1);
+      assertTag(tags, "t1", "tagtagtag");
+    }
+
+    // All
+    {
+      RunInfo runCreated = client.createRun(expId);
+      String runUuid = runCreated.getRunUuid();
+      logger.debug("runUuid=" + runUuid);
+
+      client.logBatch(runUuid,
+              Arrays.asList(createMetric("m1", 32.23D, 12)),
+              Arrays.asList(createParam("p1", "param1"), createParam("p2", "another param")),
+              Arrays.asList(createTag("t1", "t1"), createTag("t2", "xx"), createTag("t3", "xx")));
+
+      Run run = client.getRun(runUuid);
+      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+
+      List<Metric> metrics = run.getData().getMetricsList();
+      Assert.assertEquals(metrics.size(), 1);
+      assertMetric(metrics, "m1", 32.23D);
+
+      List<Param> params = run.getData().getParamsList();
+      Assert.assertEquals(params.size(), 2);
+      assertParam(params, "p1", "param1");
+      assertParam(params, "p2", "another param");
+
+      List<RunTag> tags = run.getData().getTagsList();
+      Assert.assertEquals(tags.size(), 3);
+      assertTag(tags, "t1", "t1");
+      assertTag(tags, "t2", "xx");
+      assertTag(tags, "t3", "xx");
     }
   }
 
