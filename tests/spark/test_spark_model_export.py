@@ -147,10 +147,7 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     assert os.path.exists(sparkm.DFS_TMP)
 
 
-# TODO(czumar): Remark this test as "large" instead of "release" after SageMaker docker
-# container build issues have been debugged
-# @pytest.mark.large
-@pytest.mark.release
+@pytest.mark.large
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_custom_env,

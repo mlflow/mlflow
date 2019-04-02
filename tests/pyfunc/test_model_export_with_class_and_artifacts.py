@@ -617,10 +617,7 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(
     ])
 
 
-# TODO(czumar) Re-mark this test as "large" instead of "release" after SageMaker docker container
-# build issues have been debugged
-# @pytest.mark.large
-@pytest.mark.release
+@pytest.mark.large
 def test_sagemaker_docker_model_scoring_with_default_conda_env(
         sklearn_logreg_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
