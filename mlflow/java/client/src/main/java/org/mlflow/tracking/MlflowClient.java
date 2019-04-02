@@ -125,7 +125,7 @@ public class MlflowClient {
    * @param experimentIds List of experiment IDs
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc > 0.9"
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
    *
    * @return a list of all RunInfos that satisfy search filter.
    */
@@ -139,7 +139,7 @@ public class MlflowClient {
    * @param experimentIds List of experiment IDs
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc > 0.9"
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
    *                    Defaults to ACTIVE_ONLY.
    *
