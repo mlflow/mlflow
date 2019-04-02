@@ -77,11 +77,11 @@ export const restoreRunApi = (runUuid, id = getUUID()) => {
 };
 
 export const SEARCH_RUNS_API = 'SEARCH_RUNS_API';
-export const searchRunsApi = (experimentIds, andedExpressions, runViewType, id = getUUID()) => {
+export const searchRunsApi = (experimentIds, filter, runViewType, id = getUUID()) => {
   return {
     type: SEARCH_RUNS_API,
     payload: wrapDeferred(MlflowService.searchRuns, {
-      experiment_ids: experimentIds, anded_expressions: andedExpressions, run_view_type: runViewType
+      experiment_ids: experimentIds, filter: filter, run_view_type: runViewType
     }),
     meta: { id: id },
   };
@@ -190,6 +190,21 @@ export class ErrorWrapper {
         const parsed = JSON.parse(responseText);
         if (parsed.error_code) {
           return responseText;
+        }
+      } catch (e) {
+        return "INTERNAL_SERVER_ERROR";
+      }
+    }
+    return "INTERNAL_SERVER_ERROR";
+  }
+
+  getMessageField() {
+    const responseText = this.xhr.responseText;
+    if (responseText) {
+      try {
+        const parsed = JSON.parse(responseText);
+        if (parsed.error_code && parsed.message) {
+          return parsed.message;
         }
       } catch (e) {
         return "INTERNAL_SERVER_ERROR";
