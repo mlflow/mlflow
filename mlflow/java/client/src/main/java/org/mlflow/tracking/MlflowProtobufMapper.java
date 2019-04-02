@@ -4,6 +4,8 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.util.JsonFormat;
 
+import java.lang.Iterable;
+
 import org.mlflow.api.proto.Service.*;
 
 class MlflowProtobufMapper {
@@ -55,6 +57,24 @@ class MlflowProtobufMapper {
     builder.setRunUuid(runUuid);
     builder.setKey(key);
     builder.setValue(value);
+    return print(builder);
+  }
+
+  String makeLogBatch(String runUuid,
+      Iterable<Metric> metrics,
+      Iterable<Param> params,
+      Iterable<RunTag> tags) {
+    LogBatch.Builder builder = LogBatch.newBuilder();
+    builder.setRunId(runUuid);
+    if (metrics != null) {
+      builder.addAllMetrics(metrics);
+    }
+    if (params != null) {
+      builder.addAllParams(params);
+    }
+    if (tags != null) {
+      builder.addAllTags(tags);
+    }
     return print(builder);
   }
 

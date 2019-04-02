@@ -1,6 +1,7 @@
 package org.mlflow.tracking;
 
 import org.apache.http.client.utils.URIBuilder;
+
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
@@ -11,6 +12,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.lang.Iterable;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -248,6 +250,17 @@ public class MlflowClient {
    */
   public void setTag(String runUuid, String key, String value) {
     sendPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
+  }
+
+  /**
+   * Log multiple metrics, params, and/or tags against a given run (argument runUuid).
+   * Argument metrics, params, and tag iterables can be nulls.
+   */
+  public void logBatch(String runUuid,
+      Iterable<Metric> metrics,
+      Iterable<Param> params,
+      Iterable<RunTag> tags) {
+    sendPost("runs/log-batch", mapper.makeLogBatch(runUuid, metrics, params, tags));
   }
 
   /** Sets the status of a run to be FINISHED at the current time. */
