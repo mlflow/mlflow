@@ -11,6 +11,7 @@ import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
+import java.lang.Iterable;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -209,9 +210,12 @@ public class MlflowClient {
 
   /**
    * Log multiple metrics, params, and/or tags against a given run (argument runUuid).
-   * Argument metrics, params, and tas lists can be nulls.
+   * Argument metrics, params, and tag iterables can be nulls.
    */
-  public void logBatch(String runUuid, List<Metric> metrics, List<Param> params,List<RunTag> tags) {
+  public void logBatch(String runUuid,
+      Iterable<Metric> metrics,
+      Iterable<Param> params,
+      Iterable<RunTag> tags) {
     sendPost("runs/log-batch", mapper.makeLogBatch(runUuid, metrics, params, tags));
   }
 
