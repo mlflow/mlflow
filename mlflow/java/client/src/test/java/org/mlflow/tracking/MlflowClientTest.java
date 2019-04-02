@@ -206,20 +206,20 @@ public class MlflowClientTest {
     // Test logging just metrics
     {
       RunInfo runCreated = client.createRun(expId);
-      String runId = runCreated.getRunUuid();
-      logger.debug("runUuid1=" + runId);
+      String runUuid = runCreated.getRunUuid();
+      logger.debug("runUuid=" + runUuid);
 
-      client.logBatch(runId,
-              Arrays.asList(createMetric("m1", 0.0001, 10), createMetric("mtwo", 0.002, 100)),
+      client.logBatch(runUuid,
+              Arrays.asList(createMetric("met1", 0.081D, 10), createMetric("metric2", 82.3D, 100)),
               null, null);
 
-      Run run = client.getRun(runId);
-      Assert.assertEquals(run.getInfo().getRunUuid(), runId);
+      Run run = client.getRun(runUuid);
+      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
 
       List<Metric> metrics = run.getData().getMetricsList();
       Assert.assertEquals(metrics.size(), 2);
-      assertMetric(metrics, "m1", 0.0001);
-      assertMetric(metrics, "mtwo", 0.04);
+      assertMetric(metrics, "met1", 0.081D);
+      assertMetric(metrics, "metric2", 82.3D);
     }
   }
 

@@ -140,7 +140,8 @@ def test_log_batch_handler_success(mock_get_request_message, mock_get_request_js
 
     store = FileStore(tmpdir.strpath)
     mock_get_request_json.return_value = "{}"  # Mock request JSON so it passes length validation
-    with mock.patch('mlflow.tracking.utils._get_store', return_value=store):
+    with mock.patch('mlflow.server.handlers._get_store', return_value=store),\
+         mock.patch('mlflow.tracking.utils._get_store', return_value=store):
         mlflow.set_experiment("log-batch-experiment")
         # Log an empty payload
         _test_log_batch_helper_success([], [], [])
