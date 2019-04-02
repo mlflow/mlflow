@@ -11,7 +11,6 @@ from mlflow.server.handlers import get_endpoints, _create_experiment, _get_reque
     _search_runs, _log_batch, catch_mlflow_exception
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns, LogBatch
 from mlflow.store.file_store import FileStore
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
