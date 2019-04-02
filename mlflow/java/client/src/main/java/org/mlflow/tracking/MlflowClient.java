@@ -112,7 +112,9 @@ public class MlflowClient {
     return mapper.toCreateRunResponse(ojson).getRun().getInfo();
   }
 
-  /** @return  a list of all RunInfos associated with the given experiment. */
+  /**
+   * @return a list of all RunInfos associated with the given experiment.
+   */
   public List<RunInfo> listRunInfos(long experimentId) {
     List<Long> experimentIds = new ArrayList<>();
     experimentIds.add(experimentId);
