@@ -8,9 +8,15 @@ import {addApiToState, addExperimentToState, createPendingApi, emptyState} from 
 import {getUUID} from "../Actions";
 import {Spinner} from "./Spinner";
 
+let onSearchSpy;
+
+beforeEach(() => {
+  onSearchSpy = jest.fn();
+});
+
 const getExperimentViewMock = () => {
   return shallow(<ExperimentView
-    onSearch={() => {}}
+    onSearch={onSearchSpy}
     runInfos={[]}
     experiment={Fixtures.createExperiment()}
     history={[]}
@@ -27,12 +33,6 @@ const getExperimentViewMock = () => {
     isLoading
   />);
 };
-
-let onSearchSpy;
-
-beforeEach(() => {
-  onSearchSpy = jest.fn();
-});
 
 test('Entering filter input updates component state', () => {
   const wrapper = getExperimentViewMock();
