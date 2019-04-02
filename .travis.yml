@@ -82,7 +82,7 @@ script:
   - which mlflow
   - echo $MLFLOW_HOME
   - SAGEMAKER_OUT=$(mktemp)
-  - if travis_wait mlflow sagemaker build-and-push-container --no-push --mlflow-home; then
+  - if travis_wait mlflow sagemaker build-and-push-container --no-push --mlflow-home .; then
       echo "Sagemaker container build succeeded.";
     else
       echo "Sagemaker container build failed, output:";
