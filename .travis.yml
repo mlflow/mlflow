@@ -5,6 +5,7 @@ services:
   - docker
 
 matrix:
+  fast_finish: true
   include:
     - name: "Lint (Python and RST)"
       python:
@@ -13,6 +14,7 @@ matrix:
         - pip install pylint pycodestyle rstcheck
       script:
         - ./lint.sh
+        - exit 1
     - python: 2.7
     - python: 3.6
     - language: r
