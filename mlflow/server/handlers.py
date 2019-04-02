@@ -8,7 +8,6 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-import mlflow
 from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
