@@ -5,7 +5,7 @@
 \title{MLflow Command}
 \usage{
 mlflow_cli(..., background = FALSE, echo = TRUE,
-  stderr_callback = NULL)
+  stderr_callback = NULL, client = mlflow_client())
 }
 \arguments{
 \item{...}{The parameters to pass to the command line.}
@@ -17,6 +17,9 @@ Defaults to \code{FALSE}.}
 \code{TRUE}, does not apply to background tasks.}
 
 \item{stderr_callback}{NULL, or a function to call for every chunk of the standard error.}
+
+\item{client}{Client object can set additional environment variables required by the cli process.}
+
 }
 \value{
 A \code{processx} task.

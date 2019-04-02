@@ -149,11 +149,7 @@ serve_handlers <- function(host, port) {
         )
       )
     },
-    "^/[^/]*$" = function(req, model) {
-      serve_static_file_response("swagger", file.path("dist", req$PATH_INFO))
-    },
     "^/predict" = function(req, model) {
-
       json_raw <- req$rook.input$read()
 
       results <- serve_prediction(json_raw, model)
@@ -167,6 +163,9 @@ serve_handlers <- function(host, port) {
           jsonlite::toJSON(list(predictions = results), auto_unbox = TRUE)
         ))
       )
+    },
+    "^/[^/]*$" = function(req, model) {
+      serve_static_file_response("swagger", file.path("dist", req$PATH_INFO))
     },
     ".*" = function(req, sess, model) {
       stop("Invalid path.")

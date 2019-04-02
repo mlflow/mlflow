@@ -5,7 +5,7 @@ import pytest
 
 from google.cloud.storage import client as gcs_client
 
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.gcs_artifact_repo import GCSArtifactRepository
 
 
@@ -22,7 +22,7 @@ def gcs_mock():
 
 
 def test_artifact_uri_factory():
-    repo = ArtifactRepository.from_artifact_uri("gs://test_bucket/some/path", mock.Mock())
+    repo = get_artifact_repository("gs://test_bucket/some/path", mock.Mock())
     assert isinstance(repo, GCSArtifactRepository)
 
 

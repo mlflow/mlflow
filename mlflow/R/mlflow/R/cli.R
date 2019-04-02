@@ -8,6 +8,7 @@
 #' @param echo Print the standard output and error to the screen? Defaults to
 #'   \code{TRUE}, does not apply to background tasks.
 #' @param stderr_callback NULL, or a function to call for every chunk of the standard error.
+#' @param client Mlflow client to provide environment for the cli process.
 #'
 #' @return A \code{processx} task.
 #'
@@ -23,20 +24,22 @@
 #' @importFrom processx process
 #' @importFrom withr with_envvar
 #' @export
-mlflow_cli <- function(..., background = FALSE, echo = TRUE, stderr_callback = NULL) {
+mlflow_cli <- function(...,
+                       background = FALSE,
+                       echo = TRUE,
+                       stderr_callback = NULL,
+                       client = mlflow_client()) {
+  env <- if (is.null(client)) list() else client$get_cli_env()
   args <- list(...)
-
   verbose <- mlflow_is_verbose()
 
   python <- dirname(python_bin())
   mlflow_bin <- file.path(python, "mlflow")
-
-  env <- list(
-    PATH = paste(Sys.getenv("PATH"), python, sep = ":"),
-    MLFLOW_CONDA_HOME = python_conda_home(),                      # devel version
-    MLFLOW_MLFLOW_CONDA = file.path(python_conda_bin(), "conda"), # pip version (deprecated)
+  env <- modifyList(list(
+    PATH = paste(python, Sys.getenv("PATH"), sep = ":"),
+    MLFLOW_CONDA_HOME = python_conda_home(),
     MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
-  )
+  ), env)
 
   with_envvar(env, {
     if (background) {
@@ -45,7 +48,6 @@ mlflow_cli <- function(..., background = FALSE, echo = TRUE, stderr_callback = N
       result <- run(mlflow_bin, args = unlist(args), echo = echo, echo_cmd = verbose, stderr_callback = stderr_callback)
     }
   })
-
   invisible(result)
 }
 

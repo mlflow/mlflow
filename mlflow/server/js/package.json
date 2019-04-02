@@ -81,5 +81,13 @@
       "lcov"
     ]
   },
-  "proxy": "http://localhost:5000"
+  "proxy": {
+    "/ajax-api": {
+      "target": "http://localhost:5000"
+    },
+    "/get-artifact": {
+      "target": "http://localhost:5000",
+      "ws": true
+    }
+  }
 }

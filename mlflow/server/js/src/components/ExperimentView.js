@@ -22,10 +22,13 @@ import RestoreRunModal from './modals/RestoreRunModal';
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 
+import Utils from '../utils/Utils';
+import {Spinner} from "./Spinner";
+
 export const DEFAULT_EXPANDED_VALUE = false;
 
 
-class ExperimentView extends Component {
+export class ExperimentView extends Component {
   constructor(props) {
     super(props);
     this.onCheckbox = this.onCheckbox.bind(this);
@@ -85,6 +88,8 @@ class ExperimentView extends Component {
 
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
+    searchRunsError: PropTypes.string,
+    isLoading: PropTypes.bool.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -287,9 +292,9 @@ class ExperimentView extends Component {
           </span>
         </div>
         <div className="ExperimentView-runs runs-table-flex-container">
-          {this.state.searchErrorMessage !== undefined ?
+          {this.props.searchRunsError ?
             <div className="error-message">
-              <span className="error-message">{this.state.searchErrorMessage}</span>
+              <span className="error-message">{this.props.searchRunsError}</span>
             </div> :
             null
           }
@@ -307,10 +312,12 @@ class ExperimentView extends Component {
                 <div className="ExperimentView-search-input">
                   <label className="filter-label">Search Runs:</label>
                   <div className="filter-wrapper">
-                    <input type="text"
-                           placeholder={'metrics.rmse < 1 and params.model = "tree"'}
-                           value={this.state.searchInput}
-                           onChange={this.onSearchInput}
+                    <input
+                      className="ExperimentView-searchInput"
+                      type="text"
+                      placeholder={'metrics.rmse < 1 and params.model = "tree"'}
+                      value={this.state.searchInput}
+                      onChange={this.onSearchInput}
                     />
                   </div>
                 </div>
@@ -407,45 +414,48 @@ class ExperimentView extends Component {
                 </ButtonGroup>
             </span>
           </div>
-          {this.state.persistedState.showMultiColumns ?
-            <ExperimentRunsTableMultiColumnView
-              onCheckbox={this.onCheckbox}
-              runInfos={this.props.runInfos}
-              paramsList={this.props.paramsList}
-              metricsList={this.props.metricsList}
-              tagsList={this.props.tagsList}
-              paramKeyList={paramKeyList}
-              metricKeyList={metricKeyList}
-              onCheckAll={this.onCheckAll}
-              isAllChecked={this.isAllChecked()}
-              onSortBy={this.onSortBy}
-              sortState={this.state.persistedState.sort}
-              runsSelected={this.state.runsSelected}
-              runsExpanded={this.state.persistedState.runsExpanded}
-              onExpand={this.onExpand}
-            /> :
-            <ExperimentRunsTableCompactView
-              onCheckbox={this.onCheckbox}
-              runInfos={this.props.runInfos}
-              // Bagged param and metric keys
-              paramKeyList={paramKeyList}
-              metricKeyList={metricKeyList}
-              paramsList={this.props.paramsList}
-              metricsList={this.props.metricsList}
-              tagsList={this.props.tagsList}
-              onCheckAll={this.onCheckAll}
-              isAllChecked={this.isAllChecked()}
-              onSortBy={this.onSortBy}
-              sortState={this.state.persistedState.sort}
-              runsSelected={this.state.runsSelected}
-              setSortByHandler={this.setSortBy}
-              runsExpanded={this.state.persistedState.runsExpanded}
-              onExpand={this.onExpand}
-              unbaggedMetrics={unbaggedMetricKeyList}
-              unbaggedParams={unbaggedParamKeyList}
-              onAddBagged={this.addBagged}
-              onRemoveBagged={this.removeBagged}
-            />
+          {this.props.isLoading ?
+            <Spinner showImmediately/> :
+            (this.state.persistedState.showMultiColumns ?
+                <ExperimentRunsTableMultiColumnView
+                  onCheckbox={this.onCheckbox}
+                  runInfos={this.props.runInfos}
+                  paramsList={this.props.paramsList}
+                  metricsList={this.props.metricsList}
+                  tagsList={this.props.tagsList}
+                  paramKeyList={paramKeyList}
+                  metricKeyList={metricKeyList}
+                  onCheckAll={this.onCheckAll}
+                  isAllChecked={this.isAllChecked()}
+                  onSortBy={this.onSortBy}
+                  sortState={this.state.persistedState.sort}
+                  runsSelected={this.state.runsSelected}
+                  runsExpanded={this.state.persistedState.runsExpanded}
+                  onExpand={this.onExpand}
+                /> :
+                <ExperimentRunsTableCompactView
+                  onCheckbox={this.onCheckbox}
+                  runInfos={this.props.runInfos}
+                  // Bagged param and metric keys
+                  paramKeyList={paramKeyList}
+                  metricKeyList={metricKeyList}
+                  paramsList={this.props.paramsList}
+                  metricsList={this.props.metricsList}
+                  tagsList={this.props.tagsList}
+                  onCheckAll={this.onCheckAll}
+                  isAllChecked={this.isAllChecked()}
+                  onSortBy={this.onSortBy}
+                  sortState={this.state.persistedState.sort}
+                  runsSelected={this.state.runsSelected}
+                  setSortByHandler={this.setSortBy}
+                  runsExpanded={this.state.persistedState.runsExpanded}
+                  onExpand={this.onExpand}
+                  unbaggedMetrics={unbaggedMetricKeyList}
+                  unbaggedParams={unbaggedParamKeyList}
+                  onAddBagged={this.addBagged}
+                  onRemoveBagged={this.removeBagged}
+                />
+            )
           }
         </div>
       </div>
@@ -594,7 +604,8 @@ class ExperimentView extends Component {
       this.props.paramKeyFilter.apply(this.props.paramKeyList),
       this.props.metricKeyFilter.apply(this.props.metricKeyList),
       this.props.paramsList,
-      this.props.metricsList);
+      this.props.metricsList,
+      this.props.tagsList);
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     saveAs(blob, "runs.csv");
   }
@@ -652,7 +663,8 @@ class ExperimentView extends Component {
     paramKeyList,
     metricKeyList,
     paramsList,
-    metricsList) {
+    metricsList,
+    tagsList) {
     const columns = [
       "Run ID",
       "Name",
@@ -671,14 +683,16 @@ class ExperimentView extends Component {
     const data = runInfos.map((runInfo, index) => {
       const row = [
         runInfo.run_uuid,
-        runInfo.name,
+        Utils.getRunName(tagsList[index]), // add run name to csv export row
         runInfo.source_type,
         runInfo.source_name,
         runInfo.user_id,
         runInfo.status,
       ];
+
       const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
       const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
+
       paramKeyList.forEach((paramKey) => {
         if (paramsMap[paramKey]) {
           row.push(paramsMap[paramKey].getValue());
@@ -700,12 +714,12 @@ class ExperimentView extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => {
+export const mapStateToProps = (state, ownProps) => {
   const { lifecycleFilter, searchRunsRequestId } = ownProps;
   const searchRunApi = getApis([searchRunsRequestId], state)[0];
   // The runUuids we should serve.
   let runUuids;
-  if (searchRunApi.data.runs) {
+  if (searchRunApi.data && searchRunApi.data.runs) {
     runUuids = new Set(searchRunApi.data.runs.map((r) => r.info.run_uuid));
   } else {
     runUuids = new Set();
@@ -751,10 +765,10 @@ const mapStateToProps = (state, ownProps) => {
 
 const styles = {
   lifecycleButtonLabel: {
-    width: '60px'
+    width: '32px'
   },
   lifecycleButtonFilterWrapper: {
-    marginLeft: '60px',
+    marginLeft: '48px',
   },
   tableToggleButtonGroup: {
     marginLeft: '16px',

@@ -2,7 +2,7 @@ import json
 
 from mlflow.store.abstract_store import AbstractStore
 
-from mlflow.entities import Experiment, Run, RunInfo, RunTag, Param, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
 
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -10,8 +10,8 @@ from mlflow.utils.rest_utils import http_request_safe
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
-    UpdateRun, CreateRun, GetMetric, GetParam, DeleteRun, RestoreRun, DeleteExperiment, \
-    RestoreExperiment, UpdateExperiment
+    UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
+    UpdateExperiment, LogBatch
 
 from mlflow.protos import databricks_pb2
 
@@ -21,7 +21,7 @@ def _get_path(endpoint_path):
 
 
 def _api_method_to_info():
-    """ Returns a dictionary mapping each API method to a tuple (path, HTTP method)"""
+    """ Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
     service_methods = MlflowService.DESCRIPTOR.methods
     res = {}
     for service_method in service_methods:
@@ -38,6 +38,7 @@ _METHOD_TO_INFO = _api_method_to_info()
 class RestStore(AbstractStore):
     """
     Client for a remote tracking server accessed via REST API calls
+
     :param get_host_creds: Method to be invoked prior to every REST request to get the
       :py:class:`mlflow.rest_utils.MlflowHostCreds` for the request. Note that this
       is a function so that we can obtain fresh credentials in the case of expiry.
@@ -77,10 +78,11 @@ class RestStore(AbstractStore):
 
     def create_experiment(self, name, artifact_location=None):
         """
-        Creates a new experiment.
+        Create a new experiment.
         If an experiment with the given name already exists, throws exception.
 
         :param name: Desired name for an experiment
+
         :return: experiment_id (integer) for the newly created experiment if successful, else None
         """
         req_body = message_to_json(CreateExperiment(
@@ -90,20 +92,16 @@ class RestStore(AbstractStore):
 
     def get_experiment(self, experiment_id):
         """
-        Fetches the experiment from the backend store.
+        Fetch the experiment from the backend store.
 
         :param experiment_id: Integer id for the experiment
-        :return: A single Experiment object if it exists, otherwise raises an Exception.
+
+        :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
+        otherwise raises an Exception.
         """
         req_body = message_to_json(GetExperiment(experiment_id=experiment_id))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
-
-    def get_experiment_by_name(self, name):
-        for experiment in self.list_experiments(ViewType.ALL):
-            if experiment.name == name:
-                return experiment
-        return None
 
     def delete_experiment(self, experiment_id):
         req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
@@ -120,9 +118,10 @@ class RestStore(AbstractStore):
 
     def get_run(self, run_uuid):
         """
-        Fetches the run from backend store
+        Fetch the run from backend store
 
         :param run_uuid: Unique identifier for the run
+
         :return: A single Run object if it exists, otherwise raises an Exception
         """
         req_body = message_to_json(GetRun(run_uuid=run_uuid))
@@ -139,12 +138,13 @@ class RestStore(AbstractStore):
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
                    entry_point_name, start_time, source_version, tags, parent_run_id):
         """
-        Creates a run under the specified experiment ID, setting the run's status to "RUNNING"
+        Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
         :param experiment_id: ID of the experiment for this run
         :param user_id: ID of the user launching this run
         :param source_type: Enum (integer) describing the source of the run
+
         :return: The created Run object
         """
         tag_protos = [tag.to_proto() for tag in tags]
@@ -156,12 +156,14 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)
         if run_name:
+            # TODO: optimization: This is making 2 calls to backend store. Include with above call.
             self.set_tag(run.info.run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return run
 
     def log_metric(self, run_uuid, metric):
         """
-        Logs a metric for the specified run
+        Log a metric for the specified run
+
         :param run_uuid: String id for the run
         :param metric: Metric instance to log
         """
@@ -171,7 +173,8 @@ class RestStore(AbstractStore):
 
     def log_param(self, run_uuid, param):
         """
-        Logs a param for the specified run
+        Log a param for the specified run
+
         :param run_uuid: String id for the run
         :param param: Param instance to log
         """
@@ -180,42 +183,17 @@ class RestStore(AbstractStore):
 
     def set_tag(self, run_uuid, tag):
         """
-        Sets a tag for the specified run
+        Set a tag for the specified run
+
         :param run_uuid: String id for the run
         :param tag: RunTag instance to log
         """
         req_body = message_to_json(SetTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
         self._call_endpoint(SetTag, req_body)
 
-    def get_metric(self, run_uuid, metric_key):
-        """
-        Returns the last logged value for a given metric.
-
-        :param run_uuid: Unique identifier for run
-        :param metric_key: Metric name within the run
-
-        :return: A single float value for the give metric if logged, else None
-        """
-        req_body = message_to_json(GetMetric(run_uuid=run_uuid, metric_key=metric_key))
-        response_proto = self._call_endpoint(GetMetric, req_body)
-        return Metric.from_proto(response_proto.metric)
-
-    def get_param(self, run_uuid, param_name):
-        """
-        Returns the value of the specified parameter.
-
-        :param run_uuid: Unique identifier for run
-        :param param_name: Parameter name within the run
-
-        :return: Value of the given parameter if logged, else None
-        """
-        req_body = message_to_json(GetParam(run_uuid=run_uuid, param_name=param_name))
-        response_proto = self._call_endpoint(GetParam, req_body)
-        return Param.from_proto(response_proto.parameter)
-
     def get_metric_history(self, run_uuid, metric_key):
         """
-        Returns all logged value for a given metric.
+        Return all logged values for a given metric.
 
         :param run_uuid: Unique identifier for run
         :param metric_key: Metric name within the run
@@ -226,33 +204,35 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric).value for metric in response_proto.metrics]
 
-    def search_runs(self, experiment_ids, search_expressions, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type):
         """
-        Returns runs that match the given list of search expressions within the experiments.
+        Return runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
 
         :param experiment_ids: List of experiment ids to scope the search
-        :param search_expression: list of search expressions
+        :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
+            search expression or filter string.
+        :param run_view_type: ACTIVE, DELETED, or ALL runs.
 
         :return: A list of Run objects that satisfy the search expressions
         """
-        search_expressions_protos = [expr.to_proto() for expr in search_expressions]
-        req_body = message_to_json(SearchRuns(experiment_ids=experiment_ids,
-                                              anded_expressions=search_expressions_protos,
-                                              run_view_type=ViewType.to_proto(run_view_type)))
+        sr = SearchRuns(experiment_ids=experiment_ids,
+                        anded_expressions=search_filter.search_expressions if search_filter else [],
+                        filter=search_filter.filter_string if search_filter else None,
+                        run_view_type=ViewType.to_proto(run_view_type))
+        req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
 
     def list_run_infos(self, experiment_id, run_view_type):
         """
-        Returns run information for runs which belong to the experiment_id
+        Return run information for runs which belong to the experiment_id
 
         :param experiment_id: The experiment id which to search.
 
         :return: A list of RunInfo objects that satisfy the search expressions
         """
-        runs = self.search_runs(experiment_ids=[experiment_id], search_expressions=[],
-                                run_view_type=run_view_type)
+        runs = self.search_runs([experiment_id], None, run_view_type)
         return [run.info for run in runs]
 
     def delete_run(self, run_id):
@@ -262,3 +242,11 @@ class RestStore(AbstractStore):
     def restore_run(self, run_id):
         req_body = message_to_json(RestoreRun(run_id=run_id))
         self._call_endpoint(RestoreRun, req_body)
+
+    def log_batch(self, run_id, metrics, params, tags):
+        metric_protos = [metric.to_proto() for metric in metrics]
+        param_protos = [param.to_proto() for param in params]
+        tag_protos = [tag.to_proto() for tag in tags]
+        req_body = message_to_json(
+            LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id))
+        self._call_endpoint(LogBatch, req_body)

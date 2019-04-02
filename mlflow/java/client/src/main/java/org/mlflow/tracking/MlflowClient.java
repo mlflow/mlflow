@@ -1,7 +1,6 @@
 package org.mlflow.tracking;
 
 import org.apache.http.client.utils.URIBuilder;
-
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.artifacts.ArtifactRepository;
 import org.mlflow.artifacts.ArtifactRepositoryFactory;
@@ -10,6 +9,7 @@ import org.mlflow.tracking.creds.*;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -45,7 +45,13 @@ public class MlflowClient {
     this. artifactRepositoryFactory = new ArtifactRepositoryFactory(hostCredsProvider);
   }
 
-  /** @return run associated with the id. */
+  /**
+   * Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
+   * same key are logged for the run, returns only the value with the latest timestamp. If there are
+   * multiple values with the latest timestamp, returns the maximum of these values.
+   *
+   * @return Run associated with the id.
+   */
   public Run getRun(String runUuid) {
     URIBuilder builder = newURIBuilder("runs/get").setParameter("run_uuid", runUuid);
     return mapper.toGetRunResponse(httpCaller.get(builder.toString())).getRun();
@@ -104,9 +110,52 @@ public class MlflowClient {
     return mapper.toCreateRunResponse(ojson).getRun().getInfo();
   }
 
-  /** @return  a list of all RunInfos associated with the given experiment. */
+  /**
+   * @return a list of all RunInfos associated with the given experiment.
+   */
   public List<RunInfo> listRunInfos(long experimentId) {
-    SearchRuns request = SearchRuns.newBuilder().addExperimentIds(experimentId).build();
+    List<Long> experimentIds = new ArrayList<>();
+    experimentIds.add(experimentId);
+    return searchRuns(experimentIds, null);
+  }
+
+  /**
+   * Returns runs from provided list of experiments, that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
+   *
+   * @return a list of all RunInfos that satisfy search filter.
+   */
+  public List<RunInfo> searchRuns(List<Long> experimentIds, String searchFilter) {
+    return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
+  }
+
+  /**
+   * Returns runs from provided list of experiments, that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    Defaults to ACTIVE_ONLY.
+   *
+   * @return a list of all RunInfos that satisfy search filter.
+   */
+  public List<RunInfo> searchRuns(List<Long> experimentIds,
+                                  String searchFilter,
+                                  ViewType runViewType) {
+    SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIds);
+    if (searchFilter != null) {
+      builder.setFilter(searchFilter);
+    }
+    if (runViewType != null) {
+      builder.setRunViewType(runViewType);
+    }
+    SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
     return mapper.toSearchRunsResponse(ojson).getRunsList().stream().map(Run::getInfo)

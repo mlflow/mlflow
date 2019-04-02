@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 import shutil
+import six
 import time
 import unittest
 import uuid
@@ -13,7 +14,9 @@ from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, Lifecyc
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.search_utils import SearchFilter
 from tests.helper_functions import random_int, random_str
 
 
@@ -284,20 +287,33 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
-    def test_get_metric(self):
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_and_value(self):
         fs = FileStore(self.test_root)
-        for exp_id in self.experiments:
-            runs = self.exp_data[exp_id]["runs"]
-            for run_uuid in runs:
-                run_info = self.run_data[run_uuid]
-                metrics_dict = run_info.pop("metrics")
-                for metric_name, values in metrics_dict.items():
-                    # just the last recorded value
-                    timestamp, metric_value = values[-1]
-                    metric = fs.get_metric(run_uuid, metric_name)
-                    self.assertEqual(metric.timestamp, timestamp)
-                    self.assertEqual(metric.key, metric_name)
-                    self.assertEqual(metric.value, metric_value)
+        run_uuid = self._create_run(fs).info.run_uuid
+
+        metric_name = "test-metric-1"
+        timestamp_values_mapping = {
+            1000: [float(i) for i in range(-20, 20)],
+            2000: [float(i) for i in range(-10, 10)],
+        }
+
+        logged_values = []
+        for timestamp, value_range in timestamp_values_mapping.items():
+            for value in reversed(value_range):
+                fs.log_metric(run_uuid, Metric(metric_name, value, timestamp))
+                logged_values.append(value)
+
+        six.assertCountEqual(
+            self,
+            [metric.value for metric in fs.get_metric_history(run_uuid, metric_name)],
+            logged_values)
+
+        run_metrics = fs.get_run(run_uuid).data.metrics
+        assert len(run_metrics) == 1
+        assert run_metrics[0].key == metric_name
+        max_timestamp = max(timestamp_values_mapping)
+        assert run_metrics[0].timestamp == max_timestamp
+        assert run_metrics[0].value == max(timestamp_values_mapping[max_timestamp])
 
     def test_get_all_metrics(self):
         fs = FileStore(self.test_root)
@@ -308,10 +324,9 @@ class TestFileStore(unittest.TestCase):
                 metrics = fs.get_all_metrics(run_uuid)
                 metrics_dict = run_info.pop("metrics")
                 for metric in metrics:
-                    # just the last recorded value
-                    timestamp, metric_value = metrics_dict[metric.key][-1]
-                    self.assertEqual(metric.timestamp, timestamp)
-                    self.assertEqual(metric.value, metric_value)
+                    expected_timestamp, expected_value = max(metrics_dict[metric.key])
+                    self.assertEqual(metric.timestamp, expected_timestamp)
+                    self.assertEqual(metric.value, expected_value)
 
     def test_get_metric_history(self):
         fs = FileStore(self.test_root)
@@ -329,44 +344,92 @@ class TestFileStore(unittest.TestCase):
                         self.assertEqual(metric.key, metric_name)
                         self.assertEqual(metric.value, metric_value)
 
-    def test_get_param(self):
-        fs = FileStore(self.test_root)
-        for exp_id in self.experiments:
-            runs = self.exp_data[exp_id]["runs"]
-            for run_uuid in runs:
-                run_info = self.run_data[run_uuid]
-                params_dict = run_info.pop("params")
-                for param_name, param_value in params_dict.items():
-                    param = fs.get_param(run_uuid, param_name)
-                    self.assertEqual(param.key, param_name)
-                    self.assertEqual(param.value, param_value)
-
     def test_search_runs(self):
         # replace with test with code is implemented
         fs = FileStore(self.test_root)
         # Expect 2 runs for each experiment
-        assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.ACTIVE_ONLY)) \
-            == 2
-        assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.ALL)) \
-            == 2
-        assert len(fs.search_runs([self.experiments[0]], [], run_view_type=ViewType.DELETED_ONLY)) \
-            == 0
+        assert len(fs.search_runs([self.experiments[0]], None, ViewType.ACTIVE_ONLY)) == 2
+        assert len(fs.search_runs([self.experiments[0]], None, ViewType.ALL)) == 2
+        assert len(fs.search_runs([self.experiments[0]], None, ViewType.DELETED_ONLY)) == 0
+
+    def _search_with_filter_string(self, fs, experiment_id, filter_str, run_view_type=ViewType.ALL):
+        search_filter = SearchFilter(filter_string=filter_str)
+        return [r.info.run_uuid
+                for r in fs.search_runs([experiment_id], search_filter, run_view_type)]
+
+    def test_search_tags(self):
+        fs = FileStore(self.test_root)
+        experiment_id = self.experiments[0]
+        r1 = fs.create_run(
+            experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
+            None, [], None).info.run_uuid
+        r2 = fs.create_run(
+            experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
+            None, [], None).info.run_uuid
+
+        fs.set_tag(r1, RunTag('generic_tag', 'p_val'))
+        fs.set_tag(r2, RunTag('generic_tag', 'p_val'))
+
+        fs.set_tag(r1, RunTag('generic_2', 'some value'))
+        fs.set_tag(r2, RunTag('generic_2', 'another value'))
+
+        fs.set_tag(r1, RunTag('p_a', 'abc'))
+        fs.set_tag(r2, RunTag('p_b', 'ABC'))
+
+        # test search returns both runs
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag = 'p_val'"))
+        # test search returns appropriate run (same key different values per run)
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_2 = 'some value'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_2 = 'another value'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag = 'wrong_val'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag != 'p_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag != 'wrong_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_2 != 'wrong_val'"))
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            fs, experiment_id, "tags.p_a = 'abc'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.p_b = 'ABC'"))
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
         fs.log_param(run_uuid, Param(WEIRD_PARAM_NAME, "Value"))
-        param = fs.get_param(run_uuid, WEIRD_PARAM_NAME)
+        run = fs.get_run(run_uuid)
+        my_params = [p for p in run.data.params if p.key == WEIRD_PARAM_NAME]
+        assert len(my_params) == 1
+        param = my_params[0]
         assert param.key == WEIRD_PARAM_NAME
         assert param.value == "Value"
+
+    def test_log_empty_str(self):
+        PARAM_NAME = "new param"
+        fs = FileStore(self.test_root)
+        run_uuid = self.exp_data[0]["runs"][0]
+        fs.log_param(run_uuid, Param(PARAM_NAME, ""))
+        run = fs.get_run(run_uuid)
+        my_params = [p for p in run.data.params if p.key == PARAM_NAME]
+        assert len(my_params) == 1
+        param = my_params[0]
+        assert param.key == PARAM_NAME
+        assert param.value == ""
 
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
         fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234))
-        metric = fs.get_metric(run_uuid, WEIRD_METRIC_NAME)
+        run = fs.get_run(run_uuid)
+        my_metrics = [m for m in run.data.metrics if m.key == WEIRD_METRIC_NAME]
+        assert len(my_metrics) == 1
+        metric = my_metrics[0]
         assert metric.key == WEIRD_METRIC_NAME
         assert metric.value == 10
         assert metric.timestamp == 1234
@@ -425,10 +488,7 @@ class TestFileStore(unittest.TestCase):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run_id = self.exp_data[exp_id]['runs'][0]
         fs.delete_run(run_id)
-
-        run = fs.get_run(run_id)
-        assert fs.get_metric(run_id, run.data.metrics[0].key).value == run.data.metrics[0].value
-        assert fs.get_param(run_id, run.data.params[0].key).value == run.data.params[0].value
+        assert fs.get_run(run_id)
 
     def test_set_deleted_run(self):
         """
@@ -480,7 +540,7 @@ class TestFileStore(unittest.TestCase):
     def test_malformed_run(self):
         fs = FileStore(self.test_root)
         exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
-        all_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        all_runs = fs.search_runs([exp_0.experiment_id], None, ViewType.ALL)
 
         all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
         assert len(all_runs) == len(all_run_ids)
@@ -493,7 +553,7 @@ class TestFileStore(unittest.TestCase):
             fs.get_run(bad_run_id)
             assert e.message.contains("does not exist")
 
-        valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        valid_runs = fs.search_runs([exp_0.experiment_id], None, ViewType.ALL)
         assert len(valid_runs) == len(all_runs) - 1
 
         for rid in all_run_ids:
@@ -525,7 +585,7 @@ class TestFileStore(unittest.TestCase):
     def test_bad_experiment_id_recorded_for_run(self):
         fs = FileStore(self.test_root)
         exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
-        all_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        all_runs = fs.search_runs([exp_0.experiment_id], None, ViewType.ALL)
 
         all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
         assert len(all_runs) == len(all_run_ids)
@@ -541,9 +601,137 @@ class TestFileStore(unittest.TestCase):
             fs.get_run(bad_run_id)
             assert e.message.contains("not found")
 
-        valid_runs = fs.search_runs([exp_0.experiment_id], [], run_view_type=ViewType.ALL)
+        valid_runs = fs.search_runs([exp_0.experiment_id], None, ViewType.ALL)
         assert len(valid_runs) == len(all_runs) - 1
 
         for rid in all_run_ids:
             if rid != bad_run_id:
                 fs.get_run(rid)
+
+    def test_log_batch(self):
+        fs = FileStore(self.test_root)
+        run = fs.create_run(
+            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
+            source_type='source_type', source_name='source_name',
+            entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
+            parent_run_id=None)
+        run_uuid = run.info.run_uuid
+        metric_entities = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
+        param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
+        tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
+        fs.log_batch(
+            run_id=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
+        run = fs.get_run(run_uuid)
+        tags = [(t.key, t.value) for t in run.data.tags]
+        metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]
+        params = [(p.key, p.value) for p in run.data.params]
+        assert set(tags) == set([("t1", "t1val"), ("t2", "t2val")])
+        assert set(metrics) == set([("m1", 0.87, 12345), ("m2", 0.49, 12345)])
+        assert set(params) == set([("p1", "p1val"), ("p2", "p2val")])
+
+    def _create_run(self, fs):
+        return fs.create_run(
+            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
+            source_type='source_type', source_name='source_name',
+            entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
+            parent_run_id=None)
+
+    def _verify_logged(self, fs, run_uuid, metrics, params, tags):
+        run = fs.get_run(run_uuid)
+        all_metrics = sum([fs.get_metric_history(run_uuid, m.key)
+                           for m in run.data.metrics], [])
+        assert len(all_metrics) == len(metrics)
+        logged_metrics = [(m.key, m.value, m.timestamp) for m in all_metrics]
+        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp) for m in metrics])
+        assert len(run.data.tags) == len(tags)
+        logged_tags = [(tag.key, tag.value) for tag in run.data.tags]
+        assert set(logged_tags) == set([(tag.key, tag.value) for tag in tags])
+        assert len(run.data.params) == len(params)
+        logged_params = [(param.key, param.value) for param in run.data.params]
+        assert set(logged_params) == set([(param.key, param.value) for param in params])
+
+    def test_log_batch_internal_error(self):
+        # Verify that internal errors during log_batch result in MlflowExceptions
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+
+        def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
+            raise Exception("Some internal error")
+        with mock.patch("mlflow.store.file_store.FileStore.log_metric") as log_metric_mock, \
+                mock.patch("mlflow.store.file_store.FileStore.log_param") as log_param_mock, \
+                mock.patch("mlflow.store.file_store.FileStore.set_tag") as set_tag_mock:
+            log_metric_mock.side_effect = _raise_exception_fn
+            log_param_mock.side_effect = _raise_exception_fn
+            set_tag_mock.side_effect = _raise_exception_fn
+            for kwargs in [{"metrics": [Metric("a", 3, 1)]}, {"params": [Param("b", "c")]},
+                           {"tags": [RunTag("c", "d")]}]:
+                log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
+                log_batch_kwargs.update(kwargs)
+                print(log_batch_kwargs)
+                with self.assertRaises(MlflowException) as e:
+                    fs.log_batch(run.info.run_uuid, **log_batch_kwargs)
+                self.assertIn(str(e.exception.message), "Some internal error")
+                assert e.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
+
+    def test_log_batch_nonexistent_run(self):
+        fs = FileStore(self.test_root)
+        nonexistent_uuid = uuid.uuid4().hex
+        with self.assertRaises(MlflowException) as e:
+            fs.log_batch(nonexistent_uuid, [], [], [])
+        assert e.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+        assert ("Run '%s' not found" % nonexistent_uuid) in e.exception.message
+
+    def test_log_batch_params_idempotency(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        params = [Param("p-key", "p-val")]
+        fs.log_batch(run.info.run_uuid, metrics=[], params=params, tags=[])
+        fs.log_batch(run.info.run_uuid, metrics=[], params=params, tags=[])
+        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=params, tags=[])
+
+    def test_log_batch_tags_idempotency(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[],
+                            tags=[RunTag("t-key", "t-val")])
+
+    def test_log_batch_allows_tag_overwrite(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "val")])
+        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
+        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[],
+                            tags=[RunTag("t-key", "newval")])
+
+    def test_log_batch_same_metric_repeated_single_req(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        metric0 = Metric(key="metric-key", value=1, timestamp=2)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        fs.log_batch(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+
+    def test_log_batch_same_metric_repeated_multiple_reqs(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        metric0 = Metric(key="metric-key", value=1, timestamp=2)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        fs.log_batch(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
+        self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0], tags=[])
+        fs.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])
+        self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+
+    def test_log_batch_allows_tag_overwrite_single_req(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        tags = [RunTag("t-key", "val"), RunTag("t-key", "newval")]
+        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=tags)
+        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[], tags=[tags[-1]])
+
+    def test_log_batch_accepts_empty_payload(self):
+        fs = FileStore(self.test_root)
+        run = self._create_run(fs)
+        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[])
+        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[], tags=[])

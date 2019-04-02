@@ -3,6 +3,7 @@ context("Model")
 library("keras")
 
 test_that("mlflow can save keras model ", {
+  PATH <- Sys.getenv("PATH", "") # keras package modifies PATH which breaks other tests
   mlflow_clear_test_dir("model")
   model <- keras_model_sequential() %>%
   layer_dense(units = 8, activation = "relu", input_shape = dim(iris)[2] - 1) %>%
@@ -17,14 +18,11 @@ test_that("mlflow can save keras model ", {
   model %>% fit(train_x, train_y, epochs = 1)
   model %>% mlflow_save_model("model")
   expect_true(dir.exists("model"))
-
   detach("package:keras", unload = TRUE)
-
   model_reloaded <- mlflow_load_model("model")
-
   expect_equal(
     predict(model, train_x),
     predict(model_reloaded, train_x),
-    mlflow_predict_flavor(model_reloaded, iris[, 1:4])
-  )
+    mlflow_predict_flavor(model_reloaded, iris[, 1:4]))
+  Sys.setenv(PATH = PATH)
 })
