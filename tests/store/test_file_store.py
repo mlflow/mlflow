@@ -436,7 +436,7 @@ class TestFileStore(unittest.TestCase):
         assert metric.timestamp == 1234
 
     def test_weird_tag_names(self):
-        WEIRD_TAG_NAME = os.path.norm_path("this is/a weird/but valid tag")
+        WEIRD_TAG_NAME = os.path.normpath("this is/a weird/but valid tag")
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
         fs.set_tag(run_uuid, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
