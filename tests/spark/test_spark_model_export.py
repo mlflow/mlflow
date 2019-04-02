@@ -146,6 +146,7 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     assert spark_model_iris.predictions == preds3
     assert os.path.exists(sparkm.DFS_TMP)
 
+
 # TODO(czumar): Remark this test as "large" instead of "release" after SageMaker docker
 # container build issues have been debugged
 # @pytest.mark.large
