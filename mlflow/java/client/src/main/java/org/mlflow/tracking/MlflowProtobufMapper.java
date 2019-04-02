@@ -89,9 +89,10 @@ class MlflowProtobufMapper {
   }
 
   List<Metric> makeMetricList(Map<String, Double> metrics) {
+    long timestamp = System.currentTimeMillis();
     List<Metric> metricList = new ArrayList<>();
     for (Map.Entry<String, Double> entry: metrics.entrySet()) {
-      metricList.add(createMetric(entry.getKey(), entry.getValue(), System.currentTimeMillis()));
+      metricList.add(createMetric(entry.getKey(), entry.getValue(), timestamp));
     }
     return metricList;
   }
