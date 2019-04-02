@@ -81,9 +81,9 @@ script:
   - pip list
   - which mlflow
   - echo $MLFLOW_HOME
-  - SAGEMAKER_OUT=$(mktemp)
   # TODO(czumar): Re-enable container building and associated SageMaker tests once the container
   # build process is no longer hanging
+  # - SAGEMAKER_OUT=$(mktemp)
   # - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
   #     echo "Sagemaker container build succeeded.";
   #   else
