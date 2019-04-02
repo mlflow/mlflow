@@ -37,21 +37,23 @@ class RunPage extends Component {
           requestIds={[this.state.getRunRequestId,
             this.state.listArtifactRequestId,
             this.state.getExperimentRequestId]}
-          errorRenderFunc={(requests) => {
-            const getRunRequest = Utils.getRequestWithId(requests, this.state.getRunRequestId);
-            if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
-              return <RunNotFoundView runId={this.props.runUuid}/>;
-            }
-            return undefined;
-          }}
         >
-          <RunView
-            runUuid={this.props.runUuid}
-            getMetricPagePath={
-              (key) => Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
+          {(isLoading, shouldRenderError, requests) => {
+            if (shouldRenderError) {
+              const getRunRequest = Utils.getRequestWithId(requests, this.state.getRunRequestId);
+              if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
+                return <RunNotFoundView runId={this.props.runUuid}/>;
+              }
+              return undefined;
             }
-            experimentId={this.props.experimentId}
-          />
+            return <RunView
+              runUuid={this.props.runUuid}
+              getMetricPagePath={(key) =>
+                Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
+              }
+              experimentId={this.props.experimentId}
+            />;
+          }}
         </RequestStateWrapper>
       </div>
     );

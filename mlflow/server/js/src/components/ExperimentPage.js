@@ -7,12 +7,12 @@ import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
 import KeyFilter from '../utils/KeyFilter';
 import { ViewType } from '../sdk/MlflowEnums';
-import { SearchUtils } from "../utils/SearchUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentPagePersistedState } from "../sdk/MlflowLocalStorageMessages";
 import Utils from "../utils/Utils";
 import ErrorCodes from "../sdk/ErrorCodes";
 import PermissionDeniedView from "./PermissionDeniedView";
+import {Spinner} from "./Spinner";
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 
@@ -88,7 +88,7 @@ class ExperimentPage extends Component {
       props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
       props.dispatch(searchRunsApi(
         [props.experimentId],
-        SearchUtils.parseSearchInput(newState.persistedState.searchInput),
+        newState.persistedState.searchInput,
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
         newState.searchRunsRequestId));
       return newState;
@@ -97,7 +97,6 @@ class ExperimentPage extends Component {
   }
 
   onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
-    const andedExpressions = SearchUtils.parseSearchInput(searchInput);
     this.setState({
       persistedState: new ExperimentPagePersistedState({
         paramKeyFilterString,
@@ -107,35 +106,47 @@ class ExperimentPage extends Component {
       lifecycleFilter: lifecycleFilterInput,
     });
     const searchRunsRequestId = this.props.dispatchSearchRuns(
-      this.props.experimentId, andedExpressions, lifecycleFilterInput);
+      this.props.experimentId, searchInput, lifecycleFilterInput);
     this.setState({ searchRunsRequestId });
   }
 
   render() {
     return (
       <div className="ExperimentPage runs-table-flex-container" style={{height: "100%"}}>
-        <RequestStateWrapper
-          requestIds={this.getRequestIds()}
-          errorRenderFunc={(requests) => {
+        <RequestStateWrapper shouldOptimisticallyRender requestIds={this.getRequestIds()}>
+          {(isLoading, shouldRenderError, requests) => {
+            let searchRunsError;
             const getExperimentRequest = Utils.getRequestWithId(
               requests, this.state.getExperimentRequestId);
-            if (getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
-              return (<PermissionDeniedView
-                errorMessage={getExperimentRequest.error.xhr.responseJSON.message}
-              />);
+            if (shouldRenderError) {
+              const searchRunsRequest = Utils.getRequestWithId(
+                requests, this.state.searchRunsRequestId);
+              if (searchRunsRequest.error) {
+                searchRunsError = searchRunsRequest.error.getMessageField();
+              } else if (getExperimentRequest.error.getErrorCode() ===
+                  ErrorCodes.PERMISSION_DENIED) {
+                return (<PermissionDeniedView
+                  errorMessage={getExperimentRequest.error.xhr.responseJSON.message}
+                />);
+              } else {
+                return undefined;
+              }
             }
-            return undefined;
+            if (getExperimentRequest.active) {
+              return <Spinner/>;
+            }
+            return <ExperimentView
+              paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
+              metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
+              experimentId={this.props.experimentId}
+              searchRunsRequestId={this.state.searchRunsRequestId}
+              lifecycleFilter={this.state.lifecycleFilter}
+              onSearch={this.onSearch}
+              searchRunsError={searchRunsError}
+              searchInput={this.state.persistedState.searchInput}
+              isLoading={isLoading && !searchRunsError}
+            />;
           }}
-        >
-          <ExperimentView
-            paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
-            metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
-            experimentId={this.props.experimentId}
-            searchRunsRequestId={this.state.searchRunsRequestId}
-            lifecycleFilter={this.state.lifecycleFilter}
-            onSearch={this.onSearch}
-            searchInput={this.state.persistedState.searchInput}
-          />
         </RequestStateWrapper>
       </div>
     );
@@ -149,9 +160,9 @@ class ExperimentPage extends Component {
 const mapDispatchToProps = (dispatch) => {
   return {
     dispatch,
-    dispatchSearchRuns: (experimentId, andedExpressions, lifecycleFilterInput) => {
+    dispatchSearchRuns: (experimentId, filter, lifecycleFilterInput) => {
       const requestId = getUUID();
-      dispatch(searchRunsApi([experimentId], andedExpressions,
+      dispatch(searchRunsApi([experimentId], filter,
         lifecycleFilterToRunViewType(lifecycleFilterInput), requestId));
       return requestId;
     }
