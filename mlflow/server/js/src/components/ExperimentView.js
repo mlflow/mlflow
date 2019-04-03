@@ -617,7 +617,7 @@ export class ExperimentView extends Component {
     if (str === undefined) {
       return "";
     }
-    if (/[,"\r\n]/.test(str)) {
+    if ((/[,"\r\n]/).test(str)) {
       return '"' + str.replace(/"/g, '""') + '"';
     }
     return str;
