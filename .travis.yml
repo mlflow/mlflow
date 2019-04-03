@@ -33,10 +33,7 @@ matrix:
         - mvn clean package -q
     - language: node_js
       node_js:
-      # Pin NodeJS: to v10.6 to mitigate https://github.com/facebook/create-react-app/issues/6591
-      # Should eventually change back to "node" to use the latest node version as peer
-      # https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
-        - "10.6"
+        - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
       install:
       script:
         - cd mlflow/server/js
@@ -84,21 +81,24 @@ script:
   - pip list
   - which mlflow
   - echo $MLFLOW_HOME
-  - SAGEMAKER_OUT=$(mktemp)
-  - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
-      echo "Sagemaker container build succeeded.";
-    else
-      echo "Sagemaker container build failed, output:";
-      cat $SAGEMAKER_OUT;
-    fi
+  # TODO(czumar): Re-enable container building and associated SageMaker tests once the container
+  # build process is no longer hanging
+  # - SAGEMAKER_OUT=$(mktemp)
+  # - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
+  #     echo "Sagemaker container build succeeded.";
+  #   else
+  #     echo "Sagemaker container build failed, output:";
+  #     cat $SAGEMAKER_OUT;
+  #   fi
   # Run tests that don't leverage specific ML frameworks
   - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
-    --ignore=tests/pytorch --ignore=tests/pyfunc--ignore=tests/sagemaker --ignore=tests/sklearn
+    --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn
     --ignore=tests/spark --ignore=tests/tensorflow
   # Run ML framework tests in their own Python processes. TODO: find a better method of isolating
   # tests.
   - pytest --verbose tests/h2o --large
-  - pytest --verbose tests/keras --large
+  # TODO(smurching): Re-enable Keras tests once they're no longer flaky
+  # - pytest --verbose tests/keras --large
   - pytest --verbose tests/pytorch --large
   - pytest --verbose tests/pyfunc --large
   - pytest --verbose tests/sagemaker --large

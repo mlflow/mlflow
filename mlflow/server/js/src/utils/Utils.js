@@ -4,7 +4,6 @@ import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
-import queryString from 'query-string';
 
 class Utils {
   /**
@@ -164,17 +163,14 @@ class Utils {
   }
 
   /**
-   * Adds the provided query params to the passed-in URL, returning the resulting URL
+   * Returns a copy of the provided URL with its query parameters set to `queryParams`.
    * @param url URL string like "http://my-mlflow-server.com/#/experiments/9.
    * @param queryParams Optional query parameter string like "?param=12345". Query params provided
    *        via this string will override existing query param values in `url`
    */
-  static addQueryParams(url, queryParams) {
+  static setQueryParams(url, queryParams) {
     const urlObj = new URL(url);
-    const queryParamString = queryParams || "";
-    for (const [paramKey, paramVal] of Object.entries(queryString.parse(queryParamString))) {
-      urlObj.searchParams.set(paramKey, paramVal);
-    }
+    urlObj.search = queryParams || "";
     return urlObj.toString();
   }
 
@@ -198,7 +194,7 @@ class Utils {
       const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
       const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
       if (notebookId) {
-        let url = Utils.addQueryParams(window.location.origin, queryParams);
+        let url = Utils.setQueryParams(window.location.origin, queryParams);
         url += `#notebook/${notebookId}`;
         if (revisionId) {
           url += `/revision/${revisionId}`;

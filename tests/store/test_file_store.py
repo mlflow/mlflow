@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import os
 import shutil
+import six
 import time
 import unittest
 import uuid
@@ -15,6 +16,7 @@ from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
+from mlflow.utils.search_utils import SearchFilter
 from tests.helper_functions import random_int, random_str
 
 
@@ -285,6 +287,34 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_and_value(self):
+        fs = FileStore(self.test_root)
+        run_uuid = self._create_run(fs).info.run_uuid
+
+        metric_name = "test-metric-1"
+        timestamp_values_mapping = {
+            1000: [float(i) for i in range(-20, 20)],
+            2000: [float(i) for i in range(-10, 10)],
+        }
+
+        logged_values = []
+        for timestamp, value_range in timestamp_values_mapping.items():
+            for value in reversed(value_range):
+                fs.log_metric(run_uuid, Metric(metric_name, value, timestamp))
+                logged_values.append(value)
+
+        six.assertCountEqual(
+            self,
+            [metric.value for metric in fs.get_metric_history(run_uuid, metric_name)],
+            logged_values)
+
+        run_metrics = fs.get_run(run_uuid).data.metrics
+        assert len(run_metrics) == 1
+        assert run_metrics[0].key == metric_name
+        max_timestamp = max(timestamp_values_mapping)
+        assert run_metrics[0].timestamp == max_timestamp
+        assert run_metrics[0].value == max(timestamp_values_mapping[max_timestamp])
+
     def test_get_all_metrics(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
@@ -294,10 +324,9 @@ class TestFileStore(unittest.TestCase):
                 metrics = fs.get_all_metrics(run_uuid)
                 metrics_dict = run_info.pop("metrics")
                 for metric in metrics:
-                    # just the last recorded value
-                    timestamp, metric_value = metrics_dict[metric.key][-1]
-                    self.assertEqual(metric.timestamp, timestamp)
-                    self.assertEqual(metric.value, metric_value)
+                    expected_timestamp, expected_value = max(metrics_dict[metric.key])
+                    self.assertEqual(metric.timestamp, expected_timestamp)
+                    self.assertEqual(metric.value, expected_value)
 
     def test_get_metric_history(self):
         fs = FileStore(self.test_root)
@@ -322,6 +351,51 @@ class TestFileStore(unittest.TestCase):
         assert len(fs.search_runs([self.experiments[0]], None, ViewType.ACTIVE_ONLY)) == 2
         assert len(fs.search_runs([self.experiments[0]], None, ViewType.ALL)) == 2
         assert len(fs.search_runs([self.experiments[0]], None, ViewType.DELETED_ONLY)) == 0
+
+    def _search_with_filter_string(self, fs, experiment_id, filter_str, run_view_type=ViewType.ALL):
+        search_filter = SearchFilter(filter_string=filter_str)
+        return [r.info.run_uuid
+                for r in fs.search_runs([experiment_id], search_filter, run_view_type)]
+
+    def test_search_tags(self):
+        fs = FileStore(self.test_root)
+        experiment_id = self.experiments[0]
+        r1 = fs.create_run(
+            experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
+            None, [], None).info.run_uuid
+        r2 = fs.create_run(
+            experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
+            None, [], None).info.run_uuid
+
+        fs.set_tag(r1, RunTag('generic_tag', 'p_val'))
+        fs.set_tag(r2, RunTag('generic_tag', 'p_val'))
+
+        fs.set_tag(r1, RunTag('generic_2', 'some value'))
+        fs.set_tag(r2, RunTag('generic_2', 'another value'))
+
+        fs.set_tag(r1, RunTag('p_a', 'abc'))
+        fs.set_tag(r2, RunTag('p_b', 'ABC'))
+
+        # test search returns both runs
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag = 'p_val'"))
+        # test search returns appropriate run (same key different values per run)
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_2 = 'some value'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_2 = 'another value'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag = 'wrong_val'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag != 'p_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_tag != 'wrong_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.generic_2 != 'wrong_val'"))
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            fs, experiment_id, "tags.p_a = 'abc'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            fs, experiment_id, "tags.p_b = 'ABC'"))
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"

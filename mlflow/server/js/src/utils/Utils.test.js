@@ -163,9 +163,9 @@ test("formatSource & renderSource", () => {
 });
 
 test("addQueryParams", () => {
-  expect(Utils.addQueryParams("http://localhost/foo", "?o=123")).toEqual("http://localhost/foo?o=123");
-  expect(Utils.addQueryParams("http://localhost/foo?param=val", "?o=123")).toEqual("http://localhost/foo?param=val&o=123");
-  expect(Utils.addQueryParams("http://localhost/foo?param=val", "?param=newval")).toEqual("http://localhost/foo?param=newval");
+  expect(Utils.setQueryParams("http://localhost/foo", "?o=123")).toEqual("http://localhost/foo?o=123");
+  expect(Utils.setQueryParams("http://localhost/foo?param=val", "?o=123")).toEqual("http://localhost/foo?o=123");
+  expect(Utils.setQueryParams("http://localhost/foo?param=val", "?param=newval")).toEqual("http://localhost/foo?param=newval");
 });
 
 test("dropExtension", () => {

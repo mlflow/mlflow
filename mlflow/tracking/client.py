@@ -9,6 +9,7 @@ import time
 from six import iteritems
 
 from mlflow.tracking import utils
+from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
     _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
@@ -34,7 +35,20 @@ class MlflowClient(object):
         self.store = utils._get_store(self.tracking_uri)
 
     def get_run(self, run_id):
-        """:return: :py:class:`mlflow.entities.Run` associated with the run ID."""
+        """
+        Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
+        contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
+        as well as a collection of run parameters, tags, and metrics -
+        :py:class`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
+        same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
+        the value at the latest timestamp for each metric. If there are multiple values with the
+        latest timestamp for a given metric, the maximum of these values is returned.
+
+        :param run_uuid: Unique identifier for the run.
+
+        :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
+                 raises an exception.
+        """
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
@@ -260,6 +274,20 @@ class MlflowClient(object):
         Restores a deleted run with the given ID.
         """
         self.store.restore_run(run_id)
+
+    def search_runs(self, experiment_ids, filter_string, run_view_type=ViewType.ACTIVE_ONLY):
+        """
+        Search experiments that fit the search criteria.
+
+        :param experiment_ids: List of experiment IDs
+        :param filter_string: Filter query string.
+        :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+                              defined in :py:class:`mlflow.entities.ViewType`.
+        :return:
+        """
+        return self.store.search_runs(experiment_ids=experiment_ids,
+                                      search_filter=SearchFilter(filter_string=filter_string),
+                                      run_view_type=run_view_type)
 
 
 def _get_user_id():

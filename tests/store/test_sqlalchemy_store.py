@@ -421,18 +421,33 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(2, len(sql_run_metrics))
             self.assertEqual(1, len(run.data.metrics))
 
-    def test_log_metric_uniqueness(self):
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_and_value(self):
         run = self._run_factory()
 
-        tkey = 'blahmetric'
-        tval = 100.0
-        metric = entities.Metric(tkey, tval, int(time.time()))
-        metric2 = entities.Metric(tkey, 1.02, int(time.time()))
-        self.store.log_metric(run.info.run_uuid, metric)
+        metric_name = "test-metric-1"
+        timestamp_values_mapping = {
+            1000: [float(i) for i in range(-20, 20)],
+            2000: [float(i) for i in range(-10, 10)],
+        }
 
-        with self.assertRaises(MlflowException) as e:
-            self.store.log_metric(run.info.run_uuid, metric2)
-        self.assertIn("must be unique. Metric already logged value", e.exception.message)
+        logged_values = []
+        for timestamp, value_range in timestamp_values_mapping.items():
+            for value in reversed(value_range):
+                self.store.log_metric(run.info.run_uuid, Metric(metric_name, value, timestamp))
+                logged_values.append(value)
+
+        six.assertCountEqual(
+            self,
+            [metric.value for metric in
+             self.store.get_metric_history(run.info.run_uuid, metric_name)],
+            logged_values)
+
+        run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
+        assert len(run_metrics) == 1
+        assert run_metrics[0].key == metric_name
+        max_timestamp = max(timestamp_values_mapping)
+        assert run_metrics[0].timestamp == max_timestamp
+        assert run_metrics[0].value == max(timestamp_values_mapping[max_timestamp])
 
     def test_log_null_metric(self):
         run = self._run_factory()
@@ -441,8 +456,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = None
         metric = entities.Metric(tkey, tval, int(time.time()))
 
-        with self.assertRaises(MlflowException) as exception_context:
+        warnings.simplefilter("ignore")
+        with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
             self.store.log_metric(run.info.run_uuid, metric)
+            warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     def test_log_param(self):
@@ -674,7 +691,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         search_runs = SearchRuns()
         search_runs.anded_expressions.extend(metrics_expressions or [])
         search_runs.anded_expressions.extend(param_expressions or [])
-        search_filter = SearchFilter(search_runs)
+        search_filter = SearchFilter(anded_expressions=search_runs.anded_expressions)
+        return [r.info.run_uuid
+                for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
+
+    def _search_with_filter_string(self, experiment_id, filter_str, run_view_type=ViewType.ALL):
+        search_filter = SearchFilter(filter_string=filter_str)
         return [r.info.run_uuid
                 for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
 
@@ -753,6 +775,41 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         expr = self._param_expression("p_b", "=", "ABC")
         six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+
+    def test_search_tags(self):
+        experiment_id = self._experiment_factory('search_tags')
+        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
+        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_uuid
+
+        self.store.set_tag(r1, entities.RunTag('generic_tag', 'p_val'))
+        self.store.set_tag(r2, entities.RunTag('generic_tag', 'p_val'))
+
+        self.store.set_tag(r1, entities.RunTag('generic_2', 'some value'))
+        self.store.set_tag(r2, entities.RunTag('generic_2', 'another value'))
+
+        self.store.set_tag(r1, entities.RunTag('p_a', 'abc'))
+        self.store.set_tag(r2, entities.RunTag('p_b', 'ABC'))
+
+        # test search returns both runs
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            experiment_id, "tags.generic_tag = 'p_val'"))
+        # test search returns appropriate run (same key different values per run)
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            experiment_id, "tags.generic_2 = 'some value'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            experiment_id, "tags.generic_2 = 'another value'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            experiment_id, "tags.generic_tag = 'wrong_val'"))
+        six.assertCountEqual(self, [], self._search_with_filter_string(
+            experiment_id, "tags.generic_tag != 'p_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            experiment_id, "tags.generic_tag != 'wrong_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
+            experiment_id, "tags.generic_2 != 'wrong_val'"))
+        six.assertCountEqual(self, [r1], self._search_with_filter_string(
+            experiment_id, "tags.p_a = 'abc'"))
+        six.assertCountEqual(self, [r2], self._search_with_filter_string(
+            experiment_id, "tags.p_b = 'ABC'"))
 
     def test_search_metrics(self):
         experiment_id = self._experiment_factory('search_params')
@@ -970,10 +1027,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 self.assertIn(str(e.exception.message), "Some internal error")
 
     def test_log_batch_nonexistent_run(self):
+        nonexistent_run_uuid = uuid.uuid4().hex
         with self.assertRaises(MlflowException) as e:
-            self.store.log_batch("bad-run-uuid", [], [], [])
+            self.store.log_batch(nonexistent_run_uuid, [], [], [])
         assert e.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-        assert "Run with id=bad-run-uuid not found" in e.exception.message
+        assert "Run with id=%s not found" % nonexistent_run_uuid in e.exception.message
 
     def test_log_batch_params_idempotency(self):
         run = self._run_factory()

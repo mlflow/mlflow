@@ -58,7 +58,11 @@ def spark_context():
              value='ml.combust.mleap:mleap-spark-base_2.11:0.12.0,'
                    'ml.combust.mleap:mleap-spark_2.11:0.12.0')
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    sc = pyspark.SparkContext(master="local-cluster[2, 1, 1024]", conf=conf).getOrCreate()
+    spark = pyspark.sql.SparkSession.builder\
+        .config(conf=conf)\
+        .master("local-cluster[2, 1, 1024]")\
+        .getOrCreate()
+    sc = spark.sparkContext
     return sc
 
 
@@ -147,7 +151,10 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     assert os.path.exists(sparkm.DFS_TMP)
 
 
-@pytest.mark.large
+# TODO(czumar): Remark this test as "large" instead of "release" after SageMaker docker
+# container build issues have been debugged
+# @pytest.mark.large
+@pytest.mark.release
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_custom_env,
@@ -327,10 +334,11 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
-    sparkm.log_model(spark_model=spark_model_iris.model,
-                     sample_input=spark_model_iris.spark_df,
-                     artifact_path=artifact_path)
-    rid = active_run().info.run_uuid
+    with mlflow.start_run():
+        rid = active_run().info.run_uuid
+        sparkm.log_model(spark_model=spark_model_iris.model,
+                         sample_input=spark_model_iris.spark_df,
+                         artifact_path=artifact_path)
     model_path = _get_model_log_dir(model_name=artifact_path, run_id=rid)
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
