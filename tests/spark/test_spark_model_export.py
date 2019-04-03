@@ -331,16 +331,16 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
-    sparkm.log_model(spark_model=spark_model_iris.model,
-                     sample_input=spark_model_iris.spark_df,
-                     artifact_path=artifact_path)
-    rid = active_run().info.run_uuid
+    with mlflow.start_run():
+        rid = active_run().info.run_uuid
+        sparkm.log_model(spark_model=spark_model_iris.model,
+                         sample_input=spark_model_iris.spark_df,
+                         artifact_path=artifact_path)
     model_path = _get_model_log_dir(model_name=artifact_path, run_id=rid)
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in mlflow_model.flavors
     assert mleap.FLAVOR_NAME in mlflow_model.flavors
-    mlflow.end_run()
 
 
 def test_mleap_output_json_format(spark_model_iris, model_path):
