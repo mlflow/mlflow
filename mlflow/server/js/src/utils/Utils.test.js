@@ -144,7 +144,7 @@ test("formatSource & renderSource", () => {
   };
   const wrapper = shallow(Utils.renderSource(databricksRun, databricksRunTags));
   expect(wrapper.is("a")).toEqual(true);
-  expect(wrapper.props().href).toEqual("../#notebook/13");
+  expect(wrapper.props().href).toEqual("http://localhost/#notebook/13");
 
   const databricksRunRevisionTags = {
     "mlflow.databricks.notebookRevisionID": { value: "42" },
@@ -153,7 +153,19 @@ test("formatSource & renderSource", () => {
   };
   const wrapper2 = shallow(Utils.renderSource(databricksRun, databricksRunRevisionTags));
   expect(wrapper2.is("a")).toEqual(true);
-  expect(wrapper2.props().href).toEqual("../#notebook/13/revision/42");
+  expect(wrapper2.props().href).toEqual("http://localhost/#notebook/13/revision/42");
+
+  const wrapper3 = shallow(Utils.renderSource(databricksRun, databricksRunRevisionTags, "?o=123"));
+  expect(wrapper3.is("a")).toEqual(true);
+  // Query params must appear before the hash, see https://tools.ietf.org/html/rfc3986#section-4.2
+  // and https://stackoverflow.com/a/34772568
+  expect(wrapper3.props().href).toEqual("http://localhost/?o=123#notebook/13/revision/42");
+});
+
+test("addQueryParams", () => {
+  expect(Utils.setQueryParams("http://localhost/foo", "?o=123")).toEqual("http://localhost/foo?o=123");
+  expect(Utils.setQueryParams("http://localhost/foo?param=val", "?o=123")).toEqual("http://localhost/foo?o=123");
+  expect(Utils.setQueryParams("http://localhost/foo?param=val", "?param=newval")).toEqual("http://localhost/foo?param=newval");
 });
 
 test("dropExtension", () => {

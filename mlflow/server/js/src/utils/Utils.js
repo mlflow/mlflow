@@ -163,11 +163,24 @@ class Utils {
   }
 
   /**
+   * Returns a copy of the provided URL with its query parameters set to `queryParams`.
+   * @param url URL string like "http://my-mlflow-server.com/#/experiments/9.
+   * @param queryParams Optional query parameter string like "?param=12345". Query params provided
+   *        via this string will override existing query param values in `url`
+   */
+  static setQueryParams(url, queryParams) {
+    const urlObj = new URL(url);
+    urlObj.search = queryParams || "";
+    return urlObj.toString();
+  }
+
+  /**
    * Renders the source name and entry point into an HTML element. Used for display.
    * @param run MlflowMessages.RunInfo
    * @param tags Object containing tag key value pairs.
+   * @param queryParams Query params to add to certain source type links.
    */
-  static renderSource(run, tags) {
+  static renderSource(run, tags, queryParams) {
     let res = Utils.formatSource(run);
     if (run.source_type === "PROJECT") {
       const url = Utils.getGitRepoUrl(run.source_name);
@@ -181,7 +194,8 @@ class Utils {
       const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
       const notebookId = tags && tags[notebookIdTag] && tags[notebookIdTag].value;
       if (notebookId) {
-        let url = `../#notebook/${notebookId}`;
+        let url = Utils.setQueryParams(window.location.origin, queryParams);
+        url += `#notebook/${notebookId}`;
         if (revisionId) {
           url += `/revision/${revisionId}`;
         }
