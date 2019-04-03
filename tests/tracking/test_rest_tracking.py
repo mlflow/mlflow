@@ -72,6 +72,7 @@ def init_and_tear_down_server(request):
     Once per run of the entire set of tests, we create a new server, and
     clean it up at the end.
     """
+    mlflow.set_tracking_uri(None)
     global SERVER_PORT
     SERVER_PORT = _get_safe_port()
     file_store_path = tempfile.mkdtemp("test_rest_tracking_file_store")
