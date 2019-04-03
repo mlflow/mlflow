@@ -12,6 +12,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
+import java.lang.Iterable;
 import java.util.Map;
 import java.lang.Iterable;
 import java.util.Optional;
@@ -114,7 +115,7 @@ public class MlflowClient {
   }
 
   /**
-   * @return  a list of all RunInfos associated with the given experiment.
+   * @return a list of all RunInfos associated with the given experiment.
    */
   public List<RunInfo> listRunInfos(long experimentId) {
     List<Long> experimentIds = new ArrayList<>();
