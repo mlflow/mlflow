@@ -40,18 +40,12 @@ class RunData(_MLflowObject):
         return self._tags
 
     def _add_metric(self, metric):
-        if isinstance(metric, dict):
-            metric = Metric(metric['key'], metric['value'], metric['timestamp'])
         self._metrics[metric.key] = metric
 
     def _add_param(self, param):
-        if isinstance(param, dict):
-            param = Param(param['key'], param['value'])
         self._params[param.key] = param.value
 
     def _add_tag(self, tag):
-        if isinstance(tag, dict):
-            tag = RunTag(tag['key'], tag['value'])
         self._tags[tag.key] = tag.value
 
     def to_proto(self):
@@ -85,6 +79,11 @@ class RunData(_MLflowObject):
     def from_dictionary(cls, the_dict):
         run_data = cls()
         for m_obj in the_dict.get("metrics", {}).values():
+            # Handle dicts since the "metrics" dictionary might either be a map of metric keys
+            # to Metric objects (generated via dict(run_data)) or a map of metric keys to dicts
+            # representing metric objects (generated via run_data.to_dictionary())
+            if isinstance(m_obj, dict):
+                m_obj = Metric(m_obj['key'], m_obj['value'], m_obj['timestamp'])
             run_data._add_metric(m_obj)
         run_data._params = the_dict.get("params", {})
         run_data._tags = the_dict.get("tags", [])
