@@ -1,5 +1,4 @@
 from __future__ import print_function
-import copy
 import filecmp
 import os
 import random
@@ -12,7 +11,7 @@ import pytest
 
 import mlflow
 from mlflow import tracking
-from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
+from mlflow.entities import Experiment, RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
@@ -403,11 +402,11 @@ def test_start_run_exp_id_0(tracking_uri_mock, reset_active_experiment):
     # Create a run and verify that the current active experiment is the one we just set
     with mlflow.start_run() as active_run:
         exp_id = active_run.info.experiment_id
-        assert exp_id != 0
+        assert exp_id != Experiment.DEFAULT_EXPERIMENT_ID
         assert MlflowClient().get_experiment(exp_id).name == "some-experiment"
     # Set experiment ID to 0 when creating a run, verify that the specified experiment ID is honored
     with mlflow.start_run(experiment_id=0) as active_run:
-        assert active_run.info.experiment_id == 0
+        assert active_run.info.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
 
 
 def test_get_artifact_uri_with_artifact_path_unspecified_returns_artifact_root_dir():

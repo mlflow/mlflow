@@ -7,7 +7,7 @@ import mock
 from six.moves import reload_module as reload
 
 import mlflow
-from mlflow.entities import Experiment, LifecycleStage, SourceType
+from mlflow.entities import LifecycleStage, SourceType
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 import mlflow.tracking.fluent
@@ -95,8 +95,8 @@ def test_get_experiment_id_with_active_experiment_returns_active_experiment_id()
         assert _get_experiment_id() == exp_id
 
 
-def test_get_experiment_id_with_no_active_experiments_returns_default_experiment_id():
-    assert _get_experiment_id() == Experiment.DEFAULT_EXPERIMENT_ID
+def test_get_experiment_id_with_no_active_experiments_returns_none():
+    assert _get_experiment_id() is None
 
 
 def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
@@ -114,7 +114,7 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
         exp_name = "random experiment %d" % random.randint(1, 1e6)
         exp_id = mlflow.create_experiment(exp_name)
         mlflow.set_experiment(exp_name)
-        notebook_id = exp_id + 73
+        notebook_id = str(int(exp_id) + 73)
 
     with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook") as notebook_detection_mock,\
             mock.patch("mlflow.tracking.fluent.get_notebook_id") as notebook_id_mock:
@@ -129,7 +129,7 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
     with TempDir(chdr=True):
         exp_name = "random experiment %d" % random.randint(1, 1e6)
         exp_id = mlflow.create_experiment(exp_name)
-        notebook_id = exp_id + 73
+        notebook_id = str(int(exp_id) + 73)
         HelperEnv.set_values(id=exp_id)
 
     with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook") as notebook_detection_mock,\
@@ -153,7 +153,7 @@ def is_from_run(active_run, run):
 
 def test_start_run_defaults(empty_active_run_stack):
 
-    mock_experiment_id = mock.Mock()
+    mock_experiment_id = str(mock.Mock())
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
@@ -193,7 +193,7 @@ def test_start_run_defaults(empty_active_run_stack):
 
 def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
 
-    mock_experiment_id = mock.Mock()
+    mock_experiment_id = str(mock.Mock())
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
@@ -247,7 +247,7 @@ def test_start_run_overrides(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    mock_experiment_id = mock.Mock()
+    mock_experiment_id = str(mock.Mock())
     mock_source_name = mock.Mock()
     source_type = SourceType.JOB
     mock_source_version = mock.Mock()
@@ -295,7 +295,7 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
         "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
 
-    mock_experiment_id = mock.Mock()
+    mock_experiment_id = str(mock.Mock())
     mock_source_name = mock.Mock()
     source_type = SourceType.JOB
     mock_source_version = mock.Mock()
@@ -338,7 +338,7 @@ def test_start_run_with_parent():
         "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
     )
 
-    mock_experiment_id = mock.Mock()
+    mock_experiment_id = str(mock.Mock())
     mock_source_name = mock.Mock()
     source_type = SourceType.JOB
     mock_source_version = mock.Mock()

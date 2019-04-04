@@ -115,7 +115,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         table = SqlExperiment.__tablename__
         default_experiment = {
-            SqlExperiment.experiment_id.name: Experiment.DEFAULT_EXPERIMENT_ID,
+            SqlExperiment.experiment_id.name: int(Experiment.DEFAULT_EXPERIMENT_ID),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: self._get_artifact_location(0),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE
@@ -190,7 +190,8 @@ class SqlAlchemyStore(AbstractStore):
         conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
 
         if ids and len(ids) > 0:
-            conditions.append(SqlExperiment.experiment_id.in_(ids))
+            int_ids = [int(id) for id in ids]
+            conditions.append(SqlExperiment.experiment_id.in_(int_ids))
 
         if names and len(names) > 0:
             conditions.append(SqlExperiment.name.in_(names))

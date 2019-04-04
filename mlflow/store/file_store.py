@@ -65,6 +65,7 @@ class FileStore(AbstractStore):
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
+        if not exists(os.path.join(self.root_directory, Experiment.DEFAULT_EXPERIMENT_ID)):
             self._create_experiment_with_id(name=Experiment.DEFAULT_EXPERIMENT_NAME,
                                             experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
                                             artifact_uri=None)
@@ -88,7 +89,7 @@ class FileStore(AbstractStore):
         if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
             parents.append(self.trash_folder)
         for parent in parents:
-            exp_list = find(parent, str(experiment_id), full_path=True)
+            exp_list = find(parent, experiment_id, full_path=True)
             if len(exp_list) > 0:
                 return exp_list[0]
         if assert_exists:
@@ -156,8 +157,8 @@ class FileStore(AbstractStore):
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
-        meta_dir = mkdir(self.root_directory, str(experiment_id))
-        artifact_uri = artifact_uri or build_path(self.artifact_root_uri, str(experiment_id))
+        meta_dir = mkdir(self.root_directory, experiment_id)
+        artifact_uri = artifact_uri or build_path(self.artifact_root_uri, experiment_id)
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
@@ -181,9 +182,9 @@ class FileStore(AbstractStore):
                                       databricks_pb2.RESOURCE_ALREADY_EXISTS)
         # Get all existing experiments and find the one with largest ID.
         # len(list_all(..)) would not work when experiments are deleted.
-        experiments_ids = [e.experiment_id for e in self.list_experiments(ViewType.ALL)]
+        experiments_ids = [int(e.experiment_id) for e in self.list_experiments(ViewType.ALL)]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
-        return self._create_experiment_with_id(name, experiment_id, artifact_location)
+        return self._create_experiment_with_id(name, str(experiment_id), artifact_location)
 
     def _has_experiment(self, experiment_id):
         return self._get_experiment_path(experiment_id) is not None
@@ -191,7 +192,7 @@ class FileStore(AbstractStore):
     def _get_experiment(self, experiment_id, view_type=ViewType.ALL):
         self._check_root_dir()
         _validate_experiment_id(experiment_id)
-        experiment_id = experiment_id or Experiment.DEFAULT_EXPERIMENT_ID
+        experiment_id = experiment_id
         experiment_dir = self._get_experiment_path(experiment_id, view_type)
         if experiment_dir is None:
             raise MlflowException("Could not find experiment with ID %s" % experiment_id,
@@ -202,10 +203,10 @@ class FileStore(AbstractStore):
         else:
             meta['lifecycle_stage'] = LifecycleStage.ACTIVE
         experiment = Experiment.from_dictionary(meta)
-        if int(experiment_id) != experiment.experiment_id:
+        if experiment_id != str(experiment.experiment_id):
             logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
                             "Experiment will be ignored.",
-                            str(experiment_id), str(experiment.experiment_id), exc_info=True)
+                            experiment_id, experiment.experiment_id, exc_info=True)
             return None
         return experiment
 
@@ -217,6 +218,7 @@ class FileStore(AbstractStore):
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
         """
+        experiment_id = Experiment.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self._get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException("Experiment '%s' does not exist." % experiment_id,
@@ -307,6 +309,7 @@ class FileStore(AbstractStore):
         """
         Creates a run with the specified attributes.
         """
+        experiment_id = Experiment.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(

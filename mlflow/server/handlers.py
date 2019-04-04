@@ -42,15 +42,6 @@ def _get_store():
     return _store
 
 
-def _get_local_store_experiment_id(request_message):
-    try:
-        # experiment_id is an int for local stores but string for rest requests and responses
-        return int(request_message.experiment_id)
-    except ValueError:
-        # Tests send invalid experiment_id as a string expecting 4** errors from the server
-        return request_message.experiment_id
-
-
 def _get_request_json(flask_request=request):
     return flask_request.get_json(force=True, silent=True)
 
@@ -132,9 +123,8 @@ def _not_implemented():
 @catch_mlflow_exception
 def _create_experiment():
     request_message = _get_request_message(CreateExperiment())
-    local_store_experiment_id = _get_store().create_experiment(request_message.name,
-                                                               request_message.artifact_location)
-    experiment_id = str(local_store_experiment_id)
+    experiment_id = _get_store().create_experiment(request_message.name,
+                                                   request_message.artifact_location)
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id
     response = Response(mimetype='application/json')
@@ -146,10 +136,9 @@ def _create_experiment():
 def _get_experiment():
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
-    local_store_experiment_id = _get_local_store_experiment_id(request_message)
-    experiment = _get_store().get_experiment(local_store_experiment_id).to_proto()
+    experiment = _get_store().get_experiment(request_message.experiment_id).to_proto()
     response_message.experiment.MergeFrom(experiment)
-    run_info_entities = _get_store().list_run_infos(local_store_experiment_id,
+    run_info_entities = _get_store().list_run_infos(request_message.experiment_id,
                                                     run_view_type=ViewType.ACTIVE_ONLY)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
     response = Response(mimetype='application/json')
@@ -160,8 +149,7 @@ def _get_experiment():
 @catch_mlflow_exception
 def _delete_experiment():
     request_message = _get_request_message(DeleteExperiment())
-    local_store_experiment_id = _get_local_store_experiment_id(request_message)
-    _get_store().delete_experiment(local_store_experiment_id)
+    _get_store().delete_experiment(request_message.experiment_id)
     response_message = DeleteExperiment.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -171,8 +159,7 @@ def _delete_experiment():
 @catch_mlflow_exception
 def _restore_experiment():
     request_message = _get_request_message(RestoreExperiment())
-    local_store_experiment_id = _get_local_store_experiment_id(request_message)
-    _get_store().restore_experiment(local_store_experiment_id)
+    _get_store().restore_experiment(request_message.experiment_id)
     response_message = RestoreExperiment.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -183,8 +170,7 @@ def _restore_experiment():
 def _update_experiment():
     request_message = _get_request_message(UpdateExperiment())
     if request_message.new_name:
-        local_store_experiment_id = int(request_message.experiment_id)
-        _get_store().rename_experiment(local_store_experiment_id, request_message.new_name)
+        _get_store().rename_experiment(request_message.experiment_id, request_message.new_name)
     response_message = UpdateExperiment.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))

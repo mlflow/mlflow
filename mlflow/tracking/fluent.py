@@ -103,6 +103,7 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
              the run's state.
     """
     global _active_run_stack
+    experiment_id = str(experiment_id) if experiment_id is not None else None
     if len(_active_run_stack) > 0 and not nested:
         raise Exception(("Run with UUID {} is already active. To start a nested " +
                         "run call start_run with nested=True").format(
@@ -303,10 +304,6 @@ def _get_experiment_id_from_env():
 
 
 def _get_experiment_id():
-    experiment_id = (_active_experiment_id or
-                     _get_experiment_id_from_env() or
-                     (is_in_databricks_notebook() and get_notebook_id()))
-    try:
-        return int(experiment_id)
-    except ValueError:
-        return experiment_id
+    return (_active_experiment_id or
+            _get_experiment_id_from_env() or
+            (is_in_databricks_notebook() and get_notebook_id())) or None
