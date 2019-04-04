@@ -30,6 +30,19 @@ test_that("mlflow_client_get_experiment() works properly", {
   expect_identical(experiment$experiment$artifact_location, "art_loc1")
 })
 
+
+test_that("mlflow_client_get_experiment_by_name() works properly", {
+  mlflow_clear_test_dir("mlruns")
+  client <- mlflow_client()
+  experiment <- mlflow_client_get_experiment_by_name(client = client, "exp")
+  expect_null(experiment)
+  experiment_id <- mlflow_client_create_experiment(client = client, "exp", "art")
+  experiment <- mlflow_client_get_experiment_by_name(client = client, "exp")
+  expect_identical(experiment$experiment$experiment_id, experiment_id)
+  expect_identical(experiment$experiment$name, "exp")
+  expect_identical(experiment$experiment$artifact_location, "art")
+})
+
 test_that("mlflow_client_create_run()/mlflow_client_get_run() work properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
