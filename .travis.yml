@@ -7,7 +7,7 @@ services:
 stages:
  - name: small
  - name: large
-   if: type = cron OR type = push OR commit_message =~ /^test-large/
+   if: type = cron OR type = push OR commit_message =~ /^.*\[test-large\].*/
 
 matrix:
   include:
@@ -52,6 +52,15 @@ matrix:
         - 2.7
         - 3.6
       script:
+        # TODO(czumar): Re-enable container building and associated SageMaker tests once the container
+        # build process is no longer hanging
+        # - SAGEMAKER_OUT=$(mktemp)
+        # - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
+        #     echo "Sagemaker container build succeeded.";
+        #   else
+        #     echo "Sagemaker container build failed, output:";
+        #     cat $SAGEMAKER_OUT;
+        #   fi
         - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras \
           --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
           --ignore=tests/spark --ignore=tests/tensorflow
