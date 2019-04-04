@@ -6,7 +6,7 @@ test_that("mlflow_client_create_experiment() works properly", {
   experiment_id <- mlflow_client_create_experiment(client = client, "exp_name", "art_loc")
   experiment <- mlflow_client_get_experiment(client = client, experiment_id)
   expect_identical(experiment$experiment$name, "exp_name")
-  artifact_location = paste(getwd((), "art_loc1", sep = "/"))
+  artifact_location = paste(getwd(), "art_loc1", sep = "/")
   expect_identical(experiment$experiment$artifact_location, artifact_location)
 })
 
@@ -29,7 +29,7 @@ test_that("mlflow_client_get_experiment() works properly", {
   experiment <- mlflow_client_get_experiment(client = client, experiment_id)
   expect_identical(experiment$experiment$experiment_id, experiment_id)
   expect_identical(experiment$experiment$name, "foo1")
-  artifact_location = paste(getwd((), "art_loc1", sep = "/"))
+  artifact_location = paste(getwd(), "art_loc1", sep = "/")
   expect_identical(experiment$experiment$artifact_location, artifact_location)
 })
 
@@ -43,7 +43,7 @@ test_that("mlflow_client_get_experiment_by_name() works properly", {
   experiment <- mlflow_client_get_experiment_by_name(client = client, "exp")
   expect_identical(experiment$experiment$experiment_id, experiment_id)
   expect_identical(experiment$experiment$name, "exp")
-  artifact_location = paste(getwd((), "art", sep = "/"))
+  artifact_location = paste(getwd(), "art", sep = "/")
   expect_identical(experiment$experiment$artifact_location, artifact_location)
 })
 
