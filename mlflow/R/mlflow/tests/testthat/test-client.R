@@ -40,7 +40,6 @@ test_that("http(s) clients work as expected", {
   })
 })
 
-
 test_that("rest call handles errors correctly", {
   with_mock(.env = "httr", GET = function(...) {
     httr:::response(

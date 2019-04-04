@@ -39,7 +39,6 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
   )
   config <- config(config(ssl_verifypeer = rest_config$verify_peer))
   headers <- rest_config$headers
-
   response <- switch(
     verb,
     GET = GET(
