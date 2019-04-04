@@ -57,9 +57,25 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     ),
     stop("Verb '", verb, "' is unsupported.")
   )
-  if (identical(response$status_code, 500L)) {
-    stop(xml2::as_list(content(response))$html$body$p[[1]])
+  if (response$status_code != 200) {
+    message_body <- tryCatch(
+      paste(content(response, "parsed", type = "application/json"), collapse ="; "),
+      error = function(...) {
+        ""
+      },
+      warning = function(...) {
+        ""
+      }
+    )
+    msg <- paste("API request to endpoint '",
+                 paste(args, collapse = "/"),
+                 "' failed with error code ",
+                 response$status_code,
+                 ". Reponse body: '",
+                 message_body,
+                 "'",
+                 sep = "")
+    stop(msg)
   }
-  text <- content(response, "text", encoding = "UTF-8")
-  jsonlite::fromJSON(text)
+  content(response, "parsed", type = "application/json", encoding = "UTF-8")
 }

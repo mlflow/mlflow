@@ -39,3 +39,27 @@ test_that("http(s) clients work as expected", {
     })
   })
 })
+
+
+test_that("rest call handles errors correctly", {
+  with_mock(.env = "httr", GET = function(...) {
+    httr:::response(
+      status_code = 400,
+      content = charToRaw(paste("{\"error_code\":\"INVALID_PARAMETER_VALUE\",",
+                                 "\"message\":\"experiment_id must be set to a non-zero value\"}",
+                                 sep = "")
+      )
+    )
+    expected_error_msg <- paste(
+      "Error in mlflow_rest(\"runs\", \"create\", client = client_db, verb = \"POST\",  :",
+      "API request to endpoint 'runs/create' failed with error code 400. Reponse body: ",
+      "'INVALID_PARAMETER_VALUE, experiment_id must be set to a non-zero value'",
+      , sep = ""
+    )
+    client <- mlflow:::mlflow_client()
+    expect_error(
+      mlflow:::mlflow_rest(mlflow:::mlflow_rest( "runs", "create", client = client, verb = "POST")),
+      expected_error_msg
+    )
+  })
+})
