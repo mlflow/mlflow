@@ -191,6 +191,7 @@ class FileStore(AbstractStore):
     def _get_experiment(self, experiment_id, view_type=ViewType.ALL):
         self._check_root_dir()
         _validate_experiment_id(experiment_id)
+        experiment_id = experiment_id or Experiment.DEFAULT_EXPERIMENT_ID
         experiment_dir = self._get_experiment_path(experiment_id, view_type)
         if experiment_dir is None:
             raise MlflowException("Could not find experiment with ID %s" % experiment_id,

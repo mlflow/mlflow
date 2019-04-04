@@ -12,7 +12,7 @@ import time
 import logging
 
 import mlflow.tracking.utils
-from mlflow.entities import Experiment, Run, SourceType, RunStatus, Param, RunTag, Metric
+from mlflow.entities import Run, SourceType, RunStatus, Param, RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -303,7 +303,10 @@ def _get_experiment_id_from_env():
 
 
 def _get_experiment_id():
-    return int(_active_experiment_id or
-               _get_experiment_id_from_env() or
-               (is_in_databricks_notebook() and get_notebook_id()) or
-               Experiment.DEFAULT_EXPERIMENT_ID)
+    experiment_id = (_active_experiment_id or
+                     _get_experiment_id_from_env() or
+                     (is_in_databricks_notebook() and get_notebook_id()))
+    try:
+        return int(experiment_id)
+    except ValueError:
+        return experiment_id

@@ -203,6 +203,7 @@ class SqlAlchemyStore(AbstractStore):
                     self._list_experiments(session=session, view_type=view_type)]
 
     def _get_experiment(self, session, experiment_id, view_type):
+        experiment_id = experiment_id or Experiment.DEFAULT_EXPERIMENT_ID
         experiments = self._list_experiments(
             session=session, ids=[experiment_id], view_type=view_type).all()
         if len(experiments) == 0:
