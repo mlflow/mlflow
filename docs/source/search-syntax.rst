@@ -1,4 +1,4 @@
-.. _query-syntax:
+.. _search-syntax:
 
 Search
 ======
