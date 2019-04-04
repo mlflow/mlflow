@@ -1,13 +1,24 @@
 sudo: true
-language: python
 
 services:
   - docker
 
+stages:
+ - name: small
+ - name: large
+   if: type = cron OR branch = master OR commit_message =~ /^test-large/
+
 matrix:
   include:
+    - stage: small
     - python: 2.7
+      install: ./install-travis-deps.sh
+      script:
+        - ./python-small.sh
     - python: 3.6
+      install:  ./install-travis-deps.sh
+      script:
+        - ./python-small.sh
     - language: r
       dist: trusty
       cache: packages
@@ -40,72 +51,12 @@ matrix:
         - npm i
         - ./lint.sh
         - npm test -- --coverage
-
-install:
-  - sudo mkdir -p /travis-install
-  - sudo chown travis /travis-install
-  # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
-    else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
-    fi
-
-  - bash /travis-install/miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  # Useful for debugging any issues with conda
-  - conda info -a
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
-  - source activate test-environment
-  - python --version
-  - pip install --upgrade pip
-  # Install Python test dependencies only if we're running Python tests
-  - if [[ ! -z "$TRAVIS_PYTHON_VERSION" ]]; then
-      travis_wait pip install -r dev-requirements.txt -q;
-      travis_wait pip install -r test-requirements.txt -q;
-    fi
-  - pip install .
-  - export MLFLOW_HOME=$(pwd)
-  # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
-  - sudo rm -f /etc/boto.cfg
-  # Install protoc
-  - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
-  - sudo unzip /travis-install/protoc.zip -d /usr
-script:
-  - ./lint.sh
-  - sudo ./test-generate-protos.sh
-  - pip list
-  - which mlflow
-  - echo $MLFLOW_HOME
-  # TODO(czumar): Re-enable container building and associated SageMaker tests once the container
-  # build process is no longer hanging
-  # - SAGEMAKER_OUT=$(mktemp)
-  # - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
-  #     echo "Sagemaker container build succeeded.";
-  #   else
-  #     echo "Sagemaker container build failed, output:";
-  #     cat $SAGEMAKER_OUT;
-  #   fi
-  - pytest --cov=mlflow --verbose --ignore=tests/h2o --ignore=tests/keras
-    --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn
-    --ignore=tests/spark --ignore=tests/tensorflow
-  # Run tests that don't leverage specific ML frameworks
-  - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
-    --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn
-    --ignore=tests/spark --ignore=tests/tensorflow
-  # Run ML framework tests in their own Python processes. TODO: find a better method of isolating
-  # tests.
-  - pytest --verbose tests/h2o --large
-  # TODO(smurching): Re-enable Keras tests once they're no longer flaky
-  # - pytest --verbose tests/keras --large
-#  - pytest --verbose tests/pytorch --large
-#  - pytest --verbose tests/pyfunc --large
-#  - pytest --verbose tests/sagemaker --large
-#  - pytest --verbose tests/sagemaker/mock --large
-#  - pytest --verbose tests/sklearn --large
-#  - pytest --verbose tests/spark --large
-#  - pytest --verbose tests/tensorflow --large
+    - stage: large
+    - python: 2.7
+      install: ./install-travis-deps.sh
+      script:
+        - ./python-large.sh
+    - python: 3.6
+      install:  ./install-travis-deps.sh
+      script:
+        - ./python-large.sh
