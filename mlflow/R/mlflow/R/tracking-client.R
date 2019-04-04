@@ -156,7 +156,6 @@ mlflow_client_list_experiments <- function(client, view_type = c("ACTIVE_ONLY", 
       view_type = view_type
     ))
   exps <- response$experiments
-
   exps$artifact_location <- mlflow_relative_paths(exps$artifact_location)
   exps
 }
