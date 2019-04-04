@@ -101,3 +101,15 @@ def test_set_tag():
         store.log_batch.assert_called_once_with(
             run_id, metrics=[], params=[], tags=[tag]
         )
+
+
+def test_list_run_infos():
+    experiment_id = mock.Mock()
+    view_type = mock.Mock()
+    run_infos = [mock.Mock(), mock.Mock()]
+    runs = [mock.Mock(info=info) for info in run_infos]
+
+    with mock.patch.object(AbstractStoreTestImpl, "search_runs", return_value=runs):
+        store = AbstractStoreTestImpl()
+        assert store.list_run_infos(experiment_id, view_type) == run_infos
+        store.search_runs.assert_called_once_with([experiment_id], None, view_type)
