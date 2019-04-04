@@ -4,48 +4,57 @@ Search
 ======
 
 MLflow UI and API supports searching runs within a single experiment or a group of experiments
-using a common API. This API is simplified version of SQL syntax.
+using a search filter API. This API is simplified version of WHERE clause of SQL syntax.
+
+.. contents:: Table of Contents
+  :local:
+  :depth: 2
 
 Syntax Description
 ------------------
 
-Search filter can be a single expression or several expressions separated by ``AND`` ed keyword.
+Search filter can be a single expression or several expressions separated by ``AND`` keyword.
 Currently, the syntax does not support ``OR``. Each expression has 3 parts: an identifier on
 the LHS, a comparator, and constant on the RHS.
 
-Identifier (LHS of the expression)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Identifier
+^^^^^^^^^^
 
 Left hand side of a search expressions, signifies a logged entity to compare against. It has two
-sub-parts, a qualifier and the name of entity being searched, separated by a period. You can
-search for ``metrics``, ``params``, and ``tags``.
+sub-parts, a qualifier for and entity you are searching and the name of the entity, separated by
+a period. The qualifier or type of entity you can search can be one of `metrics`, `params`, or
+`tags`.
 
-Constant (RHS of the expression)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Example: ``metrics.accuracy``
 
-Search syntax requires the RHS of the expression to be a constant. It is expected to be a number
-(integer or float) when LHS is a ``metric`` and string type comparing with ``params`` and
-``tags``.
+Constant
+^^^^^^^^
+
+Search syntax requires the RHS of the expression to be a constant. Type of expected constant on
+depends on LHS.
+ - If LHS of the expression is a metric, RHS is expected to be a number (integer or float)
+ - If LHS is a parameter or tag, RHS is expected to be a string constant
 
 Comparator
 ^^^^^^^^^^
 
-Two class of comparators are supported. For string values (``params`` and ``tags``) only ``=`` and
-``!=`` are supported at this time. Numeric values (for ``metrics``) support ``=``, ``!=``, ``>``,
-``>=``, ``<``, and ``<=``.
+Two class of comparators are supported.
+ - For string values (`params` and `tags`) only ``=`` and ``!=`` are supported at this time.
+ - Numeric values (for `metrics`) support ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
 
 
 Examples
 --------
 
-Subset of runs which have logged accuracy metric greater than 0.92.
+Subset of runs with logged accuracy metric greater than 0.92.
 
 .. code-block:: sql
 
   metrics.accuracy > 0.92
 
 
-Runs created using Logistic Regression model with learning rate (lambda) of 0.001 and error metric under 0.05.
+Runs created using Logistic Regression model and a learning rate (lambda) of 0.001 and
+recorded error metric under 0.05.
 
 .. code-block:: sql
 
@@ -58,7 +67,7 @@ Special Cases
 Entity name containing special characters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 When metric, parameter, or tag names contain special characters like hyphen, space, period, etc
-enclose the name in quotes.
+enclose the entity name within quotes.
 
 Examples:
 
@@ -75,7 +84,7 @@ Entity name starting with numbers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Unlike SQL syntax for column names, MLflow allows logging metrics, parameters, or tags with names
-that start with a number. To search based on such a column, enclose entity names in quotes, as in
+that have a leading number. To search based on such a column, enclose entity names in quotes, as in
 the following example.
 
 .. code-block:: sql
@@ -88,12 +97,13 @@ APIs for programmatically searching runs
 
 MLflow UI allows searching runs contained within the current experiment. To search runs across
 multiple experiments, use one of these client APIs. These APIs use the same syntax specified
-above as a string argument for filter query.
+above as a string argument for search filter.
+
 
 Python
 ^^^^^^
 
-Get all active runs from experiments with IDs 3, 4, and 17 which uses a CNN with 10 layers and
+Get all active runs from experiments with IDs 3, 4, and 17 which used a CNN model with 10 layers and
 has prediction accuracy of 94.5% or higher.
 
 .. code-block:: py
@@ -116,8 +126,7 @@ Search all known experiments for any ML runs created using "Inception" model arc
 
 Java
 ^^^^
-Java API similar to python API described above. Search filter argument is search expression in
-string used in UI and in the :ref:`Python` API section above.
+Java API is similar to python API described above.
 
 .. code-block:: java
 
