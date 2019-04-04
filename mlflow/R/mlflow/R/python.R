@@ -1,6 +1,6 @@
 #' @importFrom reticulate conda_list
 python_bin_conda <- function() {
-  conda = Sys.getenv("MLFLOW_CONDA_HOME", "auto")
+  conda = mlflow_conda_bin()
   envs <- conda_list(conda = conda)
   mlflow_env <- envs[envs$name == "r-mlflow", ]
   if (nrow(mlflow_env) == 0) {
@@ -31,7 +31,7 @@ pip_run <- function(..., echo = TRUE) {
 #' @importFrom reticulate conda_binary
 python_conda_installed <- function() {
   tryCatch({
-    conda_binary(conda = Sys.getenv("MLFLOW_CONDA_HOME", "auto"))
+    mlflow_conda_bin()
     TRUE
   }, error = function(err) {
     FALSE
@@ -40,7 +40,7 @@ python_conda_installed <- function() {
 
 #' @importFrom reticulate conda_binary
 python_conda_bin <- function() {
-  dirname(conda_binary(conda = Sys.getenv("MLFLOW_CONDA_HOME", "auto")))
+  dirname(mlflow_conda_bin())
 }
 
 python_conda_home <- function() {
