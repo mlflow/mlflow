@@ -50,6 +50,23 @@ class AbstractStoreTestImpl(AbstractStore):
         raise NotImplementedError()
 
 
+def test_get_experiment_by_name():
+    experiments = [mock.Mock(), mock.Mock(), mock.Mock()]
+    # Configure name after mock creation as name is a reserved argument to Mock()
+    experiments[1].configure_mock(name="my experiment")
+    with mock.patch.object(AbstractStoreTestImpl, "list_experiments", return_value=experiments):
+        store = AbstractStoreTestImpl()
+        assert store.get_experiment_by_name("my experiment") == experiments[1]
+        store.list_experiments.assert_called_once_with(ViewType.ALL)
+
+
+def test_get_experiment_by_name_missing():
+    with mock.patch.object(AbstractStoreTestImpl, "list_experiments", return_value=[]):
+        store = AbstractStoreTestImpl()
+        store.get_experiment_by_name("my experiment") is None
+        store.list_experiments.assert_called_once_with(ViewType.ALL)
+
+
 def test_log_metric():
     run_id = mock.Mock()
     metric = mock.Mock()
