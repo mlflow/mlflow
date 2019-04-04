@@ -15,13 +15,13 @@ def test_server_uri_validation():
         result = CliRunner().invoke(server,
                                     ["--backend-store-uri", "postgres://user:pwd@host:5432/mydb",
                                      "--default-artifact-root", "./mlruns"])
-        assert result.output.startswith("Error related to option backend_store_uri")
+        assert result.output.startswith("Error related to option backend-store-uri")
         run_server_mock.assert_not_called()
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
         result = CliRunner().invoke(server,
                                     ["--backend-store-uri", "sqlite://invalid-sqlite-url",
                                      "--default-artifact-root", "./mlruns"])
-        assert result.output.startswith("Error related to option backend_store_uri")
+        assert result.output.startswith("Error related to option backend-store-uri")
         run_server_mock.assert_not_called()
 
     with mock.patch("mlflow.cli._run_server") as run_server_mock:

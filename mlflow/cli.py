@@ -173,12 +173,8 @@ def _server_options(function):
     return function
 
 
-def _set_and_validate_uris(backend_store_uri, default_artifact_root):
-    """
-    Sets the URIs to their default values if either is equal to None.
-
-    Validates the URIs to ensure that they work.
-    """
+def _run_tracking_server(backend_store_uri, default_artifact_root, host, port, workers,
+                         static_prefix, gunicorn_opts):
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
@@ -190,12 +186,13 @@ def _set_and_validate_uris(backend_store_uri, default_artifact_root):
                    "local file based.")
             sys.exit(1)
 
+    # Validate the URIs
     try:
         _get_store(backend_store_uri)
     except Exception as e:  # pylint: disable=broad-except
         # We need a broad exception here to catch exceptions in optional
         # dependencies like SQLAlchemy
-        eprint("Error related to option backend_store_uri '{}': {}".format(
+        eprint("Error related to option backend-store-uri '{}': {}".format(
             backend_store_uri, e))
         sys.exit(1)
     try:
@@ -203,12 +200,18 @@ def _set_and_validate_uris(backend_store_uri, default_artifact_root):
         artifact_repo.list_artifacts(default_artifact_root)
     except Exception as e:  # pylint: disable=broad-except
         # We need a broad exception here to catch exceptions in optional
-        # dependencies like boto3 or google-cloud-storage.
+        # dependencies like azure-storage or google-cloud-storage.
         eprint("Error related to option default-artifact-root '{}': {}".format(
             default_artifact_root, e))
         sys.exit(1)
 
-    return backend_store_uri, default_artifact_root
+    # Launch gunicorn
+    try:
+        _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
+                    gunicorn_opts)
+    except ShellCommandException:
+        eprint("Running the mlflow server failed. Please see the logs above for details.")
+        sys.exit(1)
 
 
 @cli.command()
@@ -219,16 +222,8 @@ def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
 
     The UI will be visible at http://localhost:5000 by default.
     """
-    # Keep server() and ui() in sync
-    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
-    backend_store_uri, default_artifact_root = _set_and_validate_uris(backend_store_uri,
-                                                                      default_artifact_root)
-    # TODO: We eventually want to disable the write path in this version of the server.
-    try:
-        _run_server(backend_store_uri, default_artifact_root, host, port, 1, None, gunicorn_opts)
-    except ShellCommandException:
-        eprint("Running the mlflow server failed. Please see the logs above for details.")
-        sys.exit(1)
+    _run_tracking_server(backend_store_uri, default_artifact_root, host, port, 1, None,
+                         gunicorn_opts)
 
 
 def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argument
@@ -261,16 +256,8 @@ def server(backend_store_uri, default_artifact_root, host, port,
     the local machine. To let the server accept connections from other machines, you will need to
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
-    # Keep server() and ui() in sync
-    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
-    backend_store_uri, default_artifact_root = _set_and_validate_uris(backend_store_uri,
-                                                                      default_artifact_root)
-    try:
-        _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
-                    gunicorn_opts)
-    except ShellCommandException:
-        eprint("Running the mlflow server failed. Please see the logs above for details.")
-        sys.exit(1)
+    _run_tracking_server(backend_store_uri, default_artifact_root, host, port, workers,
+                         static_prefix, gunicorn_opts)
 
 
 cli.add_command(mlflow.data.download)
