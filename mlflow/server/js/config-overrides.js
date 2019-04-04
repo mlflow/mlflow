@@ -41,7 +41,10 @@ module.exports = {
     config = rewireDefinePlugin(config, env, {
       'process.env': {
         'HIDE_HEADER': process.env.HIDE_HEADER ? JSON.stringify('true') : JSON.stringify('false'),
-        'HIDE_EXPERIMENT_LIST': process.env.HIDE_EXPERIMENT_LIST ? JSON.stringify('true') : JSON.stringify('false')
+        'HIDE_EXPERIMENT_LIST':
+          process.env.HIDE_EXPERIMENT_LIST ? JSON.stringify('true') : JSON.stringify('false'),
+        'SHOW_GDPR_PURGING_MESSAGES':
+          process.env.SHOW_GDPR_PURGING_MESSAGES ? JSON.stringify('true') : JSON.stringify('false')
       }
     });
     return config;

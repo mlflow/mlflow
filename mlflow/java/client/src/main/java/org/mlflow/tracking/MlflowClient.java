@@ -10,7 +10,9 @@ import org.mlflow.tracking.creds.*;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
+import java.lang.Iterable;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -110,9 +112,52 @@ public class MlflowClient {
     return mapper.toCreateRunResponse(ojson).getRun().getInfo();
   }
 
-  /** @return  a list of all RunInfos associated with the given experiment. */
+  /**
+   * @return a list of all RunInfos associated with the given experiment.
+   */
   public List<RunInfo> listRunInfos(long experimentId) {
-    SearchRuns request = SearchRuns.newBuilder().addExperimentIds(experimentId).build();
+    List<Long> experimentIds = new ArrayList<>();
+    experimentIds.add(experimentId);
+    return searchRuns(experimentIds, null);
+  }
+
+  /**
+   * Returns runs from provided list of experiments, that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
+   *
+   * @return a list of all RunInfos that satisfy search filter.
+   */
+  public List<RunInfo> searchRuns(List<Long> experimentIds, String searchFilter) {
+    return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
+  }
+
+  /**
+   * Returns runs from provided list of experiments, that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    Defaults to ACTIVE_ONLY.
+   *
+   * @return a list of all RunInfos that satisfy search filter.
+   */
+  public List<RunInfo> searchRuns(List<Long> experimentIds,
+                                  String searchFilter,
+                                  ViewType runViewType) {
+    SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIds);
+    if (searchFilter != null) {
+      builder.setFilter(searchFilter);
+    }
+    if (runViewType != null) {
+      builder.setRunViewType(runViewType);
+    }
+    SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
     return mapper.toSearchRunsResponse(ojson).getRunsList().stream().map(Run::getInfo)
@@ -205,6 +250,17 @@ public class MlflowClient {
    */
   public void setTag(String runUuid, String key, String value) {
     sendPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
+  }
+
+  /**
+   * Log multiple metrics, params, and/or tags against a given run (argument runUuid).
+   * Argument metrics, params, and tag iterables can be nulls.
+   */
+  public void logBatch(String runUuid,
+      Iterable<Metric> metrics,
+      Iterable<Param> params,
+      Iterable<RunTag> tags) {
+    sendPost("runs/log-batch", mapper.makeLogBatch(runUuid, metrics, params, tags));
   }
 
   /** Sets the status of a run to be FINISHED at the current time. */
