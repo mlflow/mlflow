@@ -7,17 +7,17 @@ services:
 stages:
  - name: small
  - name: large
-   if: type = cron OR branch = master OR commit_message =~ /^test-large/
+   if: type = cron OR type = push OR commit_message =~ /^test-large/
 
 matrix:
   include:
     - stage: small
-    - python: 2.7
-      install: ./install-travis-deps.sh
+    - language: python
+      python: 2.7
       script:
         - ./python-small.sh
-    - python: 3.6
-      install:  ./install-travis-deps.sh
+    - language: python
+      python: 3.6
       script:
         - ./python-small.sh
     - language: r
@@ -54,10 +54,11 @@ matrix:
         - npm test -- --coverage
     - stage: large
     - python: 2.7
-      install: ./install-travis-deps.sh
       script:
         - ./python-large.sh
     - python: 3.6
-      install:  ./install-travis-deps.sh
       script:
         - ./python-large.sh
+
+install:
+  ./install-travis-deps.sh
