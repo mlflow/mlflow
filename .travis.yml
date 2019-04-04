@@ -13,8 +13,8 @@ matrix:
   include:
     - stage: small
     - python:
-        - "2.7"
-        - "3.6"
+        - 2.7
+        - 3.6
     - language: r
       dist: trusty
       cache: packages
@@ -49,8 +49,8 @@ matrix:
         - npm test -- --coverage
     - stage: large
     - python:
-        - "2.7"
-        - "3.6"
+        - 2.7
+        - 3.6
       script:
         - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras \
           --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
@@ -109,6 +109,6 @@ script:
   - pip list
   - which mlflow
   - echo $MLFLOW_HOME
-  - pytest --cov=mlflow --verbose --ignore=tests/h2o --ignore=tests/keras \
-        --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
-        --ignore=tests/spark --ignore=tests/tensorflow
+  - pytest --cov=mlflow --verbose --ignore=tests/h2o --ignore=tests/keras
+      --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn
+      --ignore=tests/spark --ignore=tests/tensorflow
