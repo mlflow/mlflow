@@ -1,13 +1,18 @@
 sudo: true
 language: python
-python: 2.7
 
 services:
   - docker
 
+stages:
+ - small
+ - large
+
 matrix:
   include:
-    - python: 2.7
+    - stage: small
+    # Only include a Python 3 key as Travis by default uses Python 2
+    # https://docs.travis-ci.com/user/reference/trusty/#python-images
     - python: 3.6
     - language: r
       dist: trusty
@@ -42,7 +47,8 @@ matrix:
         - ./lint.sh
         - npm test -- --coverage
     - stage: large
-    - python: 2.7
+    # Only include a Python 3 key as Travis by default uses Python 2
+    # https://docs.travis-ci.com/user/reference/trusty/#python-images
     - python: 3.6
       script:
         # TODO(czumar): Re-enable container building and associated SageMaker tests once the container
