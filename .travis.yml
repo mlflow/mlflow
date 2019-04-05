@@ -4,10 +4,6 @@ language: python
 services:
   - docker
 
-stages:
- - small
- - large
-
 matrix:
   include:
     - python: 2.7
