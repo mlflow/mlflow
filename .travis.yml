@@ -74,4 +74,5 @@ matrix:
       script:
         - ./run-large-tests.sh
 
-if: false
+install: skip
+script: skip
