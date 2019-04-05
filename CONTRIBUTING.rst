@@ -17,7 +17,7 @@ We recommend installing MLflow in its own conda environment for development, as 
 
 .. code-block:: bash
 
-    conda create --name mlflow-dev-env
+    conda create --name mlflow-dev-env python=3.6
     source activate mlflow-dev-env
     pip install -r dev-requirements.txt
     pip install -r test-requirements.txt
@@ -123,18 +123,34 @@ Alternatively, you can generate the necessary files in ``mlflow/server/js/build`
 `Building a Distributable Artifact`_.
 
 
-Tests and Lint
---------------
+Python Tests and Lint
+---------------------
 Verify that the unit tests & linter pass before submitting a pull request by running:
 
 .. code-block:: bash
 
-    pytest
     ./lint.sh
+    ./run-small-tests.sh
+    # Optionally run large tests as well. Travis will run these for you once small tests pass.
+    # Note: models and model deployment tests are considered "large" tests. If making
+    # changes to these components, we recommend running these tests locally before submitting
+    # them to travis
+    ./run-large-tests.sh
 
-When running ``pytest --requires-ssh`` it is necessary that passwordless SSH access to localhost
-is available. This can be achieved by adding the SSH public key to authorized keys:
-``cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys``.
+We use `pytest <https://docs.pytest.org/en/latest/contents.html>`_ to run Python tests.
+You can run tests for one or more test directories or files via
+`pytest [--large] [file_or_dir] ... [file_or_dir]`, where specifying `--large` tells pytest to
+run tests annotated with @pytest.mark.large. For example, to run all pyfunc tests
+(including large tests), you can run:
+
+.. code-block:: bash
+    pytest tests/pyfunc --large
+
+.. note::
+    Certain model tests are not well-isolated (can result in OOMs when run in the same Python
+    process), so simply invoking `pytest` or `pytest tests` is not known to work. If you'd like to
+    run multiple model tests, we recommend doing so via separate `pytest` invocations, e.g.
+    `pytest --verbose tests/sklearn --large && pytest --verbose tests/tensorflow --large`
 
 
 Running the Javascript Dev Server
