@@ -1,5 +1,5 @@
 sudo: true
-#language: python
+language: python
 
 services:
   - docker
@@ -7,7 +7,6 @@ services:
 jobs:
   include:
     - stage: small
-    - language: python
       python:
         - '2.7'
         - '3.6'
@@ -54,7 +53,6 @@ jobs:
         - ./lint.sh
         - npm test -- --coverage
     - stage: large
-    - language: python
       python:
         - '2.7'
         - '3.6'
@@ -85,3 +83,6 @@ jobs:
         - pytest --verbose tests/sklearn --large
         - pytest --verbose tests/spark --large
         - pytest --verbose tests/tensorflow --large
+
+install: skip
+script: skip
