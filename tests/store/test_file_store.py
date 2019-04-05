@@ -21,10 +21,10 @@ from mlflow.utils.search_utils import SearchFilter
 from tests.helper_functions import random_int, random_str
 
 
-class TestFileStore(object):
+class TestFileStore(unittest.TestCase):
     ROOT_LOCATION = "/tmp"
 
-    def setup(self):
+    def setUp(self):
         self._create_root(TestFileStore.ROOT_LOCATION)
 
     def _create_root(self, root):
@@ -97,7 +97,7 @@ class TestFileStore(object):
                 # artifacts
                 os.makedirs(os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME))
 
-    def teardown(self):
+    def tearDown(self):
         shutil.rmtree(self.test_root, ignore_errors=True)
 
     def test_valid_root(self):
@@ -303,9 +303,8 @@ class TestFileStore(object):
                 fs.log_metric(run_uuid, Metric(metric_name, value, timestamp))
                 logged_values.append(value)
 
-        case = unittest.TestCase()
         six.assertCountEqual(
-            case,
+            self,
             [metric.value for metric in fs.get_metric_history(run_uuid, metric_name)],
             logged_values)
 
