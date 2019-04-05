@@ -200,7 +200,8 @@ def test_run_local_git_repo(local_git_repo,
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
-    run_infos = mlflow_service.list_run_infos(experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
+    run_infos = mlflow_service.list_run_infos(
+        experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
     assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
@@ -336,7 +337,8 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
 def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0, submitted_run1 = [mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
-        use_conda=False, experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, block=False) for _ in range(2)]
+        use_conda=False, experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
+        block=False) for _ in range(2)]
     submitted_run0.cancel()
     validate_exit_status(submitted_run0.get_status(), RunStatus.FAILED)
     # Sanity check: cancelling one run has no effect on the other

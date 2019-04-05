@@ -6,7 +6,7 @@ from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
 
 def test_message_to_json():
-    json_out = message_to_json(Experiment(123, "name", "arty", 'active').to_proto())
+    json_out = message_to_json(Experiment("123", "name", "arty", 'active').to_proto())
     assert json.loads(json_out) == {
         "experiment_id": "123",
         "name": "name",

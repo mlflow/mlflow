@@ -132,7 +132,6 @@ public class MlflowClient {
    * @return a list of all RunInfos that satisfy search filter.
    */
   public List<RunInfo> searchRuns(List<Long> experimentIds, String searchFilter) {
-    SearchRuns request = SearchRuns.newBuilder().addExperimentIds(Long.toString(experimentId)).build();
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
   }
 
@@ -155,7 +154,7 @@ public class MlflowClient {
     for (Long experimentId : experimentIds){
       experimentIdsAsString.add(Long.toString(experimentId));
     }
-    SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIds);
+    SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIdsAsString);
 
     if (searchFilter != null) {
       builder.setFilter(searchFilter);
