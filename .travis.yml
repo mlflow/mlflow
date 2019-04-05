@@ -5,12 +5,11 @@ services:
   - docker
 
 stages:
- - name: small
- - name: large
+ - small
+ - large
 
 matrix:
   include:
-    - stage: small
     - python: 2.7
     - python: 3.6
     - language: r
@@ -108,13 +107,3 @@ install:
   # Install protoc
   - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
   - sudo unzip /travis-install/protoc.zip -d /usr
-
-script:
-  - ./lint.sh
-  - sudo ./test-generate-protos.sh
-  - pip list
-  - which mlflow
-  - echo $MLFLOW_HOME
-  - pytest --cov=mlflow --verbose --ignore=tests/h2o --ignore=tests/keras
-      --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn
-      --ignore=tests/spark --ignore=tests/tensorflow
