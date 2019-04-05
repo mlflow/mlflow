@@ -63,7 +63,7 @@ def test_get_experiment_by_name():
 def test_get_experiment_by_name_missing():
     with mock.patch.object(AbstractStoreTestImpl, "list_experiments", return_value=[]):
         store = AbstractStoreTestImpl()
-        store.get_experiment_by_name("my experiment") is None
+        assert store.get_experiment_by_name("my experiment") is None
         store.list_experiments.assert_called_once_with(ViewType.ALL)
 
 
