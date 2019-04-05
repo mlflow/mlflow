@@ -189,7 +189,7 @@ def test_run_local_git_repo(local_git_repo,
     submitted_run = mlflow.projects.run(
         uri, entry_point="test_tracking", version=version,
         parameters={"use_start_run": use_start_run},
-        use_conda=False, experiment_id=0)
+        use_conda=False, experiment_id=Experiment.DEFAULT_EXPERIMENT_ID)
 
     # Blocking runs should be finished when they return
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
@@ -200,7 +200,7 @@ def test_run_local_git_repo(local_git_repo,
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
-    run_infos = mlflow_service.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
+    run_infos = mlflow_service.list_run_infos(experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
     assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
