@@ -53,9 +53,8 @@ def cli():
 @click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
               help="Name of the experiment under which to launch the run. If not "
                    "specified, 'experiment-id' option will be used to launch run.")
-@click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
-              help="ID of the experiment under which to launch the run. Defaults to %s" %
-                   Experiment.DEFAULT_EXPERIMENT_ID)
+@click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.INT,
+              help="ID of the experiment under which to launch the run. Defaults to %s" % 0)
 # TODO: Add tracking server argument once we have it working.
 @click.option("--mode", "-m", metavar="MODE",
               help="Execution mode to use for run. Supported values: 'local' (runs project "

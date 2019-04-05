@@ -10,7 +10,7 @@ def call_tracking_apis():
 def main(use_start_run):
     if use_start_run:
         print("Running with start_run API")
-        with mlflow.start_run(experiment_id=0):
+        with mlflow.start_run():
             call_tracking_apis()
     else:
         print("Running without start_run API")
