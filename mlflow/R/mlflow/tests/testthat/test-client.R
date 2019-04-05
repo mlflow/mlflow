@@ -61,4 +61,40 @@ test_that("rest call handles errors correctly", {
       expected_error_msg
     )
   })
+
+  with_mock(.env = "httr", GET = function(...) {
+    httr:::response(
+      status_code = 500,
+      content = charToRaw(paste("some text.")),
+    )
+    expected_error_msg <- paste(
+      "Error in mlflow_rest(\"runs\", \"create\", client = client_db, verb = \"POST\",  :",
+      "API request to endpoint 'runs/create' failed with error code 500. Reponse body: ",
+      "'some text.'",
+      , sep = ""
+    )
+    client <- mlflow:::mlflow_client()
+    expect_error(
+      mlflow:::mlflow_rest(mlflow:::mlflow_rest( "runs", "create", client = client, verb = "POST")),
+      expected_error_msg
+    )
+  })
+
+  with_mock(.env = "httr", GET = function(...) {
+    httr:::response(
+      status_code = 503,
+      content = as.raw(c(0, 255)),
+    )
+    expected_error_msg <- paste(
+      "Error in mlflow_rest(\"runs\", \"create\", client = client_db, verb = \"POST\",  :",
+      "API request to endpoint 'runs/create' failed with error code 503. Reponse body: ",
+      "'00 ff'",
+      , sep = ""
+    )
+    client <- mlflow:::mlflow_client()
+    expect_error(
+      mlflow:::mlflow_rest(mlflow:::mlflow_rest( "runs", "create", client = client, verb = "POST")),
+      expected_error_msg
+    )
+  })
 })

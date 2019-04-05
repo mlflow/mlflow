@@ -10,6 +10,17 @@ mlflow_rest_timeout <- function() {
   timeout(getOption("mlflow.rest.timeout", 60))
 }
 
+
+tryParseText <- function(raw_content) {
+  tryCatch({
+    rawToChar(raw_content)
+  }, error = function(...) {
+    do.call(paste, as.list(raw_content))
+  }, warning = function(...) {
+    do.call(paste, as.list(raw_content))
+  })
+}
+
 #' @importFrom base64enc base64encode
 get_rest_config <- function(config) {
   headers <- list()
@@ -61,10 +72,10 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     message_body <- tryCatch(
       paste(content(response, "parsed", type = "application/json"), collapse = "; "),
       error = function(...) {
-        ""
+        tryParseText(content(response, "raw"))
       },
       warning = function(...) {
-        ""
+        tryParseText(content(response, "raw"))
       }
     )
     msg <- paste("API request to endpoint '",
