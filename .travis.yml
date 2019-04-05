@@ -61,6 +61,13 @@ jobs:
       install:
         - ./install-travis-deps.sh
       script:
+        - ./run-large-tests.sh
+    - language: python
+      python: 3.6
+      install:
+        - ./install-travis-deps.sh
+      script:
+        - ./run-large-tests.sh
 
 install: skip
 script: skip
