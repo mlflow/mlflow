@@ -11,7 +11,8 @@ mlflow_rest_timeout <- function() {
 }
 
 
-tryParseText <- function(raw_content) {
+tryParseResponseAsText <- function(response) {
+  raw_content <- content(response, type = "raw")
   tryCatch({
     rawToChar(raw_content)
   }, error = function(...) {
@@ -72,10 +73,10 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     message_body <- tryCatch(
       paste(content(response, "parsed", type = "application/json"), collapse = "; "),
       error = function(...) {
-        tryParseText(content(response, "raw"))
+        tryParseResponseAsText(response)
       },
       warning = function(...) {
-        tryParseText(content(response, "raw"))
+        tryParseResponseAsText(response)
       }
     )
     msg <- paste("API request to endpoint '",

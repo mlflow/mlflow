@@ -1,4 +1,4 @@
-context("databricks-utils")
+context("client")
 
 test_that("http(s) clients work as expected", {
   with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
@@ -41,60 +41,57 @@ test_that("http(s) clients work as expected", {
 })
 
 test_that("rest call handles errors correctly", {
-  with_mock(.env = "httr", GET = function(...) {
+  mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
+     mlflow:::new_mlflow_host_creds(host = "localhost")
+  })
+  with_mock(.env = "httr", POST = function(...) {
     httr:::response(
       status_code = 400,
       content = charToRaw(paste("{\"error_code\":\"INVALID_PARAMETER_VALUE\",",
                                  "\"message\":\"experiment_id must be set to a non-zero value\"}",
                                  sep = "")
       )
-    )
-    expected_error_msg <- paste(
-      "Error in mlflow_rest(\"runs\", \"create\", client = client_db, verb = \"POST\",  :",
-      "API request to endpoint 'runs/create' failed with error code 400. Reponse body: ",
-      "'INVALID_PARAMETER_VALUE, experiment_id must be set to a non-zero value'",
-      , sep = ""
-    )
-    client <- mlflow:::mlflow_client()
+    )}, {
+    error_msg_regexp <- paste(
+                          "API request to endpoint \'runs/create\' failed with error code 400",
+                          "INVALID_PARAMETER_VALUE",
+                          "experiment_id must be set to a non-zero value",
+                          sep = ".*")
     expect_error(
-      mlflow:::mlflow_rest(mlflow:::mlflow_rest( "runs", "create", client = client, verb = "POST")),
-      expected_error_msg
+      mlflow:::mlflow_rest( "runs", "create", client = mock_client, verb = "POST"),
+      error_msg_regexp
     )
   })
 
   with_mock(.env = "httr", GET = function(...) {
     httr:::response(
       status_code = 500,
-      content = charToRaw(paste("some text.")),
+      content = charToRaw(paste("some text."))
     )
-    expected_error_msg <- paste(
-      "Error in mlflow_rest(\"runs\", \"create\", client = client_db, verb = \"POST\",  :",
-      "API request to endpoint 'runs/create' failed with error code 500. Reponse body: ",
-      "'some text.'",
-      , sep = ""
-    )
-    client <- mlflow:::mlflow_client()
+    }, {
+    error_msg_regexp <- paste(
+                          "API request to endpoint \'runs/create\' failed with error code 500",
+                          "some text",
+                          sep = ".*")
     expect_error(
-      mlflow:::mlflow_rest(mlflow:::mlflow_rest( "runs", "create", client = client, verb = "POST")),
-      expected_error_msg
+      mlflow:::mlflow_rest( "runs", "create", client = mock_client, verb = "GET"),
+      error_msg_regexp
     )
   })
 
-  with_mock(.env = "httr", GET = function(...) {
+  with_mock(.env = "httr", POST = function(...) {
     httr:::response(
       status_code = 503,
-      content = as.raw(c(0, 255)),
+      content = as.raw(c(0, 255))
     )
-    expected_error_msg <- paste(
-      "Error in mlflow_rest(\"runs\", \"create\", client = client_db, verb = \"POST\",  :",
-      "API request to endpoint 'runs/create' failed with error code 503. Reponse body: ",
-      "'00 ff'",
-      , sep = ""
-    )
-    client <- mlflow:::mlflow_client()
+    }, {
+    error_msg_regexp <- paste(
+                          "API request to endpoint \'runs/create\' failed with error code 503",
+                          "00 ff",
+                          sep = ".*")
     expect_error(
-      mlflow:::mlflow_rest(mlflow:::mlflow_rest( "runs", "create", client = client, verb = "POST")),
-      expected_error_msg
+      mlflow:::mlflow_rest( "runs", "create", client = mock_client, verb = "POST"),
+      error_msg_regexp
     )
   })
 })
