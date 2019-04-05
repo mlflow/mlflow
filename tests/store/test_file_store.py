@@ -26,14 +26,13 @@ class TestFileStore(object):
 
     def setup(self):
         self._create_root(TestFileStore.ROOT_LOCATION)
-        self.maxDiff = None
 
     def _create_root(self, root):
         self.test_root = os.path.join(root, "test_file_store_%d" % random_int())
         os.mkdir(self.test_root)
-        self.experiments = [str(random_int(100, int(1e9))) for _ in range(3)]
-        self.exp_data = {}
-        self.run_data = {}
+        self.experiments = [str(random_int(100, int(1e9))) for _ in range(3)]  # noqa
+        self.exp_data = {}  # noqa
+        self.run_data = {}  # noqa
         # Include default experiment
         self.experiments.append(Experiment.DEFAULT_EXPERIMENT_ID)
         for exp in self.experiments:
