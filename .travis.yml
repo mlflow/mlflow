@@ -10,13 +10,13 @@ jobs:
     - language: python
       python: 2.7
       install:
-        - ./install-travis-deps.sh
+        - source ./install-travis-deps.sh
       script:
         - ./run-small-tests.sh
     - language: python
       python: 3.6
       install:
-        - ./install-travis-deps.sh
+        - source ./install-travis-deps.sh
       script:
         - ./run-small-tests.sh
     - language: r
@@ -29,7 +29,7 @@ jobs:
         - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
         - cd ../../..
       install:
-        - ./install-travis-deps.sh
+        - source ./install-travis-deps.sh
       script:
         - cd mlflow/R/mlflow
         - R CMD build .
@@ -42,7 +42,7 @@ jobs:
         - Rscript -e 'covr::codecov()'
     - language: java
       install:
-        - ./install-travis-deps.sh
+        - source ./install-travis-deps.sh
       script:
         - cd mlflow/java
         - mvn clean package -q
@@ -59,13 +59,13 @@ jobs:
     - language: python
       python: 2.7
       install:
-        - ./install-travis-deps.sh
+        - source ./install-travis-deps.sh
       script:
         - ./run-large-tests.sh
     - language: python
       python: 3.6
       install:
-        - ./install-travis-deps.sh
+        - source ./install-travis-deps.sh
       script:
         - ./run-large-tests.sh
 
