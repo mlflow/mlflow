@@ -4,10 +4,6 @@ sudo: true
 services:
   - docker
 
-stages:
- - small
- - large
-
 matrix:
   include:
     - stage: small
