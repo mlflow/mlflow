@@ -32,10 +32,10 @@ pip install .
 export MLFLOW_HOME=$(pwd)
 # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
 sudo rm -f /etc/boto.cfg
-# Install protoc
-wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
-sudo unzip /travis-install/protoc.zip -d /usr
 # Print current environment info
 pip list
 which mlflow
 echo $MLFLOW_HOME
+
+# Turn off trace output & exit-on-errors
+set +ex

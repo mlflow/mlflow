@@ -4,13 +4,16 @@ language: python
 services:
   - docker
 
-jobs:
+matrix:
   include:
     - stage: small
     - language: python
       python: 2.7
       install:
         - source ./install-travis-deps.sh
+        - # Install protoc
+        - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
+        - sudo unzip /travis-install/protoc.zip -d /usr
       script:
         - ./run-small-tests.sh
         # Also run protobuf tests in the Python 2.7 small test runner
@@ -71,5 +74,4 @@ jobs:
       script:
         - ./run-large-tests.sh
 
-install: skip
-script: skip
+if: false
