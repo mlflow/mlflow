@@ -65,7 +65,6 @@ class FileStore(AbstractStore):
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
-        if not exists(os.path.join(self.root_directory, Experiment.DEFAULT_EXPERIMENT_ID)):
             self._create_experiment_with_id(name=Experiment.DEFAULT_EXPERIMENT_NAME,
                                             experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
                                             artifact_uri=None)

@@ -122,7 +122,7 @@ def test_create_get_list_experiment(mlflow_client):
 
     experiments = mlflow_client.list_experiments()
     #  TODO do not check in, why is default not in the list?
-    assert set([e.name for e in experiments]) == {'Default', 'My Experiment'}
+    assert set([e.name for e in experiments]) == {'My Experiment'}
 
 
 def test_delete_restore_experiment(mlflow_client):
