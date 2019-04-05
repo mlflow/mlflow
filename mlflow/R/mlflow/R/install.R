@@ -18,7 +18,7 @@ mlflow_install <- function() {
     "pandas",
     "mlflow"
   )
-  conda =  = mlflow_conda_bin()
+  conda <- mlflow_conda_bin()
   if (!"r-mlflow" %in% conda_list(conda = conda)$name) {
     conda_create("r-mlflow", conda = conda)
     conda_install(packages, envname = "r-mlflow", pip = TRUE, conda = conda)
@@ -44,7 +44,7 @@ mlflow_uninstall <- function() {
 
 
 mlflow_conda_bin <- function() {
-  conda_home = Sys.getenv("MLFLOW_CONDA_HOME", NA)
-  conda = if (!is.na(conda_home)) paste(conda_home, "bin", "conda", sep = "/") else "auto"
+  conda_home <- Sys.getenv("MLFLOW_CONDA_HOME", NA)
+  conda <- if (!is.na(conda_home)) paste(conda_home, "bin", "conda", sep = "/") else "auto"
   conda_binary(conda = conda)
 }

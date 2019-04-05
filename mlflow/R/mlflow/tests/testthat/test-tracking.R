@@ -6,8 +6,7 @@ test_that("mlflow_client_create_experiment() works properly", {
   experiment_id <- mlflow_client_create_experiment(client = client, "exp_name", "art_loc")
   experiment <- mlflow_client_get_experiment(client = client, experiment_id)
   expect_identical(experiment$experiment$name, "exp_name")
-  artifact_location = paste(getwd(), "art_loc1", sep = "/")
-  expect_identical(experiment$experiment$artifact_location, artifact_location)
+  expect_identical(experiment$experiment$artifact_location, "art_loc")
 })
 
 test_that("mlflow_client_list_experiments() works properly", {
@@ -18,8 +17,10 @@ test_that("mlflow_client_list_experiments() works properly", {
   experiments_list <- mlflow_client_list_experiments(client = client)
   expect_setequal(experiments_list$experiment_id, c("0", "1", "2"))
   expect_setequal(experiments_list$name, c("Default", "foo1", "foo2"))
-  artifact_locations = paste(getwd(), c("mlruns/0", "art_loc1", "art_loc2"), sep = "/")
-  expect_setequal(experiments_list$artifact_location, artifact_locations)
+  default_artifact_loc <- paste(getwd(), "/mlruns/0", sep = "")
+  expect_setequal(experiments_list$artifact_location, c(default_artifact_loc,
+                                                        "art_loc1",
+                                                        "art_loc2"))
 })
 
 test_that("mlflow_client_get_experiment() works properly", {
@@ -29,8 +30,7 @@ test_that("mlflow_client_get_experiment() works properly", {
   experiment <- mlflow_client_get_experiment(client = client, experiment_id)
   expect_identical(experiment$experiment$experiment_id, experiment_id)
   expect_identical(experiment$experiment$name, "foo1")
-  artifact_location = paste(getwd(), "art_loc1", sep = "/")
-  expect_identical(experiment$experiment$artifact_location, artifact_location)
+  expect_identical(experiment$experiment$artifact_location, "art_loc1")
 })
 
 
@@ -41,10 +41,9 @@ test_that("mlflow_client_get_experiment_by_name() works properly", {
   expect_null(experiment)
   experiment_id <- mlflow_client_create_experiment(client = client, "exp", "art")
   experiment <- mlflow_client_get_experiment_by_name(client = client, "exp")
-  expect_identical(experiment$experiment$experiment_id, experiment_id)
-  expect_identical(experiment$experiment$name, "exp")
-  artifact_location = paste(getwd(), "art", sep = "/")
-  expect_identical(experiment$experiment$artifact_location, artifact_location)
+  expect_identical(experiment_id, experiment$experiment_id)
+  expect_identical(experiment$name, "exp")
+  expect_identical(experiment$artifact_location, "art")
 })
 
 test_that("mlflow_client_create_run()/mlflow_client_get_run() work properly", {

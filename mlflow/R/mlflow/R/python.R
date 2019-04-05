@@ -1,6 +1,6 @@
 #' @importFrom reticulate conda_list
 python_bin_conda <- function() {
-  conda = mlflow_conda_bin()
+  conda <- mlflow_conda_bin()
   envs <- conda_list(conda = conda)
   mlflow_env <- envs[envs$name == "r-mlflow", ]
   if (nrow(mlflow_env) == 0) {
