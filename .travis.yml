@@ -7,14 +7,12 @@ services:
 stages:
  - name: small
  - name: large
-   if: type = cron OR type = push OR commit_message =~ /^.*\[test-large\].*/
 
 matrix:
   include:
     - stage: small
-    - python:
-        - 2.7
-        - 3.6
+    - python: 2.7
+    - python: 3.6
     - language: r
       dist: trusty
       cache: packages
@@ -48,9 +46,8 @@ matrix:
         - ./lint.sh
         - npm test -- --coverage
     - stage: large
-    - python:
-        - 2.7
-        - 3.6
+    - python: 2.7
+    - python: 3.6
       script:
         # TODO(czumar): Re-enable container building and associated SageMaker tests once the container
         # build process is no longer hanging
