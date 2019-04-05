@@ -13,6 +13,8 @@ jobs:
         - source ./install-travis-deps.sh
       script:
         - ./run-small-tests.sh
+        # Also run protobuf tests in the Python 2.7 small test runner
+        - ./test-generate-protos.sh
     - language: python
       python: 3.6
       install:
