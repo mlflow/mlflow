@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 set -x
+# Set err=1 if any commands exit with non-zero status as described in
+# https://stackoverflow.com/a/42219754
+err=0
+trap 'err=1' ERR
+
 
 # TODO(czumar): Re-enable container building and associated SageMaker tests once the container
 # build process is no longer hanging
@@ -26,3 +31,4 @@ pytest --verbose tests/sklearn --large
 pytest --verbose tests/spark --large
 pytest --verbose tests/tensorflow --large
 pytest --verbose tests/azureml --large
+test $err = 0
