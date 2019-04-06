@@ -60,14 +60,15 @@ matrix:
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
   - source ./install-travis-deps.sh
-  - # Install protoc
-  - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
-  - sudo unzip /travis-install/protoc.zip -d /usr
+  - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip;
+      sudo unzip /travis-install/protoc.zip -d /usr;
+    fi
+
 script:
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      ./run-small-tests.sh
-      # Also run protobuf tests in the Python 2.7 small test runner
-      ./test-generate-protos.sh
+      ./run-small-tests.sh;
+      ./test-generate-protos.sh;
     else
-      ./run-large-tests.sh
+      ./run-large-tests.sh;
     fi
