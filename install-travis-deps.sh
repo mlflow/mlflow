@@ -24,9 +24,11 @@ python --version
 pip install --upgrade pip
 # Install Python test dependencies only if we're running Python tests
 if [[ ! -z "$TRAVIS_PYTHON_VERSION" ]]; then
-  # TODO sid move this out & re-add travis_wait before pip installs
-  pip install -r dev-requirements.txt -q;
-  pip install -r test-requirements.txt -q;
+  if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+    pip install -r small-requirements.txt
+  else
+    pip install -r large-requirements.txt
+  fi
 fi
 pip install .
 export MLFLOW_HOME=$(pwd)

@@ -25,3 +25,4 @@ pytest --verbose tests/sagemaker/mock --large
 pytest --verbose tests/sklearn --large
 pytest --verbose tests/spark --large
 pytest --verbose tests/tensorflow --large
+pytest --verbose tests/azureml --large
