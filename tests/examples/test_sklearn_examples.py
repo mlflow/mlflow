@@ -42,29 +42,10 @@ def test_examples(setup_for_tests):
     example_list = setup_for_tests
 
     for example in example_list:
-        print("testing: ", example.directory)
+        print("\n\ntesting: ", example.directory)
         run_an_example(example.directory, example.command)
 
 
-
-def test_sklearn_elasticnet_wine():
-    command = "cd examples/sklearn_elasticnet_wine &&  rm -fr mlruns &&  mlflow run . -P alpha=0.5"
-
-    test_run = Popen(command,shell=True,stdout=PIPE)
-
-    # check exit code for return code 0
-    test_run.wait()
-    assert test_run.returncode == 0
-
-
-def test_sklearn_elasticnet_diabetes():
-    command = "cd examples/sklearn_elasticnet_diabetes/linux && rm -fr mlruns && mlflow run ."
-
-    test_run = Popen(command,shell=True,stdout=PIPE)
-
-    # check exit code for return code 0
-    test_run.wait()
-    assert test_run.returncode == 0
 
 
 
