@@ -3,7 +3,7 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
 from mlflow.protos.service_pb2 import RunData as ProtoRunData, Param as ProtoParam,\
-    RunTag as ProtoRunTag
+    RunTag as ProtoRunTag, Metric as ProtoMetric
 
 
 class RunData(_MLflowObject):
@@ -13,13 +13,14 @@ class RunData(_MLflowObject):
     def __init__(self, metrics=None, params=None, tags=None):
         """
         Construct a new :py:class:`mlflow.entities.RunData` instance.
-        :param metrics: Dictionary of metric key (string) to :py:class:`mlflow.entities.Metric`.
-        :param params: Dictionary of param key (string) to param value (string).
-        :param tags: Dictionary of tag key (string) to tag value (string).
+        :param metrics: List of :py:class:`mlflow.entities.Metric`.
+        :param params: List of :py:class:`mlflow.entities.Param`.
+        :param tags: List of :py:class:`mlflow.entities.RunTag`.
         """
-        self._metrics = metrics or {}
-        self._params = params or {}
-        self._tags = tags or {}
+        self._metrics = {metric.key: metric.value for metric in metrics}
+        self._metric_objs = metrics or []
+        self._params = {param.key: param.value for param in params}
+        self._tags = {tag.key: tag.value for tag in tags}
 
     @property
     def metrics(self):
@@ -40,7 +41,9 @@ class RunData(_MLflowObject):
         return self._tags
 
     def _add_metric(self, metric):
-        self._metrics[metric.key] = metric
+        self._metrics[metric.key] = metric.value
+        self._metric_objs.append(metric)
+
 
     def _add_param(self, param):
         self._params[param.key] = param.value
@@ -50,14 +53,14 @@ class RunData(_MLflowObject):
 
     def to_proto(self):
         run_data = ProtoRunData()
-        run_data.metrics.extend([m.to_proto() for m in self.metrics.values()])
+        run_data.metrics.extend([m.to_proto() for m in self._metric_objs])
         run_data.params.extend([ProtoParam(key=key, value=val) for key, val in self.params.items()])
         run_data.tags.extend([ProtoRunTag(key=key, value=val) for key, val in self.tags.items()])
         return run_data
 
     def to_dictionary(self):
         return {
-            "metrics": {key: dict(metric) for key, metric in self.metrics.items()},
+            "metrics": self.metrics,
             "params": self.params,
             "tags": self.tags,
         }
