@@ -29,6 +29,7 @@ def run_an_example(example_dir, example_command, clear_mlruns):
     ("examples/sklearn_logistic_regression","python train.py",True),
     ("examples/sklearn_elasticnet_wine","mlflow run . -P alpha=0.5",True),
     ("examples/sklearn_elasticnet_diabetes/linux", "mlflow run .",True),
+    ("examples/h2o", "python random_forest.py",True),
 ])
 def test_example(directory, command, clear_mlruns):
     run_an_example(directory, command, clear_mlruns)
