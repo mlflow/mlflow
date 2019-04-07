@@ -12,6 +12,7 @@ matrix:
       python: 3.6
       install:
         - FORCE_INSTALL_LARGE=true source ./install-travis-deps.sh
+        - pip install lint-requirements.txt
       script:
         - ./lint.sh
     - language: python
