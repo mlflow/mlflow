@@ -32,6 +32,14 @@ def run_an_example(example_dir, example_command, clear_mlruns):
     ("examples/sklearn_elasticnet_wine","mlflow run . -P alpha=0.5",True),
     ("examples/sklearn_elasticnet_diabetes/linux", "mlflow run .",True),
     ("examples/h2o", "python random_forest.py",True),
+    ("examples/hyperparam","mlflow experiments create individual_runs",True),
+    ("examples/hyperparam","mlflow experiments create hyper_param_runs",False),
+    ("examples/hyperparam","mlflow run -e train --experiment-id 1 .",False),
+    ("examples/hyperparam","mlflow run -e random --experiment-id 2  -P training_experiment_id=1 .",False),
+    ("examples/hyperparam","mlflow run -e gpyopt --experiment-id 2  -P training_experiment_id=1 .",False),
+    ("examples/hyperparam", "mlflow run -e hyperopt --experiment-id 2  -P training_experiment_id=1 .", False),
+
 ])
 def test_example(directory, command, clear_mlruns):
     run_an_example(directory, command, clear_mlruns)
+
