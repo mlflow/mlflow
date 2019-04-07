@@ -23,7 +23,7 @@ source activate test-environment
 python --version
 pip install --upgrade pip
 # Install Python test dependencies only if we're running Python tests
-if [[ ! -z "$TRAVIS_PYTHON_VERSION" ]]; then
+if [ ! -z "$TRAVIS_PYTHON_VERSION" ] || [ "$FORCE_INSTALL_LARGE" == true ]; then
   if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
     pip install -r small-requirements.txt
   else

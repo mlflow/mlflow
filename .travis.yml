@@ -8,6 +8,13 @@ matrix:
   include:
     - stage: small
     - language: python
+      name: "Lint (Python 3.6)"
+      python: 3.6
+      install:
+        - FORCE_INSTALL_LARGE=true source ./install-travis-deps.sh
+      script:
+        - ./lint.sh
+    - language: python
       python: 3.6
       install:
         - source ./install-travis-deps.sh
@@ -67,8 +74,7 @@ install:
 
 script:
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      ./run-small-tests.sh;
-      ./test-generate-protos.sh;
+      ./run-small-tests.sh && ./test-generate-protos.sh;
     else
       ./run-large-tests.sh;
     fi
