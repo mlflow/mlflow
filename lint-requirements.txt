@@ -2,6 +2,4 @@ prospector[with_pyroma]==0.12.7
 pep8==1.7.1
 pyarrow==0.12.1
 pylint==1.8.2
-pytest==3.2.1
-pytest-cov==2.6.0
 rstcheck==3.2
