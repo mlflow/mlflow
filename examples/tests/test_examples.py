@@ -4,6 +4,8 @@ from subprocess import Popen
 import os.path
 import pytest
 
+# TODO - support for testing jupyter notebooks
+# TODO - example specific setup and assertions
 
 def run_an_example(example_dir, example_command, clear_mlruns):
     # construct command to run
