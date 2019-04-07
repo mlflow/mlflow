@@ -31,11 +31,30 @@ def _default_root_dir():
     return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
+def _make_persisted_experiment_dict(experiment):
+    exp_dict = dict(experiment)
+    try:  # Cast to int for backwards compatibility with type change for run submit
+        exp_dict["experiment_id"] = int(exp_dict["experiment_id"])
+    except ValueError:
+        pass
+    return exp_dict
+
+
+def _read_persisted_experiment_dict(experiment_dict):
+    dict_copy = experiment_dict.copy()
+    dict_copy['experiment_id'] = str(dict_copy['experiment_id'])
+    return Experiment.from_dictionary(dict_copy)
+
+
 def _make_persisted_run_info_dict(run_info):
     # 'tags' was moved from RunInfo to RunData, so we must keep storing it in the meta.yaml for
     # old mlflow versions to read
     run_info_dict = dict(run_info)
     run_info_dict['tags'] = []
+    try:
+        run_info_dict["experiment_id"] = int(run_info_dict["experiment_id"])
+    except ValueError:
+        pass
     return run_info_dict
 
 
@@ -43,6 +62,8 @@ def _read_persisted_run_info_dict(run_info_dict):
     dict_copy = run_info_dict.copy()
     if 'lifecycle_stage' not in dict_copy:
         dict_copy['lifecycle_stage'] = LifecycleStage.ACTIVE
+    if "experiment_id" in dict_copy:
+        dict_copy["experiment_id"] = str(dict_copy["experiment_id"])
     return RunInfo.from_dictionary(dict_copy)
 
 
@@ -159,7 +180,8 @@ class FileStore(AbstractStore):
         meta_dir = mkdir(self.root_directory, experiment_id)
         artifact_uri = artifact_uri or build_path(self.artifact_root_uri, experiment_id)
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
-        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
+        experiment_dict = _make_persisted_experiment_dict(experiment)
+        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, experiment_dict)
         return experiment_id
 
     def create_experiment(self, name, artifact_location=None):
@@ -201,8 +223,8 @@ class FileStore(AbstractStore):
             meta['lifecycle_stage'] = LifecycleStage.DELETED
         else:
             meta['lifecycle_stage'] = LifecycleStage.ACTIVE
-        experiment = Experiment.from_dictionary(meta)
-        if experiment_id != str(experiment.experiment_id):
+        experiment = _read_persisted_experiment_dict(meta)
+        if experiment_id != experiment.experiment_id:
             logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
                             "Experiment will be ignored.",
                             experiment_id, experiment.experiment_id, exc_info=True)
@@ -245,7 +267,7 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.root_directory)
 
     def rename_experiment(self, experiment_id, new_name):
-        meta_dir = os.path.join(self.root_directory, str(experiment_id))
+        meta_dir = os.path.join(self.root_directory, experiment_id)
         # if experiment is malformed, will raise error
         experiment = self._get_experiment(experiment_id)
         if experiment is None:
@@ -255,7 +277,8 @@ class FileStore(AbstractStore):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception("Cannot rename experiment in non-active lifecycle stage."
                             " Current stage: %s" % experiment.lifecycle_stage)
-        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment), overwrite=True)
+        exp_dict = _make_persisted_experiment_dict(experiment)
+        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, exp_dict, overwrite=True)
 
     def delete_run(self, run_id):
         run_info = self._get_run_info(run_id)
@@ -332,7 +355,8 @@ class FileStore(AbstractStore):
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         mkdir(run_dir)
-        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, _make_persisted_run_info_dict(run_info))
+        run_info_dict = _make_persisted_run_info_dict(run_info)
+        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict)
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
@@ -343,12 +367,6 @@ class FileStore(AbstractStore):
         if run_name:
             self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return Run(run_info=run_info, run_data=None)
-
-    def _make_experiment_dict(self, experiment):
-        # Don't persist lifecycle_stage since it's inferred from the ".trash" folder.
-        experiment_dict = dict(experiment)
-        del experiment_dict['lifecycle_stage']
-        return experiment_dict
 
     def get_run(self, run_uuid):
         """
@@ -375,7 +393,7 @@ class FileStore(AbstractStore):
 
         meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
         run_info = _read_persisted_run_info_dict(meta)
-        if str(run_info.experiment_id) != str(exp_id):
+        if run_info.experiment_id != exp_id:
             logging.warning("Wrong experiment ID (%s) recorded for run '%s'. It should be %s. "
                             "Run will be ignored.", str(run_info.experiment_id),
                             str(run_info.run_uuid), str(exp_id), exc_info=True)

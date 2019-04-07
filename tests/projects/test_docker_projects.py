@@ -35,7 +35,7 @@ def test_docker_project_execution(
     build_docker_example_base_image()
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
-        TEST_DOCKER_PROJECT_DIR, experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
+        TEST_DOCKER_PROJECT_DIR, experiment_id=0,
         parameters=expected_params, entry_point="test_tracking")
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
