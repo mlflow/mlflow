@@ -273,7 +273,7 @@ export class ExperimentView extends Component {
       <div className="search-input-tooltip-content">
         Click here to learn more about the search syntax.<br/>
         <a
-          href="https://mlflow.org/docs/latest/tracking.html"
+          href="https://www.mlflow.org/docs/latest/search-syntax.html"
           target="_blank"
           rel="noopener noreferrer"
         >
