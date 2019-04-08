@@ -1,5 +1,6 @@
 sudo: true
 language: python
+python: 3.6
 
 services:
   - docker
@@ -16,9 +17,9 @@ matrix:
       script:
         - ./lint.sh
     - language: python
-      python: 3.6
+      python: 2.7
       install:
-        - source ./install-travis-deps.sh
+        - INSTALL_SMALL_PYTHON_DEPS=true source ./install-travis-deps.sh
       script:
         - ./run-small-tests.sh
     - language: r
@@ -68,8 +69,8 @@ matrix:
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip && \
-      sudo unzip /travis-install/protoc.zip -d /usr && \
+      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
+      sudo unzip /travis-install/protoc.zip -d /usr &&
       INSTALL_SMALL_PYTHON_DEPS=true source ./install-travis-deps.sh;
     else
       INSTALL_LARGE_PYTHON_DEPS=true source ./install-travis-deps.sh;
