@@ -1,5 +1,6 @@
 sudo: true
 language: python
+# Note: can remove this once Travis's default Python version switches to 3.6 on April 16, 2019.
 python: 3.6
 
 services:
@@ -23,6 +24,7 @@ matrix:
       script:
         - ./run-small-tests.sh
     - language: r
+      name: "R"
       dist: trusty
       cache: packages
       before_install:
@@ -44,6 +46,7 @@ matrix:
         - export COVR_RUNNING=true
         - Rscript -e 'covr::codecov()'
     - language: java
+      name: "Java"
       install:
         - source ./install-travis-deps.sh
       script:
@@ -53,6 +56,7 @@ matrix:
       node_js:
         - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
       install:
+      name: "Node.js"
       script:
         - cd mlflow/server/js
         - npm i
@@ -60,7 +64,7 @@ matrix:
         - npm test -- --coverage
     - stage: large
     - language: python
-      python: 3.6
+      python: 2.7
       install:
         - source ./install-travis-deps.sh
       script:
@@ -69,8 +73,8 @@ matrix:
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
-      sudo unzip /travis-install/protoc.zip -d /usr &&
+      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip;
+      sudo unzip /travis-install/protoc.zip -d /usr;
       INSTALL_SMALL_PYTHON_DEPS=true source ./install-travis-deps.sh;
     else
       INSTALL_LARGE_PYTHON_DEPS=true source ./install-travis-deps.sh;
