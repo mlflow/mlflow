@@ -10,7 +10,6 @@ mlflow_rest_timeout <- function() {
   timeout(getOption("mlflow.rest.timeout", 60))
 }
 
-
 try_parse_response_as_text <- function(response) {
   raw_content <- content(response, type = "raw")
   tryCatch({
