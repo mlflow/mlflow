@@ -14,11 +14,12 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.search_utils import SearchFilter
+from mlflow.utils.validation import _validate_batch_log_api_req
 
 _store = None
 
@@ -41,6 +42,10 @@ def _get_store():
     return _store
 
 
+def _get_request_json(flask_request=request):
+    return flask_request.get_json(force=True, silent=True)
+
+
 def _get_request_message(request_message, flask_request=request):
     if flask_request.method == 'GET' and len(flask_request.query_string) > 0:
         # This is a hack to make arrays of length 1 work with the parser.
@@ -53,7 +58,7 @@ def _get_request_message(request_message, flask_request=request):
         parse_dict(request_dict, request_message)
         return request_message
 
-    request_json = flask_request.get_json(force=True, silent=True)
+    request_json = _get_request_json(flask_request)
 
     # Older clients may post their JSON double-encoded as strings, so the get_json
     # above actually converts it to a string. Therefore, we check this condition
@@ -101,10 +106,12 @@ def get_artifact_handler():
     run = _get_store().get_run(request_dict['run_uuid'])
     filename = os.path.abspath(_get_artifact_repo(run).download_artifacts(request_dict['path']))
     extension = os.path.splitext(filename)[-1].replace(".", "")
+    # Always send artifacts as attachments to prevent the browser from displaying them on our web
+    # server's domain, which might enable XSS.
     if extension in _TEXT_EXTENSIONS:
-        return send_file(filename, mimetype='text/plain')
+        return send_file(filename, mimetype='text/plain', as_attachment=True)
     else:
-        return send_file(filename)
+        return send_file(filename, as_attachment=True)
 
 
 def _not_implemented():
@@ -275,9 +282,9 @@ def _search_runs():
     run_view_type = ViewType.ACTIVE_ONLY
     if request_message.HasField('run_view_type'):
         run_view_type = ViewType.from_proto(request_message.run_view_type)
-    run_entities = _get_store().search_runs(request_message.experiment_ids,
-                                            SearchFilter(request_message),
-                                            run_view_type)
+    sf = SearchFilter(anded_expressions=request_message.anded_expressions,
+                      filter_string=request_message.filter)
+    run_entities = _get_store().search_runs(request_message.experiment_ids, sf, run_view_type)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -330,6 +337,20 @@ def _get_artifact_repo(run):
     return get_artifact_repository(run.info.artifact_uri, store)
 
 
+@catch_mlflow_exception
+def _log_batch():
+    _validate_batch_log_api_req(_get_request_json())
+    request_message = _get_request_message(LogBatch())
+    metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
+    params = [Param.from_proto(proto_param) for proto_param in request_message.params]
+    tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
+    _get_store().log_batch(run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
+    response_message = LogBatch.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 def _get_paths(base_path):
     """
     A service endpoints base path is typically something like /preview/mlflow/experiment.
@@ -367,6 +388,7 @@ HANDLERS = {
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetTag: _set_tag,
+    LogBatch: _log_batch,
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,

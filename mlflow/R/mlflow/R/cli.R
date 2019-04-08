@@ -8,6 +8,7 @@
 #' @param echo Print the standard output and error to the screen? Defaults to
 #'   \code{TRUE}, does not apply to background tasks.
 #' @param stderr_callback NULL, or a function to call for every chunk of the standard error.
+#' @param client Mlflow client to provide environment for the cli process.
 #'
 #' @return A \code{processx} task.
 #'
@@ -27,7 +28,8 @@ mlflow_cli <- function(...,
                        background = FALSE,
                        echo = TRUE,
                        stderr_callback = NULL,
-                       env = list()) {
+                       client = mlflow_client()) {
+  env <- if (is.null(client)) list() else client$get_cli_env()
   args <- list(...)
   verbose <- mlflow_is_verbose()
 

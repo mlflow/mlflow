@@ -22,7 +22,43 @@ new_mlflow_client_impl <- function(get_host_creds, get_cli_env = list, class = c
 
 new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, token = NA,
                                    insecure = "False") {
-  list(host = host, username = username, password = password, token = token, insecure = insecure)
+  structure(
+    list(host = host, username = username, password = password, token = token, insecure = insecure),
+    class = "mlflow_host_creds"
+  )
+}
+
+#' @export
+print.mlflow_host_creds <- function(x, ...) {
+  mlflow_host_creds <- x
+  args <- list(
+    host = if (is.na(mlflow_host_creds$host)) {
+      ""
+    } else {
+      paste ("host = ", mlflow_host_creds$host, sep = "")
+    },
+    username = if (is.na(mlflow_host_creds$username)) {
+      ""
+    } else {
+      paste ("username = ", mlflow_host_creds$username, sep = "")
+    },
+    password = if (is.na(mlflow_host_creds$password)) {
+      ""
+    } else {
+      "password = *****"
+    },
+    token = if (is.na(mlflow_host_creds$token)) {
+      ""
+    } else {
+      "token = *****"
+    },
+    insecure = paste("insecure = ", as.character(mlflow_host_creds$insecure),
+                     sep = ""),
+    sep = ", "
+  )
+  cat("mlflow_host_creds( ")
+  do.call(cat, args[args != ""])
+  cat(")\n")
 }
 
 new_mlflow_client.mlflow_file <- function(tracking_uri) {
@@ -114,15 +150,10 @@ mlflow_client_create_experiment <- function(client, name, artifact_location = NU
 #' @template roxlate-client
 mlflow_client_list_experiments <- function(client, view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL")) {
   view_type <- match.arg(view_type)
-  response <- mlflow_rest(
+  mlflow_rest(
     "experiments", "list", client = client, verb = "GET",
-    query = list(
-      view_type = view_type
-    ))
-  exps <- response$experiments
-
-  exps$artifact_location <- mlflow_relative_paths(exps$artifact_location)
-  exps
+    query = list(view_type = view_type)
+  )$experiments
 }
 
 #' Get Experiment
@@ -145,8 +176,12 @@ mlflow_client_get_experiment <- function(client, experiment_id) {
 #' @template roxlate-client
 mlflow_client_get_experiment_by_name <- function(client, name) {
   exps <- mlflow_client_list_experiments(client = client)
-  experiment <- exps[exps$name == name, ]
-  if (nrow(experiment)) experiment else NULL
+  if ("name" %in% names(exps) && length(exps$name)) {
+     experiment <- exps[exps$name == name, ]
+     if (nrow(experiment)) experiment else NULL
+  } else {
+    NULL
+  }
 }
 
 #' Create Run
@@ -235,7 +270,9 @@ mlflow_client_restore_experiment <- function(client, experiment_id) {
 
 #' Get Run
 #'
-#' Gets metadata, params, tags, and metrics for a run. Only last logged value for each metric is returned.
+#' Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
+#' same key are logged for the run, returns only the value with the latest timestamp. If there are
+#' multiple values with the latest timestamp, returns the maximum of these values.
 #'
 #' @template roxlate-run-id
 #' @template roxlate-client
@@ -407,7 +444,7 @@ mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NUL
              artifact_path,
              "--run-id",
              run_id,
-             env = client$cli_env())
+             client = client)
 
   invisible(NULL)
 }
@@ -451,7 +488,7 @@ mlflow_client_download_artifacts <- function(client, run_id, path) {
           call. = FALSE
         )
     },
-    env = client$cli_env()
+    client = client
   )
   gsub("\n", "", result$stdout)
 }
