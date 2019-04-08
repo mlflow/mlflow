@@ -150,15 +150,10 @@ mlflow_client_create_experiment <- function(client, name, artifact_location = NU
 #' @template roxlate-client
 mlflow_client_list_experiments <- function(client, view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL")) {
   view_type <- match.arg(view_type)
-  response <- mlflow_rest(
+  mlflow_rest(
     "experiments", "list", client = client, verb = "GET",
-    query = list(
-      view_type = view_type
-    ))
-  exps <- response$experiments
-
-  exps$artifact_location <- mlflow_relative_paths(exps$artifact_location)
-  exps
+    query = list(view_type = view_type)
+  )$experiments
 }
 
 #' Get Experiment
@@ -181,8 +176,12 @@ mlflow_client_get_experiment <- function(client, experiment_id) {
 #' @template roxlate-client
 mlflow_client_get_experiment_by_name <- function(client, name) {
   exps <- mlflow_client_list_experiments(client = client)
-  experiment <- exps[exps$name == name, ]
-  if (nrow(experiment)) experiment else NULL
+  if ("name" %in% names(exps) && length(exps$name)) {
+     experiment <- exps[exps$name == name, ]
+     if (nrow(experiment)) experiment else NULL
+  } else {
+    NULL
+  }
 }
 
 #' Create Run
