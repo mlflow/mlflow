@@ -17,8 +17,6 @@ try_parse_response_as_text <- function(response) {
     rawToChar(raw_content)
   }, error = function(e) {
     do.call(paste, as.list(raw_content))
-  }, warning = function(e) {
-    do.call(paste, as.list(raw_content))
   })
 }
 
@@ -73,9 +71,6 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     message_body <- tryCatch(
       paste(content(response, "parsed", type = "application/json"), collapse = "; "),
       error = function(e) {
-        try_parse_response_as_text(response)
-      },
-      warning = function(e) {
         try_parse_response_as_text(response)
       }
     )
