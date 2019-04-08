@@ -3,7 +3,7 @@ from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
 from mlflow.protos.service_pb2 import RunData as ProtoRunData, Param as ProtoParam,\
-    RunTag as ProtoRunTag, Metric as ProtoMetric
+    RunTag as ProtoRunTag
 
 
 class RunData(_MLflowObject):
