@@ -46,7 +46,7 @@ service MlflowService {
   }
 
   // Get metadata for an experiment and a list of runs for the experiment.
-  // This RPC will work on deleted experiments.
+  // This method works on deleted experiments.
   rpc getExperiment (GetExperiment) returns (GetExperiment.Response) {
     option (rpc) = {
       endpoints: [{
@@ -59,7 +59,7 @@ service MlflowService {
     };
   }
 
-  // Mark an experiment and associated runs, params, metrics, ... etc for deletion.
+  // Mark an experiment and associated metadata, runs, metrics, and params for deletion.
   // If the experiment uses FileStore, artifacts associated with experiment are also deleted.
   //
   rpc deleteExperiment (DeleteExperiment) returns (DeleteExperiment.Response) {
@@ -498,7 +498,7 @@ message DeleteExperiment {
 message RestoreExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Identifier to get an experiment
+  // ID of the associated experiment.
   optional int64 experiment_id = 1 [(validate_required) = true];
 
   message Response {
