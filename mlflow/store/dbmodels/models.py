@@ -49,11 +49,11 @@ def _create_entity(base, model):
                             or (o.timestamp == existing_metric.timestamp
                                 and o.value > existing_metric.value):
                             metrics[o.key] = Metric(o.key, o.value, o.timestamp)
-                    obj = metrics
+                    obj = metrics.values()
                 elif k == 'params':
-                    obj = {o.key: o.value for o in obj}
+                    obj = [Param(o.key, o.value) for o in obj]
                 elif k == 'tags':
-                    obj = {o.key: o.value for o in obj}
+                    obj = [RunTag(o.key, o.value) for o in obj]
             elif base is RunInfo:
                 if k == 'source_type':
                     obj = SourceType.from_string(obj)

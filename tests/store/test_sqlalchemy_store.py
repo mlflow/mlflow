@@ -408,7 +408,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.log_metric(run.info.run_uuid, metric2)
 
         run = self.store.get_run(run.info.run_uuid)
-        self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey].value == tval)
+        self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
@@ -418,7 +418,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(2, len(sql_run_metrics))
             self.assertEqual(1, len(run.data.metrics))
 
-    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_and_value(self):
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
 
         metric_name = "test-metric-1"
@@ -441,11 +441,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
         assert len(run_metrics) == 1
-        logged_metric = run_metrics[metric_name]
-        assert logged_metric.key == metric_name
+        logged_metric_val = run_metrics[metric_name]
         max_timestamp = max(timestamp_values_mapping)
-        assert logged_metric.timestamp == max_timestamp
-        assert logged_metric.value == max(timestamp_values_mapping[max_timestamp])
+        assert logged_metric_val == max(timestamp_values_mapping[max_timestamp])
 
     def test_log_null_metric(self):
         run = self._run_factory()
@@ -648,12 +646,14 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.set_tag(run_uuid, entities.RunTag("t1345", "tv44"))
 
         run = self.store.get_run(run_uuid)
-        assert run.data.params == {"p1345": "v22"}
-        assert len(run.data.metrics) == 1
-        m = run.data.metrics["m1345"]
-        self.assertEqual(m.key, "m1345")
-        self.assertEqual(m.value, 34.0)
-        self.assertEqual(m.timestamp, 85)
+        self.assertEqual(run.data.params, {"p1345": "v22"})
+        self.assertEqual(run.data.metrics, {"m1345": 34.0})
+        metric_history = self.store.get_metric_history(run_uuid, "m1345")
+        self.assertEqual(len(metric_history), 1)
+        metric_obj = metric_history[0]
+        self.assertEqual(metric_obj.key, "m1345")
+        self.assertEqual(metric_obj.value, 34.0)
+        self.assertEqual(metric_obj.timestamp, 85)
         self.assertTrue(set([("t1345", "tv44")]) <= set(run.data.tags.items()))
 
     # Tests for Search API
@@ -920,7 +920,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run = self.store.get_run(run_uuid)
         assert run.data.tags == {"t1": "t1val", "t2": "t2val", MLFLOW_RUN_NAME: "r1"}
         assert run.data.params == {"p1": "p1val", "p2": "p2val"}
-        metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics.values()]
+        metric_histories = sum(
+            [self.store.get_metric_history(run_uuid, key) for key in run.data.metrics], [])
+        metrics = [(m.key, m.value, m.timestamp) for m in metric_histories]
         assert set(metrics) == set([("m1", 0.87, 12345), ("m2", 0.49, 12345)])
 
     def test_log_batch_limits(self):
@@ -932,7 +934,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
         self.store.log_batch(run_id=run_uuid, metrics=metric_entities, params=[], tags=[])
         run = self.store.get_run(run_uuid)
-        metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics.values()]
+        metric_histories = sum(
+            [self.store.get_metric_history(run_uuid, key) for key in run.data.metrics], [])
+        metrics = [(m.key, m.value, m.timestamp) for m in metric_histories]
         assert set(metrics) == set(metric_tuples)
 
     def test_log_batch_param_overwrite_disallowed(self):

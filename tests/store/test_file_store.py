@@ -287,7 +287,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
-    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_and_value(self):
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         fs = FileStore(self.test_root)
         run_uuid = self._create_run(fs).info.run_uuid
 
@@ -310,10 +310,9 @@ class TestFileStore(unittest.TestCase):
 
         run_metrics = fs.get_run(run_uuid).data.metrics
         assert len(run_metrics) == 1
-        assert run_metrics[metric_name].key == metric_name
+        logged_metric_val = run_metrics[metric_name]
         max_timestamp = max(timestamp_values_mapping)
-        assert run_metrics[metric_name].timestamp == max_timestamp
-        assert run_metrics[metric_name].value == max(timestamp_values_mapping[max_timestamp])
+        assert logged_metric_val == max(timestamp_values_mapping[max_timestamp])
 
     def test_get_all_metrics(self):
         fs = FileStore(self.test_root)
@@ -323,9 +322,8 @@ class TestFileStore(unittest.TestCase):
                 run_info = self.run_data[run_uuid]
                 metrics = fs.get_all_metrics(run_uuid)
                 metrics_dict = run_info.pop("metrics")
-                for key, metric in metrics.items():
+                for metric in metrics:
                     expected_timestamp, expected_value = max(metrics_dict[metric.key])
-                    self.assertEqual(metric.key, key)
                     self.assertEqual(metric.timestamp, expected_timestamp)
                     self.assertEqual(metric.value, expected_value)
 
@@ -420,7 +418,10 @@ class TestFileStore(unittest.TestCase):
         run_uuid = self.exp_data[0]["runs"][0]
         fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234))
         run = fs.get_run(run_uuid)
-        metric = run.data.metrics[WEIRD_METRIC_NAME]
+        assert run.data.metrics[WEIRD_METRIC_NAME] == 10
+        history = fs.get_metric_history(run_uuid, WEIRD_METRIC_NAME)
+        assert len(history) == 1
+        metric = history[0]
         assert metric.key == WEIRD_METRIC_NAME
         assert metric.value == 10
         assert metric.timestamp == 1234

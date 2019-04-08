@@ -241,8 +241,7 @@ class SearchFilter(object):
                                       "not one of '%s" % (comparator,
                                                           cls.VALID_METRIC_COMPARATORS),
                                       error_code=INVALID_PARAMETER_VALUE)
-            metric = run.data.metrics.get(key, None)
-            lhs = metric.value if metric else None
+            lhs = run.data.metrics.get(key, None)
             value = float(value)
         elif key_type == cls._PARAM_IDENTIFIER:
             if comparator not in cls.VALID_PARAM_COMPARATORS:

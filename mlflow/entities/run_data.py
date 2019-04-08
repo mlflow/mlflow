@@ -17,10 +17,10 @@ class RunData(_MLflowObject):
         :param params: List of :py:class:`mlflow.entities.Param`.
         :param tags: List of :py:class:`mlflow.entities.RunTag`.
         """
-        self._metrics = {metric.key: metric.value for metric in metrics}
         self._metric_objs = metrics or []
-        self._params = {param.key: param.value for param in params}
-        self._tags = {tag.key: tag.value for tag in tags}
+        self._metrics = {metric.key: metric.value for metric in self._metric_objs}
+        self._params = {param.key: param.value for param in (params or [])}
+        self._tags = {tag.key: tag.value for tag in (tags or [])}
 
     @property
     def metrics(self):
@@ -43,7 +43,6 @@ class RunData(_MLflowObject):
     def _add_metric(self, metric):
         self._metrics[metric.key] = metric.value
         self._metric_objs.append(metric)
-
 
     def _add_param(self, param):
         self._params[param.key] = param.value
@@ -75,19 +74,4 @@ class RunData(_MLflowObject):
             run_data._add_param(Param.from_proto(proto_param))
         for proto_tag in proto.tags:
             run_data._add_tag(RunTag.from_proto(proto_tag))
-
-        return run_data
-
-    @classmethod
-    def from_dictionary(cls, the_dict):
-        run_data = cls()
-        for m_obj in the_dict.get("metrics", {}).values():
-            # Handle dicts since the "metrics" dictionary might either be a map of metric keys
-            # to Metric objects (generated via dict(run_data)) or a map of metric keys to dicts
-            # representing metric objects (generated via run_data.to_dictionary())
-            if isinstance(m_obj, dict):
-                m_obj = Metric(m_obj['key'], m_obj['value'], m_obj['timestamp'])
-            run_data._add_metric(m_obj)
-        run_data._params = the_dict.get("params", {})
-        run_data._tags = the_dict.get("tags", [])
         return run_data

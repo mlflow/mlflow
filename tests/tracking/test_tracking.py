@@ -147,9 +147,7 @@ def test_start_and_end_run(tracking_uri_mock):
     finished_run = tracking.MlflowClient().get_run(active_run.info.run_uuid)
     # Validate metrics
     assert len(finished_run.data.metrics) == 1
-    metric_obj = finished_run.data.metrics["name_1"]
-    assert metric_obj.key == "name_1"
-    assert metric_obj.value == 25
+    assert finished_run.data.metrics["name_1"] == 25
 
 
 def test_log_batch(tracking_uri_mock):
@@ -171,8 +169,8 @@ def test_log_batch(tracking_uri_mock):
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate metrics
     assert len(finished_run.data.metrics) == 2
-    for key, metric in finished_run.data.metrics.items():
-        assert expected_metrics[key] == metric.value
+    for key, value in finished_run.data.metrics.items():
+        assert expected_metrics[key] == value
     # Validate tags (for automatically-set tags)
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
     for tag_key, tag_value in finished_run.data.tags.items():
@@ -196,8 +194,8 @@ def test_log_metric(tracking_uri_mock):
     # Validate metrics
     assert len(finished_run.data.metrics) == 3
     expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
-    for key, metric in finished_run.data.metrics.items():
-        assert expected_pairs[key] == metric.value
+    for key, value in finished_run.data.metrics.items():
+        assert expected_pairs[key] == value
 
 
 def test_log_metrics(tracking_uri_mock):
@@ -208,11 +206,12 @@ def test_log_metrics(tracking_uri_mock):
         mlflow.log_metrics(expected_metrics)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate metric key/values match what we expect, and that all metrics have the same timestamp
-    common_timestamp = finished_run.data.metrics["name_1"].timestamp
     assert len(finished_run.data.metrics) == len(expected_metrics)
-    for key, metric in finished_run.data.metrics.items():
-        assert expected_metrics[key] == metric.value
-        assert metric.timestamp == common_timestamp
+    for key, value in finished_run.data.metrics.items():
+        assert expected_metrics[key] == value
+    common_timestamp = finished_run.data._metric_objs[0].timestamp
+    for metric_obj in finished_run.data._metric_objs:
+        assert metric_obj.timestamp == common_timestamp
 
 
 @pytest.fixture

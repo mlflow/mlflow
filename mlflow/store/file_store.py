@@ -424,10 +424,9 @@ class FileStore(AbstractStore):
     def get_all_metrics(self, run_uuid):
         _validate_run_id(run_uuid)
         parent_path, metric_files = self._get_run_files(run_uuid, "metric")
-        metrics = {}
+        metrics = []
         for metric_file in metric_files:
-            metric_obj = self._get_metric_from_file(parent_path, metric_file)
-            metrics[metric_obj.key] = metric_obj
+            metrics.append(self._get_metric_from_file(parent_path, metric_file))
         return metrics
 
     def get_metric_history(self, run_uuid, metric_key):
@@ -464,18 +463,16 @@ class FileStore(AbstractStore):
 
     def get_all_params(self, run_uuid):
         parent_path, param_files = self._get_run_files(run_uuid, "param")
-        params = {}
+        params = []
         for param_file in param_files:
-            param_obj = self._get_param_from_file(parent_path, param_file)
-            params[param_obj.key] = param_obj.value
+            params.append(self._get_param_from_file(parent_path, param_file))
         return params
 
     def get_all_tags(self, run_uuid):
         parent_path, tag_files = self._get_run_files(run_uuid, "tag")
-        tags = {}
+        tags = []
         for tag_file in tag_files:
-            tag_obj = self._get_tag_from_file(parent_path, tag_file)
-            tags[tag_obj.key] = tag_obj.value
+            tags.append(self._get_tag_from_file(parent_path, tag_file))
         return tags
 
     def _list_run_infos(self, experiment_id, view_type):
