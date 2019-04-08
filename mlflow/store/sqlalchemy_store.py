@@ -190,7 +190,7 @@ class SqlAlchemyStore(AbstractStore):
         conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
 
         if ids and len(ids) > 0:
-            int_ids = [int(id) for id in ids]
+            int_ids = [int(eid) for eid in ids]
             conditions.append(SqlExperiment.experiment_id.in_(int_ids))
 
         if names and len(names) > 0:
