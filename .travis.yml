@@ -11,7 +11,7 @@ matrix:
       name: "Lint (Python 3.6)"
       python: 3.6
       install:
-        - FORCE_INSTALL_LARGE=true source ./install-travis-deps.sh
+        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./install-travis-deps.sh
         - pip install -r lint-requirements.txt
       script:
         - ./lint.sh
@@ -67,10 +67,12 @@ matrix:
 
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
-  - source ./install-travis-deps.sh
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip;
-      sudo unzip /travis-install/protoc.zip -d /usr;
+      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip && \
+      sudo unzip /travis-install/protoc.zip -d /usr && \
+      INSTALL_SMALL_PYTHON_DEPS=true source ./install-travis-deps.sh;
+    else
+      INSTALL_LARGE_PYTHON_DEPS=true source ./install-travis-deps.sh;
     fi
 
 script:
