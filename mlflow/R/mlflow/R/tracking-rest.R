@@ -27,7 +27,7 @@ get_rest_config <- function(host_creds) {
   is_insecure <- list(true = TRUE, false = FALSE)[[tolower(host_creds$insecure)]]
   list(
     headers = headers,
-    config = if(is_insecure) {
+    config = if (is_insecure) {
         httr::config(ssl_verifypeer = 0, ssl_verifyhost = 0)
     } else {
       list()
