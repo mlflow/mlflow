@@ -15,7 +15,7 @@ matrix:
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
-        - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
         - cd ../../..
       script:
         - cd mlflow/R/mlflow
