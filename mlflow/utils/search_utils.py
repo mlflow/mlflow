@@ -76,7 +76,7 @@ class SearchFilter(object):
         entity_type = cls._trim_backticks(entity_type)
         if entity_type not in cls.VALID_KEY_TYPE:
             raise MlflowException("Invalid search expression type '%s'. "
-                                  "Valid values are '%s" % (entity_type, cls.VALID_KEY_TYPE),
+                                  "Valid values are %s" % (entity_type, cls.VALID_KEY_TYPE),
                                   error_code=INVALID_PARAMETER_VALUE)
 
         if entity_type in cls._ALTERNATE_PARAM_IDENTIFIERS:
@@ -96,7 +96,7 @@ class SearchFilter(object):
         except ValueError:
             raise MlflowException("Invalid filter string '%s'. Filter comparison is expected as "
                                   "'metric.<key> <comparator> <value>', "
-                                  "'tag.<key> <comparator> <value>', or"
+                                  "'tag.<key> <comparator> <value>', or "
                                   "'params.<key> <comparator> <value>'." % identifier,
                                   error_code=INVALID_PARAMETER_VALUE)
         return {"type": cls._valid_entity_type(entity_type), "key": cls._strip_quotes(key)}
@@ -247,7 +247,7 @@ class SearchFilter(object):
         elif key_type == cls._PARAM_IDENTIFIER:
             if comparator not in cls.VALID_PARAM_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
-                                      "not one of '%s" % (comparator, cls.VALID_PARAM_COMPARATORS),
+                                      "not one of '%s'" % (comparator, cls.VALID_PARAM_COMPARATORS),
                                       error_code=INVALID_PARAMETER_VALUE)
             param = next((p for p in run.data.params if p.key == key), None)
             lhs = param.value if param else None
