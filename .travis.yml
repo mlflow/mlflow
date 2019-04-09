@@ -6,10 +6,6 @@ python: 3.6
 services:
   - docker
 
-stages:
-  - large
-  - small
-
 matrix:
   include:
     - stage: small
@@ -83,7 +79,6 @@ install:
       wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
       sudo unzip /travis-install/protoc.zip -d /usr;
     else
-      echo "Sid test";
       INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
     fi
 

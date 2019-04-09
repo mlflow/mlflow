@@ -24,10 +24,10 @@ python --version
 pip install --upgrade pip
 # Install Python test dependencies only if we're running Python tests
 if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
-  pip install -r ./travis/large-requirements.txt
+  pip install -r ./travis/small-requirements.txt
 fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
-  pip install -r ./travis/small-requirements.txt
+  pip install -r ./travis/large-requirements.txt
 fi
 pip install .
 export MLFLOW_HOME=$(pwd)
