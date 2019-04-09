@@ -31,15 +31,6 @@ def _default_root_dir():
     return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
-def _make_persisted_experiment_dict(experiment):
-    exp_dict = dict(experiment)
-    try:  # Cast to int for backwards compatibility with type change for run submit
-        exp_dict["experiment_id"] = int(exp_dict["experiment_id"])
-    except ValueError:
-        pass
-    return exp_dict
-
-
 def _read_persisted_experiment_dict(experiment_dict):
     dict_copy = experiment_dict.copy()
     dict_copy['experiment_id'] = str(dict_copy['experiment_id'])
@@ -51,10 +42,6 @@ def _make_persisted_run_info_dict(run_info):
     # old mlflow versions to read
     run_info_dict = dict(run_info)
     run_info_dict['tags'] = []
-    try:
-        run_info_dict["experiment_id"] = int(run_info_dict["experiment_id"])
-    except ValueError:
-        pass
     return run_info_dict
 
 
@@ -181,8 +168,7 @@ class FileStore(AbstractStore):
         meta_dir = mkdir(self.root_directory, experiment_id)
         artifact_uri = artifact_uri or build_path(self.artifact_root_uri, experiment_id)
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
-        experiment_dict = _make_persisted_experiment_dict(experiment)
-        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, experiment_dict)
+        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
 
     def create_experiment(self, name, artifact_location=None):
@@ -277,8 +263,7 @@ class FileStore(AbstractStore):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception("Cannot rename experiment in non-active lifecycle stage."
                             " Current stage: %s" % experiment.lifecycle_stage)
-        exp_dict = _make_persisted_experiment_dict(experiment)
-        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, exp_dict, overwrite=True)
+        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(exp_dict), overwrite=True)
 
     def delete_run(self, run_id):
         run_info = self._get_run_info(run_id)
