@@ -221,8 +221,7 @@ def test_log_metrics_params_tags(mlflow_client):
     mlflow_client.log_param(run_id, 'param', 'value')
     mlflow_client.set_tag(run_id, 'taggity', 'do-dah')
     run = mlflow_client.get_run(run_id)
-    metrics = {key: m.value for key, m in run.data.metrics.items()}
-    assert metrics.get('metric') == 123.456
+    assert run.data.metrics.get('metric') == 123.456
     assert run.data.params.get('param') == 'value'
     assert run.data.tags.get('taggity') == 'do-dah'
 
