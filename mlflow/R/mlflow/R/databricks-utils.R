@@ -77,7 +77,8 @@ get_databricks_config <- function(profile) {
   } else if (exists("spark.databricks.token") && exists("spark.databricks.api.url")) {
     config_vars <- list(
       host = get("spark.databricks.api.url", envir = .GlobalEnv),
-      token = get("spark.databricks.token", envir = .GlobalEnv)
+      token = get("spark.databricks.token", envir = .GlobalEnv),
+      insecure = Sys.getenv(config_variable_map$insecure, "False")
     )
     new_databricks_config(config_source = "db_dynamic", config_vars = config_vars)
   } else {

@@ -20,21 +20,28 @@ try_parse_response_as_text <- function(response) {
 }
 
 #' @importFrom base64enc base64encode
-get_rest_config <- function(config) {
+get_rest_config <- function(host_creds) {
   headers <- list()
-  auth_header <- if (!is.na(config$username) && !is.na(config$password)) {
-    basic_auth_str <- paste(config$username, config$password, sep = ":")
+  auth_header <- if (!is.na(host_creds$username) && !is.na(host_creds$password)) {
+    basic_auth_str <- paste(host_creds$username, host_creds$password, sep = ":")
     paste("Basic", base64encode(basic_auth_str), sep = " ")
-  } else if (!is.na(config$token)) {
-    paste("Bearer", config$token, sep = " ")
+  } else if (!is.na(host_creds$token)) {
+    paste("Bearer", host_creds$token, sep = " ")
   } else {
     NA
   }
   if (!is.na(auth_header)) {
     headers$Authorization <- auth_header
   }
-  verify_peer <- list(true = 0, false = 1)[[tolower(config$insecure)]]
-  list(headers = headers, verify_peer = verify_peer)
+  is_insecure <- list(true = TRUE, false = FALSE)[[tolower(host_creds$insecure)]]
+  list(
+    headers = headers,
+    config = if (is_insecure) {
+        httr::config(ssl_verifypeer = 0, ssl_verifyhost = 0)
+    } else {
+      list()
+    }
+  )
 }
 
 mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", version = "2.0") {
@@ -46,23 +53,21 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )
-  config <- config(config(ssl_verifypeer = rest_config$verify_peer))
-  headers <- rest_config$headers
   response <- switch(
     verb,
     GET = GET(
       api_url,
       query = query,
       mlflow_rest_timeout(),
-      config = config,
-      do.call(add_headers, headers)),
+      config = rest_config$config,
+      do.call(add_headers, rest_config$headers)),
     POST = POST(
       api_url,
       body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
       encode = "json",
       mlflow_rest_timeout(),
-      config = config,
-      do.call(add_headers, headers)
+      config = rest_config$config,
+      do.call(add_headers, rest_config$headers)
     ),
     stop("Verb '", verb, "' is unsupported.")
   )
