@@ -47,10 +47,7 @@ def test_docker_project_execution(
     assert run_uuid == store_run_uuid
     run = mlflow_service.get_run(run_uuid)
     assert run.data.params == expected_params
-    expected_metrics = {"some_key": 3}
-    assert len(run.data.metrics) == len(expected_metrics)
-    for metric in run.data.metrics.values():
-        assert metric.value == expected_metrics[metric.key]
+    assert run.data.metrics == {"some_key": 3}
     exact_expected_tags = {MLFLOW_PROJECT_ENV: "docker"}
     approx_expected_tags = {
         MLFLOW_DOCKER_IMAGE_NAME: "mlflow-docker-example",

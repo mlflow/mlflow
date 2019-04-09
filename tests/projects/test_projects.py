@@ -208,13 +208,8 @@ def test_run_local_git_repo(local_git_repo,
     run = mlflow_service.get_run(run_uuid)
 
     assert run.info.status == RunStatus.FINISHED
-
-    expected_params = {"use_start_run": use_start_run}
-    assert run.data.params == expected_params
-
-    expected_metrics = {"some_key": 3}
-    metrics = {metric.key: metric.value for metric in run.data.metrics.values()}
-    assert metrics == expected_metrics
+    assert run.data.params == {"use_start_run": use_start_run}
+    assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
@@ -284,12 +279,8 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
 
     assert run.info.status == RunStatus.FINISHED
 
-    expected_params = {"use_start_run": use_start_run}
-    assert run.data.params == expected_params
-
-    expected_metrics = {"some_key": 3}
-    metrics = {metric.key: metric.value for metric in run.data.metrics.values()}
-    assert metrics == expected_metrics
+    assert run.data.params == {"use_start_run": use_start_run}
+    assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
