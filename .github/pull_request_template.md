@@ -8,11 +8,14 @@
  
 ## Release Notes
  
-### Is this a user-facing change? If so, please give a 1-2 sentence description for MLflow users.
+### Is this a user-facing change? 
+
+[ ] No. Add the `rn/none` label, then you can skip the rest of this section.
+[ ] Yes. Give a description of this change to be included in the release notes for MLflow users.
  
 (Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change.)
  
-### What component(s) does this PR touch?
+### What component(s) does this PR affect?
  
 - [ ] UI
 - [ ] CLI 
@@ -30,7 +33,7 @@
 - [ ] Java
 - [ ] Python
 
-### Please add a label to the PR so it can be classified correctly in the release notes. Options:
+### Please add one label to the PR so it can be classified correctly in the release notes. Options:
  
 * `rn/breaking-change` - The PR will be mentioned in the "Breaking Changes" section
 * `rn/none` - No description will be included. The PR will be mentioned just by the PR number in the "Small Bugfixes and Documentation Updates" section
