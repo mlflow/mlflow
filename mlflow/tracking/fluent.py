@@ -306,6 +306,9 @@ def _get_experiment_id_from_env():
 
 
 def _get_experiment_id():
+    # TODO: Replace with None for 1.0, leaving for 0.9.1 release backcompat with existing servers
+    deprecated_default_exp_id = "0"
+
     return (_active_experiment_id or
             _get_experiment_id_from_env() or
-            (is_in_databricks_notebook() and get_notebook_id())) or None
+            (is_in_databricks_notebook() and get_notebook_id())) or deprecated_default_exp_id
