@@ -124,8 +124,8 @@ Verify that the unit tests & linter pass before submitting a pull request by run
     ./travis/run-small-python-tests.sh
     # Optionally, run large tests as well. Travis will run large tests on your pull request once
     # small tests pass. Note: models and model deployment tests are considered "large" tests. If
-    # making changes to these components, we recommend running these tests locally before submitting
-    # a pull request.
+    # making changes to these components, we recommend running the relevant tests (e.g. tests under
+    # tests/keras for changes to Keras model support) locally before submitting a pull request.
     ./travis/run-large-python-tests.sh
 
 We use `pytest <https://docs.pytest.org/en/latest/contents.html>`_ to run Python tests.
