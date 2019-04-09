@@ -22,7 +22,7 @@ matrix:
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
-        - ./travis/run-small-tests.sh
+        - ./travis/run-small-python-tests.sh
     - language: r
       name: "R"
       dist: trusty
@@ -68,8 +68,10 @@ matrix:
       install:
         - source ./travis/install-common-deps.sh
       script:
-        - ./travis/run-large-tests.sh
+        - ./travis/run-large-python-tests.sh
 
+# Travis runs an extra top-level job for each build stage - depending on the build stage, we either
+# run small or large Python tests below.
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
@@ -82,7 +84,7 @@ install:
 
 script:
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      ./travis/run-small-tests.sh && ./test-generate-protos.sh;
+      ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
     else
-      ./travis/run-large-tests.sh;
+      ./travis/run-large-python-tests.sh;
     fi
