@@ -13,16 +13,16 @@ matrix:
       name: "Lint (Python 3.6)"
       python: 3.6
       install:
-        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./install-travis-deps.sh
-        - pip install -r lint-requirements.txt
+        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+        - pip install -r ./travis/lint-requirements.txt
       script:
         - ./lint.sh
     - language: python
       python: 2.7
       install:
-        - INSTALL_SMALL_PYTHON_DEPS=true source ./install-travis-deps.sh
+        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-travis-deps.sh
       script:
-        - ./run-small-tests.sh
+        - ./travis/run-small-tests.sh
     - language: r
       name: "R"
       dist: trusty
@@ -34,7 +34,7 @@ matrix:
         - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
         - cd ../../..
       install:
-        - source ./install-travis-deps.sh
+        - source ./travis/install-common-deps.sh
       script:
         - cd mlflow/R/mlflow
         - R CMD build .
@@ -48,7 +48,7 @@ matrix:
     - language: java
       name: "Java"
       install:
-        - source ./install-travis-deps.sh
+        - source ./travis/install-common-deps.sh
       script:
         - cd mlflow/java
         - mvn clean package -q
@@ -66,23 +66,23 @@ matrix:
     - language: python
       python: 2.7
       install:
-        - source ./install-travis-deps.sh
+        - source ./travis/install-common-deps.sh
       script:
-        - ./run-large-tests.sh
+        - ./travis/run-large-tests.sh
 
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      INSTALL_SMALL_PYTHON_DEPS=true source ./install-travis-deps.sh &&
+      INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
       wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
       sudo unzip /travis-install/protoc.zip -d /usr;
     else
-      INSTALL_LARGE_PYTHON_DEPS=true source ./install-travis-deps.sh;
+      INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
     fi
 
 script:
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
-      ./run-small-tests.sh && ./test-generate-protos.sh;
+      ./travis/run-small-tests.sh && ./test-generate-protos.sh;
     else
-      ./run-large-tests.sh;
+      ./travis/run-large-tests.sh;
     fi
