@@ -24,7 +24,7 @@ get_rest_config <- function(host_creds) {
   if (!is.na(auth_header)) {
     headers$Authorization <- auth_header
   }
-  verify <- list(true = 0, false = 1)[[tolower(config$insecure)]]
+  verify <- list(true = 0, false = 1)[[tolower(host_creds$insecure)]]
   list(
     headers = headers,
     config = httr::config(ssl_verifypeer = verify, ssl_verifyhost = verify)
