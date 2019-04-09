@@ -54,7 +54,7 @@
 }
 
 .ExperimentView-search-controls {
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
 .ExperimentView-run-buttons{
@@ -132,11 +132,12 @@
 }
 
 div.error-message {
-  margin-left: 100px;
+  margin-top: 8px;
+  margin-left: 0;
   /*width: auto;*/
 }
 span.error-message {
-  color: red;
+  color: #db1905;
 }
 
 .metric-filler-bg {
