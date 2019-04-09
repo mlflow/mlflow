@@ -1,4 +1,4 @@
-context("databricks-utils")
+context("client")
 
 test_that("http(s) clients work as expected", {
   with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
@@ -37,5 +37,61 @@ test_that("http(s) clients work as expected", {
         expect_true(config$host == "local_server")
       })
     })
+  })
+})
+
+test_that("rest call handles errors correctly", {
+  mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
+     mlflow:::new_mlflow_host_creds(host = "localhost")
+  })
+  with_mock(.env = "httr", POST = function(...) {
+    httr:::response(
+      status_code = 400,
+      content = charToRaw(paste("{\"error_code\":\"INVALID_PARAMETER_VALUE\",",
+                                 "\"message\":\"experiment_id must be set to a non-zero value\"}",
+                                 sep = "")
+      )
+    )}, {
+    error_msg_regexp <- paste(
+                          "API request to endpoint \'runs/create\' failed with error code 400",
+                          "INVALID_PARAMETER_VALUE",
+                          "experiment_id must be set to a non-zero value",
+                          sep = ".*")
+    expect_error(
+      mlflow:::mlflow_rest( "runs", "create", client = mock_client, verb = "POST"),
+      error_msg_regexp
+    )
+  })
+
+  with_mock(.env = "httr", GET = function(...) {
+    httr:::response(
+      status_code = 500,
+      content = charToRaw(paste("some text."))
+    )
+    }, {
+    error_msg_regexp <- paste(
+                          "API request to endpoint \'runs/create\' failed with error code 500",
+                          "some text",
+                          sep = ".*")
+    expect_error(
+      mlflow:::mlflow_rest( "runs", "create", client = mock_client, verb = "GET"),
+      error_msg_regexp
+    )
+  })
+
+  with_mock(.env = "httr", POST = function(...) {
+    httr:::response(
+      status_code = 503,
+      content = as.raw(c(0, 255))
+    )
+    }, {
+    error_msg_regexp <- paste(
+                          "API request to endpoint \'runs/create\' failed with error code 503",
+                          "00 ff",
+                          sep = ".*")
+    expect_error(
+      mlflow:::mlflow_rest( "runs", "create", client = mock_client, verb = "POST"),
+      error_msg_regexp
+    )
   })
 })
