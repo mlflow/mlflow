@@ -100,23 +100,19 @@ class RestStore(AbstractStore):
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
         otherwise raises an Exception.
         """
-        experiment_id = str(experiment_id)
         req_body = message_to_json(GetExperiment(experiment_id=experiment_id))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
 
     def delete_experiment(self, experiment_id):
-        experiment_id = str(experiment_id)
         req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
         self._call_endpoint(DeleteExperiment, req_body)
 
     def restore_experiment(self, experiment_id):
-        experiment_id = str(experiment_id)
         req_body = message_to_json(RestoreExperiment(experiment_id=experiment_id))
         self._call_endpoint(RestoreExperiment, req_body)
 
     def rename_experiment(self, experiment_id, new_name):
-        experiment_id = str(experiment_id)
         req_body = message_to_json(UpdateExperiment(
             experiment_id=experiment_id, new_name=new_name))
         self._call_endpoint(UpdateExperiment, req_body)
@@ -152,7 +148,6 @@ class RestStore(AbstractStore):
 
         :return: The created Run object
         """
-        experiment_id = str(experiment_id)
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(CreateRun(
             experiment_id=experiment_id, user_id=user_id, run_name="",

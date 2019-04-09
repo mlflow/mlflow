@@ -10,7 +10,7 @@ import uuid
 import mock
 import pytest
 
-from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, LifecycleStage
+from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
@@ -34,7 +34,7 @@ class TestFileStore(unittest.TestCase):
         self.exp_data = {}  # noqa
         self.run_data = {}  # noqa
         # Include default experiment
-        self.experiments.append(Experiment.DEFAULT_EXPERIMENT_ID)
+        self.experiments.append(FileStore.DEFAULT_EXPERIMENT_ID)
         for exp in self.experiments:
             # create experiment
             exp_folder = os.path.join(self.test_root, str(exp))
@@ -158,7 +158,7 @@ class TestFileStore(unittest.TestCase):
         fs.create_experiment(random_str(1))
         fs._create_experiment_with_id.assert_called_once()
         experiment_id = fs._create_experiment_with_id.call_args[0][1]
-        assert experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+        assert experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
 
     def test_create_experiment(self):
         fs = FileStore(self.test_root)
@@ -434,7 +434,7 @@ class TestFileStore(unittest.TestCase):
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[Experiment.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_param(run_uuid, Param(WEIRD_PARAM_NAME, "Value"))
         run = fs.get_run(run_uuid)
         assert run.data.params[WEIRD_PARAM_NAME] == "Value"
@@ -442,7 +442,7 @@ class TestFileStore(unittest.TestCase):
     def test_log_empty_str(self):
         PARAM_NAME = "new param"
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[Experiment.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_param(run_uuid, Param(PARAM_NAME, ""))
         run = fs.get_run(run_uuid)
         assert run.data.params[PARAM_NAME] == ""
@@ -450,7 +450,7 @@ class TestFileStore(unittest.TestCase):
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[Experiment.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234))
         run = fs.get_run(run_uuid)
         assert run.data.metrics[WEIRD_METRIC_NAME] == 10
@@ -464,14 +464,14 @@ class TestFileStore(unittest.TestCase):
     def test_weird_tag_names(self):
         WEIRD_TAG_NAME = "this is/a weird/but valid tag"
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[Experiment.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.set_tag(run_uuid, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
         run = fs.get_run(run_uuid)
         assert run.data.tags[WEIRD_TAG_NAME] == "Muhahaha!"
 
     def test_set_tags(self):
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[Experiment.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.set_tag(run_uuid, RunTag("tag0", "value0"))
         fs.set_tag(run_uuid, RunTag("tag1", "value1"))
         tags = fs.get_run(run_uuid).data.tags
@@ -491,7 +491,7 @@ class TestFileStore(unittest.TestCase):
 
     def test_unicode_tag(self):
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[Experiment.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         value = u"𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
         fs.set_tag(run_uuid, RunTag("message", value))
         tags = fs.get_run(run_uuid).data.tags
@@ -533,15 +533,15 @@ class TestFileStore(unittest.TestCase):
 
     def test_default_experiment_initialization(self):
         fs = FileStore(self.test_root)
-        fs.delete_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        fs.delete_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
         fs = FileStore(self.test_root)
-        assert (fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID).lifecycle_stage ==
+        assert (fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID).lifecycle_stage ==
                 LifecycleStage.DELETED)
 
     def test_malformed_experiment(self):
         fs = FileStore(self.test_root)
-        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
-        assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+        exp_0 = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+        assert exp_0.experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
 
         experiments = len(fs.list_experiments(ViewType.ALL))
 
@@ -549,7 +549,7 @@ class TestFileStore(unittest.TestCase):
         path = os.path.join(self.test_root, exp_0.experiment_id, "meta.yaml")
         os.remove(path)
         with pytest.raises(MissingConfigException) as e:
-            fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+            fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
             assert e.value.message.contains("does not exist")
 
         assert len(fs.list_experiments(ViewType.ALL)) == experiments - 1
@@ -579,8 +579,8 @@ class TestFileStore(unittest.TestCase):
 
     def test_mismatching_experiment_id(self):
         fs = FileStore(self.test_root)
-        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
-        assert exp_0.experiment_id == Experiment.DEFAULT_EXPERIMENT_ID
+        exp_0 = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+        assert exp_0.experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
 
         experiments = len(fs.list_experiments(ViewType.ALL))
 
@@ -591,7 +591,7 @@ class TestFileStore(unittest.TestCase):
         os.rename(path_orig, path_new)
 
         with pytest.raises(MlflowException) as e:
-            fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+            fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
             assert e.value.message.contains("Could not find experiment with ID")
 
         with pytest.raises(MlflowException) as e:
@@ -628,7 +628,7 @@ class TestFileStore(unittest.TestCase):
     def test_log_batch(self):
         fs = FileStore(self.test_root)
         run = fs.create_run(
-            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
             source_type='source_type', source_name='source_name',
             entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
             parent_run_id=None)
@@ -642,7 +642,7 @@ class TestFileStore(unittest.TestCase):
 
     def _create_run(self, fs):
         return fs.create_run(
-            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user', run_name=None,
             source_type='source_type', source_name='source_name',
             entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
             parent_run_id=None)

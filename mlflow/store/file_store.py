@@ -74,6 +74,7 @@ class FileStore(AbstractStore):
     PARAMS_FOLDER_NAME = "params"
     TAGS_FOLDER_NAME = "tags"
     META_DATA_FILE_NAME = "meta.yaml"
+    DEFAULT_EXPERIMENT_ID = "0"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
@@ -87,7 +88,7 @@ class FileStore(AbstractStore):
         if not exists(self.root_directory):
             mkdir(self.root_directory)
             self._create_experiment_with_id(name=Experiment.DEFAULT_EXPERIMENT_NAME,
-                                            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
+                                            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
                                             artifact_uri=None)
         # Create trash folder if needed
         if not exists(self.trash_folder):
@@ -213,7 +214,6 @@ class FileStore(AbstractStore):
     def _get_experiment(self, experiment_id, view_type=ViewType.ALL):
         self._check_root_dir()
         _validate_experiment_id(experiment_id)
-        experiment_id = experiment_id
         experiment_dir = self._get_experiment_path(experiment_id, view_type)
         if experiment_dir is None:
             raise MlflowException("Could not find experiment with ID %s" % experiment_id,
@@ -239,7 +239,7 @@ class FileStore(AbstractStore):
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
         """
-        experiment_id = Experiment.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
+        experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self._get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException("Experiment '%s' does not exist." % experiment_id,
@@ -331,7 +331,7 @@ class FileStore(AbstractStore):
         """
         Creates a run with the specified attributes.
         """
-        experiment_id = Experiment.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
+        experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(

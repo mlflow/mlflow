@@ -121,7 +121,6 @@ def test_create_get_list_experiment(mlflow_client):
     assert exp.artifact_location == 'my_location'
 
     experiments = mlflow_client.list_experiments()
-    #  TODO do not check in, why is default not in the list?
     assert set([e.name for e in experiments]) == {'My Experiment'}
 
 
