@@ -10,6 +10,15 @@ mlflow_rest_timeout <- function() {
   timeout(getOption("mlflow.rest.timeout", 60))
 }
 
+try_parse_response_as_text <- function(response) {
+  raw_content <- content(response, type = "raw")
+  tryCatch({
+    rawToChar(raw_content)
+  }, error = function(e) {
+    do.call(paste, as.list(raw_content))
+  })
+}
+
 #' @importFrom base64enc base64encode
 get_rest_config <- function(config) {
   headers <- list()
@@ -57,8 +66,22 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     ),
     stop("Verb '", verb, "' is unsupported.")
   )
-  if (identical(response$status_code, 500L)) {
-    stop(xml2::as_list(content(response))$html$body$p[[1]])
+  if (response$status_code != 200) {
+    message_body <- tryCatch(
+      paste(content(response, "parsed", type = "application/json"), collapse = "; "),
+      error = function(e) {
+        try_parse_response_as_text(response)
+      }
+    )
+    msg <- paste("API request to endpoint '",
+                 paste(args, collapse = "/"),
+                 "' failed with error code ",
+                 response$status_code,
+                 ". Reponse body: '",
+                 message_body,
+                 "'",
+                 sep = "")
+    stop(msg)
   }
   text <- content(response, "text", encoding = "UTF-8")
   jsonlite::fromJSON(text)
