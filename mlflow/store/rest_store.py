@@ -224,17 +224,6 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
 
-    def list_run_infos(self, experiment_id, run_view_type):
-        """
-        Return run information for runs which belong to the experiment_id
-
-        :param experiment_id: The experiment id which to search.
-
-        :return: A list of RunInfo objects that satisfy the search expressions
-        """
-        runs = self.search_runs([experiment_id], None, run_view_type)
-        return [run.info for run in runs]
-
     def delete_run(self, run_id):
         req_body = message_to_json(DeleteRun(run_id=run_id))
         self._call_endpoint(DeleteRun, req_body)
