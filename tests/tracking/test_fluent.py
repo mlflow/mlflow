@@ -153,7 +153,7 @@ def is_from_run(active_run, run):
 
 def test_start_run_defaults(empty_active_run_stack):
 
-    mock_experiment_id = str(mock.Mock())
+    mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
@@ -193,7 +193,7 @@ def test_start_run_defaults(empty_active_run_stack):
 
 def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
 
-    mock_experiment_id = str(mock.Mock())
+    mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
@@ -247,7 +247,7 @@ def test_start_run_overrides(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    mock_experiment_id = str(mock.Mock())
+    mock_experiment_id = mock.Mock()
     mock_source_name = mock.Mock()
     source_type = SourceType.JOB
     mock_source_version = mock.Mock()
@@ -295,7 +295,7 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
         "mlflow.utils.databricks_utils.get_webapp_url", return_value=mock_webapp_url
     )
 
-    mock_experiment_id = str(mock.Mock())
+    mock_experiment_id = mock.Mock()
     mock_source_name = mock.Mock()
     source_type = SourceType.JOB
     mock_source_version = mock.Mock()
@@ -338,7 +338,7 @@ def test_start_run_with_parent():
         "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
     )
 
-    mock_experiment_id = str(mock.Mock())
+    mock_experiment_id = mock.Mock()
     mock_source_name = mock.Mock()
     source_type = SourceType.JOB
     mock_source_version = mock.Mock()
