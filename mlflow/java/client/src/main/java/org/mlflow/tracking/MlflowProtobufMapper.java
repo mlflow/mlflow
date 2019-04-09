@@ -16,21 +16,21 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeDeleteExperimentRequest(long experimentId) {
+  String makeDeleteExperimentRequest(String experimentId) {
     DeleteExperiment.Builder builder = DeleteExperiment.newBuilder();
-    builder.setExperimentId(Long.toString(experimentId));
+    builder.setExperimentId(experimentId);
     return print(builder);
   }
 
-  String makeRestoreExperimentRequest(long experimentId) {
+  String makeRestoreExperimentRequest(String experimentId) {
     RestoreExperiment.Builder builder = RestoreExperiment.newBuilder();
-    builder.setExperimentId(Long.toString(experimentId));
+    builder.setExperimentId(experimentId);
     return print(builder);
   }
 
-  String makeUpdateExperimentRequest(long experimentId, String newExperimentName) {
+  String makeUpdateExperimentRequest(String experimentId, String newExperimentName) {
     UpdateExperiment.Builder builder = UpdateExperiment.newBuilder();
-    builder.setExperimentId(Long.toString(experimentId));
+    builder.setExperimentId(experimentId);
     builder.setNewName(newExperimentName);
     return print(builder);
   }
