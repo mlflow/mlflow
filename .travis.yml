@@ -20,7 +20,7 @@ matrix:
     - language: python
       python: 2.7
       install:
-        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-travis-deps.sh
+        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
         - ./travis/run-small-tests.sh
     - language: r
@@ -31,7 +31,7 @@ matrix:
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
-        - Rscript -e 'devtools::install_deps(dependencies = TRUE)'
+        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
         - cd ../../..
       install:
         - source ./travis/install-common-deps.sh
