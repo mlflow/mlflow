@@ -115,6 +115,7 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
     def update_run_info(self, run_uuid, run_status, end_time):
         """
         Update the metadata of the specified run.
@@ -123,6 +124,7 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
     def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
                    entry_point_name, start_time, source_version, tags, parent_run_id):
         """
@@ -162,7 +164,7 @@ class AbstractStore:
         :param run_uuid: String id for the run
         :param metric: :py:class:`mlflow.entities.Metric` instance to log
         """
-        pass
+        self.log_batch(run_uuid, metrics=[metric], params=[], tags=[])
 
     def log_param(self, run_uuid, param):
         """
@@ -171,7 +173,7 @@ class AbstractStore:
         :param run_uuid: String id for the run
         :param param: :py:class:`mlflow.entities.Param` instance to log
         """
-        pass
+        self.log_batch(run_uuid, metrics=[], params=[param], tags=[])
 
     def set_tag(self, run_uuid, tag):
         """
@@ -180,7 +182,7 @@ class AbstractStore:
         :param run_uuid: String id for the run
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
-        pass
+        self.log_batch(run_uuid, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
     def get_metric_history(self, run_uuid, metric_key):
