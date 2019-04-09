@@ -263,7 +263,7 @@ class FileStore(AbstractStore):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
             raise Exception("Cannot rename experiment in non-active lifecycle stage."
                             " Current stage: %s" % experiment.lifecycle_stage)
-        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(exp_dict), overwrite=True)
+        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment), overwrite=True)
 
     def delete_run(self, run_id):
         run_info = self._get_run_info(run_id)
