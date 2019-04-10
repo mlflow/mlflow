@@ -247,3 +247,24 @@ construct_batch_list <- function(l) {
       unname()
   }
 }
+
+#' Set Tag
+#'
+#' Sets a tag on a run. Tags are run metadata that can be updated during a run and
+#'  after a run completes.
+#'
+#' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
+#' @param value String value of the tag being logged. Maximum size is 500 bytes. This field is required.
+#' @template roxlate-run-id
+#' @template roxlate-client
+#' @export
+mlflow_set_tag <- function(key, value, client = NULL, run_id = NULL) {
+  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+
+  key <- cast_string(key)
+  value <- cast_string(value)
+
+  mlflow_client_set_tag(client = client, run_id = run_id,
+                        key = key, value = value)
+  invisible(value)
+}

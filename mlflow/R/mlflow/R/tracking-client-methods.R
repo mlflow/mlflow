@@ -141,22 +141,12 @@ mlflow_client_log_param <- function(client, run_id, key, value) {
   ))
 }
 
-#' Set Tag
-#'
-#' Sets a tag on a run. Tags are run metadata that can be updated during a run and
-#'  after a run completes.
-#'
-#' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
-#' @param value String value of the tag being logged. Maximum size is 500 bytes. This field is required.
-#' @template roxlate-run-id
-#' @template roxlate-client
 mlflow_client_set_tag <- function(client, run_id, key, value) {
   mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = list(
     run_uuid = run_id,
     key = key,
     value = value
   ))
-  invisible(NULL)
 }
 
 #' Terminate a Run
