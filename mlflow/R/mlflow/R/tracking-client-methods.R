@@ -113,6 +113,15 @@ mlflow_client_log_metric <- function(client, run_id, key, value, timestamp) {
   ))
 }
 
+mlflow_client_log_batch <- function(client, run_id, metrics, params, tags) {
+  mlflow:::mlflow_rest("runs", "log-batch", client = client, verb = "POST", data = list(
+    run_id = run_id,
+    metrics = metrics,
+    params = params,
+    tags = tags
+  ))
+}
+
 #' Log Parameter
 #'
 #' Logs a parameter for a run. Examples are params and hyperparams

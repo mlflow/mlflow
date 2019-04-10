@@ -34,6 +34,7 @@ Other tracking functions: \code{\link{mlflow_client_get_experiment_by_name}},
   \code{\link{mlflow_get_experiment}},
   \code{\link{mlflow_get_run}},
   \code{\link{mlflow_list_experiments}},
+  \code{\link{mlflow_log_batch}},
   \code{\link{mlflow_log_metric}},
   \code{\link{mlflow_restore_experiment}},
   \code{\link{mlflow_restore_run}}

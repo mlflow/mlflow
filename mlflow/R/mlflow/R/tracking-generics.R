@@ -201,3 +201,49 @@ mlflow_get_run <- function(run_id, client = NULL) {
   response <- mlflow_client_get_run(client = client, run_id = run_id)
   new_mlflow_entities_run(response)
 }
+
+#' Log Batch
+#'
+#' Log a batch of metrics, params, and/or tags for a run. The server will respond with an error (non-200 status code)
+#'   if any data failed to be persisted. In case of error (due to internal server error or an invalid request), partial
+#'   data may be written.
+#' @template roxlate-client
+#' @template roxlate-run-id
+#' @param metrics A named list of metrics to log.
+#' @param params A named list of params to log.
+#' @param tags A named list of tags to log.
+#' @param timestamps (Optional) A list of timestamps of the same length as `metrics`.
+#' @export
+mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, timestamps = NULL,
+                             client = NULL, run_id = NULL) {
+  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+
+  metrics <- construct_batch_list(metrics)
+  params <- construct_batch_list(params)
+  tags <- construct_batch_list(tags)
+
+  if (!is.null(metrics)) {
+    metrics <- if (is.null(timestamps)) {
+      purrr::map(metrics, ~ c(.x, timestamp = current_time()))
+    } else {
+      if (length(metrics) != length(timestamps))
+        stop("`metrics` and `timestamps` must be of the same length.", call. = FALSE)
+      timestamps <- purrr::map(timestamps, ~ list(timestamp = .x))
+      purrr::map2(metrics, timestamps, c)
+    }
+  }
+
+  mlflow_client_log_batch(client = client, run_id = run_id,
+                          metrics = metrics, params = params, tags = tags)
+  invisible(NULL)
+}
+
+construct_batch_list <- function(l) {
+  if (is.null(l)) {
+    l
+  } else {
+    l %>%
+      imap(~ list(key = .y, value = .x)) %>%
+      unname()
+  }
+}
