@@ -105,27 +105,12 @@ mlflow_get_run_context.default <- function(client, source_name, source_version, 
        ...)
 }
 
-
-#' Log Metric
-#'
-#' Logs a metric for this run. Metrics key-value pair that records a single float measure.
-#'   During a single execution of a run, a particular metric can be logged several times.
-#'   Backend will keep track of historical values along with timestamps.
-#'
-#' @param key Name of the metric.
-#' @param value Float value for the metric being logged.
-#' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
-#' @template roxlate-fluent
-#'
 #' @export
-mlflow_log_metric <- function(key, value, timestamp = NULL) {
-  active_run <- mlflow_get_or_start_run()
+mlflow_log_metric.NULL <- function(key, value, timestamp = NULL, client = NULL, run_id = NULL) {
+  run_id <- run_id %||% run_id(mlflow_get_or_start_run())
   client <- mlflow_client()
-  mlflow_client_log_metric(
-    client = client, run_id = run_id(active_run),
-    key = key, value = value, timestamp = timestamp
-  )
-  invisible(value)
+  mlflow_log_metric.mlflow_client(client = client, run_id = run_id,
+                    key = key, value = value, timestamp = timestamp)
 }
 
 #' Set Tag
