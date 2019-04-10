@@ -24,3 +24,27 @@ print.mlflow_rest_data_experiment <- function(x, ...) {
   ))
   invisible(x)
 }
+
+new_mlflow_rest_data_array <- function(data, type = NULL) {
+  type <- type %||% class(data[[1]])[[1]]
+  structure(
+    data,
+    type = type,
+    class = "mlflow_rest_data_array"
+  )
+}
+
+#' @export
+print.mlflow_rest_data_array <- function(x, ...) {
+  print(
+    glue::glue("
+             MLflow array of type `{type}`
+
+               ",
+      type = attr(x, "type")
+    )
+  )
+
+  print(purrr::map_df(x, ~ .x %>% unclass() %>% tibble::as_tibble()))
+  invisible(x)
+}

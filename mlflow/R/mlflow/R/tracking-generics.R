@@ -9,7 +9,9 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
   client <- client %||% mlflow_client()
   view_type <- match.arg(view_type)
   response <- mlflow_client_list_experiments(client = client, view_type = view_type)
-  response$experiments %>% purrr::map_df(tibble::as_tibble)
+  response$experiments %>%
+    purrr::map(new_mlflow_rest_data_experiment) %>%
+    new_mlflow_rest_data_array(type = "Experiment")
 }
 
 #' Log Metric
