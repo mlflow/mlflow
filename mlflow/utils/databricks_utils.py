@@ -80,7 +80,6 @@ def get_databricks_host_creds(profile=None):
     :return: :py:class:`mlflow.rest_utils.MlflowHostCreds` which includes the hostname and
         authentication information necessary to talk to the Databricks server.
     """
-
     if profile == None and _in_spark_executor():
         from pyspark import TaskContext
         context = TaskContext.get()
