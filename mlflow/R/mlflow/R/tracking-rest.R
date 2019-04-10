@@ -74,7 +74,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
       config = rest_config$config,
       do.call(add_headers, rest_config$headers)
     ),
-    stop("Verb '", verb, "' is unsupported.")
+    stop("Verb '", verb, "' is unsupported.", call. = FALSE)
   )
   if (response$status_code != 200) {
     message_body <- tryCatch(
@@ -91,7 +91,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
                  message_body,
                  "'",
                  sep = "")
-    stop(msg)
+    stop(msg, call. = FALSE)
   }
   text <- content(response, "text", encoding = "UTF-8")
   jsonlite::fromJSON(text, simplifyVector = FALSE)
