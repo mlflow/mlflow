@@ -71,7 +71,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
       entry_point_name = entry_point_name,
       source_type = source_type
     )
-    do.call(mlflow_client_create_run, args)
+    do.call(mlflow_create_run, args)
   }
   mlflow_set_active_run(run)
 }
