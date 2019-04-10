@@ -7,7 +7,7 @@
 mlflow_client_log_artifact(client, run_id, path, artifact_path = NULL)
 }
 \arguments{
-\item{client}{An `mlflow_client` object.}
+\item{client}{(Optional) An `mlflow_client` object.}
 
 \item{run_id}{Run ID.}
 
@@ -19,10 +19,7 @@ mlflow_client_log_artifact(client, run_id, path, artifact_path = NULL)
 Logs a specific file or directory as an artifact for a run.
 }
 \details{
-The Tracking Client family of functions require an MLflow client to be
-  specified explicitly. These functions allow for greater control of where the
-  operations take place in terms of services and runs, but are more verbose
-  compared to the Fluent API.
+When `client` is not specified, these functions attempt to infer the current active client.
 
 When logging to Amazon S3, ensure that the user has a proper policy
 attached to it, for instance:
@@ -53,4 +50,22 @@ Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_
 environment variables must be set to the corresponding key and secrets provided
 by Amazon IAM.
 }
-\keyword{internal}
+\seealso{
+Other tracking functions: \code{\link{mlflow_client_create_experiment}},
+  \code{\link{mlflow_client_create_run}},
+  \code{\link{mlflow_client_delete_experiment}},
+  \code{\link{mlflow_client_delete_run}},
+  \code{\link{mlflow_client_download_artifacts}},
+  \code{\link{mlflow_client_get_experiment_by_name}},
+  \code{\link{mlflow_client_get_experiment}},
+  \code{\link{mlflow_client_get_run}},
+  \code{\link{mlflow_client_list_artifacts}},
+  \code{\link{mlflow_client_log_metric}},
+  \code{\link{mlflow_client_log_param}},
+  \code{\link{mlflow_client_restore_experiment}},
+  \code{\link{mlflow_client_restore_run}},
+  \code{\link{mlflow_client_set_tag}},
+  \code{\link{mlflow_client_set_terminated}},
+  \code{\link{mlflow_list_experiments}}
+}
+\concept{tracking functions}

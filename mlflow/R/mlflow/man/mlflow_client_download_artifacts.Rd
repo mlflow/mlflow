@@ -7,7 +7,7 @@
 mlflow_client_download_artifacts(client, run_id, path)
 }
 \arguments{
-\item{client}{An `mlflow_client` object.}
+\item{client}{(Optional) An `mlflow_client` object.}
 
 \item{run_id}{Run ID.}
 
@@ -18,9 +18,24 @@ Download an artifact file or directory from a run to a local directory if applic
   and return a local path for it.
 }
 \details{
-The Tracking Client family of functions require an MLflow client to be
-  specified explicitly. These functions allow for greater control of where the
-  operations take place in terms of services and runs, but are more verbose
-  compared to the Fluent API.
+When `client` is not specified, these functions attempt to infer the current active client.
 }
-\keyword{internal}
+\seealso{
+Other tracking functions: \code{\link{mlflow_client_create_experiment}},
+  \code{\link{mlflow_client_create_run}},
+  \code{\link{mlflow_client_delete_experiment}},
+  \code{\link{mlflow_client_delete_run}},
+  \code{\link{mlflow_client_get_experiment_by_name}},
+  \code{\link{mlflow_client_get_experiment}},
+  \code{\link{mlflow_client_get_run}},
+  \code{\link{mlflow_client_list_artifacts}},
+  \code{\link{mlflow_client_log_artifact}},
+  \code{\link{mlflow_client_log_metric}},
+  \code{\link{mlflow_client_log_param}},
+  \code{\link{mlflow_client_restore_experiment}},
+  \code{\link{mlflow_client_restore_run}},
+  \code{\link{mlflow_client_set_tag}},
+  \code{\link{mlflow_client_set_terminated}},
+  \code{\link{mlflow_list_experiments}}
+}
+\concept{tracking functions}

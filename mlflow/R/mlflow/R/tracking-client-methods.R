@@ -18,18 +18,19 @@ mlflow_client_create_experiment <- function(client, name, artifact_location = NU
   invisible(response$experiment_id)
 }
 
-#' List Experiments
-#'
-#' Gets a list of all experiments.
-#'
-#' @param view_type Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.
-#' @template roxlate-client
-mlflow_client_list_experiments <- function(client, view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL")) {
-  view_type <- match.arg(view_type)
+
+mlflow_client_list_experiments <- function(client, view_type) {
   mlflow_rest(
     "experiments", "list", client = client, verb = "GET",
     query = list(view_type = view_type)
-  )$experiments
+  )
+}
+
+#' @export
+mlflow_list_experiments.mlflow_client <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
+  view_type <- match.arg(view_type)
+  response <- mlflow_client_list_experiments(client = client, view_type = view_type)
+  purrr::flatten_df(response$experiments)
 }
 
 #' Get Experiment
