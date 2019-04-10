@@ -1,20 +1,18 @@
-#' Create Experiment - Tracking Client
-#'
-#' Creates an MLflow experiment.
-#'
-#' @param name The name of the experiment to create.
-#' @param artifact_location Location where all artifacts for this experiment are stored. If
-#'   not provided, the remote server will select an appropriate default.
-#' @template roxlate-client
-mlflow_client_create_experiment <- function(client, name, artifact_location = NULL) {
-  name <- forge::cast_string(name)
-  response <- mlflow_rest(
+mlflow_client_create_experiment <- function(client, name, artifact_location) {
+  mlflow_rest(
     "experiments", "create", client = client, verb = "POST",
     data = list(
       name = name,
       artifact_location = artifact_location
     )
   )
+}
+
+#' @export
+mlflow_create_experiment.mlflow_client <- function(name, artifact_location = NULL, client = NULL) {
+  name <- forge::cast_string(name)
+  response <- mlflow_client_create_experiment(client, name, artifact_location)
+  # TODO: return more info here?
   invisible(response$experiment_id)
 }
 

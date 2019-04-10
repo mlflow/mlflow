@@ -23,8 +23,7 @@ Sets a tag on a run. Tags are run metadata that can be updated during a run and
 When `client` is not specified, these functions attempt to infer the current active client.
 }
 \seealso{
-Other tracking functions: \code{\link{mlflow_client_create_experiment}},
-  \code{\link{mlflow_client_create_run}},
+Other tracking functions: \code{\link{mlflow_client_create_run}},
   \code{\link{mlflow_client_delete_experiment}},
   \code{\link{mlflow_client_delete_run}},
   \code{\link{mlflow_client_download_artifacts}},
@@ -37,6 +36,7 @@ Other tracking functions: \code{\link{mlflow_client_create_experiment}},
   \code{\link{mlflow_client_restore_experiment}},
   \code{\link{mlflow_client_restore_run}},
   \code{\link{mlflow_client_set_terminated}},
+  \code{\link{mlflow_create_experiment}},
   \code{\link{mlflow_list_experiments}},
   \code{\link{mlflow_log_metric}}
 }

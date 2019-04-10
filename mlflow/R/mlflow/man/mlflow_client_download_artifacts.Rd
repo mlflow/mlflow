@@ -21,8 +21,7 @@ Download an artifact file or directory from a run to a local directory if applic
 When `client` is not specified, these functions attempt to infer the current active client.
 }
 \seealso{
-Other tracking functions: \code{\link{mlflow_client_create_experiment}},
-  \code{\link{mlflow_client_create_run}},
+Other tracking functions: \code{\link{mlflow_client_create_run}},
   \code{\link{mlflow_client_delete_experiment}},
   \code{\link{mlflow_client_delete_run}},
   \code{\link{mlflow_client_get_experiment_by_name}},
@@ -35,6 +34,7 @@ Other tracking functions: \code{\link{mlflow_client_create_experiment}},
   \code{\link{mlflow_client_restore_run}},
   \code{\link{mlflow_client_set_tag}},
   \code{\link{mlflow_client_set_terminated}},
+  \code{\link{mlflow_create_experiment}},
   \code{\link{mlflow_list_experiments}},
   \code{\link{mlflow_log_metric}}
 }

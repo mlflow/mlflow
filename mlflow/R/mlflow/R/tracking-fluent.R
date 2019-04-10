@@ -1,18 +1,3 @@
-#' Create Experiment
-#'
-#' Creates an MLflow experiment.
-#'
-#' @param name The name of the experiment to create.
-#' @param artifact_location Location where all artifacts for this experiment are stored. If
-#'   not provided, the remote server will select an appropriate default.
-#' @template roxlate-fluent
-#'
-#' @export
-mlflow_create_experiment <- function(name, artifact_location = NULL) {
-  client <- mlflow_client()
-  mlflow_client_create_experiment(client, name, artifact_location)
-}
-
 #' Set Experiment
 #'
 #' Sets an experiment as the active experiment. If the experiment does not exist,
@@ -103,6 +88,13 @@ mlflow_get_run_context.default <- function(client, source_name, source_version, 
        source_version = source_version %||% get_source_version(),
        experiment_id = experiment_id %||% 0,
        ...)
+}
+
+#' @export
+mlflow_create_experiment.NULL <- function(name, artifact_location = NULL, client = NULL) {
+  client <- mlflow_client()
+  mlflow_create_experiment.mlflow_client(client = client,
+                                         name = name, artifact_location = artifact_location)
 }
 
 #' @export

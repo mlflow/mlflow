@@ -29,3 +29,16 @@ mlflow_list_experiments.default <- function(view_type = c("ACTIVE_ONLY", "DELETE
 mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_id = NULL) {
   UseMethod("mlflow_log_metric", client)
 }
+
+#' Create Experiment
+#'
+#' Creates an MLflow experiment.
+#'
+#' @param name The name of the experiment to create.
+#' @param artifact_location Location where all artifacts for this experiment are stored. If
+#'   not provided, the remote server will select an appropriate default.
+#' @template roxlate-client
+#' @export
+mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
+  UseMethod("mlflow_create_experiment", client)
+}
