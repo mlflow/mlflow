@@ -1,4 +1,4 @@
-import json
+ import json
 
 import mock
 import pytest
@@ -77,7 +77,7 @@ def test_can_parse_json_string():
     assert msg.name == "hello2"
 
 
-def test_search_runs_default_view_type(mock_get_request_message, mock_store, experiment_id):
+def test_search_runs_default_view_type(mock_get_request_message, mock_store):
     """
     Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
     """
