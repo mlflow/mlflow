@@ -185,3 +185,19 @@ mlflow_restore_run <- function(run_id, client = NULL) {
   mlflow_client_restore_run(client = client, run_id = run_id)
   invisible(NULL)
 }
+
+#' Get Run
+#'
+#' Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
+#' same key are logged for the run, returns only the value with the latest timestamp. If there are
+#' multiple values with the latest timestamp, returns the maximum of these values.
+#'
+#' @template roxlate-run-id
+#' @template roxlate-client
+#' @export
+mlflow_get_run <- function(run_id, client = NULL) {
+  client <- client %||% mlflow_client()
+  run_id <- cast_string(run_id)
+  response <- mlflow_client_get_run(client = client, run_id = run_id)
+  new_mlflow_entities_run(response)
+}

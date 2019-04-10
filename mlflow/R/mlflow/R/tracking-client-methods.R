@@ -96,23 +96,13 @@ mlflow_client_rename_experiment <- function(client, experiment_id, new_name) {
   )
 }
 
-#' Get Run
-#'
-#' Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
-#' same key are logged for the run, returns only the value with the latest timestamp. If there are
-#' multiple values with the latest timestamp, returns the maximum of these values.
-#'
-#' @template roxlate-run-id
-#' @template roxlate-client
 mlflow_client_get_run <- function(client, run_id) {
   response <- mlflow_rest(
     "runs", "get",
     client = client, verb = "GET",
     query = list(run_uuid = run_id)
   )
-  new_mlflow_entities_run(response)
 }
-
 
 mlflow_client_log_metric <- function(client, run_id, key, value, timestamp) {
   mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
