@@ -1,7 +1,9 @@
 import json
 
-from mlflow.entities import Experiment
+from mlflow.entities import Experiment, Metric
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
+from mlflow.protos.service_pb2 import Metric as ProtoMetric
+
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 
 
@@ -23,3 +25,11 @@ def test_parse_dict():
     assert experiment.experiment_id == "123"
     assert experiment.name == 'name'
     assert experiment.artifact_location == ''
+
+
+def test_parse_dict_int_as_string_backcompat():
+    in_json = {"timestamp": "123"}
+    message = ProtoMetric()
+    parse_dict(in_json, message)
+    experiment = Metric.from_proto(message)
+    assert experiment.timestamp == 123
