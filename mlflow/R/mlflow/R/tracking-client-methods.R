@@ -8,15 +8,6 @@ mlflow_client_create_experiment <- function(client, name, artifact_location) {
   )
 }
 
-#' @export
-mlflow_create_experiment.mlflow_client <- function(name, artifact_location = NULL, client = NULL) {
-  name <- forge::cast_string(name)
-  response <- mlflow_client_create_experiment(client, name, artifact_location)
-  # TODO: return more info here?
-  invisible(response$experiment_id)
-}
-
-
 mlflow_client_list_experiments <- function(client, view_type) {
   mlflow_rest(
     "experiments", "list", client = client, verb = "GET",

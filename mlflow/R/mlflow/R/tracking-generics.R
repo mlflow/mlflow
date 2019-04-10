@@ -47,7 +47,11 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_i
 #' @template roxlate-client
 #' @export
 mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
-  UseMethod("mlflow_create_experiment", client)
+  client <- client %||% mlflow_client()
+  name <- forge::cast_string(name)
+  response <- mlflow_client_create_experiment(client, name, artifact_location)
+  # TODO: return more info here?
+  invisible(response$experiment_id)
 }
 
 #' Get Experiment

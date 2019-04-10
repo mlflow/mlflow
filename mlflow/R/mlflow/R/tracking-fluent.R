@@ -91,13 +91,6 @@ mlflow_get_run_context.default <- function(client, source_name, source_version, 
 }
 
 #' @export
-mlflow_create_experiment.NULL <- function(name, artifact_location = NULL, client = NULL) {
-  client <- mlflow_client()
-  mlflow_create_experiment.mlflow_client(client = client,
-                                         name = name, artifact_location = artifact_location)
-}
-
-#' @export
 mlflow_get_experiment.NULL <- function(experiment_id, client = NULL) {
   client <- mlflow_client()
 }
