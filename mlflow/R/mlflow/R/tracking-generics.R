@@ -6,12 +6,10 @@
 #' @template roxlate-client
 #' @export
 mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
-  UseMethod("mlflow_list_experiments", client)
-}
-
-#' @export
-mlflow_list_experiments.default <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
-  stop("`client` must be an `mlflow_client` object.", call. = FALSE)
+  client <- client %||% mlflow_client()
+  view_type <- match.arg(view_type)
+  response <- mlflow_client_list_experiments(client = client, view_type = view_type)
+  response$experiments %>% purrr::map_df(tibble::as_tibble)
 }
 
 #' Log Metric

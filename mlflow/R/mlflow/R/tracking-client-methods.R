@@ -24,13 +24,6 @@ mlflow_client_list_experiments <- function(client, view_type) {
   )
 }
 
-#' @export
-mlflow_list_experiments.mlflow_client <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
-  view_type <- match.arg(view_type)
-  response <- mlflow_client_list_experiments(client = client, view_type = view_type)
-  purrr::flatten_df(response$experiments)
-}
-
 mlflow_client_get_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "get", client = client, query = list(experiment_id = experiment_id)
