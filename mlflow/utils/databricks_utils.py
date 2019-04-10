@@ -62,6 +62,14 @@ def _fail_malformed_databricks_auth(profile):
                           "https://github.com/databricks/databricks-cli." % profile)
 
 
+def _in_spark_executor():
+    try:
+        from pyspark import TaskContext
+        return TaskContext.get() is not None
+    except:
+        return False
+
+
 def get_databricks_host_creds(profile=None):
     """
     Reads in configuration necessary to make HTTP requests to a Databricks server. This
@@ -72,6 +80,14 @@ def get_databricks_host_creds(profile=None):
     :return: :py:class:`mlflow.rest_utils.MlflowHostCreds` which includes the hostname and
         authentication information necessary to talk to the Databricks server.
     """
+
+    if profile == None and _in_spark_executor():
+        from pyspark import TaskContext
+        context = TaskContext.get()
+        host = context.getLocalProperty("spark.databricks.api.url")
+        token = context.getLocalProperty("spark.databricks.token")
+        if host and token:
+            return MlflowHostCreds(host=host, token=token, ignore_tls_verification=False)
     if not hasattr(provider, 'get_config'):
         _logger.warning(
             "Support for databricks-cli<0.8.0 is deprecated and will be removed"
@@ -81,6 +97,7 @@ def get_databricks_host_creds(profile=None):
         config = provider.ProfileConfigProvider(profile).get_config()
     else:
         config = provider.get_config()
+
     if not config or not config.host:
         _fail_malformed_databricks_auth(profile)
 
