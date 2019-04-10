@@ -44,6 +44,7 @@ get_rest_config <- function(host_creds) {
   )
 }
 
+#' @importFrom httr GET POST add_headers config content
 mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", version = "2.0") {
   host_creds <- client$get_host_creds()
   rest_config <- get_rest_config(host_creds)
@@ -53,6 +54,10 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )
+
+  config <- config(ssl_verifypeer = rest_config$verify_peer)
+  headers <- rest_config$headers
+
   response <- switch(
     verb,
     GET = GET(
