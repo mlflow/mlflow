@@ -97,16 +97,6 @@ mlflow_client_delete_experiment <- function(client, experiment_id) {
   )
 }
 
-#' Restore Experiment
-#'
-#' Restores an experiment marked for deletion. This also restores associated metadata,
-#'   runs, metrics, and params. If experiment uses FileStore, underlying artifacts
-#'   associated with experiment are also restored.
-#'
-#' Throws `RESOURCE_DOES_NOT_EXIST` if the experiment was never created or was permanently deleted.
-#'
-#' @param experiment_id ID of the associated experiment. This field is required.
-#' @template roxlate-client
 mlflow_client_restore_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "restore", client = client, verb = "POST",
