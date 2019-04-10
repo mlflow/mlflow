@@ -41,7 +41,9 @@ Imports:
   xml2,
   yaml,
   pryr,
-  rlang (>= 0.2.0)
+  rlang (>= 0.2.0),
+  zeallot,
+  tibble
 RoxygenNote: 6.1.1
 Suggests: 
   covr,
