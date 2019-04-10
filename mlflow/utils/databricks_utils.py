@@ -85,8 +85,9 @@ def get_databricks_host_creds(profile=None):
         context = TaskContext.get()
         host = context.getLocalProperty("spark.databricks.api.url")
         token = context.getLocalProperty("spark.databricks.token")
+        insecure = context.getLocalProperty("spark.databricks.insecure") or False
         if host and token:
-            return MlflowHostCreds(host=host, token=token, ignore_tls_verification=False)
+            return MlflowHostCreds(host=host, token=token, ignore_tls_verification=insecure)
     if not hasattr(provider, 'get_config'):
         _logger.warning(
             "Support for databricks-cli<0.8.0 is deprecated and will be removed"
