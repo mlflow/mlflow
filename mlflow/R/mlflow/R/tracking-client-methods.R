@@ -31,16 +31,16 @@ mlflow_list_experiments.mlflow_client <- function(view_type = c("ACTIVE_ONLY", "
   purrr::flatten_df(response$experiments)
 }
 
-#' Get Experiment
-#'
-#' Gets metadata for an experiment and a list of runs for the experiment.
-#'
-#' @param experiment_id Identifer to get an experiment.
-#' @template roxlate-client
 mlflow_client_get_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "get", client = client, query = list(experiment_id = experiment_id)
   )
+}
+
+#' @export
+mlflow_get_experiment.mlflow_client <- function(experiment_id, client = NULL) {
+  experiment_id <- cast_string(experiment_id)
+  mlflow_client_get_experiment(client = client, experiment_id = experiment_id)
 }
 
 #' Get Experiment by Name
@@ -167,18 +167,6 @@ mlflow_client_log_metric <- function(client, run_id, key, value, timestamp) {
     value = value,
     timestamp = timestamp
   ))
-}
-
-#' @export
-mlflow_log_metric.mlflow_client <- function(key, value, timestamp = NULL, client = NULL, run_id = NULL) {
-  if (is.null(run_id)) stop("`run_id` must be specified when `client` is specified.", call. = FALSE)
-  if (!is.numeric(value)) stop(
-    "Metric `", key, "`` must be numeric but ", class(value)[[1]], " found.",
-    call. = FALSE
-  )
-  timestamp <- timestamp %||% current_time()
-  mlflow_client_log_metric(client, run_id, key, value, timestamp)
-  invisible(value)
 }
 
 #' Log Parameter

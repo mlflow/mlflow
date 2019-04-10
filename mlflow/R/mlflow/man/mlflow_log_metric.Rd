@@ -32,7 +32,6 @@ Other tracking functions: \code{\link{mlflow_client_create_run}},
   \code{\link{mlflow_client_delete_run}},
   \code{\link{mlflow_client_download_artifacts}},
   \code{\link{mlflow_client_get_experiment_by_name}},
-  \code{\link{mlflow_client_get_experiment}},
   \code{\link{mlflow_client_get_run}},
   \code{\link{mlflow_client_list_artifacts}},
   \code{\link{mlflow_client_log_artifact}},
@@ -42,6 +41,7 @@ Other tracking functions: \code{\link{mlflow_client_create_run}},
   \code{\link{mlflow_client_set_tag}},
   \code{\link{mlflow_client_set_terminated}},
   \code{\link{mlflow_create_experiment}},
+  \code{\link{mlflow_get_experiment}},
   \code{\link{mlflow_list_experiments}}
 }
 \concept{tracking functions}

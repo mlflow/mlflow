@@ -116,3 +116,15 @@ MLFLOW_SOURCE_TYPE <- list(
   LOCAL = 4,
   UNKNOWN = 5
 )
+
+resolve_client_and_run_id <- function(client, run_id) {
+  if (is.null(client)) {
+    if (is.null(run_id)) {
+      run_id <- run_id(mlflow_get_or_start_run())
+    }
+    client <- mlflow_client()
+  } else {
+    if (is.null(run_id)) stop("`run_id` must be specified when `client` is specified.", call. = FALSE)
+  }
+  list(client, run_id)
+}

@@ -98,11 +98,8 @@ mlflow_create_experiment.NULL <- function(name, artifact_location = NULL, client
 }
 
 #' @export
-mlflow_log_metric.NULL <- function(key, value, timestamp = NULL, client = NULL, run_id = NULL) {
-  run_id <- run_id %||% run_id(mlflow_get_or_start_run())
+mlflow_get_experiment.NULL <- function(experiment_id, client = NULL) {
   client <- mlflow_client()
-  mlflow_log_metric.mlflow_client(client = client, run_id = run_id,
-                    key = key, value = value, timestamp = timestamp)
 }
 
 #' Set Tag

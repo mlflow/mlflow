@@ -27,7 +27,16 @@ mlflow_list_experiments.default <- function(view_type = c("ACTIVE_ONLY", "DELETE
 #' @template roxlate-client
 #' @export
 mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_id = NULL) {
-  UseMethod("mlflow_log_metric", client)
+  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+  if (!is.numeric(value)) {
+    stop(
+      "Metric `", key, "`` must be numeric but ", class(value)[[1]], " found.",
+      call. = FALSE
+    )
+  }
+  timestamp <- timestamp %||% current_time()
+  mlflow_client_log_metric(client, run_id, key, value, timestamp)
+  invisible(value)
 }
 
 #' Create Experiment
@@ -41,4 +50,15 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_i
 #' @export
 mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
   UseMethod("mlflow_create_experiment", client)
+}
+
+#' Get Experiment
+#'
+#' Gets metadata for an experiment and a list of runs for the experiment.
+#'
+#' @param experiment_id Identifer to get an experiment.
+#' @template roxlate-client
+#' @export
+mlflow_get_experiment <- function(experiment_id, client = NULL) {
+  UseMethod("mlflow_get_experiment", client)
 }
