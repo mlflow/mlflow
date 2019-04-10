@@ -1,6 +1,7 @@
 mlflow_client_create_experiment <- function(client, name, artifact_location) {
   mlflow_rest(
-    "experiments", "create", client = client, verb = "POST",
+    "experiments", "create",
+    client = client, verb = "POST",
     data = list(
       name = name,
       artifact_location = artifact_location
@@ -10,14 +11,16 @@ mlflow_client_create_experiment <- function(client, name, artifact_location) {
 
 mlflow_client_list_experiments <- function(client, view_type) {
   mlflow_rest(
-    "experiments", "list", client = client, verb = "GET",
+    "experiments", "list",
+    client = client, verb = "GET",
     query = list(view_type = view_type)
   )
 }
 
 mlflow_client_get_experiment <- function(client, experiment_id) {
   mlflow_rest(
-    "experiments", "get", client = client, query = list(experiment_id = experiment_id)
+    "experiments", "get",
+    client = client, query = list(experiment_id = experiment_id)
   )
 }
 
@@ -30,43 +33,20 @@ mlflow_client_get_experiment <- function(client, experiment_id) {
 mlflow_client_get_experiment_by_name <- function(client, name) {
   exps <- mlflow_client_list_experiments(client = client)
   if ("name" %in% names(exps) && length(exps$name)) {
-     experiment <- exps[exps$name == name, ]
-     if (nrow(experiment)) experiment else NULL
+    experiment <- exps[exps$name == name, ]
+    if (nrow(experiment)) experiment else NULL
   } else {
     NULL
   }
 }
 
-#' Create Run
-#'
-#' reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.
-#'
-#' MLflow uses runs to track Param, Metric, and RunTag, associated with a single execution.
-#'
-#' @param experiment_id Unique identifier for the associated experiment.
-#' @param user_id User ID or LDAP for the user executing the run.
-#' @param run_name Human readable name for run.
-#' @param source_type Originating source for this run. One of Notebook, Job, Project, Local or Unknown.
-#' @param source_name String descriptor for source. For example, name or description of the notebook, or job name.
-#' @param start_time Unix timestamp of when the run started in milliseconds.
-#' @param source_version Git version of the source code used to create run.
-#' @param entry_point_name Name of the entry point for the run.
-#' @param tags Additional metadata for run in key-value pairs.
-#' @template roxlate-client
-mlflow_client_create_run <- function(
-  client, experiment_id, user_id = NULL, run_name = NULL, source_type = NULL,
-  source_name = NULL, entry_point_name = NULL, start_time = NULL,
-  source_version = NULL, tags = NULL
-) {
-  tags <- if (!is.null(tags)) tags %>%
-    purrr::imap(~ list(key = .y, value = .x)) %>%
-    unname()
 
-  start_time <- start_time %||% current_time()
-  user_id <- user_id %||% mlflow_user()
-
-  response <- mlflow_rest(
-    "runs", "create", client = client, verb = "POST",
+mlflow_client_create_run <- function(client, experiment_id, user_id = NULL, run_name = NULL, source_type = NULL,
+                                     source_name = NULL, entry_point_name = NULL, start_time = NULL,
+                                     source_version = NULL, tags = NULL) {
+  mlflow_rest(
+    "runs", "create",
+    client = client, verb = "POST",
     data = list(
       experiment_id = experiment_id,
       user_id = user_id,
@@ -79,7 +59,6 @@ mlflow_client_create_run <- function(
       tags = tags
     )
   )
-  new_mlflow_entities_run(response)
 }
 
 mlflow_rest_update_run <- function(client, run_uuid, status, end_time) {
@@ -92,21 +71,24 @@ mlflow_rest_update_run <- function(client, run_uuid, status, end_time) {
 
 mlflow_client_delete_experiment <- function(client, experiment_id) {
   mlflow_rest(
-    "experiments", "delete", verb = "POST", client = client,
+    "experiments", "delete",
+    verb = "POST", client = client,
     data = list(experiment_id = experiment_id)
   )
 }
 
 mlflow_client_restore_experiment <- function(client, experiment_id) {
   mlflow_rest(
-    "experiments", "restore", client = client, verb = "POST",
+    "experiments", "restore",
+    client = client, verb = "POST",
     data = list(experiment_id = experiment_id)
   )
 }
 
 mlflow_client_rename_experiment <- function(client, experiment_id, new_name) {
   mlflow_rest(
-    "experiments", "update", client = client, verb = "POST",
+    "experiments", "update",
+    client = client, verb = "POST",
     data = list(
       experiment_id = experiment_id,
       new_name = new_name
@@ -124,7 +106,8 @@ mlflow_client_rename_experiment <- function(client, experiment_id, new_name) {
 #' @template roxlate-client
 mlflow_client_get_run <- function(client, run_id) {
   response <- mlflow_rest(
-    "runs", "get", client = client, verb = "GET",
+    "runs", "get",
+    client = client, verb = "GET",
     query = list(run_uuid = run_id)
   )
   new_mlflow_entities_run(response)
@@ -186,33 +169,23 @@ mlflow_client_set_tag <- function(client, run_id, key, value) {
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @template roxlate-run-id
 #' @template roxlate-client
-mlflow_client_set_terminated <- function(
-  client, run_id, status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
-  end_time = NULL
-) {
+mlflow_client_set_terminated <- function(client, run_id, status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+                                         end_time = NULL) {
   status <- match.arg(status)
   end_time <- end_time %||% current_time()
   response <- mlflow_rest_update_run(client, run_id, status, end_time)
   tidy_run_info(response$run_info)
 }
 
-#' Delete a Run
-#'
-#' @template roxlate-client
-#' @template roxlate-run-id
 mlflow_client_delete_run <- function(client, run_id) {
   mlflow_rest("runs", "delete", client = client, verb = "POST", data = list(
-    run_uuid = run_id
+    run_id = run_id
   ))
 }
 
-#' Restore a Run
-#'
-#' @template roxlate-client
-#' @template roxlate-run-id
 mlflow_client_restore_run <- function(client, run_id) {
   mlflow_rest("runs", "restore", client = client, verb = "POST", data = list(
-    run_uuid = run_id
+    run_id = run_id
   ))
 }
 
@@ -268,14 +241,15 @@ mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NUL
   }
 
   mlflow_cli("artifacts",
-             command,
-             local_param,
-             path,
-             artifact_param,
-             artifact_path,
-             "--run-id",
-             run_id,
-             client = client)
+    command,
+    local_param,
+    path,
+    artifact_param,
+    artifact_path,
+    "--run-id",
+    run_id,
+    client = client
+  )
 
   invisible(NULL)
 }
@@ -290,11 +264,13 @@ mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NUL
 #'  set to the root artifact path
 mlflow_client_list_artifacts <- function(client, run_id, path = NULL) {
   response <- mlflow_rest(
-    "artifacts", "list", client = client, verb = "GET",
+    "artifacts", "list",
+    client = client, verb = "GET",
     query = list(
       run_uuid = run_id,
       path = path
-    ))
+    )
+  )
   response
 }
 
@@ -313,11 +289,12 @@ mlflow_client_download_artifacts <- function(client, run_id, path) {
     "--artifact-path", path,
     echo = FALSE,
     stderr_callback = function(x, p) {
-      if (grepl("FileNotFoundError", x))
+      if (grepl("FileNotFoundError", x)) {
         stop(
           gsub("(.|\n)*(?=FileNotFoundError)", "", x, perl = TRUE),
           call. = FALSE
         )
+      }
     },
     client = client
   )

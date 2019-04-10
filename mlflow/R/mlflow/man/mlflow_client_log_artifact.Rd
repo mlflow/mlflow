@@ -51,21 +51,21 @@ environment variables must be set to the corresponding key and secrets provided
 by Amazon IAM.
 }
 \seealso{
-Other tracking functions: \code{\link{mlflow_client_create_run}},
-  \code{\link{mlflow_client_delete_run}},
-  \code{\link{mlflow_client_download_artifacts}},
+Other tracking functions: \code{\link{mlflow_client_download_artifacts}},
   \code{\link{mlflow_client_get_experiment_by_name}},
   \code{\link{mlflow_client_get_run}},
   \code{\link{mlflow_client_list_artifacts}},
   \code{\link{mlflow_client_log_param}},
-  \code{\link{mlflow_client_restore_run}},
   \code{\link{mlflow_client_set_tag}},
   \code{\link{mlflow_client_set_terminated}},
   \code{\link{mlflow_create_experiment}},
+  \code{\link{mlflow_create_run}},
   \code{\link{mlflow_delete_experiment}},
+  \code{\link{mlflow_delete_run}},
   \code{\link{mlflow_get_experiment}},
   \code{\link{mlflow_list_experiments}},
   \code{\link{mlflow_log_metric}},
-  \code{\link{mlflow_restore_experiment}}
+  \code{\link{mlflow_restore_experiment}},
+  \code{\link{mlflow_restore_run}}
 }
 \concept{tracking functions}
