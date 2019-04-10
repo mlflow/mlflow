@@ -14,7 +14,7 @@ from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, read_yaml
+from mlflow.utils.file_utils import write_yaml, read_yaml, safe_edit_yaml
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.search_utils import SearchFilter
@@ -123,13 +123,20 @@ class TestFileStore(unittest.TestCase):
             self.assertEqual(exp.name, self.exp_data[exp_id]["name"])
             self.assertEqual(exp.artifact_location, self.exp_data[exp_id]["artifact_location"])
 
-    def test_get_experiment(self):
-        fs = FileStore(self.test_root)
-        for exp_id in self.experiments:
+    def _verify_experiment(self, fs, exp_id):
+        with self.subTest():
             exp = fs.get_experiment(exp_id)
             self.assertEqual(exp.experiment_id, exp_id)
             self.assertEqual(exp.name, self.exp_data[exp_id]["name"])
             self.assertEqual(exp.artifact_location, self.exp_data[exp_id]["artifact_location"])
+
+    def test_get_experiment(self):
+        fs = FileStore(self.test_root)
+        for exp_id in self.experiments:
+            self._verify_experiment(fs, exp_id)
+            root_dir = os.path.join(self.test_root, exp_id)
+            with safe_edit_yaml(root_dir, "meta.yaml", self._experiment_id_edit_func):
+                self._verify_experiment(fs, exp_id)
 
         # test that fake experiments dont exist.
         # look for random experiment ids between 8000, 15000 since created ones are (100, 2000)
@@ -263,18 +270,29 @@ class TestFileStore(unittest.TestCase):
             fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name',
                           0, None, [], None)
 
+    def _experiment_id_edit_func(self, old_dict):
+        old_dict["experiment_id"] = int(old_dict["experiment_id"])
+        return old_dict
+
+    def _verify_run(self, fs, run_uuid):
+        with self.subTest():
+            run = fs.get_run(run_uuid)
+            run_info = self.run_data[run_uuid]
+            run_info.pop("metrics", None)
+            run_info.pop("params", None)
+            run_info.pop("tags", None)
+            run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
+            self.assertEqual(run_info, dict(run.info))
+
     def test_get_run(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
             runs = self.exp_data[exp_id]["runs"]
             for run_uuid in runs:
-                run = fs.get_run(run_uuid)
-                run_info = self.run_data[run_uuid]
-                run_info.pop("metrics")
-                run_info.pop("params")
-                run_info.pop("tags")
-                run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
-                self.assertEqual(run_info, dict(run.info))
+                self._verify_run(fs, run_uuid)
+                root_dir = os.path.join(self.test_root, exp_id, run_uuid)
+                with safe_edit_yaml(root_dir, "meta.yaml", self._experiment_id_edit_func):
+                    self._verify_run(fs, run_uuid)
 
     def test_list_run_infos(self):
         fs = FileStore(self.test_root)

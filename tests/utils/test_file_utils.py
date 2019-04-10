@@ -33,6 +33,17 @@ def test_yaml_read_and_write(tmpdir):
     # representations of their byte sequences).
     assert u"中文" in contents
 
+    def edit_func(old_dict):
+        old_dict["more_text"] = u"西班牙语"
+        return old_dict
+
+    assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
+    with file_utils.safe_edit_yaml(temp_dir, yaml_file, edit_func):
+        editted_dict = file_utils.read_yaml(temp_dir, yaml_file)
+        assert "more_text" in editted_dict
+        assert editted_dict["more_text"] == u"西班牙语"
+    assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
+
 
 def test_mkdir(tmpdir):
     temp_dir = str(tmpdir)
