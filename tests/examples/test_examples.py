@@ -10,18 +10,21 @@ import pytest
 from mlflow import cli
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
-from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI, \
-    TEST_NO_SPEC_PROJECT_DIR
+
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 
 EXAMPLES_DIR = 'examples'
 
+
 def test_sklearn_elasticnet_wine(tracking_uri_mock):
     invoke_cli_runner(cli.run, [os.path.join(EXAMPLES_DIR,'sklearn_elasticnet_wine'),
-                                "-P","alpha=0.5"])
+                                "-P", "alpha=0.5"])
 
+def test_sklearn_logistic_regression(tracking_uri_mock):
+    process.exec_cmd(['python', 'train.py'],
+                     cwd = os.path.join(EXAMPLES_DIR,'sklearn_logistic_regression'))
 
 
 # @pytest.mark.large
