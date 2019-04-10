@@ -1,3 +1,20 @@
+#' Create Experiment
+#'
+#' Creates an MLflow experiment.
+#'
+#' @param name The name of the experiment to create.
+#' @param artifact_location Location where all artifacts for this experiment are stored. If
+#'   not provided, the remote server will select an appropriate default.
+#' @template roxlate-client
+#' @export
+mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
+  client <- client %||% mlflow_client()
+  name <- forge::cast_string(name)
+  response <- mlflow_client_create_experiment(client, name, artifact_location)
+  # TODO: return more info here?
+  invisible(response$experiment_id)
+}
+
 #' List Experiments
 #'
 #' Gets a list of all experiments.
@@ -12,6 +29,20 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
   response$experiments %>%
     purrr::map(new_mlflow_rest_data_experiment) %>%
     new_mlflow_rest_data_array(type = "Experiment")
+}
+
+#' Get Experiment
+#'
+#' Gets metadata for an experiment and a list of runs for the experiment.
+#'
+#' @param experiment_id Identifer to get an experiment.
+#' @template roxlate-client
+#' @export
+mlflow_get_experiment <- function(experiment_id, client = NULL) {
+  client <- client %||% mlflow_client()
+  experiment_id <- cast_string(experiment_id)
+  response <- mlflow_client_get_experiment(client = client, experiment_id = experiment_id)
+  new_mlflow_rest_data_experiment(response$experiment)
 }
 
 #' Log Metric
@@ -39,33 +70,16 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_i
   invisible(value)
 }
 
-#' Create Experiment
+#' Delete Experiment
 #'
-#' Creates an MLflow experiment.
+#' Marks an experiment and associated runs, params, metrics, etc. for deletion. If the
+#'   experiment uses FileStore, artifacts associated with experiment are also deleted.
 #'
-#' @param name The name of the experiment to create.
-#' @param artifact_location Location where all artifacts for this experiment are stored. If
-#'   not provided, the remote server will select an appropriate default.
+#' @param experiment_id ID of the associated experiment. This field is required.
 #' @template roxlate-client
 #' @export
-mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
+mlflow_delete_experiment <- function(experiment_id, client = NULL) {
   client <- client %||% mlflow_client()
-  name <- forge::cast_string(name)
-  response <- mlflow_client_create_experiment(client, name, artifact_location)
-  # TODO: return more info here?
-  invisible(response$experiment_id)
-}
-
-#' Get Experiment
-#'
-#' Gets metadata for an experiment and a list of runs for the experiment.
-#'
-#' @param experiment_id Identifer to get an experiment.
-#' @template roxlate-client
-#' @export
-mlflow_get_experiment <- function(experiment_id, client = NULL) {
-  client <- client %||% mlflow_client()
-  experiment_id <- cast_string(experiment_id)
-  response <- mlflow_client_get_experiment(client = client, experiment_id = experiment_id)
-  new_mlflow_rest_data_experiment(response$experiment)
+  mlflow_client_delete_experiment(client = client, experiment_id = experiment_id)
+  invisible(NULL)
 }
