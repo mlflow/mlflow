@@ -93,14 +93,24 @@ mlflow_rest_update_run <- function(client, run_uuid, status, end_time) {
 mlflow_client_delete_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "delete", verb = "POST", client = client,
-    data = list(experiment_id = experiment_id),
+    data = list(experiment_id = experiment_id)
   )
 }
 
 mlflow_client_restore_experiment <- function(client, experiment_id) {
   mlflow_rest(
     "experiments", "restore", client = client, verb = "POST",
-    data = list(experiment_id = experiment_id),
+    data = list(experiment_id = experiment_id)
+  )
+}
+
+mlflow_client_rename_experiment <- function(client, experiment_id, new_name) {
+  mlflow_rest(
+    "experiments", "update", client = client, verb = "POST",
+    data = list(
+      experiment_id = experiment_id,
+      new_name = new_name
+    )
   )
 }
 

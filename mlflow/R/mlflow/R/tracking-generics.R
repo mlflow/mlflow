@@ -100,3 +100,17 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
   mlflow_client_restore_experiment(client = client, experiment_id = experiment_id)
   invisible(NULL)
 }
+
+#' Rename Experiment
+#'
+#' Renames an experiment.
+#'
+#' @param experiment_id ID of the associated experiment. This field is required.
+#' @param new_name The experiment’s name will be changed to this. The new name must be unique.
+#' @export
+mlflow_rename_experiment <- function(experiment_id, new_name, client = NULL) {
+  client <- client %||% mlflow_client()
+  mlflow_client_rename_experiment(client = client, experiment_id = experiment_id,
+                                  new_name = new_name)
+  invisible(NULL)
+}
