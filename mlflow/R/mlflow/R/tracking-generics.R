@@ -62,5 +62,8 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
 #' @template roxlate-client
 #' @export
 mlflow_get_experiment <- function(experiment_id, client = NULL) {
-  UseMethod("mlflow_get_experiment", client)
+  client <- client %||% mlflow_client()
+  experiment_id <- cast_string(experiment_id)
+  response <- mlflow_client_get_experiment(client = client, experiment_id = experiment_id)
+  new_mlflow_rest_data_experiment(response$experiment)
 }

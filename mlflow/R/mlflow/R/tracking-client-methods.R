@@ -21,12 +21,6 @@ mlflow_client_get_experiment <- function(client, experiment_id) {
   )
 }
 
-#' @export
-mlflow_get_experiment.mlflow_client <- function(experiment_id, client = NULL) {
-  experiment_id <- cast_string(experiment_id)
-  mlflow_client_get_experiment(client = client, experiment_id = experiment_id)
-}
-
 #' Get Experiment by Name
 #'
 #' Get meta data for experiment by name.

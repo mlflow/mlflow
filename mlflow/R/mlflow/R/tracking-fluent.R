@@ -90,11 +90,6 @@ mlflow_get_run_context.default <- function(client, source_name, source_version, 
        ...)
 }
 
-#' @export
-mlflow_get_experiment.NULL <- function(experiment_id, client = NULL) {
-  client <- mlflow_client()
-}
-
 #' Set Tag
 #'
 #' Sets a tag on a run. Tags are run metadata that can be updated during and
