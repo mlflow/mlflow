@@ -95,8 +95,8 @@ def test_get_experiment_id_with_active_experiment_returns_active_experiment_id()
         assert _get_experiment_id() == exp_id
 
 
-def test_get_experiment_id_with_no_active_experiments_returns_none():
-    assert _get_experiment_id() is None
+def test_get_experiment_id_with_no_active_experiments_returns_zero():
+    assert _get_experiment_id() == "0"
 
 
 def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
