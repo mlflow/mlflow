@@ -3,13 +3,10 @@ Changelog
 
 0.9.0.1 (2019-04-09)
 --------------------
-Bugfix release with the following changes:
+Bugfix release (PyPI only) with the following changes:
 
 - Rebuilt MLflow JS assets to fix an issue where form input was broken in MLflow 0.9.0 (identified
   in #1056, #1103 by @shu-yusa, @timothyjlaurent)
-- Minor fixes for the R API: better client-side handling of REST API failures, R now respects
-  MLFLOW_CONDA_HOME environment variable, update ``get_experiment_by_name`` to return NULL instead
-  of throwing on non-existent experiment (#1098, #1101, #1108, @tomasatdatabricks)
 
 
 0.9.0 (2019-03-13)
