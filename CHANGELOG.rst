@@ -6,7 +6,7 @@ Changelog
 Bugfix release (PyPI only) with the following changes:
 
 - Rebuilt MLflow JS assets to fix an issue where form input was broken in MLflow 0.9.0 (identified
-  in #1056, #1103 by @shu-yusa, @timothyjlaurent)
+  in #1056, #1113 by @shu-yusa, @timothyjlaurent)
 
 
 0.9.0 (2019-03-13)
