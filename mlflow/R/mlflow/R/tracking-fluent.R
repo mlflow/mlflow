@@ -109,25 +109,6 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
   invisible(NULL)
 }
 
-#' Log Parameter
-#'
-#' Logs a parameter for this run. Examples are params and hyperparams
-#'   used for ML training, or constant dates and values used in an ETL pipeline.
-#'   A params is a STRING key-value pair. For a run, a single parameter is allowed
-#'   to be logged only once.
-#'
-#' @param key Name of the parameter.
-#' @param value String value of the parameter.
-#' @template roxlate-fluent
-#'
-#' @export
-mlflow_log_param <- function(key, value) {
-  active_run <- mlflow_get_or_start_run()
-  client <- mlflow_client()
-  mlflow_client_log_param(client, run_id(active_run), key, value)
-  invisible(value)
-}
-
 #' Log Artifact
 #'
 #' Logs a specific file or directory as an artifact for this run.

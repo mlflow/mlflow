@@ -122,17 +122,6 @@ mlflow_client_log_batch <- function(client, run_id, metrics, params, tags) {
   ))
 }
 
-#' Log Parameter
-#'
-#' Logs a parameter for a run. Examples are params and hyperparams
-#'   used for ML training, or constant dates and values used in an ETL pipeline.
-#'   A param is a STRING key-value pair. For a run, a single parameter is allowed
-#'   to be logged only once.
-#'
-#' @param key Name of the parameter.
-#' @param value String value of the parameter.
-#' @template roxlate-run-id
-#' @template roxlate-client
 mlflow_client_log_param <- function(client, run_id, key, value) {
   mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = list(
     run_uuid = run_id,
