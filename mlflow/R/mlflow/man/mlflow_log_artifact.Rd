@@ -9,10 +9,10 @@ mlflow_log_artifact(path, artifact_path = NULL)
 \arguments{
 \item{path}{The file or directory to log as an artifact.}
 
-\item{artifact_path}{Destination path within the run’s artifact URI.}
+\item{artifact_path}{Destination path within the run's artifact URI.}
 }
 \description{
-Logs an specific file or directory as an artifact.
+Logs a specific file or directory as an artifact for this run.
 }
 \details{
 The fluent API family of functions operate with an implied MLflow client
@@ -21,7 +21,7 @@ The fluent API family of functions operate with an implied MLflow client
   starts one through the implied service.
 
 When logging to Amazon S3, ensure that the user has a proper policy
-attach to it, for instance:
+attached to it, for instance:
 
 \code{
 {

@@ -29,11 +29,11 @@ mlflow_run(entry_point = NULL, uri = ".", version = NULL,
 \item{git_password}{Password for HTTP(S) Git authentication.}
 
 \item{no_conda}{If specified, assume that MLflow is running within a Conda environment with the necessary
-dependencies for the current project instead of attempting to create a new conda environment. Only
+dependencies for the current project instead of attempting to create a new Conda environment. Only
 valid if running locally.}
 
-\item{storage_dir}{Only valid when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
-parameters of type 'path' to subdirectories of storage_dir.}
+\item{storage_dir}{Valid only when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
+parameters of type `path` to subdirectories of `storage_dir`.}
 }
 \value{
 The run associated with this run.

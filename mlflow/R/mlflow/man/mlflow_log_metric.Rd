@@ -14,7 +14,7 @@ mlflow_log_metric(key, value, timestamp = NULL)
 \item{timestamp}{Unix timestamp in milliseconds at the time metric was logged.}
 }
 \description{
-API to log a metric for a run. Metrics key-value pair that record a single float measure.
+Logs a metric for this run. Metrics key-value pair that records a single float measure.
   During a single execution of a run, a particular metric can be logged several times.
   Backend will keep track of historical values along with timestamps.
 }

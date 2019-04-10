@@ -2,7 +2,7 @@
 % Please edit documentation in R/install.R
 \name{mlflow_uninstall}
 \alias{mlflow_uninstall}
-\title{Uninstalls MLflow.}
+\title{Uninstall MLflow}
 \usage{
 mlflow_uninstall()
 }
