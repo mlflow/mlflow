@@ -157,7 +157,7 @@ class MlflowClient(object):
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None):
+    def log_metric(self, run_id, key, value, timestamp=None, step=0):
         """
         Log a metric against the run ID. If timestamp is not provided, uses
         the current timestamp.

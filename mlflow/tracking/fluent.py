@@ -60,6 +60,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
 
     def __init__(self, run):
         Run.__init__(self, run.info, run.data)
+        self.step = 0
 
     def __enter__(self):
         return self
@@ -186,15 +187,22 @@ def set_tag(key, value):
     MlflowClient().set_tag(run_id, key, value)
 
 
-def log_metric(key, value):
+def log_metric(key, value, step=None):
     """
     Log a metric under the current run, creating a run if necessary.
 
     :param key: Metric name (string).
     :param value: Metric value (float).
     """
-    run_id = _get_or_start_run().info.run_uuid
-    MlflowClient().log_metric(run_id, key, value, int(time.time()))
+    run = _get_or_start_run().info.run_uuid
+    if step is None:
+        step = run.step
+    MlflowClient().log_metric(run_id=run.info.run_uuid,
+                              key=key,
+                              value=value,
+                              timestamp=int(time.time()),
+                              step=step)
+    run.step = step + 1 # Or just `step`?
 
 
 def log_metrics(metrics):
