@@ -87,7 +87,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_i
 mlflow_delete_experiment <- function(experiment_id, client = NULL) {
   client <- client %||% mlflow_client()
   mlflow_client_delete_experiment(client = client, experiment_id = experiment_id)
-  invisible(NULL)
+  mlflow_get_experiment(experiment_id)
 }
 
 #' Restore Experiment
@@ -104,7 +104,7 @@ mlflow_delete_experiment <- function(experiment_id, client = NULL) {
 mlflow_restore_experiment <- function(experiment_id, client = NULL) {
   client <- client %||% mlflow_client()
   mlflow_client_restore_experiment(client = client, experiment_id = experiment_id)
-  invisible(NULL)
+  mlflow_get_experiment(experiment_id)
 }
 
 #' Rename Experiment
@@ -120,7 +120,7 @@ mlflow_rename_experiment <- function(experiment_id, new_name, client = NULL) {
     client = client, experiment_id = experiment_id,
     new_name = new_name
   )
-  invisible(NULL)
+  mlflow_get_experiment(experiment_id)
 }
 
 #' Create Run
