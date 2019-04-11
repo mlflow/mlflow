@@ -1,7 +1,6 @@
 
 import os
 import os.path
-import logging
 from tempfile import mkdtemp
 import shutil
 
