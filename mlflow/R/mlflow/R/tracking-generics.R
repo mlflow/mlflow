@@ -164,8 +164,7 @@ mlflow_create_run <- function(experiment_id, user_id = NULL, run_name = NULL, so
     tags = tags
   )
 
-  # TODO: use REST data structure for consistency?
-  new_mlflow_entities_run(response)
+  parse_run(response$run)
 }
 
 #' Delete a Run
