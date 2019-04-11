@@ -128,3 +128,25 @@ resolve_client_and_run_id <- function(client, run_id) {
   }
   list(client, run_id)
 }
+
+parse_run <- function(r) {
+  info <- r$info %>%
+    purrr::map_at(c("start_time", "end_time"), mlflow:::milliseconds_to_date) %>%
+    tibble::as_tibble()
+
+  info$metrics <- parse_run_data(r$data$metrics)
+  info$params <- parse_run_data(r$data$params)
+  info$tags <- parse_run_data(r$data$tags)
+
+  info
+}
+
+parse_run_data <- function(d) {
+  if (is.null(d)) return(NA)
+  d %>%
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
+    purrr::map_at("timestamp", mlflow:::milliseconds_to_date) %>%
+    tibble::as_tibble() %>%
+    list()
+}

@@ -205,7 +205,7 @@ mlflow_get_run <- function(run_id, client = NULL) {
   client <- client %||% mlflow_client()
   run_id <- cast_string(run_id)
   response <- mlflow_client_get_run(client = client, run_id = run_id)
-  new_mlflow_entities_run(response)
+  parse_run(response$run)
 }
 
 #' Log Batch
