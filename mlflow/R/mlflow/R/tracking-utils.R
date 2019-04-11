@@ -63,7 +63,7 @@ with.mlflow_run <- function(data, expr, ...) {
 }
 
 
-run_id <- function(run) cast_nullable_string(run$info$run_uuid)
+run_id <- function(run) cast_nullable_string(run$run_uuid)
 
 active_run_id <- function() run_id(mlflow_active_run())
 

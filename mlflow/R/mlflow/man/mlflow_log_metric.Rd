@@ -27,8 +27,7 @@ Logs a metric for a run. Metrics key-value pair that records a single float meas
 When `client` is not specified, these functions attempt to infer the current active client.
 }
 \seealso{
-Other tracking functions: \code{\link{mlflow_client_log_artifact}},
-  \code{\link{mlflow_create_experiment}},
+Other tracking functions: \code{\link{mlflow_create_experiment}},
   \code{\link{mlflow_create_run}},
   \code{\link{mlflow_delete_experiment}},
   \code{\link{mlflow_delete_run}},
@@ -40,6 +39,7 @@ Other tracking functions: \code{\link{mlflow_client_log_artifact}},
   \code{\link{mlflow_list_artifacts}},
   \code{\link{mlflow_list_experiments}},
   \code{\link{mlflow_list_run_infos}},
+  \code{\link{mlflow_log_artifact}},
   \code{\link{mlflow_log_batch}},
   \code{\link{mlflow_log_param}},
   \code{\link{mlflow_restore_experiment}},

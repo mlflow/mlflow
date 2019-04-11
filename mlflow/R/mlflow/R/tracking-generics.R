@@ -358,7 +358,14 @@ mlflow_search_runs <- function(experiment_ids, filter = NULL, run_view_type = c(
 mlflow_list_artifacts <- function(run_id, path = NULL, client = NULL) {
   client <- client %||% mlflow_client()
 
-  mlflow_client_list_artifacts(client = client, run_id = run_id, path = path)
+  response <- mlflow_client_list_artifacts(client = client, run_id = run_id, path = path)
+
+  message(glue::glue('Root URI: {uri}', uri = response$root_uri))
+
+  response$files %>%
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
+    tibble::as_tibble()
 }
 
 #' Terminate a Run
@@ -446,4 +453,72 @@ mlflow_list_run_infos <- function(experiment_id, run_view_type = c("ACTIVE_ONLY"
   response$runs %>%
     purrr::map("info") %>%
     purrr::map_df(parse_run_info)
+}
+
+#' Log Artifact
+#'
+#' Logs a specific file or directory as an artifact for a run.
+#'
+#' @param path The file or directory to log as an artifact.
+#' @param artifact_path Destination path within the run's artifact URI.
+#' @template roxlate-client
+#' @template roxlate-run-id
+#'
+#' @details
+#'
+#' When logging to Amazon S3, ensure that the user has a proper policy
+#' attached to it, for instance:
+#'
+#' \code{
+#' {
+#' "Version": "2012-10-17",
+#' "Statement": [
+#'   {
+#'     "Sid": "VisualEditor0",
+#'     "Effect": "Allow",
+#'     "Action": [
+#'       "s3:PutObject",
+#'       "s3:GetObject",
+#'       "s3:ListBucket",
+#'       "s3:GetBucketLocation"
+#'       ],
+#'     "Resource": [
+#'       "arn:aws:s3:::mlflow-test/*",
+#'       "arn:aws:s3:::mlflow-test"
+#'       ]
+#'   }
+#'   ]
+#' }
+#' }
+#'
+#' Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
+#' environment variables must be set to the corresponding key and secrets provided
+#' by Amazon IAM.
+#'
+#' @export
+mlflow_log_artifact <- function(path, artifact_path = NULL, client = NULL, run_id = NULL) {
+  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+  artifact_param <- NULL
+  if (!is.null(artifact_path)) artifact_param <- "--artifact-path"
+
+  if (as.logical(fs::is_file(path))) {
+    command <- "log-artifact"
+    local_param <- "--local-file"
+  } else {
+    command <- "log-artifacts"
+    local_param <- "--local-dir"
+  }
+
+  mlflow_cli("artifacts",
+             command,
+             local_param,
+             path,
+             artifact_param,
+             artifact_path,
+             "--run-id",
+             run_id,
+             client = client
+  )
+
+  invisible(NULL)
 }

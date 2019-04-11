@@ -24,9 +24,6 @@ mlflow_client_get_experiment <- function(client, experiment_id) {
   )
 }
 
-
-
-
 mlflow_client_create_run <- function(client, experiment_id, user_id = NULL, run_name = NULL, source_type = NULL,
                                      source_name = NULL, entry_point_name = NULL, start_time = NULL,
                                      source_version = NULL, tags = NULL) {
@@ -150,71 +147,6 @@ mlflow_client_restore_run <- function(client, run_id) {
   mlflow_rest("runs", "restore", client = client, verb = "POST", data = list(
     run_id = run_id
   ))
-}
-
-#' Log Artifact
-#'
-#' Logs a specific file or directory as an artifact for a run.
-#'
-#' @param path The file or directory to log as an artifact.
-#' @param artifact_path Destination path within the run's artifact URI.
-#' @template roxlate-client
-#' @template roxlate-run-id
-#'
-#' @details
-#'
-#' When logging to Amazon S3, ensure that the user has a proper policy
-#' attached to it, for instance:
-#'
-#' \code{
-#' {
-#' "Version": "2012-10-17",
-#' "Statement": [
-#'   {
-#'     "Sid": "VisualEditor0",
-#'     "Effect": "Allow",
-#'     "Action": [
-#'       "s3:PutObject",
-#'       "s3:GetObject",
-#'       "s3:ListBucket",
-#'       "s3:GetBucketLocation"
-#'       ],
-#'     "Resource": [
-#'       "arn:aws:s3:::mlflow-test/*",
-#'       "arn:aws:s3:::mlflow-test"
-#'       ]
-#'   }
-#'   ]
-#' }
-#' }
-#'
-#' Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
-#' environment variables must be set to the corresponding key and secrets provided
-#' by Amazon IAM.
-mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NULL) {
-  artifact_param <- NULL
-  if (!is.null(artifact_path)) artifact_param <- "--artifact-path"
-
-  if (as.logical(fs::is_file(path))) {
-    command <- "log-artifact"
-    local_param <- "--local-file"
-  } else {
-    command <- "log-artifacts"
-    local_param <- "--local-dir"
-  }
-
-  mlflow_cli("artifacts",
-    command,
-    local_param,
-    path,
-    artifact_param,
-    artifact_path,
-    "--run-id",
-    run_id,
-    client = client
-  )
-
-  invisible(NULL)
 }
 
 mlflow_client_list_artifacts <- function(client, run_id, path = NULL) {
