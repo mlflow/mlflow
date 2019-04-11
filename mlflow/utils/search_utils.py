@@ -1,6 +1,7 @@
 import sqlparse
-from sqlparse.sql import Identifier, Token, Comparison, Statement
-from sqlparse.tokens import Token as TokenType
+from sqlparse.sql import Identifier as SqlIdentifier, Token as SqlToken, \
+    Comparison as SqlComparison, Statement as SqlStatement
+from sqlparse.tokens import Token as SqlTokenType
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -19,8 +20,9 @@ class SearchFilter(object):
     VALID_KEY_TYPE = set([_METRIC_IDENTIFIER] + list(_ALTERNATE_METRIC_IDENTIFIERS)
                          + [_PARAM_IDENTIFIER] + list(_ALTERNATE_PARAM_IDENTIFIERS)
                          + [_TAG_IDENTIFIER] + list(_ALTERNATE_TAG_IDENTIFIERS))
-    STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
-    NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
+    STRING_VALUE_TYPES = set([SqlTokenType.Literal.String.Single])
+    NUMERIC_VALUE_TYPES = set([SqlTokenType.Literal.Number.Integer,
+                               SqlTokenType.Literal.Number.Float])
 
     def __init__(self, filter_string=None, anded_expressions=None):
         self._filter_string = filter_string
@@ -110,7 +112,7 @@ class SearchFilter(object):
                                       error_code=INVALID_PARAMETER_VALUE)
             return token.value
         elif identifier_type == cls._PARAM_IDENTIFIER or identifier_type == cls._TAG_IDENTIFIER:
-            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, SqlIdentifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException("Expected a quoted string value for "
                                   "{identifier_type} (e.g. 'my-value'). Got value "
@@ -129,17 +131,18 @@ class SearchFilter(object):
             raise MlflowException("{}. Expected 3 tokens found {}".format(base_error_string,
                                                                           len(tokens)),
                                   error_code=INVALID_PARAMETER_VALUE)
-        if not isinstance(tokens[0], Identifier):
+        if not isinstance(tokens[0], SqlIdentifier):
             raise MlflowException("{}. Expected 'Identifier' found '{}'".format(base_error_string,
                                                                                 str(tokens[0])),
                                   error_code=INVALID_PARAMETER_VALUE)
-        if not isinstance(tokens[1], Token) and tokens[1].ttype != TokenType.Operator.Comparison:
+        if not isinstance(tokens[1], SqlToken) and \
+                tokens[1].ttype != SqlTokenType.Operator.Comparison:
             raise MlflowException("{}. Expected comparison found '{}'".format(base_error_string,
                                                                               str(tokens[1])),
                                   error_code=INVALID_PARAMETER_VALUE)
-        if not isinstance(tokens[2], Token) and \
+        if not isinstance(tokens[2], SqlToken) and \
                 (tokens[2].ttype not in cls.STRING_VALUE_TYPES.union(cls.NUMERIC_VALUE_TYPES) or
-                 isinstance(tokens[2], Identifier)):
+                 isinstance(tokens[2], SqlIdentifier)):
             raise MlflowException("{}. Expected value token found '{}'".format(base_error_string,
                                                                                str(tokens[2])),
                                   error_code=INVALID_PARAMETER_VALUE)
@@ -155,11 +158,11 @@ class SearchFilter(object):
 
     @classmethod
     def _invalid_statement_token(cls, token):
-        if isinstance(token, Comparison):
+        if isinstance(token, SqlComparison):
             return False
         elif token.is_whitespace:
             return False
-        elif token.match(ttype=TokenType.Keyword, values=["AND"]):
+        elif token.match(ttype=SqlTokenType.Keyword, values=["AND"]):
             return False
         else:
             return True
@@ -172,7 +175,7 @@ class SearchFilter(object):
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException("Invalid clause(s) in filter string: %s" % invalid_clauses,
                                   error_code=INVALID_PARAMETER_VALUE)
-        return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, Comparison)]
+        return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, SqlComparison)]
 
     @classmethod
     def search_expression_to_dict(cls, search_expression):
@@ -216,7 +219,7 @@ class SearchFilter(object):
             except Exception:
                 raise MlflowException("Error on parsing filter '%s'" % self._filter_string,
                                       error_code=INVALID_PARAMETER_VALUE)
-            if len(parsed) == 0 or not isinstance(parsed[0], Statement):
+            if len(parsed) == 0 or not isinstance(parsed[0], SqlStatement):
                 raise MlflowException("Invalid filter '%s'. Could not be parsed." %
                                       self._filter_string, error_code=INVALID_PARAMETER_VALUE)
             elif len(parsed) > 1:
