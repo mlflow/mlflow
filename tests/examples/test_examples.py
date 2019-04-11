@@ -27,9 +27,8 @@ def test_sklearn_logistic_regression():
     os.environ['MLFLOW_TRACKING_URI'] = os.path.join(tempdir, 'mlruns')
 
     try:
-        process.exec_cmd(['python', 'train.py'], cwd=os.path.join(EXAMPLES_DIR, 'sklearn_logistic_regression'))
+        process.exec_cmd(['python', 'train.py'],
+                         cwd=os.path.join(EXAMPLES_DIR, 'sklearn_logistic_regression'))
     finally:
         shutil.rmtree(tempdir)
         del os.environ['MLFLOW_TRACKING_URI']
-
-
