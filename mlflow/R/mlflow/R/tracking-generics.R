@@ -520,5 +520,5 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, client = NULL, run_i
              client = client
   )
 
-  invisible(NULL)
+  mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client)
 }
