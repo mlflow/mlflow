@@ -399,3 +399,19 @@ mlflow_download_artifacts <- function(client, run_id, path) {
   )
   gsub("\n", "", result$stdout)
 }
+
+#' #' Get Experiment by Name
+#' #'
+#' #' Get meta data for experiment by name.
+#' #'
+#' #' @param name The experiment name.
+#' #' @template roxlate-client
+#' mlflow_get_experiment_by_name <- function(client, name) {
+#'   exps <- mlflow_list_experiments(client = client)
+#'   if ("name" %in% names(exps) && length(exps$name)) {
+#'     experiment <- exps[exps$name == name, ]
+#'     if (nrow(experiment)) experiment else NULL
+#'   } else {
+#'     NULL
+#'   }
+#' }

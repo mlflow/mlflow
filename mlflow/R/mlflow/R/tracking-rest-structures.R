@@ -38,9 +38,11 @@ new_mlflow_rest_data_array <- function(data, type = NULL, class = character()) {
 print.mlflow_rest_data_array <- function(x, ...) {
   print_type(x)
   out <- x %>%
-    unclass() %>%
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
+    purrr::map_at("timestamp", milliseconds_to_date) %>%
     tibble::as_tibble()
-  print(x)
+  print(out)
   invisible(x)
 }
 
@@ -63,14 +65,14 @@ print_type <- function(x) {
   )
 }
 
-#' @export
-print.mlflow_rest_data_array_metric <- function(x, ...) {
-  print_type(x)
-  out <- x %>%
-    purrr::transpose() %>%
-    purrr::map(unlist) %>%
-    purrr::map_at("timestamp", milliseconds_to_date) %>%
-    tibble::as_tibble()
-  print(out)
-  invisible(x)
-}
+#' #' @export
+#' print.mlflow_rest_data_array_metric <- function(x, ...) {
+#'   print_type(x)
+#'   out <- x %>%
+#'     purrr::transpose() %>%
+#'     purrr::map(unlist) %>%
+#'     purrr::map_at("timestamp", milliseconds_to_date) %>%
+#'     tibble::as_tibble()
+#'   print(out)
+#'   invisible(x)
+#' }

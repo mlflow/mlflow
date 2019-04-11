@@ -21,8 +21,7 @@ Creates an MLflow experiment.
 When `client` is not specified, these functions attempt to infer the current active client.
 }
 \seealso{
-Other tracking functions: \code{\link{mlflow_client_get_experiment_by_name}},
-  \code{\link{mlflow_client_log_artifact}},
+Other tracking functions: \code{\link{mlflow_client_log_artifact}},
   \code{\link{mlflow_create_run}},
   \code{\link{mlflow_delete_experiment}},
   \code{\link{mlflow_delete_run}},
