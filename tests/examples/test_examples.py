@@ -14,19 +14,20 @@ EXAMPLES_DIR = 'examples'
 
 
 def test_sklearn_elasticnet_wine(tracking_uri_mock):
-    invoke_cli_runner(cli.run, [os.path.join(EXAMPLES_DIR,'sklearn_elasticnet_wine'),
+    invoke_cli_runner(cli.run, [os.path.join(EXAMPLES_DIR, 'sklearn_elasticnet_wine'),
                                 "-P", "alpha=0.5"])
 
+
 def test_sklearn_elasticnet_diabetes(tracking_uri_mock):
-    invoke_cli_runner(cli.run, [os.path.join(EXAMPLES_DIR,'sklearn_elasticnet_diabetes','linux')])
+    invoke_cli_runner(cli.run, [os.path.join(EXAMPLES_DIR, 'sklearn_elasticnet_diabetes', 'linux')])
+
 
 def test_sklearn_logistic_regression():
     tempdir = mkdtemp()
-    os.environ['MLFLOW_TRACKING_URI'] = os.path.join(tempdir,'mlruns')
+    os.environ['MLFLOW_TRACKING_URI'] = os.path.join(tempdir, 'mlruns')
 
     try:
-        process.exec_cmd(['python', 'train.py'],
-                     cwd = os.path.join(EXAMPLES_DIR,'sklearn_logistic_regression'))
+        process.exec_cmd(['python', 'train.py'], cwd=os.path.join(EXAMPLES_DIR, 'sklearn_logistic_regression'))
     finally:
         shutil.rmtree(tempdir)
         del os.environ['MLFLOW_TRACKING_URI']
