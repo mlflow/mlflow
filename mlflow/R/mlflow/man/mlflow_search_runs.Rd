@@ -4,7 +4,7 @@
 \alias{mlflow_search_runs}
 \title{Search Runs}
 \usage{
-mlflow_search_runs(experiment_ids, filter,
+mlflow_search_runs(experiment_ids, filter = NULL,
   run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
   client = NULL)
 }

@@ -332,12 +332,12 @@ mlflow_get_metric_history <- function(run_id, metric_key, client = NULL) {
 #' @param run_view_type Run view type.
 #'
 #' @export
-mlflow_search_runs <- function(experiment_ids, filter, run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
+mlflow_search_runs <- function(experiment_ids, filter = NULL, run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
   client <- client %||% mlflow_client()
 
   run_view_type <- match.arg(run_view_type)
   experiment_ids <- cast_double_list(experiment_ids)
-  filter <- cast_string(filter)
+  filter <- cast_nullable_string(filter)
 
   response <- mlflow_client_search_runs(client = client, experiment_ids = experiment_ids,
                             filter = filter, run_view_type = run_view_type)
