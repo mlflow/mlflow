@@ -40,6 +40,7 @@ Other tracking functions: \code{\link{mlflow_client_download_artifacts}},
   \code{\link{mlflow_log_metric}},
   \code{\link{mlflow_log_param}},
   \code{\link{mlflow_restore_experiment}},
-  \code{\link{mlflow_restore_run}}
+  \code{\link{mlflow_restore_run}},
+  \code{\link{mlflow_search_runs}}
 }
 \concept{tracking functions}

@@ -146,6 +146,14 @@ mlflow_client_get_metric_history <- function(client, run_id, metric_key) {
   )
 }
 
+mlflow_client_search_runs <- function(client, experiment_ids, filter, run_view_type) {
+  mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
+    experiment_ids = experiment_ids,
+    filter = filter,
+    run_view_type = run_view_type
+  ))
+}
+
 #' Terminate a Run
 #'
 #' Terminates a run.

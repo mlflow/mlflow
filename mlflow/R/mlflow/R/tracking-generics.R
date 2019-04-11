@@ -311,3 +311,27 @@ mlflow_get_metric_history <- function(run_id, metric_key, client = NULL) {
                                    metric_key = metric_key)
   new_mlflow_rest_data_array_metric(response$metrics)
 }
+
+#' Search Runs
+#'
+#' Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.
+#'
+#' @template roxlate-client
+#' @param experiment_ids List of experiment IDs to search over.
+#' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
+#'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
+#' @param run_view_type
+#'
+#' @export
+mlflow_search_runs <- function(experiment_ids, filter, run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
+  client <- client %||% mlflow_client()
+
+  run_view_type <- match.arg(run_view_type)
+  experiment_ids <- cast_double_list(experiment_ids)
+  filter <- cast_string(filter)
+
+  # TODO: clean up output
+  mlflow_client_search_runs(client = client, experiment_ids = experiment_ids,
+                            filter = filter, run_view_type = run_view_type)
+}
+
