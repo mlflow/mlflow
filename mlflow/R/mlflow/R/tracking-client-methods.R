@@ -159,4 +159,3 @@ mlflow_client_list_artifacts <- function(client, run_id, path = NULL) {
     )
   )
 }
-

@@ -46,7 +46,6 @@ mlflow_get_experiment <- function(experiment_id, client = NULL) {
   client <- client %||% mlflow_client()
   experiment_id <- cast_string(experiment_id)
   response <- mlflow_client_get_experiment(client = client, experiment_id = experiment_id)
-  # new_mlflow_rest_data_experiment(response$experiment)
   response$experiment %>% tibble::as_tibble()
 }
 
@@ -331,7 +330,8 @@ mlflow_get_metric_history <- function(run_id, metric_key, client = NULL) {
 #' @param run_view_type Run view type.
 #'
 #' @export
-mlflow_search_runs <- function(experiment_ids, filter = NULL, run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
+mlflow_search_runs <- function(experiment_ids, filter = NULL,
+                               run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
   client <- client %||% mlflow_client()
 
   run_view_type <- match.arg(run_view_type)
@@ -359,7 +359,7 @@ mlflow_list_artifacts <- function(run_id, path = NULL, client = NULL) {
 
   response <- mlflow_client_list_artifacts(client = client, run_id = run_id, path = path)
 
-  message(glue::glue('Root URI: {uri}', uri = response$root_uri))
+  message(glue::glue("Root URI: {uri}", uri = response$root_uri))
 
   response$files %>%
     purrr::transpose() %>%
@@ -429,7 +429,7 @@ mlflow_get_experiment_by_name <- function(name, client = NULL) {
   if (is.null(exps)) stop("No experiments found.", call. = FALSE)
 
   experiment <- exps[exps$name == name, ]
-  if (nrow(experiment)) experiment else stop(glue::glue('Experiment `{exp}` not found.', exp = name), call. = FALSE)
+  if (nrow(experiment)) experiment else stop(glue::glue("Experiment `{exp}` not found.", exp = name), call. = FALSE)
 }
 
 #' List Run Infos
@@ -440,7 +440,8 @@ mlflow_get_experiment_by_name <- function(name, client = NULL) {
 #' @param run_view_type Run view type.
 #' @template roxlate-client
 #' @export
-mlflow_list_run_infos <- function(experiment_id, run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
+mlflow_list_run_infos <- function(experiment_id,
+                                  run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
   client <- client %||% mlflow_client()
 
   run_view_type <- match.arg(run_view_type)
