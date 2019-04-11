@@ -248,16 +248,8 @@ mlflow_client_log_artifact <- function(client, run_id, path, artifact_path = NUL
   invisible(NULL)
 }
 
-#' List Artifacts
-#'
-#' Gets a list of artifacts.
-#'
-#' @template roxlate-client
-#' @template roxlate-run-id
-#' @param path The run's relative artifact path to list from. If not specified, it is
-#'  set to the root artifact path
 mlflow_client_list_artifacts <- function(client, run_id, path = NULL) {
-  response <- mlflow_rest(
+  mlflow_rest(
     "artifacts", "list",
     client = client, verb = "GET",
     query = list(
@@ -265,7 +257,6 @@ mlflow_client_list_artifacts <- function(client, run_id, path = NULL) {
       path = path
     )
   )
-  response
 }
 
 #' Download Artifacts

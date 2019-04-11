@@ -335,3 +335,18 @@ mlflow_search_runs <- function(experiment_ids, filter, run_view_type = c("ACTIVE
                             filter = filter, run_view_type = run_view_type)
 }
 
+#' List Artifacts
+#'
+#' Gets a list of artifacts.
+#'
+#' @template roxlate-client
+#' @template roxlate-run-id
+#' @param path The run's relative artifact path to list from. If not specified, it is
+#'  set to the root artifact path
+#'
+#' @export
+mlflow_list_artifacts <- function(run_id, path = NULL, client = NULL) {
+  client <- client %||% mlflow_client()
+
+  mlflow_client_list_artifacts(client = client, run_id = run_id, path = path)
+}
