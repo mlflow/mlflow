@@ -1,3 +1,4 @@
+from enum import Enum
 import sqlparse
 from sqlparse.sql import Identifier as SqlIdentifier, Token as SqlToken, \
     Comparison as SqlComparison, Statement as SqlStatement
@@ -7,10 +8,27 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
+class ComparisonOperator(Enum):
+    EQUAL = "="
+    NOT_EQUAL = "!="
+    GREATER_THAN = ">"
+    GREATER_THAN_EQUAL = ">="
+    LESS_THAN = "<"
+    LESS_THAN_EQUAL = "<="
+
+
+def _comparison_operator_from_string(string):
+    try:
+        return ComparisonOperator(string)
+    except ValueError:
+        raise MlflowException("Invalid comparator '{}'".format(string),
+                              error_code=INVALID_PARAMETER_VALUE)
+
+
 class SearchFilter(object):
-    VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
-    VALID_PARAM_COMPARATORS = set(['!=', '='])
-    VALID_TAG_COMPARATORS = set(['!=', '='])
+    VALID_METRIC_COMPARATORS = set(ComparisonOperator)
+    VALID_PARAM_COMPARATORS = {ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL}
+    VALID_TAG_COMPARATORS = {ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL}
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
@@ -152,7 +170,8 @@ class SearchFilter(object):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
         comp = cls._get_identifier(stripped_comparison[0].value)
-        comp["comparator"] = stripped_comparison[1].value
+        operator = stripped_comparison[1].value
+        comp["comparator"] = _comparison_operator_from_string(operator)
         comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
         return comp
 
@@ -195,7 +214,7 @@ class SearchFilter(object):
             return {
                 "type": cls._METRIC_IDENTIFIER,
                 "key": key,
-                "comparator": comparator,
+                "comparator": _comparison_operator_from_string(comparator),
                 "value": value
             }
         elif key_type == cls._PARAM_IDENTIFIER:
@@ -205,7 +224,7 @@ class SearchFilter(object):
             return {
                 "type": cls._PARAM_IDENTIFIER,
                 "key": key,
-                "comparator": comparator,
+                "comparator": _comparison_operator_from_string(comparator),
                 "value": value
             }
         else:
@@ -265,17 +284,17 @@ class SearchFilter(object):
                                   error_code=INVALID_PARAMETER_VALUE)
         if lhs is None:
             return False
-        elif comparator == '>':
+        elif comparator == ComparisonOperator.GREATER_THAN:
             return lhs > value
-        elif comparator == '>=':
+        elif comparator == ComparisonOperator.GREATER_THAN_EQUAL:
             return lhs >= value
-        elif comparator == '=':
+        elif comparator == ComparisonOperator.EQUAL:
             return lhs == value
-        elif comparator == '!=':
+        elif comparator == ComparisonOperator.NOT_EQUAL:
             return lhs != value
-        elif comparator == '<=':
+        elif comparator == ComparisonOperator.LESS_THAN_EQUAL:
             return lhs <= value
-        elif comparator == '<':
+        elif comparator == ComparisonOperator.LESS_THAN:
             return lhs < value
         else:
             return False

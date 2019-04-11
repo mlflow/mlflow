@@ -29,6 +29,7 @@ setup(
         'click>=7.0',
         'cloudpickle',
         'databricks-cli>=0.8.0',
+        "enum34; python_version<'3.4'",
         'requests>=2.17.3',
         'six>=1.10.0',
         'gunicorn',
