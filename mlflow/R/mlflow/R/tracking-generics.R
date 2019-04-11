@@ -339,9 +339,10 @@ mlflow_search_runs <- function(experiment_ids, filter, run_view_type = c("ACTIVE
   experiment_ids <- cast_double_list(experiment_ids)
   filter <- cast_string(filter)
 
-  # TODO: clean up output
-  mlflow_client_search_runs(client = client, experiment_ids = experiment_ids,
+  response <- mlflow_client_search_runs(client = client, experiment_ids = experiment_ids,
                             filter = filter, run_view_type = run_view_type)
+  response$run %>%
+    purrr::map_df(parse_run)
 }
 
 #' List Artifacts
