@@ -270,7 +270,7 @@ mlflow_set_tag <- function(key, value, client = NULL, run_id = NULL) {
 
   mlflow_client_set_tag(client = client, run_id = run_id,
                         key = key, value = value)
-  invisible(value)
+  invisible(NULL)
 }
 
 #' Log Parameter
