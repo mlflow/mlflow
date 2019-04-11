@@ -23,7 +23,7 @@ def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps
     :return: `None` if `path` is specified. Otherwise, the a dictionary representation of the
              Conda environment.
     """
-    env = yaml.load(_conda_header)
+    env = yaml.safe_load(_conda_header)
     env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
     if additional_conda_deps is not None:
         env["dependencies"] += additional_conda_deps
