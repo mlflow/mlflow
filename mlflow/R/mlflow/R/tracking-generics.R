@@ -189,7 +189,7 @@ mlflow_restore_run <- function(run_id, client = NULL) {
   client <- client %||% mlflow_client()
   run_id <- cast_string(run_id)
   mlflow_client_restore_run(client = client, run_id = run_id)
-  invisible(NULL)
+  mlflow_get_run(run_id)
 }
 
 #' Get Run
