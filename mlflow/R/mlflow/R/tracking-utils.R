@@ -29,6 +29,12 @@ mlflow_get_or_start_run <- function() {
   mlflow_active_run() %||% mlflow_start_run()
 }
 
+mlflow_infer_experiment_id <- function(experiment_id) {
+  experiment_id <- experiment_id %||% mlflow_get_active_experiment_id()
+  experiment_id <- experiment_id %||% Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = NA)
+  if (is.na(experiment_id)) NULL else experiment_id
+}
+
 #' @export
 with.mlflow_run <- function(data, expr, ...) {
 
