@@ -26,9 +26,14 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
   client <- client %||% mlflow_client()
   view_type <- match.arg(view_type)
   response <- mlflow_client_list_experiments(client = client, view_type = view_type)
+
+  # Return `NULL` if no experiments
+  if (!length(response)) return(NULL)
+
   response$experiments %>%
-    purrr::map(new_mlflow_rest_data_experiment) %>%
-    new_mlflow_rest_data_array(type = "Experiment")
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
+    tibble::as_tibble()
 }
 
 #' Get Experiment
@@ -42,7 +47,8 @@ mlflow_get_experiment <- function(experiment_id, client = NULL) {
   client <- client %||% mlflow_client()
   experiment_id <- cast_string(experiment_id)
   response <- mlflow_client_get_experiment(client = client, experiment_id = experiment_id)
-  new_mlflow_rest_data_experiment(response$experiment)
+  # new_mlflow_rest_data_experiment(response$experiment)
+  response$experiment %>% tibble::as_tibble()
 }
 
 #' Log Metric
@@ -400,18 +406,18 @@ mlflow_download_artifacts <- function(client, run_id, path) {
   gsub("\n", "", result$stdout)
 }
 
-#' #' Get Experiment by Name
-#' #'
-#' #' Get meta data for experiment by name.
-#' #'
-#' #' @param name The experiment name.
-#' #' @template roxlate-client
-#' mlflow_get_experiment_by_name <- function(client, name) {
-#'   exps <- mlflow_list_experiments(client = client)
-#'   if ("name" %in% names(exps) && length(exps$name)) {
-#'     experiment <- exps[exps$name == name, ]
-#'     if (nrow(experiment)) experiment else NULL
-#'   } else {
-#'     NULL
-#'   }
-#' }
+#' Get Experiment by Name
+#'
+#' Get meta data for experiment by name.
+#'
+#' @param name The experiment name.
+#' @template roxlate-client
+#' @export
+mlflow_get_experiment_by_name <- function(name, client = NULL) {
+  client <- client %||% mlflow_client()
+  exps <- mlflow_list_experiments(client = client)
+  if (is.null(exps)) stop("No experiments found.", call. = FALSE)
+
+  experiment <- exps[exps$name == name, ]
+  if (nrow(experiment)) experiment else stop(glue::glue('Experiment `{exp}` not found.', exp = name), call. = FALSE)
+}

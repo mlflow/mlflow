@@ -1,14 +1,14 @@
-new_mlflow_rest_data <- function(data, ..., class = character()) {
-  structure(
-    data,
-    ...,
-    class = c(class, "mlflow_rest_data")
-  )
-}
-
-new_mlflow_rest_data_experiment <- function(data) {
-  new_mlflow_rest_data(data, class = "mlflow_rest_data_experiment")
-}
+# new_mlflow_rest_data <- function(data, ..., class = character()) {
+#   structure(
+#     data,
+#     ...,
+#     class = c(class, "mlflow_rest_data")
+#   )
+# }
+#
+# new_mlflow_rest_data_experiment <- function(data) {
+#   new_mlflow_rest_data(tibble::as_tibble(data), class = "mlflow_rest_data_experiment")
+# }
 
 #' @export
 print.mlflow_rest_data_experiment <- function(x, ...) {
