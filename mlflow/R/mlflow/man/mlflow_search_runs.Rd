@@ -14,7 +14,7 @@ mlflow_search_runs(experiment_ids, filter,
 \item{filter}{A filter expression over params, metrics, and tags, allowing returning a subset of runs.
 The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.}
 
-\item{run_view_type}{}
+\item{run_view_type}{Run view type.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 }
@@ -37,6 +37,7 @@ Other tracking functions: \code{\link{mlflow_client_log_artifact}},
   \code{\link{mlflow_get_run}},
   \code{\link{mlflow_list_artifacts}},
   \code{\link{mlflow_list_experiments}},
+  \code{\link{mlflow_list_run_infos}},
   \code{\link{mlflow_log_batch}},
   \code{\link{mlflow_log_metric}},
   \code{\link{mlflow_log_param}},

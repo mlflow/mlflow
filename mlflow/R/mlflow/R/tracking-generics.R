@@ -329,7 +329,7 @@ mlflow_get_metric_history <- function(run_id, metric_key, client = NULL) {
 #' @param experiment_ids List of experiment IDs to search over.
 #' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
 #'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
-#' @param run_view_type
+#' @param run_view_type Run view type.
 #'
 #' @export
 mlflow_search_runs <- function(experiment_ids, filter, run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
@@ -424,4 +424,26 @@ mlflow_get_experiment_by_name <- function(name, client = NULL) {
 
   experiment <- exps[exps$name == name, ]
   if (nrow(experiment)) experiment else stop(glue::glue('Experiment `{exp}` not found.', exp = name), call. = FALSE)
+}
+
+#' List Run Infos
+#'
+#' List run infos.
+#'
+#' @param experiment_id Experiment ID.
+#' @param run_view_type Run view type.
+#' @template roxlate-client
+#' @export
+mlflow_list_run_infos <- function(experiment_id, run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
+  client <- client %||% mlflow_client()
+
+  run_view_type <- match.arg(run_view_type)
+  experiment_ids <- cast_double_list(experiment_id)
+
+  response <- mlflow_client_search_runs(client = client, experiment_ids = experiment_ids,
+                                        filter = "", run_view_type = run_view_type)
+
+  response$runs %>%
+    purrr::map("info") %>%
+    purrr::map_df(parse_run_info)
 }
