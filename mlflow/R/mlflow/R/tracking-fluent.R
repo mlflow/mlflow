@@ -103,7 +103,7 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
   if (!is.null(active_run)) {
     status <- match.arg(status)
     client <- mlflow_client()
-    mlflow_client_set_terminated(client, run_id(active_run), status)
+    mlflow_set_terminated(client = client, run_id = run_id(active_run), status = status)
     mlflow_set_active_run(NULL)
   }
   invisible(NULL)

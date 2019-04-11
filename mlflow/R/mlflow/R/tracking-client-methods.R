@@ -154,23 +154,6 @@ mlflow_client_search_runs <- function(client, experiment_ids, filter, run_view_t
   ))
 }
 
-#' Terminate a Run
-#'
-#' Terminates a run.
-#'
-#' @param run_id Unique identifier for the run.
-#' @param status Updated status of the run. Defaults to `FINISHED`.
-#' @param end_time Unix timestamp of when the run ended in milliseconds.
-#' @template roxlate-run-id
-#' @template roxlate-client
-mlflow_client_set_terminated <- function(client, run_id, status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
-                                         end_time = NULL) {
-  status <- match.arg(status)
-  end_time <- end_time %||% current_time()
-  response <- mlflow_rest_update_run(client, run_id, status, end_time)
-  tidy_run_info(response$run_info)
-}
-
 mlflow_client_delete_run <- function(client, run_id) {
   mlflow_rest("runs", "delete", client = client, verb = "POST", data = list(
     run_id = run_id

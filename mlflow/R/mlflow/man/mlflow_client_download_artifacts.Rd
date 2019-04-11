@@ -23,7 +23,6 @@ When `client` is not specified, these functions attempt to infer the current act
 \seealso{
 Other tracking functions: \code{\link{mlflow_client_get_experiment_by_name}},
   \code{\link{mlflow_client_log_artifact}},
-  \code{\link{mlflow_client_set_terminated}},
   \code{\link{mlflow_create_experiment}},
   \code{\link{mlflow_create_run}},
   \code{\link{mlflow_delete_experiment}},
@@ -39,6 +38,7 @@ Other tracking functions: \code{\link{mlflow_client_get_experiment_by_name}},
   \code{\link{mlflow_restore_experiment}},
   \code{\link{mlflow_restore_run}},
   \code{\link{mlflow_search_runs}},
-  \code{\link{mlflow_set_tag}}
+  \code{\link{mlflow_set_tag}},
+  \code{\link{mlflow_set_terminated}}
 }
 \concept{tracking functions}
