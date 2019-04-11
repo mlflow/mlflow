@@ -25,17 +25,34 @@ print.mlflow_rest_data_experiment <- function(x, ...) {
   invisible(x)
 }
 
-new_mlflow_rest_data_array <- function(data, type = NULL) {
+new_mlflow_rest_data_array <- function(data, type = NULL, class = character()) {
   type <- type %||% class(data[[1]])[[1]]
   structure(
     data,
     type = type,
-    class = "mlflow_rest_data_array"
+    class = c(class, "mlflow_rest_data_array")
   )
 }
 
 #' @export
 print.mlflow_rest_data_array <- function(x, ...) {
+  print_type(x)
+  out <- x %>%
+    unclass() %>%
+    tibble::as_tibble()
+  print(x)
+  invisible(x)
+}
+
+new_mlflow_rest_data_array_metric <- function(data) {
+  new_mlflow_rest_data_array(
+    data,
+    type = "Metric",
+    class = "mlflow_rest_data_array_metric"
+  )
+}
+
+print_type <- function(x) {
   print(
     glue::glue("
              MLflow array of type `{type}`
@@ -44,7 +61,16 @@ print.mlflow_rest_data_array <- function(x, ...) {
       type = attr(x, "type")
     )
   )
+}
 
-  print(purrr::map_df(x, ~ .x %>% unclass() %>% tibble::as_tibble()))
+#' @export
+print.mlflow_rest_data_array_metric <- function(x, ...) {
+  print_type(x)
+  out <- x %>%
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
+    purrr::map_at("timestamp", milliseconds_to_date) %>%
+    tibble::as_tibble()
+  print(out)
   invisible(x)
 }

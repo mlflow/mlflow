@@ -138,6 +138,14 @@ mlflow_client_set_tag <- function(client, run_id, key, value) {
   ))
 }
 
+mlflow_client_get_metric_history <- function(client, run_id, metric_key) {
+  response <- mlflow_rest(
+    "metrics", "get-history",
+    client = client, verb = "GET",
+    query = list(run_uuid = run_id, metric_key = metric_key)
+  )
+}
+
 #' Terminate a Run
 #'
 #' Terminates a run.

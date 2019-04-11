@@ -291,3 +291,23 @@ mlflow_log_param <- function(key, value, client = NULL, run_id = NULL) {
                           key = key, value = value)
   invisible(value)
 }
+
+#' Get Metric History
+#'
+#' Get a list of all values for the specified metric for a given run.
+#'
+#' @template roxlate-run-id
+#' @template roxlate-client
+#' @param metric_key Name of the metric.
+#'
+#' @export
+mlflow_get_metric_history <- function(run_id, metric_key, client = NULL) {
+  client <- client %||% mlflow_client()
+
+  run_id <- cast_string(run_id)
+  metric_key <- cast_string(metric_key)
+
+  response <- mlflow_client_get_metric_history(client = client, run_id = run_id,
+                                   metric_key = metric_key)
+  new_mlflow_rest_data_array_metric(response$metrics)
+}
