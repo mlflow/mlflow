@@ -315,7 +315,11 @@ mlflow_get_metric_history <- function(run_id, metric_key, client = NULL) {
 
   response <- mlflow_client_get_metric_history(client = client, run_id = run_id,
                                    metric_key = metric_key)
-  new_mlflow_rest_data_array_metric(response$metrics)
+  response$metrics %>%
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
+    purrr::map_at("timestamp", milliseconds_to_date) %>%
+    tibble::as_tibble()
 }
 
 #' Search Runs
@@ -374,7 +378,7 @@ mlflow_set_terminated <- function(run_id, status = c("FINISHED", "SCHEDULED", "F
   status <- match.arg(status)
   end_time <- end_time %||% current_time()
   response <- mlflow_rest_update_run(client, run_id, status, end_time)
-  tidy_run_info(response$run_info)
+  parse_run_info(response$run_info)
 }
 
 

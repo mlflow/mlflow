@@ -130,15 +130,19 @@ resolve_client_and_run_id <- function(client, run_id) {
 }
 
 parse_run <- function(r) {
-  info <- r$info %>%
-    purrr::map_at(c("start_time", "end_time"), mlflow:::milliseconds_to_date) %>%
-    tibble::as_tibble()
+  info <- parse_run_info(r$info)
 
   info$metrics <- parse_run_data(r$data$metrics)
   info$params <- parse_run_data(r$data$params)
   info$tags <- parse_run_data(r$data$tags)
 
   info
+}
+
+parse_run_info <- function(r) {
+  r %>%
+    purrr::map_at(c("start_time", "end_time"), mlflow:::milliseconds_to_date) %>%
+    tibble::as_tibble()
 }
 
 parse_run_data <- function(d) {
