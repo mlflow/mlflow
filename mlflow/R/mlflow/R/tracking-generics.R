@@ -370,3 +370,32 @@ mlflow_set_terminated <- function(run_id, status = c("FINISHED", "SCHEDULED", "F
   response <- mlflow_rest_update_run(client, run_id, status, end_time)
   tidy_run_info(response$run_info)
 }
+
+
+#' Download Artifacts
+#'
+#' Download an artifact file or directory from a run to a local directory if applicable,
+#'   and return a local path for it.
+#'
+#' @template roxlate-client
+#' @template roxlate-run-id
+#' @param path Relative source path to the desired artifact.
+#' @export
+mlflow_download_artifacts <- function(client, run_id, path) {
+  result <- mlflow_cli(
+    "artifacts", "download",
+    "--run-id", run_id,
+    "--artifact-path", path,
+    echo = FALSE,
+    stderr_callback = function(x, p) {
+      if (grepl("FileNotFoundError", x)) {
+        stop(
+          gsub("(.|\n)*(?=FileNotFoundError)", "", x, perl = TRUE),
+          call. = FALSE
+        )
+      }
+    },
+    client = client
+  )
+  gsub("\n", "", result$stdout)
+}

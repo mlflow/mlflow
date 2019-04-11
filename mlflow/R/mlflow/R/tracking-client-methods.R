@@ -242,29 +242,3 @@ mlflow_client_list_artifacts <- function(client, run_id, path = NULL) {
   )
 }
 
-#' Download Artifacts
-#'
-#' Download an artifact file or directory from a run to a local directory if applicable,
-#'   and return a local path for it.
-#'
-#' @template roxlate-client
-#' @template roxlate-run-id
-#' @param path Relative source path to the desired artifact.
-mlflow_client_download_artifacts <- function(client, run_id, path) {
-  result <- mlflow_cli(
-    "artifacts", "download",
-    "--run-id", run_id,
-    "--artifact-path", path,
-    echo = FALSE,
-    stderr_callback = function(x, p) {
-      if (grepl("FileNotFoundError", x)) {
-        stop(
-          gsub("(.|\n)*(?=FileNotFoundError)", "", x, perl = TRUE),
-          call. = FALSE
-        )
-      }
-    },
-    client = client
-  )
-  gsub("\n", "", result$stdout)
-}
