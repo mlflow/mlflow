@@ -1,20 +1,21 @@
 context("Tracking")
 
-test_that("mlflow_client_create_experiment() works properly", {
+test_that("mlflow_create_experiment() works properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
-  experiment_id <- mlflow_client_create_experiment(client = client, "exp_name", "art_loc")
-  experiment <- mlflow_client_get_experiment(client = client, experiment_id)
-  expect_identical(experiment$experiment$name, "exp_name")
-  expect_identical(experiment$experiment$artifact_location, "art_loc")
+  experiment_1 <- mlflow_create_experiment(client = client, "exp_name", "art_loc")
+  experiment_2 <- mlflow_get_experiment(client = client, experiment_1$experiment_id)
+  expect_identical(experiment_1$name, "exp_name")
+  expect_identical(experiment_1$artifact_location, "art_loc")
+  expect_identical(experiment_1, experiment_2)
 })
 
-test_that("mlflow_client_list_experiments() works properly", {
+test_that("mlflow_list_experiments() works properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
-  mlflow_client_create_experiment(client = client, "foo1", "art_loc1")
-  mlflow_client_create_experiment(client = client, "foo2", "art_loc2")
-  experiments_list <- mlflow_client_list_experiments(client = client)
+  mlflow_create_experiment(client = client, "foo1", "art_loc1")
+  mlflow_create_experiment(client = client, "foo2", "art_loc2")
+  experiments_list <- mlflow_list_experiments(client = client)
   expect_setequal(experiments_list$experiment_id, c("0", "1", "2"))
   expect_setequal(experiments_list$name, c("Default", "foo1", "foo2"))
   default_artifact_loc <- paste(getwd(), "/mlruns/0", sep = "")
@@ -23,61 +24,51 @@ test_that("mlflow_client_list_experiments() works properly", {
                                                         "art_loc2"))
 })
 
-test_that("mlflow_client_get_experiment() works properly", {
+test_that("mlflow_get_experiment_by_name() works properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
-  experiment_id <- mlflow_client_create_experiment(client = client, "foo1", "art_loc1")
-  experiment <- mlflow_client_get_experiment(client = client, experiment_id)
-  expect_identical(experiment$experiment$experiment_id, experiment_id)
-  expect_identical(experiment$experiment$name, "foo1")
-  expect_identical(experiment$experiment$artifact_location, "art_loc1")
-})
-
-
-test_that("mlflow_client_get_experiment_by_name() works properly", {
-  mlflow_clear_test_dir("mlruns")
-  client <- mlflow_client()
-  experiment <- mlflow_client_get_experiment_by_name(client = client, "exp")
-  expect_null(experiment)
-  experiment_id <- mlflow_client_create_experiment(client = client, "exp", "art")
-  experiment <- mlflow_client_get_experiment_by_name(client = client, "exp")
+  expect_error(
+    mlflow_get_experiment_by_name(client = client, "exp"),
+    "Experiment `exp` not found\\."
+  )
+  experiment_id <- mlflow_create_experiment(client = client, "exp", "art")$experiment_id
+  experiment <- mlflow_get_experiment_by_name(client = client, "exp")
   expect_identical(experiment_id, experiment$experiment_id)
   expect_identical(experiment$name, "exp")
   expect_identical(experiment$artifact_location, "art")
 })
 
-test_that("mlflow_client_create_run()/mlflow_client_get_run() work properly", {
+test_that("mlflow_create_run()/mlflow_get_run() work properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
-  create_run_response <- mlflow_client_create_run(
+  run <- mlflow_create_run(
     client = client,
     experiment_id = "0",
     user_id = "user1",
-    run_name = "run1",
     tags = list(foo = "bar", foz = "baz")
   )
 
-  run <- mlflow_client_get_run(client = client, create_run_response$info$run_uuid)
-  run_info <- run$info
+  run <- mlflow_get_run(client = client, run$run_uuid)
 
-  expect_identical(run_info$user_id, "user1")
+  expect_identical(run$user_id, "user1")
 
-  actual_tags <- run$data$tags %>%
-    unname() %>%
-    purrr::transpose() %>%
-    purrr::map(purrr::flatten_chr)
-  expected_tags <- list(c("foo", "bar"), c("foz", "baz"))
-
-  expect_true(all(expected_tags %in% actual_tags))
+  expect_identical(
+    run$tags[[1]],
+    tibble::tribble(
+      ~key, ~value,
+      "foz", "baz",
+      "foo", "bar"
+    )
+  )
 })
 
-test_that("mlflow_client_set_teminated() works properly", {
+test_that("mlflow_set_teminated() works properly", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
   killed_time <- mlflow:::current_time()
   client <- mlflow_client()
-  run_info <- mlflow_client_set_terminated(
-    client = client, run_id = mlflow_active_run()$info$run_uuid,
+  run_info <- mlflow_set_terminated(
+    client = client, run_id = mlflow_active_run()$run_uuid,
     status = "KILLED", end_time = killed_time
   )
   expect_identical(run_info$status, "KILLED")
@@ -86,7 +77,7 @@ test_that("mlflow_client_set_teminated() works properly", {
 
 test_that("mlflow_create_experiment() works properly", {
   experiment <- mlflow_create_experiment("test")
-  expect_gt(as.numeric(experiment), 0)
+  expect_gt(as.numeric(experiment$experiment_id), 0)
 })
 
 test_that("mlflow_set_tag() should return NULL invisibly", {
