@@ -11,8 +11,7 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
   client <- client %||% mlflow_client()
   name <- forge::cast_string(name)
   response <- mlflow_client_create_experiment(client, name, artifact_location)
-  # TODO: return more info here?
-  invisible(response$experiment_id)
+  mlflow_get_experiment(client = client, experiment_id = response$experiment_id)
 }
 
 #' List Experiments
