@@ -1,4 +1,5 @@
 from enum import Enum
+
 import sqlparse
 from sqlparse.sql import Identifier as SqlIdentifier, Token as SqlToken, \
     Comparison as SqlComparison, Statement as SqlStatement
@@ -8,6 +9,23 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 
+class KeyType(Enum):
+    METRIC = "metric"
+    PARAM = "param"
+    TAG = "tag"
+
+
+KEY_TYPE_FROM_IDENTIFIER = {
+    "metric": KeyType.METRIC,
+    "metrics": KeyType.METRIC,
+    "param": KeyType.PARAM,
+    "params": KeyType.PARAM,
+    "parameter": KeyType.PARAM,
+    "tag": KeyType.TAG,
+    "tags": KeyType.TAG
+}
+
+
 class ComparisonOperator(Enum):
     EQUAL = "="
     NOT_EQUAL = "!="
@@ -15,6 +33,15 @@ class ComparisonOperator(Enum):
     GREATER_THAN_EQUAL = ">="
     LESS_THAN = "<"
     LESS_THAN_EQUAL = "<="
+
+
+def _key_type_from_string(string):
+    try:
+        return KEY_TYPE_FROM_IDENTIFIER[string]
+    except KeyError:
+        message = "Invalid search expression type '{}'. Valid values are {}".format(
+            string, set(KEY_TYPE_FROM_IDENTIFIER.keys()))
+        raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
 
 
 def _comparison_operator_from_string(string):
@@ -29,15 +56,6 @@ class SearchFilter(object):
     VALID_METRIC_COMPARATORS = set(ComparisonOperator)
     VALID_PARAM_COMPARATORS = {ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL}
     VALID_TAG_COMPARATORS = {ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL}
-    _METRIC_IDENTIFIER = "metric"
-    _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
-    _PARAM_IDENTIFIER = "parameter"
-    _ALTERNATE_PARAM_IDENTIFIERS = set(["param", "params"])
-    _TAG_IDENTIFIER = "tag"
-    _ALTERNATE_TAG_IDENTIFIERS = set(["tags"])
-    VALID_KEY_TYPE = set([_METRIC_IDENTIFIER] + list(_ALTERNATE_METRIC_IDENTIFIERS)
-                         + [_PARAM_IDENTIFIER] + list(_ALTERNATE_PARAM_IDENTIFIERS)
-                         + [_TAG_IDENTIFIER] + list(_ALTERNATE_TAG_IDENTIFIERS))
     STRING_VALUE_TYPES = set([SqlTokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([SqlTokenType.Literal.Number.Integer,
                                SqlTokenType.Literal.Number.Float])
@@ -94,20 +112,7 @@ class SearchFilter(object):
     @classmethod
     def _valid_entity_type(cls, entity_type):
         entity_type = cls._trim_backticks(entity_type)
-        if entity_type not in cls.VALID_KEY_TYPE:
-            raise MlflowException("Invalid search expression type '%s'. "
-                                  "Valid values are %s" % (entity_type, cls.VALID_KEY_TYPE),
-                                  error_code=INVALID_PARAMETER_VALUE)
-
-        if entity_type in cls._ALTERNATE_PARAM_IDENTIFIERS:
-            return cls._PARAM_IDENTIFIER
-        elif entity_type in cls._ALTERNATE_METRIC_IDENTIFIERS:
-            return cls._METRIC_IDENTIFIER
-        elif entity_type in cls._ALTERNATE_TAG_IDENTIFIERS:
-            return cls._TAG_IDENTIFIER
-        else:
-            # either "metric" or "parameter", since valid type
-            return entity_type
+        return _key_type_from_string(entity_type)
 
     @classmethod
     def _get_identifier(cls, identifier):
@@ -123,24 +128,23 @@ class SearchFilter(object):
 
     @classmethod
     def _get_value(cls, identifier_type, token):
-        if identifier_type == cls._METRIC_IDENTIFIER:
+        if identifier_type == KeyType.METRIC:
             if token.ttype not in cls.NUMERIC_VALUE_TYPES:
                 raise MlflowException("Expected numeric value type for metric. "
                                       "Found {}".format(token.value),
                                       error_code=INVALID_PARAMETER_VALUE)
             return token.value
-        elif identifier_type == cls._PARAM_IDENTIFIER or identifier_type == cls._TAG_IDENTIFIER:
+        elif identifier_type == KeyType.PARAM or identifier_type == KeyType.TAG:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, SqlIdentifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException("Expected a quoted string value for "
                                   "{identifier_type} (e.g. 'my-value'). Got value "
-                                  "{value}".format(identifier_type=identifier_type,
+                                  "{value}".format(identifier_type=identifier_type.value,
                                                    value=token.value),
                                   error_code=INVALID_PARAMETER_VALUE)
         else:
-            # Expected to be either "param" or "metric".
             raise MlflowException("Invalid identifier type. Expected one of "
-                                  "{}.".format([cls._METRIC_IDENTIFIER, cls._PARAM_IDENTIFIER]))
+                                  "{}.".format({t.value for t in KeyType}))
 
     @classmethod
     def _validate_comparison(cls, tokens):
@@ -198,8 +202,8 @@ class SearchFilter(object):
 
     @classmethod
     def search_expression_to_dict(cls, search_expression):
-        key_type = search_expression.WhichOneof('expression')
-        if key_type == cls._METRIC_IDENTIFIER:
+        key_type = _key_type_from_string(search_expression.WhichOneof('expression'))
+        if key_type == KeyType.METRIC:
             key = search_expression.metric.key
             metric_type = search_expression.metric.WhichOneof('clause')
             if metric_type == 'float':
@@ -212,17 +216,17 @@ class SearchFilter(object):
                 raise MlflowException("Invalid metric type: '%s', expected float or double",
                                       error_code=INVALID_PARAMETER_VALUE)
             return {
-                "type": cls._METRIC_IDENTIFIER,
+                "type": KeyType.METRIC,
                 "key": key,
                 "comparator": _comparison_operator_from_string(comparator),
                 "value": value
             }
-        elif key_type == cls._PARAM_IDENTIFIER:
+        elif key_type == KeyType.PARAM:
             key = search_expression.parameter.key
             comparator = search_expression.parameter.string.comparator
             value = search_expression.parameter.string.value
             return {
-                "type": cls._PARAM_IDENTIFIER,
+                "type": KeyType.PARAM,
                 "key": key,
                 "comparator": _comparison_operator_from_string(comparator),
                 "value": value
@@ -257,7 +261,7 @@ class SearchFilter(object):
         key = sed.get('key')
         value = sed.get('value')
         comparator = sed.get('comparator')
-        if key_type == cls._METRIC_IDENTIFIER:
+        if key_type == KeyType.METRIC:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s" % (comparator,
@@ -266,14 +270,14 @@ class SearchFilter(object):
             metric = next((m for m in run.data.metrics if m.key == key), None)
             lhs = metric.value if metric else None
             value = float(value)
-        elif key_type == cls._PARAM_IDENTIFIER:
+        elif key_type == KeyType.PARAM:
             if comparator not in cls.VALID_PARAM_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s'" % (comparator, cls.VALID_PARAM_COMPARATORS),
                                       error_code=INVALID_PARAMETER_VALUE)
             param = next((p for p in run.data.params if p.key == key), None)
             lhs = param.value if param else None
-        elif key_type == cls._TAG_IDENTIFIER:
+        elif key_type == KeyType.TAG:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS))

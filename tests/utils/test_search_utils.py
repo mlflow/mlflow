@@ -4,7 +4,7 @@ from mlflow.entities import RunInfo, RunData, Run, SourceType, LifecycleStage, R
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import SearchExpression, DoubleClause, \
     MetricSearchExpression, FloatClause, ParameterSearchExpression, StringClause
-from mlflow.utils.search_utils import SearchFilter, ComparisonOperator
+from mlflow.utils.search_utils import SearchFilter, KeyType, ComparisonOperator
 
 
 def test_search_filter_basics():
@@ -29,7 +29,7 @@ def test_anded_expression():
                                                                             value=.94)))
     sf = SearchFilter(anded_expressions=[se])
     expected_expression_dict = {
-        "type": "metric",
+        "type": KeyType.METRIC,
         "key": "accuracy",
         "comparator": ComparisonOperator.GREATER_THAN_EQUAL,
         "value": 0.94
@@ -51,73 +51,76 @@ def test_anded_expression_2():
 
     assert sf._parse() == [
         {'comparator': ComparisonOperator.GREATER_THAN_EQUAL,
-         'key': 'accuracy', 'type': 'metric', 'value': 0.94},
+         'key': 'accuracy', 'type': KeyType.METRIC, 'value': 0.94},
         {'comparator': ComparisonOperator.LESS_THAN,
-         'key': 'error', 'type': 'metric', 'value': 0.01},
+         'key': 'error', 'type': KeyType.METRIC, 'value': 0.01},
         {'comparator': ComparisonOperator.GREATER_THAN_EQUAL,
-         'key': 'mse', 'type': 'metric', 'value': 5},
+         'key': 'mse', 'type': KeyType.METRIC, 'value': 5},
         {'comparator': ComparisonOperator.EQUAL,
-         'key': 'a', 'type': 'parameter', 'value': '0'},
+         'key': 'a', 'type': KeyType.PARAM, 'value': '0'},
         {'comparator': ComparisonOperator.NOT_EQUAL,
-         'key': 'b', 'type': 'parameter', 'value': 'blah'}
+         'key': 'b', 'type': KeyType.PARAM, 'value': 'blah'}
     ]
 
 
 @pytest.mark.parametrize("filter_string, parsed_filter", [
     ("metric.acc >= 0.94", [{'comparator': ComparisonOperator.GREATER_THAN_EQUAL,
-                             'key': 'acc', 'type': 'metric', 'value': '0.94'}]),
+                             'key': 'acc', 'type': KeyType.METRIC, 'value': '0.94'}]),
     ("metric.acc>=100", [{'comparator': ComparisonOperator.GREATER_THAN_EQUAL,
-                          'key': 'acc', 'type': 'metric', 'value': '100'}]),
+                          'key': 'acc', 'type': KeyType.METRIC, 'value': '100'}]),
     ("params.m!='tf'", [{'comparator': ComparisonOperator.NOT_EQUAL,
-                         'key': 'm', 'type': 'parameter', 'value': 'tf'}]),
+                         'key': 'm', 'type': KeyType.PARAM, 'value': 'tf'}]),
     ('params."m"!="tf"', [{'comparator': ComparisonOperator.NOT_EQUAL,
-                           'key': 'm', 'type': 'parameter', 'value': 'tf'}]),
+                           'key': 'm', 'type': KeyType.PARAM, 'value': 'tf'}]),
     ('metric."legit name" >= 0.243', [{'comparator': ComparisonOperator.GREATER_THAN_EQUAL,
-                                       'key': 'legit name', 'type': 'metric', 'value': '0.243'}]),
+                                       'key': 'legit name', 'type': KeyType.METRIC,
+                                       'value': '0.243'}]),
     ("metrics.XYZ = 3", [{'comparator': ComparisonOperator.EQUAL,
-                          'key': 'XYZ', 'type': 'metric', 'value': '3'}]),
+                          'key': 'XYZ', 'type': KeyType.METRIC, 'value': '3'}]),
     ('params."cat dog" = "pets"', [{'comparator': ComparisonOperator.EQUAL,
-                                    'key': 'cat dog', 'type': 'parameter', 'value': 'pets'}]),
+                                    'key': 'cat dog', 'type': KeyType.PARAM, 'value': 'pets'}]),
     ('metrics."X-Y-Z" = 3', [{'comparator': ComparisonOperator.EQUAL,
-                              'key': 'X-Y-Z', 'type': 'metric', 'value': '3'}]),
+                              'key': 'X-Y-Z', 'type': KeyType.METRIC, 'value': '3'}]),
     ('metrics."X//Y#$$@&Z" = 3', [{'comparator': ComparisonOperator.EQUAL,
-                                   'key': 'X//Y#$$@&Z', 'type': 'metric', 'value': '3'}]),
+                                   'key': 'X//Y#$$@&Z', 'type': KeyType.METRIC, 'value': '3'}]),
     ("params.model = 'LinearRegression'", [{'comparator': ComparisonOperator.EQUAL, 'key': 'model',
-                                            'type': 'parameter', 'value': "LinearRegression"}]),
+                                            'type': KeyType.PARAM, 'value': "LinearRegression"}]),
     ("metrics.rmse < 1 and params.model_class = 'LR'", [
-        {'comparator': ComparisonOperator.LESS_THAN, 'key': 'rmse', 'type': 'metric', 'value': '1'},
+        {'comparator': ComparisonOperator.LESS_THAN,
+         'key': 'rmse', 'type': KeyType.METRIC, 'value': '1'},
         {'comparator': ComparisonOperator.EQUAL,
-         'key': 'model_class', 'type': 'parameter', 'value': "LR"}
+         'key': 'model_class', 'type': KeyType.PARAM, 'value': "LR"}
     ]),
     ('', []),
     ("`metric`.a >= 0.1", [{'comparator': ComparisonOperator.GREATER_THAN_EQUAL,
-                            'key': 'a', 'type': 'metric', 'value': '0.1'}]),
+                            'key': 'a', 'type': KeyType.METRIC, 'value': '0.1'}]),
     ("`params`.model >= 'LR'", [{'comparator': ComparisonOperator.GREATER_THAN_EQUAL,
-                                 'key': 'model', 'type': 'parameter', 'value': "LR"}]),
+                                 'key': 'model', 'type': KeyType.PARAM, 'value': "LR"}]),
     ("tags.version = 'commit-hash'", [{'comparator': ComparisonOperator.EQUAL,
-                                       'key': 'version', 'type': 'tag', 'value': "commit-hash"}]),
+                                       'key': 'version', 'type': KeyType.TAG,
+                                       'value': "commit-hash"}]),
     ("`tags`.source_name = 'a notebook'", [{'comparator': ComparisonOperator.EQUAL,
-                                            'key': 'source_name', 'type': 'tag',
+                                            'key': 'source_name', 'type': KeyType.TAG,
                                             'value': "a notebook"}]),
     ('metrics."accuracy.2.0" > 5', [{'comparator': ComparisonOperator.GREATER_THAN,
-                                     'key': 'accuracy.2.0', 'type': 'metric', 'value': '5'}]),
+                                     'key': 'accuracy.2.0', 'type': KeyType.METRIC, 'value': '5'}]),
     ('params."p.a.r.a.m" != "a"', [{'comparator': ComparisonOperator.NOT_EQUAL,
-                                    'key': 'p.a.r.a.m', 'type': 'parameter', 'value': 'a'}]),
+                                    'key': 'p.a.r.a.m', 'type': KeyType.PARAM, 'value': 'a'}]),
     ('tags."t.a.g" = "a"', [{'comparator': ComparisonOperator.EQUAL,
-                             'key': 't.a.g', 'type': 'tag', 'value': 'a'}]),
+                             'key': 't.a.g', 'type': KeyType.TAG, 'value': 'a'}]),
 ])
 def test_filter(filter_string, parsed_filter):
     assert SearchFilter(filter_string=filter_string)._parse() == parsed_filter
 
 
 @pytest.mark.parametrize("filter_string, parsed_filter", [
-    ("params.m = 'LR'", [{'type': 'parameter', 'comparator': ComparisonOperator.EQUAL,
+    ("params.m = 'LR'", [{'type': KeyType.PARAM, 'comparator': ComparisonOperator.EQUAL,
                           'key': 'm', 'value': 'LR'}]),
-    ("params.m = \"LR\"", [{'type': 'parameter', 'comparator': ComparisonOperator.EQUAL,
+    ("params.m = \"LR\"", [{'type': KeyType.PARAM, 'comparator': ComparisonOperator.EQUAL,
                             'key': 'm', 'value': 'LR'}]),
-    ('params.m = "LR"', [{'type': 'parameter', 'comparator': ComparisonOperator.EQUAL,
+    ('params.m = "LR"', [{'type': KeyType.PARAM, 'comparator': ComparisonOperator.EQUAL,
                           'key': 'm', 'value': 'LR'}]),
-    ('params.m = "L\'Hosp"', [{'type': 'parameter', 'comparator': ComparisonOperator.EQUAL,
+    ('params.m = "L\'Hosp"', [{'type': KeyType.PARAM, 'comparator': ComparisonOperator.EQUAL,
                                'key': 'm', 'value': "L'Hosp"}]),
 ])
 def test_correct_quote_trimming(filter_string, parsed_filter):
