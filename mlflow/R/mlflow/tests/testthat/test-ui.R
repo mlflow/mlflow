@@ -1,4 +1,4 @@
-context("UI")
+context("REST Tracking client")
 
 test_that("mlflow can launch the UI", {
   skip_on_travis()
