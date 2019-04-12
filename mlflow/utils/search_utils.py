@@ -116,11 +116,62 @@ def _get_run_value(run, key_type, key):
     return matching_entity.value if matching_entity else None
 
 
+def _trim_ends(string_value):
+    return string_value[1:-1]
+
+
+def _is_quoted(value, pattern):
+    return len(value) >= 2 and value.startswith(pattern) and value.endswith(pattern)
+
+
+def _trim_backticks(entity_type):
+    """Remove backticks from identifier like `param`, if they exist."""
+    if _is_quoted(entity_type, "`"):
+        return _trim_ends(entity_type)
+    return entity_type
+
+
+def _strip_quotes(value, expect_quoted_value=False):
+    """
+    Remove quotes for input string.
+    Values of type strings are expected to have quotes.
+    Keys containing special characters are also expected to be enclose in quotes.
+    """
+    if _is_quoted(value, "'") or _is_quoted(value, '"'):
+        return _trim_ends(value)
+    elif expect_quoted_value:
+        raise MlflowException("Parameter value is either not quoted or unidentified quote "
+                              "types used for string value %s. Use either single or double "
+                              "quotes." % value, error_code=INVALID_PARAMETER_VALUE)
+    else:
+        return value
+
+
 INVALID_IDENTIFIER_TPL = (
     "Invalid comparison clause '{clause}'. "
     "Expected param, metric or tag identifier of format 'metric.<key> <comparator> <value>', "
     "'tag.<key> <comparator> <value>', or 'params.<key> <comparator> <value>' but found '{token}'."
 )
+
+
+def _get_value(identifier_type, token):
+    if identifier_type == KeyType.METRIC:
+        if token.ttype not in SearchFilter.NUMERIC_VALUE_TYPES:
+            raise MlflowException("Expected numeric value type for metric. "
+                                  "Found {}".format(token.value),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        return token.value
+    elif identifier_type == KeyType.PARAM or identifier_type == KeyType.TAG:
+        if token.ttype in SearchFilter.STRING_VALUE_TYPES or isinstance(token, SqlIdentifier):
+            return _strip_quotes(token.value, expect_quoted_value=True)
+        raise MlflowException("Expected a quoted string value for "
+                              "{identifier_type} (e.g. 'my-value'). Got value "
+                              "{value}".format(identifier_type=identifier_type.value,
+                                               value=token.value),
+                              error_code=INVALID_PARAMETER_VALUE)
+    else:
+        raise MlflowException("Invalid identifier type. Expected one of "
+                              "{}.".format({t.value for t in KeyType}))
 
 
 def _comparison_from_sql_comparison(comparison):
@@ -168,9 +219,9 @@ def _comparison_from_sql_comparison(comparison):
         raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
 
     key_type = SearchFilter._valid_entity_type(key_type)
-    key = SearchFilter._strip_quotes(key)
+    key = _strip_quotes(key)
     operator = _comparison_operator_from_string(operator.value)
-    value = SearchFilter._get_value(key_type, value)
+    value = _get_value(key_type, value)
     return Comparison(key_type, key, operator, value)
 
 
@@ -218,60 +269,9 @@ class SearchFilter(object):
         return self._search_expressions
 
     @classmethod
-    def _trim_ends(cls, string_value):
-        return string_value[1:-1]
-
-    @classmethod
-    def _is_quoted(cls, value, pattern):
-        return len(value) >= 2 and value.startswith(pattern) and value.endswith(pattern)
-
-    @classmethod
-    def _trim_backticks(cls, entity_type):
-        """Remove backticks from identifier like `param`, if they exist."""
-        if cls._is_quoted(entity_type, "`"):
-            return cls._trim_ends(entity_type)
-        return entity_type
-
-    @classmethod
-    def _strip_quotes(cls, value, expect_quoted_value=False):
-        """
-        Remove quotes for input string.
-        Values of type strings are expected to have quotes.
-        Keys containing special characters are also expected to be enclose in quotes.
-        """
-        if cls._is_quoted(value, "'") or cls._is_quoted(value, '"'):
-            return cls._trim_ends(value)
-        elif expect_quoted_value:
-            raise MlflowException("Parameter value is either not quoted or unidentified quote "
-                                  "types used for string value %s. Use either single or double "
-                                  "quotes." % value, error_code=INVALID_PARAMETER_VALUE)
-        else:
-            return value
-
-    @classmethod
     def _valid_entity_type(cls, entity_type):
-        entity_type = cls._trim_backticks(entity_type)
+        entity_type = _trim_backticks(entity_type)
         return _key_type_from_string(entity_type)
-
-    @classmethod
-    def _get_value(cls, identifier_type, token):
-        if identifier_type == KeyType.METRIC:
-            if token.ttype not in cls.NUMERIC_VALUE_TYPES:
-                raise MlflowException("Expected numeric value type for metric. "
-                                      "Found {}".format(token.value),
-                                      error_code=INVALID_PARAMETER_VALUE)
-            return token.value
-        elif identifier_type == KeyType.PARAM or identifier_type == KeyType.TAG:
-            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, SqlIdentifier):
-                return cls._strip_quotes(token.value, expect_quoted_value=True)
-            raise MlflowException("Expected a quoted string value for "
-                                  "{identifier_type} (e.g. 'my-value'). Got value "
-                                  "{value}".format(identifier_type=identifier_type.value,
-                                                   value=token.value),
-                                  error_code=INVALID_PARAMETER_VALUE)
-        else:
-            raise MlflowException("Invalid identifier type. Expected one of "
-                                  "{}.".format({t.value for t in KeyType}))
 
     @classmethod
     def _invalid_statement_token(cls, token):
