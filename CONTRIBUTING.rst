@@ -203,4 +203,3 @@ that R & Java API docs must be regenerated separately after each change and are 
 
    cd docs
    make livehtml
-
