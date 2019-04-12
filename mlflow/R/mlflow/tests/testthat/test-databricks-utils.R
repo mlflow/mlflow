@@ -14,7 +14,7 @@ test_that("mlflow creates databricks client when scheme is databricks", {
       expect_true(paste(args, collapse = "/") == "experiments/list")
       list(experiments = c(1, 2, 3))
     }, {
-      client1 <- mlflow:::mlflow_client("databricks")
+      client1 <- mlflow:::mlflow_client("databricks://")
       creds1 <- client1$get_host_creds()
       expect_true(creds1$host == "databricks-host")
       expect_true(creds1$token == "databricks")
