@@ -57,12 +57,14 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
     if (nchar(env_run_id)) env_run_id
   }
 
+  client <- mlflow_client()
+
   run <- if (!is.null(existing_run_uuid)) {
-    client <- mlflow_client()
-    mlflow_client_get_run(client, existing_run_uuid)
+    mlflow_get_run(client = client, run_id = existing_run_uuid)
   } else {
     experiment_id <- mlflow_infer_experiment_id(experiment_id)
     client <- mlflow_client()
+
     args <- mlflow_get_run_context(
       client,
       experiment_id = experiment_id,
