@@ -53,9 +53,9 @@ def test_back_compat():
                "experiment_ids": [1, 2, 3, 4, 5],
                "things": {"experiment_id": 4,
                           "more_things": {"experiment_id": 7, "experiment_ids": [2, 3, 4, 5]}}}
-    verify_string_experiment_ids(in_json, int)
+    verify_experiment_id_types(in_json, int)
     backcompat_helper(in_json)
-    verify_string_experiment_ids(in_json, str)
+    verify_experiment_id_types(in_json, str)
 
 
 def test_verify_experiment_id_type():
@@ -63,35 +63,41 @@ def test_verify_experiment_id_type():
                "name": "name",
                "unknown": "field",
                "experiment_ids": [1, 2, 3, 4, 5],
-               "things": {"experiment_id": 4,
-                          "more_things": {"experiment_id": 7, "experiment_ids": ["2", 3, 4, 5]}}}
+               "things": [{"experiment_id": 4, "experiment_ids": ["2", 3, 4, 5]},
+                          {"experiment_id": 5, "experiment_ids": ["2", 3, 4, 5]}]}
     with pytest.raises(AssertionError):
-        verify_string_experiment_ids(in_json, int)
+        print(in_json)
+        verify_experiment_id_types(in_json, int)
     with pytest.raises(AssertionError):
-        verify_string_experiment_ids(in_json, str)
+        verify_experiment_id_types(in_json, str)
 
     valid_int_json = {"experiment_id": 123,
                       "name": "name",
                       "unknown": "field",
                       "experiment_ids": [1, 2, 3, 4, 5],
-                      "things": {"experiment_id": 4,
-                                 "more_things": {"experiment_id": 7,
-                                                 "experiment_ids": [2, 3, 4, 5]}}}
+                      "things": [{"experiment_id": 4, "experiment_ids": [2, 3, 4, 5]},
+                                 {"experiment_id": 5, "experiment_ids": [2, 3, 4, 5]}]}
     with pytest.raises(AssertionError):
-        verify_string_experiment_ids(valid_int_json, str)
-    verify_string_experiment_ids(valid_int_json, int)
+        verify_experiment_id_types(valid_int_json, str)
+    verify_experiment_id_types(valid_int_json, int)
 
 
-def verify_string_experiment_ids(js_dict, expected_type):
+def check_known_keys(js_dict, expected_type):
+    if "experiment_id" in js_dict:
+        assert type(js_dict["experiment_id"]) == expected_type
+
+    if "experiment_ids" in js_dict:
+        for val in js_dict["experiment_ids"]:
+            assert type(val) == expected_type
+
+
+def verify_experiment_id_types(js_dict, expected_type):
+    check_known_keys(js_dict, expected_type)
     for key in js_dict:
-        if key == "experiment_id":
-            assert type(js_dict[key]) == expected_type
-        elif key == "experiment_ids":
-            for val in js_dict[key]:
-                assert type(val) == expected_type
-        elif isinstance(js_dict[key], dict):
-            verify_string_experiment_ids(js_dict[key], expected_type)
-        elif isinstance(js_dict[key], list):
+        if isinstance(js_dict[key], list):
             for val in js_dict[key]:
                 if isinstance(val, dict):
-                    verify_string_experiment_ids(js_dict[key], expected_type)
+                    print("here", val)
+                    check_known_keys(val, expected_type)
+        elif isinstance(js_dict[key], dict):
+            check_known_keys(js_dict[key], expected_type)
