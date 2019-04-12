@@ -35,6 +35,24 @@ class ComparisonOperator(Enum):
     LESS_THAN_EQUAL = "<="
 
 
+class Comparison(object):
+    def __init__(self, key_type, key, operator, value):
+        self.key_type = key_type
+        self.key = key
+        self.operator = operator
+        self.value = value
+
+    def __eq__(self, other):
+        if not isinstance(other, Comparison):
+            return False
+        return (self.key_type == other.key_type and self.key == other.key and
+                self.operator == other.operator and self.value == other.value)
+
+    def __repr__(self):
+        return "{}({}, {}, {}, {})".format(self.__class__.__name__, self.key_type, self.key,
+                                           self.operator, self.value)
+
+
 def _key_type_from_string(string):
     try:
         return KEY_TYPE_FROM_IDENTIFIER[string]
@@ -124,7 +142,7 @@ class SearchFilter(object):
                                   "'tag.<key> <comparator> <value>', or "
                                   "'params.<key> <comparator> <value>'." % identifier,
                                   error_code=INVALID_PARAMETER_VALUE)
-        return {"type": cls._valid_entity_type(entity_type), "key": cls._strip_quotes(key)}
+        return cls._valid_entity_type(entity_type), cls._strip_quotes(key)
 
     @classmethod
     def _get_value(cls, identifier_type, token):
@@ -173,11 +191,10 @@ class SearchFilter(object):
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
-        comp = cls._get_identifier(stripped_comparison[0].value)
-        operator = stripped_comparison[1].value
-        comp["comparator"] = _comparison_operator_from_string(operator)
-        comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
-        return comp
+        key_type, key = cls._get_identifier(stripped_comparison[0].value)
+        operator = _comparison_operator_from_string(stripped_comparison[1].value)
+        value = cls._get_value(key_type, stripped_comparison[2])
+        return Comparison(key_type, key, operator, value)
 
     @classmethod
     def _invalid_statement_token(cls, token):
@@ -215,22 +232,14 @@ class SearchFilter(object):
             else:
                 raise MlflowException("Invalid metric type: '%s', expected float or double",
                                       error_code=INVALID_PARAMETER_VALUE)
-            return {
-                "type": KeyType.METRIC,
-                "key": key,
-                "comparator": _comparison_operator_from_string(comparator),
-                "value": value
-            }
+            return Comparison(KeyType.METRIC, key, _comparison_operator_from_string(comparator),
+                              value)
         elif key_type == KeyType.PARAM:
             key = search_expression.parameter.key
             comparator = search_expression.parameter.string.comparator
             value = search_expression.parameter.string.value
-            return {
-                "type": KeyType.PARAM,
-                "key": key,
-                "comparator": _comparison_operator_from_string(comparator),
-                "value": value
-            }
+            return Comparison(KeyType.PARAM, key, _comparison_operator_from_string(comparator),
+                              value)
         else:
             raise MlflowException("Invalid search expression type '%s'" % key_type,
                                   error_code=INVALID_PARAMETER_VALUE)
@@ -256,11 +265,11 @@ class SearchFilter(object):
             return []
 
     @classmethod
-    def does_run_match_clause(cls, run, sed):
-        key_type = sed.get('type')
-        key = sed.get('key')
-        value = sed.get('value')
-        comparator = sed.get('comparator')
+    def does_run_match_clause(cls, run, comparison):
+        key_type = comparison.key_type
+        key = comparison.key
+        comparator = comparison.operator
+        value = comparison.value
         if key_type == KeyType.METRIC:
             if comparator not in cls.VALID_METRIC_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
