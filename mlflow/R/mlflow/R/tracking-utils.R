@@ -141,7 +141,7 @@ parse_run <- function(r) {
 
 parse_run_info <- function(r) {
   r %>%
-    purrr::map_at(c("start_time", "end_time"), mlflow:::milliseconds_to_date) %>%
+    purrr::map_at(c("start_time", "end_time"), milliseconds_to_date) %>%
     tibble::as_tibble()
 }
 
@@ -150,7 +150,7 @@ parse_run_data <- function(d) {
   d %>%
     purrr::transpose() %>%
     purrr::map(unlist) %>%
-    purrr::map_at("timestamp", mlflow:::milliseconds_to_date) %>%
+    purrr::map_at("timestamp", milliseconds_to_date) %>%
     tibble::as_tibble() %>%
     list()
 }

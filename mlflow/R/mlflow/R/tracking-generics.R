@@ -109,6 +109,7 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
 #'
 #' Renames an experiment.
 #'
+#' @template roxlate-client
 #' @param experiment_id ID of the associated experiment. This field is required.
 #' @param new_name The experiment’s name will be changed to this. The new name must be unique.
 #' @export
@@ -246,7 +247,7 @@ construct_batch_list <- function(l) {
     l
   } else {
     l %>%
-      imap(~ list(key = .y, value = .x)) %>%
+      purrr::imap(~ list(key = .y, value = .x)) %>%
       unname()
   }
 }
@@ -371,7 +372,6 @@ mlflow_list_artifacts <- function(run_id, path = NULL, client = NULL) {
 #'
 #' Terminates a run.
 #'
-#' @param run_id Unique identifier for the run.
 #' @param status Updated status of the run. Defaults to `FINISHED`.
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @template roxlate-run-id

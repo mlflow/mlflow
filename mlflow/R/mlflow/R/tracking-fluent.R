@@ -8,12 +8,12 @@
 #' @export
 mlflow_set_experiment <- function(experiment_name) {
   client <- mlflow_client()
-  experiment <- mlflow_client_get_experiment_by_name(client, experiment_name)
+  experiment <- mlflow_get_experiment_by_name(client = client, name = experiment_name)
   exp_id <- if (!is.null(experiment)) {
     experiment$experiment_id
   } else {
     message("`", experiment_name, "` does not exist. Creating a new experiment.")
-    mlflow_client_create_experiment(client, experiment_name)
+    mlflow_create_experiment(client = client, name = experiment_name)
   }
   mlflow_set_active_experiment_id(exp_id)
 }

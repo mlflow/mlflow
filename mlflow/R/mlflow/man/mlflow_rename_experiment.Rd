@@ -10,7 +10,36 @@ mlflow_rename_experiment(experiment_id, new_name, client = NULL)
 \item{experiment_id}{ID of the associated experiment. This field is required.}
 
 \item{new_name}{The experiment’s name will be changed to this. The new name must be unique.}
+
+\item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
 Renames an experiment.
 }
+\details{
+When `client` is not specified, these functions attempt to infer the current active client.
+}
+\seealso{
+Other tracking functions: \code{\link{mlflow_create_experiment}},
+  \code{\link{mlflow_create_run}},
+  \code{\link{mlflow_delete_experiment}},
+  \code{\link{mlflow_delete_run}},
+  \code{\link{mlflow_download_artifacts}},
+  \code{\link{mlflow_get_experiment_by_name}},
+  \code{\link{mlflow_get_experiment}},
+  \code{\link{mlflow_get_metric_history}},
+  \code{\link{mlflow_get_run}},
+  \code{\link{mlflow_list_artifacts}},
+  \code{\link{mlflow_list_experiments}},
+  \code{\link{mlflow_list_run_infos}},
+  \code{\link{mlflow_log_artifact}},
+  \code{\link{mlflow_log_batch}},
+  \code{\link{mlflow_log_metric}},
+  \code{\link{mlflow_log_param}},
+  \code{\link{mlflow_restore_experiment}},
+  \code{\link{mlflow_restore_run}},
+  \code{\link{mlflow_search_runs}},
+  \code{\link{mlflow_set_tag}},
+  \code{\link{mlflow_set_terminated}}
+}
+\concept{tracking functions}

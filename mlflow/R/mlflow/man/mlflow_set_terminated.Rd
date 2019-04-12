@@ -8,15 +8,13 @@ mlflow_set_terminated(run_id, status = c("FINISHED", "SCHEDULED",
   "FAILED", "KILLED"), end_time = NULL, client = NULL)
 }
 \arguments{
-\item{run_id}{Unique identifier for the run.}
+\item{run_id}{Run ID.}
 
 \item{status}{Updated status of the run. Defaults to `FINISHED`.}
 
 \item{end_time}{Unix timestamp of when the run ended in milliseconds.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
-
-\item{run_id}{Run ID.}
 }
 \description{
 Terminates a run.
@@ -41,6 +39,7 @@ Other tracking functions: \code{\link{mlflow_create_experiment}},
   \code{\link{mlflow_log_batch}},
   \code{\link{mlflow_log_metric}},
   \code{\link{mlflow_log_param}},
+  \code{\link{mlflow_rename_experiment}},
   \code{\link{mlflow_restore_experiment}},
   \code{\link{mlflow_restore_run}},
   \code{\link{mlflow_search_runs}},
