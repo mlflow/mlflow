@@ -66,7 +66,6 @@ def test_verify_experiment_id_type():
                "things": [{"experiment_id": 4, "experiment_ids": ["2", 3, 4, 5]},
                           {"experiment_id": 5, "experiment_ids": ["2", 3, 4, 5]}]}
     with pytest.raises(AssertionError):
-        print(in_json)
         verify_experiment_id_types(in_json, int)
     with pytest.raises(AssertionError):
         verify_experiment_id_types(in_json, str)
@@ -97,7 +96,6 @@ def verify_experiment_id_types(js_dict, expected_type):
         if isinstance(js_dict[key], list):
             for val in js_dict[key]:
                 if isinstance(val, dict):
-                    print("here", val)
                     check_known_keys(val, expected_type)
         elif isinstance(js_dict[key], dict):
             check_known_keys(js_dict[key], expected_type)

@@ -33,7 +33,11 @@ def _default_root_dir():
 
 def _read_persisted_experiment_dict(experiment_dict):
     dict_copy = experiment_dict.copy()
-    dict_copy['experiment_id'] = str(dict_copy['experiment_id'])
+
+    # 'experiment_id' was changed from int to string, so we must cast to string
+    # when reading legacy experiments
+    if isinstance('experiment_id', int):
+        dict_copy['experiment_id'] = str(dict_copy['experiment_id'])
     return Experiment.from_dictionary(dict_copy)
 
 
@@ -49,7 +53,10 @@ def _read_persisted_run_info_dict(run_info_dict):
     dict_copy = run_info_dict.copy()
     if 'lifecycle_stage' not in dict_copy:
         dict_copy['lifecycle_stage'] = LifecycleStage.ACTIVE
-    if "experiment_id" in dict_copy:
+
+    # 'experiment_id' was changed from int to string, so we must cast to string
+    # when reading legacy run_infos
+    if isinstance(dict_copy["experiment_id"], int):
         dict_copy["experiment_id"] = str(dict_copy["experiment_id"])
     return RunInfo.from_dictionary(dict_copy)
 
