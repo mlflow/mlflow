@@ -4,6 +4,9 @@ new_mlflow_client <- function(tracking_uri) {
 }
 
 new_mlflow_uri <- function(raw_uri) {
+  if (!grepl("://", raw_uri)) {
+    raw_uri <- paste0("file://", raw_uri)
+  }
   parts <- strsplit(raw_uri, "://")[[1]]
   structure(
     list(scheme = parts[1], path = parts[2]),
