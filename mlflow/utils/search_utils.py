@@ -70,6 +70,20 @@ def _comparison_operator_from_string(string):
                               error_code=INVALID_PARAMETER_VALUE)
 
 
+def _get_run_value(run, key_type, key):
+    if key_type == KeyType.METRIC:
+        entities_to_search = run.data.metrics
+    elif key_type == KeyType.PARAM:
+        entities_to_search = run.data.params
+    elif key_type == KeyType.TAG:
+        entities_to_search = run.data.tags
+    else:
+        raise ValueError("Invalid key type: {}".format(key_type))
+
+    matching_entity = next((e for e in entities_to_search if e.key == key), None)
+    return matching_entity.value if matching_entity else None
+
+
 class SearchFilter(object):
     VALID_METRIC_COMPARATORS = set(ComparisonOperator)
     VALID_PARAM_COMPARATORS = {ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL}
@@ -276,25 +290,20 @@ class SearchFilter(object):
                                       "not one of '%s" % (comparator,
                                                           cls.VALID_METRIC_COMPARATORS),
                                       error_code=INVALID_PARAMETER_VALUE)
-            metric = next((m for m in run.data.metrics if m.key == key), None)
-            lhs = metric.value if metric else None
             value = float(value)
         elif key_type == KeyType.PARAM:
             if comparator not in cls.VALID_PARAM_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s'" % (comparator, cls.VALID_PARAM_COMPARATORS),
                                       error_code=INVALID_PARAMETER_VALUE)
-            param = next((p for p in run.data.params if p.key == key), None)
-            lhs = param.value if param else None
         elif key_type == KeyType.TAG:
             if comparator not in cls.VALID_TAG_COMPARATORS:
                 raise MlflowException("Invalid comparator '%s' "
                                       "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS))
-            tag = next((t for t in run.data.tags if t.key == key), None)
-            lhs = tag.value if tag else None
         else:
             raise MlflowException("Invalid search expression type '%s'" % key_type,
                                   error_code=INVALID_PARAMETER_VALUE)
+        lhs = _get_run_value(run, key_type, key)
         if lhs is None:
             return False
         elif comparator == ComparisonOperator.GREATER_THAN:
