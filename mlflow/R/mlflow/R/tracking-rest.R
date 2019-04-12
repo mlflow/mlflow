@@ -44,6 +44,7 @@ get_rest_config <- function(host_creds) {
   )
 }
 
+#' @import httr
 mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", version = "2.0") {
   host_creds <- client$get_host_creds()
   rest_config <- get_rest_config(host_creds)
