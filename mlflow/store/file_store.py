@@ -36,7 +36,7 @@ def _read_persisted_experiment_dict(experiment_dict):
 
     # 'experiment_id' was changed from int to string, so we must cast to string
     # when reading legacy experiments
-    if isinstance('experiment_id', int):
+    if isinstance(dict_copy['experiment_id'], int):
         dict_copy['experiment_id'] = str(dict_copy['experiment_id'])
     return Experiment.from_dictionary(dict_copy)
 
