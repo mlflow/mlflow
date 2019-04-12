@@ -119,7 +119,7 @@ def _get_run_value(run, key_type, key):
 INVALID_IDENTIFIER_TPL = (
     "Invalid comparison clause '{clause}'. "
     "Expected param, metric or tag identifier of format 'metric.<key> <comparator> <value>', "
-    "'tag.<key> <comparator> <value>', or 'params.<key> <comparator> <value>' but found {token}."
+    "'tag.<key> <comparator> <value>', or 'params.<key> <comparator> <value>' but found '{token}'."
 )
 
 
