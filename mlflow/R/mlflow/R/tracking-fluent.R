@@ -60,6 +60,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
   client <- mlflow_client()
 
   run <- if (!is.null(existing_run_uuid)) {
+    # This is meant to pick up existing run when we're inside `mlflow_source()` called via `mlflow run`.
     mlflow_get_run(client = client, run_id = existing_run_uuid)
   } else {
     experiment_id <- mlflow_infer_experiment_id(experiment_id)
