@@ -30,17 +30,17 @@ mlflow_get_or_start_run <- function() {
 }
 
 
-mlflow_get_experiment_id_from_env <- function() {
+mlflow_get_experiment_id_from_env <- function(client = mlflow_client()) {
   name <- Sys.getenv("MLFLOW_EXPERIMENT_NAME", unset = NA)
   if (!is.na(name)) {
-    mlflow_get_experiment_by_name(name)$experiment_id
+    mlflow_client_get_experiment_by_name(client, name)$experiment_id
   } else {
-    id <- Sys.getenv("MLFLOW_EXPERIMENT_NAME", unset = NA)
+    id <- Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = NA)
     if (is.na(id)) NULL else id
   }
 }
 
-mlflow_infer_experiment_id <- function(experiment_id) {
+mlflow_infer_experiment_id <- function(experiment_id = NULL) {
   experiment_id %||% mlflow_get_active_experiment_id() %||% mlflow_get_experiment_id_from_env()
 }
 
