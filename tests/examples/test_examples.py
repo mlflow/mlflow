@@ -1,34 +1,38 @@
 
 import os
 import os.path
-from tempfile import mkdtemp
 import shutil
 
 from mlflow import cli
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
+import pytest
 
 from tests.projects.utils import tracking_uri_mock
 
 EXAMPLES_DIR = 'examples'
 
 
-def test_sklearn_elasticnet_wine(tracking_uri_mock):
-    invoke_cli_runner(cli.run, [os.path.join(EXAMPLES_DIR, 'sklearn_elasticnet_wine'),
-                                "-P", "alpha=0.5"])
+@pytest.mark.parametrize("directory, params", [
+    ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
+    (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
+])
+def test_mlflow_run_example(tracking_uri_mock, directory, params):
+    cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
+    invoke_cli_runner(cli.run, cli_run_list)
 
 
-def test_sklearn_elasticnet_diabetes(tracking_uri_mock):
-    invoke_cli_runner(cli.run, [os.path.join(EXAMPLES_DIR, 'sklearn_elasticnet_diabetes', 'linux')])
+@pytest.mark.parametrize("directory, command", [
+    ('sklearn_logistic_regression', ['python', 'train.py']),
+])
+def test_command_example(tmpdir, directory, command):
 
-
-def test_sklearn_logistic_regression():
-    tempdir = mkdtemp()
-    os.environ['MLFLOW_TRACKING_URI'] = os.path.join(tempdir, 'mlruns')
+    os.environ['MLFLOW_TRACKING_URI'] = str(tmpdir.mkdir('mlruns'))
+    print(os.environ['MLFLOW_TRACKING_URI'])
 
     try:
-        process.exec_cmd(['python', 'train.py'],
-                         cwd=os.path.join(EXAMPLES_DIR, 'sklearn_logistic_regression'))
+        process.exec_cmd(command,
+                         cwd=os.path.join(EXAMPLES_DIR, directory))
     finally:
-        shutil.rmtree(tempdir)
+        shutil.rmtree(str(tmpdir))
         del os.environ['MLFLOW_TRACKING_URI']
