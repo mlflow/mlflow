@@ -109,7 +109,7 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
 
 
 @pytest.mark.parametrize("filter_string, error_message", [
-    ("metric.acc >= 0.94; metrics.rmse < 1", "Search filter contained multiple expression"),
+    ("metric.acc >= 0.94; metrics.rmse < 1", "Must be a single statement"),
     ("m.acc >= 0.94", "Invalid search expression type"),
     ("acc >= 0.94", "Invalid filter string"),
     ("p.model >= 'LR'", "Invalid search expression type"),

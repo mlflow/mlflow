@@ -116,6 +116,26 @@ def _get_run_value(run, key_type, key):
     return matching_entity.value if matching_entity else None
 
 
+def parse_filter_string(string):
+    try:
+        parsed = sqlparse.parse(string)
+    except Exception:
+        raise MlflowException("Error on parsing filter '{}'".format(string),
+                              error_code=INVALID_PARAMETER_VALUE)
+
+    try:
+        [statement] = parsed
+    except ValueError:
+        raise MlflowException("Invalid filter '{}'. Must be a single statement.".format(string),
+                              error_code=INVALID_PARAMETER_VALUE)
+
+    if not isinstance(statement, SqlStatement):
+        raise MlflowException("Invalid filter '{}'. Must be a single statement.".format(string),
+                              error_code=INVALID_PARAMETER_VALUE)
+
+    return SearchFilter._process_statement(statement)
+
+
 class SearchFilter(object):
     STRING_VALUE_TYPES = set([SqlTokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([SqlTokenType.Literal.Number.Integer,
@@ -289,19 +309,7 @@ class SearchFilter(object):
 
     def _parse(self):
         if self._filter_string:
-            try:
-                parsed = sqlparse.parse(self._filter_string)
-            except Exception:
-                raise MlflowException("Error on parsing filter '%s'" % self._filter_string,
-                                      error_code=INVALID_PARAMETER_VALUE)
-            if len(parsed) == 0 or not isinstance(parsed[0], SqlStatement):
-                raise MlflowException("Invalid filter '%s'. Could not be parsed." %
-                                      self._filter_string, error_code=INVALID_PARAMETER_VALUE)
-            elif len(parsed) > 1:
-                raise MlflowException("Search filter contained multiple expression '%s'. "
-                                      "Provide AND-ed expression list." % self._filter_string,
-                                      error_code=INVALID_PARAMETER_VALUE)
-            return self._process_statement(parsed[0])
+            return parse_filter_string(self._filter_string)
         elif self._search_expressions:
             return [self.search_expression_to_comparison(se) for se in self._search_expressions]
         else:
