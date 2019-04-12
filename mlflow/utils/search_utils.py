@@ -261,7 +261,7 @@ class SearchFilter(object):
         return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, SqlComparison)]
 
     @classmethod
-    def search_expression_to_dict(cls, search_expression):
+    def search_expression_to_comparison(cls, search_expression):
         key_type = _key_type_from_string(search_expression.WhichOneof('expression'))
         if key_type == KeyType.METRIC:
             key = search_expression.metric.key
@@ -303,7 +303,7 @@ class SearchFilter(object):
                                       error_code=INVALID_PARAMETER_VALUE)
             return self._process_statement(parsed[0])
         elif self._search_expressions:
-            return [self.search_expression_to_dict(se) for se in self._search_expressions]
+            return [self.search_expression_to_comparison(se) for se in self._search_expressions]
         else:
             return []
 
