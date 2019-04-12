@@ -10,7 +10,14 @@
 mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
   client <- client %||% mlflow_client()
   name <- forge::cast_string(name)
-  response <- mlflow_client_create_experiment(client, name, artifact_location)
+  response <- mlflow_rest(
+    "experiments", "create",
+    client = client, verb = "POST",
+    data = list(
+      name = name,
+      artifact_location = artifact_location
+    )
+  )
   mlflow_get_experiment(client = client, experiment_id = response$experiment_id)
 }
 
@@ -24,7 +31,11 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
 mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
   client <- client %||% mlflow_client()
   view_type <- match.arg(view_type)
-  response <- mlflow_client_list_experiments(client = client, view_type = view_type)
+  response <-   mlflow_rest(
+    "experiments", "list",
+    client = client, verb = "GET",
+    query = list(view_type = view_type)
+  )
 
   # Return `NULL` if no experiments
   if (!length(response)) return(NULL)
@@ -45,7 +56,10 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 mlflow_get_experiment <- function(experiment_id, client = NULL) {
   client <- client %||% mlflow_client()
   experiment_id <- cast_string(experiment_id)
-  response <- mlflow_client_get_experiment(client = client, experiment_id = experiment_id)
+  response <- mlflow_rest(
+    "experiments", "get",
+    client = client, query = list(experiment_id = experiment_id)
+  )
   response$experiment %>% tibble::as_tibble()
 }
 
@@ -70,7 +84,12 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_i
     )
   }
   timestamp <- timestamp %||% current_time()
-  mlflow_client_log_metric(client, run_id, key, value, timestamp)
+  mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
+    run_uuid = run_id,
+    key = key,
+    value = value,
+    timestamp = timestamp
+  ))
   invisible(value)
 }
 
@@ -84,7 +103,11 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_i
 #' @export
 mlflow_delete_experiment <- function(experiment_id, client = NULL) {
   client <- client %||% mlflow_client()
-  mlflow_client_delete_experiment(client = client, experiment_id = experiment_id)
+  mlflow_rest(
+    "experiments", "delete",
+    verb = "POST", client = client,
+    data = list(experiment_id = experiment_id)
+  )
   mlflow_get_experiment(experiment_id)
 }
 
@@ -101,7 +124,11 @@ mlflow_delete_experiment <- function(experiment_id, client = NULL) {
 #' @export
 mlflow_restore_experiment <- function(experiment_id, client = NULL) {
   client <- client %||% mlflow_client()
-  mlflow_client_restore_experiment(client = client, experiment_id = experiment_id)
+  mlflow_rest(
+    "experiments", "restore",
+    client = client, verb = "POST",
+    data = list(experiment_id = experiment_id)
+  )
   mlflow_get_experiment(experiment_id)
 }
 
@@ -115,9 +142,13 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
 #' @export
 mlflow_rename_experiment <- function(experiment_id, new_name, client = NULL) {
   client <- client %||% mlflow_client()
-  mlflow_client_rename_experiment(
-    client = client, experiment_id = experiment_id,
-    new_name = new_name
+  mlflow_rest(
+    "experiments", "update",
+    client = client, verb = "POST",
+    data = list(
+      experiment_id = experiment_id,
+      new_name = new_name
+    )
   )
   mlflow_get_experiment(experiment_id)
 }
@@ -150,17 +181,20 @@ mlflow_create_run <- function(experiment_id, user_id = NULL, run_name = NULL, so
   start_time <- start_time %||% current_time()
   user_id <- user_id %||% mlflow_user()
 
-  response <- mlflow_client_create_run(
-    client = client,
-    experiment_id = experiment_id,
-    user_id = user_id,
-    run_name = run_name,
-    source_type = source_type,
-    source_name = source_name,
-    entry_point_name = entry_point_name,
-    start_time = start_time,
-    source_version = source_version,
-    tags = tags
+  response <- mlflow_rest(
+    "runs", "create",
+    client = client, verb = "POST",
+    data = list(
+      experiment_id = experiment_id,
+      user_id = user_id,
+      run_name = run_name,
+      source_type = source_type,
+      source_name = source_name,
+      entry_point_name = entry_point_name,
+      start_time = start_time,
+      source_version = source_version,
+      tags = tags
+    )
   )
 
   parse_run(response$run)
@@ -174,7 +208,9 @@ mlflow_create_run <- function(experiment_id, user_id = NULL, run_name = NULL, so
 mlflow_delete_run <- function(run_id, client = NULL) {
   client <- client %||% mlflow_client()
   run_id <- cast_string(run_id)
-  mlflow_client_delete_run(client = client, run_id = run_id)
+  mlflow_rest("runs", "delete", client = client, verb = "POST", data = list(
+    run_id = run_id
+  ))
   invisible(NULL)
 }
 
@@ -186,7 +222,9 @@ mlflow_delete_run <- function(run_id, client = NULL) {
 mlflow_restore_run <- function(run_id, client = NULL) {
   client <- client %||% mlflow_client()
   run_id <- cast_string(run_id)
-  mlflow_client_restore_run(client = client, run_id = run_id)
+  mlflow_rest("runs", "restore", client = client, verb = "POST", data = list(
+    run_id = run_id
+  ))
   mlflow_get_run(run_id)
 }
 
@@ -202,7 +240,11 @@ mlflow_restore_run <- function(run_id, client = NULL) {
 mlflow_get_run <- function(run_id, client = NULL) {
   client <- client %||% mlflow_client()
   run_id <- cast_string(run_id)
-  response <- mlflow_client_get_run(client = client, run_id = run_id)
+  response <- mlflow_rest(
+    "runs", "get",
+    client = client, verb = "GET",
+    query = list(run_uuid = run_id)
+  )
   parse_run(response$run)
 }
 
@@ -237,8 +279,13 @@ mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, timesta
     }
   }
 
-  mlflow_client_log_batch(client = client, run_id = run_id,
-                          metrics = metrics, params = params, tags = tags)
+  mlflow_rest("runs", "log-batch", client = client, verb = "POST", data = list(
+    run_id = run_id,
+    metrics = metrics,
+    params = params,
+    tags = tags
+  ))
+
   invisible(NULL)
 }
 
@@ -268,8 +315,12 @@ mlflow_set_tag <- function(key, value, client = NULL, run_id = NULL) {
   key <- cast_string(key)
   value <- cast_string(value)
 
-  mlflow_client_set_tag(client = client, run_id = run_id,
-                        key = key, value = value)
+  mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = list(
+    run_uuid = run_id,
+    key = key,
+    value = value
+  ))
+
   invisible(NULL)
 }
 
@@ -291,8 +342,12 @@ mlflow_log_param <- function(key, value, client = NULL, run_id = NULL) {
   key <- cast_string(key)
   value <- cast_string(value)
 
-  mlflow_client_log_param(client = client, run_id = run_id,
-                          key = key, value = value)
+  mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = list(
+    run_uuid = run_id,
+    key = key,
+    value = cast_string(value)
+  ))
+
   invisible(value)
 }
 
@@ -311,8 +366,12 @@ mlflow_get_metric_history <- function(run_id, metric_key, client = NULL) {
   run_id <- cast_string(run_id)
   metric_key <- cast_string(metric_key)
 
-  response <- mlflow_client_get_metric_history(client = client, run_id = run_id,
-                                   metric_key = metric_key)
+  response <- mlflow_rest(
+    "metrics", "get-history",
+    client = client, verb = "GET",
+    query = list(run_uuid = run_id, metric_key = metric_key)
+  )
+
   response$metrics %>%
     purrr::transpose() %>%
     purrr::map(unlist) %>%
@@ -339,8 +398,12 @@ mlflow_search_runs <- function(experiment_ids, filter = NULL,
   experiment_ids <- cast_double_list(experiment_ids)
   filter <- cast_nullable_string(filter)
 
-  response <- mlflow_client_search_runs(client = client, experiment_ids = experiment_ids,
-                            filter = filter, run_view_type = run_view_type)
+  response <- mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
+    experiment_ids = experiment_ids,
+    filter = filter,
+    run_view_type = run_view_type
+  ))
+
   response$run %>%
     purrr::map_df(parse_run)
 }
@@ -358,7 +421,14 @@ mlflow_search_runs <- function(experiment_ids, filter = NULL,
 mlflow_list_artifacts <- function(run_id, path = NULL, client = NULL) {
   client <- client %||% mlflow_client()
 
-  response <- mlflow_client_list_artifacts(client = client, run_id = run_id, path = path)
+  response <-   mlflow_rest(
+    "artifacts", "list",
+    client = client, verb = "GET",
+    query = list(
+      run_uuid = run_id,
+      path = path
+    )
+  )
 
   message(glue::glue("Root URI: {uri}", uri = response$root_uri))
 
@@ -383,7 +453,11 @@ mlflow_set_terminated <- function(run_id, status = c("FINISHED", "SCHEDULED", "F
 
   status <- match.arg(status)
   end_time <- end_time %||% current_time()
-  response <- mlflow_rest_update_run(client, run_id, status, end_time)
+  response <- mlflow_rest("runs", "update", verb = "POST", client = client, data = list(
+    run_uuid = run_id,
+    status = status,
+    end_time = end_time
+  ))
   parse_run_info(response$run_info)
 }
 
@@ -447,8 +521,11 @@ mlflow_list_run_infos <- function(experiment_id,
   run_view_type <- match.arg(run_view_type)
   experiment_ids <- cast_double_list(experiment_id)
 
-  response <- mlflow_client_search_runs(client = client, experiment_ids = experiment_ids,
-                                        filter = "", run_view_type = run_view_type)
+  response <- mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
+    experiment_ids = experiment_ids,
+    filter = NULL,
+    run_view_type = run_view_type
+  ))
 
   response$runs %>%
     purrr::map("info") %>%
