@@ -520,7 +520,7 @@ mlflow_list_run_infos <- function(experiment_id,
   client <- client %||% mlflow_client()
 
   run_view_type <- match.arg(run_view_type)
-  experiment_ids <- cast_double_list(experiment_id)
+  experiment_ids <- cast_string_list(experiment_id)
 
   response <- mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
     experiment_ids = experiment_ids,
