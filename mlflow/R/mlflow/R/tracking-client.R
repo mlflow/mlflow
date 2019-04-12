@@ -23,9 +23,9 @@ new_mlflow_client_impl <- function(get_host_creds, get_cli_env = list, class = c
 new_mlflow_host_creds <- function( host = NA, username = NA, password = NA, token = NA,
                                    insecure = "False") {
   insecure_arg <- if (is.null(insecure) || is.na(insecure)) {
-    FALSE
+    "False"
   } else {
-    list(true = TRUE, false = FALSE)[[tolower(insecure)]]
+    list(true = "True", false = "False")[[tolower(insecure)]]
   }
   structure(
     list(host = host, username = username, password = password, token = token,
