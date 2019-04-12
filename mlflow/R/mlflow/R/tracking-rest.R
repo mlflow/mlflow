@@ -37,7 +37,7 @@ get_rest_config <- function(host_creds) {
   list(
     headers = headers,
     config = if (is_insecure) {
-        httr::config(ssl_verifypeer = 0, ssl_verifyhost = 0)
+      httr::config(ssl_verifypeer = 0, ssl_verifyhost = 0)
     } else {
       list()
     }
