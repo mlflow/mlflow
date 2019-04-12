@@ -116,6 +116,13 @@ def _get_run_value(run, key_type, key):
     return matching_entity.value if matching_entity else None
 
 
+INVALID_IDENTIFIER_TPL = (
+    "Invalid comparison clause '{clause}'. "
+    "Expected param, metric or tag identifier of format 'metric.<key> <comparator> <value>', "
+    "'tag.<key> <comparator> <value>', or 'params.<key> <comparator> <value>' but found {token}."
+)
+
+
 def _comparison_from_sql_comparison(comparison):
     """
     Interpret a SQL comparison from  a filter string.
@@ -135,11 +142,18 @@ def _comparison_from_sql_comparison(comparison):
         raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
 
     if not isinstance(identifier, SqlIdentifier):
-        message = (
-            "Invalid comparison clause '{}'. "
-            "Expected param, metric or tag identifier but found '{}'"
-        ).format(comparison.value, identifier.value)
-        raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+        raise MlflowException(
+            INVALID_IDENTIFIER_TPL.format(clause=comparison.value, token=identifier.value),
+            error_code=INVALID_PARAMETER_VALUE
+        )
+
+    try:
+        key_type, key = identifier.value.split(".", 1)
+    except ValueError:
+        raise MlflowException(
+            INVALID_IDENTIFIER_TPL.format(clause=comparison.value, token=identifier.value),
+            error_code=INVALID_PARAMETER_VALUE
+        )
 
     if not isinstance(operator, SqlToken) and operator.ttype != SqlTokenType.Operator.Comparison:
         message = "Invalid comparison clause '{}'. Expected operator but found '{}'".format(
@@ -153,7 +167,8 @@ def _comparison_from_sql_comparison(comparison):
             comparison.value, value.value)
         raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
 
-    key_type, key = SearchFilter._get_identifier(identifier.value)
+    key_type = SearchFilter._valid_entity_type(key_type)
+    key = SearchFilter._strip_quotes(key)
     operator = _comparison_operator_from_string(operator.value)
     value = SearchFilter._get_value(key_type, value)
     return Comparison(key_type, key, operator, value)
@@ -237,18 +252,6 @@ class SearchFilter(object):
     def _valid_entity_type(cls, entity_type):
         entity_type = cls._trim_backticks(entity_type)
         return _key_type_from_string(entity_type)
-
-    @classmethod
-    def _get_identifier(cls, identifier):
-        try:
-            entity_type, key = identifier.split(".", 1)
-        except ValueError:
-            raise MlflowException("Invalid filter string '%s'. Filter comparison is expected as "
-                                  "'metric.<key> <comparator> <value>', "
-                                  "'tag.<key> <comparator> <value>', or "
-                                  "'params.<key> <comparator> <value>'." % identifier,
-                                  error_code=INVALID_PARAMETER_VALUE)
-        return cls._valid_entity_type(entity_type), cls._strip_quotes(key)
 
     @classmethod
     def _get_value(cls, identifier_type, token):
