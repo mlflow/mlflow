@@ -33,12 +33,11 @@ get_rest_config <- function(host_creds) {
   if (!is.na(auth_header)) {
     headers$Authorization <- auth_header
   }
-  is_insecure <- !is.na(host_creds$insecure) && !is.null(host_creds_insecure) &&
-    list(true = TRUE, false = FALSE)[[tolower(host_creds$insecure)]]
+  is_insecure <- list(true = TRUE, false = FALSE)[[tolower(host_creds$insecure)]]
   list(
     headers = headers,
     config = if (is_insecure) {
-      httr::config(ssl_verifypeer = 0, ssl_verifyhost = 0)
+        httr::config(ssl_verifypeer = 0, ssl_verifyhost = 0)
     } else {
       list()
     }
