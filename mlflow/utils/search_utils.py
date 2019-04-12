@@ -35,6 +35,13 @@ class ComparisonOperator(Enum):
     LESS_THAN_EQUAL = "<="
 
 
+VALID_OPERATORS_FOR_KEY_TYPE = {
+    KeyType.METRIC: set(ComparisonOperator),
+    KeyType.PARAM: {ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL},
+    KeyType.TAG: {ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL},
+}
+
+
 class Comparison(object):
     def __init__(self, key_type, key, operator, value):
         self.key_type = key_type
@@ -51,6 +58,31 @@ class Comparison(object):
     def __repr__(self):
         return "{}({}, {}, {}, {})".format(self.__class__.__name__, self.key_type, self.key,
                                            self.operator, self.value)
+
+    def filter(self, run):
+        valid_operators = VALID_OPERATORS_FOR_KEY_TYPE[self.key_type]
+        if self.operator not in valid_operators:
+            message = "Invalid comparator '{}' not one of '{}".format(self.operator.value,
+                                                                      valid_operators)
+            raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+        value = float(self.value) if self.key_type == KeyType.METRIC else self.value
+        lhs = _get_run_value(run, self.key_type, self.key)
+        if lhs is None:
+            return False
+        elif self.operator == ComparisonOperator.GREATER_THAN:
+            return lhs > value
+        elif self.operator == ComparisonOperator.GREATER_THAN_EQUAL:
+            return lhs >= value
+        elif self.operator == ComparisonOperator.EQUAL:
+            return lhs == value
+        elif self.operator == ComparisonOperator.NOT_EQUAL:
+            return lhs != value
+        elif self.operator == ComparisonOperator.LESS_THAN_EQUAL:
+            return lhs <= value
+        elif self.operator == ComparisonOperator.LESS_THAN:
+            return lhs < value
+        else:
+            return False
 
 
 def _key_type_from_string(string):
@@ -85,9 +117,6 @@ def _get_run_value(run, key_type, key):
 
 
 class SearchFilter(object):
-    VALID_METRIC_COMPARATORS = set(ComparisonOperator)
-    VALID_PARAM_COMPARATORS = {ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL}
-    VALID_TAG_COMPARATORS = {ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL}
     STRING_VALUE_TYPES = set([SqlTokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([SqlTokenType.Literal.Number.Integer,
                                SqlTokenType.Literal.Number.Float])
@@ -278,50 +307,7 @@ class SearchFilter(object):
         else:
             return []
 
-    @classmethod
-    def does_run_match_clause(cls, run, comparison):
-        key_type = comparison.key_type
-        key = comparison.key
-        comparator = comparison.operator
-        value = comparison.value
-        if key_type == KeyType.METRIC:
-            if comparator not in cls.VALID_METRIC_COMPARATORS:
-                raise MlflowException("Invalid comparator '%s' "
-                                      "not one of '%s" % (comparator,
-                                                          cls.VALID_METRIC_COMPARATORS),
-                                      error_code=INVALID_PARAMETER_VALUE)
-            value = float(value)
-        elif key_type == KeyType.PARAM:
-            if comparator not in cls.VALID_PARAM_COMPARATORS:
-                raise MlflowException("Invalid comparator '%s' "
-                                      "not one of '%s'" % (comparator, cls.VALID_PARAM_COMPARATORS),
-                                      error_code=INVALID_PARAMETER_VALUE)
-        elif key_type == KeyType.TAG:
-            if comparator not in cls.VALID_TAG_COMPARATORS:
-                raise MlflowException("Invalid comparator '%s' "
-                                      "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS))
-        else:
-            raise MlflowException("Invalid search expression type '%s'" % key_type,
-                                  error_code=INVALID_PARAMETER_VALUE)
-        lhs = _get_run_value(run, key_type, key)
-        if lhs is None:
-            return False
-        elif comparator == ComparisonOperator.GREATER_THAN:
-            return lhs > value
-        elif comparator == ComparisonOperator.GREATER_THAN_EQUAL:
-            return lhs >= value
-        elif comparator == ComparisonOperator.EQUAL:
-            return lhs == value
-        elif comparator == ComparisonOperator.NOT_EQUAL:
-            return lhs != value
-        elif comparator == ComparisonOperator.LESS_THAN_EQUAL:
-            return lhs <= value
-        elif comparator == ComparisonOperator.LESS_THAN:
-            return lhs < value
-        else:
-            return False
-
     def filter(self, run):
         if not self.parsed:
             self.parsed = self._parse()
-        return all([self.does_run_match_clause(run, s) for s in self.parsed])
+        return all([comparison.filter(run) for comparison in self.parsed])
