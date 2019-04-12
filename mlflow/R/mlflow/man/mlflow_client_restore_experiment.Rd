@@ -12,12 +12,12 @@ mlflow_client_restore_experiment(client, experiment_id)
 \item{experiment_id}{ID of the associated experiment. This field is required.}
 }
 \description{
-Restore an experiment marked for deletion. This also restores associated metadata,
+Restores an experiment marked for deletion. This also restores associated metadata,
   runs, metrics, and params. If experiment uses FileStore, underlying artifacts
   associated with experiment are also restored.
 }
 \details{
-Throws RESOURCE_DOES_NOT_EXIST if experiment was never created or was permanently deleted.
+Throws `RESOURCE_DOES_NOT_EXIST` if the experiment was never created or was permanently deleted.
 
 The Tracking Client family of functions require an MLflow client to be
   specified explicitly. These functions allow for greater control of where the

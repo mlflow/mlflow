@@ -10,7 +10,7 @@ mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"))
 \item{status}{Updated status of the run. Defaults to `FINISHED`.}
 }
 \description{
-End an active MLflow run (if there is one).
+Ends an active MLflow run (if there is one).
 }
 \details{
 The fluent API family of functions operate with an implied MLflow client

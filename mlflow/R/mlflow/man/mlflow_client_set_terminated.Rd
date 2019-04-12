@@ -19,7 +19,7 @@ mlflow_client_set_terminated(client, run_id, status = c("FINISHED",
 \item{run_id}{Run ID.}
 }
 \description{
-Terminate a Run
+Terminates a run.
 }
 \details{
 The Tracking Client family of functions require an MLflow client to be

@@ -12,7 +12,7 @@ mlflow_client_delete_experiment(client, experiment_id)
 \item{experiment_id}{ID of the associated experiment. This field is required.}
 }
 \description{
-Mark an experiment and associated runs, params, metrics, … etc for deletion. If the
+Marks an experiment and associated runs, params, metrics, etc. for deletion. If the
   experiment uses FileStore, artifacts associated with experiment are also deleted.
 }
 \details{

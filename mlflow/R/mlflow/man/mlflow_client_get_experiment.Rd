@@ -12,7 +12,7 @@ mlflow_client_get_experiment(client, experiment_id)
 \item{experiment_id}{Identifer to get an experiment.}
 }
 \description{
-Get meta data for experiment and a list of runs for this experiment.
+Gets metadata for an experiment and a list of runs for the experiment.
 }
 \details{
 The Tracking Client family of functions require an MLflow client to be

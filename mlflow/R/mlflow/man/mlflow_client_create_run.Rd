@@ -18,7 +18,7 @@ mlflow_client_create_run(client, experiment_id, user_id = NULL,
 
 \item{run_name}{Human readable name for run.}
 
-\item{source_type}{Originating source for this run. One of Notebook, Job, Project, Local, or Unknown.}
+\item{source_type}{Originating source for this run. One of Notebook, Job, Project, Local or Unknown.}
 
 \item{source_name}{String descriptor for source. For example, name or description of the notebook, or job name.}
 
@@ -31,7 +31,7 @@ mlflow_client_create_run(client, experiment_id, user_id = NULL,
 \item{tags}{Additional metadata for run in key-value pairs.}
 }
 \description{
-Create a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.
+reate a new run within an experiment. A run is usually a single execution of a machine learning or data ETL pipeline.
 }
 \details{
 MLflow uses runs to track Param, Metric, and RunTag, associated with a single execution.

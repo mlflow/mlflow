@@ -13,7 +13,7 @@ mlflow_client_list_experiments(client, view_type = c("ACTIVE_ONLY",
 \item{view_type}{Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.}
 }
 \description{
-Get a list of all experiments.
+Gets a list of all experiments.
 }
 \details{
 The Tracking Client family of functions require an MLflow client to be

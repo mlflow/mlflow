@@ -2,7 +2,7 @@
 % Please edit documentation in R/tracking-client.R
 \name{mlflow_client_list_artifacts}
 \alias{mlflow_client_list_artifacts}
-\title{List artifacts}
+\title{List Artifacts}
 \usage{
 mlflow_client_list_artifacts(client, run_id, path = NULL)
 }
@@ -15,7 +15,7 @@ mlflow_client_list_artifacts(client, run_id, path = NULL)
 set to the root artifact path}
 }
 \description{
-List artifacts
+Gets a list of artifacts.
 }
 \details{
 The Tracking Client family of functions require an MLflow client to be

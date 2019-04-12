@@ -16,9 +16,9 @@ mlflow_client_log_param(client, run_id, key, value)
 \item{value}{String value of the parameter.}
 }
 \description{
-API to log a parameter used for this run. Examples are params and hyperparams
+Logs a parameter for a run. Examples are params and hyperparams
   used for ML training, or constant dates and values used in an ETL pipeline.
-  A params is a STRING key-value pair. For a run, a single parameter is allowed
+  A param is a STRING key-value pair. For a run, a single parameter is allowed
   to be logged only once.
 }
 \details{

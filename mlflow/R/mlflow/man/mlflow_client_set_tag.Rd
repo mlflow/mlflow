@@ -16,7 +16,7 @@ mlflow_client_set_tag(client, run_id, key, value)
 \item{value}{String value of the tag being logged. Maximum size is 500 bytes. This field is required.}
 }
 \description{
-Set a tag on a run. Tags are run metadata that can be updated during and
+Sets a tag on a run. Tags are run metadata that can be updated during a run and
  after a run completes.
 }
 \details{

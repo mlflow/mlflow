@@ -136,7 +136,7 @@ Runs a generic MLflow command through the command-line interface.
 .. code:: r
 
    mlflow_cli(..., background = FALSE, echo = TRUE,
-     stderr_callback = NULL)
+     stderr_callback = NULL, client = mlflow_client())
 
 .. _arguments-2:
 
@@ -160,6 +160,9 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``stderr_callback``           | NULL, or a function to call for      |
 |                               | every chunk of the standard error.   |
++-------------------------------+--------------------------------------+
+| ``client``                    | Mlflow client to provide environment |
+|                               | for the cli process.                 |
 +-------------------------------+--------------------------------------+
 
 Value
@@ -216,7 +219,7 @@ verbose compared to the Fluent API.
 Create Run
 ==========
 
-Create a new run within an experiment. A run is usually a single
+reate a new run within an experiment. A run is usually a single
 execution of a machine learning or data ETL pipeline.
 
 .. code:: r
@@ -245,7 +248,7 @@ Arguments
 | ``run_name``                  | Human readable name for run.         |
 +-------------------------------+--------------------------------------+
 | ``source_type``               | Originating source for this run. One |
-|                               | of Notebook, Job, Project, Local, or |
+|                               | of Notebook, Job, Project, Local or  |
 |                               | Unknown.                             |
 +-------------------------------+--------------------------------------+
 | ``source_name``               | String descriptor for source. For    |
@@ -382,7 +385,7 @@ verbose compared to the Fluent API.
 Get Experiment by Name
 ======================
 
-Gets metadata for an experiment by name.
+Get meta data for experiment by name.
 
 .. code:: r
 
@@ -446,9 +449,10 @@ verbose compared to the Fluent API.
 Get Run
 =======
 
-Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the same
-key are logged for the run, returns only the value with the latest timestamp. If there are multiple
-values with the latest timestamp, returns the maximum of these values.
+Gets metadata, params, tags, and metrics for a run. In the case where
+multiple metrics with the same key are logged for the run, returns only
+the value with the latest timestamp. If there are multiple values with
+the latest timestamp, returns the maximum of these values.
 
 .. code:: r
 
@@ -498,7 +502,7 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``path``                      | The run's relative artifact path to  |
+| ``path``                      | The run’s relative artifact path to  |
 |                               | list from. If not specified, it is   |
 |                               | set to the root artifact path        |
 +-------------------------------+--------------------------------------+
@@ -571,7 +575,7 @@ Arguments
 +-------------------+-------------------------------------------------+
 | ``path``          | The file or directory to log as an artifact.    |
 +-------------------+-------------------------------------------------+
-| ``artifact_path`` | Destination path within the run's artifact URI. |
+| ``artifact_path`` | Destination path within the run’s artifact URI. |
 +-------------------+-------------------------------------------------+
 
 .. _details-10:
@@ -585,7 +589,9 @@ the operations take place in terms of services and runs, but are more
 verbose compared to the Fluent API.
 
 When logging to Amazon S3, ensure that the user has a proper policy
-attach to it.
+attached to it, for instance:
+
+\`\`
 
 Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
@@ -594,10 +600,10 @@ corresponding key and secrets provided by Amazon IAM.
 Log Metric
 ==========
 
-Logs a metric for a run. Metrics key-value pair that records a
-single float measure. During a single execution of a run, a particular
-metric can be logged several times. Backend will keep track of
-historical values along with timestamps.
+Logs a metric for a run. Metrics key-value pair that records a single
+float measure. During a single execution of a run, a particular metric
+can be logged several times. Backend will keep track of historical
+values along with timestamps.
 
 .. code:: r
 
@@ -637,10 +643,10 @@ verbose compared to the Fluent API.
 Log Parameter
 =============
 
-Logs a parameter for a run. Examples are params and
-hyperparams used for ML training, or constant dates and values used in
-an ETL pipeline. A param is a STRING key-value pair. For a run, a
-single parameter is allowed to be logged only once.
+Logs a parameter for a run. Examples are params and hyperparams used for
+ML training, or constant dates and values used in an ETL pipeline. A
+param is a STRING key-value pair. For a run, a single parameter is
+allowed to be logged only once.
 
 .. code:: r
 
@@ -676,9 +682,10 @@ verbose compared to the Fluent API.
 Restore Experiment
 ==================
 
-Restores an experiment marked for deletion. This also restores associated
-metadata, runs, metrics, and params. If experiment uses FileStore,
-underlying artifacts associated with experiment are also restored.
+Restores an experiment marked for deletion. This also restores
+associated metadata, runs, metrics, and params. If experiment uses
+FileStore, underlying artifacts associated with experiment are also
+restored.
 
 .. code:: r
 
@@ -703,8 +710,8 @@ Arguments
 Details
 -------
 
-Throws ``RESOURCE_DOES_NOT_EXIST`` if the experiment was never created or was
-permanently deleted.
+Throws ``RESOURCE_DOES_NOT_EXIST`` if the experiment was never created
+or was permanently deleted.
 
 The Tracking Client family of functions require an MLflow client to be
 specified explicitly. These functions allow for greater control of where
@@ -746,8 +753,8 @@ verbose compared to the Fluent API.
 Set Tag
 =======
 
-Sets a tag on a run. Tags are run metadata that can be updated during a run and
-after a run completes.
+Sets a tag on a run. Tags are run metadata that can be updated during a
+run and after a run completes.
 
 .. code:: r
 
@@ -825,7 +832,7 @@ verbose compared to the Fluent API.
 Initialize an MLflow Client
 ===========================
 
-Initializes an MLflow client.
+Initialize an MLflow Client
 
 .. code:: r
 
@@ -935,7 +942,7 @@ Details
 
 MLflow requires Python and Conda to be installed. See
 https://www.python.org/getit/ and
-https://docs.conda.io/projects/conda/en/latest/user-guide/install/.
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
 
 .. _examples-2:
 
@@ -971,8 +978,9 @@ Arguments
 Load MLflow Model
 =================
 
-Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
-can be loaded in R. This method by default searches for a flavor supported by R/MLflow.
+Loads an MLflow model. MLflow models can have multiple model flavors.
+Not all flavors / models can be loaded in R. This method by default
+searches for a flavor supported by R/MLflow.
 
 .. code:: r
 
@@ -1022,7 +1030,7 @@ Arguments
 +===================+=================================================+
 | ``path``          | The file or directory to log as an artifact.    |
 +-------------------+-------------------------------------------------+
-| ``artifact_path`` | Destination path within the run's artifact URI. |
+| ``artifact_path`` | Destination path within the run’s artifact URI. |
 +-------------------+-------------------------------------------------+
 
 .. _details-20:
@@ -1036,7 +1044,9 @@ operations involving a run it adopts the current active run, or, if one
 does not exist, starts one through the implied service.
 
 When logging to Amazon S3, ensure that the user has a proper policy
-attach to it.
+attached to it, for instance:
+
+\`\`
 
 Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
@@ -1047,10 +1057,10 @@ corresponding key and secrets provided by Amazon IAM.
 Log Metric
 ==========
 
-Logs a metric for this run. Metrics key-value pair that records a
-single float measure. During a single execution of a run, a particular
-metric can be logged several times. Backend will keep track of
-historical values along with timestamps.
+Logs a metric for this run. Metrics key-value pair that records a single
+float measure. During a single execution of a run, a particular metric
+can be logged several times. Backend will keep track of historical
+values along with timestamps.
 
 .. code:: r
 
@@ -1086,8 +1096,8 @@ does not exist, starts one through the implied service.
 Log Model
 =========
 
-Logs a model for this run. Similar to ``mlflow_save_model()`` but
-stores model as an artifact within the active run.
+Logs a model for this run. Similar to ``mlflow_save_model()`` but stores
+model as an artifact within the active run.
 
 .. code:: r
 
@@ -1113,10 +1123,10 @@ Arguments
 Log Parameter
 =============
 
-Logs a parameter for this run. Examples are params and
-hyperparams used for ML training, or constant dates and values used in
-an ETL pipeline. A params is a STRING key-value pair. For a run, a
-single parameter is allowed to be logged only once.
+Logs a parameter for this run. Examples are params and hyperparams used
+for ML training, or constant dates and values used in an ETL pipeline. A
+params is a STRING key-value pair. For a run, a single parameter is
+allowed to be logged only once.
 
 .. code:: r
 
@@ -1164,10 +1174,9 @@ Arguments
 +===============================+======================================+
 | ``name``                      | The name of the parameter.           |
 +-------------------------------+--------------------------------------+
-| ``default``                   | The default value of the             |
-|                               | parameter.                           |
+| ``default``                   | The default value of the parameter.  |
 +-------------------------------+--------------------------------------+
-| ``type``                      | Type of the parameter. Required if   |
+| ``type``                      | Type of this parameter. Required if  |
 |                               | ``default`` is not set. If           |
 |                               | specified, must be one of “numeric”, |
 |                               | “integer”, or “string”.              |
@@ -1234,7 +1243,8 @@ current directory.
 Predict using RFunc MLflow Model
 ================================
 
-Performs prediction using an RFunc MLflow model from a file or data frame.
+Performs prediction using an RFunc MLflow model from a file or data
+frame.
 
 .. code:: r
 
@@ -1255,15 +1265,15 @@ Arguments
 | ``run_uuid``                  | Run ID of run to grab the model      |
 |                               | from.                                |
 +-------------------------------+--------------------------------------+
-| ``input_path``                | Path to JSON or CSV file to be       |
+| ``input_path``                | Path to ‘JSON’ or ‘CSV’ file to be   |
 |                               | used for prediction.                 |
 +-------------------------------+--------------------------------------+
-| ``output_path``               | JSON or CSV file where the           |
+| ``output_path``               | ‘JSON’ or ‘CSV’ file where the       |
 |                               | prediction will be written to.       |
 +-------------------------------+--------------------------------------+
 | ``data``                      | Data frame to be scored. This can be |
-|                               | used for testing purposes and        |
-|                               | can only be specified when           |
+|                               | used for testing purposes and can    |
+|                               | only be specified when               |
 |                               | ``input_path`` is not specified.     |
 +-------------------------------+--------------------------------------+
 | ``restore``                   | Should ``mlflow_restore_snapshot()`` |
@@ -1310,8 +1320,8 @@ Arguments
 | ``port``                      | Port to use to serve model, as       |
 |                               | numeric.                             |
 +-------------------------------+--------------------------------------+
-| ``daemonized``                | Makes ``httpuv`` server daemonized so|
-|                               | R interactive sessions are not       |
+| ``daemonized``                | Makes ``httpuv`` server daemonized   |
+|                               | so R interactive sessions are not    |
 |                               | blocked to handle requests. To       |
 |                               | terminate a daemonized server, call  |
 |                               | ``httpuv::stopDaemonizedServer()``   |
@@ -1342,9 +1352,9 @@ Wrapper for ``mlflow run``.
 .. code:: r
 
    mlflow_run(entry_point = NULL, uri = ".", version = NULL,
-     param_list = NULL, experiment_id = NULL, mode = NULL,
-     cluster_spec = NULL, git_username = NULL, git_password = NULL,
-     no_conda = FALSE, storage_dir = NULL)
+     param_list = NULL, experiment_id = NULL, experiment_name = NULL,
+     mode = NULL, cluster_spec = NULL, git_username = NULL,
+     git_password = NULL, no_conda = FALSE, storage_dir = NULL)
 
 .. _arguments-34:
 
@@ -1369,6 +1379,9 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``experiment_id``             | ID of the experiment under which to  |
 |                               | launch the run.                      |
++-------------------------------+--------------------------------------+
+| ``experiment_name``           | Name of the experiment under which   |
+|                               | to launch the run.                   |
 +-------------------------------+--------------------------------------+
 | ``mode``                      | Execution mode to use for run.       |
 +-------------------------------+--------------------------------------+
@@ -1559,8 +1572,8 @@ Arguments
 Set Experiment
 ==============
 
-Sets an experiment as the active experiment. If the experiment does not exist,
-creates an experiment with provided name.
+Sets an experiment as the active experiment. If the experiment does not
+exist, creates an experiment with provided name.
 
 .. code:: r
 
@@ -1592,8 +1605,8 @@ does not exist, starts one through the implied service.
 Set Tag
 =======
 
-Sets a tag on a run. Tags are run metadata that can be updated during and
-after a run completes.
+Sets a tag on a run. Tags are run metadata that can be updated during
+and after a run completes.
 
 .. code:: r
 
@@ -1699,9 +1712,9 @@ Arguments
 +===============================+======================================+
 | ``run_uuid``                  | If specified, get the run with the   |
 |                               | specified UUID and log metrics and   |
-|                               | params under that run. The run's end |
+|                               | params under that run. The run’s end |
 |                               | time is unset and its status is set  |
-|                               | to running, but the run's other      |
+|                               | to running, but the run’s other      |
 |                               | attributes remain unchanged.         |
 +-------------------------------+--------------------------------------+
 | ``experiment_id``             | Used only when ``run_uuid`` is       |

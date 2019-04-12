@@ -60,6 +60,7 @@ clean:
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	./build-javadoc.sh
+	./build-rdoc.sh
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 

@@ -13,10 +13,10 @@ mlflow_client_log_artifact(client, run_id, path, artifact_path = NULL)
 
 \item{path}{The file or directory to log as an artifact.}
 
-\item{artifact_path}{Destination path within the run’s artifact URI.}
+\item{artifact_path}{Destination path within the run's artifact URI.}
 }
 \description{
-Logs an specific file or directory as an artifact.
+Logs a specific file or directory as an artifact for a run.
 }
 \details{
 The Tracking Client family of functions require an MLflow client to be
@@ -25,7 +25,7 @@ The Tracking Client family of functions require an MLflow client to be
   compared to the Fluent API.
 
 When logging to Amazon S3, ensure that the user has a proper policy
-attach to it, for instance:
+attached to it, for instance:
 
 \code{
 {

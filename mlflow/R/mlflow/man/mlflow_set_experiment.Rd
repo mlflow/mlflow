@@ -10,8 +10,8 @@ mlflow_set_experiment(experiment_name)
 \item{experiment_name}{Name of experiment to be activated.}
 }
 \description{
-Set given experiment as active experiment. If experiment does not
- exist, create an experiment with provided name.
+Sets an experiment as the active experiment. If the experiment does not exist,
+  creates an experiment with provided name.
 }
 \details{
 The fluent API family of functions operate with an implied MLflow client

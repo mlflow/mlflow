@@ -13,7 +13,7 @@ mlflow_start_run(run_uuid = NULL, experiment_id = NULL,
 and params under that run. The run's end time is unset and its status is set to
 running, but the run's other attributes remain unchanged.}
 
-\item{experiment_id}{Used only when ``run_uuid`` is unspecified. ID of the experiment under
+\item{experiment_id}{Used only when `run_uuid` is unspecified. ID of the experiment under
 which to create the current run. If unspecified, the run is created under
 a new experiment with a randomly generated name.}
 

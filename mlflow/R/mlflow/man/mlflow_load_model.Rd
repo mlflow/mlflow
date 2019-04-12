@@ -2,12 +2,12 @@
 % Please edit documentation in R/model.R
 \name{mlflow_load_model}
 \alias{mlflow_load_model}
-\title{Load MLflow Model.}
+\title{Load MLflow Model}
 \usage{
 mlflow_load_model(model_path, flavor = NULL, run_id = NULL)
 }
 \arguments{
-\item{model_path}{"Path to the MLflow model. The path is relative to the run with the given
+\item{model_path}{Path to the MLflow model. The path is relative to the run with the given
 run-id or local filesystem path without run-id.}
 
 \item{flavor}{Optional flavor specification. Can be used to load a particular flavor in case
@@ -17,6 +17,6 @@ there are multiple flavors available.}
 server.}
 }
 \description{
-MLflow models can have multiple model flavors. Not all flavors / models can be loaded in R. This
-method will by default search for a flavor supported by R/mlflow.
+Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
+can be loaded in R. This method by default searches for a flavor supported by R/MLflow.
 }

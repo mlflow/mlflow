@@ -60,6 +60,9 @@ and `install <https://maven.apache.org/install.html>`_ Maven. You can then build
   cd mlflow/java
   mvn compile test
 
+If making API changes, please regenerate API documentation as described in `Writing Docs`_.
+
+
 R
 -
 
@@ -103,6 +106,9 @@ Run linter:
 .. code-block:: bash
 
   Rscript -e 'lintr::lint_package()'
+
+
+If making API changes, please regenerate API documentation as described in `Writing Docs`_.
 
 
 When developing, you can make Python changes available in R by running (from mlflow/R/mlflow):
@@ -181,9 +187,20 @@ To build protobuf files, simply run ``generate-protos.sh``. The required ``proto
 
 Writing Docs
 ------------
-Install the necessary Python dependencies via ``pip install -r dev-requirements.txt``. Then run
+Install the necessary Python dependencies via ``pip install -r dev-requirements.txt``.
+
+If making changes to R or Java APIs, generate R & Java API rst doc files via:
+
+.. code-block:: bash
+  cd docs
+  make html
+
+
+To generate a live preview of Python & other rst documentation, run the following snippet. Note
+that R & Java API docs must be regenerated separately after each change and are not live-updated.
 
 .. code-block:: bash
 
    cd docs
    make livehtml
+
