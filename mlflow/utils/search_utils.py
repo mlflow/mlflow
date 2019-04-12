@@ -116,6 +116,49 @@ def _get_run_value(run, key_type, key):
     return matching_entity.value if matching_entity else None
 
 
+def _comparison_from_sql_comparison(comparison):
+    """
+    Interpret a SQL comparison from  a filter string.
+
+    :param sql_comparison: A sqlparse.sql.Comparison object.
+
+    :return: A Comparison object.
+    """
+
+    stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+
+    try:
+        [identifier, operator, value] = stripped_comparison
+    except ValueError:
+        message = "Invalid comparison clause '{}'. Expected 3 tokens but found {}".format(
+            comparison.value, len(stripped_comparison))
+        raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+
+    if not isinstance(identifier, SqlIdentifier):
+        message = (
+            "Invalid comparison clause '{}'. "
+            "Expected param, metric or tag identifier but found '{}'"
+        ).format(comparison.value, identifier.value)
+        raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+
+    if not isinstance(operator, SqlToken) and operator.ttype != SqlTokenType.Operator.Comparison:
+        message = "Invalid comparison clause '{}'. Expected operator but found '{}'".format(
+            comparison.value, operator.value)
+        raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+
+    if not isinstance(value, SqlToken) and \
+            (value.ttype not in SearchFilter.STRING_VALUE_TYPES.union(SearchFilter.NUMERIC_VALUE_TYPES) or
+             isinstance(value, SqlIdentifier)):
+        message = "Invalid comparison clause '{}'. Expected value but found '{}'".format(
+            comparison.value, value.value)
+        raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+
+    key_type, key = SearchFilter._get_identifier(identifier.value)
+    operator = _comparison_operator_from_string(operator.value)
+    value = SearchFilter._get_value(key_type, value)
+    return Comparison(key_type, key, operator, value)
+
+
 def parse_filter_string(string):
     try:
         parsed = sqlparse.parse(string)
@@ -228,38 +271,6 @@ class SearchFilter(object):
                                   "{}.".format({t.value for t in KeyType}))
 
     @classmethod
-    def _validate_comparison(cls, tokens):
-        base_error_string = "Invalid comparison clause"
-        if len(tokens) != 3:
-            raise MlflowException("{}. Expected 3 tokens found {}".format(base_error_string,
-                                                                          len(tokens)),
-                                  error_code=INVALID_PARAMETER_VALUE)
-        if not isinstance(tokens[0], SqlIdentifier):
-            raise MlflowException("{}. Expected 'Identifier' found '{}'".format(base_error_string,
-                                                                                str(tokens[0])),
-                                  error_code=INVALID_PARAMETER_VALUE)
-        if not isinstance(tokens[1], SqlToken) and \
-                tokens[1].ttype != SqlTokenType.Operator.Comparison:
-            raise MlflowException("{}. Expected comparison found '{}'".format(base_error_string,
-                                                                              str(tokens[1])),
-                                  error_code=INVALID_PARAMETER_VALUE)
-        if not isinstance(tokens[2], SqlToken) and \
-                (tokens[2].ttype not in cls.STRING_VALUE_TYPES.union(cls.NUMERIC_VALUE_TYPES) or
-                 isinstance(tokens[2], SqlIdentifier)):
-            raise MlflowException("{}. Expected value token found '{}'".format(base_error_string,
-                                                                               str(tokens[2])),
-                                  error_code=INVALID_PARAMETER_VALUE)
-
-    @classmethod
-    def _get_comparison(cls, comparison):
-        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
-        cls._validate_comparison(stripped_comparison)
-        key_type, key = cls._get_identifier(stripped_comparison[0].value)
-        operator = _comparison_operator_from_string(stripped_comparison[1].value)
-        value = cls._get_value(key_type, stripped_comparison[2])
-        return Comparison(key_type, key, operator, value)
-
-    @classmethod
     def _invalid_statement_token(cls, token):
         if isinstance(token, SqlComparison):
             return False
@@ -278,7 +289,8 @@ class SearchFilter(object):
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException("Invalid clause(s) in filter string: %s" % invalid_clauses,
                                   error_code=INVALID_PARAMETER_VALUE)
-        return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, SqlComparison)]
+        return [_comparison_from_sql_comparison(token)
+                for token in statement.tokens if isinstance(token, SqlComparison)]
 
     @classmethod
     def search_expression_to_comparison(cls, search_expression):

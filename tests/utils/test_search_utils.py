@@ -134,7 +134,7 @@ def test_error_filter(filter_string, error_message):
     ("params.acc = 5", "Expected a quoted string value for param"),
     ("tags.acc = 5", "Expected a quoted string value for tag"),
     ("metrics.acc != metrics.acc", "Expected numeric value type for metric"),
-    ("1.0 > metrics.acc", "Expected 'Identifier' found"),
+    ("1.0 > metrics.acc", "Expected param, metric or tag identifier"),
 ])
 def test_error_comparison_clauses(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
@@ -164,8 +164,8 @@ def test_bad_quotes(filter_string, error_message):
     ("metric.acc !=", "Invalid clause(s) in filter string"),
     ("acc != 1.0", "Invalid filter string"),
     ("foo is null", "Invalid clause(s) in filter string"),
-    ("1=1", "Expected 'Identifier' found"),
-    ("1==2", "Expected 'Identifier' found"),
+    ("1=1", "Expected param, metric or tag identifier"),
+    ("1==2", "Expected param, metric or tag identifier"),
 ])
 def test_invalid_clauses(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
