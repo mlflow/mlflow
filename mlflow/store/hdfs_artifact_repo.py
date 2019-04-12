@@ -71,43 +71,64 @@ class HdfsArtifactRepository(ArtifactRepository):
                         output_stream.write(open(source, "rb").read())
 
     def list_artifacts(self, path=None):
+        """
+            Lists files and directories under artifacts directory for the current run_id.
+            (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
 
+            :param path: Relative source path. Possible subdirectory existing under hdfs:/some/path/run_id/artifacts
+            :return: List of files and directories under given path -
+                example:
+                    ['conda.yaml', 'MLmodel', 'model.pkl']
+        """
         hdfs_base_path = _resolve_base_path(self.path, path)
+        base_path_len = len(hdfs_base_path) + 1
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
             paths = []
             for path, is_dir, size in self._walk_path(hdfs, hdfs_base_path):
-                paths.append(FileInfo(path, is_dir, size))
+                paths.append(FileInfo(path[base_path_len:], is_dir, size))
             return sorted(paths, key=lambda f: paths)
 
     def _walk_path(self, hdfs, hdfs_path):
-        if hdfs.exists(hdfs_path) and hdfs.isdir(hdfs_path):
-            for subdir, _, files in hdfs.walk(hdfs_path):
-                yield subdir, hdfs.isdir(subdir), hdfs.info(subdir).get("size")
-                for f in files:
-                    file_path = self._join(subdir, f)
-                    yield file_path, hdfs.isdir(file_path), hdfs.info(file_path).get("size")
+        if hdfs.exists(hdfs_path):
+            if hdfs.isdir(hdfs_path):
+                for subdir, _, files in hdfs.walk(hdfs_path):
+                    if subdir != hdfs_path:
+                        yield subdir, hdfs.isdir(subdir), hdfs.info(subdir).get("size")
+                    for f in files:
+                        file_path = self._join(subdir, f)
+                        yield file_path, hdfs.isdir(file_path), hdfs.info(file_path).get("size")
+            else:
+                yield hdfs_path, False, hdfs.info(hdfs_path).get("size")
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
-            Download an artifact file or directory to a local directory if applicable, and return a
+            Download an artifact file or directory to a local directory/file if applicable, and return a
             local path for it.
             The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
-            :param artifact_path: Relative source path to the desired artifacts.
+            (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
+
+            :param artifact_path: Relative source path to the desired artifacts file or directory.
             :param dst_path: Absolute path of the local filesystem destination directory to which to
                              download the specified artifacts. This directory must already exist. If
                              unspecified, the artifacts will be downloaded to a new, uniquely-named
                              directory on the local filesystem.
 
             :return: Absolute path of the local filesystem location containing the downloaded
-            artifacts.
+            artifacts - file/directory.
         """
 
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
         local_dir = _tmp_dir(dst_path)
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
+
+            if not hdfs.isdir(hdfs_base_path):
+                local_path = self._join(local_dir, artifact_path)
+                _download_hdfs_file(hdfs, hdfs_base_path, local_path)
+                return local_path
+
             for path, is_dir, _ in self._walk_path(hdfs, hdfs_base_path):
 
                 relative_path = _relative_path(hdfs_base_path, path)
@@ -117,7 +138,7 @@ class HdfsArtifactRepository(ArtifactRepository):
                     mkdir(local_path)
                 else:
                     _download_hdfs_file(hdfs, path, local_path)
-        return local_dir
+            return local_dir
 
     def _download_file(self, remote_file_path, local_path):
         raise MlflowException('This is not implemented. Should never be called.')
@@ -169,10 +190,7 @@ def _relative_path(base_dir, subdir_path):
 
 
 def _tmp_dir(local_path):
-    if local_path is None:
-        return os.path.abspath(tempfile.mkdtemp())
-    else:
-        return local_path
+    return os.path.abspath(tempfile.mkdtemp(dir=local_path))
 
 
 def _download_hdfs_file(hdfs, remote_file_path, local_file_path):

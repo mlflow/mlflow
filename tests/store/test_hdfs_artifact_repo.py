@@ -60,7 +60,7 @@ def test_log_artifact_with_kerberos_setup(hdfs_system_mock):
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
-def test_log_artifact_with_invalid_local_dir(hdfs_system_mock):  # pylint: disable=unused-argument
+def test_log_artifact_with_invalid_local_dir(_):
     repo = HdfsArtifactRepository('hdfs://host_name:8020/maybe/path')
 
     with pytest.raises(Exception,
@@ -103,19 +103,16 @@ def test_log_artifacts(hdfs_system_mock):
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
 def test_list_artifacts(hdfs_system_mock):
-    repo = HdfsArtifactRepository('hdfs://host_name:8020/maybe/path')
+    repo = HdfsArtifactRepository('hdfs:/some/path')
 
-    expected = [FileInfo('sub_dir_one', True, 33),
-                FileInfo('sub_dir_one/file_one', False, 33),
-                FileInfo('sub_dir_one/file_two', False, 33),
-                FileInfo('sub_dir_two', True, 33),
-                FileInfo('sub_dir_two/file_three', False, 33)]
+    expected = [FileInfo('conda.yaml', False, 33),
+                FileInfo('model.pkl', False, 33),
+                FileInfo('MLmodel', False, 33)]
 
     hdfs_system_mock.return_value.walk.return_value = [
-        ('sub_dir_one', None, ['file_one', 'file_two']),
-        ('sub_dir_two', None, ['file_three'])]
+        ('/some/path', False, ['conda.yaml', 'model.pkl', 'MLmodel'])]
     hdfs_system_mock.return_value.info.return_value.get.return_value = 33
-    hdfs_system_mock.return_value.isdir.side_effect = [True, True, False, False, True, False]
+    hdfs_system_mock.return_value.isdir.side_effect = [True, False, False, False]
 
     actual = repo.list_artifacts()
 
