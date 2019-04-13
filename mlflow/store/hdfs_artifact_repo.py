@@ -75,7 +75,8 @@ class HdfsArtifactRepository(ArtifactRepository):
             Lists files and directories under artifacts directory for the current run_id.
             (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
 
-            :param path: Relative source path. Possible subdirectory existing under hdfs:/some/path/run_id/artifacts
+            :param path: Relative source path. Possible subdirectory existing under
+                         hdfs:/some/path/run_id/artifacts
             :return: List of files and directories under given path -
                 example:
                     ['conda.yaml', 'MLmodel', 'model.pkl']
@@ -103,16 +104,17 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
-            Download an artifact file or directory to a local directory/file if applicable, and return a
-            local path for it.
+            Download an artifact file or directory to a local directory/file if applicable, and
+            return a local path for it.
             The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
             (self.path contains the base path - hdfs:/some/path/run_id/artifacts)
 
             :param artifact_path: Relative source path to the desired artifacts file or directory.
-            :param dst_path: Absolute path of the local filesystem destination directory to which to
-                             download the specified artifacts. This directory must already exist. If
-                             unspecified, the artifacts will be downloaded to a new, uniquely-named
+            :param dst_path: Absolute path of the local filesystem destination directory to which
+                             to download the specified artifacts. This directory must already
+                             exist. If unspecified, the artifacts will be downloaded to a new,
+                             uniquely-named
                              directory on the local filesystem.
 
             :return: Absolute path of the local filesystem location containing the downloaded
@@ -132,7 +134,8 @@ class HdfsArtifactRepository(ArtifactRepository):
             for path, is_dir, _ in self._walk_path(hdfs, hdfs_base_path):
 
                 relative_path = _relative_path(hdfs_base_path, path)
-                local_path = self._join(local_dir, relative_path) if relative_path else local_dir
+                local_path = self._join(local_dir, relative_path) \
+                    if relative_path else local_dir
 
                 if is_dir:
                     mkdir(local_path)
