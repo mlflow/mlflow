@@ -149,11 +149,11 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
 def _server_options(function):
     function = click.option("--backend-store-uri", "--file-store", metavar="PATH",
                             default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-                            help="URI or path for backend store implementation. Acceptable backend"
-                                 "store are SQLAlchemy compatible implementation or local storage."
-                                 " Supports various SQLAlchemy compatible database like SQLite,"
-                                 " MySQL, PostgreSQL. As an example MySQL backed store can be"
-                                 " configured using connection string."
+                            help="URI or path for backend store implementation. Acceptable backend "
+                                 "store are SQLAlchemy compatible implementation or local storage. "
+                                 "Supports various SQLAlchemy compatible database like SQLite, "
+                                 "MySQL, PostgreSQL. As an example MySQL backed store can be "
+                                 "configured using connection string. "
                                  "'mysql://<user_name>:<password>@<host>:<port>/<database_name>' "
                                  "By default file based backed store"
                                  " will be used. (default: ./mlruns).")(function)
@@ -163,13 +163,13 @@ def _server_options(function):
                                  "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)(function)
     function = click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
                             help="The network address to listen on (default: 127.0.0.1). "
-                                 "Use 0.0.0.0 to bind to all addresses if you want to"
-                                 " access the tracking server from other machines.")(function)
+                                 "Use 0.0.0.0 to bind to all addresses if you want to "
+                                 "access the tracking server from other machines.")(function)
     function = click.option("--port", "-p", default=5000,
                             help="The port to listen on (default: 5000).")(function)
     function = click.option("--gunicorn-opts", default=None,
-                            help="Additional command line options forwarded to gunicorn"
-                                 " processes.")(function)
+                            help="Additional command line options forwarded to gunicorn "
+                                 "processes.")(function)
     return function
 
 
