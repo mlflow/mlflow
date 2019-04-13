@@ -1,6 +1,7 @@
 from abc import abstractmethod, ABCMeta
 
 from mlflow.entities import ViewType
+from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 
 
 class AbstractStore:
@@ -197,7 +198,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def search_runs(self, experiment_ids, search_filter, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type, max_results):
         """
         Return runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
@@ -206,6 +207,7 @@ class AbstractStore:
         :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
             search expression or filter string
         :param run_view_type: ACTIVE, DELETED, or ALL runs
+        :param max_results: Maximum number of runs desired
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
@@ -221,7 +223,7 @@ class AbstractStore:
         :return: A list of :py:class:`mlflow.entities.RunInfo` objects that satisfy the
             search expressions
         """
-        runs = self.search_runs([experiment_id], None, run_view_type)
+        runs = self.search_runs([experiment_id], None, run_view_type, SEARCH_MAX_RESULTS_DEFAULT)
         return [run.info for run in runs]
 
     @abstractmethod

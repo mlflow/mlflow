@@ -11,7 +11,7 @@ from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
-from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
                                     _validate_tag_name, _validate_experiment_id,\
@@ -496,12 +496,18 @@ class FileStore(AbstractStore):
                                 exc_info=True)
         return run_infos
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type, max_results):
+        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException("Search API called with a large max_results ({}). Max threshold "
+                                  "for this value is {}.".format(max_results,
+                                                                 SEARCH_MAX_RESULTS_THRESHOLD),
+                                  databricks_pb2.INVALID_PARAMETER_VALUE)
         runs = []
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self.get_run(r.run_uuid) for r in run_infos)
-        return [run for run in runs if not search_filter or search_filter.filter(run)]
+        filtered = [run for run in runs if not search_filter or search_filter.filter(run)]
+        return sorted(filtered, key=lambda r: r.info.start_time, reverse=True)[:max_results]
 
     def log_metric(self, run_uuid, metric):
         _validate_run_id(run_uuid)
