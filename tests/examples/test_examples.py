@@ -2,7 +2,6 @@
 import os
 import os.path
 import shutil
-from tempfile import mkdtemp
 from mlflow import cli
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
