@@ -24,6 +24,7 @@ def test_mlflow_run_example(tracking_uri_mock, directory, params):
 @pytest.mark.parametrize("directory, command", [
     ('sklearn_logistic_regression', ['python', 'train.py']),
     ('h2o', ['python', 'random_forest.py']),
+    ('quickstart', ['python', 'mlflow_tracking.py']),
 ])
 def test_command_example(tmpdir, directory, command):
 
