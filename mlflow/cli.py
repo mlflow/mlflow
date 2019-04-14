@@ -197,7 +197,7 @@ def _run_tracking_server(backend_store_uri, default_artifact_root, host, port, w
         sys.exit(1)
     try:
         artifact_repo = get_artifact_repository(default_artifact_root)
-        artifact_repo.list_artifacts(default_artifact_root)
+        artifact_repo.list_artifacts()
     except Exception as e:  # pylint: disable=broad-except
         # We need a broad exception here to catch exceptions in optional
         # dependencies like azure-storage or google-cloud-storage.
