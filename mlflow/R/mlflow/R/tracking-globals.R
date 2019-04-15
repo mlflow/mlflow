@@ -12,7 +12,7 @@ mlflow_set_active_run <- function(run) {
   invisible(run)
 }
 
-mlflow_get_active_experiment_id <- function() {
+mlflow_active_experiment_id <- function() {
   .globals$active_experiment$experiment_id
 }
 
