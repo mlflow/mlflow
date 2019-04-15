@@ -121,7 +121,7 @@ resolve_client_and_run_id <- function(client, run_id) {
   } else {
     if (is.null(run_id)) stop("`run_id` must be specified when `client` is specified.", call. = FALSE)
   }
-  list(client, run_id)
+  list(client = client, run_id = run_id)
 }
 
 parse_run <- function(r) {
