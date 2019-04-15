@@ -145,7 +145,9 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
 #' @param experiment_id ID of the associated experiment. This field is required.
 #' @param new_name The experiment’s name will be changed to this. The new name must be unique.
 #' @export
-mlflow_rename_experiment <- function(experiment_id, new_name, client = NULL) {
+mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NULL) {
+  experiment_id <- resolve_experiment_id(experiment_id)
+
   client <- client %||% mlflow_client()
   mlflow_rest(
     "experiments", "update",
@@ -155,7 +157,14 @@ mlflow_rename_experiment <- function(experiment_id, new_name, client = NULL) {
       new_name = new_name
     )
   )
-  mlflow_get_experiment(experiment_id)
+  experiment <- mlflow_get_experiment(experiment_id)
+
+  if (identical(experiment_id, mlflow_active_experiment_id())) {
+    # Update active experiment if we rename it
+    mlflow_set_active_experiment(experiment)
+  }
+
+  experiment
 }
 
 #' Create Run
