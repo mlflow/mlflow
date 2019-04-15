@@ -62,11 +62,6 @@ with.tbl_mlflow_run <- function(data, expr, ...) {
   invisible(NULL)
 }
 
-
-run_id <- function(run) cast_nullable_string(run$run_uuid)
-
-active_run_id <- function() run_id(mlflow_get_active_run())
-
 current_time <- function() {
   round(as.numeric(Sys.time()) * 1000)
 }

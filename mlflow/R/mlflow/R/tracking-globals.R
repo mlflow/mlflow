@@ -1,3 +1,7 @@
+run_id <- function(run) cast_nullable_string(run$run_uuid)
+
+active_run_id <- function() run_id(mlflow_get_active_run())
+
 #' Active Run
 #'
 #' Retrieves the active run.
@@ -17,6 +21,10 @@ mlflow_active_run <- function() {
 mlflow_set_active_run <- function(run) {
   .globals$active_run <- run
   invisible(run)
+}
+
+mlflow_get_active_run_id <- function() {
+  mlflow_get_active_run()$run_uuid
 }
 
 mlflow_get_active_experiment_id <- function() {
