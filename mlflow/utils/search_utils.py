@@ -42,8 +42,17 @@ VALID_OPERATORS_FOR_KEY_TYPE = {
 }
 
 
+def _validate_operator(key_type, operator):
+    valid_operators = VALID_OPERATORS_FOR_KEY_TYPE[key_type]
+    if operator not in valid_operators:
+        raise ValueError("The operator '{}' is not supported for {}s - "
+                         "must be one of {}".format(operator.value, key_type.value,
+                                                    {o.value for o in valid_operators}))
+
+
 class Comparison(object):
     def __init__(self, key_type, key, operator, value):
+        _validate_operator(key_type, operator)
         self.key_type = key_type
         self.key = key
         self.operator = operator
@@ -60,12 +69,6 @@ class Comparison(object):
                                            self.operator, self.value)
 
     def filter(self, run):
-        valid_operators = VALID_OPERATORS_FOR_KEY_TYPE[self.key_type]
-        if self.operator not in valid_operators:
-            message = (
-                "The operator '{}' is not supported for {}s - must be one of {}"
-            ).format(self.operator.value, self.key_type.value, {o.value for o in valid_operators})
-            raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
         value = float(self.value) if self.key_type == KeyType.METRIC else self.value
         lhs = _get_run_value(run, self.key_type, self.key)
         if lhs is None:
@@ -223,11 +226,12 @@ def _parse_comparison(comparison):
         key_type, key = _parse_identifier(identifier)
         operator = _parse_operator(operator)
         value = _parse_value(key_type, value)
+        comparison = Comparison(key_type, key, operator, value)
     except ValueError as e:
         raise MlflowException("Invalid comparison clause '{}'. {}".format(comparison.value, e),
                               error_code=INVALID_PARAMETER_VALUE)
 
-    return Comparison(key_type, key, operator, value)
+    return comparison
 
 
 def _invalid_statement_token(token):

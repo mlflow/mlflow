@@ -83,8 +83,8 @@ def test_anded_expression_2():
     ('', []),
     ("`metric`.a >= 0.1", [
         Comparison(KeyType.METRIC, "a", ComparisonOperator.GREATER_THAN_EQUAL, '0.1')]),
-    ("`params`.model >= 'LR'", [
-        Comparison(KeyType.PARAM, "model", ComparisonOperator.GREATER_THAN_EQUAL, "LR")]),
+    ("`params`.model = 'LR'", [
+        Comparison(KeyType.PARAM, "model", ComparisonOperator.EQUAL, "LR")]),
     ("tags.version = 'commit-hash'", [
         Comparison(KeyType.TAG, "version", ComparisonOperator.EQUAL, "commit-hash")]),
     ("`tags`.source_name = 'a notebook'", [
