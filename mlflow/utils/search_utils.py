@@ -180,16 +180,20 @@ def _parse_operator(token):
         raise ValueError(INVALID_OPERATOR_TPL.format(token=token.value))
 
 
+STRING_VALUE_SQL_TYPES = {SqlTokenType.Literal.String.Single}
+NUMERIC_VALUE_SQL_TYPES = {SqlTokenType.Literal.Number.Integer, SqlTokenType.Literal.Number.Float}
+
+
 def _parse_value(key_type, token):
     if not isinstance(token, SqlToken):
         raise ValueError("Expected value but found '{}'".format(token.value))
 
     if key_type == KeyType.METRIC:
-        if token.ttype not in SearchFilter.NUMERIC_VALUE_TYPES:
+        if token.ttype not in NUMERIC_VALUE_SQL_TYPES:
             raise ValueError("Expected a numeric value for metric but found {}".format(token.value))
         return token.value
     elif key_type == KeyType.PARAM or key_type == KeyType.TAG:
-        if token.ttype in SearchFilter.STRING_VALUE_TYPES or isinstance(token, SqlIdentifier):
+        if token.ttype in STRING_VALUE_SQL_TYPES or isinstance(token, SqlIdentifier):
             return _strip_quotes(token.value, expect_quoted_value=True)
         raise ValueError("Expected a quoted string value for {} (e.g. 'my-value') "
                          "but found {} ".format(key_type.value, token.value))
@@ -269,9 +273,6 @@ def parse_filter_string(string):
 
 
 class SearchFilter(object):
-    STRING_VALUE_TYPES = set([SqlTokenType.Literal.String.Single])
-    NUMERIC_VALUE_TYPES = set([SqlTokenType.Literal.Number.Integer,
-                               SqlTokenType.Literal.Number.Float])
 
     def __init__(self, filter_string=None, anded_expressions=None):
         self._filter_string = filter_string
