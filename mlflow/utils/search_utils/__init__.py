@@ -23,15 +23,16 @@ class SearchFilter(object):
     def search_expressions(self):
         return self._search_expressions
 
-    def _parse(self):
-        if self._filter_string:
-            return parse_filter_string(self._filter_string)
-        elif self._search_expressions:
-            return [search_expression_to_comparison(se) for se in self._search_expressions]
-        else:
-            return []
+    def comparisons(self):
+        if self.parsed is None:
+            if self._filter_string:
+                self.parsed = parse_filter_string(self._filter_string)
+            elif self._search_expressions:
+                self.parsed = [search_expression_to_comparison(search_expression)
+                               for search_expression in self._search_expressions]
+            else:
+                self.parsed = []
+        return self.parsed
 
     def filter(self, run):
-        if not self.parsed:
-            self.parsed = self._parse()
-        return all([comparison.filter(run) for comparison in self.parsed])
+        return all([comparison.filter(run) for comparison in self.comparisons()])
