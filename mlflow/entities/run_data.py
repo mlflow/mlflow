@@ -17,6 +17,8 @@ class RunData(_MLflowObject):
         :param params: List of :py:class:`mlflow.entities.Param`.
         :param tags: List of :py:class:`mlflow.entities.RunTag`.
         """
+        # Maintain the original list of metrics so that we can easily convert it back to
+        # protobuf
         self._metric_objs = metrics or []
         self._metrics = {metric.key: metric.value for metric in self._metric_objs}
         self._params = {param.key: param.value for param in (params or [])}
@@ -25,19 +27,19 @@ class RunData(_MLflowObject):
     @property
     def metrics(self):
         """
-        Dictionary of string key -> :py:class:`mlflow.entities.Metric` for the current run.
+        Dictionary of string key -> metric value for the current run.
         For each metric key, the maximum metric value at the maximum timestamp is returned.
         """
         return self._metrics
 
     @property
     def params(self):
-        """Dictionary of param key (string) -> param value (string) for the current run."""
+        """Dictionary of param key (string) -> param value for the current run."""
         return self._params
 
     @property
     def tags(self):
-        """Dictionary of tag key (string) -> tag value (string) for the current run."""
+        """Dictionary of tag key (string) -> tag value for the current run."""
         return self._tags
 
     def _add_metric(self, metric):
