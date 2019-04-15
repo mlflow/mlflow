@@ -33,7 +33,7 @@ mlflow_get_or_start_run <- function() {
 mlflow_get_experiment_id_from_env <- function(client = mlflow_client()) {
   name <- Sys.getenv("MLFLOW_EXPERIMENT_NAME", unset = NA)
   if (!is.na(name)) {
-    mlflow_client_get_experiment_by_name(client, name)$experiment_id
+    mlflow_get_experiment_by_name(client = client, name = name)$experiment_id
   } else {
     id <- Sys.getenv("MLFLOW_EXPERIMENT_ID", unset = NA)
     if (is.na(id)) NULL else id
@@ -160,4 +160,8 @@ resolve_run_id <- function(run_id) {
   run_id %||%
     mlflow_get_active_run_id() %||%
     stop("`run_id` must be specified when there is no active run.", call. = FALSE)
+}
+
+new_tbl_mlflow_experiment <- function(x) {
+  tibble::new_tibble(x, nrow = 1, class = "tbl_mlflow_experiment")
 }

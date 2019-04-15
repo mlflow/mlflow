@@ -46,6 +46,10 @@ mlflow_set_active_experiment.tbl_mlflow_experiment <- function(experiment) {
   .globals$active_experiment <- experiment
 }
 
+mlflow_set_active_experiment.NULL <- function(experiment) {
+  .globals$active_experiment <- NULL
+}
+
 #' Set Remote Tracking URI
 #'
 #' Specifies the URI to the remote MLflow server that will be used

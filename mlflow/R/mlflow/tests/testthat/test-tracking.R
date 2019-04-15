@@ -88,7 +88,7 @@ test_that("mlflow_set_tag() should return NULL invisibly", {
 
 test_that("infer experiment id works properly", {
   mlflow_clear_test_dir("mlruns")
-  experiment_id <- mlflow_create_experiment("test")
+  experiment_id <- mlflow_create_experiment("test")$experiment_id
   Sys.setenv(MLFLOW_EXPERIMENT_NAME = "test")
   expect_true(experiment_id == mlflow_infer_experiment_id())
   Sys.unsetenv("MLFLOW_EXPERIMENT_NAME")

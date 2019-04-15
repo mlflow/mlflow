@@ -10,7 +10,7 @@ mlflow_set_experiment <- function(experiment_name) {
   client <- mlflow_client()
   experiment <- tryCatch(
     mlflow_get_experiment_by_name(client = client, name = experiment_name),
-    function(e) {
+    error = function(e) {
       message("Experiment `", experiment_name, "` does not exist. Creating a new experiment.")
       mlflow_create_experiment(client = client, name = experiment_name)
     }
