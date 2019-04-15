@@ -29,7 +29,7 @@ mlflow_get_active_experiment_id <- function() {
   .globals$active_experiment$experiment_id
 }
 
-mlflow_active_experiment <- function() {
+mlflow_get_active_experiment <- function() {
   .globals$active_experiment
 }
 
