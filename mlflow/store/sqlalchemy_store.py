@@ -412,8 +412,8 @@ class SqlAlchemyStore(AbstractStore):
                     for exp in experiment_ids
                     for run in self._list_runs(session, exp, run_view_type)]
             filtered = [run for run in runs if not search_filter or search_filter.filter(run)]
-            ordering_key = lambda r: (-r.info.start_time, r.info.run_uuid)
-            return sorted(filtered, key=ordering_key)[:max_results]
+            return sorted(filtered,
+                          key=lambda r: (-r.info.start_time, r.info.run_uuid))[:max_results]
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(

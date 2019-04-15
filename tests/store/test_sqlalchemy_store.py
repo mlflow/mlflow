@@ -966,7 +966,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # Create 10 runs with the same start_time.
         # Sort based on run_uuid
         runs = sorted([self._run_factory(self._get_run_configs('r_%d' % r, exp,
-                                                        start_time=10)).info.run_uuid
+                                                               start_time=10)).info.run_uuid
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(exp, max_results=n))

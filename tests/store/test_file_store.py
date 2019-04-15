@@ -428,7 +428,7 @@ class TestFileStore(unittest.TestCase):
         # Create 10 runs with the same start_time.
         # Sort based on run_uuid
         runs = sorted([fs.create_run(exp, 'user', 'r_%d' % r, 'source_type', 'source_name',
-                                'entry_point', 1000, None, [], None).info.run_uuid
+                                     'entry_point', 1000, None, [], None).info.run_uuid
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(fs, exp, max_results=n))
