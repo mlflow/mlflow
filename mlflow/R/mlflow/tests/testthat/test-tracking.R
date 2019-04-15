@@ -52,13 +52,10 @@ test_that("mlflow_create_run()/mlflow_get_run() work properly", {
 
   expect_identical(run$user_id, "user1")
 
-  expect_identical(
-    run$tags[[1]],
-    tibble::tribble(
-      ~key, ~value,
-      "foz", "baz",
-      "foo", "bar"
-    )
+  expect_true(
+    all(purrr::transpose(run$tags[[1]]) %in%
+          list(list(key = "foz", value = "baz"), list(key = "foo", value = "bar"))
+        )
   )
 })
 
