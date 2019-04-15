@@ -45,7 +45,7 @@ mlflow_infer_experiment_id <- function(experiment_id = NULL) {
 }
 
 #' @export
-with.tbl_mlflow_run <- function(data, expr, ...) {
+with.mlflow_run <- function(data, expr, ...) {
 
   tryCatch(
     {
@@ -131,7 +131,7 @@ parse_run <- function(r) {
   info$params <- parse_run_data(r$data$params)
   info$tags <- parse_run_data(r$data$tags)
 
-  tibble::new_tibble(info, nrow = 1, class = "tbl_mlflow_run")
+  new_mlflow_run(info)
 }
 
 parse_run_info <- function(r) {
@@ -161,6 +161,10 @@ resolve_run_id <- function(run_id) {
     stop("`run_id` must be specified when there is no active run.", call. = FALSE)
 }
 
-new_tbl_mlflow_experiment <- function(x) {
-  tibble::new_tibble(x, nrow = 1, class = "tbl_mlflow_experiment")
+new_mlflow_experiment <- function(x) {
+  tibble::new_tibble(x, nrow = 1, class = "mlflow_experiment")
+}
+
+new_mlflow_run <- function(x) {
+  tibble::new_tibble(x, nrow = 1, class = "mlflow_run")
 }

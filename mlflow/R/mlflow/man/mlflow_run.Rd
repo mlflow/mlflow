@@ -5,9 +5,9 @@
 \title{Run in MLflow}
 \usage{
 mlflow_run(entry_point = NULL, uri = ".", version = NULL,
-  param_list = NULL, experiment_id = NULL, mode = NULL,
-  cluster_spec = NULL, git_username = NULL, git_password = NULL,
-  no_conda = FALSE, storage_dir = NULL)
+  param_list = NULL, experiment_id = NULL, experiment_name = NULL,
+  mode = NULL, cluster_spec = NULL, git_username = NULL,
+  git_password = NULL, no_conda = FALSE, storage_dir = NULL)
 }
 \arguments{
 \item{entry_point}{Entry point within project, defaults to `main` if not specified.}

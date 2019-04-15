@@ -62,7 +62,7 @@ mlflow_get_experiment <- function(experiment_id = NULL, client = NULL) {
     client = client, query = list(experiment_id = experiment_id)
   )
   response$experiment %>%
-    new_tbl_mlflow_experiment()
+    new_mlflow_experiment()
 }
 
 #' Log Metric
@@ -529,7 +529,7 @@ mlflow_get_experiment_by_name <- function(name, client = NULL) {
 
   experiment <- exps[exps$name == name, ]
   if (nrow(experiment)) {
-    new_tbl_mlflow_experiment(experiment)
+    new_mlflow_experiment(experiment)
   } else {
     stop(glue::glue("Experiment `{exp}` not found.", exp = name), call. = FALSE)
   }
