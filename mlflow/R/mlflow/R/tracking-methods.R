@@ -494,7 +494,8 @@ mlflow_set_terminated <- function(status = c("FINISHED", "SCHEDULED", "FAILED", 
 #' @template roxlate-run-id
 #' @param path Relative source path to the desired artifact.
 #' @export
-mlflow_download_artifacts <- function(run_id, path, client = NULL) {
+mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
+  run_id <- resolve_run_id(run_id)
   client <- client %||% mlflow_client()
   result <- mlflow_cli(
     "artifacts", "download",

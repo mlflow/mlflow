@@ -4,12 +4,12 @@
 \alias{mlflow_download_artifacts}
 \title{Download Artifacts}
 \usage{
-mlflow_download_artifacts(run_id, path, client = NULL)
+mlflow_download_artifacts(path, run_id = NULL, client = NULL)
 }
 \arguments{
-\item{run_id}{Run ID.}
-
 \item{path}{Relative source path to the desired artifact.}
+
+\item{run_id}{Run ID.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 }
