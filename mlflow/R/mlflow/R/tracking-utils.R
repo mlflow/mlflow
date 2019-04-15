@@ -45,7 +45,7 @@ mlflow_infer_experiment_id <- function(experiment_id = NULL) {
 }
 
 #' @export
-with.mlflow_run <- function(data, expr, ...) {
+with.tbl_mlflow_run <- function(data, expr, ...) {
 
   tryCatch(
     {
@@ -136,7 +136,7 @@ parse_run <- function(r) {
   info$params <- parse_run_data(r$data$params)
   info$tags <- parse_run_data(r$data$tags)
 
-  info
+  tibble::new_tibble(info, nrow = 1, class = "tbl_mlflow_run")
 }
 
 parse_run_info <- function(r) {
