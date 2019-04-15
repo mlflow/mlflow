@@ -350,17 +350,18 @@ def parse_path(uri):
     backslash_count = 1 if os.sep == "/" else 0  # Keep / for linux abs paths
     fs_prefix_with_localhost = mlflow.tracking.utils._LOCAL_FS_URI_PREFIX[:-1] + "localhost/"
     if uri.startswith(fs_prefix_with_localhost):
-        return uri[fs_prefix_with_localhost - backslash_count:]
+        path = uri[fs_prefix_with_localhost - backslash_count:]
     elif uri.startswith(mlflow.tracking.utils._LOCAL_FS_URI_PREFIX):
-        return uri[len(mlflow.tracking.utils._LOCAL_FS_URI_PREFIX) - backslash_count:]
+        path = uri[len(mlflow.tracking.utils._LOCAL_FS_URI_PREFIX) - backslash_count:]
     elif uri.startswith(relative_path_uri_prefix):
-        return uri[len(relative_path_uri_prefix):]
+        path = uri[len(relative_path_uri_prefix):]
     else:
         try:
-            return os.path.abspath(uri)
+            path = os.path.normpath(uri)
         except Exception:
             raise Exception("Unsupported uri: %s, use a uri for an absolute path with prefix %s." %
                             (uri, mlflow.tracking.utils._LOCAL_FS_URI_PREFIX))
+    return path.replace("\\", "/")
 
 
 def local_uri_from_path(path):

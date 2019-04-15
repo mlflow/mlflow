@@ -1,8 +1,6 @@
 import distutils.dir_util as dir_util
 import shutil
 
-from six.moves import urllib
-
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import mkdir, list_all, get_file_info, parse_path
 from mlflow.utils.validation import path_not_unique, bad_path_message
