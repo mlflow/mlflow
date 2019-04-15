@@ -4,7 +4,7 @@
 \alias{mlflow_get_run}
 \title{Get Run}
 \usage{
-mlflow_get_run(run_id, client = NULL)
+mlflow_get_run(run_id = NULL, client = NULL)
 }
 \arguments{
 \item{run_id}{Run ID.}
