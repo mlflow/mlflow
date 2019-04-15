@@ -439,7 +439,7 @@ mlflow_search_runs <- function(filter = NULL,
 #'
 #' @export
 mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
-  run_id <- mlflow_get_active_run_id(run_id)
+  run_id <- resolve_run_id(run_id)
   client <- client %||% mlflow_client()
 
   response <-   mlflow_rest(
