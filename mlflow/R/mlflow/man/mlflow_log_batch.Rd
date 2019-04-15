@@ -5,7 +5,7 @@
 \title{Log Batch}
 \usage{
 mlflow_log_batch(metrics = NULL, params = NULL, tags = NULL,
-  timestamps = NULL, client = NULL, run_id = NULL)
+  timestamps = NULL, run_id = NULL, client = NULL)
 }
 \arguments{
 \item{metrics}{A named list of metrics to log.}
@@ -16,9 +16,9 @@ mlflow_log_batch(metrics = NULL, params = NULL, tags = NULL,
 
 \item{timestamps}{(Optional) A list of timestamps of the same length as `metrics`.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
-
 \item{run_id}{Run ID.}
+
+\item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
 Log a batch of metrics, params, and/or tags for a run. The server will respond with an error (non-200 status code)

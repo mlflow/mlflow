@@ -4,16 +4,16 @@
 \alias{mlflow_log_param}
 \title{Log Parameter}
 \usage{
-mlflow_log_param(key, value, client = NULL, run_id = NULL)
+mlflow_log_param(key, value, run_id = NULL, client = NULL)
 }
 \arguments{
 \item{key}{Name of the parameter.}
 
 \item{value}{String value of the parameter.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
-
 \item{run_id}{Run ID.}
+
+\item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
 Logs a parameter for a run. Examples are params and hyperparams

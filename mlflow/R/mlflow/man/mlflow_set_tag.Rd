@@ -4,16 +4,16 @@
 \alias{mlflow_set_tag}
 \title{Set Tag}
 \usage{
-mlflow_set_tag(key, value, client = NULL, run_id = NULL)
+mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 }
 \arguments{
 \item{key}{Name of the tag. Maximum size is 255 bytes. This field is required.}
 
 \item{value}{String value of the tag being logged. Maximum size is 500 bytes. This field is required.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
-
 \item{run_id}{Run ID.}
+
+\item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
 Sets a tag on a run. Tags are run metadata that can be updated during a run and

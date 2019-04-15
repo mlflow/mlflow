@@ -4,17 +4,17 @@
 \alias{mlflow_log_artifact}
 \title{Log Artifact}
 \usage{
-mlflow_log_artifact(path, artifact_path = NULL, client = NULL,
-  run_id = NULL)
+mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL,
+  client = NULL)
 }
 \arguments{
 \item{path}{The file or directory to log as an artifact.}
 
 \item{artifact_path}{Destination path within the run's artifact URI.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
-
 \item{run_id}{Run ID.}
+
+\item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
 Logs a specific file or directory as an artifact for a run.

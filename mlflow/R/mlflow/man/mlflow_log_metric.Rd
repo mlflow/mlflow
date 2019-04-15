@@ -4,8 +4,8 @@
 \alias{mlflow_log_metric}
 \title{Log Metric}
 \usage{
-mlflow_log_metric(key, value, timestamp = NULL, client = NULL,
-  run_id = NULL)
+mlflow_log_metric(key, value, timestamp = NULL, run_id = NULL,
+  client = NULL)
 }
 \arguments{
 \item{key}{Name of the metric.}
@@ -14,9 +14,9 @@ mlflow_log_metric(key, value, timestamp = NULL, client = NULL,
 
 \item{timestamp}{Unix timestamp in milliseconds at the time metric was logged.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
-
 \item{run_id}{Run ID.}
+
+\item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
 Logs a metric for a run. Metrics key-value pair that records a single float measure.

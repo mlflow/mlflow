@@ -77,7 +77,7 @@ mlflow_get_experiment <- function(experiment_id = NULL, client = NULL) {
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
-mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_id = NULL) {
+mlflow_log_metric <- function(key, value, timestamp = NULL, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   if (!is.numeric(value)) {
     stop(
@@ -278,7 +278,7 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
 #' @param timestamps (Optional) A list of timestamps of the same length as `metrics`.
 #' @export
 mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, timestamps = NULL,
-                             client = NULL, run_id = NULL) {
+                             run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
   metrics <- construct_batch_list(metrics)
@@ -326,7 +326,7 @@ construct_batch_list <- function(l) {
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
-mlflow_set_tag <- function(key, value, client = NULL, run_id = NULL) {
+mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
   key <- cast_string(key)
@@ -353,7 +353,7 @@ mlflow_set_tag <- function(key, value, client = NULL, run_id = NULL) {
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
-mlflow_log_param <- function(key, value, client = NULL, run_id = NULL) {
+mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
   key <- cast_string(key)
@@ -599,7 +599,7 @@ mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY
 #' by Amazon IAM.
 #'
 #' @export
-mlflow_log_artifact <- function(path, artifact_path = NULL, client = NULL, run_id = NULL) {
+mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   artifact_param <- NULL
   if (!is.null(artifact_path)) artifact_param <- "--artifact-path"
