@@ -50,17 +50,19 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 #'
 #' Gets metadata for an experiment and a list of runs for the experiment.
 #'
-#' @param experiment_id Identifer to get an experiment.
+#' @param experiment_id Identifer to get an experiment. Attempts to obtain the active experiment
+#'   if not provided.
 #' @template roxlate-client
 #' @export
-mlflow_get_experiment <- function(experiment_id, client = NULL) {
+mlflow_get_experiment <- function(experiment_id = NULL, client = NULL) {
   client <- client %||% mlflow_client()
   experiment_id <- cast_string(experiment_id)
   response <- mlflow_rest(
     "experiments", "get",
     client = client, query = list(experiment_id = experiment_id)
   )
-  response$experiment %>% tibble::as_tibble()
+  response$experiment %>%
+    tibble::new_tibble(nrow = 1, class = "tbl_mlflow_experiment")
 }
 
 #' Log Metric

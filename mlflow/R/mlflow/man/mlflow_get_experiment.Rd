@@ -4,10 +4,11 @@
 \alias{mlflow_get_experiment}
 \title{Get Experiment}
 \usage{
-mlflow_get_experiment(experiment_id, client = NULL)
+mlflow_get_experiment(experiment_id = NULL, client = NULL)
 }
 \arguments{
-\item{experiment_id}{Identifer to get an experiment.}
+\item{experiment_id}{Identifer to get an experiment. Attempts to obtain the active experiment
+if not provided.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 }
