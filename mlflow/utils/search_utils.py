@@ -56,7 +56,7 @@ class Comparison(object):
         self.key_type = key_type
         self.key = key
         self.operator = operator
-        self.value = value
+        self.value = float(value) if self.key_type == KeyType.METRIC else value
 
     def __eq__(self, other):
         if not isinstance(other, Comparison):
@@ -69,22 +69,21 @@ class Comparison(object):
                                            self.operator, self.value)
 
     def filter(self, run):
-        value = float(self.value) if self.key_type == KeyType.METRIC else self.value
         lhs = _get_run_value(run, self.key_type, self.key)
         if lhs is None:
             return False
         elif self.operator == ComparisonOperator.GREATER_THAN:
-            return lhs > value
+            return lhs > self.value
         elif self.operator == ComparisonOperator.GREATER_THAN_EQUAL:
-            return lhs >= value
+            return lhs >= self.value
         elif self.operator == ComparisonOperator.EQUAL:
-            return lhs == value
+            return lhs == self.value
         elif self.operator == ComparisonOperator.NOT_EQUAL:
-            return lhs != value
+            return lhs != self.value
         elif self.operator == ComparisonOperator.LESS_THAN_EQUAL:
-            return lhs <= value
+            return lhs <= self.value
         elif self.operator == ComparisonOperator.LESS_THAN:
-            return lhs < value
+            return lhs < self.value
         else:
             return False
 
