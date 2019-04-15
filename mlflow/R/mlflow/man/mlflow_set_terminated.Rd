@@ -4,13 +4,13 @@
 \alias{mlflow_set_terminated}
 \title{Terminate a Run}
 \usage{
-mlflow_set_terminated(run_id, status = c("FINISHED", "SCHEDULED",
-  "FAILED", "KILLED"), end_time = NULL, client = NULL)
+mlflow_set_terminated(status = c("FINISHED", "SCHEDULED", "FAILED",
+  "KILLED"), run_id = NULL, end_time = NULL, client = NULL)
 }
 \arguments{
-\item{run_id}{Run ID.}
-
 \item{status}{Updated status of the run. Defaults to `FINISHED`.}
+
+\item{run_id}{Run ID.}
 
 \item{end_time}{Unix timestamp of when the run ended in milliseconds.}
 

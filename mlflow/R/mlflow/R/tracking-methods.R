@@ -438,7 +438,8 @@ mlflow_search_runs <- function(filter = NULL,
 #'  set to the root artifact path
 #'
 #' @export
-mlflow_list_artifacts <- function(run_id, path = NULL, client = NULL) {
+mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
+  run_id <- mlflow_get_active_run_id(run_id)
   client <- client %||% mlflow_client()
 
   response <-   mlflow_rest(
@@ -467,8 +468,10 @@ mlflow_list_artifacts <- function(run_id, path = NULL, client = NULL) {
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
-mlflow_set_terminated <- function(run_id, status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+mlflow_set_terminated <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+                                  run_id = NULL,
                                   end_time = NULL, client = NULL) {
+  run_id <- resolve_run_id(run_id)
   client <- client %||% mlflow_client()
 
   status <- match.arg(status)
