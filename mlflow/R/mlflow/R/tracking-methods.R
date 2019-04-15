@@ -184,9 +184,10 @@ mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NU
 #' @param tags Additional metadata for run in key-value pairs.
 #' @template roxlate-client
 #' @export
-mlflow_create_run <- function(experiment_id, user_id = NULL, run_name = NULL, source_type = NULL,
+mlflow_create_run <- function(user_id = NULL, run_name = NULL, source_type = NULL,
                               source_name = NULL, entry_point_name = NULL, start_time = NULL,
-                              source_version = NULL, tags = NULL, client = NULL) {
+                              source_version = NULL, tags = NULL, experiment_id = NULL, client = NULL) {
+  experiment_id <- resolve_experiment_id(experiment_id)
   client <- client %||% mlflow_client()
   tags <- if (!is.null(tags)) tags %>%
     purrr::imap(~ list(key = .y, value = .x)) %>%
@@ -211,7 +212,7 @@ mlflow_create_run <- function(experiment_id, user_id = NULL, run_name = NULL, so
     )
   )
 
-  parse_run(response$run)
+  mlflow_get_run(run_id = response$run$info$run_uuid, client = client)
 }
 
 #' Delete a Run

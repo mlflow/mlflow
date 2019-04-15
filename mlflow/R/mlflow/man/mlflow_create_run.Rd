@@ -4,14 +4,12 @@
 \alias{mlflow_create_run}
 \title{Create Run}
 \usage{
-mlflow_create_run(experiment_id, user_id = NULL, run_name = NULL,
+mlflow_create_run(user_id = NULL, run_name = NULL,
   source_type = NULL, source_name = NULL, entry_point_name = NULL,
   start_time = NULL, source_version = NULL, tags = NULL,
-  client = NULL)
+  experiment_id = NULL, client = NULL)
 }
 \arguments{
-\item{experiment_id}{Unique identifier for the associated experiment.}
-
 \item{user_id}{User ID or LDAP for the user executing the run.}
 
 \item{run_name}{Human readable name for run.}
@@ -27,6 +25,8 @@ mlflow_create_run(experiment_id, user_id = NULL, run_name = NULL,
 \item{source_version}{Git version of the source code used to create run.}
 
 \item{tags}{Additional metadata for run in key-value pairs.}
+
+\item{experiment_id}{Unique identifier for the associated experiment.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 }
