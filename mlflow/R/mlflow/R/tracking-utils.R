@@ -115,7 +115,7 @@ MLFLOW_SOURCE_TYPE <- list(
 resolve_client_and_run_id <- function(client, run_id) {
   if (is.null(client)) {
     if (is.null(run_id)) {
-      run_id <- run_id(mlflow_get_or_start_run())
+      run_id <- mlflow_get_run_id(mlflow_get_or_start_run())
     }
     client <- mlflow_client()
   } else {

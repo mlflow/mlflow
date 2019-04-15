@@ -1,6 +1,4 @@
-run_id <- function(run) cast_nullable_string(run$run_uuid)
-
-active_run_id <- function() run_id(mlflow_get_active_run())
+mlflow_get_run_id <- function(run) cast_nullable_string(run$run_uuid)
 
 #' Active Run
 #'
