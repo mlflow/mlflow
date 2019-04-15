@@ -220,6 +220,8 @@ mlflow_create_run <- function(experiment_id, user_id = NULL, run_name = NULL, so
 #' @template roxlate-run-id
 #' @export
 mlflow_delete_run <- function(run_id, client = NULL) {
+  if (identical(run_id, mlflow_get_active_run_id()))
+    stop("Cannot delete an active run.", call. = FALSE)
   client <- client %||% mlflow_client()
   run_id <- cast_string(run_id)
   mlflow_rest("runs", "delete", client = client, verb = "POST", data = list(
