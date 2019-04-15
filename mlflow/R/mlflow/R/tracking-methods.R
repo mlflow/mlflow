@@ -104,7 +104,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, client = NULL, run_i
 #' @template roxlate-client
 #' @export
 mlflow_delete_experiment <- function(experiment_id, client = NULL) {
-  if (experiment_id == mlflow_active_experiment_id())
+  if (experiment_id == mlflow_get_active_experiment_id())
     stop("Cannot delete an active experiment.", call. = FALSE)
 
   client <- client %||% mlflow_client()
@@ -159,7 +159,7 @@ mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NU
   )
   experiment <- mlflow_get_experiment(experiment_id)
 
-  if (identical(experiment_id, mlflow_active_experiment_id())) {
+  if (identical(experiment_id, mlflow_get_active_experiment_id())) {
     # Update active experiment if we rename it
     mlflow_set_active_experiment(experiment)
   }
