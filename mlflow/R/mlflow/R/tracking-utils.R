@@ -154,3 +154,10 @@ parse_run_data <- function(d) {
     tibble::as_tibble() %>%
     list()
 }
+
+resolve_experiment_id <- function(experiment_id) {
+  experiment_id %||%
+    mlflow_active_experiment_id() %||%
+    stop("`experiment_id` must be specified when there is no active experiment.", call. = FALSE)
+
+}
