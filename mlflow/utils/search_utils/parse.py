@@ -29,6 +29,21 @@ INVALID_OPERATOR_TPL = "'{token}' is not a valid operator."
 
 
 def parse_filter_string(string):
+    """
+    Parse an MLflow run filter string.
+
+    MLflow filter strings allow you to filter runs by tag, param and metric values with a SQL-like
+    expression. This function parses such a string into a series of Python objects which can then
+    be applied to runs to test if they satisfy the filter.
+
+    >>> parse_filter_string("param.alpha = '0.1'")
+    [Comparison(KeyType.TAG, foo, ComparisonOperator.EQUAL, one)]
+
+    >>> parse_filter_string("params.alpha = '0.1' AND metrics.accuracy > 0.9")
+    [Comparison(KeyType.PARAM, alpha, ComparisonOperator.EQUAL, 0.1),
+     Comparison(KeyType.METRIC, accuracy, ComparisonOperator.GREATER_THAN, 0.9)]
+    """
+
     try:
         parsed = sqlparse.parse(string)
     except Exception:
@@ -49,7 +64,6 @@ def parse_filter_string(string):
 
 
 def _parse_statement(statement):
-    # check validity
     invalids = list(filter(_invalid_statement_token, statement.tokens))
     if len(invalids) > 0:
         invalid_clauses = ", ".join("'{}'".format(token) for token in invalids)
@@ -71,14 +85,6 @@ def _invalid_statement_token(token):
 
 
 def _parse_comparison(comparison):
-    """
-    Interpret a SQL comparison from  a filter string.
-
-    :param sql_comparison: A sqlparse.sql.Comparison object.
-
-    :return: A Comparison object.
-    """
-
     stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
 
     try:
