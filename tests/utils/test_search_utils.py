@@ -1,4 +1,5 @@
 import pytest
+import mock
 
 from mlflow.entities import RunInfo, RunData, Run, SourceType, LifecycleStage, RunStatus
 from mlflow.exceptions import MlflowException
@@ -129,11 +130,11 @@ def test_error_filter(filter_string, error_message):
 
 
 @pytest.mark.parametrize("filter_string, error_message", [
-    ("metric.model = 'LR'", "Expected numeric value type for metric"),
-    ("metric.model = '5'", "Expected numeric value type for metric"),
+    ("metric.model = 'LR'", "Expected a numeric value for metric"),
+    ("metric.model = '5'", "Expected a numeric value for metric"),
     ("params.acc = 5", "Expected a quoted string value for param"),
     ("tags.acc = 5", "Expected a quoted string value for tag"),
-    ("metrics.acc != metrics.acc", "Expected numeric value type for metric"),
+    ("metrics.acc != metrics.acc", "Expected a numeric value for metric"),
     ("1.0 > metrics.acc", "Expected param, metric or tag identifier"),
 ])
 def test_error_comparison_clauses(filter_string, error_message):
@@ -173,23 +174,27 @@ def test_invalid_clauses(filter_string, error_message):
     assert error_message in e.value.message
 
 
-@pytest.mark.parametrize("entity_type, bad_comparators, entity_value", [
-    ("metrics", ["~", "~="], 1.0),
-    ("params", [">", "<", ">=", "<=", "~"], "'my-param-value'"),
-    ("tags", [">", "<", ">=", "<=", "~"], "'my-tag-value'"),
+@pytest.mark.parametrize("entity_type, entity_value", [
+    ("metrics", 1.0),
+    ("params", "'my-param-value'"),
+    ("tags", "'my-tag-value'")
 ])
-def test_bad_comparators(entity_type, bad_comparators, entity_value):
-    run = Run(run_info=RunInfo(
-        run_uuid="hi", experiment_id=0, name="name", source_type=SourceType.PROJECT,
-        source_name="source-name", entry_point_name="entry-point-name",
-        user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
-        source_version="version", lifecycle_stage=LifecycleStage.ACTIVE),
-        run_data=RunData(metrics=[], params=[], tags=[])
-    )
-    for bad_comparator in bad_comparators:
-        bad_filter = "{entity_type}.abc {comparator} {value}".format(
-            entity_type=entity_type, comparator=bad_comparator, value=entity_value)
-        sf = SearchFilter(filter_string=bad_filter)
-        with pytest.raises(MlflowException) as e:
-            sf.filter(run)
-        assert "Invalid comparator" in str(e.value.message)
+@pytest.mark.parametrize("operator", ["~", "~="])
+def test_invalid_operator(entity_type, operator, entity_value):
+    filter_string = "{}.abc {} {}".format(entity_type, operator, entity_value)
+    search_filter = SearchFilter(filter_string)
+    with pytest.raises(MlflowException, match="not a valid operator"):
+        search_filter.filter(mock.Mock())
+
+
+@pytest.mark.parametrize("entity_type, entity_value", [
+    ("params", "'my-param-value'"),
+    ("tags", "'my-tag-value'")
+])
+@pytest.mark.parametrize("operator", [">", "<", ">=", "<="])
+def test_unsupported_operator(entity_type, operator, entity_value):
+    filter_string = "{}.abc {} {}".format(entity_type, operator, entity_value)
+    search_filter = SearchFilter(filter_string)
+    expected_message = "The operator '{}' is not supported for {}".format(operator, entity_type)
+    with pytest.raises(MlflowException, match=expected_message):
+        search_filter.filter(mock.Mock())

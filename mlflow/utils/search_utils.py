@@ -62,8 +62,9 @@ class Comparison(object):
     def filter(self, run):
         valid_operators = VALID_OPERATORS_FOR_KEY_TYPE[self.key_type]
         if self.operator not in valid_operators:
-            message = "Invalid comparator '{}' not one of '{}".format(self.operator.value,
-                                                                      valid_operators)
+            message = (
+                "The operator '{}' is not supported for {}s - must be one of {}"
+            ).format(self.operator.value, self.key_type.value, {o.value for o in valid_operators})
             raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
         value = float(self.value) if self.key_type == KeyType.METRIC else self.value
         lhs = _get_run_value(run, self.key_type, self.key)
@@ -148,33 +149,55 @@ def _strip_quotes(value, expect_quoted_value=False):
 
 
 INVALID_IDENTIFIER_TPL = (
-    "Invalid comparison clause '{clause}'. "
     "Expected param, metric or tag identifier of format 'metric.<key> <comparator> <value>', "
     "'tag.<key> <comparator> <value>', or 'params.<key> <comparator> <value>' but found '{token}'."
 )
+INVALID_OPERATOR_TPL = "'{token}' is not a valid operator."
 
 
-def _get_value(identifier_type, token):
-    if identifier_type == KeyType.METRIC:
+def _parse_identifier(token):
+    if not isinstance(token, SqlIdentifier):
+        raise ValueError(INVALID_IDENTIFIER_TPL.format(token=token.value))
+
+    try:
+        key_type_string, key = token.value.split(".", 1)
+    except ValueError:
+        raise MlflowException(INVALID_IDENTIFIER_TPL.format(token=token.value))
+
+    key_type = _key_type_from_string(_trim_backticks(key_type_string))
+    key = _strip_quotes(key)
+
+    return key_type, key
+
+
+def _parse_operator(token):
+    if not isinstance(token, SqlToken) and token.ttype != SqlTokenType.Operator.Comparison:
+        raise ValueError(INVALID_OPERATOR_TPL.format(token=token.value))
+
+    try:
+        return ComparisonOperator(token.value)
+    except ValueError:
+        raise ValueError(INVALID_OPERATOR_TPL.format(token=token.value))
+
+
+def _parse_value(key_type, token):
+    if not isinstance(token, SqlToken):
+        raise ValueError("Expected value but found '{}'".format(token.value))
+
+    if key_type == KeyType.METRIC:
         if token.ttype not in SearchFilter.NUMERIC_VALUE_TYPES:
-            raise MlflowException("Expected numeric value type for metric. "
-                                  "Found {}".format(token.value),
-                                  error_code=INVALID_PARAMETER_VALUE)
+            raise ValueError("Expected a numeric value for metric but found {}".format(token.value))
         return token.value
-    elif identifier_type == KeyType.PARAM or identifier_type == KeyType.TAG:
+    elif key_type == KeyType.PARAM or key_type == KeyType.TAG:
         if token.ttype in SearchFilter.STRING_VALUE_TYPES or isinstance(token, SqlIdentifier):
             return _strip_quotes(token.value, expect_quoted_value=True)
-        raise MlflowException("Expected a quoted string value for "
-                              "{identifier_type} (e.g. 'my-value'). Got value "
-                              "{value}".format(identifier_type=identifier_type.value,
-                                               value=token.value),
-                              error_code=INVALID_PARAMETER_VALUE)
+        raise ValueError("Expected a quoted string value for {} (e.g. 'my-value') "
+                         "but found {} ".format(key_type.value, token.value))
     else:
-        raise MlflowException("Invalid identifier type. Expected one of "
-                              "{}.".format({t.value for t in KeyType}))
+        raise ValueError("Invalid key type {}".format(key_type))
 
 
-def _comparison_from_sql_comparison(comparison):
+def _parse_comparison(comparison):
     """
     Interpret a SQL comparison from  a filter string.
 
@@ -192,36 +215,14 @@ def _comparison_from_sql_comparison(comparison):
             comparison.value, len(stripped_comparison))
         raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
 
-    if not isinstance(identifier, SqlIdentifier):
-        raise MlflowException(
-            INVALID_IDENTIFIER_TPL.format(clause=comparison.value, token=identifier.value),
-            error_code=INVALID_PARAMETER_VALUE
-        )
-
     try:
-        key_type, key = identifier.value.split(".", 1)
-    except ValueError:
-        raise MlflowException(
-            INVALID_IDENTIFIER_TPL.format(clause=comparison.value, token=identifier.value),
-            error_code=INVALID_PARAMETER_VALUE
-        )
+        key_type, key = _parse_identifier(identifier)
+        operator = _parse_operator(operator)
+        value = _parse_value(key_type, value)
+    except ValueError as e:
+        raise MlflowException("Invalid comparison clause '{}'. {}".format(comparison.value, e),
+                              error_code=INVALID_PARAMETER_VALUE)
 
-    if not isinstance(operator, SqlToken) and operator.ttype != SqlTokenType.Operator.Comparison:
-        message = "Invalid comparison clause '{}'. Expected operator but found '{}'".format(
-            comparison.value, operator.value)
-        raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
-
-    if not isinstance(value, SqlToken) and \
-            (value.ttype not in SearchFilter.STRING_VALUE_TYPES.union(SearchFilter.NUMERIC_VALUE_TYPES) or
-             isinstance(value, SqlIdentifier)):
-        message = "Invalid comparison clause '{}'. Expected value but found '{}'".format(
-            comparison.value, value.value)
-        raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
-
-    key_type = SearchFilter._valid_entity_type(key_type)
-    key = _strip_quotes(key)
-    operator = _comparison_operator_from_string(operator.value)
-    value = _get_value(key_type, value)
     return Comparison(key_type, key, operator, value)
 
 
@@ -269,11 +270,6 @@ class SearchFilter(object):
         return self._search_expressions
 
     @classmethod
-    def _valid_entity_type(cls, entity_type):
-        entity_type = _trim_backticks(entity_type)
-        return _key_type_from_string(entity_type)
-
-    @classmethod
     def _invalid_statement_token(cls, token):
         if isinstance(token, SqlComparison):
             return False
@@ -292,7 +288,7 @@ class SearchFilter(object):
             invalid_clauses = ", ".join("'%s'" % token for token in invalids)
             raise MlflowException("Invalid clause(s) in filter string: %s" % invalid_clauses,
                                   error_code=INVALID_PARAMETER_VALUE)
-        return [_comparison_from_sql_comparison(token)
+        return [_parse_comparison(token)
                 for token in statement.tokens if isinstance(token, SqlComparison)]
 
     @classmethod
