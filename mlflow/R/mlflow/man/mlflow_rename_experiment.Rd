@@ -4,12 +4,12 @@
 \alias{mlflow_rename_experiment}
 \title{Rename Experiment}
 \usage{
-mlflow_rename_experiment(experiment_id, new_name, client = NULL)
+mlflow_rename_experiment(new_name, experiment_id = NULL, client = NULL)
 }
 \arguments{
-\item{experiment_id}{ID of the associated experiment. This field is required.}
-
 \item{new_name}{The experiment’s name will be changed to this. The new name must be unique.}
+
+\item{experiment_id}{ID of the associated experiment. This field is required.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 }

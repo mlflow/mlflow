@@ -4,13 +4,13 @@
 \alias{mlflow_list_run_infos}
 \title{List Run Infos}
 \usage{
-mlflow_list_run_infos(experiment_id, run_view_type = c("ACTIVE_ONLY",
-  "DELETED_ONLY", "ALL"), client = NULL)
+mlflow_list_run_infos(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
+  "ALL"), experiment_id = NULL, client = NULL)
 }
 \arguments{
-\item{experiment_id}{Experiment ID.}
-
 \item{run_view_type}{Run view type.}
+
+\item{experiment_id}{Experiment ID. Attempts to use the active experiment if not specified.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 }

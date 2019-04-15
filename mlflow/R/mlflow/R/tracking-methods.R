@@ -398,14 +398,16 @@ mlflow_get_metric_history <- function(run_id, metric_key, client = NULL) {
 #' Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.
 #'
 #' @template roxlate-client
-#' @param experiment_ids List of experiment IDs to search over.
+#' @param experiment_ids List of experiment IDs to search over. Attempts to use active experiment if not specified.
 #' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
 #'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
 #'
 #' @export
-mlflow_search_runs <- function(experiment_ids, filter = NULL,
-                               run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
+mlflow_search_runs <- function(filter = NULL,
+                               run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), experiment_ids = NULL,
+                               client = NULL) {
+  experiment_ids <- resolve_experiment_id(experiment_ids)
   client <- client %||% mlflow_client()
 
   run_view_type <- match.arg(run_view_type)
@@ -525,12 +527,13 @@ mlflow_get_experiment_by_name <- function(name, client = NULL) {
 #'
 #' List run infos.
 #'
-#' @param experiment_id Experiment ID.
+#' @param experiment_id Experiment ID. Attempts to use the active experiment if not specified.
 #' @param run_view_type Run view type.
 #' @template roxlate-client
 #' @export
-mlflow_list_run_infos <- function(experiment_id,
-                                  run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
+mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+                                  experiment_id = NULL, client = NULL) {
+  experiment_id <- resolve_experiment_id(experiment_id)
   client <- client %||% mlflow_client()
 
   run_view_type <- match.arg(run_view_type)

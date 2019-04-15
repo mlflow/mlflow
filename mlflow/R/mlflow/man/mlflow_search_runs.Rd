@@ -4,17 +4,16 @@
 \alias{mlflow_search_runs}
 \title{Search Runs}
 \usage{
-mlflow_search_runs(experiment_ids, filter = NULL,
-  run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
-  client = NULL)
+mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
+  "DELETED_ONLY", "ALL"), experiment_ids = NULL, client = NULL)
 }
 \arguments{
-\item{experiment_ids}{List of experiment IDs to search over.}
-
 \item{filter}{A filter expression over params, metrics, and tags, allowing returning a subset of runs.
 The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.}
 
 \item{run_view_type}{Run view type.}
+
+\item{experiment_ids}{List of experiment IDs to search over. Attempts to use active experiment if not specified.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 }
