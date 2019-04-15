@@ -47,7 +47,7 @@ mlflow_set_experiment <- function(experiment_name) {
 mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name = NULL,
                              source_version = NULL, entry_point_name = NULL,
                              source_type = "LOCAL") {
-  active_run <- mlflow_active_run()
+  active_run <- mlflow_get_active_run()
   if (!is.null(active_run)) {
     stop("Run with UUID ", active_run_id(), " is already active.",
          call. = FALSE)
@@ -103,7 +103,7 @@ mlflow_get_run_context.default <- function(client, source_name, source_version, 
 #'
 #' @export
 mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED")) {
-  active_run <- mlflow_active_run()
+  active_run <- mlflow_get_active_run()
   if (!is.null(active_run)) {
     status <- match.arg(status)
     client <- mlflow_client()

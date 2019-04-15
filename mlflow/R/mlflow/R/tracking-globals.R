@@ -3,8 +3,15 @@
 #' Retrieves the active run.
 #'
 #' @export
-mlflow_active_run <- function() {
+mlflow_get_active_run <- function() {
   .globals$active_run
+}
+
+#' @rdname mlflow_get_active_run
+#' @export
+mlflow_active_run <- function() {
+  .Deprecated("mlflow_get_active_run")
+  mlflow_get_active_run()
 }
 
 mlflow_set_active_run <- function(run) {
