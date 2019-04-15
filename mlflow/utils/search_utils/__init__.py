@@ -38,8 +38,9 @@ class SearchFilter(object):
                 comparator = search_expression.metric.double.comparator
                 value = search_expression.metric.double.value
             else:
-                raise MlflowException("Invalid metric type: '%s', expected float or double",
-                                      error_code=INVALID_PARAMETER_VALUE)
+                raise MlflowException(
+                    "Invalid metric type: '{}', expected float or double".format(metric_type),
+                    error_code=INVALID_PARAMETER_VALUE)
             return Comparison(KeyType.METRIC, key, _comparison_operator_from_string(comparator),
                               value)
         elif key_type == KeyType.PARAM:
@@ -49,7 +50,7 @@ class SearchFilter(object):
             return Comparison(KeyType.PARAM, key, _comparison_operator_from_string(comparator),
                               value)
         else:
-            raise MlflowException("Invalid search expression type '%s'" % key_type,
+            raise MlflowException("Invalid search expression type '{}'".format(key_type),
                                   error_code=INVALID_PARAMETER_VALUE)
 
     def _parse(self):
