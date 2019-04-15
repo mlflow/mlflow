@@ -60,7 +60,8 @@ class FileStore(AbstractStore):
         """
         super(FileStore, self).__init__()
         self.root_directory = parse_path(root_directory or _default_root_dir())
-        self.artifact_root_uri = artifact_root_uri or local_uri_from_path(parse_path(self.root_directory))
+        self.artifact_root_uri = artifact_root_uri or local_uri_from_path(
+            parse_path(self.root_directory))
         self.trash_folder = build_path(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
