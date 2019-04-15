@@ -42,7 +42,7 @@ mlflow_set_active_experiment.character <- function(experiment) {
   .globals$active_experiment <- experiment
 }
 
-mlflow_set_active_experiment.tbl_mlflow_experiment <- function(experiment) {
+mlflow_set_active_experiment.mlflow_experiment <- function(experiment) {
   .globals$active_experiment <- experiment
 }
 
