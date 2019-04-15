@@ -59,11 +59,9 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super(FileStore, self).__init__()
-        root_directory = root_directory or _default_root_dir()
-        if artifact_root_uri is not None:
-            self.artifact_root_uri = artifact_root_uri
-        else:
-            self.artifact_root_uri = local_uri_from_path(parse_path(root_directory))
+        self.root_directory = parse_path(root_directory or _default_root_dir())
+        self.artifact_root_uri = artifact_root_uri or local_uri_from_path(parse_path(self.root_directory))
+        self.trash_folder = build_path(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
@@ -135,14 +133,6 @@ class FileStore(AbstractStore):
 
     def _get_deleted_experiments(self, full_path=False):
         return list_subdirs(self.trash_folder, full_path)
-
-    @property
-    def root_directory(self):
-        return parse_path(self.artifact_root_uri)
-
-    @property
-    def trash_folder(self):
-        return build_path(self.root_directory, FileStore.TRASH_FOLDER_NAME)
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         self._check_root_dir()
