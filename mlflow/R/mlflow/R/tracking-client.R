@@ -81,7 +81,7 @@ new_mlflow_client.mlflow_file <- function(tracking_uri) {
   }
   new_mlflow_client_impl(get_host_creds = function () {
     new_mlflow_host_creds(host = server_url)
-  })
+  }, class = "mlflow_file_client")
 }
 
 new_mlflow_client.default <- function(tracking_uri) {
@@ -108,7 +108,7 @@ basic_http_client <- function(tracking_uri) {
     )
     res[!is.na(res)]
   }
-  new_mlflow_client_impl(get_host_creds, cli_env)
+  new_mlflow_client_impl(get_host_creds, cli_env, class = "mlflow_http_client")
 }
 
 new_mlflow_client.mlflow_http <- function(tracking_uri) {
@@ -127,6 +127,6 @@ new_mlflow_client.mlflow_https <- function(tracking_uri) {
 mlflow_client <- function(tracking_uri = NULL) {
   tracking_uri <- new_mlflow_uri(tracking_uri %||% mlflow_get_tracking_uri())
   client <- new_mlflow_client(tracking_uri)
-  mlflow_validate_server(client)
+  if (inherits(client, "mlflow_file_client")) mlflow_validate_server(client)
   client
 }
