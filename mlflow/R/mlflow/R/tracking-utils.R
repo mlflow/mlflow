@@ -155,3 +155,9 @@ resolve_experiment_id <- function(experiment_id) {
     mlflow_get_active_experiment_id() %||%
     stop("`experiment_id` must be specified when there is no active experiment.", call. = FALSE)
 }
+
+resolve_run_id <- function(run_id) {
+  run_id %||%
+    mlflow_get_active_run_id() %||%
+    stop("`run_id` must be specified when there is no active run.", call. = FALSE)
+}

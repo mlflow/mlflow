@@ -254,9 +254,7 @@ mlflow_restore_run <- function(run_id, client = NULL) {
 #' @template roxlate-client
 #' @export
 mlflow_get_run <- function(run_id = NULL, client = NULL) {
-  run_id <- run_id %||%
-    mlflow_get_active_run_id() %||%
-    stop("`run_id` must be specified when there is no active run.", call. = FALSE)
+  run_id <- resolve_run_id(run_id)
   client <- client %||% mlflow_client()
   run_id <- cast_string(run_id)
   response <- mlflow_rest(
@@ -379,7 +377,8 @@ mlflow_log_param <- function(key, value, client = NULL, run_id = NULL) {
 #' @param metric_key Name of the metric.
 #'
 #' @export
-mlflow_get_metric_history <- function(run_id, metric_key, client = NULL) {
+mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) {
+  run_id <- resolve_run_id(run_id)
   client <- client %||% mlflow_client()
 
   run_id <- cast_string(run_id)
