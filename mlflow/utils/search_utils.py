@@ -226,6 +226,28 @@ def _parse_comparison(comparison):
     return Comparison(key_type, key, operator, value)
 
 
+def _invalid_statement_token(token):
+    if isinstance(token, SqlComparison):
+        return False
+    elif token.is_whitespace:
+        return False
+    elif token.match(ttype=SqlTokenType.Keyword, values=["AND"]):
+        return False
+    else:
+        return True
+
+
+def _parse_statement(statement):
+    # check validity
+    invalids = list(filter(_invalid_statement_token, statement.tokens))
+    if len(invalids) > 0:
+        invalid_clauses = ", ".join("'{}'".format(token) for token in invalids)
+        raise MlflowException("Invalid clause(s) in filter string: {}".format(invalid_clauses),
+                              error_code=INVALID_PARAMETER_VALUE)
+    return [_parse_comparison(token)
+            for token in statement.tokens if isinstance(token, SqlComparison)]
+
+
 def parse_filter_string(string):
     try:
         parsed = sqlparse.parse(string)
@@ -243,7 +265,7 @@ def parse_filter_string(string):
         raise MlflowException("Invalid filter '{}'. Must be a single statement.".format(string),
                               error_code=INVALID_PARAMETER_VALUE)
 
-    return SearchFilter._process_statement(statement)
+    return _parse_statement(statement)
 
 
 class SearchFilter(object):
@@ -268,28 +290,6 @@ class SearchFilter(object):
     @property
     def search_expressions(self):
         return self._search_expressions
-
-    @classmethod
-    def _invalid_statement_token(cls, token):
-        if isinstance(token, SqlComparison):
-            return False
-        elif token.is_whitespace:
-            return False
-        elif token.match(ttype=SqlTokenType.Keyword, values=["AND"]):
-            return False
-        else:
-            return True
-
-    @classmethod
-    def _process_statement(cls, statement):
-        # check validity
-        invalids = list(filter(cls._invalid_statement_token, statement.tokens))
-        if len(invalids) > 0:
-            invalid_clauses = ", ".join("'%s'" % token for token in invalids)
-            raise MlflowException("Invalid clause(s) in filter string: %s" % invalid_clauses,
-                                  error_code=INVALID_PARAMETER_VALUE)
-        return [_parse_comparison(token)
-                for token in statement.tokens if isinstance(token, SqlComparison)]
 
     @classmethod
     def search_expression_to_comparison(cls, search_expression):
