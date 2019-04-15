@@ -14,7 +14,7 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
-from mlflow.utils import env, rest_utils
+from mlflow.utils import env, rest_utils, file_utils
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 
@@ -145,8 +145,7 @@ def _is_databricks_uri(uri):
 
 
 def _get_file_store(store_uri, **_):
-    path = urllib.parse.urlparse(store_uri).path if store_uri else None
-    return FileStore(path, path)
+    return FileStore(file_utils.parse_path(store_uri), store_uri)
 
 
 def _is_database_uri(uri):
