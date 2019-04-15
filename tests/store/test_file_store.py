@@ -421,6 +421,18 @@ class TestFileStore(unittest.TestCase):
             self._search(fs, exp, None, max_results=int(1e10))
         self.assertIn("Search API called with a large max_results", e.exception.message)
 
+    def test_search_with_deterministic_max_results(self):
+        fs = FileStore(self.test_root)
+        exp = fs.create_experiment("test_search_with_deterministic_max_results")
+
+        # Create 10 runs with the same start_time.
+        # Sort based on run_uuid
+        runs = sorted([fs.create_run(exp, 'user', 'r_%d' % r, 'source_type', 'source_name',
+                                'entry_point', 1000, None, [], None).info.run_uuid
+                       for r in range(10)])
+        for n in [0, 1, 2, 4, 8, 10, 20]:
+            assert(runs[:min(10, n)] == self._search(fs, exp, max_results=n))
+
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)

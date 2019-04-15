@@ -401,6 +401,7 @@ class SqlAlchemyStore(AbstractStore):
             session.merge(SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
 
     def search_runs(self, experiment_ids, search_filter, run_view_type, max_results):
+        # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Search API called with a large max_results ({}). Max threshold "
                                   "for this value is {}.".format(max_results,
@@ -411,7 +412,8 @@ class SqlAlchemyStore(AbstractStore):
                     for exp in experiment_ids
                     for run in self._list_runs(session, exp, run_view_type)]
             filtered = [run for run in runs if not search_filter or search_filter.filter(run)]
-            return sorted(filtered, key=lambda r: r.info.start_time, reverse=True)[:max_results]
+            ordering_key = lambda r: (-r.info.start_time, r.info.run_uuid)
+            return sorted(filtered, key=ordering_key)[:max_results]
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(

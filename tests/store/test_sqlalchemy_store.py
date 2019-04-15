@@ -950,6 +950,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         runs = [self._run_factory(self._get_run_configs('r_%d' % r, exp,
                                                         start_time=r)).info.run_uuid
                 for r in range(1200)]
+        # reverse the ordering, since we created in increasing order of start_time
         runs.reverse()
 
         assert(runs[:1000] == self._search(exp))
@@ -959,6 +960,16 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         with self.assertRaises(MlflowException) as e:
             self._search(exp, max_results=int(1e10))
         self.assertIn("Search API called with a large max_results", e.exception.message)
+
+    def test_search_with_deterministic_max_results(self):
+        exp = self._experiment_factory('test_search_with_deterministic_max_results')
+        # Create 10 runs with the same start_time.
+        # Sort based on run_uuid
+        runs = sorted([self._run_factory(self._get_run_configs('r_%d' % r, exp,
+                                                        start_time=10)).info.run_uuid
+                       for r in range(10)])
+        for n in [0, 1, 2, 4, 8, 10, 20]:
+            assert(runs[:min(10, n)] == self._search(exp, max_results=n))
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')

@@ -507,7 +507,8 @@ class FileStore(AbstractStore):
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self.get_run(r.run_uuid) for r in run_infos)
         filtered = [run for run in runs if not search_filter or search_filter.filter(run)]
-        return sorted(filtered, key=lambda r: r.info.start_time, reverse=True)[:max_results]
+        ordering_key = lambda r: (-r.info.start_time, r.info.run_uuid)
+        return sorted(filtered, key=ordering_key)[:max_results]
 
     def log_metric(self, run_uuid, metric):
         _validate_run_id(run_uuid)
