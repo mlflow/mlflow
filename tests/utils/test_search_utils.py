@@ -4,7 +4,8 @@ import mock
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import SearchExpression, DoubleClause, \
     MetricSearchExpression, FloatClause, ParameterSearchExpression, StringClause
-from mlflow.utils.search_utils import SearchFilter, KeyType, ComparisonOperator, Comparison
+from mlflow.utils.search_utils import SearchFilter
+from mlflow.utils.search_utils.models import KeyType, ComparisonOperator, Comparison
 
 
 def test_search_filter_basics():
