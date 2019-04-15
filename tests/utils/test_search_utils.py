@@ -1,7 +1,6 @@
 import pytest
 import mock
 
-from mlflow.entities import RunInfo, RunData, Run, SourceType, LifecycleStage, RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import SearchExpression, DoubleClause, \
     MetricSearchExpression, FloatClause, ParameterSearchExpression, StringClause
