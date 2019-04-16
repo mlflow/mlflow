@@ -94,6 +94,18 @@ class TestFileStore(unittest.TestCase):
                             f.write("%d %d\n" % (timestamp, metric_value))
                     metrics[metric_name] = values
                 self.run_data[run_uuid]["metrics"] = metrics
+                # configs
+                configs_folder = os.path.join(run_folder, FileStore.CONFIGS_FOLDER_NAME)
+                os.makedirs(configs_folder)
+                configs = {}
+                for _ in range(5):
+                    config_name = random_str(random_int(4, 12))
+                    config_value = random_str(random_int(10, 15))
+                    config_file = os.path.join(configs_folder, config_name)
+                    with open(config_file, 'w') as f:
+                        f.write(config_value)
+                    params[config_name] = config_value
+                self.run_data[run_uuid]["configs"] = configs
                 # artifacts
                 os.makedirs(os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME))
 
@@ -271,6 +283,7 @@ class TestFileStore(unittest.TestCase):
                 run_info.pop("metrics")
                 run_info.pop("params")
                 run_info.pop("tags")
+                run_info.pop("configs")
                 run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(run_info, dict(run.info))
 
@@ -284,6 +297,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info.pop("metrics")
                 dict_run_info.pop("params")
                 dict_run_info.pop("tags")
+                dict_run_info.pop("configs")
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
@@ -657,6 +671,7 @@ class TestFileStore(unittest.TestCase):
 
         def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
             raise Exception("Some internal error")
+
         with mock.patch("mlflow.store.file_store.FileStore.log_metric") as log_metric_mock, \
                 mock.patch("mlflow.store.file_store.FileStore.log_param") as log_param_mock, \
                 mock.patch("mlflow.store.file_store.FileStore.set_tag") as set_tag_mock:

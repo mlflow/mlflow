@@ -8,7 +8,7 @@ import time
 import mlflow
 import uuid
 
-from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
+from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param, Config
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
@@ -908,6 +908,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8))
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3))
 
+        self.store.log_config(r1, entities.Config("threshold", "0.5"))
+        self.store.log_config(r2, entities.Config("threshold", "0.01"))
+
         p_expr = self._param_expression("generic_param", "=", "p_val")
         m_expr = self._metric_expression("common", "=", 1.0)
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
@@ -944,15 +947,18 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         metric_entities = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
+        config_entites = [Config("c1", "c1val"), Config("c2", "c2val")]
         self.store.log_batch(
-            run_id=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
+            run_id=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities, configs=config_entites)
         run = self.store.get_run(run_uuid)
         tags = [(t.key, t.value) for t in run.data.tags]
         metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]
         params = [(p.key, p.value) for p in run.data.params]
+        configs = [(c.key, c.value) for c in run.data.configs]
         assert set([("t1", "t1val"), ("t2", "t2val")]) <= set(tags)
         assert set(metrics) == set([("m1", 0.87, 12345), ("m2", 0.49, 12345)])
         assert set(params) == set([("p1", "p1val"), ("p2", "p2val")])
+        assert set(configs) == set([("c1", "c1val"), ("c2", "c2val")])
 
     def test_log_batch_limits(self):
         # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
@@ -1079,3 +1085,23 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+
+    def test_log_config(self):
+        run = self._run_factory()
+
+        tkey = 'threshold'
+        tval = '0.5'
+        config = entities.Config(tkey, tval)
+        config2 = entities.Config('new config', 'new key')
+        self.store.log_config(run.info.run_uuid, config)
+        self.store.log_config(run.info.run_uuid, config2)
+
+        run = self.store.get_run(run.info.run_uuid)
+        self.assertEqual(2, len(run.data.configs))
+
+        found = False
+        for m in run.data.configs:
+            if m.key == tkey and m.value == tval:
+                found = True
+
+        self.assertTrue(found)
