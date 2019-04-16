@@ -17,7 +17,7 @@ test_that("mlflow_create_run()/mlflow_get_run() work properly", {
   expect_true(
     all(purrr::transpose(run$tags[[1]]) %in%
           list(list(key = "foz", value = "baz"), list(key = "foo", value = "bar"))
-        )
+    )
   )
 })
 
@@ -34,26 +34,8 @@ test_that("mlflow_set_teminated() works properly", {
   expect_identical(run_info$end_time, as.POSIXct(as.double(c(killed_time)) / 1000, origin = "1970-01-01"))
 })
 
-test_that("mlflow_create_experiment() works properly", {
-  experiment <- mlflow_create_experiment("test")
-  expect_gt(as.numeric(experiment$experiment_id), 0)
-})
-
 test_that("mlflow_set_tag() should return NULL invisibly", {
   mlflow_clear_test_dir("mlruns")
   value <- mlflow_set_tag("foo", "bar")
   expect_null(value)
-})
-
-test_that("infer experiment id works properly", {
-  mlflow_clear_test_dir("mlruns")
-  experiment_id <- mlflow_create_experiment("test")$experiment_id
-  Sys.setenv(MLFLOW_EXPERIMENT_NAME = "test")
-  expect_true(experiment_id == mlflow_infer_experiment_id())
-  Sys.unsetenv("MLFLOW_EXPERIMENT_NAME")
-  Sys.setenv(MLFLOW_EXPERIMENT_ID = experiment_id)
-  expect_true(experiment_id == mlflow_infer_experiment_id())
-  Sys.unsetenv("MLFLOW_EXPERIMENT_ID")
-  mlflow_set_experiment("test")
-  expect_true(experiment_id == mlflow_infer_experiment_id())
 })
