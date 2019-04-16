@@ -55,9 +55,9 @@ class RunData(_MLflowObject):
 
     def to_proto(self):
         run_data = ProtoRunData()
-        run_data.metrics = [m.to_proto() for m in self._metric_objs]
-        run_data.params = [ProtoParam(key=key, value=val) for key, val in self.params.items()]
-        run_data.tags = [ProtoRunTag(key=key, value=val) for key, val in self.tags.items()]
+        run_data.metrics.extend([m.to_proto() for m in self._metric_objs])
+        run_data.params.extend([ProtoParam(key=key, value=val) for key, val in self.params.items()])
+        run_data.tags.extend([ProtoRunTag(key=key, value=val) for key, val in self.tags.items()])
         return run_data
 
     def to_dictionary(self):
