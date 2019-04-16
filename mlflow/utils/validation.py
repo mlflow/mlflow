@@ -31,9 +31,9 @@ MAX_ENTITY_KEY_LENGTH = 250
 
 def bad_path_message(name):
     return (
-        "Names may be treated as files in certain cases, and must not resolve to other names"
-        " when treated as such. This name would resolve to '%s'"
-    ) % os.path.normpath(name)
+               "Names may be treated as files in certain cases, and must not resolve to other names"
+               " when treated as such. This name would resolve to '%s'"
+           ) % os.path.normpath(name)
 
 
 def path_not_unique(name):
@@ -91,6 +91,16 @@ def _validate_tag(key, value):
 
 
 def _validate_param_name(name):
+    """Check that `name` is a valid parameter name and raise an exception if it isn't."""
+    if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
+        raise MlflowException("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),
+                              INVALID_PARAMETER_VALUE)
+    if path_not_unique(name):
+        raise MlflowException("Invalid parameter name: '%s'. %s" % (name, bad_path_message(name)),
+                              INVALID_PARAMETER_VALUE)
+
+
+def _validate_config_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
         raise MlflowException("Invalid parameter name: '%s'. %s" % (name, _BAD_CHARACTERS_MESSAGE),

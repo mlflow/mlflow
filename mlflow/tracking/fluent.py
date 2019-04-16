@@ -12,7 +12,7 @@ import time
 import logging
 
 import mlflow.tracking.utils
-from mlflow.entities import Experiment, Run, SourceType, RunStatus, Param, RunTag, Metric
+from mlflow.entities import Experiment, Run, SourceType, RunStatus, Param, RunTag, Metric, Config
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -28,7 +28,6 @@ _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
 _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
-
 
 _logger = logging.getLogger(__name__)
 
@@ -175,6 +174,17 @@ def log_param(key, value):
     MlflowClient().log_param(run_id, key, value)
 
 
+def log_config(key, value):
+    """
+    Log a config under the current run, creating a run if necessary.
+
+    :param key: Config name (string)
+    :param value: Config value (string, but will be string-ified if not)
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    MlflowClient().log_config(run_id, key, value)
+
+
 def set_tag(key, value):
     """
     Set a tag under the current run, creating a run if necessary.
@@ -219,6 +229,18 @@ def log_params(params):
     run_id = _get_or_start_run().info.run_uuid
     params_arr = [Param(key, value) for key, value in params.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
+
+def log_configs(configs):
+    """
+    Log a batch of configs for the current run, starting a run if no runs are active.
+    :param configs: Dictionary of config_name: String -> value: (String, but will be string-ified if
+                   not)
+    :returns: None
+    """
+    run_id = _get_or_start_run().info.run_uuid
+    configs_arr = [Config(key, value) for key, value in configs.items()]
+    MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=[], configs=configs_arr)
 
 
 def set_tags(tags):

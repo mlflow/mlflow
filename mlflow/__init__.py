@@ -46,6 +46,7 @@ _configure_mlflow_loggers(root_module_name=__name__)
 
 ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param
+log_config = mlflow.tracking.fluent.log_config
 log_metric = mlflow.tracking.fluent.log_metric
 set_tag = mlflow.tracking.fluent.set_tag
 log_artifacts = mlflow.tracking.fluent.log_artifacts
@@ -59,6 +60,7 @@ get_tracking_uri = tracking.get_tracking_uri
 create_experiment = mlflow.tracking.fluent.create_experiment
 set_experiment = mlflow.tracking.fluent.set_experiment
 log_params = mlflow.tracking.fluent.log_params
+log_configs = mlflow.tracking.fluent.log_configs
 log_metrics = mlflow.tracking.fluent.log_metrics
 set_tags = mlflow.tracking.fluent.set_tags
 

@@ -11,8 +11,8 @@ from six import iteritems
 from mlflow.tracking import utils
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
-    _validate_experiment_name, _validate_metric
-from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
+    _validate_experiment_name, _validate_metric, _validate_config_name
+from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType, Config
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
     MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
@@ -175,6 +175,14 @@ class MlflowClient(object):
         param = Param(key, str(value))
         self.store.log_param(run_id, param)
 
+    def log_config(self, run_id, key, value):
+        """
+        Log a config against the run ID.
+        """
+        _validate_config_name(key)
+        config = Config(key, value)
+        self.store.log_config(run_id, config)
+
     def set_tag(self, run_id, key, value):
         """
         Set a tag on the run ID. Value is converted to a string.
@@ -183,13 +191,14 @@ class MlflowClient(object):
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
-    def log_batch(self, run_id, metrics, params, tags):
+    def log_batch(self, run_id, metrics, params, tags, configs=None):
         """
         Log multiple metrics, params, and/or tags.
 
         :param metrics: List of Metric(key, value, timestamp) instances.
         :param params: List of Param(key, value) instances.
         :param tags: List of RunTag(key, value) instances.
+        :param configs: List of Config(key, value) instances.
 
         Raises an MlflowException if any errors occur.
         :returns: None
@@ -200,7 +209,10 @@ class MlflowClient(object):
             _validate_param_name(param.key)
         for tag in tags:
             _validate_tag_name(tag.key)
-        self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+        configs = configs or []
+        for config in configs:
+            _validate_config_name(config.key)
+        self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags, configs=configs)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """

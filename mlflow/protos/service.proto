@@ -196,6 +196,23 @@ service MlflowService {
     };
   }
 
+  // Log a config used for a run. A config is a key-value pair (string key,
+  // string value). Examples include hyperparameters used for ML model training and
+  // constant dates and values used in an ETL pipeline. A config can be logged only once for a run.
+  //
+  rpc logConfig(LogConfig) returns (LogConfig.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/runs/log-config"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Log Config",
+    };
+  }
+
   // Set a tag on a run. Tags are run metadata that can be updated during a run and after
   // a run completes.
   //
@@ -411,6 +428,15 @@ message Param {
   optional string value = 2;
 }
 
+// Config associated with a run.
+message Config {
+  // Key identifying this config.
+  optional string key = 1;
+
+  // Value associated with this config.
+  optional string value = 2;
+}
+
 // A single run.
 message Run {
   // Run metadata.
@@ -428,6 +454,9 @@ message RunData {
 
   // Additional metadata key-value pairs.
   repeated RunTag tags = 3;
+
+  // Additional metadata key-value pairs.
+  repeated Config configs = 4;
 }
 
 // Tag for a run.
@@ -713,6 +742,22 @@ message LogParam {
   }
 }
 
+message LogConfig {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run under which to log the param.
+  optional string run_uuid = 1 [(validate_required) = true];
+
+  // Name of the param. Maximum size is 255 bytes.
+  optional string key = 2 [(validate_required) = true];
+
+  // String value of the param being logged. Maximum size is 500 bytes.
+  optional string value = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -911,6 +956,8 @@ message LogBatch {
   // Tags to log. A single request can contain up to 100 tags, and up to 1000
   // metrics, params, and tags in total.
   repeated RunTag tags = 4;
+  // Configs to log
+  repeated Config configs = 5;
   message Response {
   }
 }

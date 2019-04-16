@@ -8,13 +8,13 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.entities import Metric, Param, RunTag, ViewType, Config
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, LogConfig
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _is_database_uri, _is_local_uri
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
@@ -84,6 +84,7 @@ def catch_mlflow_exception(func):
             response.set_data(e.serialize_as_json())
             response.status_code = 500
             return response
+
     return wrapper
 
 
@@ -255,6 +256,17 @@ def _log_param():
 
 
 @catch_mlflow_exception
+def _log_config():
+    request_message = _get_request_message(LogConfig())
+    config = Config(request_message.key, request_message.value)
+    _get_store().log_config(request_message.run_uuid, config)
+    response_message = LogConfig.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _set_tag():
     request_message = _get_request_message(SetTag())
     tag = RunTag(request_message.key, request_message.value)
@@ -344,7 +356,8 @@ def _log_batch():
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
-    _get_store().log_batch(run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
+    configs = [Config.from_proto(proto_config) for proto_config in request_message.configs]
+    _get_store().log_batch(run_id=request_message.run_id, metrics=metrics, params=params, tags=tags, configs=configs)
     response_message = LogBatch.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -385,6 +398,7 @@ HANDLERS = {
     UpdateRun: _update_run,
     DeleteRun: _delete_run,
     RestoreRun: _restore_run,
+    LogConfig: _log_config,
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetTag: _set_tag,

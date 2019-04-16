@@ -5,12 +5,11 @@ from sqlalchemy import (
     BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
-    Experiment, RunTag, Metric, Param, RunData, RunInfo,
+    Experiment, RunTag, Metric, Param, RunData, RunInfo, Config,
     SourceType, RunStatus, Run, ViewType)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 
 Base = declarative_base()
-
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),
@@ -29,7 +28,6 @@ RunStatusTypes = [
 
 
 def _create_entity(base, model):
-
     # create dict of kwargs properties for entity and return the initialized entity
     config = {}
     for k in base._properties():
@@ -45,15 +43,17 @@ def _create_entity(base, model):
                     metrics = {}
                     for o in obj:
                         existing_metric = metrics.get(o.key)
-                        if (existing_metric is None) or (o.timestamp > existing_metric.timestamp)\
-                            or (o.timestamp == existing_metric.timestamp
-                                and o.value > existing_metric.value):
+                        if (existing_metric is None) or (o.timestamp > existing_metric.timestamp) \
+                                or (o.timestamp == existing_metric.timestamp
+                                    and o.value > existing_metric.value):
                             metrics[o.key] = Metric(o.key, o.value, o.timestamp)
                     obj = metrics.values()
                 elif k == 'params':
                     obj = [Param(o.key, o.value) for o in obj]
                 elif k == 'tags':
                     obj = [RunTag(o.key, o.value) for o in obj]
+                elif k == 'configs':
+                    obj = [Config(o.key, o.value) for o in obj]
             elif base is RunInfo:
                 if k == 'source_type':
                     obj = SourceType.from_string(obj)
@@ -311,3 +311,40 @@ class SqlParam(Base):
         :return: :py:class:`mlflow.entities.Param`.
         """
         return _create_entity(Param, self)
+
+
+class SqlConfig(Base):
+    __tablename__ = 'configs'
+
+    key = Column(String(250))
+    """
+    Param key: `String` (limit 250 characters). Part of *Primary Key* for ``configs`` table.
+    """
+    value = Column(String(1000), nullable=False)
+    """
+    Param value: `String` (limit 1000 characters). Defined as *Non-null* in schema.
+    """
+    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
+    """
+    Run UUID to which this metric belongs to: Part of *Primary Key* for ``params`` table.
+                                              *Foreign Key* into ``runs`` table.
+    """
+    run = relationship('SqlRun', backref=backref('configs', cascade='all'))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint('key', 'run_uuid', name='config_pk'),
+    )
+
+    def __repr__(self):
+        return '<SqlConfig({}, {})>'.format(self.key, self.value)
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        :return: :py:class:`mlflow.entities.Config`.
+        """
+        return _create_entity(Config, self)

@@ -1,4 +1,5 @@
 from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities.config import Config
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
@@ -9,10 +10,12 @@ class RunData(_MLflowObject):
     """
     Run data (metrics and parameters).
     """
-    def __init__(self, metrics=None, params=None, tags=None):
+
+    def __init__(self, metrics=None, params=None, tags=None, configs=None):
         self._metrics = []
         self._params = []
         self._tags = []
+        self._configs = []
         if metrics is not None:
             for m in metrics:
                 self._add_metric(m)
@@ -22,6 +25,9 @@ class RunData(_MLflowObject):
         if tags is not None:
             for t in tags:
                 self._add_tag(t)
+        if configs is not None:
+            for c in configs:
+                self._add_config(c)
 
     @property
     def metrics(self):
@@ -38,6 +44,11 @@ class RunData(_MLflowObject):
         """List of :py:class:`mlflow.entities.RunTag` for the current run."""
         return self._tags
 
+    @property
+    def configs(self):
+        """List of :py:class:`mlflow.entities.Config` for the current run."""
+        return self._configs
+
     def _add_metric(self, metric):
         if isinstance(metric, dict):
             metric = Metric(metric['key'], metric['value'], metric['timestamp'])
@@ -53,11 +64,17 @@ class RunData(_MLflowObject):
             tag = RunTag(tag['key'], tag['value'])
         self._tags.append(tag)
 
+    def _add_config(self, config):
+        if isinstance(config, dict):
+            config = Config(config['key'], config['value'])
+        self._configs.append(config)
+
     def to_proto(self):
         run_data = ProtoRunData()
         run_data.metrics.extend([m.to_proto() for m in self.metrics])
         run_data.params.extend([p.to_proto() for p in self.params])
         run_data.tags.extend([t.to_proto() for t in self.tags])
+        run_data.configs.extend([t.to_proto() for t in self.configs])
         return run_data
 
     def to_dictionary(self):
@@ -73,6 +90,8 @@ class RunData(_MLflowObject):
             run_data._add_param(Param.from_proto(proto_param))
         for proto_tag in proto.tags:
             run_data._add_tag(RunTag.from_proto(proto_tag))
+        for proto_config in proto.configs:
+            run_data._add_config(Config.from_proto(proto_config))
 
         return run_data
 
@@ -85,4 +104,6 @@ class RunData(_MLflowObject):
             run_data._add_param(p)
         for t in the_dict.get("tags", []):
             run_data._add_tag(t)
+        for c in the_dict.get("configs", []):
+            run_data._add_config(c)
         return run_data
