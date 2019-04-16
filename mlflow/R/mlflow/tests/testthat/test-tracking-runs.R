@@ -27,7 +27,7 @@ test_that("mlflow_set_teminated() works properly", {
   killed_time <- mlflow:::current_time()
   client <- mlflow_client()
   run_info <- mlflow_set_terminated(
-    client = client, run_id = mlflow_get_active_run()$run_uuid,
+    client = client, run_id = mlflow_get_active_run_id(),
     status = "KILLED", end_time = killed_time
   )
   expect_identical(run_info$status, "KILLED")
