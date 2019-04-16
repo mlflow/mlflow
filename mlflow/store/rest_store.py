@@ -215,7 +215,7 @@ class RestStore(AbstractStore):
         :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
             search expression or filter string.
         :param run_view_type: ACTIVE, DELETED, or ALL runs.
-        :param max_results: Maximum number of runs desired. Default 1000.
+        :param max_results: Maximum number of runs desired.
 
         :return: A list of Run objects that satisfy the search expressions
         """

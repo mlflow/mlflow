@@ -286,7 +286,10 @@ class MlflowClient(object):
         :param filter_string: Filter query string.
         :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                               defined in :py:class:`mlflow.entities.ViewType`.
-        :return:
+        :param max_results: Maximum number of runs desired.
+
+        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
+            expressions
         """
         return self.store.search_runs(experiment_ids=experiment_ids,
                                       search_filter=SearchFilter(filter_string=filter_string),

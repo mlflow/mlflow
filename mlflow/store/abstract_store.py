@@ -208,7 +208,7 @@ class AbstractStore:
         :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
             search expression or filter string
         :param run_view_type: ACTIVE, DELETED, or ALL runs
-        :param max_results: Maximum number of runs desired. Default: 1000
+        :param max_results: Maximum number of runs desired.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
@@ -217,8 +217,7 @@ class AbstractStore:
 
     def list_run_infos(self, experiment_id, run_view_type):
         """
-        Return run information for runs which belong to the experiment_id. For experiments that
-        have a lot of runs, this API returns 1000 latest runs, by start_time.
+        Return run information for runs which belong to the experiment_id.
 
         :param experiment_id: The experiment id which to search
 
