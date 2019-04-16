@@ -587,7 +587,7 @@ class TestFileStore(unittest.TestCase):
 
     def test_malformed_run(self):
         fs = FileStore(self.test_root)
-        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        exp_0 = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
         all_runs = self._search(fs, exp_0.experiment_id)
 
         all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
@@ -632,7 +632,7 @@ class TestFileStore(unittest.TestCase):
 
     def test_bad_experiment_id_recorded_for_run(self):
         fs = FileStore(self.test_root)
-        exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
+        exp_0 = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
         all_runs = self._search(fs, exp_0.experiment_id)
 
         all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
