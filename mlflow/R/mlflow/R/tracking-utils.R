@@ -168,3 +168,26 @@ new_mlflow_experiment <- function(x) {
 new_mlflow_run <- function(x) {
   tibble::new_tibble(x, nrow = 1, class = "mlflow_run")
 }
+
+
+#' Extracts the Object ID
+#'
+#' Extracts the ID of the run or experiment.
+#'
+#' @param object An `mlflow_run` or `mlflow_experiment` object.
+#' @export
+mlflow_id <- function(object) {
+  UseMethod("mlflow_id")
+}
+
+#' @rdname mlflow_id
+#' @export
+mlflow_id.mlflow_run <- function(object) {
+  object$run_uuid %||% stop("Cannot extract Run ID.", call. = FALSE)
+}
+
+#' @rdname mlflow_id
+#' @export
+mlflow_id.mlflow_experiment <- function(object) {
+  object$experiment_id %||% stop("Cannot extract Experiment ID.", call. = FALSE)
+}
