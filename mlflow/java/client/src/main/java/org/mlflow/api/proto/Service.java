@@ -36260,6 +36260,23 @@ public final class Service {
      * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
      */
     org.mlflow.api.proto.Service.ViewType getRunViewType();
+
+    /**
+     * <pre>
+     * Maximum number of runs desired. Max threshold is 50000
+     * </pre>
+     *
+     * <code>optional int32 max_results = 5 [default = 1000];</code>
+     */
+    boolean hasMaxResults();
+    /**
+     * <pre>
+     * Maximum number of runs desired. Max threshold is 50000
+     * </pre>
+     *
+     * <code>optional int32 max_results = 5 [default = 1000];</code>
+     */
+    int getMaxResults();
   }
   /**
    * Protobuf type {@code mlflow.SearchRuns}
@@ -36278,6 +36295,7 @@ public final class Service {
       andedExpressions_ = java.util.Collections.emptyList();
       filter_ = "";
       runViewType_ = 1;
+      maxResults_ = 1000;
     }
 
     @java.lang.Override
@@ -36350,6 +36368,11 @@ public final class Service {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000001;
               filter_ = bs;
+              break;
+            }
+            case 40: {
+              bitField0_ |= 0x00000004;
+              maxResults_ = input.readInt32();
               break;
             }
             default: {
@@ -37498,6 +37521,29 @@ public final class Service {
       return result == null ? org.mlflow.api.proto.Service.ViewType.ACTIVE_ONLY : result;
     }
 
+    public static final int MAX_RESULTS_FIELD_NUMBER = 5;
+    private int maxResults_;
+    /**
+     * <pre>
+     * Maximum number of runs desired. Max threshold is 50000
+     * </pre>
+     *
+     * <code>optional int32 max_results = 5 [default = 1000];</code>
+     */
+    public boolean hasMaxResults() {
+      return ((bitField0_ & 0x00000004) == 0x00000004);
+    }
+    /**
+     * <pre>
+     * Maximum number of runs desired. Max threshold is 50000
+     * </pre>
+     *
+     * <code>optional int32 max_results = 5 [default = 1000];</code>
+     */
+    public int getMaxResults() {
+      return maxResults_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -37523,6 +37569,9 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, filter_);
+      }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        output.writeInt32(5, maxResults_);
       }
       unknownFields.writeTo(output);
     }
@@ -37553,6 +37602,10 @@ public final class Service {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, filter_);
       }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeInt32Size(5, maxResults_);
+      }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
       return size;
@@ -37582,6 +37635,11 @@ public final class Service {
       if (hasRunViewType()) {
         result = result && runViewType_ == other.runViewType_;
       }
+      result = result && (hasMaxResults() == other.hasMaxResults());
+      if (hasMaxResults()) {
+        result = result && (getMaxResults()
+            == other.getMaxResults());
+      }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -37608,6 +37666,10 @@ public final class Service {
       if (hasRunViewType()) {
         hash = (37 * hash) + RUN_VIEW_TYPE_FIELD_NUMBER;
         hash = (53 * hash) + runViewType_;
+      }
+      if (hasMaxResults()) {
+        hash = (37 * hash) + MAX_RESULTS_FIELD_NUMBER;
+        hash = (53 * hash) + getMaxResults();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -37755,6 +37817,8 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000004);
         runViewType_ = 1;
         bitField0_ = (bitField0_ & ~0x00000008);
+        maxResults_ = 1000;
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -37805,6 +37869,10 @@ public final class Service {
           to_bitField0_ |= 0x00000002;
         }
         result.runViewType_ = runViewType_;
+        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.maxResults_ = maxResults_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -37897,6 +37965,9 @@ public final class Service {
         }
         if (other.hasRunViewType()) {
           setRunViewType(other.getRunViewType());
+        }
+        if (other.hasMaxResults()) {
+          setMaxResults(other.getMaxResults());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -38589,6 +38660,54 @@ public final class Service {
       public Builder clearRunViewType() {
         bitField0_ = (bitField0_ & ~0x00000008);
         runViewType_ = 1;
+        onChanged();
+        return this;
+      }
+
+      private int maxResults_ = 1000;
+      /**
+       * <pre>
+       * Maximum number of runs desired. Max threshold is 50000
+       * </pre>
+       *
+       * <code>optional int32 max_results = 5 [default = 1000];</code>
+       */
+      public boolean hasMaxResults() {
+        return ((bitField0_ & 0x00000010) == 0x00000010);
+      }
+      /**
+       * <pre>
+       * Maximum number of runs desired. Max threshold is 50000
+       * </pre>
+       *
+       * <code>optional int32 max_results = 5 [default = 1000];</code>
+       */
+      public int getMaxResults() {
+        return maxResults_;
+      }
+      /**
+       * <pre>
+       * Maximum number of runs desired. Max threshold is 50000
+       * </pre>
+       *
+       * <code>optional int32 max_results = 5 [default = 1000];</code>
+       */
+      public Builder setMaxResults(int value) {
+        bitField0_ |= 0x00000010;
+        maxResults_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Maximum number of runs desired. Max threshold is 50000
+       * </pre>
+       *
+       * <code>optional int32 max_results = 5 [default = 1000];</code>
+       */
+      public Builder clearMaxResults() {
+        bitField0_ = (bitField0_ & ~0x00000010);
+        maxResults_ = 1000;
         onChanged();
         return this;
       }
@@ -47400,98 +47519,99 @@ public final class Service {
       "e\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"0\n\013" +
       "FloatClause\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005value" +
       "\030\002 \001(\002\"1\n\014DoubleClause\022\022\n\ncomparator\030\001 \001" +
-      "(\t\022\r\n\005value\030\002 \001(\001\"\363\001\n\nSearchRuns\022\026\n\016expe" +
+      "(\t\022\r\n\005value\030\002 \001(\001\"\216\002\n\nSearchRuns\022\026\n\016expe" +
       "riment_ids\030\001 \003(\003\0223\n\021anded_expressions\030\002 " +
       "\003(\0132\030.mlflow.SearchExpression\022\016\n\006filter\030" +
       "\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020.mlflow.Vi" +
-      "ewType:\013ACTIVE_ONLY\032%\n\010Response\022\031\n\004runs\030" +
-      "\001 \003(\0132\013.mlflow.Run:+\342?(\n&com.databricks." +
-      "rpc.RPC[$this.Response]\"\233\001\n\rListArtifact" +
-      "s\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Res" +
-      "ponse\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020" +
-      ".mlflow.FileInfo:+\342?(\n&com.databricks.rp" +
-      "c.RPC[$this.Response]\";\n\010FileInfo\022\014\n\004pat" +
-      "h\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001" +
-      "(\003\"f\n\013GetArtifact\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004p" +
-      "ath\030\002 \001(\t\032\n\n\010Response:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\236\001\n\020GetMetric" +
-      "History\022\026\n\010run_uuid\030\001 \001(\tB\004\210\265\030\001\022\030\n\nmetri" +
-      "c_key\030\002 \001(\tB\004\210\265\030\001\032+\n\010Response\022\037\n\007metrics" +
-      "\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"\261\001\n\010LogBatch" +
-      "\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlfl" +
-      "ow.Metric\022\035\n\006params\030\003 \003(\0132\r.mlflow.Param" +
-      "\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032\n\n\010Respon" +
-      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014" +
-      "DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n" +
-      "\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOC" +
-      "AL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNI" +
-      "NG\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAI" +
-      "LED\020\004\022\n\n\006KILLED\020\0052\271\023\n\rMlflowService\022\234\001\n\020" +
-      "createExperiment\022\030.mlflow.CreateExperime" +
-      "nt\032!.mlflow.CreateExperiment.Response\"K\202" +
-      "\265\030G\n0\n\004POST\022\"/preview/mlflow/experiments" +
-      "/create\032\004\010\002\020\000\020\001*\021Create Experiment\022\225\001\n\017l" +
-      "istExperiments\022\027.mlflow.ListExperiments\032" +
-      " .mlflow.ListExperiments.Response\"G\202\265\030C\n" +
-      "-\n\003GET\022 /preview/mlflow/experiments/list" +
-      "\032\004\010\002\020\000\020\001*\020List Experiments\022\214\001\n\rgetExperi" +
-      "ment\022\025.mlflow.GetExperiment\032\036.mlflow.Get" +
-      "Experiment.Response\"D\202\265\030@\n,\n\003GET\022\037/previ" +
-      "ew/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Get E" +
-      "xperiment\022\234\001\n\020deleteExperiment\022\030.mlflow." +
-      "DeleteExperiment\032!.mlflow.DeleteExperime" +
-      "nt.Response\"K\202\265\030G\n0\n\004POST\022\"/preview/mlfl" +
-      "ow/experiments/delete\032\004\010\002\020\000\020\001*\021Delete Ex" +
-      "periment\022\241\001\n\021restoreExperiment\022\031.mlflow." +
-      "RestoreExperiment\032\".mlflow.RestoreExperi" +
-      "ment.Response\"M\202\265\030I\n1\n\004POST\022#/preview/ml" +
-      "flow/experiments/restore\032\004\010\002\020\000\020\001*\022Restor" +
-      "e Experiment\022\234\001\n\020updateExperiment\022\030.mlfl" +
-      "ow.UpdateExperiment\032!.mlflow.UpdateExper" +
-      "iment.Response\"K\202\265\030G\n0\n\004POST\022\"/preview/m" +
-      "lflow/experiments/update\032\004\010\002\020\000\020\001*\021Update" +
-      " Experiment\022y\n\tcreateRun\022\021.mlflow.Create" +
-      "Run\032\032.mlflow.CreateRun.Response\"=\202\265\0309\n)\n" +
-      "\004POST\022\033/preview/mlflow/runs/create\032\004\010\002\020\000" +
-      "\020\001*\nCreate Run\022y\n\tupdateRun\022\021.mlflow.Upd" +
-      "ateRun\032\032.mlflow.UpdateRun.Response\"=\202\265\0309" +
-      "\n)\n\004POST\022\033/preview/mlflow/runs/update\032\004\010" +
-      "\002\020\000\020\001*\nUpdate Run\022m\n\tdeleteRun\022\021.mlflow." +
-      "DeleteRun\032\032.mlflow.DeleteRun.Response\"1\202" +
-      "\265\030-\n)\n\004POST\022\033/preview/mlflow/runs/delete" +
-      "\032\004\010\002\020\000\020\001\022q\n\nrestoreRun\022\022.mlflow.RestoreR" +
-      "un\032\033.mlflow.RestoreRun.Response\"2\202\265\030.\n*\n" +
-      "\004POST\022\034/preview/mlflow/runs/restore\032\004\010\002\020" +
-      "\000\020\001\022}\n\tlogMetric\022\021.mlflow.LogMetric\032\032.ml" +
-      "flow.LogMetric.Response\"A\202\265\030=\n-\n\004POST\022\037/" +
-      "preview/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\n" +
-      "Log Metric\022|\n\010logParam\022\020.mlflow.LogParam" +
-      "\032\031.mlflow.LogParam.Response\"C\202\265\030?\n0\n\004POS" +
-      "T\022\"/preview/mlflow/runs/log-parameter\032\004\010" +
-      "\002\020\000\020\001*\tLog Param\022n\n\006setTag\022\016.mlflow.SetT" +
-      "ag\032\027.mlflow.SetTag.Response\";\202\265\0307\n*\n\004POS" +
-      "T\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*" +
-      "\007Set Tag\022i\n\006getRun\022\016.mlflow.GetRun\032\027.mlf" +
-      "low.GetRun.Response\"6\202\265\0302\n%\n\003GET\022\030/previ" +
-      "ew/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\247\001\n\n" +
-      "searchRuns\022\022.mlflow.SearchRuns\032\033.mlflow." +
-      "SearchRuns.Response\"h\202\265\030d\n)\n\004POST\022\033/prev" +
-      "iew/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/pr" +
-      "eview/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search" +
-      " Runs\022\213\001\n\rlistArtifacts\022\025.mlflow.ListArt" +
-      "ifacts\032\036.mlflow.ListArtifacts.Response\"C" +
-      "\202\265\030?\n+\n\003GET\022\036/preview/mlflow/artifacts/l" +
-      "ist\032\004\010\002\020\000\020\001*\016List Artifacts\022\235\001\n\020getMetri" +
-      "cHistory\022\030.mlflow.GetMetricHistory\032!.mlf" +
-      "low.GetMetricHistory.Response\"L\202\265\030H\n0\n\003G" +
-      "ET\022#/preview/mlflow/metrics/get-history\032" +
-      "\004\010\002\020\000\020\001*\022Get Metric History\022x\n\010logBatch\022" +
-      "\020.mlflow.LogBatch\032\031.mlflow.LogBatch.Resp" +
-      "onse\"?\202\265\030;\n,\n\004POST\022\036/preview/mlflow/runs" +
-      "/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036\n\024org.mlf" +
-      "low.api.proto\220\001\001\342?\002\020\001"
+      "ewType:\013ACTIVE_ONLY\022\031\n\013max_results\030\005 \001(\005" +
+      ":\0041000\032%\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflo" +
+      "w.Run:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\233\001\n\rListArtifacts\022\020\n\010run_uuid" +
+      "\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010root" +
+      "_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileI" +
+      "nfo:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is" +
+      "_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"f\n\013GetArti" +
+      "fact\022\020\n\010run_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032\n\n\010" +
+      "Response:+\342?(\n&com.databricks.rpc.RPC[$t" +
+      "his.Response]\"\236\001\n\020GetMetricHistory\022\026\n\010ru" +
+      "n_uuid\030\001 \001(\tB\004\210\265\030\001\022\030\n\nmetric_key\030\002 \001(\tB\004" +
+      "\210\265\030\001\032+\n\010Response\022\037\n\007metrics\030\001 \003(\0132\016.mlfl" +
+      "ow.Metric:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 " +
+      "\001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006" +
+      "params\030\003 \003(\0132\r.mlflow.Param\022\034\n\004tags\030\004 \003(" +
+      "\0132\016.mlflow.RunTag\032\n\n\010Response:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]*6\n\010Vi" +
+      "ewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020" +
+      "\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007" +
+      "\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNO" +
+      "WN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHED" +
+      "ULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILL" +
+      "ED\020\0052\271\023\n\rMlflowService\022\234\001\n\020createExperim" +
+      "ent\022\030.mlflow.CreateExperiment\032!.mlflow.C" +
+      "reateExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"" +
+      "/preview/mlflow/experiments/create\032\004\010\002\020\000" +
+      "\020\001*\021Create Experiment\022\225\001\n\017listExperiment" +
+      "s\022\027.mlflow.ListExperiments\032 .mlflow.List" +
+      "Experiments.Response\"G\202\265\030C\n-\n\003GET\022 /prev" +
+      "iew/mlflow/experiments/list\032\004\010\002\020\000\020\001*\020Lis" +
+      "t Experiments\022\214\001\n\rgetExperiment\022\025.mlflow" +
+      ".GetExperiment\032\036.mlflow.GetExperiment.Re" +
+      "sponse\"D\202\265\030@\n,\n\003GET\022\037/preview/mlflow/exp" +
+      "eriments/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\234\001\n" +
+      "\020deleteExperiment\022\030.mlflow.DeleteExperim" +
+      "ent\032!.mlflow.DeleteExperiment.Response\"K" +
+      "\202\265\030G\n0\n\004POST\022\"/preview/mlflow/experiment" +
+      "s/delete\032\004\010\002\020\000\020\001*\021Delete Experiment\022\241\001\n\021" +
+      "restoreExperiment\022\031.mlflow.RestoreExperi" +
+      "ment\032\".mlflow.RestoreExperiment.Response" +
+      "\"M\202\265\030I\n1\n\004POST\022#/preview/mlflow/experime" +
+      "nts/restore\032\004\010\002\020\000\020\001*\022Restore Experiment\022" +
+      "\234\001\n\020updateExperiment\022\030.mlflow.UpdateExpe" +
+      "riment\032!.mlflow.UpdateExperiment.Respons" +
+      "e\"K\202\265\030G\n0\n\004POST\022\"/preview/mlflow/experim" +
+      "ents/update\032\004\010\002\020\000\020\001*\021Update Experiment\022y" +
+      "\n\tcreateRun\022\021.mlflow.CreateRun\032\032.mlflow." +
+      "CreateRun.Response\"=\202\265\0309\n)\n\004POST\022\033/previ" +
+      "ew/mlflow/runs/create\032\004\010\002\020\000\020\001*\nCreate Ru" +
+      "n\022y\n\tupdateRun\022\021.mlflow.UpdateRun\032\032.mlfl" +
+      "ow.UpdateRun.Response\"=\202\265\0309\n)\n\004POST\022\033/pr" +
+      "eview/mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate" +
+      " Run\022m\n\tdeleteRun\022\021.mlflow.DeleteRun\032\032.m" +
+      "lflow.DeleteRun.Response\"1\202\265\030-\n)\n\004POST\022\033" +
+      "/preview/mlflow/runs/delete\032\004\010\002\020\000\020\001\022q\n\nr" +
+      "estoreRun\022\022.mlflow.RestoreRun\032\033.mlflow.R" +
+      "estoreRun.Response\"2\202\265\030.\n*\n\004POST\022\034/previ" +
+      "ew/mlflow/runs/restore\032\004\010\002\020\000\020\001\022}\n\tlogMet" +
+      "ric\022\021.mlflow.LogMetric\032\032.mlflow.LogMetri" +
+      "c.Response\"A\202\265\030=\n-\n\004POST\022\037/preview/mlflo" +
+      "w/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022|\n" +
+      "\010logParam\022\020.mlflow.LogParam\032\031.mlflow.Log" +
+      "Param.Response\"C\202\265\030?\n0\n\004POST\022\"/preview/m" +
+      "lflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Pa" +
+      "ram\022n\n\006setTag\022\016.mlflow.SetTag\032\027.mlflow.S" +
+      "etTag.Response\";\202\265\0307\n*\n\004POST\022\034/preview/m" +
+      "lflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022i\n\006g" +
+      "etRun\022\016.mlflow.GetRun\032\027.mlflow.GetRun.Re" +
+      "sponse\"6\202\265\0302\n%\n\003GET\022\030/preview/mlflow/run" +
+      "s/get\032\004\010\002\020\000\020\001*\007Get Run\022\247\001\n\nsearchRuns\022\022." +
+      "mlflow.SearchRuns\032\033.mlflow.SearchRuns.Re" +
+      "sponse\"h\202\265\030d\n)\n\004POST\022\033/preview/mlflow/ru" +
+      "ns/search\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/" +
+      "runs/search\032\004\010\002\020\000\020\001*\013Search Runs\022\213\001\n\rlis" +
+      "tArtifacts\022\025.mlflow.ListArtifacts\032\036.mlfl" +
+      "ow.ListArtifacts.Response\"C\202\265\030?\n+\n\003GET\022\036" +
+      "/preview/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016" +
+      "List Artifacts\022\235\001\n\020getMetricHistory\022\030.ml" +
+      "flow.GetMetricHistory\032!.mlflow.GetMetric" +
+      "History.Response\"L\202\265\030H\n0\n\003GET\022#/preview/" +
+      "mlflow/metrics/get-history\032\004\010\002\020\000\020\001*\022Get " +
+      "Metric History\022x\n\010logBatch\022\020.mlflow.LogB" +
+      "atch\032\031.mlflow.LogBatch.Response\"?\202\265\030;\n,\n" +
+      "\004POST\022\036/preview/mlflow/runs/log-batch\032\004\010" +
+      "\002\020\000\020\001*\tLog BatchB\036\n\024org.mlflow.api.proto" +
+      "\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -47758,7 +47878,7 @@ public final class Service {
     internal_static_mlflow_SearchRuns_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_descriptor,
-        new java.lang.String[] { "ExperimentIds", "AndedExpressions", "Filter", "RunViewType", });
+        new java.lang.String[] { "ExperimentIds", "AndedExpressions", "Filter", "RunViewType", "MaxResults", });
     internal_static_mlflow_SearchRuns_Response_descriptor =
       internal_static_mlflow_SearchRuns_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_SearchRuns_Response_fieldAccessorTable = new

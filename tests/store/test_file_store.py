@@ -12,6 +12,7 @@ import pytest
 
 from mlflow.entities import Experiment, Metric, Param, RunTag, ViewType, LifecycleStage
 from mlflow.exceptions import MlflowException, MissingConfigException
+from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
@@ -344,18 +345,19 @@ class TestFileStore(unittest.TestCase):
                         self.assertEqual(metric.key, metric_name)
                         self.assertEqual(metric.value, metric_value)
 
+    def _search(self, fs, experiment_id, filter_str=None,
+                run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
+        search_filter = SearchFilter(filter_string=filter_str) if filter_str else None
+        return [r.info.run_uuid
+                for r in fs.search_runs([experiment_id], search_filter, run_view_type, max_results)]
+
     def test_search_runs(self):
         # replace with test with code is implemented
         fs = FileStore(self.test_root)
         # Expect 2 runs for each experiment
-        assert len(fs.search_runs([self.experiments[0]], None, ViewType.ACTIVE_ONLY)) == 2
-        assert len(fs.search_runs([self.experiments[0]], None, ViewType.ALL)) == 2
-        assert len(fs.search_runs([self.experiments[0]], None, ViewType.DELETED_ONLY)) == 0
-
-    def _search_with_filter_string(self, fs, experiment_id, filter_str, run_view_type=ViewType.ALL):
-        search_filter = SearchFilter(filter_string=filter_str)
-        return [r.info.run_uuid
-                for r in fs.search_runs([experiment_id], search_filter, run_view_type)]
+        assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.ACTIVE_ONLY)) == 2
+        assert len(self._search(fs, self.experiments[0])) == 2
+        assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.DELETED_ONLY)) == 0
 
     def test_search_tags(self):
         fs = FileStore(self.test_root)
@@ -377,25 +379,59 @@ class TestFileStore(unittest.TestCase):
         fs.set_tag(r2, RunTag('p_b', 'ABC'))
 
         # test search returns both runs
-        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
-            fs, experiment_id, "tags.generic_tag = 'p_val'"))
+        six.assertCountEqual(self, [r1, r2], self._search(fs, experiment_id,
+                                                          filter_str="tags.generic_tag = 'p_val'"))
         # test search returns appropriate run (same key different values per run)
-        six.assertCountEqual(self, [r1], self._search_with_filter_string(
-            fs, experiment_id, "tags.generic_2 = 'some value'"))
-        six.assertCountEqual(self, [r2], self._search_with_filter_string(
-            fs, experiment_id, "tags.generic_2 = 'another value'"))
-        six.assertCountEqual(self, [], self._search_with_filter_string(
-            fs, experiment_id, "tags.generic_tag = 'wrong_val'"))
-        six.assertCountEqual(self, [], self._search_with_filter_string(
-            fs, experiment_id, "tags.generic_tag != 'p_val'"))
-        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
-            fs, experiment_id, "tags.generic_tag != 'wrong_val'"))
-        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
-            fs, experiment_id, "tags.generic_2 != 'wrong_val'"))
-        six.assertCountEqual(self, [r1], self._search_with_filter_string(
-            fs, experiment_id, "tags.p_a = 'abc'"))
-        six.assertCountEqual(self, [r2], self._search_with_filter_string(
-            fs, experiment_id, "tags.p_b = 'ABC'"))
+        six.assertCountEqual(self, [r1],
+                             self._search(fs, experiment_id,
+                                          filter_str="tags.generic_2 = 'some value'"))
+        six.assertCountEqual(self, [r2], self._search(fs, experiment_id,
+                                                      filter_str="tags.generic_2='another value'"))
+        six.assertCountEqual(self, [], self._search(fs, experiment_id,
+                                                    filter_str="tags.generic_tag = 'wrong_val'"))
+        six.assertCountEqual(self, [], self._search(fs, experiment_id,
+                                                    filter_str="tags.generic_tag != 'p_val'"))
+        six.assertCountEqual(self, [r1, r2],
+                             self._search(fs, experiment_id,
+                                          filter_str="tags.generic_tag != 'wrong_val'"))
+        six.assertCountEqual(self, [r1, r2],
+                             self._search(fs, experiment_id,
+                                          filter_str="tags.generic_2 != 'wrong_val'"))
+        six.assertCountEqual(self, [r1], self._search(fs, experiment_id,
+                                                      filter_str="tags.p_a = 'abc'"))
+        six.assertCountEqual(self, [r2], self._search(fs, experiment_id,
+                                                      filter_str="tags.p_b = 'ABC'"))
+
+    def test_search_with_max_results(self):
+        fs = FileStore(self.test_root)
+        exp = fs.create_experiment("search_with_max_results")
+
+        runs = [fs.create_run(exp, 'user', 'r_%d' % r, 'source_type', 'source_name', 'entry_point',
+                              r, None, [], None).info.run_uuid
+                for r in range(10)]
+        runs.reverse()
+
+        print(runs)
+        print(self._search(fs, exp))
+        assert(runs[:10] == self._search(fs, exp))
+        for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
+            assert(runs[:min(1200, n)] == self._search(fs, exp, max_results=n))
+
+        with self.assertRaises(MlflowException) as e:
+            self._search(fs, exp, None, max_results=int(1e10))
+        self.assertIn("Invalid value for request parameter max_results. It ", e.exception.message)
+
+    def test_search_with_deterministic_max_results(self):
+        fs = FileStore(self.test_root)
+        exp = fs.create_experiment("test_search_with_deterministic_max_results")
+
+        # Create 10 runs with the same start_time.
+        # Sort based on run_uuid
+        runs = sorted([fs.create_run(exp, 'user', 'r_%d' % r, 'source_type', 'source_name',
+                                     'entry_point', 1000, None, [], None).info.run_uuid
+                       for r in range(10)])
+        for n in [0, 1, 2, 4, 8, 10, 20]:
+            assert(runs[:min(10, n)] == self._search(fs, exp, max_results=n))
 
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
@@ -540,7 +576,7 @@ class TestFileStore(unittest.TestCase):
     def test_malformed_run(self):
         fs = FileStore(self.test_root)
         exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
-        all_runs = fs.search_runs([exp_0.experiment_id], None, ViewType.ALL)
+        all_runs = self._search(fs, exp_0.experiment_id)
 
         all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
         assert len(all_runs) == len(all_run_ids)
@@ -553,7 +589,7 @@ class TestFileStore(unittest.TestCase):
             fs.get_run(bad_run_id)
             assert e.message.contains("does not exist")
 
-        valid_runs = fs.search_runs([exp_0.experiment_id], None, ViewType.ALL)
+        valid_runs = self._search(fs, exp_0.experiment_id)
         assert len(valid_runs) == len(all_runs) - 1
 
         for rid in all_run_ids:
@@ -585,7 +621,7 @@ class TestFileStore(unittest.TestCase):
     def test_bad_experiment_id_recorded_for_run(self):
         fs = FileStore(self.test_root)
         exp_0 = fs.get_experiment(Experiment.DEFAULT_EXPERIMENT_ID)
-        all_runs = fs.search_runs([exp_0.experiment_id], None, ViewType.ALL)
+        all_runs = self._search(fs, exp_0.experiment_id)
 
         all_run_ids = self.exp_data[exp_0.experiment_id]["runs"]
         assert len(all_runs) == len(all_run_ids)
@@ -601,7 +637,7 @@ class TestFileStore(unittest.TestCase):
             fs.get_run(bad_run_id)
             assert e.message.contains("not found")
 
-        valid_runs = fs.search_runs([exp_0.experiment_id], None, ViewType.ALL)
+        valid_runs = self._search(fs, exp_0.experiment_id)
         assert len(valid_runs) == len(all_runs) - 1
 
         for rid in all_run_ids:

@@ -284,7 +284,9 @@ def _search_runs():
         run_view_type = ViewType.from_proto(request_message.run_view_type)
     sf = SearchFilter(anded_expressions=request_message.anded_expressions,
                       filter_string=request_message.filter)
-    run_entities = _get_store().search_runs(request_message.experiment_ids, sf, run_view_type)
+    max_results = request_message.max_results
+    experiment_ids = request_message.experiment_ids
+    run_entities = _get_store().search_runs(experiment_ids, sf, run_view_type, max_results)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
