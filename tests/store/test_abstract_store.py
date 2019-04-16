@@ -1,5 +1,6 @@
 import mock
 
+from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 
@@ -43,7 +44,8 @@ class AbstractStoreTestImpl(AbstractStore):
     def get_metric_history(self, run_uuid, metric_key):
         raise NotImplementedError()
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT):
         raise NotImplementedError()
 
     def log_batch(self, run_id, metrics, params, tags):

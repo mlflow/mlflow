@@ -12,6 +12,7 @@ from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment,
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
+from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
@@ -293,7 +294,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             else:
                 self.assertEqual(v, v2)
 
-    def _get_run_configs(self, name='test', experiment_id=None, tags=(), parent_run_id=None):
+    def _get_run_configs(self, name='test', experiment_id=None,
+                         tags=(), parent_run_id=None, start_time=None):
         return {
             'experiment_id': experiment_id,
             'run_name': name,
@@ -301,7 +303,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'source_type': SourceType.NOTEBOOK,
             'source_name': 'Python application',
             'entry_point_name': 'main.py',
-            'start_time': int(time.time()),
+            'start_time': start_time if start_time is not None else int(time.time()),
             'source_version': mlflow.__version__,
             'tags': tags,
             'parent_run_id': parent_run_id,
@@ -686,19 +688,17 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                          [(t.key, t.value) for t in run.data.tags if t.key == "t1345"])
 
     # Tests for Search API
-    def _search(self, experiment_id, metrics_expressions=None, param_expressions=None,
-                run_view_type=ViewType.ALL):
+    def _search(self, experiment_id,
+                metrics_expressions=None, param_expressions=None, filter_string=None,
+                run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
         search_runs = SearchRuns()
         search_runs.anded_expressions.extend(metrics_expressions or [])
         search_runs.anded_expressions.extend(param_expressions or [])
-        search_filter = SearchFilter(anded_expressions=search_runs.anded_expressions)
+        search_filter = SearchFilter(anded_expressions=search_runs.anded_expressions,
+                                     filter_string=filter_string)
         return [r.info.run_uuid
-                for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
-
-    def _search_with_filter_string(self, experiment_id, filter_str, run_view_type=ViewType.ALL):
-        search_filter = SearchFilter(filter_string=filter_str)
-        return [r.info.run_uuid
-                for r in self.store.search_runs([experiment_id], search_filter, run_view_type)]
+                for r in self.store.search_runs([experiment_id], search_filter,
+                                                run_view_type, max_results)]
 
     def _param_expression(self, key, comparator, val):
         expr = SearchExpression()
@@ -791,25 +791,32 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.set_tag(r2, entities.RunTag('p_b', 'ABC'))
 
         # test search returns both runs
-        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
-            experiment_id, "tags.generic_tag = 'p_val'"))
+        six.assertCountEqual(self, [r1, r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_tag = 'p_val'"))
         # test search returns appropriate run (same key different values per run)
-        six.assertCountEqual(self, [r1], self._search_with_filter_string(
-            experiment_id, "tags.generic_2 = 'some value'"))
-        six.assertCountEqual(self, [r2], self._search_with_filter_string(
-            experiment_id, "tags.generic_2 = 'another value'"))
-        six.assertCountEqual(self, [], self._search_with_filter_string(
-            experiment_id, "tags.generic_tag = 'wrong_val'"))
-        six.assertCountEqual(self, [], self._search_with_filter_string(
-            experiment_id, "tags.generic_tag != 'p_val'"))
-        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
-            experiment_id, "tags.generic_tag != 'wrong_val'"))
-        six.assertCountEqual(self, [r1, r2], self._search_with_filter_string(
-            experiment_id, "tags.generic_2 != 'wrong_val'"))
-        six.assertCountEqual(self, [r1], self._search_with_filter_string(
-            experiment_id, "tags.p_a = 'abc'"))
-        six.assertCountEqual(self, [r2], self._search_with_filter_string(
-            experiment_id, "tags.p_b = 'ABC'"))
+        six.assertCountEqual(self, [r1],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 = 'some value'"))
+        six.assertCountEqual(self, [r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 = 'another value'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_tag = 'wrong_val'"))
+        six.assertCountEqual(self, [],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_tag != 'p_val'"))
+        six.assertCountEqual(self, [r1, r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_tag != 'wrong_val'"))
+        six.assertCountEqual(self, [r1, r2],
+                             self._search(experiment_id,
+                                          filter_string="tags.generic_2 != 'wrong_val'"))
+        six.assertCountEqual(self, [r1], self._search(experiment_id,
+                                                      filter_string="tags.p_a = 'abc'"))
+        six.assertCountEqual(self, [r2], self._search(experiment_id,
+                                                      filter_string="tags.p_b = 'ABC'"))
 
     def test_search_metrics(self):
         experiment_id = self._experiment_factory('search_params')
@@ -937,6 +944,32 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         six.assertCountEqual(self, [], self._search(experiment_id,
                                                     param_expressions=[p_expr],
                                                     metrics_expressions=[m1_expr, m2_expr]))
+
+    def test_search_with_max_results(self):
+        exp = self._experiment_factory('search_with_max_results')
+        runs = [self._run_factory(self._get_run_configs('r_%d' % r, exp,
+                                                        start_time=r)).info.run_uuid
+                for r in range(1200)]
+        # reverse the ordering, since we created in increasing order of start_time
+        runs.reverse()
+
+        assert(runs[:1000] == self._search(exp))
+        for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
+            assert(runs[:min(1200, n)] == self._search(exp, max_results=n))
+
+        with self.assertRaises(MlflowException) as e:
+            self._search(exp, max_results=int(1e10))
+        self.assertIn("Invalid value for request parameter max_results. It ", e.exception.message)
+
+    def test_search_with_deterministic_max_results(self):
+        exp = self._experiment_factory('test_search_with_deterministic_max_results')
+        # Create 10 runs with the same start_time.
+        # Sort based on run_uuid
+        runs = sorted([self._run_factory(self._get_run_configs('r_%d' % r, exp,
+                                                               start_time=10)).info.run_uuid
+                       for r in range(10)])
+        for n in [0, 1, 2, 4, 8, 10, 20]:
+            assert(runs[:min(10, n)] == self._search(exp, max_results=n))
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')

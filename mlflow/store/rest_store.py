@@ -1,5 +1,6 @@
 import json
 
+from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
@@ -204,7 +205,8 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric).value for metric in response_proto.metrics]
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_THRESHOLD):
         """
         Return runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
@@ -213,13 +215,15 @@ class RestStore(AbstractStore):
         :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
             search expression or filter string.
         :param run_view_type: ACTIVE, DELETED, or ALL runs.
+        :param max_results: Maximum number of runs desired.
 
         :return: A list of Run objects that satisfy the search expressions
         """
         sr = SearchRuns(experiment_ids=experiment_ids,
                         anded_expressions=search_filter.search_expressions if search_filter else [],
                         filter=search_filter.filter_string if search_filter else None,
-                        run_view_type=ViewType.to_proto(run_view_type))
+                        run_view_type=ViewType.to_proto(run_view_type),
+                        max_results=max_results)
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
