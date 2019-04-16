@@ -1,43 +1,5 @@
 context("Tracking")
 
-test_that("mlflow_create_experiment() works properly", {
-  mlflow_clear_test_dir("mlruns")
-  client <- mlflow_client()
-  experiment_1 <- mlflow_create_experiment(client = client, "exp_name", "art_loc")
-  experiment_2 <- mlflow_get_experiment(client = client, experiment_1$experiment_id)
-  expect_identical(experiment_1$name, "exp_name")
-  expect_identical(experiment_1$artifact_location, "art_loc")
-  expect_identical(experiment_1, experiment_2)
-})
-
-test_that("mlflow_list_experiments() works properly", {
-  mlflow_clear_test_dir("mlruns")
-  client <- mlflow_client()
-  mlflow_create_experiment(client = client, "foo1", "art_loc1")
-  mlflow_create_experiment(client = client, "foo2", "art_loc2")
-  experiments_list <- mlflow_list_experiments(client = client)
-  expect_setequal(experiments_list$experiment_id, c("0", "1", "2"))
-  expect_setequal(experiments_list$name, c("Default", "foo1", "foo2"))
-  default_artifact_loc <- paste(getwd(), "/mlruns/0", sep = "")
-  expect_setequal(experiments_list$artifact_location, c(default_artifact_loc,
-                                                        "art_loc1",
-                                                        "art_loc2"))
-})
-
-test_that("mlflow_get_experiment_by_name() works properly", {
-  mlflow_clear_test_dir("mlruns")
-  client <- mlflow_client()
-  expect_error(
-    mlflow_get_experiment_by_name(client = client, "exp"),
-    "Experiment `exp` not found\\."
-  )
-  experiment_id <- mlflow_create_experiment(client = client, "exp", "art")$experiment_id
-  experiment <- mlflow_get_experiment_by_name(client = client, "exp")
-  expect_identical(experiment_id, experiment$experiment_id)
-  expect_identical(experiment$name, "exp")
-  expect_identical(experiment$artifact_location, "art")
-})
-
 test_that("mlflow_create_run()/mlflow_get_run() work properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
