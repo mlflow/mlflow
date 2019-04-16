@@ -44,13 +44,5 @@ class Run(_MLflowObject):
     def from_proto(cls, proto):
         return cls(RunInfo.from_proto(proto.info), RunData.from_proto(proto.data))
 
-    @classmethod
-    def from_dictionary(cls, the_dict):
-        if "info" not in the_dict or "data" not in the_dict:
-            raise Exception("Malformed input '%s'. Run cannot be constructed." % str(the_dict))
-        the_info = RunInfo.from_dictionary(the_dict.get("info"))
-        the_data = RunData.from_dictionary(the_dict.get("data"))
-        return cls(the_info, the_data)
-
     def to_dictionary(self):
         return {"info": dict(self.info), "data": self.data.to_dictionary()}

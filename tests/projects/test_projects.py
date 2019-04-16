@@ -208,16 +208,10 @@ def test_run_local_git_repo(local_git_repo,
     run = mlflow_service.get_run(run_uuid)
 
     assert run.info.status == RunStatus.FINISHED
+    assert run.data.params == {"use_start_run": use_start_run}
+    assert run.data.metrics == {"some_key": 3}
 
-    expected_params = {"use_start_run": use_start_run}
-    params = {param.key: param.value for param in run.data.params}
-    assert params == expected_params
-
-    expected_metrics = {"some_key": 3}
-    metrics = {metric.key: metric.value for metric in run.data.metrics}
-    assert metrics == expected_metrics
-
-    tags = {tag.key: tag.value for tag in run.data.tags}
+    tags = run.data.tags
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
     assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
@@ -285,15 +279,10 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
 
     assert run.info.status == RunStatus.FINISHED
 
-    expected_params = {"use_start_run": use_start_run}
-    params = {param.key: param.value for param in run.data.params}
-    assert params == expected_params
+    assert run.data.params == {"use_start_run": use_start_run}
+    assert run.data.metrics == {"some_key": 3}
 
-    expected_metrics = {"some_key": 3}
-    metrics = {metric.key: metric.value for metric in run.data.metrics}
-    assert metrics == expected_metrics
-
-    tags = {tag.key: tag.value for tag in run.data.tags}
+    tags = run.data.tags
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
     assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
@@ -311,8 +300,7 @@ def test_run_with_parent(tmpdir, tracking_uri_mock):  # pylint: disable=unused-a
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     run_uuid = submitted_run.run_id
     run = mlflow.tracking.MlflowClient().get_run(run_uuid)
-    tags = {tag.key: tag.value for tag in run.data.tags}
-    assert tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
+    assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 
 def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument

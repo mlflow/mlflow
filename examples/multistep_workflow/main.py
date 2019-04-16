@@ -17,11 +17,6 @@ import six
 from mlflow.tracking.fluent import _get_experiment_id
 
 
-def _get_params(run):
-    """Converts [mlflow.entities.Param] to a dictionary of {k: v}."""
-    return {param.key: param.value for param in run.data.params}
-
-
 def _already_ran(entry_point_name, parameters, source_version, experiment_id=None):
     """Best-effort detection of if a run with the given entrypoint name,
     parameters, and experiment id already ran. The run must have completed
@@ -35,10 +30,9 @@ def _already_ran(entry_point_name, parameters, source_version, experiment_id=Non
             continue
 
         full_run = client.get_run(run_info.run_uuid)
-        run_params = _get_params(full_run)
         match_failed = False
         for param_key, param_value in six.iteritems(parameters):
-            run_value = run_params.get(param_key)
+            run_value = full_run.params.get(param_key)
             if run_value != param_value:
                 match_failed = True
                 break

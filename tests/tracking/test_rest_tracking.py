@@ -196,10 +196,9 @@ def test_create_run_all_args(mlflow_client):
     assert run.info.entry_point_name == entry_point
     assert run.info.start_time == create_run_kwargs["start_time"]
     assert run.info.source_version == source_version
-    actual_tags = {t.key: t.value for t in run.data.tags}
     for tag in create_run_kwargs["tags"]:
-        assert tag in actual_tags
-    assert actual_tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
+        assert tag in run.data.tags
+    assert run.data.tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
 
     assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
@@ -222,12 +221,9 @@ def test_log_metrics_params_tags(mlflow_client):
     mlflow_client.log_param(run_id, 'param', 'value')
     mlflow_client.set_tag(run_id, 'taggity', 'do-dah')
     run = mlflow_client.get_run(run_id)
-    metrics = {t.key: t.value for t in run.data.metrics}
-    params = {t.key: t.value for t in run.data.params}
-    tags = {t.key: t.value for t in run.data.tags}
-    assert metrics.get('metric') == 123.456
-    assert params.get('param') == 'value'
-    assert tags.get('taggity') == 'do-dah'
+    assert run.data.metrics.get('metric') == 123.456
+    assert run.data.params.get('param') == 'value'
+    assert run.data.tags.get('taggity') == 'do-dah'
 
 
 def test_set_terminated_defaults(mlflow_client):

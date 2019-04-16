@@ -288,7 +288,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
-    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_and_value(self):
+    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         fs = FileStore(self.test_root)
         run_uuid = self._create_run(fs).info.run_uuid
 
@@ -311,10 +311,9 @@ class TestFileStore(unittest.TestCase):
 
         run_metrics = fs.get_run(run_uuid).data.metrics
         assert len(run_metrics) == 1
-        assert run_metrics[0].key == metric_name
+        logged_metric_val = run_metrics[metric_name]
         max_timestamp = max(timestamp_values_mapping)
-        assert run_metrics[0].timestamp == max_timestamp
-        assert run_metrics[0].value == max(timestamp_values_mapping[max_timestamp])
+        assert logged_metric_val == max(timestamp_values_mapping[max_timestamp])
 
     def test_get_all_metrics(self):
         fs = FileStore(self.test_root)
@@ -439,11 +438,7 @@ class TestFileStore(unittest.TestCase):
         run_uuid = self.exp_data[0]["runs"][0]
         fs.log_param(run_uuid, Param(WEIRD_PARAM_NAME, "Value"))
         run = fs.get_run(run_uuid)
-        my_params = [p for p in run.data.params if p.key == WEIRD_PARAM_NAME]
-        assert len(my_params) == 1
-        param = my_params[0]
-        assert param.key == WEIRD_PARAM_NAME
-        assert param.value == "Value"
+        assert run.data.params[WEIRD_PARAM_NAME] == "Value"
 
     def test_log_empty_str(self):
         PARAM_NAME = "new param"
@@ -451,11 +446,7 @@ class TestFileStore(unittest.TestCase):
         run_uuid = self.exp_data[0]["runs"][0]
         fs.log_param(run_uuid, Param(PARAM_NAME, ""))
         run = fs.get_run(run_uuid)
-        my_params = [p for p in run.data.params if p.key == PARAM_NAME]
-        assert len(my_params) == 1
-        param = my_params[0]
-        assert param.key == PARAM_NAME
-        assert param.value == ""
+        assert run.data.params[PARAM_NAME] == ""
 
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
@@ -463,9 +454,10 @@ class TestFileStore(unittest.TestCase):
         run_uuid = self.exp_data[0]["runs"][0]
         fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234))
         run = fs.get_run(run_uuid)
-        my_metrics = [m for m in run.data.metrics if m.key == WEIRD_METRIC_NAME]
-        assert len(my_metrics) == 1
-        metric = my_metrics[0]
+        assert run.data.metrics[WEIRD_METRIC_NAME] == 10
+        history = fs.get_metric_history(run_uuid, WEIRD_METRIC_NAME)
+        assert len(history) == 1
+        metric = history[0]
         assert metric.key == WEIRD_METRIC_NAME
         assert metric.value == 10
         assert metric.timestamp == 1234
@@ -475,46 +467,36 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
         fs.set_tag(run_uuid, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
-        tag = fs.get_run(run_uuid).data.tags[0]
-        assert tag.key == WEIRD_TAG_NAME
-        assert tag.value == "Muhahaha!"
+        run = fs.get_run(run_uuid)
+        assert run.data.tags[WEIRD_TAG_NAME] == "Muhahaha!"
 
     def test_set_tags(self):
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
         fs.set_tag(run_uuid, RunTag("tag0", "value0"))
         fs.set_tag(run_uuid, RunTag("tag1", "value1"))
-        tags = [(t.key, t.value) for t in fs.get_run(run_uuid).data.tags]
-        assert set(tags) == {
-            ("tag0", "value0"),
-            ("tag1", "value1"),
-        }
+        tags = fs.get_run(run_uuid).data.tags
+        assert tags["tag0"] == "value0"
+        assert tags["tag1"] == "value1"
 
         # Can overwrite tags.
         fs.set_tag(run_uuid, RunTag("tag0", "value2"))
-        tags = [(t.key, t.value) for t in fs.get_run(run_uuid).data.tags]
-        assert set(tags) == {
-            ("tag0", "value2"),
-            ("tag1", "value1"),
-        }
+        tags = fs.get_run(run_uuid).data.tags
+        assert tags["tag0"] == "value2"
+        assert tags["tag1"] == "value1"
 
         # Can set multiline tags.
         fs.set_tag(run_uuid, RunTag("multiline_tag", "value2\nvalue2\nvalue2"))
-        tags = [(t.key, t.value) for t in fs.get_run(run_uuid).data.tags]
-        assert set(tags) == {
-            ("tag0", "value2"),
-            ("tag1", "value1"),
-            ("multiline_tag", "value2\nvalue2\nvalue2"),
-        }
+        tags = fs.get_run(run_uuid).data.tags
+        assert tags["multiline_tag"] == "value2\nvalue2\nvalue2"
 
     def test_unicode_tag(self):
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
         value = u"𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
         fs.set_tag(run_uuid, RunTag("message", value))
-        tag = fs.get_run(run_uuid).data.tags[0]
-        assert tag.key == "message"
-        assert tag.value == value
+        tags = fs.get_run(run_uuid).data.tags
+        assert tags["message"] == value
 
     def test_get_deleted_run(self):
         """
@@ -548,8 +530,7 @@ class TestFileStore(unittest.TestCase):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run = fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name',
                             'entry_point_name', 0, None, [], 'test_parent_run_id')
-        assert any([t.key == MLFLOW_PARENT_RUN_ID and t.value == 'test_parent_run_id'
-                    for t in fs.get_all_tags(run.info.run_uuid)])
+        assert fs.get_run(run.info.run_uuid).data.tags[MLFLOW_PARENT_RUN_ID] == 'test_parent_run_id'
 
     def test_default_experiment_initialization(self):
         fs = FileStore(self.test_root)
@@ -657,13 +638,7 @@ class TestFileStore(unittest.TestCase):
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         fs.log_batch(
             run_id=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
-        run = fs.get_run(run_uuid)
-        tags = [(t.key, t.value) for t in run.data.tags]
-        metrics = [(m.key, m.value, m.timestamp) for m in run.data.metrics]
-        params = [(p.key, p.value) for p in run.data.params]
-        assert set(tags) == set([("t1", "t1val"), ("t2", "t2val")])
-        assert set(metrics) == set([("m1", 0.87, 12345), ("m2", 0.49, 12345)])
-        assert set(params) == set([("p1", "p1val"), ("p2", "p2val")])
+        self._verify_logged(fs, run_uuid, metric_entities, param_entities, tag_entities)
 
     def _create_run(self, fs):
         return fs.create_run(
@@ -674,16 +649,15 @@ class TestFileStore(unittest.TestCase):
 
     def _verify_logged(self, fs, run_uuid, metrics, params, tags):
         run = fs.get_run(run_uuid)
-        all_metrics = sum([fs.get_metric_history(run_uuid, m.key)
-                           for m in run.data.metrics], [])
+        all_metrics = sum([fs.get_metric_history(run_uuid, key)
+                           for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
         logged_metrics = [(m.key, m.value, m.timestamp) for m in all_metrics]
         assert set(logged_metrics) == set([(m.key, m.value, m.timestamp) for m in metrics])
-        assert len(run.data.tags) == len(tags)
-        logged_tags = [(tag.key, tag.value) for tag in run.data.tags]
-        assert set(logged_tags) == set([(tag.key, tag.value) for tag in tags])
+        logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
+        assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
         assert len(run.data.params) == len(params)
-        logged_params = [(param.key, param.value) for param in run.data.params]
+        logged_params = [(param_key, param_val) for param_key, param_val in run.data.params.items()]
         assert set(logged_params) == set([(param.key, param.value) for param in params])
 
     def test_log_batch_internal_error(self):
