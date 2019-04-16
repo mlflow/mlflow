@@ -8,6 +8,7 @@ import os
 import time
 from six import iteritems
 
+from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import utils
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
@@ -275,7 +276,9 @@ class MlflowClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string, run_view_type=ViewType.ACTIVE_ONLY):
+    def search_runs(self, experiment_ids, filter_string,
+                    run_view_type=ViewType.ACTIVE_ONLY,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT):
         """
         Search experiments that fit the search criteria.
 
@@ -283,11 +286,15 @@ class MlflowClient(object):
         :param filter_string: Filter query string.
         :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                               defined in :py:class:`mlflow.entities.ViewType`.
-        :return:
+        :param max_results: Maximum number of runs desired.
+
+        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
+            expressions
         """
         return self.store.search_runs(experiment_ids=experiment_ids,
                                       search_filter=SearchFilter(filter_string=filter_string),
-                                      run_view_type=run_view_type)
+                                      run_view_type=run_view_type,
+                                      max_results=max_results)
 
 
 def _get_user_id():
