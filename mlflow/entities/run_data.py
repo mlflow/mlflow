@@ -28,9 +28,8 @@ class RunData(_MLflowObject):
     def metrics(self):
         """
         Dictionary of string key -> metric value for the current run.
-        For each metric key, the metric value with the metric value with the latest timestamp
-        is returned. In case there are multiple values with the same latest timestamp, the maximum
-        of these values is returned.
+        For each metric key, the metric value with the latest timestamp is returned. In case there
+        are multiple values with the same latest timestamp, the maximum of these values is returned.
         """
         return self._metrics
 
