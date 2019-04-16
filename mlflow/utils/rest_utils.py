@@ -18,6 +18,11 @@ RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
 _logger = logging.getLogger(__name__)
 
 
+_DEFAULT_HEADERS = {
+    'User-Agent': 'mlflow-python-client/%s' % __version__
+}
+
+
 def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
     """
     Makes an HTTP request with the specified method to the specified hostname/endpoint. Retries
@@ -37,9 +42,7 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
     elif host_creds.token:
         auth_str = "Bearer %s" % host_creds.token
 
-    headers = {
-        'User-Agent': 'mlflow-python-client/%s' % __version__,
-    }
+    headers = dict(_DEFAULT_HEADERS)
     if auth_str:
         headers['Authorization'] = auth_str
 
