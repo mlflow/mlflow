@@ -104,7 +104,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, run_id = NULL, clien
 #' @template roxlate-client
 #' @export
 mlflow_delete_experiment <- function(experiment_id, client = NULL) {
-  if (experiment_id == mlflow_get_active_experiment_id())
+  if (identical(experiment_id, mlflow_get_active_experiment_id()))
     stop("Cannot delete an active experiment.", call. = FALSE)
 
   client <- client %||% mlflow_client()
