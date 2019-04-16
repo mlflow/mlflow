@@ -50,12 +50,22 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 #'
 #' Gets metadata for an experiment and a list of runs for the experiment.
 #'
+#'
+#' @param name The experiment name, either this or `experiment_id` should be specified.
 #' @param experiment_id Identifer to get an experiment. Attempts to obtain the active experiment
 #'   if not provided.
 #' @template roxlate-client
 #' @export
-mlflow_get_experiment <- function(experiment_id = NULL, client = NULL) {
+mlflow_get_experiment <- function(name = NULL, experiment_id = NULL, client = NULL) {
+  if (!is.null(name) && !is.null(experiment_id)) {
+    stop("Only one of `name` or `experiment_id` should be specified.", call. = FALSE)
+  }
+
   client <- client %||% mlflow_client()
+
+  if (!is.null(name)) return(mlflow_get_experiment_by_name(client = client, name = name))
+
+  experiment_id <- resolve_experiment_id(experiment_id)
   experiment_id <- cast_string(experiment_id)
   response <- mlflow_rest(
     "experiments", "get",
@@ -63,6 +73,19 @@ mlflow_get_experiment <- function(experiment_id = NULL, client = NULL) {
   )
   response$experiment %>%
     new_mlflow_experiment()
+}
+
+mlflow_get_experiment_by_name <- function(name, client = NULL) {
+  client <- client %||% mlflow_client()
+  exps <- mlflow_list_experiments(client = client)
+  if (is.null(exps)) stop("No experiments found.", call. = FALSE)
+
+  experiment <- exps[exps$name == name, ]
+  if (nrow(experiment)) {
+    new_mlflow_experiment(experiment)
+  } else {
+    stop(glue::glue("Experiment `{exp}` not found.", exp = name), call. = FALSE)
+  }
 }
 
 #' Log Metric
@@ -516,25 +539,7 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
   gsub("\n", "", result$stdout)
 }
 
-#' Get Experiment by Name
-#'
-#' Get meta data for experiment by name.
-#'
-#' @param name The experiment name.
-#' @template roxlate-client
-#' @export
-mlflow_get_experiment_by_name <- function(name, client = NULL) {
-  client <- client %||% mlflow_client()
-  exps <- mlflow_list_experiments(client = client)
-  if (is.null(exps)) stop("No experiments found.", call. = FALSE)
 
-  experiment <- exps[exps$name == name, ]
-  if (nrow(experiment)) {
-    new_mlflow_experiment(experiment)
-  } else {
-    stop(glue::glue("Experiment `{exp}` not found.", exp = name), call. = FALSE)
-  }
-}
 
 #' List Run Infos
 #'

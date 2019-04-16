@@ -4,9 +4,12 @@
 \alias{mlflow_get_experiment}
 \title{Get Experiment}
 \usage{
-mlflow_get_experiment(experiment_id = NULL, client = NULL)
+mlflow_get_experiment(name = NULL, experiment_id = NULL,
+  client = NULL)
 }
 \arguments{
+\item{name}{The experiment name, either this or `experiment_id` should be specified.}
+
 \item{experiment_id}{Identifer to get an experiment. Attempts to obtain the active experiment
 if not provided.}
 
@@ -24,7 +27,6 @@ Other tracking functions: \code{\link{mlflow_create_experiment}},
   \code{\link{mlflow_delete_experiment}},
   \code{\link{mlflow_delete_run}},
   \code{\link{mlflow_download_artifacts}},
-  \code{\link{mlflow_get_experiment_by_name}},
   \code{\link{mlflow_get_metric_history}},
   \code{\link{mlflow_get_run}},
   \code{\link{mlflow_list_artifacts}},
