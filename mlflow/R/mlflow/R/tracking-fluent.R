@@ -97,6 +97,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
     do.call(mlflow_create_run, args)
   }
   mlflow_set_active_run_id(mlflow_id(run))
+  run
 }
 
 
