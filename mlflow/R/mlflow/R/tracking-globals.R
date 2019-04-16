@@ -22,7 +22,7 @@ mlflow_set_active_run <- function(run) {
 }
 
 mlflow_get_active_run_id <- function() {
-  mlflow_get_active_run()$run_uuid
+  .globals$active_run$run_uuid
 }
 
 mlflow_get_active_experiment_id <- function() {
