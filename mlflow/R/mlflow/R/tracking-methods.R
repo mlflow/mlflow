@@ -182,11 +182,6 @@ mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NU
   )
   experiment <- mlflow_get_experiment(experiment_id)
 
-  if (identical(experiment_id, mlflow_get_active_experiment_id())) {
-    # Update active experiment if we rename it
-    mlflow_set_active_experiment(experiment)
-  }
-
   experiment
 }
 

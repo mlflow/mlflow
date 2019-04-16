@@ -33,7 +33,7 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL) 
     mlflow_get_experiment(client = client, experiment_id = experiment_id)
   }
 
-  mlflow_set_active_experiment(experiment)
+  mlflow_set_active_experiment_id(mlflow_id(experiment))
   experiment
 }
 

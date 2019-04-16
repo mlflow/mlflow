@@ -8,29 +8,12 @@ mlflow_get_active_run_id <- function() {
   .globals$active_run_id
 }
 
+mlflow_set_active_experiment_id <- function(experiment_id) {
+  .globals$active_experiment_id <- experiment_id
+}
+
 mlflow_get_active_experiment_id <- function() {
-  .globals$active_experiment$experiment_id
-}
-
-mlflow_get_active_experiment <- function() {
-  .globals$active_experiment
-}
-
-mlflow_set_active_experiment <- function(experiment) {
-  UseMethod("mlflow_set_active_experiment")
-}
-
-mlflow_set_active_experiment.character <- function(experiment) {
-  experiment <- mlflow_get_experiment(experiment)
-  .globals$active_experiment <- experiment
-}
-
-mlflow_set_active_experiment.mlflow_experiment <- function(experiment) {
-  .globals$active_experiment <- experiment
-}
-
-mlflow_set_active_experiment.NULL <- function(experiment) {
-  .globals$active_experiment <- NULL
+  .globals$active_experiment_id
 }
 
 #' Set Remote Tracking URI
