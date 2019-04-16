@@ -147,9 +147,7 @@ def test_start_and_end_run(tracking_uri_mock):
     finished_run = tracking.MlflowClient().get_run(active_run.info.run_uuid)
     # Validate metrics
     assert len(finished_run.data.metrics) == 1
-    expected_pairs = {"name_1": 25}
-    for metric in finished_run.data.metrics:
-        assert expected_pairs[metric.key] == metric.value
+    assert finished_run.data.metrics["name_1"] == 25
 
 
 def test_log_batch(tracking_uri_mock):
@@ -171,19 +169,17 @@ def test_log_batch(tracking_uri_mock):
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate metrics
     assert len(finished_run.data.metrics) == 2
-    for metric in finished_run.data.metrics:
-        assert expected_metrics[metric.key] == metric.value
+    for key, value in finished_run.data.metrics.items():
+        assert expected_metrics[key] == value
     # Validate tags (for automatically-set tags)
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
-    for tag in finished_run.data.tags:
-        if tag.key in approx_expected_tags:
+    for tag_key, tag_value in finished_run.data.tags.items():
+        if tag_key in approx_expected_tags:
             pass
         else:
-            assert exact_expected_tags[tag.key] == tag.value
+            assert exact_expected_tags[tag_key] == tag_value
     # Validate params
-    assert len(finished_run.data.params) == 2
-    for param in finished_run.data.params:
-        assert expected_params[param.key] == param.value
+    assert finished_run.data.params == expected_params
 
 
 def test_log_metric(tracking_uri_mock):
@@ -198,8 +194,8 @@ def test_log_metric(tracking_uri_mock):
     # Validate metrics
     assert len(finished_run.data.metrics) == 3
     expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
-    for metric in finished_run.data.metrics:
-        assert expected_pairs[metric.key] == metric.value
+    for key, value in finished_run.data.metrics.items():
+        assert expected_pairs[key] == value
 
 
 def test_log_metrics(tracking_uri_mock):
@@ -210,11 +206,12 @@ def test_log_metrics(tracking_uri_mock):
         mlflow.log_metrics(expected_metrics)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate metric key/values match what we expect, and that all metrics have the same timestamp
-    common_timestamp = finished_run.data.metrics[0].timestamp
     assert len(finished_run.data.metrics) == len(expected_metrics)
-    for metric in finished_run.data.metrics:
-        assert expected_metrics[metric.key] == metric.value
-        assert metric.timestamp == common_timestamp
+    for key, value in finished_run.data.metrics.items():
+        assert expected_metrics[key] == value
+    common_timestamp = finished_run.data._metric_objs[0].timestamp
+    for metric_obj in finished_run.data._metric_objs:
+        assert metric_obj.timestamp == common_timestamp
 
 
 @pytest.fixture
@@ -233,11 +230,11 @@ def test_set_tags(tracking_uri_mock):
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate tags
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
-    for tag in finished_run.data.tags:
-        if tag.key in approx_expected_tags:
+    for tag_key, tag_val in finished_run.data.tags.items():
+        if tag_key in approx_expected_tags:
             pass
         else:
-            assert exact_expected_tags[tag.key] == tag.value
+            assert exact_expected_tags[tag_key] == tag_val
 
 
 def test_log_metric_validation(tracking_uri_mock):
@@ -260,10 +257,7 @@ def test_log_param(tracking_uri_mock):
         mlflow.log_param("nested/nested/name", 5)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate params
-    assert len(finished_run.data.params) == 3
-    expected_pairs = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
-    for param in finished_run.data.params:
-        assert expected_pairs[param.key] == param.value
+    assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
 
 
 def test_log_params(tracking_uri_mock):
@@ -274,9 +268,7 @@ def test_log_params(tracking_uri_mock):
         mlflow.log_params(expected_params)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate params
-    assert len(finished_run.data.params) == 3
-    for param in finished_run.data.params:
-        assert expected_params[param.key] == param.value
+    assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
 
 
 def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
@@ -384,7 +376,7 @@ def test_parent_create_run(tracking_uri_mock):
 
     def verify_has_parent_id_tag(child_id, expected_parent_id):
         tags = tracking.MlflowClient().get_run(child_id).data.tags
-        assert any([t.key == MLFLOW_PARENT_RUN_ID and t.value == expected_parent_id for t in tags])
+        assert tags[MLFLOW_PARENT_RUN_ID] == expected_parent_id
 
     verify_has_parent_id_tag(child_run.info.run_uuid, parent_run.info.run_uuid)
     verify_has_parent_id_tag(grand_child_run.info.run_uuid, child_run.info.run_uuid)
