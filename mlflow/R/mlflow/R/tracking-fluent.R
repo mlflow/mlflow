@@ -96,7 +96,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
     )
     do.call(mlflow_create_run, args)
   }
-  mlflow_set_active_run(run)
+  mlflow_set_active_run_id(mlflow_id(run))
 }
 
 
@@ -129,7 +129,7 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
     status <- match.arg(status)
     client <- mlflow_client()
     mlflow_set_terminated(client = client, run_id = active_run_id, status = status)
-    mlflow_set_active_run(NULL)
+    mlflow_set_active_run_id(NULL)
   }
   invisible(NULL)
 }
