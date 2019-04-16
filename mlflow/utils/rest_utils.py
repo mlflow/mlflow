@@ -7,6 +7,7 @@ from json import JSONEncoder
 import numpy
 import requests
 
+from mlflow import __version__
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
 
@@ -36,7 +37,9 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3, **kwargs):
     elif host_creds.token:
         auth_str = "Bearer %s" % host_creds.token
 
-    headers = {}
+    headers = {
+        'User-Agent': 'mlflow-python-client/%s' % __version__,
+    }
     if auth_str:
         headers['Authorization'] = auth_str
 
