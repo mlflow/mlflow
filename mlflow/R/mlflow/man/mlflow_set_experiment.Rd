@@ -4,10 +4,12 @@
 \alias{mlflow_set_experiment}
 \title{Set Experiment}
 \usage{
-mlflow_set_experiment(experiment_name)
+mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL)
 }
 \arguments{
 \item{experiment_name}{Name of experiment to be activated.}
+
+\item{experiment_id}{ID of experiment to be activated.}
 }
 \description{
 Sets an experiment as the active experiment. If the experiment does not exist,

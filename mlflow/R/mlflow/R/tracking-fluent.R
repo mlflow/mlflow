@@ -4,19 +4,37 @@
 #'   creates an experiment with provided name.
 #'
 #' @param experiment_name Name of experiment to be activated.
+#' @param experiment_id ID of experiment to be activated.
 #' @template roxlate-fluent
 #' @export
-mlflow_set_experiment <- function(experiment_name) {
+mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL) {
+  if (!is.null(experiment_name) && !is.null(experiment_id)) {
+    stop("Only one of `experiment_name` or `experiment_id` should be specified.",
+      call. = FALSE
+    )
+  }
+
+  if (is.null(experiment_name) && is.null(experiment_id)) {
+    stop("At least one of `experiment_name` or `experiment_id` should be specified.",
+      call. = FALSE)
+  }
+
   client <- mlflow_client()
-  experiment <- tryCatch(
-    mlflow_get_experiment_by_name(client = client, name = experiment_name),
-    error = function(e) {
-      message("Experiment `", experiment_name, "` does not exist. Creating a new experiment.")
-      mlflow_create_experiment(client = client, name = experiment_name)
-    }
-  )
+
+  experiment <- if (!is.null(experiment_name)) {
+    tryCatch(
+      mlflow_get_experiment(client = client, name = experiment_name),
+      error = function(e) {
+        message("Experiment `", experiment_name, "` does not exist. Creating a new experiment.")
+        mlflow_create_experiment(client = client, name = experiment_name)
+      }
+    )
+  } else {
+    mlflow_get_experiment(client = client, experiment_id = experiment_id)
+  }
 
   mlflow_set_active_experiment(experiment)
+  experiment
 }
 
 #' Start Run
@@ -50,7 +68,8 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
   active_run <- mlflow_get_active_run()
   if (!is.null(active_run)) {
     stop("Run with UUID ", mlflow_get_active_run_id(), " is already active.",
-         call. = FALSE)
+      call. = FALSE
+    )
   }
 
   existing_run_uuid <- run_uuid %||% {
@@ -87,11 +106,13 @@ mlflow_get_run_context <- function(client, ...) {
 
 mlflow_get_run_context.default <- function(client, source_name, source_version, experiment_id,
                                            ...) {
-  list(client = client,
-       source_name = source_name %||% get_source_name(),
-       source_version = source_version %||% get_source_version(),
-       experiment_id = experiment_id %||% 0,
-       ...)
+  list(
+    client = client,
+    source_name = source_name %||% get_source_name(),
+    source_version = source_version %||% get_source_version(),
+    experiment_id = experiment_id %||% 0,
+    ...
+  )
 }
 
 #' End a Run
