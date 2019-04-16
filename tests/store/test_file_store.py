@@ -419,7 +419,7 @@ class TestFileStore(unittest.TestCase):
 
         with self.assertRaises(MlflowException) as e:
             self._search(fs, exp, None, max_results=int(1e10))
-        self.assertIn("Search API called with a large max_results", e.exception.message)
+        self.assertIn("Invalid value for request parameter max_results. It ", e.exception.message)
 
     def test_search_with_deterministic_max_results(self):
         fs = FileStore(self.test_root)

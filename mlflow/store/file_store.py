@@ -496,11 +496,12 @@ class FileStore(AbstractStore):
                                 exc_info=True)
         return run_infos
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type, max_results):
+    def search_runs(self, experiment_ids, search_filter, run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_THRESHOLD):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
-            raise MlflowException("Search API called with a large max_results ({}). Max threshold "
-                                  "for this value is {}.".format(max_results,
-                                                                 SEARCH_MAX_RESULTS_THRESHOLD),
+            raise MlflowException("Invalid value for request parameter max_results. It must be at "
+                                  "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
+                                                                     max_results),
                                   databricks_pb2.INVALID_PARAMETER_VALUE)
         runs = []
         for experiment_id in experiment_ids:

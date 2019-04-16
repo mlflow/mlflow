@@ -295,7 +295,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 self.assertEqual(v, v2)
 
     def _get_run_configs(self, name='test', experiment_id=None,
-                         tags=(), parent_run_id=None, start_time=int(time.time())):
+                         tags=(), parent_run_id=None, start_time=None):
         return {
             'experiment_id': experiment_id,
             'run_name': name,
@@ -303,7 +303,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'source_type': SourceType.NOTEBOOK,
             'source_name': 'Python application',
             'entry_point_name': 'main.py',
-            'start_time': start_time,
+            'start_time': start_time if start_time is not None else int(time.time()),
             'source_version': mlflow.__version__,
             'tags': tags,
             'parent_run_id': parent_run_id,
@@ -959,7 +959,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         with self.assertRaises(MlflowException) as e:
             self._search(exp, max_results=int(1e10))
-        self.assertIn("Search API called with a large max_results", e.exception.message)
+        self.assertIn("Invalid value for request parameter max_results. It ", e.exception.message)
 
     def test_search_with_deterministic_max_results(self):
         exp = self._experiment_factory('test_search_with_deterministic_max_results')

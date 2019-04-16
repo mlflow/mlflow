@@ -400,12 +400,13 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type, max_results):
+    def search_runs(self, experiment_ids, search_filter, run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_THRESHOLD):
         # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
-            raise MlflowException("Search API called with a large max_results ({}). Max threshold "
-                                  "for this value is {}.".format(max_results,
-                                                                 SEARCH_MAX_RESULTS_THRESHOLD),
+            raise MlflowException("Invalid value for request parameter max_results. It must be at "
+                                  "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
+                                                                     max_results),
                                   INVALID_PARAMETER_VALUE)
         with self.ManagedSessionMaker() as session:
             runs = [run.to_mlflow_entity()
