@@ -8,6 +8,8 @@ import com.google.common.base.Suppliers;
 
 /** Returns the version of the MLflow project this client was compiled against. */
 public class MlflowClientVersion {
+  // To avoid extra disk IO during class loading (static initialization), we lazily read the
+  // pom.properties file on first access and then cache the result to avoid future IO.
   private static Supplier<String> clientVersionSupplier = Suppliers.memoize(() -> {
     try {
       Properties p = new Properties();
