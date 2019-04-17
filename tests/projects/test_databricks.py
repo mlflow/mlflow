@@ -18,6 +18,8 @@ from mlflow.utils import file_utils
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
     MLFLOW_DATABRICKS_WEBAPP_URL
+from mlflow.utils.rest_utils import _DEFAULT_HEADERS
+
 
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
@@ -273,12 +275,12 @@ class MockProfileConfigProvider:
 def test_databricks_http_request_integration(get_config, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""
     def confirm_request_params(**kwargs):
+        headers = dict(_DEFAULT_HEADERS)
+        headers['Authorization'] = 'Basic dXNlcjpwYXNz'
         assert kwargs == {
             'method': 'PUT',
             'url': 'host/clusters/list',
-            'headers': {
-                'Authorization': 'Basic dXNlcjpwYXNz'
-            },
+            'headers': headers,
             'verify': True,
             'json': {'a': 'b'}
         }
