@@ -40,18 +40,29 @@ test_that("mlflow_set_tag() should return NULL invisibly", {
   expect_null(value)
 })
 
-# test_that("logging functionality", {
-#   mlflow_clear_test_dir("mlruns")
-#
-#   run <- mlflow_start_run()
-#
-#   mlflow_log_metric("mse", 24)
-#   mlflow_log_metric("mse", 25)
-#   metric_history <- mlflow_get_metric_history("mse")
-#   expect_identical(metric_history$key, c("mse", "mse"))
-#   expect_identical(metric_history$value, c(24, 25))
-#
-#   mlflow_set_tag("tag_key", "tag_value")
-#
-#
-# })
+test_that("logging functionality", {
+  mlflow_clear_test_dir("mlruns")
+
+  mlflow_start_run()
+
+  mlflow_log_metric("mse", 24)
+  mlflow_log_metric("mse", 25)
+  metric_history <- mlflow_get_metric_history("mse")
+  expect_identical(metric_history$key, c("mse", "mse"))
+  expect_identical(metric_history$value, c(24, 25))
+
+  mlflow_set_tag("tag_key", "tag_value")
+  mlflow_log_param("param_key", "param_value")
+
+  run <- mlflow_active_run()
+  expect_identical(run$tags[[1]]$key, "tag_key")
+  expect_identical(run$tags[[1]]$value, "tag_value")
+  expect_identical(run$params[[1]]$key, "param_key")
+  expect_identical(run$params[[1]]$value, "param_value")
+
+  mlflow_end_run()
+  expect_error(
+    mlflow_active_run(),
+    "There is no active run\\."
+  )
+})
