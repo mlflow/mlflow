@@ -12,7 +12,7 @@ from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogPa
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
 
 
 class TestRestStore(unittest.TestCase):
@@ -25,7 +25,7 @@ class TestRestStore(unittest.TestCase):
                 'method': 'GET',
                 'params': {'view_type': 'ACTIVE_ONLY'},
                 'url': 'https://hello/api/2.0/preview/mlflow/experiments/list',
-                'headers': {},
+                'headers': _DEFAULT_HEADERS,
                 'verify': True,
             }
             response = mock.MagicMock
