@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
+import { getExperiment, getParams, getRunInfo, getRunTags, getConfigs } from '../reducers/Reducers';
 import { connect } from 'react-redux';
 import './RunView.css';
 import HtmlTableView from './HtmlTableView';
@@ -24,6 +24,7 @@ const PARAMETERS_KEY = 'parameters';
 const METRICS_KEY = 'metrics';
 const ARTIFACTS_KEY = 'artifacts';
 const TAGS_KEY = 'tags';
+const CONFIGS_KEY = 'configs';
 
 class RunView extends Component {
   constructor(props) {
@@ -45,6 +46,7 @@ class RunView extends Component {
     experiment: PropTypes.instanceOf(Experiment).isRequired,
     experimentId: PropTypes.number.isRequired,
     params: PropTypes.object.isRequired,
+    configs: PropTypes.object.isRequired,
     tags: PropTypes.object.isRequired,
     latestMetrics: PropTypes.object.isRequired,
     getMetricPagePath: PropTypes.func.isRequired,
@@ -56,6 +58,7 @@ class RunView extends Component {
     showNotesEditor: false,
     showNotes: true,
     showParameters: true,
+    showConfigs: true,
     showMetrics: true,
     showArtifacts: true,
     showTags: true,
@@ -70,6 +73,10 @@ class RunView extends Component {
       }
       case PARAMETERS_KEY: {
         this.setState({ showParameters: !this.state.showParameters });
+        return;
+      }
+      case CONFIGS_KEY: {
+        this.setState({ showConfigs: !this.state.showConfigs });
         return;
       }
       case METRICS_KEY: {
@@ -95,6 +102,9 @@ class RunView extends Component {
       }
       case PARAMETERS_KEY: {
         return this.state.showParameters ? 'fa-caret-down' : 'fa-caret-right';
+      }
+      case CONFIGS_KEY: {
+        return this.state.showConfigs ? 'fa-caret-down' : 'fa-caret-right';
       }
       case METRICS_KEY: {
         return this.state.showMetrics ? 'fa-caret-down' : 'fa-caret-right';
@@ -163,7 +173,7 @@ class RunView extends Component {
   }
 
   render() {
-    const { run, params, tags, latestMetrics, getMetricPagePath } = this.props;
+    const { run, params, tags, latestMetrics, getMetricPagePath, configs } = this.props;
     const noteInfo = NoteInfo.fromRunTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
@@ -327,6 +337,18 @@ class RunView extends Component {
             /> :
             null
           }
+          <h2 onClick={() => this.onClickExpander(CONFIGS_KEY)} className="table-name">
+            <span ><i className={`fa ${this.getExpanderClassName(CONFIGS_KEY)}`}/></span>
+            {' '}Configs
+          </h2>
+          {this.state.showConfigs ?
+            <HtmlTableView
+              columns={["Name", "Value"]}
+              values={getConfigValues(configs)}
+              styles={tableStyles}
+            /> :
+            null
+          }
           <h2 onClick={() => this.onClickExpander(TAGS_KEY)} className="table-name">
             <span><i className={`fa ${this.getExpanderClassName(TAGS_KEY)}`}/></span>
             {' '}Tags
@@ -369,11 +391,12 @@ const mapStateToProps = (state, ownProps) => {
   const run = getRunInfo(runUuid, state);
   const experiment = getExperiment(experimentId, state);
   const params = getParams(runUuid, state);
+  const configs = getConfigs(runUuid, state);
   const tags = getRunTags(runUuid, state);
   const latestMetrics = getLatestMetrics(runUuid, state);
   const runDisplayName = Utils.getRunDisplayName(tags, runUuid);
   const runName = Utils.getRunName(tags, runUuid);
-  return { run, experiment, params, tags, latestMetrics, runDisplayName, runName};
+  return { run, experiment, params, tags, latestMetrics, runDisplayName, runName, configs};
 };
 
 export default connect(mapStateToProps)(RunView);
@@ -383,6 +406,12 @@ export default connect(mapStateToProps)(RunView);
 const getParamValues = (params) => {
   return Object.values(params).sort().map((p) =>
     [p.getKey(), p.getValue()]
+  );
+};
+
+const getConfigValues = (configs) => {
+  return Object.values(configs).sort().map((c) =>
+    [c.getKey(), c.getValue()]
   );
 };
 

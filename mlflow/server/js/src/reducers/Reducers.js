@@ -6,7 +6,7 @@ import {
   LIST_ARTIFACTS_API,
   LIST_EXPERIMENTS_API, OPEN_ERROR_MODAL, SEARCH_RUNS_API, SET_TAG_API,
 } from '../Actions';
-import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
+import {Experiment, Param, RunInfo, RunTag, Config} from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
 
@@ -128,6 +128,48 @@ const paramsByRunUuid = (state = {}, action) => {
           const runUuid = rJson.info.run_uuid;
           const params = rJson.data.params || [];
           newState[runUuid] = paramArrToObject(params);
+        });
+      }
+      return newState;
+    }
+    default:
+      return state;
+  }
+};
+
+
+export const getConfigs = (runUuid, state) => {
+  const configs = state.entities.configsByRunUuid[runUuid];
+  if (configs) {
+    return configs;
+  } else {
+    return {};
+  }
+};
+
+const configsByRunUuid = (state = {}, action) => {
+  const configArrToObject = (configs) => {
+    const configObj = {};
+    configs.forEach((p) => configObj[p.key] = Config.fromJs(p));
+    return configObj;
+  };
+  switch (action.type) {
+    case fulfilled(GET_RUN_API): {
+      const run = action.payload.run;
+      const runUuid = run.info.run_uuid;
+      const configs = run.data.configs || [];
+      const newState = { ...state };
+      newState[runUuid] = configArrToObject(configs);
+      return newState;
+    }
+    case fulfilled(SEARCH_RUNS_API): {
+      const runs = action.payload.runs;
+      const newState = { ...state };
+      if (runs) {
+        runs.forEach((rJson) => {
+          const runUuid = rJson.info.run_uuid;
+          const configs = rJson.data.configs || [];
+          newState[runUuid] = configArrToObject(configs);
         });
       }
       return newState;
@@ -264,6 +306,7 @@ const entities = combineReducers({
   metricsByRunUuid,
   latestMetricsByRunUuid,
   paramsByRunUuid,
+  configsByRunUuid,
   tagsByRunUuid,
   artifactsByRunUuid,
   artifactRootUriByRunUuid,

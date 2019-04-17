@@ -105,6 +105,49 @@ Param.fromJs = function fromJs(pojo) {
   return new extended_Param(pojoWithNestedImmutables);
 };
 
+
+export const Config = Immutable.Record({
+  // optional STRING
+  key: undefined,
+
+  // optional STRING
+  value: undefined,
+}, 'Config');
+
+/**
+ * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
+ * This reviver allow us to keep the Immutable.Record type when serializing JSON message
+ * into nested Immutable Record class.
+ */
+Config.fromJsReviver = function fromJsReviver(key, value) {
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
+};
+
+const extended_Config = ModelBuilder.extend(Config, {
+
+  getKey() {
+    return this.key !== undefined ? this.key : '';
+  },
+  getValue() {
+    return this.value !== undefined ? this.value : '';
+  },
+});
+
+/**
+ * This is a customized fromJs function used to translate plain old Javascript
+ * objects into this Immutable Record.  Example usage:
+ *
+ *   // The pojo is your javascript object
+ *   const record = Param.fromJs(pojo);
+ */
+Config.fromJs = function fromJs(pojo) {
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, Config.fromJsReviver);
+  return new extended_Config(pojoWithNestedImmutables);
+};
+
 export const RunInfo = Immutable.Record({
   // optional STRING
   run_uuid: undefined,
@@ -244,6 +287,10 @@ RunData.fromJsReviver = function fromJsReviver(key, value) {
     case 'tags':
       return Immutable.List(value.map((element) =>
         RunTag.fromJs(element)
+      ));
+    case 'configs':
+      return Immutable.List(value.map((element) =>
+        Config.fromJs(element)
       ));
     default:
       return Immutable.fromJS(value);
