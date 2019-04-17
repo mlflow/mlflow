@@ -114,6 +114,13 @@ class MlflowHttpCaller {
     } else if (token != null) {
       request.addHeader("Authorization", "Bearer " + token);
     }
+
+    String userAgent = "mlflow-java-client";
+    String clientVersion = MlflowClientVersion.getClientVersion();
+    if (!clientVersion.isEmpty()) {
+      userAgent += "/" + clientVersion;
+    }
+    request.addHeader("User-Agent", userAgent);
   }
 
   private boolean isError(int statusCode) {
