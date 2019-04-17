@@ -164,12 +164,14 @@ def hdfs_system(host, port):
     driver = os.getenv('MLFLOW_HDFS_DRIVER') or 'libhdfs'
     kerb_ticket = os.getenv('MLFLOW_KERBEROS_TICKET_CACHE')
     kerberos_user = os.getenv('MLFLOW_KERBEROS_USER')
+    extra_conf = _parse_extra_conf(os.getenv('MLFLOW_PYARROW_EXTRA_CONF'))
 
     connected = pa.hdfs.connect(host=host or 'default',
                                 port=port or 0,
                                 user=kerberos_user,
                                 driver=driver,
-                                kerb_ticket=kerb_ticket)
+                                kerb_ticket=kerb_ticket,
+                                extra_conf=extra_conf)
     yield connected
     connected.close()
 
@@ -199,3 +201,14 @@ def _tmp_dir(local_path):
 def _download_hdfs_file(hdfs, remote_file_path, local_file_path):
     with open(local_file_path, 'wb') as f:
         f.write(hdfs.open(remote_file_path, 'rb').read())
+
+
+def _parse_extra_conf(extra_conf):
+    if extra_conf:
+        def as_pair(config):
+            key, val = config.split('=')
+            return key, val
+
+        list_of_key_val = [as_pair(conf) for conf in extra_conf.split(',')]
+        return dict(list_of_key_val)
+    return None

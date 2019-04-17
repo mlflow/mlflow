@@ -8,7 +8,7 @@ from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
 from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository, _resolve_base_path, \
-    _relative_path
+    _relative_path, _parse_extra_conf
 from mlflow.utils.file_utils import TempDir
 
 
@@ -136,3 +136,13 @@ def test_resolve_path():
 def test_relative_path():
     assert _relative_path('/dir/some', '/dir/some/path/file.txt') == 'path/file.txt'
     assert _relative_path('/dir/some', '/dir/some') is None
+
+
+def test_parse_extra_conf():
+    assert _parse_extra_conf("fs.permissions.umask-mode=022,some_other.extra.conf=abcd") == \
+           {'fs.permissions.umask-mode': '022',
+            'some_other.extra.conf': 'abcd'}
+    assert _parse_extra_conf(None) is None
+
+    with pytest.raises(Exception):
+        _parse_extra_conf("missing_equals_sign")
