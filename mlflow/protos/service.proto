@@ -400,6 +400,9 @@ message Metric {
 
   // The timestamp at which this metric was recorded.
   optional int64 timestamp = 3;
+
+  // Step at which to log the metric.
+  optional int64 step = 4 [default = 0];
 }
 
 // Param associated with a run.
@@ -678,6 +681,7 @@ message RestoreRun {
   message Response {}
 }
 
+
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -692,6 +696,9 @@ message LogMetric {
 
   // Unix timestamp in milliseconds at the time metric was logged.
   optional int64 timestamp = 4 [(validate_required) = true];
+
+  // Step at which to log the metric
+  optional int64 step = 5 [default = 0];
 
   message Response {
   }
