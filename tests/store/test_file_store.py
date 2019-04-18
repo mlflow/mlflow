@@ -288,32 +288,39 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 self.assertEqual(dict_run_info, dict(run_info))
 
-    def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
+    def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):
         fs = FileStore(self.test_root)
         run_uuid = self._create_run(fs).info.run_uuid
 
         metric_name = "test-metric-1"
-        timestamp_values_mapping = {
-            1000: [float(i) for i in range(-20, 20)],
-            2000: [float(i) for i in range(-10, 10)],
-        }
+        # Check that we get the max of (step, timestamp, value) in that order
+        tuples_to_log = [[
+            (0, 100, 1000),
+            (3, 40, 100), # larger step wins even though it has smaller value
+            (3, 50, 10), # larger timestamp wins even though it has smaller value
+            (3, 50, 20), # tiebreak by max value
+            (3, 50, 20) # duplicate metrics with same (step, timestamp, value) are ok
+            # verify that we can log steps out of order / negative steps
+            (-3, 900, 900)
+            (-1, 800, 800)
+        ]]
+        for step, timestamp, value in reversed(tuples_to_log):
+            fs.log_metric(run_uuid, Metric(metric_name, value, timestamp, step))
 
-        logged_values = []
-        for timestamp, value_range in timestamp_values_mapping.items():
-            for value in reversed(value_range):
-                fs.log_metric(run_uuid, Metric(metric_name, value, timestamp))
-                logged_values.append(value)
+        metric_history = fs.get_metric_history(run_uuid, metric_name)
+        logged_tuples = [(m.step, m.value, m.timestamp) for m in metric_history]
+        assert set(logged_tuples) == set(tuples_to_log)
 
-        six.assertCountEqual(
-            self,
-            [metric.value for metric in fs.get_metric_history(run_uuid, metric_name)],
-            logged_values)
-
-        run_metrics = fs.get_run(run_uuid).data.metrics
+        run_data = fs.get_run(run_uuid).data
+        run_metrics = run_data.metrics
         assert len(run_metrics) == 1
-        logged_metric_val = run_metrics[metric_name]
-        max_timestamp = max(timestamp_values_mapping)
-        assert logged_metric_val == max(timestamp_values_mapping[max_timestamp])
+        assert run_metrics[metric_name] == 20
+        metric_obj = run_data._metric_objs[0]
+        assert metric_obj.key == metric_name
+        assert metric_obj.step == 3
+        assert metric_obj.timestamp == 50
+        assert metric_obj.value == 20
+
 
     def test_get_all_metrics(self):
         fs = FileStore(self.test_root)

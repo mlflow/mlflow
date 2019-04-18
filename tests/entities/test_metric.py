@@ -2,30 +2,31 @@ import time
 import unittest
 
 from mlflow.entities import Metric
-from tests.helper_functions import random_str
+from tests.helper_functions import random_str, random_int
 
 
-class TestMetric(unittest.TestCase):
-    def _check(self, metric, key, value, timestamp):
-        self.assertIsInstance(metric, Metric)
-        self.assertEqual(metric.key, key)
-        self.assertEqual(metric.value, value)
-        self.assertEqual(metric.timestamp, timestamp)
+def _check(metric, key, value, timestamp, step):
+    assert type(metric) == Metric
+    assert metric.key == key
+    assert metric.value == value
+    assert metric.timestamp == timestamp
+    assert metric.step == step
 
-    def test_creation_and_hydration(self):
-        key = random_str()
-        value = 10000
-        ts = int(time.time())
+def test_creation_and_hydration():
+    key = random_str()
+    value = 10000
+    ts = int(time.time())
+    step = random_int()
 
-        metric = Metric(key, value, ts)
-        self._check(metric, key, value, ts)
+    metric = Metric(key, value, ts, step)
+    _check(metric, key, value, ts, step)
 
-        as_dict = {"key": key, "value": value, "timestamp": ts}
-        self.assertEqual(dict(metric), as_dict)
+    as_dict = {"key": key, "value": value, "timestamp": ts}
+    assert dict(metric) == as_dict
 
-        proto = metric.to_proto()
-        metric2 = metric.from_proto(proto)
-        self._check(metric2, key, value, ts)
+    proto = metric.to_proto()
+    metric2 = metric.from_proto(proto)
+    _check(metric2, key, value, ts, step)
 
-        metric3 = Metric.from_dictionary(as_dict)
-        self._check(metric3, key, value, ts)
+    metric3 = Metric.from_dictionary(as_dict)
+    _check(metric3, key, value, ts, step)
