@@ -206,7 +206,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
 
-
 def test_create_run_defaults(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Run A Little')
     created_run = mlflow_client.create_run(experiment_id)
