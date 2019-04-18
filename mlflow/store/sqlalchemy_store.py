@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from six.moves import urllib
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.dbmodels.db_types import MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
 from mlflow.entities import RunStatus, SourceType, Experiment
@@ -399,12 +400,21 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_THRESHOLD):
+        # TODO: push search query into backend database layer
+        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException("Invalid value for request parameter max_results. It must be at "
+                                  "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
+                                                                     max_results),
+                                  INVALID_PARAMETER_VALUE)
         with self.ManagedSessionMaker() as session:
             runs = [run.to_mlflow_entity()
                     for exp in experiment_ids
                     for run in self._list_runs(session, exp, run_view_type)]
-            return [run for run in runs if not search_filter or search_filter.filter(run)]
+            filtered = [run for run in runs if not search_filter or search_filter.filter(run)]
+            return sorted(filtered,
+                          key=lambda r: (-r.info.start_time, r.info.run_uuid))[:max_results]
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(

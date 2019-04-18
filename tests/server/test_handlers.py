@@ -11,7 +11,6 @@ from mlflow.server.handlers import get_endpoints, _create_experiment, _get_reque
     _search_runs, _log_batch, catch_mlflow_exception
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns, LogBatch
 from mlflow.store.file_store import FileStore
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
@@ -93,24 +92,16 @@ def _assert_logged_entities(run_id, metric_entities, param_entities, tag_entitie
     store = mlflow.tracking.utils._get_store()
     run = client.get_run(run_id)
     # Assert logged metrics
-    all_logged_metrics = sum([store.get_metric_history(run_id, m.key)
-                              for m in run.data.metrics], [])
+    all_logged_metrics = sum([store.get_metric_history(run_id, key)
+                              for key in run.data.metrics], [])
     assert len(all_logged_metrics) == len(metric_entities)
-    logged_metrics_dicts = [dict(m) for m in all_logged_metrics]
-    for metric in metric_entities:
-        assert dict(metric) in logged_metrics_dicts
-    # Assert logged params
-    param_entities_dict = [dict(p) for p in param_entities]
-    for p in run.data.params:
-        assert dict(p) in param_entities_dict
-    # Assert logged tags
-    tag_entities_dict = [dict(t) for t in tag_entities]
-    approx_expected_tags = [MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE]
-    for t in run.data.tags:
-        if t.key in approx_expected_tags:
-            pass
-        else:
-            assert dict(t) in tag_entities_dict
+    logged_metrics = [(m.key, m.value, m.timestamp) for m in all_logged_metrics]
+    assert set(logged_metrics) == set([(m.key, m.value, m.timestamp) for m in metric_entities])
+    logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
+    assert set([(tag.key, tag.value) for tag in tag_entities]) <= logged_tags
+    assert len(run.data.params) == len(param_entities)
+    logged_params = [(param_key, param_val) for param_key, param_val in run.data.params.items()]
+    assert set(logged_params) == set([(param.key, param.value) for param in param_entities])
 
 
 def test_log_batch_handler_success(mock_get_request_message, mock_get_request_json, tmpdir):
