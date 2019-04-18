@@ -7,7 +7,7 @@
 mlflow_create_run(user_id = NULL, run_name = NULL,
   source_type = NULL, source_name = NULL, entry_point_name = NULL,
   start_time = NULL, source_version = NULL, tags = NULL,
-  experiment_id = NULL, client = NULL)
+  experiment_id = NULL, client)
 }
 \arguments{
 \item{user_id}{User ID or LDAP for the user executing the run.}
