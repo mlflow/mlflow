@@ -426,7 +426,7 @@ class FileStore(AbstractStore):
             metrics.append(self._get_metric_from_file(parent_path, metric_file))
         return metrics
 
-    @staticmeethod
+    @staticmethod
     def _get_metric_from_line(metric_name, metric_line):
         metric_parts = metric_line.strip().split(" ")
         if len(metric_parts) != 2 and len(metric_parts) != 3:
@@ -446,7 +446,7 @@ class FileStore(AbstractStore):
             raise MlflowException("Metric '%s' not found under run '%s'" % (metric_key, run_uuid),
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
         return [FileStore._get_metric_from_line(metric_key, line)
-                for line in read_file_lines(parent_path, metric_key)
+                for line in read_file_lines(parent_path, metric_key)]
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):
@@ -522,7 +522,7 @@ class FileStore(AbstractStore):
         check_run_is_active(run.info)
         metric_path = self._get_metric_path(run.info.experiment_id, run_uuid, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, "%s %s %\n" % (metric.timestamp, metric.value, metric.step))
+        append_to(metric_path, "%s %s %s\n" % (metric.timestamp, metric.value, metric.step))
 
     def _writeable_value(self, tag_value):
         if tag_value is None:

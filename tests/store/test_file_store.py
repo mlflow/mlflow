@@ -294,21 +294,21 @@ class TestFileStore(unittest.TestCase):
 
         metric_name = "test-metric-1"
         # Check that we get the max of (step, timestamp, value) in that order
-        tuples_to_log = [[
+        tuples_to_log = [
             (0, 100, 1000),
             (3, 40, 100), # larger step wins even though it has smaller value
             (3, 50, 10), # larger timestamp wins even though it has smaller value
             (3, 50, 20), # tiebreak by max value
-            (3, 50, 20) # duplicate metrics with same (step, timestamp, value) are ok
+            (3, 50, 20), # duplicate metrics with same (step, timestamp, value) are ok
             # verify that we can log steps out of order / negative steps
-            (-3, 900, 900)
-            (-1, 800, 800)
-        ]]
+            (-3, 900, 900),
+            (-1, 800, 800),
+        ]
         for step, timestamp, value in reversed(tuples_to_log):
             fs.log_metric(run_uuid, Metric(metric_name, value, timestamp, step))
 
         metric_history = fs.get_metric_history(run_uuid, metric_name)
-        logged_tuples = [(m.step, m.value, m.timestamp) for m in metric_history]
+        logged_tuples = [(m.step, m.timestamp, m.value) for m in metric_history]
         assert set(logged_tuples) == set(tuples_to_log)
 
         run_data = fs.get_run(run_uuid).data
@@ -459,7 +459,7 @@ class TestFileStore(unittest.TestCase):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[0]["runs"][0]
-        fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234))
+        fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234, 0))
         run = fs.get_run(run_uuid)
         assert run.data.metrics[WEIRD_METRIC_NAME] == 10
         history = fs.get_metric_history(run_uuid, WEIRD_METRIC_NAME)
@@ -528,7 +528,7 @@ class TestFileStore(unittest.TestCase):
         with pytest.raises(MlflowException):
             fs.set_tag(run_id, RunTag('a', 'b'))
         with pytest.raises(MlflowException):
-            fs.log_metric(run_id, Metric('a', 0.0, timestamp=0))
+            fs.log_metric(run_id, Metric('a', 0.0, timestamp=0, step=0))
         with pytest.raises(MlflowException):
             fs.log_param(run_id, Param('a', 'b'))
 
@@ -640,7 +640,7 @@ class TestFileStore(unittest.TestCase):
             entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
             parent_run_id=None)
         run_uuid = run.info.run_uuid
-        metric_entities = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
+        metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 0)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         fs.log_batch(
@@ -659,8 +659,8 @@ class TestFileStore(unittest.TestCase):
         all_metrics = sum([fs.get_metric_history(run_uuid, key)
                            for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
-        logged_metrics = [(m.key, m.value, m.timestamp) for m in all_metrics]
-        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp) for m in metrics])
+        logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
+        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])
         logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
         assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
         assert len(run.data.params) == len(params)
@@ -680,7 +680,7 @@ class TestFileStore(unittest.TestCase):
             log_metric_mock.side_effect = _raise_exception_fn
             log_param_mock.side_effect = _raise_exception_fn
             set_tag_mock.side_effect = _raise_exception_fn
-            for kwargs in [{"metrics": [Metric("a", 3, 1)]}, {"params": [Param("b", "c")]},
+            for kwargs in [{"metrics": [Metric("a", 3, 1, 0)]}, {"params": [Param("b", "c")]},
                            {"tags": [RunTag("c", "d")]}]:
                 log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
                 log_batch_kwargs.update(kwargs)
@@ -725,16 +725,16 @@ class TestFileStore(unittest.TestCase):
     def test_log_batch_same_metric_repeated_single_req(self):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
-        metric0 = Metric(key="metric-key", value=1, timestamp=2)
-        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         fs.log_batch(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
         self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
 
     def test_log_batch_same_metric_repeated_multiple_reqs(self):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
-        metric0 = Metric(key="metric-key", value=1, timestamp=2)
-        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         fs.log_batch(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         fs.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])

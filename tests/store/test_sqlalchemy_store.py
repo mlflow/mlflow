@@ -52,6 +52,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         all_metrics = sum([self.store.get_metric_history(run_uuid, key)
                            for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
+        # TODO(sid): include step here as well
         logged_metrics = [(m.key, m.value, m.timestamp) for m in all_metrics]
         assert set(logged_metrics) == set([(m.key, m.value, m.timestamp) for m in metrics])
         logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
@@ -404,8 +405,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         tkey = 'blahmetric'
         tval = 100.0
-        metric = entities.Metric(tkey, tval, int(time.time()))
-        metric2 = entities.Metric(tkey, tval, int(time.time()) + 2)
+        metric = entities.Metric(tkey, tval, int(time.time()), 0)
+        metric2 = entities.Metric(tkey, tval, int(time.time()) + 2, 0)
         self.store.log_metric(run.info.run_uuid, metric)
         self.store.log_metric(run.info.run_uuid, metric2)
 
@@ -963,12 +964,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # SQL limitations, etc)
         experiment_id = self._experiment_factory('log_batch_limits')
         run_uuid = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
-        metric_tuples = [("m%s" % i, i, 12345) for i in range(1000)]
+        metric_tuples = [("m%s" % i, i, 12345, 0) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
         self.store.log_batch(run_id=run_uuid, metrics=metric_entities, params=[], tags=[])
         run = self.store.get_run(run_uuid)
         metric_histories = sum(
             [self.store.get_metric_history(run_uuid, key) for key in run.data.metrics], [])
+        #
         metrics = [(m.key, m.value, m.timestamp) for m in metric_histories]
         assert set(metrics) == set(metric_tuples)
 
@@ -982,7 +984,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         overwrite_param = entities.Param(tkey, 'newval')
         tag = entities.RunTag("tag-key", "tag-val")
-        metric = entities.Metric("metric-key", 3.0, 12345)
+        metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaises(MlflowException) as e:
             self.store.log_batch(run.info.run_uuid, metrics=[metric], params=[overwrite_param],
                                  tags=[tag])
@@ -997,7 +999,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         param0 = entities.Param(pkey, "orig-val")
         param1 = entities.Param(pkey, 'newval')
         tag = entities.RunTag("tag-key", "tag-val")
-        metric = entities.Metric("metric-key", 3.0, 12345)
+        metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaises(MlflowException) as e:
             self.store.log_batch(run.info.run_uuid, metrics=[metric], params=[param0, param1],
                                  tags=[tag])
@@ -1024,7 +1026,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             metric_mock.side_effect = _raise_exception_fn
             param_mock.side_effect = _raise_exception_fn
             tags_mock.side_effect = _raise_exception_fn
-            for kwargs in [{"metrics": [Metric("a", 3, 1)]}, {"params": [Param("b", "c")]},
+            for kwargs in [{"metrics": [Metric("a", 3, 1, 0)]}, {"params": [Param("b", "c")]},
                            {"tags": [RunTag("c", "d")]}]:
                 log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
                 log_batch_kwargs.update(kwargs)
@@ -1072,15 +1074,15 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
-        metric0 = Metric(key="metric-key", value=1, timestamp=2)
-        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
 
     def test_log_batch_same_metric_repeated_multiple_reqs(self):
         run = self._run_factory()
-        metric0 = Metric(key="metric-key", value=1, timestamp=2)
-        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])

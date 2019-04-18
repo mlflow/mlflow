@@ -43,4 +43,4 @@ class Metric(_MLflowObject):
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.key, proto.value, proto.timestamp)
+        return cls(proto.key, proto.value, proto.timestamp, proto.step)

@@ -21,7 +21,7 @@ def test_creation_and_hydration():
     metric = Metric(key, value, ts, step)
     _check(metric, key, value, ts, step)
 
-    as_dict = {"key": key, "value": value, "timestamp": ts}
+    as_dict = {"key": key, "value": value, "timestamp": ts, "step": step}
     assert dict(metric) == as_dict
 
     proto = metric.to_proto()
