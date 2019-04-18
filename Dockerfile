@@ -25,7 +25,7 @@ WORKDIR /app
 
 # hadolint ignore=DL3013
 RUN useradd --create-home --home-dir /app --shell /bin/bash --uid 8888 app \
-&&  pip install /tmp/wheel/*.whl \
+&&  pip install /tmp/wheel/*.whl sqlalchemy psycopg2 \
 &&  /bin/rm -rf /tmp/wheel/ /root/.cache/
 
 USER app
