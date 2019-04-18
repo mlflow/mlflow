@@ -21,7 +21,6 @@ When `client` is not specified, these functions attempt to infer the current act
 }
 \seealso{
 Other tracking functions: \code{\link{mlflow_create_experiment}},
-  \code{\link{mlflow_create_run}},
   \code{\link{mlflow_delete_experiment}},
   \code{\link{mlflow_delete_run}},
   \code{\link{mlflow_download_artifacts}},

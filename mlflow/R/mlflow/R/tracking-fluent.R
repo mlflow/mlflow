@@ -52,6 +52,10 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL) 
 #' @param source_version Optional Git commit hash to associate with the run.
 #' @param entry_point_name Optional name of the entry point for to the current run.
 #' @param source_type Integer enum value describing the type of the run  ("local", "project", etc.).
+#' @param user_id User ID or LDAP for the user executing the run. Only used when `client` is specified.
+#' @param run_name Human readable name for run. Only used when `client` is specified.
+#' @param start_time Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.
+#' @param tags Additional metadata for run in key-value pairs. Only used when `client` is specified.
 #' @template roxlate-fluent
 #'
 #' @examples
@@ -64,7 +68,27 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL) 
 #' @export
 mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name = NULL,
                              source_version = NULL, entry_point_name = NULL,
-                             source_type = "LOCAL") {
+                             source_type = NULL, user_id = NULL, run_name = NULL, start_time = NULL,
+                             tags = NULL, client = NULL) {
+
+  # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
+  #  an active run.
+  if (!is.null(client)) {
+    if (!is.null(run_uuid)) stop("`run_uuid` should not be specified when `client` is specified.", call. = FALSE)
+    run <- mlflow_create_run(client = client, user_id = user_id, run_name = run_name, source_type = source_type,
+                             source_name = source_name, entry_point_name = entry_point_name, start_time = start_time,
+                             source_version = source_version, tags = tags, experiment_id = experiment_id)
+    return(run)
+  }
+
+  # Fluent mode, check to see if extraneous params passed.
+
+  if (!is.null(user_id)) stop("`user_id` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(run_name)) stop("`run_name` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(start_time)) stop("`start_time` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(tags)) stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
+
+  source_type <- source_type %||% "LOCAL"
   active_run_id <- mlflow_get_active_run_id()
   if (!is.null(active_run_id)) {
     stop("Run with UUID ", active_run_id, " is already active.",

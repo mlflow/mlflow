@@ -6,7 +6,8 @@
 \usage{
 mlflow_start_run(run_uuid = NULL, experiment_id = NULL,
   source_name = NULL, source_version = NULL, entry_point_name = NULL,
-  source_type = "LOCAL")
+  source_type = NULL, user_id = NULL, run_name = NULL,
+  start_time = NULL, tags = NULL, client = NULL)
 }
 \arguments{
 \item{run_uuid}{If specified, get the run with the specified UUID and log metrics
@@ -25,6 +26,14 @@ Defaults to the current file if none provided.}
 \item{entry_point_name}{Optional name of the entry point for to the current run.}
 
 \item{source_type}{Integer enum value describing the type of the run  ("local", "project", etc.).}
+
+\item{user_id}{User ID or LDAP for the user executing the run. Only used when `client` is specified.}
+
+\item{run_name}{Human readable name for run. Only used when `client` is specified.}
+
+\item{start_time}{Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.}
+
+\item{tags}{Additional metadata for run in key-value pairs. Only used when `client` is specified.}
 }
 \description{
 Starts a new run within an experiment, should be used within a \code{with} block.

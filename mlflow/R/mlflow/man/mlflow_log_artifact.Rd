@@ -53,7 +53,6 @@ by Amazon IAM.
 }
 \seealso{
 Other tracking functions: \code{\link{mlflow_create_experiment}},
-  \code{\link{mlflow_create_run}},
   \code{\link{mlflow_delete_experiment}},
   \code{\link{mlflow_delete_run}},
   \code{\link{mlflow_download_artifacts}},
