@@ -1,9 +1,9 @@
 context("Tracking")
 
-test_that("mlflow_create_run()/mlflow_get_run() work properly", {
+test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
-  run <- mlflow_create_run(
+  run <- mlflow_start_run(
     client = client,
     experiment_id = "0",
     user_id = "user1",
