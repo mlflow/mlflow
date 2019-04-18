@@ -271,7 +271,7 @@ export class ExperimentView extends Component {
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
     const searchInputHelpTooltipContent = (
       <div className="search-input-tooltip-content">
-        Click here to learn more about the search syntax.<br/>
+        Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
         <a
           href="https://www.mlflow.org/docs/latest/search-syntax.html"
           target="_blank"
