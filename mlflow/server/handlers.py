@@ -8,7 +8,6 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-import mlflow
 from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -285,7 +284,9 @@ def _search_runs():
         run_view_type = ViewType.from_proto(request_message.run_view_type)
     sf = SearchFilter(anded_expressions=request_message.anded_expressions,
                       filter_string=request_message.filter)
-    run_entities = _get_store().search_runs(request_message.experiment_ids, sf, run_view_type)
+    max_results = request_message.max_results
+    experiment_ids = request_message.experiment_ids
+    run_entities = _get_store().search_runs(experiment_ids, sf, run_view_type, max_results)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -345,8 +346,7 @@ def _log_batch():
     metrics = [Metric.from_proto(proto_metric) for proto_metric in request_message.metrics]
     params = [Param.from_proto(proto_param) for proto_param in request_message.params]
     tags = [RunTag.from_proto(proto_tag) for proto_tag in request_message.tags]
-    mlflow.tracking.utils._get_store().log_batch(
-        run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
+    _get_store().log_batch(run_id=request_message.run_id, metrics=metrics, params=params, tags=tags)
     response_message = LogBatch.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -390,6 +390,7 @@ HANDLERS = {
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetTag: _set_tag,
+    LogBatch: _log_batch,
     GetRun: _get_run,
     SearchRuns: _search_runs,
     ListArtifacts: _list_artifacts,

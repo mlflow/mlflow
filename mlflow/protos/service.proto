@@ -400,6 +400,9 @@ message Metric {
 
   // The timestamp at which this metric was recorded.
   optional int64 timestamp = 3;
+
+  // Step at which to log the metric.
+  optional int64 step = 4 [default = 0];
 }
 
 // Param associated with a run.
@@ -678,6 +681,7 @@ message RestoreRun {
   message Response {}
 }
 
+
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -692,6 +696,9 @@ message LogMetric {
 
   // Unix timestamp in milliseconds at the time metric was logged.
   optional int64 timestamp = 4 [(validate_required) = true];
+
+  // Step at which to log the metric
+  optional int64 step = 5 [default = 0];
 
   message Response {
   }
@@ -831,6 +838,9 @@ message SearchRuns {
   // Whether to display only active, only deleted, or all runs.
   // Defaults to only active runs.
   optional ViewType run_view_type = 3 [default = ACTIVE_ONLY];
+
+  // Maximum number of runs desired. Max threshold is 50000
+  optional int32 max_results = 5 [default = 1000];
 
   message Response {
     // Runs that match the search criteria.
