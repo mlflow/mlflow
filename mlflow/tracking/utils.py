@@ -105,25 +105,25 @@ def get_artifact_uri(run_id, artifact_path=None):
         # joining the run's artifact root directory with the artifact's relative path, we use the
         # path module defined by the appropriate artifact repository
         artifact_path_module =\
-            get_artifact_repository(run.info.artifact_uri, store).get_path_module()
+            get_artifact_repository(run.info.artifact_uri).get_path_module()
         return artifact_path_module.join(run.info.artifact_uri, artifact_path)
 
 
+# TODO(sueann): ideally this is deprecated in favor of data.download_uri
+#  but there may be differences in auth mechanisms between Projects and artifacts -- ???
 def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
     :param artifact_uri: The *absolute* URI of the artifact to download.
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
     """
-    store = _get_store(artifact_uri=artifact_uri)
     artifact_path_module =\
-        get_artifact_repository(artifact_uri, store).get_path_module()
+        get_artifact_repository(artifact_uri).get_path_module()
     artifact_src_dir = artifact_path_module.dirname(artifact_uri)
     artifact_src_relative_path = artifact_path_module.basename(artifact_uri)
-    artifact_repo = get_artifact_repository(
-            artifact_uri=artifact_src_dir, store=store)
-    return artifact_repo.download_artifacts(
-            artifact_path=artifact_src_relative_path, dst_path=output_path)
+    artifact_repo = get_artifact_repository(artifact_uri=artifact_src_dir)
+    return artifact_repo.download_artifacts(artifact_path=artifact_src_relative_path,
+                                            dst_path=output_path)
 
 
 def _is_local_uri(uri):
@@ -241,9 +241,8 @@ class TrackingStoreRegistry:
             store_uri += ':'
 
         scheme = urllib.parse.urlparse(store_uri).scheme
-        try:
-            store_builder = self._registry[scheme]
-        except KeyError:
+        store_builder = self._registry.get(scheme)
+        if store_builder is None:
             raise MlflowException(
                 "Could not find a registered tracking store for: {}. "
                 "Currently registered schemes are: {}".format(
