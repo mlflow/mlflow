@@ -25,8 +25,11 @@ WORKDIR /app
 
 # hadolint ignore=DL3013
 RUN useradd --create-home --home-dir /app --shell /bin/bash --uid 8888 app \
+&&  apt update -qq -y \
+&&  apt install -qq -y --no-install-recommends build-essential libpq-dev \
 &&  pip install /tmp/wheel/*.whl sqlalchemy psycopg2 \
-&&  /bin/rm -rf /tmp/wheel/ /root/.cache/
+&&  apt clean \
+&&  /bin/rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /root/.cache/
 
 USER app
 
