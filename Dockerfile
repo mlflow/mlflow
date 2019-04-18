@@ -1,16 +1,33 @@
-FROM continuumio/miniconda
+# hadolint ignore=DL3006
+FROM continuumio/miniconda3 as builder
+
+WORKDIR /app
+COPY . /app
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# hadolint ignore=DL3003
+RUN apt-get update -qq -y \
+&&  apt-get install -qq -y gnupg curl git-core \
+&&  curl -sL https://deb.nodesource.com/setup_10.x | bash - \
+&&  apt-get update -qq -y && apt-get install -qq -y nodejs \
+&&  cd mlflow/server/js \
+&&  npm install \
+&&  npm run build \
+&&  cd /app \
+&&  python setup.py bdist_wheel
+
+# hadolint ignore=DL3006
+FROM continuumio/miniconda3 as runtime
+COPY --from=builder /app/dist/*.whl /tmp/wheel/
 
 WORKDIR /app
 
-ADD . /app
+# hadolint ignore=DL3013
+RUN useradd --create-home --home-dir /app --shell /bin/bash --uid 8888 app \
+&&  pip install /tmp/wheel/*.whl \
+&&  /bin/rm -rf /tmp/wheel/ /root/.cache/
 
-RUN pip install -r dev-requirements.txt && \
-    pip install -r test-requirements.txt && \
-    pip install -e . && \
-    apt-get update && apt-get install -y gnupg && \
-    apt-get install -y openjdk-8-jre-headless && \
-    curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
-    apt-get update && apt-get install -y nodejs && \
-    cd mlflow/server/js && \
-    npm install && \
-    npm run build
+USER app
+
+CMD ["mlflow", "server"]
