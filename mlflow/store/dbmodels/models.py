@@ -250,6 +250,10 @@ class SqlMetric(Base):
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
     """
+    step = Column(BigInteger, default=0)
+    """
+    Step recorded for this metric entry: `BigInteger`.
+    """
     run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     """
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``metrics`` table.
@@ -261,11 +265,11 @@ class SqlMetric(Base):
     """
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', 'value', name='metric_pk'),
+        PrimaryKeyConstraint('key', 'timestamp', 'step', 'run_uuid', 'value', name='metric_pk'),
     )
 
     def __repr__(self):
-        return '<SqlMetric({}, {}, {})>'.format(self.key, self.value, self.timestamp)
+        return '<SqlMetric({}, {}, {}, {})>'.format(self.key, self.value, self.timestamp, self.step)
 
     def to_mlflow_entity(self):
         """

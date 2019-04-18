@@ -1085,3 +1085,5 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+
+
