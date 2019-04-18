@@ -186,7 +186,8 @@ def test_start_run_defaults(empty_active_run_stack):
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=None,
-            tags=expected_tags
+            tags=expected_tags,
+            parent_run_id=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -234,7 +235,8 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=None,
-            tags=expected_tags
+            tags=expected_tags,
+            parent_run_id=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -272,7 +274,8 @@ def test_start_run_overrides(empty_active_run_stack):
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=mock_run_name,
-            tags=expected_tags
+            tags=expected_tags,
+            parent_run_id=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -324,7 +327,8 @@ def test_start_run_overrides_databricks_notebook(empty_active_run_stack):
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=mock_run_name,
-            tags=expected_tags
+            tags=expected_tags,
+            parent_run_id=None,
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
@@ -364,7 +368,8 @@ def test_start_run_with_parent():
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
             run_name=mock_run_name,
-            tags=expected_tags
+            tags=expected_tags,
+            parent_run_id=None
         )
         assert is_from_run(active_run, MlflowClient.create_run.return_value)
 
