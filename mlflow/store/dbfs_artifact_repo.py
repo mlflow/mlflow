@@ -24,9 +24,8 @@ class DbfsArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         cleaned_artifact_uri = artifact_uri.rstrip('/')
         super(DbfsArtifactRepository, self).__init__(cleaned_artifact_uri)
-        # TODO (sueann): we may want to pass in the databricks profile or the RestStore's
-        #  get_host_creds directly instead of using _get_store, since it's possible they
-        #  will be different.
+        # NOTE: if we ever need to support databricks profiles different from that set for
+        #  tracking, we could pass in the databricks profile name into this class.
         self.get_host_creds = utils._get_store().get_host_creds
         if not cleaned_artifact_uri.startswith('dbfs:/'):
             raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')

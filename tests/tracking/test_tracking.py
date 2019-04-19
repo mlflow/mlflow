@@ -436,7 +436,7 @@ def test_get_artifact_uri_uses_currently_active_run_id():
     artifact_path = "artifact"
     with mlflow.start_run() as active_run:
         assert mlflow.get_artifact_uri(artifact_path=artifact_path) == \
-               mlflow.tracking.artifact_utils.get_artifact_uri(
+               tracking.artifact_utils.get_artifact_uri(
                 run_id=active_run.info.run_uuid, artifact_path=artifact_path)
 
 
