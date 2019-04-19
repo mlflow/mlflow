@@ -164,21 +164,6 @@ def read_yaml(root, file_name):
         raise e
 
 
-class safe_edit_yaml(object):
-    def __init__(self, root, file_name, edit_func):
-        self._root = root
-        self._file_name = file_name
-        self._edit_func = edit_func
-        self._original = read_yaml(root, file_name)
-
-    def __enter__(self):
-        new_dict = self._edit_func(self._original.copy())
-        write_yaml(self._root, self._file_name, new_dict, overwrite=True)
-
-    def __exit__(self, *args):
-        write_yaml(self._root, self._file_name, self._original, overwrite=True)
-
-
 class TempDir(object):
     def __init__(self, chdr=False, remove_on_exit=True):
         self._dir = None

@@ -14,12 +14,12 @@ from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, read_yaml, safe_edit_yaml
+from mlflow.utils.file_utils import write_yaml, read_yaml
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 from mlflow.utils.search_utils import SearchFilter
 
-from tests.helper_functions import random_int, random_str
+from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
 
 class TestFileStore(unittest.TestCase):
