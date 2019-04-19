@@ -100,21 +100,21 @@ class RestStore(AbstractStore):
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
         otherwise raises an Exception.
         """
-        req_body = message_to_json(GetExperiment(experiment_id=experiment_id))
+        req_body = message_to_json(GetExperiment(experiment_id=str(experiment_id)))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
 
     def delete_experiment(self, experiment_id):
-        req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
+        req_body = message_to_json(DeleteExperiment(experiment_id=str(experiment_id)))
         self._call_endpoint(DeleteExperiment, req_body)
 
     def restore_experiment(self, experiment_id):
-        req_body = message_to_json(RestoreExperiment(experiment_id=experiment_id))
+        req_body = message_to_json(RestoreExperiment(experiment_id=str(experiment_id)))
         self._call_endpoint(RestoreExperiment, req_body)
 
     def rename_experiment(self, experiment_id, new_name):
         req_body = message_to_json(UpdateExperiment(
-            experiment_id=experiment_id, new_name=new_name))
+            experiment_id=str(experiment_id), new_name=new_name))
         self._call_endpoint(UpdateExperiment, req_body)
 
     def get_run(self, run_uuid):
@@ -150,7 +150,7 @@ class RestStore(AbstractStore):
         """
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(CreateRun(
-            experiment_id=experiment_id, user_id=user_id, run_name="",
+            experiment_id=str(experiment_id), user_id=user_id, run_name="",
             source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,
             start_time=start_time, source_version=source_version, tags=tag_protos,
             parent_run_id=parent_run_id))
