@@ -48,14 +48,14 @@ and [Service.java domain objects](src/main/java/org/mlflow/api/proto/mlflow/Serv
 ```
 Run getRun(String runUuid)
 RunInfo createRun()
-RunInfo createRun(long experimentId)
-RunInfo createRun(long experimentId, String appName)
+RunInfo createRun(String experimentId)
+RunInfo createRun(String experimentId, String appName)
 RunInfo createRun(CreateRun request)
-List<RunInfo> listRunInfos(long experimentId)
+List<RunInfo> listRunInfos(String experimentId)
 
 
 List<Experiment> listExperiments()
-GetExperiment.Response getExperiment(long experimentId)
+GetExperiment.Response getExperiment(String experimentId)
 Optional<Experiment> getExperimentByName(String experimentName)
 long createExperiment(String experimentName)
 
@@ -110,7 +110,7 @@ public class QuickStartDriver {
 
     System.out.println("====== createExperiment");
     String expName = "Exp_" + System.currentTimeMillis();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
     System.out.println("createExperiment: expId=" + expId);
 
     System.out.println("====== getExperiment");
@@ -133,7 +133,7 @@ public class QuickStartDriver {
     System.out.println("getExperimentByName: " + exp3);
   }
 
-  void createRun(MlflowClient client, long expId) {
+  void createRun(MlflowClient client, String expId) {
     System.out.println("====== createRun");
 
     // Create run

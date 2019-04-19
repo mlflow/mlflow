@@ -52,9 +52,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         all_metrics = sum([self.store.get_metric_history(run_uuid, key)
                            for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
-        # TODO(sid): include step here as well
-        logged_metrics = [(m.key, m.value, m.timestamp) for m in all_metrics]
-        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp) for m in metrics])
+        logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
+        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])
         logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
         assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
         assert len(run.data.params) == len(params)
@@ -66,7 +65,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(len(experiments), 1)
 
         first = experiments[0]
-        self.assertEqual(first.experiment_id, 0)
+        self.assertEqual(first.experiment_id, "0")
         self.assertEqual(first.name, "Default")
 
     def test_default_experiment_lifecycle(self):
@@ -157,7 +156,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 res = session.query(models.SqlExperiment).filter_by(
                     experiment_id=experiment_id).first()
                 self.assertIn(res.name, testnames)
-                self.assertEqual(res.experiment_id, experiment_id)
+                self.assertEqual(str(res.experiment_id), experiment_id)
 
     def test_create_experiments(self):
         with self.store.ManagedSessionMaker() as session:
@@ -171,7 +170,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(len(result), 2)
 
             test_exp = session.query(models.SqlExperiment).filter_by(name='test exp').first()
-            self.assertEqual(test_exp.experiment_id, experiment_id)
+            self.assertEqual(str(test_exp.experiment_id), experiment_id)
             self.assertEqual(test_exp.name, 'test exp')
 
         actual = self.store.get_experiment(experiment_id)

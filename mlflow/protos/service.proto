@@ -447,7 +447,7 @@ message RunInfo {
   optional string run_uuid = 1;
 
   // The experiment ID.
-  optional int64 experiment_id = 2;
+  optional string experiment_id = 2;
 
   // Human readable name that identifies this run.
   // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
@@ -499,7 +499,7 @@ message RunInfo {
 // Experiment
 message Experiment {
   // Unique identifier for the experiment.
-  optional int64 experiment_id = 1;
+  optional string experiment_id = 1;
 
   // Human readable name that identifies the experiment.
   optional string name = 2;
@@ -530,7 +530,7 @@ message CreateExperiment {
 
   message Response {
     // Unique identifier for the experiment.
-    optional int64 experiment_id = 1;
+    optional string experiment_id = 1;
   }
 }
 
@@ -551,7 +551,7 @@ message GetExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the associated experiment.
-  optional int64 experiment_id = 1 [(validate_required) = true];
+  optional string experiment_id = 1 [(validate_required) = true];
 
   message Response {
     // Returns experiment details.
@@ -566,7 +566,7 @@ message DeleteExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the associated experiment.
-  optional int64 experiment_id = 1 [(validate_required) = true];
+  optional string experiment_id = 1 [(validate_required) = true];
 
   message Response {
   }
@@ -576,7 +576,7 @@ message RestoreExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // Identifier to get an experiment
-  optional int64 experiment_id = 1 [(validate_required) = true];
+  optional string experiment_id = 1 [(validate_required) = true];
 
   message Response {
   }
@@ -586,7 +586,7 @@ message UpdateExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the associated experiment.
-  optional int64 experiment_id = 1 [(validate_required) = true];
+  optional string experiment_id = 1 [(validate_required) = true];
 
   // If provided, the experiment's name will be changed to this. The new name must be unique.
   optional string new_name = 2;
@@ -599,7 +599,7 @@ message CreateRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the associated experiment.
-  optional int64 experiment_id = 1;
+  optional string experiment_id = 1;
 
   // ID of the user executing the run.
   optional string user_id = 2;
@@ -810,7 +810,7 @@ message SearchRuns {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // List of experiment IDs to search over.
-  repeated int64 experiment_ids = 1;
+  repeated string experiment_ids = 1;
 
   // This field is deprecated and will be removed in MLflow 1.0.
   // Expressions describing runs (AND-ed together when filtering runs).
