@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "antd": "^3.15.2",
     "bytes": "3.0.0",
     "classnames": "^2.2.6",
     "cookie": "0.3.1",

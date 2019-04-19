@@ -70,18 +70,22 @@
 }
 
 .ExperimentView-search {
-  display: table;
-  width: 100%;
+  display: flex;
+  align-items: center;
 }
 
 .ExperimentView-search-input {
-  display: table-cell;
+  flex: 1;
   width: auto;
 }
 
+.ExperimentView-search-help {
+  margin-right: 10px;
+  cursor: pointer;
+}
+
 .ExperimentView-lifecycle-input {
-  display: table-cell;
-  width: 100px;
+  width: 156px;
   padding-right: 8px;
 }
 
@@ -258,4 +262,15 @@ span.error-message {
 
 .ExperimentView .ReactVirtualized__Table__row:hover {
   background-color: #f5f5f5;
+}
+
+.search-input-tooltip .ant-popover-inner-content {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  border-radius: 4px;
+}
+
+.search-input-tooltip.ant-popover-placement-bottom > .ant-popover-content > .ant-popover-arrow {
+  border-top-color: rgba(0, 0, 0, 0.75);
+  border-left-color: rgba(0, 0, 0, 0.75);
 }

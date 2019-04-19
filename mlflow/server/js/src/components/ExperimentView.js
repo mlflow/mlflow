@@ -21,6 +21,7 @@ import RestoreRunModal from './modals/RestoreRunModal';
 
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
+import { Icon, Popover } from 'antd';
 
 import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
@@ -268,6 +269,18 @@ export class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
+    const searchInputHelpTooltipContent = (
+      <div className="search-input-tooltip-content">
+        Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
+        <a
+          href="https://www.mlflow.org/docs/latest/search-syntax.html"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Learn more
+        </a>
+      </div>
+    );
     return (
       <div className="ExperimentView runs-table-flex-container">
         <DeleteRunModal
@@ -321,6 +334,17 @@ export class ExperimentView extends Component {
                     />
                   </div>
                 </div>
+                <Popover
+                  overlayClassName="search-input-tooltip"
+                  content={searchInputHelpTooltipContent}
+                  placement="bottom"
+                >
+                  <Icon
+                    type="question-circle"
+                    className="ExperimentView-search-help"
+                    theme="filled"
+                  />
+                </Popover>
                 <div className="ExperimentView-lifecycle-input">
                   <label className="filter-label" style={styles.lifecycleButtonLabel}>State:</label>
                   <div className="filter-wrapper" style={styles.lifecycleButtonFilterWrapper}>
