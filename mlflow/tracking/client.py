@@ -53,7 +53,8 @@ class MlflowClient(object):
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
-    def create_run(self, experiment_id, user_id=None, run_name=None, start_time=None, tags=None):
+    def create_run(self, experiment_id, user_id=None, run_name=None, start_time=None,
+                   parent_run_id=None, tags=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -63,6 +64,8 @@ class MlflowClient(object):
 
         :param user_id: If not provided, use the current user as a default.
         :param start_time: If not provided, use the current timestamp.
+        :param parent_run_id Optional parent run ID - takes precedence over parent run ID included
+                             in the `tags` argument.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
         :return: :py:class:`mlflow.entities.Run` that was created.
@@ -73,7 +76,8 @@ class MlflowClient(object):
         # Extract run attributes from tags
         # This logic is temporary; by the 1.0 release, this information will only be stored in tags
         # and will not be available as attributes of the run
-        parent_run_id = tags.get(MLFLOW_PARENT_RUN_ID)
+        final_parent_run_id =\
+            tags.get(MLFLOW_PARENT_RUN_ID) if parent_run_id is None else parent_run_id
         source_name = tags.get(MLFLOW_SOURCE_NAME, "Python Application")
         source_version = tags.get(MLFLOW_GIT_COMMIT)
         entry_point_name = tags.get(MLFLOW_PROJECT_ENTRY_POINT)
@@ -91,7 +95,7 @@ class MlflowClient(object):
             start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
             # The below arguments remain set for backwards compatability:
-            parent_run_id=parent_run_id,
+            parent_run_id=final_parent_run_id,
             source_type=source_type,
             source_name=source_name,
             entry_point_name=entry_point_name,
