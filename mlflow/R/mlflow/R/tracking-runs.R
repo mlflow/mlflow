@@ -1,93 +1,3 @@
-#' Create Experiment
-#'
-#' Creates an MLflow experiment.
-#'
-#' @param name The name of the experiment to create.
-#' @param artifact_location Location where all artifacts for this experiment are stored. If
-#'   not provided, the remote server will select an appropriate default.
-#' @template roxlate-client
-#' @export
-mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
-  client <- client %||% mlflow_client()
-  name <- forge::cast_string(name)
-  response <- mlflow_rest(
-    "experiments", "create",
-    client = client, verb = "POST",
-    data = list(
-      name = name,
-      artifact_location = artifact_location
-    )
-  )
-  mlflow_get_experiment(client = client, experiment_id = response$experiment_id)
-}
-
-#' List Experiments
-#'
-#' Gets a list of all experiments.
-#'
-#' @param view_type Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.
-#' @template roxlate-client
-#' @export
-mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
-  client <- client %||% mlflow_client()
-  view_type <- match.arg(view_type)
-  response <-   mlflow_rest(
-    "experiments", "list",
-    client = client, verb = "GET",
-    query = list(view_type = view_type)
-  )
-
-  # Return `NULL` if no experiments
-  if (!length(response)) return(NULL)
-
-  response$experiments %>%
-    purrr::transpose() %>%
-    purrr::map(unlist) %>%
-    tibble::as_tibble()
-}
-
-#' Get Experiment
-#'
-#' Gets metadata for an experiment and a list of runs for the experiment.
-#'
-#'
-#' @param name The experiment name, either this or `experiment_id` should be specified.
-#' @param experiment_id Identifer to get an experiment. Attempts to obtain the active experiment
-#'   if not provided.
-#' @template roxlate-client
-#' @export
-mlflow_get_experiment <- function(name = NULL, experiment_id = NULL, client = NULL) {
-  if (!is.null(name) && !is.null(experiment_id)) {
-    stop("Only one of `name` or `experiment_id` should be specified.", call. = FALSE)
-  }
-
-  client <- client %||% mlflow_client()
-
-  if (!is.null(name)) return(mlflow_get_experiment_by_name(client = client, name = name))
-
-  experiment_id <- resolve_experiment_id(experiment_id)
-  experiment_id <- cast_string(experiment_id)
-  response <- mlflow_rest(
-    "experiments", "get",
-    client = client, query = list(experiment_id = experiment_id)
-  )
-  response$experiment %>%
-    new_mlflow_experiment()
-}
-
-mlflow_get_experiment_by_name <- function(name, client = NULL) {
-  client <- client %||% mlflow_client()
-  exps <- mlflow_list_experiments(client = client)
-  if (is.null(exps)) stop("No experiments found.", call. = FALSE)
-
-  experiment <- exps[exps$name == name, ]
-  if (nrow(experiment)) {
-    new_mlflow_experiment(experiment)
-  } else {
-    stop(glue::glue("Experiment `{exp}` not found.", exp = name), call. = FALSE)
-  }
-}
-
 #' Log Metric
 #'
 #' Logs a metric for a run. Metrics key-value pair that records a single float measure.
@@ -118,72 +28,8 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, run_id = NULL, clien
   invisible(value)
 }
 
-#' Delete Experiment
-#'
-#' Marks an experiment and associated runs, params, metrics, etc. for deletion. If the
-#'   experiment uses FileStore, artifacts associated with experiment are also deleted.
-#'
-#' @param experiment_id ID of the associated experiment. This field is required.
-#' @template roxlate-client
-#' @export
-mlflow_delete_experiment <- function(experiment_id, client = NULL) {
-  if (identical(experiment_id, mlflow_get_active_experiment_id()))
-    stop("Cannot delete an active experiment.", call. = FALSE)
 
-  client <- client %||% mlflow_client()
-  mlflow_rest(
-    "experiments", "delete",
-    verb = "POST", client = client,
-    data = list(experiment_id = experiment_id)
-  )
-  mlflow_get_experiment(experiment_id = experiment_id)
-}
 
-#' Restore Experiment
-#'
-#' Restores an experiment marked for deletion. This also restores associated metadata,
-#'   runs, metrics, and params. If experiment uses FileStore, underlying artifacts
-#'   associated with experiment are also restored.
-#'
-#' Throws `RESOURCE_DOES_NOT_EXIST` if the experiment was never created or was permanently deleted.
-#'
-#' @param experiment_id ID of the associated experiment. This field is required.
-#' @template roxlate-client
-#' @export
-mlflow_restore_experiment <- function(experiment_id, client = NULL) {
-  client <- client %||% mlflow_client()
-  mlflow_rest(
-    "experiments", "restore",
-    client = client, verb = "POST",
-    data = list(experiment_id = experiment_id)
-  )
-  mlflow_get_experiment(experiment_id = experiment_id)
-}
-
-#' Rename Experiment
-#'
-#' Renames an experiment.
-#'
-#' @template roxlate-client
-#' @param experiment_id ID of the associated experiment. This field is required.
-#' @param new_name The experiment’s name will be changed to this. The new name must be unique.
-#' @export
-mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NULL) {
-  experiment_id <- resolve_experiment_id(experiment_id)
-
-  client <- client %||% mlflow_client()
-  mlflow_rest(
-    "experiments", "update",
-    client = client, verb = "POST",
-    data = list(
-      experiment_id = experiment_id,
-      new_name = new_name
-    )
-  )
-  experiment <- mlflow_get_experiment(experiment_id)
-
-  experiment
-}
 
 mlflow_create_run <- function(user_id = NULL, run_name = NULL, source_type = NULL,
                               source_name = NULL, entry_point_name = NULL, start_time = NULL,
@@ -596,4 +442,156 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
   )
 
   mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client)
+}
+
+
+#' Start Run
+#'
+#' Starts a new run within an experiment, should be used within a \code{with} block.
+#'
+#' @param run_uuid If specified, get the run with the specified UUID and log metrics
+#'   and params under that run. The run's end time is unset and its status is set to
+#'   running, but the run's other attributes remain unchanged.
+#' @param experiment_id Used only when `run_uuid` is unspecified. ID of the experiment under
+#'   which to create the current run. If unspecified, the run is created under
+#'   a new experiment with a randomly generated name.
+#' @param source_name Name of the source file or URI of the project to be associated with the run.
+#'   Defaults to the current file if none provided.
+#' @param source_version Optional Git commit hash to associate with the run.
+#' @param entry_point_name Optional name of the entry point for to the current run.
+#' @param source_type Integer enum value describing the type of the run  ("local", "project", etc.).
+#' @param user_id User ID or LDAP for the user executing the run. Only used when `client` is specified.
+#' @param run_name Human readable name for run. Only used when `client` is specified.
+#' @param start_time Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.
+#' @param tags Additional metadata for run in key-value pairs. Only used when `client` is specified.
+#' @template roxlate-fluent
+#'
+#' @examples
+#' \dontrun{
+#' with(mlflow_start_run(), {
+#'   mlflow_log("test", 10)
+#' })
+#' }
+#'
+#' @export
+mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name = NULL,
+                             source_version = NULL, entry_point_name = NULL,
+                             source_type = NULL, user_id = NULL, run_name = NULL, start_time = NULL,
+                             tags = NULL, client = NULL) {
+
+  # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
+  #  an active run.
+  if (!is.null(client)) {
+    if (!is.null(run_uuid)) stop("`run_uuid` should not be specified when `client` is specified.", call. = FALSE)
+    run <- mlflow_create_run(client = client, user_id = user_id, run_name = run_name, source_type = source_type,
+                             source_name = source_name, entry_point_name = entry_point_name, start_time = start_time,
+                             source_version = source_version, tags = tags, experiment_id = experiment_id)
+    return(run)
+  }
+
+  # Fluent mode, check to see if extraneous params passed.
+
+  if (!is.null(user_id)) stop("`user_id` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(run_name)) stop("`run_name` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(start_time)) stop("`start_time` should only be specified when `client` is specified.", call. = FALSE)
+  if (!is.null(tags)) stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
+
+  source_type <- source_type %||% "LOCAL"
+  active_run_id <- mlflow_get_active_run_id()
+  if (!is.null(active_run_id)) {
+    stop("Run with UUID ", active_run_id, " is already active.",
+         call. = FALSE
+    )
+  }
+
+  existing_run_uuid <- run_uuid %||% {
+    env_run_id <- Sys.getenv("MLFLOW_RUN_ID")
+    if (nchar(env_run_id)) env_run_id
+  }
+
+  client <- mlflow_client()
+
+  run <- if (!is.null(existing_run_uuid)) {
+    # This is meant to pick up existing run when we're inside `mlflow_source()` called via `mlflow run`.
+    mlflow_get_run(client = client, run_id = existing_run_uuid)
+  } else {
+    experiment_id <- mlflow_infer_experiment_id(experiment_id)
+    client <- mlflow_client()
+
+    args <- mlflow_get_run_context(
+      client,
+      experiment_id = experiment_id,
+      source_name = source_name,
+      source_version = source_version,
+      entry_point_name = entry_point_name,
+      source_type = source_type
+    )
+    do.call(mlflow_create_run, args)
+  }
+  mlflow_set_active_run_id(mlflow_id(run))
+  run
+}
+
+
+mlflow_get_run_context <- function(client, ...) {
+  UseMethod("mlflow_get_run_context")
+}
+
+mlflow_get_run_context.default <- function(client, source_name, source_version, experiment_id,
+                                           ...) {
+  list(
+    client = client,
+    source_name = source_name %||% get_source_name(),
+    source_version = source_version %||% get_source_version(),
+    experiment_id = experiment_id %||% 0,
+    ...
+  )
+}
+
+#' End a Run
+#'
+#' Terminates a run. Attempts to end the current active run if `run_id` is not specified.
+#'
+#' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @param end_time Unix timestamp of when the run ended in milliseconds.
+#' @template roxlate-run-id
+#' @template roxlate-fluent
+#'
+#' @export
+mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+                           end_time = NULL, run_id = NULL, client = NULL) {
+
+  status <- match.arg(status)
+  end_time <- end_time %||% current_time()
+
+  active_run_id <- mlflow_get_active_run_id()
+
+  if (!is.null(client) && is.null(run_id))
+    stop("`run_id` must be specified when `client` is specified.", call. = FALSE)
+
+  run <- if (!is.null(run_id)) {
+    client <- client %||% mlflow_client()
+    mlflow_set_terminated(client = client, run_id = run_id, status = status,
+                          end_time = end_time)
+  } else {
+    if (is.null(active_run_id)) stop("There is no active run to end.", call. = FALSE)
+    client <- mlflow_client()
+    run_id <- active_run_id
+    mlflow_set_terminated(client = client, run_id = active_run_id, status = status,
+                          end_time = end_time)
+  }
+
+  if (identical(run_id, active_run_id)) mlflow_set_active_run_id(NULL)
+  run
+}
+
+#' Active Run
+#'
+#' Retrieves the active run.
+#'
+#' @export
+mlflow_active_run <- function() {
+  active_run_id <- mlflow_get_active_run_id()
+  if (is.null(active_run_id)) stop("There is no active run.", call. = FALSE)
+  mlflow_get_run(active_run_id)
 }

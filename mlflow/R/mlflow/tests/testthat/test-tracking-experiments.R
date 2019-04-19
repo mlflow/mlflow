@@ -108,3 +108,11 @@ test_that("experiment setting works", {
   expect_identical(exp2, exp2_set)
   expect_identical(exp2, mlflow_get_experiment())
 })
+
+test_that("mlflow_set_experiment() creates experiments", {
+  mlflow_clear_test_dir("mlruns")
+  mlflow_set_experiment(experiment_name = "foo", artifact_location = "artifact/location")
+  experiment <- mlflow_active_experiment()
+  expect_identical(experiment$artifact_location, "artifact/location")
+  expect_identical(experiment$name, "foo")
+})
