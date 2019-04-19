@@ -1,5 +1,4 @@
 import json
-import pytest
 
 from mlflow.entities import Experiment, Metric
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
