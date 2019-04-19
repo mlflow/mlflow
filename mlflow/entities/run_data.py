@@ -3,45 +3,46 @@ from mlflow.entities.config import Config
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
-from mlflow.protos.service_pb2 import RunData as ProtoRunData
+from mlflow.protos.service_pb2 import RunData as ProtoRunData, Param as ProtoParam, \
+    RunTag as ProtoRunTag, Config as ProtoConfig
 
 
 class RunData(_MLflowObject):
     """
     Run data (metrics and parameters).
     """
-
     def __init__(self, metrics=None, params=None, tags=None, configs=None):
-        self._metrics = []
-        self._params = []
-        self._tags = []
-        self._configs = []
-        if metrics is not None:
-            for m in metrics:
-                self._add_metric(m)
-        if params is not None:
-            for p in params:
-                self._add_param(p)
-        if tags is not None:
-            for t in tags:
-                self._add_tag(t)
-        if configs is not None:
-            for c in configs:
-                self._add_config(c)
+        """
+        Construct a new :py:class:`mlflow.entities.RunData` instance.
+        :param metrics: List of :py:class:`mlflow.entities.Metric`.
+        :param params: List of :py:class:`mlflow.entities.Param`.
+        :param tags: List of :py:class:`mlflow.entities.RunTag`.
+        """
+        # Maintain the original list of metrics so that we can easily convert it back to
+        # protobuf
+        self._metric_objs = metrics or []
+        self._metrics = {metric.key: metric.value for metric in self._metric_objs}
+        self._params = {param.key: param.value for param in (params or [])}
+        self._tags = {tag.key: tag.value for tag in (tags or [])}
+        self._configs = {config.key: config.value for config in (configs or [])}
 
     @property
     def metrics(self):
-        """List of :py:class:`mlflow.entities.Metric` for the current run."""
+        """
+        Dictionary of string key -> metric value for the current run.
+        For each metric key, the metric value with the latest timestamp is returned. In case there
+        are multiple values with the same latest timestamp, the maximum of these values is returned.
+        """
         return self._metrics
 
     @property
     def params(self):
-        """List of :py:class:`mlflow.entities.Param` for the current run."""
+        """Dictionary of param key (string) -> param value for the current run."""
         return self._params
 
     @property
     def tags(self):
-        """List of :py:class:`mlflow.entities.RunTag` for the current run."""
+        """Dictionary of tag key (string) -> tag value for the current run."""
         return self._tags
 
     @property
@@ -50,35 +51,33 @@ class RunData(_MLflowObject):
         return self._configs
 
     def _add_metric(self, metric):
-        if isinstance(metric, dict):
-            metric = Metric(metric['key'], metric['value'], metric['timestamp'])
-        self._metrics.append(metric)
+        self._metrics[metric.key] = metric.value
+        self._metric_objs.append(metric)
 
     def _add_param(self, param):
-        if isinstance(param, dict):
-            param = Param(param['key'], param['value'])
-        self._params.append(param)
+        self._params[param.key] = param.value
 
     def _add_tag(self, tag):
-        if isinstance(tag, dict):
-            tag = RunTag(tag['key'], tag['value'])
-        self._tags.append(tag)
+        self._tags[tag.key] = tag.value
 
     def _add_config(self, config):
-        if isinstance(config, dict):
-            config = Config(config['key'], config['value'])
-        self._configs.append(config)
+        self._params[config.key] = config.value
 
     def to_proto(self):
         run_data = ProtoRunData()
-        run_data.metrics.extend([m.to_proto() for m in self.metrics])
-        run_data.params.extend([p.to_proto() for p in self.params])
-        run_data.tags.extend([t.to_proto() for t in self.tags])
-        run_data.configs.extend([t.to_proto() for t in self.configs])
+        run_data.metrics.extend([m.to_proto() for m in self._metric_objs])
+        run_data.params.extend([ProtoParam(key=key, value=val) for key, val in self.params.items()])
+        run_data.tags.extend([ProtoRunTag(key=key, value=val) for key, val in self.tags.items()])
+        run_data.configs.extend([ProtoConfig(key=key, value=val) for key, val in self.configs.items()])
         return run_data
 
     def to_dictionary(self):
-        return {p: [dict(val) for val in getattr(self, p)] for p in RunData._properties()}
+        return {
+            "metrics": self.metrics,
+            "params": self.params,
+            "tags": self.tags,
+            "configs": self.configs,
+        }
 
     @classmethod
     def from_proto(cls, proto):
@@ -92,18 +91,4 @@ class RunData(_MLflowObject):
             run_data._add_tag(RunTag.from_proto(proto_tag))
         for proto_config in proto.configs:
             run_data._add_config(Config.from_proto(proto_config))
-
-        return run_data
-
-    @classmethod
-    def from_dictionary(cls, the_dict):
-        run_data = cls()
-        for p in the_dict.get("metrics", []):
-            run_data._add_metric(p)
-        for p in the_dict.get("params", []):
-            run_data._add_param(p)
-        for t in the_dict.get("tags", []):
-            run_data._add_tag(t)
-        for c in the_dict.get("configs", []):
-            run_data._add_config(c)
         return run_data
