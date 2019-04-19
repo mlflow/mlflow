@@ -2,9 +2,14 @@ import React from 'react';
 import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
-import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 
-export default class ExperimentViewUtil {
+export const DEFAULT_EXPANDED_VALUE = false;
+export const PARAM_TYPE = 'param'
+export const METRIC_TYPE = 'metric'
+export const CONFIG_TYPE = 'config'
+export const META_TYPE = 'meta'
+
+export class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
   static getCheckboxForRow(selected, checkboxHandler, cellType) {
     const CellComponent = `${cellType}`;
@@ -89,8 +94,8 @@ export default class ExperimentViewUtil {
    * is visible if we're currently sorting by the corresponding column. Otherwise, the icon is
    * invisible but takes up space.
    */
-  static getSortIcon(sortState, isMetric, isParam, key) {
-    if (ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
+  static getSortIcon(sortState, type, key) {
+    if (ExperimentViewUtil.isSortedBy(sortState, type, key)) {
       return (
         <span>
           <i
@@ -116,12 +121,12 @@ export default class ExperimentViewUtil {
   static getRunMetadataHeaderCells(onSortBy, sortState, cellType) {
     const CellComponent = `${cellType}`;
     const getHeaderCell = (key, text) => {
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, false, key);
+      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, META_TYPE, key);
       return (
         <CellComponent
           key={"meta-" + key}
           className="bottom-row sortable run-table-container"
-          onClick={() => onSortBy(false, false, key)}
+          onClick={() => onSortBy(META_TYPE, key)}
         >
           <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
           <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
@@ -199,9 +204,23 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static isSortedBy(sortState, isMetric, isParam, key) {
-    return (sortState.isMetric === isMetric && sortState.isParam === isParam
-      && sortState.key === key);
+  static getUnbaggedConfigCell(configKey, configsMap, cellType) {
+    const CellComponent = `${cellType}`;
+    const className = "left-border run-table-container";
+    const keyName = "config-" + configKey;
+    if (configsMap[configKey]) {
+      return <CellComponent className={className} key={keyName}>
+        <div>
+          {configsMap[configKey].getValue()}
+        </div>
+      </CellComponent>;
+    } else {
+      return <CellComponent className={className} key={keyName}/>;
+    }
+  }
+
+  static isSortedBy(sortState, type, key) {
+    return (sortState.type === type && sortState.key === key);
   }
 
   static computeMetricRanges(metricsByRun) {
@@ -246,6 +265,17 @@ export default class ExperimentViewUtil {
   }
 
   /**
+   * Turn a list of metrics to a map of metric key to metric.
+   */
+  static toConfigsMap(configs) {
+    const ret = {};
+    configs.forEach((config) => {
+      ret[config.key] = config;
+    });
+    return ret;
+  }
+
+  /**
    * Mutates and sorts the rows by the sortValue member.
    */
   static sortRows(rows, sortState) {
@@ -274,9 +304,12 @@ export default class ExperimentViewUtil {
   /**
    * Computes the sortValue for this row
    */
-  static computeSortValue(sortState, metricsMap, paramsMap, runInfo, tags) {
-    if (sortState.isMetric || sortState.isParam) {
-      const sortValue = (sortState.isMetric ? metricsMap : paramsMap)[sortState.key];
+  static computeSortValue(sortState, metricsMap, paramsMap, runInfo, tags, configsMap) {
+    const isParam = sortState.type === PARAM_TYPE
+    const isMetric = sortState.type === METRIC_TYPE
+    const isConfig = sortState.type === CONFIG_TYPE
+    if (isParam || isMetric || isConfig) {
+      const sortValue = (isParam ? paramsMap : (isMetric ? metricsMap : configsMap))[sortState.key];
       return (sortValue === undefined ? undefined : sortValue.value);
     } else if (sortState.key === 'user_id') {
       return Utils.formatUser(runInfo.user_id);
@@ -328,7 +361,7 @@ export default class ExperimentViewUtil {
   }
 
   static getRowRenderMetadata(
-    { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded }) {
+    { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, configsList }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
       runIdToIdx[r.run_uuid] = idx;
@@ -370,7 +403,8 @@ export default class ExperimentViewUtil {
       }
       const sortValue = ExperimentViewUtil.computeSortValue(sortState,
         ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-        ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
+        ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx],
+        ExperimentViewUtil.toConfigsMap(configsList[idx]));
       return [{
         idx,
         isParent: true,
@@ -392,7 +426,8 @@ export default class ExperimentViewUtil {
           const childrenRows = childrenIdxs.map((idx) => {
             const sortValue = ExperimentViewUtil.computeSortValue(sortState,
               ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-              ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
+              ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx],
+              ExperimentViewUtil.toConfigsMap(configsList[idx]));
             return { idx, isParent: false, hasExpander: false, sortValue };
           });
           ExperimentViewUtil.sortRows(childrenRows, sortState);
@@ -403,9 +438,9 @@ export default class ExperimentViewUtil {
     return mergedRows;
   }
 
-  static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {
+  static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow, configsList }) {
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata(
-      { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded });
+      { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, configsList });
     return mergedRows.map((rowMetadata) => getRow(rowMetadata));
   }
 

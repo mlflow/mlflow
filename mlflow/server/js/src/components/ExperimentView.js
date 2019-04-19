@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import classNames from 'classnames';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
-import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../reducers/Reducers';
+import { getApis, getExperiment, getParams, getRunInfos, getRunTags, getConfigs } from '../reducers/Reducers';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
@@ -15,7 +15,7 @@ import KeyFilter from '../utils/KeyFilter';
 import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
-import ExperimentViewUtil from './ExperimentViewUtil';
+import { ExperimentViewUtil, PARAM_TYPE, METRIC_TYPE } from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
 
@@ -24,8 +24,6 @@ import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages"
 
 import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
-
-export const DEFAULT_EXPANDED_VALUE = false;
 
 
 export class ExperimentView extends Component {
@@ -77,6 +75,9 @@ export class ExperimentView extends Component {
     metricsList: PropTypes.arrayOf(Array).isRequired,
     // List of tags dictionary in all the visible runs.
     tagsList: PropTypes.arrayOf(Object).isRequired,
+    // List of list of configs in all the visible runs.
+    configsList: PropTypes.arrayOf(Array).isRequired,
+    configKeyList: PropTypes.arrayOf(String).isRequired,
 
     // Input to the paramKeyFilter field
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
@@ -215,13 +216,15 @@ export class ExperimentView extends Component {
    *                assumed to be a param column.
    * @param colName Name of the column (metric or param key).
    */
-  addBagged(isParam, colName) {
+  addBagged(columnType, colName) {
+    const isParam = columnType === PARAM_TYPE
+    const isMetric = columnType === METRIC_TYPE
     const unbagged = isParam ? this.state.persistedState.unbaggedParams :
-      this.state.persistedState.unbaggedMetrics;
+      (isMetric ? this.state.persistedState.unbaggedMetrics : this.state.persistedState.unbaggedConfigs);
     const idx = unbagged.indexOf(colName);
     const newUnbagged = idx >= 0 ?
       unbagged.slice(0, idx).concat(unbagged.slice(idx + 1, unbagged.length)) : unbagged;
-    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+    const stateKey = isParam ? "unbaggedParams" : (isMetric ? "unbaggedMetrics" : "unbaggedConfigs");
     this.setState(
       {
         persistedState: new ExperimentViewPersistedState({
@@ -237,10 +240,12 @@ export class ExperimentView extends Component {
    *                assumed to be a param column.
    * @param colName Name of the column (metric or param key).
    */
-  removeBagged(isParam, colName) {
+  removeBagged(columnType, colName) {
+    const isParam = columnType === PARAM_TYPE
+    const isMetric = columnType === METRIC_TYPE
     const unbagged = isParam ? this.state.persistedState.unbaggedParams :
-      this.state.persistedState.unbaggedMetrics;
-    const stateKey = isParam ? "unbaggedParams" : "unbaggedMetrics";
+      (isMetric ? this.state.persistedState.unbaggedMetrics : this.state.persistedState.unbaggedConfigs);
+    const stateKey = isParam ? "unbaggedParams" : (isMetric ? "unbaggedMetrics" : "unbaggedConfigs");
     this.setState(
       {
         persistedState: new ExperimentViewPersistedState({
@@ -264,6 +269,7 @@ export class ExperimentView extends Component {
     const metricKeyList = metricKeyFilter.apply(this.props.metricKeyList);
     const unbaggedParamKeyList = paramKeyFilter.apply(this.state.persistedState.unbaggedParams);
     const unbaggedMetricKeyList = metricKeyFilter.apply(this.state.persistedState.unbaggedMetrics);
+    const unbaggedConfigKeyList = this.state.persistedState.unbaggedConfigs;
 
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
@@ -421,6 +427,8 @@ export class ExperimentView extends Component {
                   onCheckbox={this.onCheckbox}
                   runInfos={this.props.runInfos}
                   paramsList={this.props.paramsList}
+                  configKeyList={this.props.configKeyList}
+                  configsList={this.props.configsList}
                   metricsList={this.props.metricsList}
                   tagsList={this.props.tagsList}
                   paramKeyList={paramKeyList}
@@ -442,6 +450,8 @@ export class ExperimentView extends Component {
                   paramsList={this.props.paramsList}
                   metricsList={this.props.metricsList}
                   tagsList={this.props.tagsList}
+                  configKeyList={this.props.configKeyList}
+                  configsList={this.props.configsList}
                   onCheckAll={this.onCheckAll}
                   isAllChecked={this.isAllChecked()}
                   onSortBy={this.onSortBy}
@@ -452,6 +462,7 @@ export class ExperimentView extends Component {
                   onExpand={this.onExpand}
                   unbaggedMetrics={unbaggedMetricKeyList}
                   unbaggedParams={unbaggedParamKeyList}
+                  unbaggedConfigs={unbaggedConfigKeyList}
                   onAddBagged={this.addBagged}
                   onRemoveBagged={this.removeBagged}
                 />
@@ -462,17 +473,16 @@ export class ExperimentView extends Component {
     );
   }
 
-  onSortBy(isMetric, isParam, key) {
+  onSortBy(type, key) {
     const sort = this.state.persistedState.sort;
-    this.setSortBy(isMetric, isParam, key, !sort.ascending);
+    this.setSortBy(type, key, !sort.ascending);
   }
 
-  setSortBy(isMetric, isParam, key, ascending) {
+  setSortBy(type, key, ascending) {
     const newSortState = {
       ascending: ascending,
       key: key,
-      isMetric: isMetric,
-      isParam: isParam
+      type: type
     };
     this.setState(
       {
@@ -605,7 +615,9 @@ export class ExperimentView extends Component {
       this.props.metricKeyFilter.apply(this.props.metricKeyList),
       this.props.paramsList,
       this.props.metricsList,
-      this.props.tagsList);
+      this.props.tagsList,
+      this.props.configKeyList,
+      this.props.configsList);
     const blob = new Blob([csv], { type: 'application/csv;charset=utf-8' });
     saveAs(blob, "runs.csv");
   }
@@ -664,7 +676,9 @@ export class ExperimentView extends Component {
     metricKeyList,
     paramsList,
     metricsList,
-    tagsList) {
+    tagsList,
+    configKeyList,
+    configsList) {
     const columns = [
       "Run ID",
       "Name",
@@ -679,6 +693,9 @@ export class ExperimentView extends Component {
     metricKeyList.forEach(metricKey => {
       columns.push(metricKey);
     });
+    configKeyList.forEach(configKey => {
+      columns.push(configKey);
+    });
 
     const data = runInfos.map((runInfo, index) => {
       const row = [
@@ -692,6 +709,7 @@ export class ExperimentView extends Component {
 
       const paramsMap = ExperimentViewUtil.toParamsMap(paramsList[index]);
       const metricsMap = ExperimentViewUtil.toMetricsMap(metricsList[index]);
+      const configsMap = ExperimentViewUtil.toConfigsMap(configsList[index]);
 
       paramKeyList.forEach((paramKey) => {
         if (paramsMap[paramKey]) {
@@ -703,6 +721,13 @@ export class ExperimentView extends Component {
       metricKeyList.forEach((metricKey) => {
         if (metricsMap[metricKey]) {
           row.push(metricsMap[metricKey].getValue());
+        } else {
+          row.push("");
+        }
+      });
+      configKeyList.forEach((configKey) => {
+        if (configsMap[configKey]) {
+          row.push(configsMap[configKey].getValue());
         } else {
           row.push("");
         }
@@ -736,6 +761,7 @@ export const mapStateToProps = (state, ownProps) => {
   const experiment = getExperiment(ownProps.experimentId, state);
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
+  const configKeysSet = new Set();
   const metricsList = runInfos.map((runInfo) => {
     const metrics = Object.values(getLatestMetrics(runInfo.getRunUuid(), state));
     metrics.forEach((metric) => {
@@ -750,6 +776,13 @@ export const mapStateToProps = (state, ownProps) => {
     });
     return params;
   });
+  const configsList = runInfos.map((runInfo) => {
+    const configs = Object.values(getConfigs(runInfo.getRunUuid(), state));
+    configs.forEach((config) => {
+      configKeysSet.add(config.key);
+    });
+    return configs;
+  });
 
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
   return {
@@ -760,6 +793,8 @@ export const mapStateToProps = (state, ownProps) => {
     metricsList,
     paramsList,
     tagsList,
+    configKeyList: Array.from(configKeysSet.values()).sort(),
+    configsList,
   };
 };
 

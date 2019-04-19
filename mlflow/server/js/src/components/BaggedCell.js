@@ -17,14 +17,13 @@ export default class BaggedCell extends PureComponent {
     keyName: PropTypes.string.isRequired,
     value: PropTypes.string.isRequired,
     setSortByHandler: PropTypes.func.isRequired,
-    isParam: PropTypes.bool.isRequired,
-    isMetric: PropTypes.bool.isRequired,
+    columnType: PropTypes.string.isRequired,
     onRemoveBagged: PropTypes.func.isRequired,
     sortIcon: PropTypes.node,
   };
 
   render() {
-    const { keyName, value, setSortByHandler, isParam, isMetric, onRemoveBagged,
+    const { keyName, value, setSortByHandler, columnType, onRemoveBagged,
       sortIcon } = this.props;
     const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     return (
@@ -54,19 +53,19 @@ export default class BaggedCell extends PureComponent {
         <EmptyIfClosedMenu className="mlflow-menu" bsRole="menu">
           <MenuItem
             className="mlflow-menu-item"
-            onClick={() => setSortByHandler(isMetric, isParam, keyName, true)}
+            onClick={() => setSortByHandler(columnType, keyName, true)}
           >
             Sort ascending
           </MenuItem>
           <MenuItem
             className="mlflow-menu-item"
-            onClick={() => setSortByHandler(isMetric, isParam, keyName, false)}
+            onClick={() => setSortByHandler(columnType, keyName, false)}
           >
             Sort descending
           </MenuItem>
           <MenuItem
             className="mlflow-menu-item"
-            onClick={() => onRemoveBagged(isParam, keyName)}
+            onClick={() => onRemoveBagged(columnType, keyName)}
           >
             Display in own column
           </MenuItem>

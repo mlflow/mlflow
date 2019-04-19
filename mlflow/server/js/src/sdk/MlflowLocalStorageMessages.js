@@ -59,4 +59,5 @@ export const ExperimentViewPersistedState = Immutable.Record({
   // that have already been split out)
   unbaggedMetrics: [],
   unbaggedParams: [],
+  unbaggedConfigs: [],
 }, 'ExperimentViewPersistedState');
