@@ -207,7 +207,7 @@ def log_metrics(metrics):
     """
     run_id = _get_or_start_run().info.run_uuid
     timestamp = int(time.time())
-    metrics_arr = [Metric(key, value, timestamp) for key, value in metrics.items()]
+    metrics_arr = [Metric(key, value, timestamp, 0) for key, value in metrics.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
 

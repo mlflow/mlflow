@@ -168,8 +168,8 @@ class MlflowClient(object):
         the current timestamp.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
-        _validate_metric(key, value, timestamp)
-        metric = Metric(key, value, timestamp)
+        _validate_metric(key, value, timestamp, 0)
+        metric = Metric(key, value, timestamp, 0)
         self.store.log_metric(run_id, metric)
 
     def log_param(self, run_id, key, value):
@@ -200,7 +200,7 @@ class MlflowClient(object):
         :returns: None
         """
         for metric in metrics:
-            _validate_metric(metric.key, metric.value, metric.timestamp)
+            _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:
             _validate_param_name(param.key)
         for tag in tags:

@@ -158,7 +158,8 @@ def test_log_batch(tracking_uri_mock):
     approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
 
     t = int(time.time())
-    metrics = [Metric(key=key, value=value, timestamp=t) for key, value in expected_metrics.items()]
+    metrics = [Metric(key=key, value=value, timestamp=t, step=0)
+               for key, value in expected_metrics.items()]
     params = [Param(key=key, value=value) for key, value in expected_params.items()]
     tags = [RunTag(key=key, value=value) for key, value in exact_expected_tags.items()]
 
@@ -276,9 +277,9 @@ def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
     active_run = start_run()
     bad_kwargs = {
         "metrics": [
-            [Metric(key="../bad/metric/name", value=0.3, timestamp=3)],
-            [Metric(key="ok-name", value="non-numerical-value", timestamp=3)],
-            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp")],
+            [Metric(key="../bad/metric/name", value=0.3, timestamp=3, step=0)],
+            [Metric(key="ok-name", value="non-numerical-value", timestamp=3, step=0)],
+            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=0)],
         ],
         "params": [[Param(key="../bad/param/name", value="my-val")]],
         "tags": [[Param(key="../bad/tag/name", value="my-val")]],

@@ -51,7 +51,7 @@ class TestRun(TestRunInfo, TestRunData):
             source_name="source-name", entry_point_name="entry-point-name",
             user_id="user-id", status=RunStatus.FAILED, start_time=0, end_time=1,
             source_version="version", lifecycle_stage=LifecycleStage.ACTIVE)
-        metrics = [Metric("key-%s" % i, i, 0) for i in range(3)]
+        metrics = [Metric(key="key-%s" % i, value=i, timestamp=0, step=i) for i in range(3)]
         run_data = RunData(metrics=metrics, params=[], tags=[])
         run1 = Run(run_info, run_data)
         expected = ("<Run: data=<RunData: metrics={'key-0': 0, 'key-1': 1, 'key-2': 2}, "

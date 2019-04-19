@@ -45,11 +45,12 @@ def _create_entity(base, model):
                     metrics = {}
                     for o in obj:
                         existing_metric = metrics.get(o.key)
-                        if (existing_metric is None) or (o.timestamp > existing_metric.timestamp)\
-                            or (o.timestamp == existing_metric.timestamp
-                                and o.value > existing_metric.value):
-                            metrics[o.key] = Metric(o.key, o.value, o.timestamp)
-                    obj = metrics.values()
+                        if (existing_metric is None)\
+                            or ((o.step, o.timestamp, o.value) >=
+                                (existing_metric.step, existing_metric.timestamp,
+                                 existing_metric.value)):
+                            metrics[o.key] = Metric(o.key, o.value, o.timestamp, o.step)
+                    obj = list(metrics.values())
                 elif k == 'params':
                     obj = [Param(o.key, o.value) for o in obj]
                 elif k == 'tags':
@@ -255,6 +256,10 @@ class SqlMetric(Base):
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
     """
+    step = Column(BigInteger, default=0)
+    """
+    Step recorded for this metric entry: `BigInteger`.
+    """
     run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     """
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``metrics`` table.
@@ -266,11 +271,11 @@ class SqlMetric(Base):
     """
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', 'value', name='metric_pk'),
+        PrimaryKeyConstraint('key', 'timestamp', 'step', 'run_uuid', 'value', name='metric_pk'),
     )
 
     def __repr__(self):
-        return '<SqlMetric({}, {}, {})>'.format(self.key, self.value, self.timestamp)
+        return '<SqlMetric({}, {}, {}, {})>'.format(self.key, self.value, self.timestamp, self.step)
 
     def to_mlflow_entity(self):
         """

@@ -131,13 +131,15 @@ class TestRestStore(unittest.TestCase):
                                   "runs/set-tag", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            store.log_metric("u2", Metric("m1", 0.87, 12345))
-            body = message_to_json(LogMetric(run_uuid="u2", key="m1", value=0.87, timestamp=12345))
+            store.log_metric("u2", Metric("m1", 0.87, 12345, 3))
+            body = message_to_json(LogMetric(run_uuid="u2", key="m1", value=0.87, timestamp=12345,
+                                             step=3))
             self._verify_requests(mock_http, creds,
                                   "runs/log-metric", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            metrics = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
+            metrics = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, -1),
+                       Metric("m3", 0.58, 12345, 2)]
             params = [Param("p1", "p1val"), Param("p2", "p2val")]
             tags = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
             store.log_batch(run_id="u2", metrics=metrics, params=params, tags=tags)

@@ -52,8 +52,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         all_metrics = sum([self.store.get_metric_history(run_uuid, key)
                            for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
-        logged_metrics = [(m.key, m.value, m.timestamp) for m in all_metrics]
-        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp) for m in metrics])
+        logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
+        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])
         logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
         assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
         assert len(run.data.params) == len(params)
@@ -404,8 +404,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         tkey = 'blahmetric'
         tval = 100.0
-        metric = entities.Metric(tkey, tval, int(time.time()))
-        metric2 = entities.Metric(tkey, tval, int(time.time()) + 2)
+        metric = entities.Metric(tkey, tval, int(time.time()), 0)
+        metric2 = entities.Metric(tkey, tval, int(time.time()) + 2, 0)
         self.store.log_metric(run.info.run_uuid, metric)
         self.store.log_metric(run.info.run_uuid, metric2)
 
@@ -422,37 +422,42 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
-
+        run_uuid = run.info.run_uuid
         metric_name = "test-metric-1"
-        timestamp_values_mapping = {
-            1000: [float(i) for i in range(-20, 20)],
-            2000: [float(i) for i in range(-10, 10)],
-        }
+        # Check that we get the max of (step, timestamp, value) in that order
+        tuples_to_log = [
+            (0, 100, 1000),
+            (3, 40, 100),  # larger step wins even though it has smaller value
+            (3, 50, 10),  # larger timestamp wins even though it has smaller value
+            (3, 50, 20),  # tiebreak by max value
+            (3, 50, 20),  # duplicate metrics with same (step, timestamp, value) are ok
+            # verify that we can log steps out of order / negative steps
+            (-3, 900, 900),
+            (-1, 800, 800),
+        ]
+        for step, timestamp, value in reversed(tuples_to_log):
+            self.store.log_metric(run_uuid, Metric(metric_name, value, timestamp, step))
 
-        logged_values = []
-        for timestamp, value_range in timestamp_values_mapping.items():
-            for value in reversed(value_range):
-                self.store.log_metric(run.info.run_uuid, Metric(metric_name, value, timestamp))
-                logged_values.append(value)
+        metric_history = self.store.get_metric_history(run_uuid, metric_name)
+        logged_tuples = [(m.step, m.timestamp, m.value) for m in metric_history]
+        assert set(logged_tuples) == set(tuples_to_log)
 
-        six.assertCountEqual(
-            self,
-            [metric.value for metric in
-             self.store.get_metric_history(run.info.run_uuid, metric_name)],
-            logged_values)
-
-        run_metrics = self.store.get_run(run.info.run_uuid).data.metrics
+        run_data = self.store.get_run(run_uuid).data
+        run_metrics = run_data.metrics
         assert len(run_metrics) == 1
-        logged_metric_val = run_metrics[metric_name]
-        max_timestamp = max(timestamp_values_mapping)
-        assert logged_metric_val == max(timestamp_values_mapping[max_timestamp])
+        assert run_metrics[metric_name] == 20
+        metric_obj = run_data._metric_objs[0]
+        assert metric_obj.key == metric_name
+        assert metric_obj.step == 3
+        assert metric_obj.timestamp == 50
+        assert metric_obj.value == 20
 
     def test_log_null_metric(self):
         run = self._run_factory()
 
         tkey = 'blahmetric'
         tval = None
-        metric = entities.Metric(tkey, tval, int(time.time()))
+        metric = entities.Metric(tkey, tval, int(time.time()), 0)
 
         warnings.simplefilter("ignore")
         with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
@@ -632,7 +637,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertIn("must be in 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
-            self.store.log_metric(run_uuid, entities.Metric("m1345", 1.0, 123))
+            self.store.log_metric(run_uuid, entities.Metric("m1345", 1.0, 123, 0))
         self.assertIn("must be in 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
@@ -644,7 +649,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(self.store.get_run(run_uuid).info.lifecycle_stage,
                          entities.LifecycleStage.ACTIVE)
         self.store.log_param(run_uuid, entities.Param("p1345", "v22"))
-        self.store.log_metric(run_uuid, entities.Metric("m1345", 34.0, 85))  # earlier timestamp
+        self.store.log_metric(run_uuid, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
         self.store.set_tag(run_uuid, entities.RunTag("t1345", "tv44"))
 
         run = self.store.get_run(run_uuid)
@@ -656,6 +661,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(metric_obj.key, "m1345")
         self.assertEqual(metric_obj.value, 34.0)
         self.assertEqual(metric_obj.timestamp, 85)
+        self.assertEqual(metric_obj.step, 1)
         self.assertTrue(set([("t1345", "tv44")]) <= set(run.data.tags.items()))
 
     # Tests for Search API
@@ -794,17 +800,17 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
         r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_uuid
 
-        self.store.log_metric(r1, entities.Metric("common", 1.0, 1))
-        self.store.log_metric(r2, entities.Metric("common", 1.0, 1))
+        self.store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
+        self.store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
 
-        self.store.log_metric(r1, entities.Metric("measure_a", 1.0, 1))
-        self.store.log_metric(r2, entities.Metric("measure_a", 200.0, 2))
-        self.store.log_metric(r2, entities.Metric("measure_a", 400.0, 3))
+        self.store.log_metric(r1, entities.Metric("measure_a", 1.0, 1, 0))
+        self.store.log_metric(r2, entities.Metric("measure_a", 200.0, 2, 0))
+        self.store.log_metric(r2, entities.Metric("measure_a", 400.0, 3, 0))
 
-        self.store.log_metric(r1, entities.Metric("m_a", 2.0, 2))
-        self.store.log_metric(r2, entities.Metric("m_b", 3.0, 2))
-        self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8))  # this is last timestamp
-        self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3))
+        self.store.log_metric(r1, entities.Metric("m_a", 2.0, 2, 0))
+        self.store.log_metric(r2, entities.Metric("m_b", 3.0, 2, 0))
+        self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))  # this is last timestamp
+        self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
         expr = self._metric_expression("common", "=", 1.0)
         six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
@@ -878,13 +884,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.log_param(r1, entities.Param('p_a', 'abc'))
         self.store.log_param(r2, entities.Param('p_b', 'ABC'))
 
-        self.store.log_metric(r1, entities.Metric("common", 1.0, 1))
-        self.store.log_metric(r2, entities.Metric("common", 1.0, 1))
+        self.store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
+        self.store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
 
-        self.store.log_metric(r1, entities.Metric("m_a", 2.0, 2))
-        self.store.log_metric(r2, entities.Metric("m_b", 3.0, 2))
-        self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8))
-        self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3))
+        self.store.log_metric(r1, entities.Metric("m_a", 2.0, 2, 0))
+        self.store.log_metric(r2, entities.Metric("m_b", 3.0, 2, 0))
+        self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))
+        self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
         p_expr = self._param_expression("generic_param", "=", "p_val")
         m_expr = self._metric_expression("common", "=", 1.0)
@@ -945,7 +951,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
         run_uuid = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
-        metric_entities = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
+        metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 1)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         self.store.log_batch(
@@ -955,21 +961,21 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         assert run.data.params == {"p1": "p1val", "p2": "p2val"}
         metric_histories = sum(
             [self.store.get_metric_history(run_uuid, key) for key in run.data.metrics], [])
-        metrics = [(m.key, m.value, m.timestamp) for m in metric_histories]
-        assert set(metrics) == set([("m1", 0.87, 12345), ("m2", 0.49, 12345)])
+        metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
+        assert set(metrics) == set([("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)])
 
     def test_log_batch_limits(self):
         # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
         # SQL limitations, etc)
         experiment_id = self._experiment_factory('log_batch_limits')
         run_uuid = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
-        metric_tuples = [("m%s" % i, i, 12345) for i in range(1000)]
+        metric_tuples = [("m%s" % i, i, 12345, i * 2) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
         self.store.log_batch(run_id=run_uuid, metrics=metric_entities, params=[], tags=[])
         run = self.store.get_run(run_uuid)
         metric_histories = sum(
             [self.store.get_metric_history(run_uuid, key) for key in run.data.metrics], [])
-        metrics = [(m.key, m.value, m.timestamp) for m in metric_histories]
+        metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
         assert set(metrics) == set(metric_tuples)
 
     def test_log_batch_param_overwrite_disallowed(self):
@@ -982,7 +988,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         overwrite_param = entities.Param(tkey, 'newval')
         tag = entities.RunTag("tag-key", "tag-val")
-        metric = entities.Metric("metric-key", 3.0, 12345)
+        metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaises(MlflowException) as e:
             self.store.log_batch(run.info.run_uuid, metrics=[metric], params=[overwrite_param],
                                  tags=[tag])
@@ -997,7 +1003,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         param0 = entities.Param(pkey, "orig-val")
         param1 = entities.Param(pkey, 'newval')
         tag = entities.RunTag("tag-key", "tag-val")
-        metric = entities.Metric("metric-key", 3.0, 12345)
+        metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaises(MlflowException) as e:
             self.store.log_batch(run.info.run_uuid, metrics=[metric], params=[param0, param1],
                                  tags=[tag])
@@ -1024,7 +1030,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             metric_mock.side_effect = _raise_exception_fn
             param_mock.side_effect = _raise_exception_fn
             tags_mock.side_effect = _raise_exception_fn
-            for kwargs in [{"metrics": [Metric("a", 3, 1)]}, {"params": [Param("b", "c")]},
+            for kwargs in [{"metrics": [Metric("a", 3, 1, 0)]}, {"params": [Param("b", "c")]},
                            {"tags": [RunTag("c", "d")]}]:
                 log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
                 log_batch_kwargs.update(kwargs)
@@ -1072,15 +1078,15 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
-        metric0 = Metric(key="metric-key", value=1, timestamp=2)
-        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
 
     def test_log_batch_same_metric_repeated_multiple_reqs(self):
         run = self._run_factory()
-        metric0 = Metric(key="metric-key", value=1, timestamp=2)
-        metric1 = Metric(key="metric-key", value=2, timestamp=3)
+        metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
+        metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])

@@ -7,10 +7,11 @@ class Metric(_MLflowObject):
     Metric object.
     """
 
-    def __init__(self, key, value, timestamp):
+    def __init__(self, key, value, timestamp, step):
         self._key = key
         self._value = value
         self._timestamp = timestamp
+        self._step = step
 
     @property
     def key(self):
@@ -27,13 +28,19 @@ class Metric(_MLflowObject):
         """Metric timestamp as an integer (milliseconds since the Unix epoch)."""
         return self._timestamp
 
+    @property
+    def step(self):
+        """Integer metric step (x-coordinate)."""
+        return self._step
+
     def to_proto(self):
         metric = ProtoMetric()
         metric.key = self.key
         metric.value = self.value
         metric.timestamp = self.timestamp
+        metric.step = self.step
         return metric
 
     @classmethod
     def from_proto(cls, proto):
-        return cls(proto.key, proto.value, proto.timestamp)
+        return cls(proto.key, proto.value, proto.timestamp, proto.step)

@@ -169,7 +169,8 @@ class RestStore(AbstractStore):
         :param metric: Metric instance to log
         """
         req_body = message_to_json(LogMetric(
-            run_uuid=run_uuid, key=metric.key, value=metric.value, timestamp=metric.timestamp))
+            run_uuid=run_uuid, key=metric.key, value=metric.value, timestamp=metric.timestamp,
+            step=metric.step))
         self._call_endpoint(LogMetric, req_body)
 
     def log_param(self, run_uuid, param):
@@ -199,11 +200,11 @@ class RestStore(AbstractStore):
         :param run_uuid: Unique identifier for run
         :param metric_key: Metric name within the run
 
-        :return: A list of float values logged for the give metric if logged, else empty list
+        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
         req_body = message_to_json(GetMetricHistory(run_uuid=run_uuid, metric_key=metric_key))
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
-        return [Metric.from_proto(metric).value for metric in response_proto.metrics]
+        return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
     def search_runs(self, experiment_ids, search_filter, run_view_type,
                     max_results=SEARCH_MAX_RESULTS_THRESHOLD):
