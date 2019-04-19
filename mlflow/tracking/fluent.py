@@ -103,7 +103,6 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
              the run's state.
     """
     global _active_run_stack
-    experiment_id = experiment_id if experiment_id is not None else None
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
     if len(_active_run_stack) > 0 and not nested:

@@ -6,34 +6,35 @@ def message_to_json(message):
     return MessageToJson(message, preserving_proto_field_name=True)
 
 
-def patch_experiment_id(js_dict):
-    experiment_id_key = "experiment_id"
-    if experiment_id_key in js_dict and isinstance(js_dict[experiment_id_key], int):
-        js_dict[experiment_id_key] = str(js_dict[experiment_id_key])
+def _stringify_all_experiment_ids(x):
+    """Converts experiment_id fields which are defined as ints into strings in the given json.
+    This is necessary for backwards- and forwards-compatibility with MLflow clients/servers
+    running MLflow 0.9.0 and below, as experiment_id was changed from an int to a string.
+    To note, the Python JSON serializer is happy to auto-convert strings into ints (so a
+    server or client that sees the new format is fine), but is unwilling to convert ints
+    to strings. Therefore, we need to manually perform this conversion.
 
-
-def patch_experiment_ids(js_dict):
-    experiment_ids_key = "experiment_ids"
-    if experiment_ids_key in js_dict and isinstance(js_dict[experiment_ids_key], list):
-        js_dict[experiment_ids_key] = [str(val) for val in js_dict[experiment_ids_key]]
-
-
-def backcompat_helper(js_dict):
-    #  Update int experiment_id from old servers to string
-    for key in js_dict:
-        patch_experiment_id(js_dict)
-        patch_experiment_ids(js_dict)
-        if isinstance(js_dict[key], list):
-            for child in js_dict[key]:
-                if isinstance([child], dict):
-                    patch_experiment_id([child])
-                    patch_experiment_ids([child])
-        elif isinstance(js_dict[key], dict):
-            patch_experiment_id(js_dict[key])
-            patch_experiment_ids(js_dict[key])
+    This code can be removed after MLflow 1.0, after users have given reasonable time to
+    upgrade clients and servers to MLflow 0.9.1+.
+    """
+    if isinstance(x, dict):
+        items = x.items()
+        for k, v in items:
+            if k == "experiment_id":
+                x[k] = str(v)
+            elif k == "experiment_ids":
+                x[k] = [str(w) for w in v]
+            elif k == "info" and isinstance(v, dict) and "experiment_id" in v and "run_uuid" in v:
+                # shortcut for run info
+                v["experiment_id"] = str(v["experiment_id"])
+            elif k not in ("params", "tags", "metrics"):  # skip run data
+                _stringify_all_experiment_ids(v)
+    elif isinstance(x, list):
+        for y in x:
+            _stringify_all_experiment_ids(y)
 
 
 def parse_dict(js_dict, message):
-    """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JOSN."""
-    backcompat_helper(js_dict)
+    """Parses a JSON dictionary into a message proto, ignoring unknown fields in the JSON."""
+    _stringify_all_experiment_ids(js_dict)
     ParseDict(js_dict=js_dict, message=message, ignore_unknown_fields=True)
