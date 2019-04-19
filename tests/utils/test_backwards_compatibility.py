@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import time
+import pytest
 
 import mlflow
 import mlflow.tracking
@@ -12,6 +13,7 @@ from mlflow.projects import _get_conda_bin_executable
 
 # Test backwards compatibility with the latest mlflow release.
 # Old client should work with new server and vice versa.
+@pytest.mark.skip("Test hangs on build machine, runs locally.")
 def test_backwards_compatibility():
     # create conda env
     _mlflow_conda_env(
