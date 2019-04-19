@@ -6,6 +6,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.ftp_artifact_repo import FTPArtifactRepository
+from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository
 from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
@@ -84,6 +85,7 @@ _artifact_repository_registry.register('wasbs', AzureBlobArtifactRepository)
 _artifact_repository_registry.register('ftp', FTPArtifactRepository)
 _artifact_repository_registry.register('sftp', SFTPArtifactRepository)
 _artifact_repository_registry.register('dbfs', DbfsArtifactRepository)
+_artifact_repository_registry.register('hdfs', HdfsArtifactRepository)
 
 _artifact_repository_registry.register_entrypoints()
 
