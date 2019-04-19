@@ -12,7 +12,7 @@ import time
 import logging
 
 import mlflow.tracking.utils
-from mlflow.entities import Experiment, Run, SourceType, RunStatus, Param, RunTag, Metric
+from mlflow.entities import Run, SourceType, RunStatus, Param, RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -103,6 +103,8 @@ def start_run(run_uuid=None, experiment_id=None, source_name=None, source_versio
              the run's state.
     """
     global _active_run_stack
+    # back compat for int experiment_id
+    experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
     if len(_active_run_stack) > 0 and not nested:
         raise Exception(("Run with UUID {} is already active. To start a nested " +
                         "run call start_run with nested=True").format(
@@ -303,7 +305,9 @@ def _get_experiment_id_from_env():
 
 
 def _get_experiment_id():
-    return int(_active_experiment_id or
-               _get_experiment_id_from_env() or
-               (is_in_databricks_notebook() and get_notebook_id()) or
-               Experiment.DEFAULT_EXPERIMENT_ID)
+    # TODO: Replace with None for 1.0, leaving for 0.9.1 release backcompat with existing servers
+    deprecated_default_exp_id = "0"
+
+    return (_active_experiment_id or
+            _get_experiment_id_from_env() or
+            (is_in_databricks_notebook() and get_notebook_id())) or deprecated_default_exp_id

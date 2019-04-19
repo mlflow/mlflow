@@ -15,6 +15,8 @@ _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
 
+_EXPERIMENT_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,63}$")
+
 _BAD_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
     " spaces ( ), and slashes (/)."
@@ -125,10 +127,8 @@ def _validate_run_id(run_id):
 
 
 def _validate_experiment_id(exp_id):
-    """Check that `experiment_id`is a valid integer and raise an exception if it isn't."""
-    try:
-        int(exp_id)
-    except ValueError:
+    """Check that `experiment_id`is a valid string or None, raise an exception if it isn't."""
+    if exp_id is not None and _EXPERIMENT_ID_REGEX.match(exp_id) is None:
         raise MlflowException("Invalid experiment ID: '%s'" % exp_id,
                               error_code=INVALID_PARAMETER_VALUE)
 

@@ -25,7 +25,7 @@ public class QuickStartDriver {
 
     System.out.println("====== createExperiment");
     String expName = "Exp_" + System.currentTimeMillis();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
     System.out.println("createExperiment: expId=" + expId);
 
     System.out.println("====== getExperiment");
@@ -48,7 +48,7 @@ public class QuickStartDriver {
     System.out.println("getExperimentByName: " + exp3);
   }
 
-  void createRun(MlflowClient client, long expId) {
+  void createRun(MlflowClient client, String expId) {
     System.out.println("====== createRun");
 
     // Create run
