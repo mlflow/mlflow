@@ -4,6 +4,7 @@ import os
 import shutil
 import tarfile
 import tempfile
+import urllib
 
 import yaml
 
@@ -345,23 +346,18 @@ def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
 
 
-def parse_path(uri):
-    relative_path_uri_prefix = "file:"
-    backslash_count = 1 if os.sep == "/" else 0  # Keep / for linux abs paths
-    fs_prefix_with_localhost = mlflow.tracking.utils._LOCAL_FS_URI_PREFIX[:-1] + "localhost/"
-    if uri.startswith(fs_prefix_with_localhost):
-        path = uri[fs_prefix_with_localhost - backslash_count:]
-    elif uri.startswith(mlflow.tracking.utils._LOCAL_FS_URI_PREFIX):
-        path = uri[len(mlflow.tracking.utils._LOCAL_FS_URI_PREFIX) - backslash_count:]
-    elif uri.startswith(relative_path_uri_prefix):
-        path = uri[len(relative_path_uri_prefix):]
-    else:
-        try:
-            path = os.path.normpath(uri)
-        except Exception:
-            raise Exception("Unsupported uri: %s, use a uri for an absolute path with prefix %s." %
-                            (uri, mlflow.tracking.utils._LOCAL_FS_URI_PREFIX))
-    return path.replace("\\", "/")
+def uri_to_path(uri):
+    """
+    Convert file URI aor path to normalized path.
+
+    :param uri: File URI or path.
+    :return: Normalized path.
+    """
+    if not uri.startswith("file:"):
+        return os.path.normpath(uri)
+    return urllib.request.url2pathname(urllib.parse.urlparse(uri).path)
+
+
 
 
 def local_uri_from_path(path):

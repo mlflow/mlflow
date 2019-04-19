@@ -2,7 +2,7 @@ import distutils.dir_util as dir_util
 import shutil
 
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import mkdir, list_all, get_file_info, parse_path
+from mlflow.utils.file_utils import mkdir, list_all, get_file_info, uri_to_path
 from mlflow.utils.validation import path_not_unique, bad_path_message
 
 
@@ -10,7 +10,7 @@ class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
     def __init__(self, *args, **kwargs):
         super(LocalArtifactRepository, self).__init__(*args, **kwargs)
-        self.artifact_dir = parse_path(self.artifact_uri)
+        self.artifact_dir = uri_to_path(self.artifact_uri)
 
     def get_path_module(self):
         import os

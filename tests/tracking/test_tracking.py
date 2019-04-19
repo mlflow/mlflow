@@ -18,7 +18,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
-from mlflow.utils.file_utils import parse_path
+from mlflow.utils.file_utils import uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
 from tests.projects.utils import tracking_uri_mock
 
@@ -321,7 +321,7 @@ def test_log_artifact(tracking_uri_mock):
     for parent_dir in artifact_parent_dirs:
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
-            run_artifact_dir = parse_path(artifact_uri)
+            run_artifact_dir = uri_to_path(artifact_uri)
 
             mlflow.log_artifact(path0, parent_dir)
         expected_dir = os.path.join(run_artifact_dir, parent_dir) \
@@ -333,7 +333,7 @@ def test_log_artifact(tracking_uri_mock):
     for parent_dir in artifact_parent_dirs:
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
-            run_artifact_dir = parse_path(artifact_uri)
+            run_artifact_dir = uri_to_path(artifact_uri)
 
             mlflow.log_artifacts(artifact_src_dir, parent_dir)
         # Check that the logged artifacts match

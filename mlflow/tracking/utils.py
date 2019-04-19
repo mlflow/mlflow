@@ -145,7 +145,7 @@ def _is_databricks_uri(uri):
 
 
 def _get_file_store(store_uri, **_):
-    return FileStore(file_utils.parse_path(store_uri), store_uri)
+    return FileStore(file_utils.uri_to_path(store_uri), store_uri)
 
 
 def _is_database_uri(uri):
@@ -188,6 +188,13 @@ def _get_databricks_rest_store(store_uri, **_):
     profile = get_db_profile_from_uri(store_uri)
     return RestStore(lambda: get_databricks_host_creds(profile))
 
+def _get_uri_scheme(uri):
+    if uri == "databricks":
+        return uri
+    drive, path = os.path.splitdrive(store_uri)
+    if drive: # windows abs path do not have a scheme
+        return ""
+    return urllib.parse.urlparse(store_uri).scheme
 
 class TrackingStoreRegistry:
     """Scheme-based registry for tracking store implementations
@@ -223,6 +230,8 @@ class TrackingStoreRegistry:
                     stacklevel=2
                 )
 
+
+
     def get_store(self, store_uri=None, artifact_uri=None):
         """Get a store from the registry based on the scheme of store_uri
 
@@ -237,11 +246,8 @@ class TrackingStoreRegistry:
         """
         store_uri = store_uri if store_uri is not None else get_tracking_uri()
 
-        if store_uri == 'databricks':
-            # Add colon so databricks is parsed as scheme
-            store_uri += ':'
+        scheme = _get_uri_scheme(store_uri)
 
-        scheme = urllib.parse.urlparse(store_uri).scheme
         try:
             store_builder = self._registry[scheme]
         except KeyError:

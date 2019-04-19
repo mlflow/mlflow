@@ -11,6 +11,7 @@ from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.rest_store import RestStore
+from mlflow.tracking.utils import _get_uri_scheme
 
 
 class ArtifactRepositoryRegistry:
@@ -58,7 +59,7 @@ class ArtifactRepositoryRegistry:
         :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
                  requirements.
         """
-        scheme = urllib.parse.urlparse(artifact_uri).scheme
+        scheme = _get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
         if scheme == "dbfs" and repository is not None:
             if not isinstance(store, RestStore):
