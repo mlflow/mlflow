@@ -76,7 +76,8 @@ class MlflowClient(object):
         # Extract run attributes from tags
         # This logic is temporary; by the 1.0 release, this information will only be stored in tags
         # and will not be available as attributes of the run
-        parent_run_id = parent_run_id or tags.get(MLFLOW_PARENT_RUN_ID)
+        final_parent_run_id =\
+            tags.get(MLFLOW_PARENT_RUN_ID) if parent_run_id is None else parent_run_id
         source_name = tags.get(MLFLOW_SOURCE_NAME, "Python Application")
         source_version = tags.get(MLFLOW_GIT_COMMIT)
         entry_point_name = tags.get(MLFLOW_PROJECT_ENTRY_POINT)
@@ -94,7 +95,7 @@ class MlflowClient(object):
             start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
             # The below arguments remain set for backwards compatability:
-            parent_run_id=parent_run_id,
+            parent_run_id=final_parent_run_id,
             source_type=source_type,
             source_name=source_name,
             entry_point_name=entry_point_name,
