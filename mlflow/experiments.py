@@ -9,7 +9,7 @@ from mlflow.data import is_uri
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
 
-EXPERIMENT_ID = click.argument("experiment_id", type=click.INT)
+EXPERIMENT_ID = click.argument("experiment_id", type=click.STRING)
 
 
 @click.group("experiments")

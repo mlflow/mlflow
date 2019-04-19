@@ -6,7 +6,6 @@ class Experiment(_MLflowObject):
     """
     Experiment object.
     """
-    DEFAULT_EXPERIMENT_ID = 0
     DEFAULT_EXPERIMENT_NAME = "Default"
 
     def __init__(self, experiment_id, name, artifact_location, lifecycle_stage):
@@ -18,7 +17,7 @@ class Experiment(_MLflowObject):
 
     @property
     def experiment_id(self):
-        """Integer ID of the experiment."""
+        """String ID of the experiment."""
         return self._experiment_id
 
     @property

@@ -136,8 +136,8 @@ def _create_experiment():
 def _get_experiment():
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
-    response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
-                                          .to_proto())
+    experiment = _get_store().get_experiment(request_message.experiment_id).to_proto()
+    response_message.experiment.MergeFrom(experiment)
     run_info_entities = _get_store().list_run_infos(request_message.experiment_id,
                                                     run_view_type=ViewType.ACTIVE_ONLY)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])

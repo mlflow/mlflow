@@ -14,7 +14,7 @@ public class TestUtils {
     return a == b ? true : Math.abs(a - b) < EPSILON;
   }
 
-  static void assertRunInfo(RunInfo runInfo, long experimentId, String sourceName) {
+  static void assertRunInfo(RunInfo runInfo, String experimentId, String sourceName) {
     Assert.assertEquals(runInfo.getExperimentId(), experimentId);
     Assert.assertEquals(runInfo.getSourceName(), sourceName);
     Assert.assertNotEquals(runInfo.getUserId(), "");

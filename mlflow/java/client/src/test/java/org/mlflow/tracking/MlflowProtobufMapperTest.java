@@ -33,6 +33,6 @@ public class MlflowProtobufMapperTest {
     MlflowProtobufMapper mapper = new MlflowProtobufMapper();
     Service.CreateExperiment.Response result = mapper.toCreateExperimentResponse(
       "{\"experiment_id\": 123, \"what is this field\": \"even\"}");
-    Assert.assertEquals(result.getExperimentId(), 123);
+    Assert.assertEquals(result.getExperimentId(), "123");
   }
 }

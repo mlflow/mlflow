@@ -53,7 +53,7 @@ public class MlflowClientTest {
   @Test
   public void getCreateExperimentTest() {
     String expName = createExperimentName();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
     GetExperiment.Response exp = client.getExperiment(expId);
     Assert.assertEquals(exp.getExperiment().getName(), expName);
   }
@@ -68,7 +68,7 @@ public class MlflowClientTest {
   @Test
   public void deleteAndRestoreExperiments() {
     String expName = createExperimentName();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
     Assert.assertEquals(client.getExperiment(expId).getExperiment().getLifecycleStage(), "active");
 
     client.deleteExperiment(expId);
@@ -83,7 +83,7 @@ public class MlflowClientTest {
     String expName = createExperimentName();
     String newName = createExperimentName();
 
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
     Assert.assertEquals(client.getExperiment(expId).getExperiment().getName(), expName);
 
     client.renameExperiment(expId, newName);
@@ -95,7 +95,7 @@ public class MlflowClientTest {
     List<Experiment> expsBefore = client.listExperiments();
 
     String expName = createExperimentName();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
 
     List<Experiment> exps = client.listExperiments();
     Assert.assertEquals(exps.size(), 1 + expsBefore.size());
@@ -113,7 +113,7 @@ public class MlflowClientTest {
   public void addGetRun() {
     // Create exp
     String expName = createExperimentName();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
     logger.debug(">> TEST.0");
 
     // Create run
@@ -167,7 +167,7 @@ public class MlflowClientTest {
   public void searchRuns() {
     // Create exp
     String expName = createExperimentName();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
     logger.debug(">> TEST.0");
 
     // Create run
@@ -200,7 +200,7 @@ public class MlflowClientTest {
     client.setTag(runId_1, "test", "works");
     client.setTag(runId_2, "test", "also works");
 
-    List<Long> experimentIds = Arrays.asList(expId);
+    List<String> experimentIds = Arrays.asList(expId);
 
     // metrics based searches
     List<RunInfo> searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0");
@@ -248,7 +248,7 @@ public class MlflowClientTest {
   @Test
   public void createRunWithParent() {
     String expName = createExperimentName();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
     RunInfo parentRun = client.createRun(expId);
     String parentRunId = parentRun.getRunUuid();
     RunInfo childRun = client.createRun(CreateRun.newBuilder()
@@ -288,7 +288,7 @@ public class MlflowClientTest {
   public void testBatchedLogging() {
     // Create exp
     String expName = createExperimentName();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
     logger.debug(">> TEST.0");
 
     // Test logging just metrics
@@ -387,7 +387,7 @@ public class MlflowClientTest {
   @Test
   public void deleteAndRestoreRun() {
     String expName = createExperimentName();
-    long expId = client.createExperiment(expName);
+    String expId = client.createExperiment(expName);
 
     String sourceFile = "MyFile.java";
 

@@ -31,6 +31,16 @@ def _default_root_dir():
     return get_env(_TRACKING_DIR_ENV_VAR) or os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 
 
+def _read_persisted_experiment_dict(experiment_dict):
+    dict_copy = experiment_dict.copy()
+
+    # 'experiment_id' was changed from int to string, so we must cast to string
+    # when reading legacy experiments
+    if isinstance(dict_copy['experiment_id'], int):
+        dict_copy['experiment_id'] = str(dict_copy['experiment_id'])
+    return Experiment.from_dictionary(dict_copy)
+
+
 def _make_persisted_run_info_dict(run_info):
     # 'tags' was moved from RunInfo to RunData, so we must keep storing it in the meta.yaml for
     # old mlflow versions to read
@@ -43,6 +53,11 @@ def _read_persisted_run_info_dict(run_info_dict):
     dict_copy = run_info_dict.copy()
     if 'lifecycle_stage' not in dict_copy:
         dict_copy['lifecycle_stage'] = LifecycleStage.ACTIVE
+
+    # 'experiment_id' was changed from int to string, so we must cast to string
+    # when reading legacy run_infos
+    if isinstance(dict_copy["experiment_id"], int):
+        dict_copy["experiment_id"] = str(dict_copy["experiment_id"])
     return RunInfo.from_dictionary(dict_copy)
 
 
@@ -53,6 +68,7 @@ class FileStore(AbstractStore):
     PARAMS_FOLDER_NAME = "params"
     TAGS_FOLDER_NAME = "tags"
     META_DATA_FILE_NAME = "meta.yaml"
+    DEFAULT_EXPERIMENT_ID = "0"
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
         """
@@ -66,7 +82,7 @@ class FileStore(AbstractStore):
         if not exists(self.root_directory):
             mkdir(self.root_directory)
             self._create_experiment_with_id(name=Experiment.DEFAULT_EXPERIMENT_NAME,
-                                            experiment_id=Experiment.DEFAULT_EXPERIMENT_ID,
+                                            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
                                             artifact_uri=None)
         # Create trash folder if needed
         if not exists(self.trash_folder):
@@ -88,7 +104,7 @@ class FileStore(AbstractStore):
         if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
             parents.append(self.trash_folder)
         for parent in parents:
-            exp_list = find(parent, str(experiment_id), full_path=True)
+            exp_list = find(parent, experiment_id, full_path=True)
             if len(exp_list) > 0:
                 return exp_list[0]
         if assert_exists:
@@ -156,8 +172,8 @@ class FileStore(AbstractStore):
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
         self._check_root_dir()
-        meta_dir = mkdir(self.root_directory, str(experiment_id))
-        artifact_uri = artifact_uri or build_path(self.artifact_root_uri, str(experiment_id))
+        meta_dir = mkdir(self.root_directory, experiment_id)
+        artifact_uri = artifact_uri or build_path(self.artifact_root_uri, experiment_id)
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
@@ -181,9 +197,9 @@ class FileStore(AbstractStore):
                                       databricks_pb2.RESOURCE_ALREADY_EXISTS)
         # Get all existing experiments and find the one with largest ID.
         # len(list_all(..)) would not work when experiments are deleted.
-        experiments_ids = [e.experiment_id for e in self.list_experiments(ViewType.ALL)]
+        experiments_ids = [int(e.experiment_id) for e in self.list_experiments(ViewType.ALL)]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
-        return self._create_experiment_with_id(name, experiment_id, artifact_location)
+        return self._create_experiment_with_id(name, str(experiment_id), artifact_location)
 
     def _has_experiment(self, experiment_id):
         return self._get_experiment_path(experiment_id) is not None
@@ -200,11 +216,11 @@ class FileStore(AbstractStore):
             meta['lifecycle_stage'] = LifecycleStage.DELETED
         else:
             meta['lifecycle_stage'] = LifecycleStage.ACTIVE
-        experiment = Experiment.from_dictionary(meta)
-        if int(experiment_id) != experiment.experiment_id:
+        experiment = _read_persisted_experiment_dict(meta)
+        if experiment_id != experiment.experiment_id:
             logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
                             "Experiment will be ignored.",
-                            str(experiment_id), str(experiment.experiment_id), exc_info=True)
+                            experiment_id, experiment.experiment_id, exc_info=True)
             return None
         return experiment
 
@@ -216,6 +232,7 @@ class FileStore(AbstractStore):
         :param experiment_id: Integer id for the experiment
         :return: A single Experiment object if it exists, otherwise raises an Exception.
         """
+        experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self._get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException("Experiment '%s' does not exist." % experiment_id,
@@ -243,7 +260,7 @@ class FileStore(AbstractStore):
         mv(experiment_dir, self.root_directory)
 
     def rename_experiment(self, experiment_id, new_name):
-        meta_dir = os.path.join(self.root_directory, str(experiment_id))
+        meta_dir = os.path.join(self.root_directory, experiment_id)
         # if experiment is malformed, will raise error
         experiment = self._get_experiment(experiment_id)
         if experiment is None:
@@ -306,6 +323,7 @@ class FileStore(AbstractStore):
         """
         Creates a run with the specified attributes.
         """
+        experiment_id = FileStore.DEFAULT_EXPERIMENT_ID if experiment_id is None else experiment_id
         experiment = self.get_experiment(experiment_id)
         if experiment is None:
             raise MlflowException(
@@ -329,7 +347,8 @@ class FileStore(AbstractStore):
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_uuid)
         mkdir(run_dir)
-        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, _make_persisted_run_info_dict(run_info))
+        run_info_dict = _make_persisted_run_info_dict(run_info)
+        write_yaml(run_dir, FileStore.META_DATA_FILE_NAME, run_info_dict)
         mkdir(run_dir, FileStore.METRICS_FOLDER_NAME)
         mkdir(run_dir, FileStore.PARAMS_FOLDER_NAME)
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
@@ -340,12 +359,6 @@ class FileStore(AbstractStore):
         if run_name:
             self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return Run(run_info=run_info, run_data=None)
-
-    def _make_experiment_dict(self, experiment):
-        # Don't persist lifecycle_stage since it's inferred from the ".trash" folder.
-        experiment_dict = dict(experiment)
-        del experiment_dict['lifecycle_stage']
-        return experiment_dict
 
     def get_run(self, run_uuid):
         """
@@ -372,7 +385,7 @@ class FileStore(AbstractStore):
 
         meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
         run_info = _read_persisted_run_info_dict(meta)
-        if str(run_info.experiment_id) != str(exp_id):
+        if run_info.experiment_id != exp_id:
             logging.warning("Wrong experiment ID (%s) recorded for run '%s'. It should be %s. "
                             "Run will be ignored.", str(run_info.experiment_id),
                             str(run_info.run_uuid), str(exp_id), exc_info=True)

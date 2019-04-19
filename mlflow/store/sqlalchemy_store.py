@@ -37,6 +37,7 @@ class SqlAlchemyStore(AbstractStore):
     is recorded in :py:class:`mlflow.store.dbmodels.models.SqlRun` and stored in the backend DB.
     """
     ARTIFACTS_FOLDER_NAME = "artifacts"
+    DEFAULT_EXPERIMENT_ID = "0"
 
     def __init__(self, db_uri, default_artifact_root):
         """
@@ -115,7 +116,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         table = SqlExperiment.__tablename__
         default_experiment = {
-            SqlExperiment.experiment_id.name: Experiment.DEFAULT_EXPERIMENT_ID,
+            SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: self._get_artifact_location(0),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE
@@ -183,14 +184,15 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException('Experiment(name={}) already exists. '
                                       'Error: {}'.format(name, str(e)), RESOURCE_ALREADY_EXISTS)
 
-            return experiment.experiment_id
+            return str(experiment.experiment_id)
 
     def _list_experiments(self, session, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY):
         stages = LifecycleStage.view_type_to_stages(view_type)
         conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
 
         if ids and len(ids) > 0:
-            conditions.append(SqlExperiment.experiment_id.in_(ids))
+            int_ids = [int(eid) for eid in ids]
+            conditions.append(SqlExperiment.experiment_id.in_(int_ids))
 
         if names and len(names) > 0:
             conditions.append(SqlExperiment.name.in_(names))
@@ -203,6 +205,7 @@ class SqlAlchemyStore(AbstractStore):
                     self._list_experiments(session=session, view_type=view_type)]
 
     def _get_experiment(self, session, experiment_id, view_type):
+        experiment_id = experiment_id or SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
         experiments = self._list_experiments(
             session=session, ids=[experiment_id], view_type=view_type).all()
         if len(experiments) == 0:
