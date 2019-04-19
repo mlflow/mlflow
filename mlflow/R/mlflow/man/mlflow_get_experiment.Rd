@@ -39,7 +39,6 @@ Other tracking functions: \code{\link{mlflow_create_experiment}},
   \code{\link{mlflow_restore_experiment}},
   \code{\link{mlflow_restore_run}},
   \code{\link{mlflow_search_runs}},
-  \code{\link{mlflow_set_tag}},
-  \code{\link{mlflow_set_terminated}}
+  \code{\link{mlflow_set_tag}}
 }
 \concept{tracking functions}

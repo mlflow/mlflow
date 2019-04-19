@@ -142,21 +142,39 @@ mlflow_get_run_context.default <- function(client, source_name, source_version, 
 
 #' End a Run
 #'
-#' Ends an active MLflow run (if there is one).
+#' Terminates a run. Attempts to end the current active run if `run_id` is not specified.
 #'
 #' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @param end_time Unix timestamp of when the run ended in milliseconds.
+#' @template roxlate-run-id
 #' @template roxlate-fluent
 #'
 #' @export
-mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED")) {
+mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+                           end_time = NULL, run_id = NULL, client = NULL) {
+
+  status <- match.arg(status)
+  end_time <- end_time %||% current_time()
+
   active_run_id <- mlflow_get_active_run_id()
-  if (!is.null(active_run_id)) {
-    status <- match.arg(status)
+
+  if (!is.null(client) && is.null(run_id))
+    stop("`run_id` must be specified when `client` is specified.", call. = FALSE)
+
+  run <- if (!is.null(run_id)) {
+    client <- client %||% mlflow_client()
+    mlflow_set_terminated(client = client, run_id = run_id, status = status,
+                                 end_time = end_time)
+  } else {
+    if (is.null(active_run_id)) stop("There is no active run to end.", call. = FALSE)
     client <- mlflow_client()
-    mlflow_set_terminated(client = client, run_id = active_run_id, status = status)
-    mlflow_set_active_run_id(NULL)
+    run_id <- active_run_id
+    mlflow_set_terminated(client = client, run_id = active_run_id, status = status,
+                                 end_time = end_time)
   }
-  invisible(NULL)
+
+  if (identical(run_id, active_run_id)) mlflow_set_active_run_id(NULL)
+  run
 }
 
 #' Active Run

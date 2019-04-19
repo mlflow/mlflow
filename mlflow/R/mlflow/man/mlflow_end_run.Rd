@@ -4,13 +4,18 @@
 \alias{mlflow_end_run}
 \title{End a Run}
 \usage{
-mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"))
+mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+  end_time = NULL, run_id = NULL, client = NULL)
 }
 \arguments{
 \item{status}{Updated status of the run. Defaults to `FINISHED`.}
+
+\item{end_time}{Unix timestamp of when the run ended in milliseconds.}
+
+\item{run_id}{Run ID.}
 }
 \description{
-Ends an active MLflow run (if there is one).
+Terminates a run. Attempts to end the current active run if `run_id` is not specified.
 }
 \details{
 The fluent API family of functions operate with an implied MLflow client

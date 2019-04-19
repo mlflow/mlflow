@@ -21,13 +21,13 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   )
 })
 
-test_that("mlflow_set_teminated() works properly", {
+test_that("mlflow_end_run() works properly", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
   killed_time <- mlflow:::current_time()
   client <- mlflow_client()
-  run_info <- mlflow_set_terminated(
-    client = client, run_id = mlflow_get_active_run_id(),
+  run_info <- mlflow_end_run(
+    client = client, run_id = mlflow:::mlflow_get_active_run_id(),
     status = "KILLED", end_time = killed_time
   )
   expect_identical(run_info$status, "KILLED")
@@ -64,5 +64,41 @@ test_that("logging functionality", {
   expect_error(
     mlflow_active_run(),
     "There is no active run\\."
+  )
+})
+
+test_that("mlflow_end_run() behavior", {
+  mlflow_clear_test_dir("mlruns")
+  expect_error(
+    mlflow_end_run(),
+    "There is no active run to end\\."
+  )
+
+  run <- mlflow_start_run()
+  run_id <- mlflow_id(run)
+  mlflow_end_run(run_id = run_id)
+  expect_error(
+    mlflow_active_run(),
+    "There is no active run\\."
+  )
+
+  run <- mlflow_start_run()
+  run_id <- mlflow_id(run)
+  client <- mlflow_client()
+  expect_error(
+    mlflow_end_run(client = client),
+    "`run_id` must be specified when `client` is specified\\."
+  )
+  mlflow_end_run(client = client, run_id = run_id)
+  expect_error(
+    mlflow_active_run(),
+    "There is no active run\\."
+  )
+
+  mlflow_start_run()
+  run <- mlflow_end_run(status = "KILLED")
+  expect_identical(
+    run$status,
+    "KILLED"
   )
 })

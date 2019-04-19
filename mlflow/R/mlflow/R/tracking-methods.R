@@ -460,29 +460,14 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
     tibble::as_tibble()
 }
 
-#' Terminate a Run
-#'
-#' Terminates a run.
-#'
-#' @param status Updated status of the run. Defaults to `FINISHED`.
-#' @param end_time Unix timestamp of when the run ended in milliseconds.
-#' @template roxlate-run-id
-#' @template roxlate-client
-#' @export
-mlflow_set_terminated <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
-                                  run_id = NULL,
-                                  end_time = NULL, client = NULL) {
-  run_id <- resolve_run_id(run_id)
-  client <- client %||% mlflow_client()
+mlflow_set_terminated <- function(status, end_time, run_id, client) {
 
-  status <- match.arg(status)
-  end_time <- end_time %||% current_time()
   response <- mlflow_rest("runs", "update", verb = "POST", client = client, data = list(
     run_uuid = run_id,
     status = status,
     end_time = end_time
   ))
-  parse_run_info(response$run_info)
+  mlflow_get_run(client = client, run_id = response$run_info$run_uuid)
 }
 
 
