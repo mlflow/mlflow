@@ -4,13 +4,12 @@ import mock
 import pytest
 
 import mlflow
-from mlflow.entities import ViewType, Metric, RunTag, Param
+from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
     _search_runs, _log_batch, catch_mlflow_exception
-from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns, LogBatch
-from mlflow.store.file_store import FileStore
+from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
 
