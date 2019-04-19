@@ -204,15 +204,6 @@ class MlflowClient(object):
             _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
 
-    def get_metric_history(self, run_id, key):
-        """
-        Return a list of logged metric entities for a single metric within a single run.
-        :return: List of :py:class:`mlflow.entities.Metric` corresponding to metric values logged
-        under the provided run and metric key.
-        """
-        _validate_metric_name(key)
-        return self.store.get_metric_history(run_uuid=run_id, metric_key=key)
-
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
         Write a local file to the remote ``artifact_uri``.
