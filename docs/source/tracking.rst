@@ -373,15 +373,15 @@ the client in order to enforce this property.
 HDFS
 ^^^^^
 
-To store artifacts in an HDFS, specify a URI of the form ``hdfs:/<path>``. It can contain host and port:
+To store artifacts in an HDFS, specify a URI of the form ``hdfs://<path>``. It can contain host and port:
 
-|     ``hdfs:/localhost:8020/path`` or just the path:
-|     ``hdfs:/<path>``
+|     ``hdfs://<host>:<port>/<path>`` or just the path:
+|     ``hdfs://<path>``
 |
 
-Choice is dependant on the authorization in use. Supporter are two cases:
+Choice is dependant on the authorization in use. Supported are two cases:
 
-- use current account authorization (Linux account)
+- Use current account authorization (Linux account)
 - Kerberos credentials using following environment variables:
 
 .. code-block:: bash
@@ -389,7 +389,7 @@ Choice is dependant on the authorization in use. Supporter are two cases:
   export MLFLOW_KERBEROS_TICKET_CACHE=/tmp/krb5cc_22222222
   export MLFLOW_KERBEROS_USER=user_name_to_use
 
-Most of the cluster contest settings is read from hdfs-site.xml accessed by the hdfs native driver
+Most of the cluster contest settings is read from ```hdfs-site.xml``` accessed by the hdfs native driver
 driver using the ``CLASSPATH`` environment variable.
 
 Optionally one can select different version of native driver by:
@@ -398,7 +398,7 @@ Optionally one can select different version of native driver by:
 
   export MLFLOW_HDFS_DRIVER=libhdfs3
 
-Default one is ```libhdfs```.
+The default one is ```libhdfs```.
 
 Networking
 ----------
