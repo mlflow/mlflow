@@ -60,6 +60,9 @@ def _create_entity(base, model):
                 elif k == "status":
                     obj = RunStatus.from_string(obj)
 
+        if isinstance(model, SqlExperiment) and k == "experiment_id":
+            obj = str(obj)
+
         config[k] = obj
     return base(**config)
 

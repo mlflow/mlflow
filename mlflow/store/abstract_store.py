@@ -38,7 +38,7 @@ class AbstractStore:
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
 
-        :return: experiment_id (integer) for the newly created experiment if successful, else None.
+        :return: experiment_id (string) for the newly created experiment if successful, else None.
         """
         pass
 
@@ -76,7 +76,7 @@ class AbstractStore:
         Delete the experiment from the backend store. Deleted experiments can be restored until
         permanently deleted.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -85,7 +85,7 @@ class AbstractStore:
         """
         Restore deleted experiment unless it is permanently deleted.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -94,7 +94,7 @@ class AbstractStore:
         """
         Update an experiment's name. The new name must be unique.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 

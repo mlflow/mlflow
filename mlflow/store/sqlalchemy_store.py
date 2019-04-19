@@ -184,7 +184,7 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException('Experiment(name={}) already exists. '
                                       'Error: {}'.format(name, str(e)), RESOURCE_ALREADY_EXISTS)
 
-            return experiment.experiment_id
+            return str(experiment.experiment_id)
 
     def _list_experiments(self, session, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY):
         stages = LifecycleStage.view_type_to_stages(view_type)
