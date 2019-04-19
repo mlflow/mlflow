@@ -68,7 +68,7 @@ def test_client_create_run_overrides(mock_store):
         "other-key": "other-value"
     }
 
-    MlflowClient().create_run(experiment_id, user_id, run_name, start_time, tags)
+    MlflowClient().create_run(experiment_id, user_id, run_name, start_time, None, tags)
 
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
@@ -77,6 +77,21 @@ def test_client_create_run_overrides(mock_store):
         start_time=start_time,
         tags=[RunTag(key, value) for key, value in tags.items()],
         parent_run_id=tags[MLFLOW_PARENT_RUN_ID],
+        source_type=SourceType.JOB,
+        source_name=tags[MLFLOW_SOURCE_NAME],
+        entry_point_name=tags[MLFLOW_PROJECT_ENTRY_POINT],
+        source_version=tags[MLFLOW_GIT_COMMIT]
+    )
+    mock_store.reset_mock()
+    parent_run_id = "mock-parent-run-id"
+    MlflowClient().create_run(experiment_id, user_id, run_name, start_time, parent_run_id, tags)
+    mock_store.create_run.assert_called_once_with(
+        experiment_id=experiment_id,
+        user_id=user_id,
+        run_name=run_name,
+        start_time=start_time,
+        tags=[RunTag(key, value) for key, value in tags.items()],
+        parent_run_id=parent_run_id,
         source_type=SourceType.JOB,
         source_name=tags[MLFLOW_SOURCE_NAME],
         entry_point_name=tags[MLFLOW_PROJECT_ENTRY_POINT],
