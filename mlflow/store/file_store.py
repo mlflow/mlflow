@@ -421,18 +421,15 @@ class FileStore(AbstractStore):
     @staticmethod
     def _get_metric_from_file(parent_path, metric_name):
         _validate_metric_name(metric_name)
-        metric_data = []
-        for line in read_file_lines(parent_path, metric_name):
-            metric_timestamp, metric_value = line.split()
-            metric_data.append((int(metric_timestamp), float(metric_value)))
-        if len(metric_data) == 0:
+        metric_objs = [FileStore._get_metric_from_line(metric_name, line)
+                       for line in read_file_lines(parent_path, metric_name)]
+        if len(metric_objs) == 0:
             raise ValueError("Metric '%s' is malformed. No data found." % metric_name)
         # Python performs element-wise comparison of equal-length tuples, ordering them
         # based on their first differing element. Therefore, we use max() operator to find the
         # largest value at the largest timestamp. For more information, see
         # https://docs.python.org/3/reference/expressions.html#value-comparisons
-        max_timestamp, max_value = max(metric_data)
-        return Metric(metric_name, max_value, max_timestamp)
+        return max(metric_objs, key=lambda m: (m.step, m.timestamp, m.value))
 
     def get_all_metrics(self, run_uuid):
         _validate_run_id(run_uuid)
@@ -442,6 +439,18 @@ class FileStore(AbstractStore):
             metrics.append(self._get_metric_from_file(parent_path, metric_file))
         return metrics
 
+    @staticmethod
+    def _get_metric_from_line(metric_name, metric_line):
+        metric_parts = metric_line.strip().split(" ")
+        if len(metric_parts) != 2 and len(metric_parts) != 3:
+            raise MlflowException("Metric '%s' is malformed; persisted metric data contained %s "
+                                  "fields. Expected 2 or 3 fields." %
+                                  (metric_name, len(metric_parts)), databricks_pb2.INTERNAL_ERROR)
+        ts = int(metric_parts[0])
+        val = float(metric_parts[1])
+        step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
+        return Metric(key=metric_name, value=val, timestamp=ts, step=step)
+
     def get_metric_history(self, run_uuid, metric_key):
         _validate_run_id(run_uuid)
         _validate_metric_name(metric_key)
@@ -449,12 +458,8 @@ class FileStore(AbstractStore):
         if metric_key not in metric_files:
             raise MlflowException("Metric '%s' not found under run '%s'" % (metric_key, run_uuid),
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
-        metric_data = read_file_lines(parent_path, metric_key)
-        rsl = []
-        for pair in metric_data:
-            ts, val = pair.strip().split(" ")
-            rsl.append(Metric(metric_key, float(val), int(ts)))
-        return rsl
+        return [FileStore._get_metric_from_line(metric_key, line)
+                for line in read_file_lines(parent_path, metric_key)]
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):
@@ -530,7 +535,7 @@ class FileStore(AbstractStore):
         check_run_is_active(run.info)
         metric_path = self._get_metric_path(run.info.experiment_id, run_uuid, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, "%s %s\n" % (metric.timestamp, metric.value))
+        append_to(metric_path, "%s %s %s\n" % (metric.timestamp, metric.value, metric.step))
 
     def _writeable_value(self, tag_value):
         if tag_value is None:

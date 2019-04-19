@@ -235,7 +235,8 @@ def _restore_run():
 @catch_mlflow_exception
 def _log_metric():
     request_message = _get_request_message(LogMetric())
-    metric = Metric(request_message.key, request_message.value, request_message.timestamp)
+    metric = Metric(request_message.key, request_message.value, request_message.timestamp,
+                    request_message.step)
     _get_store().log_metric(request_message.run_uuid, metric)
     response_message = LogMetric.Response()
     response = Response(mimetype='application/json')
