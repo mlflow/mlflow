@@ -296,8 +296,8 @@ def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
     bad_kwargs = {
         "metrics": [
             [Metric(key="../bad/metric/name", value=0.3, timestamp=3, step=0)],
-            [Metric(key="ok-name", value="non-numerical-value", timestamp=3, step=1)],
-            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=2)],
+            [Metric(key="ok-name", value="non-numerical-value", timestamp=3, step=0)],
+            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=0)],
         ],
         "params": [[Param(key="../bad/param/name", value="my-val")]],
         "tags": [[Param(key="../bad/tag/name", value="my-val")]],
