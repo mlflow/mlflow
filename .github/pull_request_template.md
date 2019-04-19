@@ -10,8 +10,8 @@
  
 ### Is this a user-facing change? 
 
-[ ] No. Add the `rn/none` label, then you can skip the rest of this section.
-[ ] Yes. Give a description of this change to be included in the release notes for MLflow users.
+- [ ] No. Add the `rn/none` label, then you can skip the rest of this section.
+- [ ] Yes. Give a description of this change to be included in the release notes for MLflow users.
  
 (Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change.)
  
