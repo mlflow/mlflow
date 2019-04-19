@@ -266,7 +266,7 @@ _tracking_store_registry.register_entrypoints()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
-
+    
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
