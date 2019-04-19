@@ -4,6 +4,7 @@ import json
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.rest_store import RestStore
 from mlflow.tracking import utils
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
@@ -26,7 +27,7 @@ class DbfsArtifactRepository(ArtifactRepository):
         super(DbfsArtifactRepository, self).__init__(cleaned_artifact_uri)
         # NOTE: if we ever need to support databricks profiles different from that set for
         #  tracking, we could pass in the databricks profile name into this class.
-        self.get_host_creds = utils._get_store().get_host_creds
+        self.get_host_creds = _get_host_creds_from_default_store()
         if not cleaned_artifact_uri.startswith('dbfs:/'):
             raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
 
@@ -131,3 +132,11 @@ class DbfsArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         self._dbfs_download(output_path=local_path,
                             endpoint=self._get_dbfs_endpoint(remote_file_path))
+
+
+def _get_host_creds_from_default_store():
+    store = utils._get_store()
+    if not isinstance(store, RestStore):
+        raise MlflowException('Failed to get credentials for DBFS; they are read from the ' +
+                              'Databricks CLI credentials or _TRACKING* environment variables.')
+    return store.get_host_creds
