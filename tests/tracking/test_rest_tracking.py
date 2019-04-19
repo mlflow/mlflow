@@ -236,7 +236,7 @@ def test_log_metrics_params_tags(mlflow_client):
     assert metric.key == "metric"
     assert metric.value == 123.456
     assert metric.timestamp == 789
-    assert metric.stepe == 2
+    assert metric.step == 2
 
 
 def test_log_batch(mlflow_client):
