@@ -3,7 +3,6 @@ import json
 import mock
 import pytest
 
-import mlflow
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
