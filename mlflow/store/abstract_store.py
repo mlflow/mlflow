@@ -47,7 +47,7 @@ class AbstractStore:
         """
         Fetch the experiment by ID from the backend store.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
 
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
             otherwise raises an exception.
@@ -132,7 +132,7 @@ class AbstractStore:
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
-        :param experiment_id: ID of the experiment for this run
+        :param experiment_id: String id of the experiment for this run
         :param user_id: ID of the user launching this run
         :param source_type: Enum (integer) describing the source of the run
 
