@@ -14,7 +14,7 @@ import tempfile
 from click.testing import CliRunner
 
 import mlflow.experiments
-from mlflow.entities import RunStatus
+from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
 from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR
 from mlflow.tracking import MlflowClient
@@ -217,13 +217,40 @@ def test_log_metrics_params_tags(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Oh My')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
-    mlflow_client.log_metric(run_id, 'metric', 123.456)
+    mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789, step=3)
     mlflow_client.log_param(run_id, 'param', 'value')
     mlflow_client.set_tag(run_id, 'taggity', 'do-dah')
     run = mlflow_client.get_run(run_id)
     assert run.data.metrics.get('metric') == 123.456
     assert run.data.params.get('param') == 'value'
     assert run.data.tags.get('taggity') == 'do-dah'
+    metric_history = mlflow_client.get_metric_history(run_id, "metric")
+    assert len(metric_history) == 1
+    metric = metric_history[0]
+    assert metric.key == "metric"
+    assert metric.value == 123.456
+    assert metric.timestamp == 789
+    assert metric.step == 3
+
+
+def test_log_batch(mlflow_client):
+    experiment_id = mlflow_client.create_experiment('Batch em up')
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_uuid
+    mlflow_client.log_batch(run_id=run_id,
+        metrics=[Metric("metric", 123.456, 789, 3)], params=[Param("param", "value")],
+        tags=[RunTag("taggity", "do-dah")])
+    run = mlflow_client.get_run(run_id)
+    assert run.data.metrics.get('metric') == 123.456
+    assert run.data.params.get('param') == 'value'
+    assert run.data.tags.get('taggity') == 'do-dah'
+    metric_history = mlflow_client.get_metric_history(run_id, "metric")
+    assert len(metric_history) == 1
+    metric = metric_history[0]
+    assert metric.key == "metric"
+    assert metric.value == 123.456
+    assert metric.timestamp == 789
+    assert metric.step == 3
 
 
 def test_set_terminated_defaults(mlflow_client):

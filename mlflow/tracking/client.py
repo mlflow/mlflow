@@ -12,7 +12,7 @@ from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import utils
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
-    _validate_experiment_name, _validate_metric
+    _validate_experiment_name, _validate_metric, _validate_metric_name
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
@@ -158,14 +158,15 @@ class MlflowClient(object):
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None):
+    def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
         Log a metric against the run ID. If timestamp is not provided, uses
-        the current timestamp.
+        the current timestamp. The metric's step defaults to 0 if unspecified.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
-        _validate_metric(key, value, timestamp)
-        metric = Metric(key, value, timestamp)
+        step = step if step is not None else 0
+        _validate_metric(key, value, timestamp, step)
+        metric = Metric(key, value, timestamp, step)
         self.store.log_metric(run_id, metric)
 
     def log_param(self, run_id, key, value):
@@ -196,12 +197,21 @@ class MlflowClient(object):
         :returns: None
         """
         for metric in metrics:
-            _validate_metric(metric.key, metric.value, metric.timestamp)
+            _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:
             _validate_param_name(param.key)
         for tag in tags:
             _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+
+    def get_metric_history(self, run_id, key):
+        """
+        Return a list of logged metric entities for a single metric within a single run.
+        :return: List of :py:class:`mlflow.entities.Metric` corresponding to metric values logged
+        under the provided run and metric key.
+        """
+        _validate_metric_name(key)
+        return self.store.get_metric_history(run_uuid=run_id, metric_key=key)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """

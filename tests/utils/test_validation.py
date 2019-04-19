@@ -54,7 +54,7 @@ def test_validate_run_id():
 
 
 def test_validate_batch_log_limits():
-    too_many_metrics = [Metric("metric-key-%s" % i, 1, 0) for i in range(1001)]
+    too_many_metrics = [Metric("metric-key-%s" % i, 1, 0, i * 2) for i in range(1001)]
     too_many_params = [Param("param-key-%s" % i, "b") for i in range(101)]
     too_many_tags = [RunTag("tag-key-%s" % i, "b") for i in range(101)]
 
@@ -81,8 +81,12 @@ def test_validate_batch_log_limits():
 
 
 def test_validate_batch_log_data():
-    metrics_with_bad_key = [Metric("good-metric-key", 1.0, 0),
-                            Metric("super-long-bad-key" * 1000, 4.0, 0)]
+    metrics_with_bad_key = [Metric("good-metric-key", 1.0, 0, 0),
+                            Metric("super-long-bad-key" * 1000, 4.0, 0, 0)]
+    metrics_with_bad_val = [Metric("good-metric-key", "not-a-double-val", 0, 0)]
+    metrics_with_bad_ts = [Metric("good-metric-key", 1.0, "not-a-timestamp", 0)]
+    metrics_with_neg_ts = [Metric("good-metric-key", 1.0, -123, 0)]
+    metrics_with_bad_step = [Metric("good-metric-key", 1.0, 0, "not-a-step")]
     params_with_bad_key = [Param("good-param-key", "hi"),
                            Param("super-long-bad-key" * 1000, "but-good-val")]
     params_with_bad_val = [Param("good-param-key", "hi"),
@@ -92,7 +96,8 @@ def test_validate_batch_log_data():
     tags_with_bad_val = [RunTag("good-tag-key", "hi"),
                          RunTag("another-good-key", "but-bad-val" * 1000)]
     bad_kwargs = {
-        "metrics": [metrics_with_bad_key],
+        "metrics": [metrics_with_bad_key, metrics_with_bad_val, metrics_with_bad_ts,
+                    metrics_with_neg_ts, metrics_with_bad_step],
         "params": [params_with_bad_key, params_with_bad_val],
         "tags": [tags_with_bad_key, tags_with_bad_val],
     }
@@ -105,5 +110,5 @@ def test_validate_batch_log_data():
                 _validate_batch_log_data(**final_kwargs)
     # Test that we don't reject entities within the limit
     _validate_batch_log_data(
-        metrics=[Metric("metric-key", 1.0, 0)], params=[Param("param-key", "param-val")],
+        metrics=[Metric("metric-key", 1.0, 0, 0)], params=[Param("param-key", "param-val")],
         tags=[RunTag("tag-key", "tag-val")])
