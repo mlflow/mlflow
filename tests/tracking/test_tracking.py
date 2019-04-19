@@ -147,7 +147,7 @@ def test_start_and_end_run(tracking_uri_mock):
     assert finished_run.data.metrics["name_1"] == 25
 
 
-def test_log_batch(tracking_uri_mock):
+def test_log_batch(tracking_uri_mock, tmpdir):
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
     expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
@@ -169,14 +169,17 @@ def test_log_batch(tracking_uri_mock):
     assert len(finished_run.data.metrics) == 2
     for key, value in finished_run.data.metrics.items():
         assert expected_metrics[key] == value
-    metric0 = [m for m in finished_run.data._metric_objs if m.key == "metric-key0"][0]
-    assert metric0.value == expected_metrics["metric-key0"]
-    assert metric0.timestamp == t
-    assert metric0.step == 0
-    metric1 = [m for m in finished_run.data._metric_objs if m.key == "metric-key1"][0]
-    assert metric1.value == expected_metrics["metric-key1"]
-    assert metric1.timestamp == t
-    assert metric1.step == 1
+    # TODO: use client get_metric_history API here instead once it exists
+    fs = FileStore(os.path.join(tmpdir, "mlruns"))
+    metric_history0 = fs.get_metric_history(run_uuid, "metric-key0")
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == set([
+        (1.0, t, 0),
+    ])
+    metric_history1 = fs.get_metric_history(run_uuid, "metric-key1")
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == set([
+        (4.0, t, 1),
+    ])
+
     # Validate tags (for automatically-set tags)
     assert len(finished_run.data.tags) == len(exact_expected_tags) + len(approx_expected_tags)
     for tag_key, tag_value in finished_run.data.tags.items():
@@ -203,6 +206,7 @@ def test_log_metric(tracking_uri_mock, tmpdir):
     expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     for key, value in finished_run.data.metrics.items():
         assert expected_pairs[key] == value
+    # TODO: use client get_metric_history API here instead once it exists
     fs = FileStore(os.path.join(tmpdir, "mlruns"))
     metric_history_name1 = fs.get_metric_history(run_uuid, "name_1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set([
