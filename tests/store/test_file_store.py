@@ -134,9 +134,6 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
             self._verify_experiment(fs, exp_id)
-            root_dir = os.path.join(self.test_root, exp_id)
-            with safe_edit_yaml(root_dir, "meta.yaml", self._experiment_id_edit_func):
-                self._verify_experiment(fs, exp_id)
 
         # test that fake experiments dont exist.
         # look for random experiment ids between 8000, 15000 since created ones are (100, 2000)
