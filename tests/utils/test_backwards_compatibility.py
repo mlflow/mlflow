@@ -21,7 +21,7 @@ def test_backwards_compatibility():
         additional_pip_deps=["mlflow"]
     )
     assert 0 == os.system("conda env create -n mlflow_release -f mlflow_latest_released.yml")
-    pattern = re.compile(".*Listening at\: (http\://127.0.0.1:[0-9]+).*")
+    pattern = re.compile(r".*Listening at\: (http\://127.0.0.1:[0-9]+).*")
     activate_conda_cmd = "source {activate} mlflow_release &&".format(
         activate=_get_conda_bin_executable("activate"))
     try:
@@ -39,8 +39,8 @@ def test_backwards_compatibility():
                     m = False
                     while not m:
                         time.sleep(1)
-                        l = server.stderr.readline()
-                        m = pattern.match(l)
+                        line = server.stderr.readline()
+                        m = pattern.match(line)
                     url = m.group(1)
                     print("started mlflow server listening at ", url)
                     activate_client_env = activate_conda_cmd if conf == "old client" else ""
