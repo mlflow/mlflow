@@ -4,7 +4,7 @@ import json
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.tracking import utils
+from mlflow.tracking.utils import _get_store
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
 
@@ -27,7 +27,7 @@ class DbfsArtifactRepository(ArtifactRepository):
         # TODO (sueann): we may want to pass in the databricks profile or the RestStore's
         #  get_host_creds directly instead of using _get_store, since it's possible they
         #  will be different.
-        self.get_host_creds = utils._get_store.get_host_creds
+        self.get_host_creds = _get_store().get_host_creds
         if not cleaned_artifact_uri.startswith('dbfs:/'):
             raise MlflowException('DbfsArtifactRepository URI must start with dbfs:/')
 
