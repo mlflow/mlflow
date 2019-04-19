@@ -11,6 +11,7 @@ import mlflow
 
 from mlflow.entities import RunStatus, ViewType, Experiment, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
@@ -189,7 +190,7 @@ def test_run_local_git_repo(local_git_repo,
     submitted_run = mlflow.projects.run(
         uri, entry_point="test_tracking", version=version,
         parameters={"use_start_run": use_start_run},
-        use_conda=False, experiment_id=0)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
 
     # Blocking runs should be finished when they return
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
@@ -200,7 +201,8 @@ def test_run_local_git_repo(local_git_repo,
     # Validate run contents in the FileStore
     run_uuid = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
-    run_infos = mlflow_service.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
+    run_infos = mlflow_service.list_run_infos(
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
     assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
@@ -230,11 +232,11 @@ def test_run_local_git_repo(local_git_repo,
 
 
 @pytest.mark.parametrize("experiment_id,experiment_name,expected",
-                         [(1, None, 1), (None, 'name', 33)])
+                         [("1", None, "1"), (None, 'name', "33")])
 def test_resolve_experiment_id(experiment_id, experiment_name, expected):
     with mock.patch('mlflow.tracking.MlflowClient.get_experiment_by_name') \
             as get_experiment_by_name_mock:
-        get_experiment_by_name_mock.return_value = Experiment(experiment_id=33, name='Name',
+        get_experiment_by_name_mock.return_value = Experiment(experiment_id="33", name='Name',
                                                               artifact_location=None,
                                                               lifecycle_stage=None)
 
@@ -247,7 +249,7 @@ def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
     with pytest.raises(MlflowException,
                        match="Specify only one of 'experiment_name' or 'experiment_id'."):
         _ = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named',
-                                                   experiment_id=44)
+                                                   experiment_id="44")
 
 
 def test_invalid_version_local_git_repo(local_git_repo_uri,
@@ -257,7 +259,7 @@ def test_invalid_version_local_git_repo(local_git_repo_uri,
                        match=r'Unable to checkout version \'badc0de\''):
         mlflow.projects.run(local_git_repo_uri + "#" + TEST_PROJECT_NAME,
                             entry_point="test_tracking", version="badc0de",
-                            use_conda=False, experiment_id=0)
+                            use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
@@ -265,7 +267,7 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="test_tracking",
         parameters={"use_start_run": use_start_run},
-        use_conda=False, experiment_id=0)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
     assert submitted_run.run_id is not None
     # Blocking runs should be finished when they return
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
@@ -277,7 +279,8 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     run_uuid = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
 
-    run_infos = mlflow_service.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
+    run_infos = mlflow_service.list_run_infos(
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
     assert len(run_infos) == 1
     store_run_uuid = run_infos[0].run_uuid
     assert run_uuid == store_run_uuid
@@ -306,7 +309,7 @@ def test_run_with_parent(tmpdir, tracking_uri_mock):  # pylint: disable=unused-a
         submitted_run = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="test_tracking",
             parameters={"use_start_run": "1"},
-            use_conda=False, experiment_id=0)
+            use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
     assert submitted_run.run_id is not None
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     run_uuid = submitted_run.run_id
@@ -318,13 +321,13 @@ def test_run_with_parent(tmpdir, tracking_uri_mock):  # pylint: disable=unused-a
 def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0 = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
-        use_conda=False, experiment_id=0, block=False)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, block=False)
     validate_exit_status(submitted_run0.get_status(), RunStatus.RUNNING)
     submitted_run0.wait()
     validate_exit_status(submitted_run0.get_status(), RunStatus.FINISHED)
     submitted_run1 = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": -1, "invalid-param": 30},
-        use_conda=False, experiment_id=0, block=False)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, block=False)
     submitted_run1.wait()
     validate_exit_status(submitted_run1.get_status(), RunStatus.FAILED)
 
@@ -347,7 +350,8 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
 def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0, submitted_run1 = [mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
-        use_conda=False, experiment_id=0, block=False) for _ in range(2)]
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+        block=False) for _ in range(2)]
     submitted_run0.cancel()
     validate_exit_status(submitted_run0.get_status(), RunStatus.FAILED)
     # Sanity check: cancelling one run has no effect on the other

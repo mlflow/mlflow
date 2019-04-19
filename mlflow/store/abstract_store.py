@@ -37,7 +37,7 @@ class AbstractStore:
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
 
-        :return: experiment_id (integer) for the newly created experiment if successful, else None.
+        :return: experiment_id (string) for the newly created experiment if successful, else None.
         """
         pass
 
@@ -46,7 +46,7 @@ class AbstractStore:
         """
         Fetch the experiment by ID from the backend store.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
 
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
             otherwise raises an exception.
@@ -75,7 +75,7 @@ class AbstractStore:
         Delete the experiment from the backend store. Deleted experiments can be restored until
         permanently deleted.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -84,7 +84,7 @@ class AbstractStore:
         """
         Restore deleted experiment unless it is permanently deleted.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -93,7 +93,7 @@ class AbstractStore:
         """
         Update an experiment's name. The new name must be unique.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -131,7 +131,7 @@ class AbstractStore:
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
-        :param experiment_id: ID of the experiment for this run
+        :param experiment_id: String id of the experiment for this run
         :param user_id: ID of the user launching this run
         :param source_type: Enum (integer) describing the source of the run
 
