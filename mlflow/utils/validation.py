@@ -73,7 +73,7 @@ def _validate_metric(key, value, timestamp, step):
     if not isinstance(step, numbers.Number):
         raise MlflowException(
             "Got invalid step %s for metric '%s' (value=%s). Step must be a valid long "
-            "(64-bit integer) " % (step, key, value),
+            "(64-bit integer)." % (step, key, value),
             INVALID_PARAMETER_VALUE)
 
 

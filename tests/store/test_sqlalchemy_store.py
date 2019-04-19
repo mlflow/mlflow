@@ -52,9 +52,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         all_metrics = sum([self.store.get_metric_history(run_uuid, key)
                            for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
-        # TODO(sid): include step here as well
-        logged_metrics = [(m.key, m.value, m.timestamp) for m in all_metrics]
-        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp) for m in metrics])
+        logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
+        assert set(logged_metrics) == set([(m.key, m.value, m.timestamp, m.step) for m in metrics])
         logged_tags = set([(tag_key, tag_value) for tag_key, tag_value in run.data.tags.items()])
         assert set([(tag.key, tag.value) for tag in tags]) <= logged_tags
         assert len(run.data.params) == len(params)

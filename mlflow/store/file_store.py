@@ -432,7 +432,7 @@ class FileStore(AbstractStore):
         if len(metric_parts) != 2 and len(metric_parts) != 3:
             raise MlflowException("Metric '%s' is malformed; persisted metric data contained %s "
                                   "fields. Expected 2 or 3 fields." %
-                                  (len(metric_parts), metric_name), databricks_pb2.INTERNAL_ERROR)
+                                  (metric_name, len(metric_parts)), databricks_pb2.INTERNAL_ERROR)
         ts = int(metric_parts[0])
         val = float(metric_parts[1])
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0

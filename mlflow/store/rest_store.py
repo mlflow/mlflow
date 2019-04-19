@@ -200,7 +200,7 @@ class RestStore(AbstractStore):
         :param run_uuid: Unique identifier for run
         :param metric_key: Metric name within the run
 
-        :return: A list of float values logged for the give metric if logged, else empty list
+        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
         req_body = message_to_json(GetMetricHistory(run_uuid=run_uuid, metric_key=metric_key))
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
