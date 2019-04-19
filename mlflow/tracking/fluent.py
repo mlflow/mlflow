@@ -11,12 +11,11 @@ import atexit
 import time
 import logging
 
-import mlflow.tracking.utils
 from mlflow.entities import Run, SourceType, RunStatus, Param, RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking import context
+from mlflow.tracking import artifact_utils, context
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, \
@@ -290,8 +289,8 @@ def get_artifact_uri(artifact_path=None):
              is not provided and the currently active run uses an S3-backed store, this may be a
              URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
     """
-    return mlflow.tracking.utils.get_artifact_uri(
-        run_id=_get_or_start_run().info.run_uuid, artifact_path=artifact_path)
+    return artifact_utils.get_artifact_uri(run_id=_get_or_start_run().info.run_uuid,
+                                           artifact_path=artifact_path)
 
 
 def _get_or_start_run():

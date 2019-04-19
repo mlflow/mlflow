@@ -10,7 +10,8 @@ from mlflow.store.rest_store import RestStore
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
-    get_db_profile_from_uri, _download_artifact_from_uri, TrackingStoreRegistry
+    get_db_profile_from_uri, TrackingStoreRegistry
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
 
 def test_get_store_file_store(tmp_wkdir):
