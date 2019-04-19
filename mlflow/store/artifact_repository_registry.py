@@ -11,7 +11,6 @@ from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
-from mlflow.store.rest_store import RestStore
 
 
 class ArtifactRepositoryRegistry:

@@ -275,7 +275,7 @@ def _get_model_log_dir(model_name, run_id):
         raise Exception("Must specify a run_id to get logging directory for a model.")
     store = _get_store()
     run = store.get_run(run_id)
-    artifact_repo = get_artifact_repository(run.info.artifact_uri, store)
+    artifact_repo = get_artifact_repository(run.info.artifact_uri)
     return artifact_repo.download_artifacts(model_name)
 
 

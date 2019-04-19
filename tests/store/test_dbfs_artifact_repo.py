@@ -8,12 +8,11 @@ from mock import Mock
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
-from mlflow.utils.rest_utils import MlflowHostCreds
 
 
 @pytest.fixture()
 def dbfs_artifact_repo():
-    return DbfsArtifactRepository('dbfs:/test/', lambda: MlflowHostCreds('http://host'))
+    return DbfsArtifactRepository('dbfs:/test/')
 
 
 TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
@@ -65,10 +64,10 @@ LIST_ARTIFACTS_SINGLE_FILE_RESPONSE = {
 
 class TestDbfsArtifactRepository(object):
     def test_init_validation_and_cleaning(self):
-        repo = DbfsArtifactRepository('dbfs:/test/', lambda: MlflowHostCreds('http://host'))
+        repo = DbfsArtifactRepository('dbfs:/test/')
         assert repo.artifact_uri == 'dbfs:/test'
         with pytest.raises(MlflowException):
-            DbfsArtifactRepository('s3://test', lambda: MlflowHostCreds('http://host'))
+            DbfsArtifactRepository('s3://test')
 
     @pytest.mark.parametrize("artifact_path,expected_endpoint", [
         (None, '/dbfs/test/test.txt'),
