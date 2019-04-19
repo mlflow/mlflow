@@ -201,9 +201,9 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     assert run.info.source_version == source_version
     actual_tags = {t.key: t.value for t in run.data.tags}
     for tag in create_run_kwargs["tags"]:
-        assert tag in run.data.tags
-    assert run.data.tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
-    assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
+        assert tag in actual_tags
+    assert actual_tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
+    assert actual_tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
     assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
 
