@@ -188,12 +188,14 @@ def test_log_batch(tracking_uri_mock):
     assert finished_run.data.params == expected_params
 
 
-def test_log_metric(tracking_uri_mock):
-    with start_run() as active_run:
+def test_log_metric(tracking_uri_mock, tmpdir):
+    with start_run() as active_run, mock.patch("time.time") as time_mock:
+        time_mock.side_effect = range(300, 400)
         run_uuid = active_run.info.run_uuid
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_2", -3)
-        mlflow.log_metric("name_1", 30)
+        mlflow.log_metric("name_1", 30, 5)
+        mlflow.log_metric("name_1", 40, -2)
         mlflow.log_metric("nested/nested/name", 40)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate metrics
@@ -201,21 +203,35 @@ def test_log_metric(tracking_uri_mock):
     expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     for key, value in finished_run.data.metrics.items():
         assert expected_pairs[key] == value
+    fs = FileStore(os.path.join(tmpdir, "mlruns"))
+    metric_history_name1 = fs.get_metric_history(run_uuid, "name_1")
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set([
+        (25, 300, 0),
+        (30, 302, 5),
+        (40, 303, -2),
+    ])
+    metric_history_name2 = fs.get_metric_history(run_uuid, "name_2")
+    assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == set([
+        (-3, 301, 0),
+    ])
 
 
-def test_log_metrics(tracking_uri_mock):
+@pytest.mark.parametrize("step_kwarg", [None, -10, 5])
+def test_log_metrics(tracking_uri_mock, step_kwarg):
     expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     with start_run() as active_run:
         run_uuid = active_run.info.run_uuid
-        mlflow.log_metrics(expected_metrics)
+        mlflow.log_metrics(expected_metrics, step=step_kwarg)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate metric key/values match what we expect, and that all metrics have the same timestamp
     assert len(finished_run.data.metrics) == len(expected_metrics)
     for key, value in finished_run.data.metrics.items():
         assert expected_metrics[key] == value
     common_timestamp = finished_run.data._metric_objs[0].timestamp
+    expected_step = step_kwarg if step_kwarg is not None else 0
     for metric_obj in finished_run.data._metric_objs:
         assert metric_obj.timestamp == common_timestamp
+        assert metric_obj.step == expected_step
 
 
 @pytest.fixture
