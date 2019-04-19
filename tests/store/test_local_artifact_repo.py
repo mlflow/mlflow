@@ -1,6 +1,7 @@
 import os
 import unittest
 
+from mlflow.exceptions import MlflowException
 from mock import Mock
 
 from mlflow.store.artifact_repository_registry import get_artifact_repository
@@ -52,7 +53,7 @@ class TestLocalArtifactRepo(unittest.TestCase):
             self.assertEqual(text, "Hello world!")
 
             for bad_path in ["/", "//", "/tmp", "/bad_path", ".", "../terrible_path"]:
-                with self.assertRaises(Exception):
+                with self.assertRaises(MlflowException):
                     repo.log_artifact(local_file, bad_path)
 
             # Create a subdirectory for log_artifacts
