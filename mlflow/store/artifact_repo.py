@@ -2,6 +2,8 @@ import os
 import tempfile
 from abc import abstractmethod, ABCMeta
 
+from mlflow.utils.validation import path_not_unique, bad_path_message
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.file_utils import build_path
@@ -69,7 +71,7 @@ class ArtifactRepository:
         local path for it.
         The caller is responsible for managing the lifecycle of the downloaded artifacts.
 
-        :param path: Relative source path to the desired artifacts.
+        :param artifact_path: Relative source path to the desired artifacts.
         :param dst_path: Absolute path of the local filesystem destination directory to which to
                          download the specified artifacts. This directory must already exist. If
                          unspecified, the artifacts will be downloaded to a new, uniquely-named
@@ -123,3 +125,9 @@ class ArtifactRepository:
         :param local_path: The path to which to save the downloaded file.
         """
         pass
+
+
+def verify_artifact_path(artifact_path):
+    if artifact_path and path_not_unique(artifact_path):
+        raise MlflowException("Invalid artifact path: '%s'. %s" % (artifact_path,
+                                                                   bad_path_message(artifact_path)))
