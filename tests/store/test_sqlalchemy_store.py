@@ -428,10 +428,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # Check that we get the max of (step, timestamp, value) in that order
         tuples_to_log = [
             (0, 100, 1000),
-            (3, 40, 100), # larger step wins even though it has smaller value
-            (3, 50, 10), # larger timestamp wins even though it has smaller value
-            (3, 50, 20), # tiebreak by max value
-            (3, 50, 20), # duplicate metrics with same (step, timestamp, value) are ok
+            (3, 40, 100),  # larger step wins even though it has smaller value
+            (3, 50, 10),  # larger timestamp wins even though it has smaller value
+            (3, 50, 20),  # tiebreak by max value
+            (3, 50, 20),  # duplicate metrics with same (step, timestamp, value) are ok
             # verify that we can log steps out of order / negative steps
             (-3, 900, 900),
             (-1, 800, 800),

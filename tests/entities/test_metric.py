@@ -12,6 +12,7 @@ def _check(metric, key, value, timestamp, step):
     assert metric.timestamp == timestamp
     assert metric.step == step
 
+
 def test_creation_and_hydration():
     key = random_str()
     value = 10000

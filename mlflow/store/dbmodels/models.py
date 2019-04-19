@@ -47,8 +47,8 @@ def _create_entity(base, model):
                         existing_metric = metrics.get(o.key)
                         if (existing_metric is None)\
                             or ((o.step, o.timestamp, o.value) >=
-                            (existing_metric.step, existing_metric.timestamp,
-                             existing_metric.value)):
+                                (existing_metric.step, existing_metric.timestamp,
+                                 existing_metric.value)):
                             metrics[o.key] = Metric(o.key, o.value, o.timestamp, o.step)
                     obj = list(metrics.values())
                 elif k == 'params':
