@@ -20,6 +20,8 @@ mlflow_run(entry_point = NULL, uri = ".", version = NULL,
 
 \item{experiment_id}{ID of the experiment under which to launch the run.}
 
+\item{experiment_name}{Name of the experiment under which to launch the run.}
+
 \item{mode}{Execution mode to use for run.}
 
 \item{cluster_spec}{Path to JSON file describing the cluster to use when launching a run on Databricks.}

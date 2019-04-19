@@ -13,13 +13,35 @@ mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
 \item{end_time}{Unix timestamp of when the run ended in milliseconds.}
 
 \item{run_id}{Run ID.}
+
+\item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
 Terminates a run. Attempts to end the current active run if `run_id` is not specified.
 }
 \details{
-The fluent API family of functions operate with an implied MLflow client
-  determined by the service set by `mlflow_set_tracking_uri()`. For operations
-  involving a run it adopts the current active run, or, if one does not exist,
-  starts one through the implied service.
+When `client` is not specified, these functions attempt to infer the current active client.
 }
+\seealso{
+Other tracking functions: \code{\link{mlflow_create_experiment}},
+  \code{\link{mlflow_delete_experiment}},
+  \code{\link{mlflow_delete_run}},
+  \code{\link{mlflow_download_artifacts}},
+  \code{\link{mlflow_get_experiment}},
+  \code{\link{mlflow_get_metric_history}},
+  \code{\link{mlflow_get_run}},
+  \code{\link{mlflow_list_artifacts}},
+  \code{\link{mlflow_list_experiments}},
+  \code{\link{mlflow_list_run_infos}},
+  \code{\link{mlflow_log_artifact}},
+  \code{\link{mlflow_log_batch}},
+  \code{\link{mlflow_log_metric}},
+  \code{\link{mlflow_log_param}},
+  \code{\link{mlflow_rename_experiment}},
+  \code{\link{mlflow_restore_experiment}},
+  \code{\link{mlflow_restore_run}},
+  \code{\link{mlflow_search_runs}},
+  \code{\link{mlflow_set_tag}},
+  \code{\link{mlflow_start_run}}
+}
+\concept{tracking functions}

@@ -166,7 +166,6 @@ mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NU
 #' @param experiment_id ID of experiment to be activated.
 #' @param artifact_location Location where all artifacts for this experiment are stored. If
 #'   not provided, the remote server will select an appropriate default.
-#' @template roxlate-fluent
 #' @export
 mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, artifact_location = NULL) {
   if (!is.null(experiment_name) && !is.null(experiment_id)) {

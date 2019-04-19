@@ -34,15 +34,14 @@ Defaults to the current file if none provided.}
 \item{start_time}{Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.}
 
 \item{tags}{Additional metadata for run in key-value pairs. Only used when `client` is specified.}
+
+\item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
-Starts a new run within an experiment, should be used within a \code{with} block.
+Starts a new run. If `client` is not provided, this function also registers the created run as the active run.
 }
 \details{
-The fluent API family of functions operate with an implied MLflow client
-  determined by the service set by `mlflow_set_tracking_uri()`. For operations
-  involving a run it adopts the current active run, or, if one does not exist,
-  starts one through the implied service.
+When `client` is not specified, these functions attempt to infer the current active client.
 }
 \examples{
 \dontrun{
@@ -52,3 +51,26 @@ with(mlflow_start_run(), {
 }
 
 }
+\seealso{
+Other tracking functions: \code{\link{mlflow_create_experiment}},
+  \code{\link{mlflow_delete_experiment}},
+  \code{\link{mlflow_delete_run}},
+  \code{\link{mlflow_download_artifacts}},
+  \code{\link{mlflow_end_run}},
+  \code{\link{mlflow_get_experiment}},
+  \code{\link{mlflow_get_metric_history}},
+  \code{\link{mlflow_get_run}},
+  \code{\link{mlflow_list_artifacts}},
+  \code{\link{mlflow_list_experiments}},
+  \code{\link{mlflow_list_run_infos}},
+  \code{\link{mlflow_log_artifact}},
+  \code{\link{mlflow_log_batch}},
+  \code{\link{mlflow_log_metric}},
+  \code{\link{mlflow_log_param}},
+  \code{\link{mlflow_rename_experiment}},
+  \code{\link{mlflow_restore_experiment}},
+  \code{\link{mlflow_restore_run}},
+  \code{\link{mlflow_search_runs}},
+  \code{\link{mlflow_set_tag}}
+}
+\concept{tracking functions}

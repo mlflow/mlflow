@@ -102,3 +102,17 @@ test_that("mlflow_end_run() behavior", {
     "KILLED"
   )
 })
+
+test_that("with() errors when not passed active run", {
+  mlflow_clear_test_dir("mlruns")
+  client <- mlflow_client()
+  mlflow_set_experiment("exp1")
+  run <- mlflow_start_run(client = client)
+  expect_error(
+    with(run, {
+      mlflow_log_metric("mse", 25)
+    }),
+    # TODO: somehow this isn't matching "`with()` should only be used with `mlflow_start_run()`\\."
+    NULL
+  )
+})

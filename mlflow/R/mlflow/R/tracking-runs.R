@@ -447,7 +447,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 
 #' Start Run
 #'
-#' Starts a new run within an experiment, should be used within a \code{with} block.
+#' Starts a new run. If `client` is not provided, this function also registers the created run as the active run.
 #'
 #' @param run_uuid If specified, get the run with the specified UUID and log metrics
 #'   and params under that run. The run's end time is unset and its status is set to
@@ -464,7 +464,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' @param run_name Human readable name for run. Only used when `client` is specified.
 #' @param start_time Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.
 #' @param tags Additional metadata for run in key-value pairs. Only used when `client` is specified.
-#' @template roxlate-fluent
+#' @template roxlate-client
 #'
 #' @examples
 #' \dontrun{
@@ -555,7 +555,7 @@ mlflow_get_run_context.default <- function(client, source_name, source_version, 
 #' @param status Updated status of the run. Defaults to `FINISHED`.
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @template roxlate-run-id
-#' @template roxlate-fluent
+#' @template roxlate-client
 #'
 #' @export
 mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),

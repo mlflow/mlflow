@@ -46,6 +46,10 @@ mlflow_infer_experiment_id <- function(experiment_id = NULL) {
 
 #' @export
 with.mlflow_run <- function(data, expr, ...) {
+  run_id <- mlflow_id(data)
+  if (!identical(run_id, mlflow_get_active_run_id())) {
+    stop("`with()` should only be used with `mlflow_start_run()`.", call. = FALSE)
+  }
 
   tryCatch(
     {
