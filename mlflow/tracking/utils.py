@@ -109,8 +109,6 @@ def get_artifact_uri(run_id, artifact_path=None):
         return artifact_path_module.join(run.info.artifact_uri, artifact_path)
 
 
-# TODO(sueann): ideally this is deprecated in favor of data.download_uri
-#  but there may be differences in auth mechanisms between Projects and artifacts -- ???
 def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
     :param artifact_uri: The *absolute* URI of the artifact to download.
@@ -241,8 +239,9 @@ class TrackingStoreRegistry:
             store_uri += ':'
 
         scheme = urllib.parse.urlparse(store_uri).scheme
-        store_builder = self._registry.get(scheme)
-        if store_builder is None:
+        try:
+            store_builder = self._registry[scheme]
+        except KeyError:
             raise MlflowException(
                 "Could not find a registered tracking store for: {}. "
                 "Currently registered schemes are: {}".format(
