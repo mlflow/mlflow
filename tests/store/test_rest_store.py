@@ -54,7 +54,7 @@ class TestRestStore(unittest.TestCase):
     @mock.patch('requests.request')
     def test_response_with_unknown_fields(self, request):
         experiment_json = {
-            "experiment_id": 1,
+            "experiment_id": "1",
             "name": "My experiment",
             "artifact_location": "foo",
             "lifecycle_stage": "deleted",
@@ -105,8 +105,8 @@ class TestRestStore(unittest.TestCase):
                 mock.patch('mlflow.tracking.utils._get_store', return_value=store), \
                 mock.patch('mlflow.tracking.client._get_user_id', return_value=user_name), \
                 mock.patch('time.time', return_value=13579):
-            with mlflow.start_run(experiment_id=43, run_name=run_name, source_name=source_name):
-                cr_body = message_to_json(CreateRun(experiment_id=43, run_name='',
+            with mlflow.start_run(experiment_id="43", run_name=run_name, source_name=source_name):
+                cr_body = message_to_json(CreateRun(experiment_id="43", run_name='',
                                                     user_id=user_name, source_type=SourceType.LOCAL,
                                                     source_name=source_name, start_time=13579000,
                                                     tags=[ProtoRunTag(key='mlflow.source.name',
@@ -162,16 +162,16 @@ class TestRestStore(unittest.TestCase):
                                   message_to_json(RestoreRun(run_id="u76")))
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            store.delete_experiment(0)
+            store.delete_experiment("0")
             self._verify_requests(mock_http, creds,
                                   "experiments/delete", "POST",
-                                  message_to_json(DeleteExperiment(experiment_id=0)))
+                                  message_to_json(DeleteExperiment(experiment_id="0")))
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            store.restore_experiment(0)
+            store.restore_experiment("0")
             self._verify_requests(mock_http, creds,
                                   "experiments/restore", "POST",
-                                  message_to_json(RestoreExperiment(experiment_id=0)))
+                                  message_to_json(RestoreExperiment(experiment_id="0")))
 
 
 if __name__ == '__main__':
