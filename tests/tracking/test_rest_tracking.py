@@ -8,15 +8,17 @@ from multiprocessing import Process
 import os
 import pytest
 import socket
+import shutil
 import time
 import tempfile
 
 from click.testing import CliRunner
 
 import mlflow.experiments
-from mlflow.entities import RunStatus
+from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
 from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR
+from mlflow.store.file_store import FileStore
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
     MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
@@ -24,6 +26,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFL
 
 LOCALHOST = '127.0.0.1'
 SERVER_PORT = 0
+
+server_root_dir = tempfile.mkdtemp("test_rest_tracking_file_store")
 
 
 def _get_safe_port():
@@ -75,8 +79,7 @@ def init_and_tear_down_server(request):
     mlflow.set_tracking_uri(None)
     global SERVER_PORT
     SERVER_PORT = _get_safe_port()
-    file_store_path = tempfile.mkdtemp("test_rest_tracking_file_store")
-    env = {BACKEND_STORE_URI_ENV_VAR: file_store_path}
+    env = {BACKEND_STORE_URI_ENV_VAR: server_root_dir}
     with mock.patch.dict(os.environ, env):
         process = Process(target=lambda: app.run(LOCALHOST, SERVER_PORT))
         process.start()
@@ -88,6 +91,7 @@ def init_and_tear_down_server(request):
     print("Terminating server...")
     process.terminate()
     _await_server_down_or_die(process)
+    shutil.rmtree(server_root_dir)
 
 
 @pytest.fixture()
@@ -164,7 +168,8 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
 
 
-def test_create_run_all_args(mlflow_client):
+@pytest.mark.parametrize("parent_run_id_kwarg", [None, "my-parent-id"])
+def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     source_name = "Hello"
     entry_point = "entry"
     source_version = "abc"
@@ -180,9 +185,11 @@ def test_create_run_all_args(mlflow_client):
             MLFLOW_PARENT_RUN_ID: "7",
             "my": "tag",
             "other": "tag",
-        }
+        },
+        "parent_run_id": parent_run_id_kwarg
     }
-    experiment_id = mlflow_client.create_experiment('Run A Lot')
+    experiment_id = mlflow_client.create_experiment('Run A Lot (parent_run_id=%s)'
+                                                    % (parent_run_id_kwarg))
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_uuid
     print("Run id=%s" % run_id)
@@ -199,7 +206,7 @@ def test_create_run_all_args(mlflow_client):
     for tag in create_run_kwargs["tags"]:
         assert tag in run.data.tags
     assert run.data.tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
-
+    assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
     assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
 
@@ -217,13 +224,45 @@ def test_log_metrics_params_tags(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Oh My')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
-    mlflow_client.log_metric(run_id, 'metric', 123.456)
+    # TODO(sid): pass and assert on step
+    mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789)
     mlflow_client.log_param(run_id, 'param', 'value')
     mlflow_client.set_tag(run_id, 'taggity', 'do-dah')
     run = mlflow_client.get_run(run_id)
     assert run.data.metrics.get('metric') == 123.456
     assert run.data.params.get('param') == 'value'
     assert run.data.tags.get('taggity') == 'do-dah'
+    # TODO(sid): replace this with mlflow_client.get_metric_history
+    fs = FileStore(server_root_dir)
+    metric_history = fs.get_metric_history(run_id, "metric")
+    assert len(metric_history) == 1
+    metric = metric_history[0]
+    assert metric.key == "metric"
+    assert metric.value == 123.456
+    assert metric.timestamp == 789
+
+
+def test_log_batch(mlflow_client):
+    experiment_id = mlflow_client.create_experiment('Batch em up')
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_uuid
+    # TODO(sid): pass and assert on step
+    mlflow_client.log_batch(
+        run_id=run_id,
+        metrics=[Metric("metric", 123.456, 789, 0)], params=[Param("param", "value")],
+        tags=[RunTag("taggity", "do-dah")])
+    run = mlflow_client.get_run(run_id)
+    assert run.data.metrics.get('metric') == 123.456
+    assert run.data.params.get('param') == 'value'
+    assert run.data.tags.get('taggity') == 'do-dah'
+    # TODO(sid): replace this with mlflow_client.get_metric_history
+    fs = FileStore(server_root_dir)
+    metric_history = fs.get_metric_history(run_id, "metric")
+    assert len(metric_history) == 1
+    metric = metric_history[0]
+    assert metric.key == "metric"
+    assert metric.value == 123.456
+    assert metric.timestamp == 789
 
 
 def test_set_terminated_defaults(mlflow_client):

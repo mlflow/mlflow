@@ -38,7 +38,7 @@ class AbstractStore:
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
 
-        :return: experiment_id (integer) for the newly created experiment if successful, else None.
+        :return: experiment_id (string) for the newly created experiment if successful, else None.
         """
         pass
 
@@ -47,7 +47,7 @@ class AbstractStore:
         """
         Fetch the experiment by ID from the backend store.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
 
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
             otherwise raises an exception.
@@ -76,7 +76,7 @@ class AbstractStore:
         Delete the experiment from the backend store. Deleted experiments can be restored until
         permanently deleted.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -85,7 +85,7 @@ class AbstractStore:
         """
         Restore deleted experiment unless it is permanently deleted.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -94,7 +94,7 @@ class AbstractStore:
         """
         Update an experiment's name. The new name must be unique.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -132,7 +132,7 @@ class AbstractStore:
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
-        :param experiment_id: ID of the experiment for this run
+        :param experiment_id: String id of the experiment for this run
         :param user_id: ID of the user launching this run
         :param source_type: Enum (integer) describing the source of the run
 
@@ -188,12 +188,12 @@ class AbstractStore:
     @abstractmethod
     def get_metric_history(self, run_uuid, metric_key):
         """
-        Return all logged values for a given metric.
+        Return a list of metric objects corresponding to all values logged for a given metric.
 
         :param run_uuid: Unique identifier for run
         :param metric_key: Metric name within the run
 
-        :return: A list of float values logged for the give metric if logged, else empty list
+        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
         pass
 

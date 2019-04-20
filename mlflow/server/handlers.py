@@ -136,8 +136,8 @@ def _create_experiment():
 def _get_experiment():
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
-    response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
-                                          .to_proto())
+    experiment = _get_store().get_experiment(request_message.experiment_id).to_proto()
+    response_message.experiment.MergeFrom(experiment)
     run_info_entities = _get_store().list_run_infos(request_message.experiment_id,
                                                     run_view_type=ViewType.ACTIVE_ONLY)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
@@ -235,7 +235,8 @@ def _restore_run():
 @catch_mlflow_exception
 def _log_metric():
     request_message = _get_request_message(LogMetric())
-    metric = Metric(request_message.key, request_message.value, request_message.timestamp)
+    metric = Metric(request_message.key, request_message.value, request_message.timestamp,
+                    request_message.step)
     _get_store().log_metric(request_message.run_uuid, metric)
     response_message = LogMetric.Response()
     response = Response(mimetype='application/json')

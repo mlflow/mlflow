@@ -1,5 +1,4 @@
 from __future__ import print_function
-import copy
 import filecmp
 import os
 import random
@@ -14,10 +13,12 @@ import mlflow
 from mlflow import tracking
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
+from mlflow.store.file_store import FileStore
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
+
 from tests.projects.utils import tracking_uri_mock
 
 
@@ -157,7 +158,8 @@ def test_log_batch(tracking_uri_mock):
     approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
 
     t = int(time.time())
-    metrics = [Metric(key=key, value=value, timestamp=t) for key, value in expected_metrics.items()]
+    metrics = [Metric(key=key, value=value, timestamp=t, step=0)
+               for key, value in expected_metrics.items()]
     params = [Param(key=key, value=value) for key, value in expected_params.items()]
     tags = [RunTag(key=key, value=value) for key, value in exact_expected_tags.items()]
 
@@ -275,9 +277,9 @@ def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
     active_run = start_run()
     bad_kwargs = {
         "metrics": [
-            [Metric(key="../bad/metric/name", value=0.3, timestamp=3)],
-            [Metric(key="ok-name", value="non-numerical-value", timestamp=3)],
-            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp")],
+            [Metric(key="../bad/metric/name", value=0.3, timestamp=3, step=0)],
+            [Metric(key="ok-name", value="non-numerical-value", timestamp=3, step=0)],
+            [Metric(key="ok-name", value=0.3, timestamp="non-numerical-timestamp", step=0)],
         ],
         "params": [[Param(key="../bad/param/name", value="my-val")]],
         "tags": [[Param(key="../bad/tag/name", value="my-val")]],
@@ -403,11 +405,11 @@ def test_start_run_exp_id_0(tracking_uri_mock, reset_active_experiment):
     # Create a run and verify that the current active experiment is the one we just set
     with mlflow.start_run() as active_run:
         exp_id = active_run.info.experiment_id
-        assert exp_id != 0
+        assert exp_id != FileStore.DEFAULT_EXPERIMENT_ID
         assert MlflowClient().get_experiment(exp_id).name == "some-experiment"
     # Set experiment ID to 0 when creating a run, verify that the specified experiment ID is honored
     with mlflow.start_run(experiment_id=0) as active_run:
-        assert active_run.info.experiment_id == 0
+        assert active_run.info.experiment_id == FileStore.DEFAULT_EXPERIMENT_ID
 
 
 def test_get_artifact_uri_with_artifact_path_unspecified_returns_artifact_root_dir():

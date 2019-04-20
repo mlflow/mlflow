@@ -84,7 +84,7 @@ class RestStore(AbstractStore):
 
         :param name: Desired name for an experiment
 
-        :return: experiment_id (integer) for the newly created experiment if successful, else None
+        :return: experiment_id (string) for the newly created experiment if successful, else None
         """
         req_body = message_to_json(CreateExperiment(
             name=name, artifact_location=artifact_location))
@@ -95,26 +95,26 @@ class RestStore(AbstractStore):
         """
         Fetch the experiment from the backend store.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
 
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
         otherwise raises an Exception.
         """
-        req_body = message_to_json(GetExperiment(experiment_id=experiment_id))
+        req_body = message_to_json(GetExperiment(experiment_id=str(experiment_id)))
         response_proto = self._call_endpoint(GetExperiment, req_body)
         return Experiment.from_proto(response_proto.experiment)
 
     def delete_experiment(self, experiment_id):
-        req_body = message_to_json(DeleteExperiment(experiment_id=experiment_id))
+        req_body = message_to_json(DeleteExperiment(experiment_id=str(experiment_id)))
         self._call_endpoint(DeleteExperiment, req_body)
 
     def restore_experiment(self, experiment_id):
-        req_body = message_to_json(RestoreExperiment(experiment_id=experiment_id))
+        req_body = message_to_json(RestoreExperiment(experiment_id=str(experiment_id)))
         self._call_endpoint(RestoreExperiment, req_body)
 
     def rename_experiment(self, experiment_id, new_name):
         req_body = message_to_json(UpdateExperiment(
-            experiment_id=experiment_id, new_name=new_name))
+            experiment_id=str(experiment_id), new_name=new_name))
         self._call_endpoint(UpdateExperiment, req_body)
 
     def get_run(self, run_uuid):
@@ -150,7 +150,7 @@ class RestStore(AbstractStore):
         """
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(CreateRun(
-            experiment_id=experiment_id, user_id=user_id, run_name="",
+            experiment_id=str(experiment_id), user_id=user_id, run_name="",
             source_type=source_type, source_name=source_name, entry_point_name=entry_point_name,
             start_time=start_time, source_version=source_version, tags=tag_protos,
             parent_run_id=parent_run_id))
@@ -169,7 +169,8 @@ class RestStore(AbstractStore):
         :param metric: Metric instance to log
         """
         req_body = message_to_json(LogMetric(
-            run_uuid=run_uuid, key=metric.key, value=metric.value, timestamp=metric.timestamp))
+            run_uuid=run_uuid, key=metric.key, value=metric.value, timestamp=metric.timestamp,
+            step=metric.step))
         self._call_endpoint(LogMetric, req_body)
 
     def log_param(self, run_uuid, param):
@@ -199,11 +200,11 @@ class RestStore(AbstractStore):
         :param run_uuid: Unique identifier for run
         :param metric_key: Metric name within the run
 
-        :return: A list of float values logged for the give metric if logged, else empty list
+        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
         req_body = message_to_json(GetMetricHistory(run_uuid=run_uuid, metric_key=metric_key))
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
-        return [Metric.from_proto(metric).value for metric in response_proto.metrics]
+        return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
     def search_runs(self, experiment_ids, search_filter, run_view_type,
                     max_results=SEARCH_MAX_RESULTS_THRESHOLD):
@@ -219,6 +220,7 @@ class RestStore(AbstractStore):
 
         :return: A list of Run objects that satisfy the search expressions
         """
+        experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(experiment_ids=experiment_ids,
                         anded_expressions=search_filter.search_expressions if search_filter else [],
                         filter=search_filter.filter_string if search_filter else None,

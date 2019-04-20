@@ -45,11 +45,12 @@ def _create_entity(base, model):
                     metrics = {}
                     for o in obj:
                         existing_metric = metrics.get(o.key)
-                        if (existing_metric is None) or (o.timestamp > existing_metric.timestamp)\
-                            or (o.timestamp == existing_metric.timestamp
-                                and o.value > existing_metric.value):
-                            metrics[o.key] = Metric(o.key, o.value, o.timestamp)
-                    obj = metrics.values()
+                        if (existing_metric is None)\
+                            or ((o.step, o.timestamp, o.value) >=
+                                (existing_metric.step, existing_metric.timestamp,
+                                 existing_metric.value)):
+                            metrics[o.key] = Metric(o.key, o.value, o.timestamp, o.step)
+                    obj = list(metrics.values())
                 elif k == 'params':
                     obj = [Param(o.key, o.value) for o in obj]
                 elif k == 'tags':
@@ -59,6 +60,11 @@ def _create_entity(base, model):
                     obj = SourceType.from_string(obj)
                 elif k == "status":
                     obj = RunStatus.from_string(obj)
+
+        # Our data model defines experiment_ids as ints, but the in-memory representation was
+        # changed to be a string in time for 1.0.
+        if isinstance(model, SqlExperiment) and k == "experiment_id":
+            obj = str(obj)
 
         config[k] = obj
     return base(**config)
