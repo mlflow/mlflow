@@ -15,7 +15,8 @@ def commands():
     pass
 
 
-def upgradedb():
+@click.argument("url")
+def upgrade(url):
     # alembic adds significant import time, so we import it lazily
     from alembic import command
     from alembic.config import Config
@@ -27,7 +28,6 @@ def upgradedb():
     directory = os.path.join(package_dir, 'migrations')
     config = Config(os.path.join(package_dir, 'alembic.ini'))
     # Taken from https://github.com/apache/airflow/blob/6970b233964ee254bbb343ed8bdc906c2f7bd974/airflow/utils/db.py#L301
-    # TODO make this stuff work
     config.set_main_option('script_location', directory.replace('%', '%%'))
-    config.set_main_option('sqlalchemy.url', settings.SQL_ALCHEMY_CONN.replace('%', '%%'))
+    config.set_main_option('sqlalchemy.url', url)
     command.upgrade(config, 'heads')
