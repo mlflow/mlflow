@@ -24,7 +24,7 @@ get_rest_config <- function(host_creds) {
   headers <- list()
   auth_header <- if (!is.na(host_creds$username) && !is.na(host_creds$password)) {
     basic_auth_str <- paste(host_creds$username, host_creds$password, sep = ":")
-    paste("Basic", base64encode(basic_auth_str), sep = " ")
+    paste("Basic", base64encode(charToRaw(basic_auth_str)), sep = " ")
   } else if (!is.na(host_creds$token)) {
     paste("Bearer", host_creds$token, sep = " ")
   } else {
