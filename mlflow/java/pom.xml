@@ -10,6 +10,22 @@
 
   <description>Open source platform for the machine learning lifecycle</description>
 
+  <repositories>
+    <repository>
+      <id>google-maven-central</id>
+      <name>Google Maven Central</name>
+      <url>https://maven-central.storage-download.googleapis.com/repos/central/data</url>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>google-maven-central</id>
+      <name>Google Maven Central</name>
+      <url>https://maven-central.storage-download.googleapis.com/repos/central/data</url>
+    </pluginRepository>
+  </pluginRepositories>
+
   <!-- The following sections (licenses, developers, scm, and distributionManagement) are needed to
        publish pom-only packages to Maven -->
   <licenses>
