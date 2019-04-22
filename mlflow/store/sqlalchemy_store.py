@@ -1,7 +1,12 @@
-import sqlalchemy
+import logging
+import pprint
 import uuid
 from contextlib import contextmanager
+
 from six.moves import urllib
+from alembic.migration import MigrationContext
+from alembic.autogenerate import compare_metadata
+import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
@@ -18,6 +23,8 @@ from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
     _validate_run_id
+
+_logger = logging.getLogger(__name__)
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -60,6 +67,7 @@ class SqlAlchemyStore(AbstractStore):
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = self._get_managed_session_maker(SessionMaker)
+        SqlAlchemyStore._verify_schema(self.engine)
 
         if _is_local_uri(default_artifact_root):
             mkdir(default_artifact_root)
@@ -67,6 +75,19 @@ class SqlAlchemyStore(AbstractStore):
         if len(self.list_experiments()) == 0:
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
+
+    @staticmethod
+    def _verify_schema(engine):
+        mc = MigrationContext.configure(engine.connect())
+        diff = compare_metadata(mc, Base.metadata)
+        if len(diff) > 0:
+            _logger.error("Detected one or more differences between current database schema and  "
+                         "desired schema, exiting. Diff:\n%s" %
+                         pprint.pprint(diff, indent=2, width=20))
+            raise MlflowException(
+                "Detected out-of-date database schema. Run 'mlflow db upgrade %s' to migrate your "
+                "database to latest schema. NOTE: schema migration may result in database downtime "
+                "- please consult your database's documentation for more detail." % engine.url)
 
     @staticmethod
     def _get_managed_session_maker(SessionMaker):

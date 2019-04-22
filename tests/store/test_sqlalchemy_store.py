@@ -1,9 +1,12 @@
+import os
 import shutil
 import six
+import tempfile
 import unittest
 import warnings
 
 import mock
+import sqlalchemy
 import time
 import mlflow
 import uuid
@@ -229,6 +232,24 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             added_param = params[0].to_mlflow_entity()
             self.assertEqual(added_param.value, new_param.value)
             self.assertEqual(added_param.key, new_param.key)
+
+    def test_sqlalchemy_store_detects_schema_mismatch(self):
+        # Initialize an empty database & verify that we detect a schema mismatch
+        _, tmp = tempfile.mkstemp()
+        try:
+            # TODO: could we make this API take a DB URI instead? Would it be bad to recreate an
+            # engine? Or is there a way to directly test __init__ (currently doesn't work because
+            # __init__ also creates all the tables)
+            engine = sqlalchemy.create_engine("sqlite:///%s" % tmp)
+            with self.assertRaises(MlflowException) as ex:
+                SqlAlchemyStore._verify_schema(engine)
+            self.assertIn("Detected out-of-date database schema.", str(ex.exception))
+        finally:
+            os.remove(tmp)
+
+        # Programatically run each DB migration & verify that we detect a schema mismatch until
+        # all migrations have run
+
 
     def test_run_needs_uuid(self):
         # Depending on the implementation, a NULL identity key may result in different
