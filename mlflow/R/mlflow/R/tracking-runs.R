@@ -584,14 +584,3 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
   if (identical(run_id, active_run_id)) mlflow_set_active_run_id(NULL)
   run
 }
-
-#' Active Run
-#'
-#' Retrieves the active run.
-#'
-#' @export
-mlflow_active_run <- function() {
-  active_run_id <- mlflow_get_active_run_id()
-  if (is.null(active_run_id)) stop("There is no active run.", call. = FALSE)
-  mlflow_get_run(active_run_id)
-}

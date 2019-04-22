@@ -54,7 +54,7 @@ test_that("logging functionality", {
   mlflow_set_tag("tag_key", "tag_value")
   mlflow_log_param("param_key", "param_value")
 
-  run <- mlflow_active_run()
+  run <- mlflow_get_run()
   expect_identical(run$tags[[1]]$key, "tag_key")
   expect_identical(run$tags[[1]]$value, "tag_value")
   expect_identical(run$params[[1]]$key, "param_key")
@@ -62,7 +62,7 @@ test_that("logging functionality", {
 
   mlflow_end_run()
   expect_error(
-    mlflow_active_run(),
+    mlflow_get_run(),
     "There is no active run\\."
   )
 })
@@ -78,7 +78,7 @@ test_that("mlflow_end_run() behavior", {
   run_id <- mlflow_id(run)
   mlflow_end_run(run_id = run_id)
   expect_error(
-    mlflow_active_run(),
+    mlflow_get_run(),
     "There is no active run\\."
   )
 
@@ -91,7 +91,7 @@ test_that("mlflow_end_run() behavior", {
   )
   mlflow_end_run(client = client, run_id = run_id)
   expect_error(
-    mlflow_active_run(),
+    mlflow_get_run(),
     "There is no active run\\."
   )
 
