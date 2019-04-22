@@ -224,32 +224,40 @@ def test_log_metrics_params_tags(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Oh My')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
-    # TODO(sid): pass and assert on step
-    mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789)
+    mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789, step=2)
+    mlflow_client.log_metric(run_id, key='stepless-metric', value=987.654, timestamp=321)
     mlflow_client.log_param(run_id, 'param', 'value')
     mlflow_client.set_tag(run_id, 'taggity', 'do-dah')
     run = mlflow_client.get_run(run_id)
     assert run.data.metrics.get('metric') == 123.456
+    assert run.data.metrics.get('stepless-metric') == 987.654
     assert run.data.params.get('param') == 'value'
     assert run.data.tags.get('taggity') == 'do-dah'
     # TODO(sid): replace this with mlflow_client.get_metric_history
     fs = FileStore(server_root_dir)
-    metric_history = fs.get_metric_history(run_id, "metric")
-    assert len(metric_history) == 1
-    metric = metric_history[0]
-    assert metric.key == "metric"
-    assert metric.value == 123.456
-    assert metric.timestamp == 789
+    metric_history0 = fs.get_metric_history(run_id, "metric")
+    assert len(metric_history0) == 1
+    metric0 = metric_history0[0]
+    assert metric0.key == "metric"
+    assert metric0.value == 123.456
+    assert metric0.timestamp == 789
+    assert metric0.step == 2
+    metric_history1 = fs.get_metric_history(run_id, "stepless-metric")
+    assert len(metric_history1) == 1
+    metric1 = metric_history1[0]
+    assert metric1.key == "stepless-metric"
+    assert metric1.value == 987.654
+    assert metric1.timestamp == 321
+    assert metric1.step == 0
 
 
 def test_log_batch(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Batch em up')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
-    # TODO(sid): pass and assert on step
     mlflow_client.log_batch(
         run_id=run_id,
-        metrics=[Metric("metric", 123.456, 789, 0)], params=[Param("param", "value")],
+        metrics=[Metric("metric", 123.456, 789, 3)], params=[Param("param", "value")],
         tags=[RunTag("taggity", "do-dah")])
     run = mlflow_client.get_run(run_id)
     assert run.data.metrics.get('metric') == 123.456
@@ -263,6 +271,7 @@ def test_log_batch(mlflow_client):
     assert metric.key == "metric"
     assert metric.value == 123.456
     assert metric.timestamp == 789
+    assert metric.step == 3
 
 
 def test_set_terminated_defaults(mlflow_client):
