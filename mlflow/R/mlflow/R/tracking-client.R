@@ -4,6 +4,11 @@ new_mlflow_client <- function(tracking_uri) {
 }
 
 new_mlflow_uri <- function(raw_uri) {
+  # Special case 'databricks'
+  if (identical(raw_uri, "databricks")) {
+    raw_uri <- paste0("databricks", "://")
+  }
+
   if (!grepl("://", raw_uri)) {
     raw_uri <- paste0("file://", raw_uri)
   }
