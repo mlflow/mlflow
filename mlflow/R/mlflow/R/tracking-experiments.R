@@ -175,7 +175,7 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
   }
 
   if (is.null(experiment_name) && is.null(experiment_id)) {
-    stop("At least one of `experiment_name` or `experiment_id` should be specified.",
+    stop("Exactly one of `experiment_name` or `experiment_id` should be specified.",
          call. = FALSE)
   }
 
