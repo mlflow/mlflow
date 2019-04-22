@@ -24,7 +24,7 @@ get_rest_config <- function(host_creds) {
   headers <- list()
   auth_header <- if (!is.na(host_creds$username) && !is.na(host_creds$password)) {
     basic_auth_str <- paste(host_creds$username, host_creds$password, sep = ":")
-    paste("Basic", base64encode(basic_auth_str), sep = " ")
+    paste("Basic", base64encode(charToRaw(basic_auth_str)), sep = " ")
   } else if (!is.na(host_creds$token)) {
     paste("Bearer", host_creds$token, sep = " ")
   } else {
@@ -33,6 +33,9 @@ get_rest_config <- function(host_creds) {
   if (!is.na(auth_header)) {
     headers$Authorization <- auth_header
   }
+
+  headers$`User-Agent` <- paste("mlflow-r-client", packageVersion("mlflow"), sep = "/")
+
   is_insecure <- list(true = TRUE, false = FALSE)[[tolower(host_creds$insecure)]]
   list(
     headers = headers,

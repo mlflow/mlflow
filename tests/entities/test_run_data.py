@@ -13,6 +13,8 @@ class TestRunData(unittest.TestCase):
                          set([m.value for m in expected_metrics]))
         self.assertEqual(set([m.timestamp for m in metric_objs]),
                          set([m.timestamp for m in expected_metrics]))
+        self.assertEqual(set([m.step for m in metric_objs]),
+                         set([m.step for m in expected_metrics]))
         assert len(metrics_dict) == len(expected_metrics)
         assert metrics_dict == {m.key: m.value for m in expected_metrics}
 
@@ -30,8 +32,10 @@ class TestRunData(unittest.TestCase):
 
     @staticmethod
     def _create():
-        metrics = [Metric(random_str(10),
-                          random_int(0, 1000), int(time.time()) + random_int(-1e4, 1e4))]
+        metrics = [Metric(key=random_str(10),
+                          value=random_int(0, 1000),
+                          timestamp=int(time.time()) + random_int(-1e4, 1e4),
+                          step=random_int())]
         params = [Param(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
         tags = [RunTag(random_str(10), random_str(random_int(10, 35))) for _ in range(10)]  # noqa
         rd = RunData(metrics=metrics, params=params, tags=tags)

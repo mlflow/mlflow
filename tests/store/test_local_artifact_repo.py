@@ -1,5 +1,7 @@
 import os
 import pytest
+
+from mlflow.exceptions import MlflowException
 from mock import Mock
 
 
