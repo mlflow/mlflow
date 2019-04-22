@@ -63,7 +63,7 @@ test_that("logging functionality", {
   mlflow_end_run()
   expect_error(
     mlflow_get_run(),
-    "There is no active run\\."
+    "`run_id` must be specified when there is no active run\\."
   )
 })
 
@@ -79,7 +79,7 @@ test_that("mlflow_end_run() behavior", {
   mlflow_end_run(run_id = run_id)
   expect_error(
     mlflow_get_run(),
-    "There is no active run\\."
+    "`run_id` must be specified when there is no active run\\."
   )
 
   run <- mlflow_start_run()
@@ -92,7 +92,7 @@ test_that("mlflow_end_run() behavior", {
   mlflow_end_run(client = client, run_id = run_id)
   expect_error(
     mlflow_get_run(),
-    "There is no active run\\."
+    "`run_id` must be specified when there is no active run\\."
   )
 
   mlflow_start_run()
@@ -114,5 +114,66 @@ test_that("with() errors when not passed active run", {
     }),
     # TODO: somehow this isn't matching "`with()` should only be used with `mlflow_start_run()`\\."
     NULL
+  )
+})
+
+test_that("mlflow_log_batch() works", {
+  mlflow_clear_test_dir("mlruns")
+  mlflow_start_run()
+  mlflow_log_batch(
+    metrics = list(mse = 21, rmse = 42),
+    params = list(l1 = 0.01, optimizer = "adam"),
+    tags = list(model_type = "regression", data_year = "2015")
+  )
+
+  run <- mlflow_get_run()
+  metrics <- run$metrics[[1]]
+  params <- run$params[[1]]
+  tags <- run$tags[[1]]
+
+  expect_identical(
+    metrics$key,
+    c("mse", "rmse")
+  )
+  expect_identical(
+    metrics$value,
+    c(21, 42)
+  )
+
+  expect_identical(
+    params$key,
+    c("optimizer", "l1")
+  )
+
+  expect_identical(
+    params$value,
+    c("adam", "0.01")
+  )
+
+  expect_identical(
+    tags$key,
+    c("model_type", "data_year")
+  )
+
+  expect_identical(
+    tags$value,
+    c("regression", "2015")
+  )
+})
+
+test_that("mlflow_log_batch() works with timestamp", {
+  mlflow_clear_test_dir("mlruns")
+  my_time <- mlflow:::current_time()
+
+  mlflow_log_batch(
+    metrics = list(accuracy = 0.98, accuracy = 0.99),
+    timestamps = rep(my_time, 2)
+  )
+
+  metric_history <- mlflow_get_metric_history("accuracy")
+
+  expect_equal(
+    as.double(metric_history$timestamp),
+    rep(my_time, 2) / 1000
   )
 })
