@@ -117,12 +117,14 @@ MLFLOW_SOURCE_TYPE <- list(
 )
 
 resolve_client_and_run_id <- function(client, run_id) {
+  run_id <- cast_nullable_string(run_id)
   if (is.null(client)) {
     if (is.null(run_id)) {
       run_id <- mlflow_get_active_run_id_or_start_run()
     }
     client <- mlflow_client()
   } else {
+    client <- resolve_client(client)
     if (is.null(run_id)) stop("`run_id` must be specified when `client` is specified.", call. = FALSE)
   }
   list(client = client, run_id = run_id)
@@ -160,7 +162,7 @@ resolve_experiment_id <- function(experiment_id) {
 }
 
 resolve_run_id <- function(run_id) {
-  run_id %||%
+  cast_nullable_string(run_id) %||%
     mlflow_get_active_run_id() %||%
     stop("`run_id` must be specified when there is no active run.", call. = FALSE)
 }
@@ -194,4 +196,13 @@ mlflow_id.mlflow_run <- function(object) {
 #' @export
 mlflow_id.mlflow_experiment <- function(object) {
   object$experiment_id %||% stop("Cannot extract Experiment ID.", call. = FALSE)
+}
+
+resolve_client <- function(client) {
+  if (is.null(client)) {
+    mlflow_client()
+  } else {
+    if (!inherits(client, "mlflow_client")) stop("`client` must be an `mlflow_client` object.", call. = FALSE)
+    client
+  }
 }

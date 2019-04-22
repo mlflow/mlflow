@@ -8,7 +8,7 @@
 #' @template roxlate-client
 #' @export
 mlflow_create_experiment <- function(name, artifact_location = NULL, client = NULL) {
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
   name <- forge::cast_string(name)
   response <- mlflow_rest(
     "experiments", "create",
@@ -29,7 +29,7 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
 #' @template roxlate-client
 #' @export
 mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), client = NULL) {
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
   view_type <- match.arg(view_type)
   response <-   mlflow_rest(
     "experiments", "list",
@@ -61,7 +61,7 @@ mlflow_get_experiment <- function(name = NULL, experiment_id = NULL, client = NU
     stop("Only one of `name` or `experiment_id` should be specified.", call. = FALSE)
   }
 
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
 
   if (!is.null(name)) return(mlflow_get_experiment_by_name(client = client, name = name))
 
@@ -76,7 +76,7 @@ mlflow_get_experiment <- function(name = NULL, experiment_id = NULL, client = NU
 }
 
 mlflow_get_experiment_by_name <- function(name, client = NULL) {
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
   exps <- mlflow_list_experiments(client = client)
   if (is.null(exps)) stop("No experiments found.", call. = FALSE)
 
@@ -100,7 +100,7 @@ mlflow_delete_experiment <- function(experiment_id, client = NULL) {
   if (identical(experiment_id, mlflow_get_active_experiment_id()))
     stop("Cannot delete an active experiment.", call. = FALSE)
 
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
   mlflow_rest(
     "experiments", "delete",
     verb = "POST", client = client,
@@ -123,7 +123,7 @@ mlflow_delete_experiment <- function(experiment_id, client = NULL) {
 #' @template roxlate-client
 #' @export
 mlflow_restore_experiment <- function(experiment_id, client = NULL) {
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
   mlflow_rest(
     "experiments", "restore",
     client = client, verb = "POST",
@@ -143,7 +143,7 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
 mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NULL) {
   experiment_id <- resolve_experiment_id(experiment_id)
 
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
   mlflow_rest(
     "experiments", "update",
     client = client, verb = "POST",

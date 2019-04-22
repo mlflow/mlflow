@@ -12,12 +12,9 @@
 #' @export
 mlflow_log_metric <- function(key, value, timestamp = NULL, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
-  if (!is.numeric(value)) {
-    stop(
-      "Metric `", key, "`` must be numeric but ", class(value)[[1]], " found.",
-      call. = FALSE
-    )
-  }
+  key <- cast_string(key)
+  value <- cast_scalar_double(value)
+  timestamp <- cast_nullable_scalar_double(timestamp)
   timestamp <- timestamp %||% current_time()
   mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
     run_uuid = run_id,
@@ -67,10 +64,10 @@ mlflow_create_run <- function(user_id = NULL, run_name = NULL, source_type = NUL
 #' @template roxlate-run-id
 #' @export
 mlflow_delete_run <- function(run_id, client = NULL) {
+  run_id <- cast_string(run_id)
   if (identical(run_id, mlflow_get_active_run_id()))
     stop("Cannot delete an active run.", call. = FALSE)
-  client <- client %||% mlflow_client()
-  run_id <- cast_string(run_id)
+  client <- resolve_client(client)
   mlflow_rest("runs", "delete", client = client, verb = "POST", data = list(
     run_id = run_id
   ))
@@ -83,8 +80,8 @@ mlflow_delete_run <- function(run_id, client = NULL) {
 #' @template roxlate-run-id
 #' @export
 mlflow_restore_run <- function(run_id, client = NULL) {
-  client <- client %||% mlflow_client()
   run_id <- cast_string(run_id)
+  client <- resolve_client(client)
   mlflow_rest("runs", "restore", client = client, verb = "POST", data = list(
     run_id = run_id
   ))
@@ -102,8 +99,7 @@ mlflow_restore_run <- function(run_id, client = NULL) {
 #' @export
 mlflow_get_run <- function(run_id = NULL, client = NULL) {
   run_id <- resolve_run_id(run_id)
-  client <- client %||% mlflow_client()
-  run_id <- cast_string(run_id)
+  client <- resolve_client(client)
   response <- mlflow_rest(
     "runs", "get",
     client = client, verb = "GET",
@@ -226,9 +222,8 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
 #' @export
 mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) {
   run_id <- resolve_run_id(run_id)
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
 
-  run_id <- cast_string(run_id)
   metric_key <- cast_string(metric_key)
 
   response <- mlflow_rest(
@@ -259,7 +254,7 @@ mlflow_search_runs <- function(filter = NULL,
                                run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), experiment_ids = NULL,
                                client = NULL) {
   experiment_ids <- resolve_experiment_id(experiment_ids)
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
 
   run_view_type <- match.arg(run_view_type)
   experiment_ids <- cast_double_list(experiment_ids)
@@ -287,7 +282,7 @@ mlflow_search_runs <- function(filter = NULL,
 #' @export
 mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
   run_id <- resolve_run_id(run_id)
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
 
   response <-   mlflow_rest(
     "artifacts", "list",
@@ -328,7 +323,7 @@ mlflow_set_terminated <- function(status, end_time, run_id, client) {
 #' @export
 mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
   run_id <- resolve_run_id(run_id)
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
   result <- mlflow_cli(
     "artifacts", "download",
     "--run-id", run_id,
@@ -360,7 +355,7 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
 mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
                                   experiment_id = NULL, client = NULL) {
   experiment_id <- resolve_experiment_id(experiment_id)
-  client <- client %||% mlflow_client()
+  client <- resolve_client(client)
 
   run_view_type <- match.arg(run_view_type)
   experiment_ids <- cast_string_list(experiment_id)
@@ -570,7 +565,7 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
     stop("`run_id` must be specified when `client` is specified.", call. = FALSE)
 
   run <- if (!is.null(run_id)) {
-    client <- client %||% mlflow_client()
+    client <- resolve_client(client)
     mlflow_set_terminated(client = client, run_id = run_id, status = status,
                           end_time = end_time)
   } else {
