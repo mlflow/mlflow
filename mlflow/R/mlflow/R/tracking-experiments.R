@@ -196,14 +196,3 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
   mlflow_set_active_experiment_id(mlflow_id(experiment))
   experiment
 }
-
-#' Active Experiment
-#'
-#' Retrieves the active experiment.
-#'
-#' @export
-mlflow_active_experiment <- function() {
-  active_experiment_id <- mlflow_get_active_experiment_id()
-  if (is.null(active_experiment_id)) stop("There is no active experiment.", call. = FALSE)
-  mlflow_get_experiment(experiment_id = active_experiment_id)
-}
