@@ -7,7 +7,7 @@ MLflow 0.9.1 is a patch release on top of 0.9.0 containing mostly bug fixes and 
 
 Breaking changes:
 
-- [Tracking] Generalized experiment_id to string (from a long) to be more permissive of different ID types in different backend stores. While breaking for the REST API, this change backward compatible for python and R clients. (#1067, #1034 @eedeleon)
+- [Tracking] Generalized experiment_id to string (from a long) to be more permissive of different ID types in different backend stores. While breaking for the REST API, this change is backwards compatible for python and R clients. (#1067, #1034 @eedeleon)
 
 More features and improvements:
 
@@ -18,7 +18,7 @@ More features and improvements:
 
 Bug fixes and documentation updates:
 
-- [Tracking][Python] Reintroduces the parent_run_id argument to MlflowClient.create_run. This API is planned for removal in MLflow 1.0 ( #1137 @smurching)
+- [Tracking][Python] Reintroduces the parent_run_id argument to MlflowClient.create_run. This API is planned for removal in MLflow 1.0 (#1137 @smurching)
 - [Tracking][Python] Provide default implementations of AbstractStore log methods (#1051 @acroz)
 - [R] (Released on CRAN as MLflow 0.9.0.1) Small bug fixes with R (#1123 @smurching; #1045, #1017, #1019, #1039, #1048, #1098,  #1101, #1107, #1108, #1119 @tomasatdatabricks)
 
