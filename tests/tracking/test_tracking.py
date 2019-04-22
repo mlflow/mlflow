@@ -170,7 +170,7 @@ def test_log_batch(tracking_uri_mock, tmpdir):
     for key, value in finished_run.data.metrics.items():
         assert expected_metrics[key] == value
     # TODO: use client get_metric_history API here instead once it exists
-    fs = FileStore(os.path.join(tmpdir, "mlruns"))
+    fs = FileStore(os.path.join(tmpdir.strpath, "mlruns"))
     metric_history0 = fs.get_metric_history(run_uuid, "metric-key0")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == set([
         (1.0, t, 0),
@@ -207,7 +207,7 @@ def test_log_metric(tracking_uri_mock, tmpdir):
     for key, value in finished_run.data.metrics.items():
         assert expected_pairs[key] == value
     # TODO: use client get_metric_history API here instead once it exists
-    fs = FileStore(os.path.join(tmpdir, "mlruns"))
+    fs = FileStore(os.path.join(tmpdir.strpath, "mlruns"))
     metric_history_name1 = fs.get_metric_history(run_uuid, "name_1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set([
         (25, 300, 0),
