@@ -1,6 +1,30 @@
 Changelog
 =========
 
+0.9.1 (2019-04-21)
+------------------
+MLflow 0.9.1 is a patch release on top of 0.9.0 containing mostly bug fixes and internal improvements. We have also included a one breaking API change in preparation for additions in MLflow 1.0 and later. This release also includes significant improvements to the Search API.
+
+Breaking changes:
+
+- [Tracking] Generalized experiment_id to string (from a long) to be more permissive of different ID types in different backend stores. While breaking for the REST API, this change backward compatible for python and R clients. (#1067, #1034 @eedeleon)
+
+More features and improvements:
+
+- [Search][API] Moving search filters into a query string based syntax, with Java client, python client, and UI support. This also improves quote, period, and special character handling in query strings and adds the ability to search on tags in filter string. (#1042, #1055, #1063, #1068, #1099, #1106 @mpharkhe; #1025 @andrewmchen; #1060 @smurching)
+- [Tracking] Limits and validations to batch-logging APIs in OSS server (#958 @smurching)
+- [Tracking][Java] Java client API for batch-logging (#1081 @mparkhe)
+- [Tracking] Improved consistency of handling multiple metric values per timestamp across tracking stores (#972, #999 @dbczumar)
+
+Bug fixes and documentation updates:
+
+- [Tracking][Python] Reintroduces the parent_run_id argument to MlflowClient.create_run. This API is planned for removal in MLflow 1.0 ( #1137 @smurching)
+- [Tracking][Python] Provide default implementations of AbstractStore log methods (#1051 @acroz)
+- [R] (Released on CRAN as MLflow 0.9.0.1) Small bug fixes with R (#1123 @smurching; #1045, #1017, #1019, #1039, #1048, #1098,  #1101, #1107, #1108, #1119 @tomasatdatabricks)
+
+Small bug fixes and doc updates (#1024, #1029 @bayethiernodiop; #1075 @avflor; #968, #1010, #1070, #1091, #1092 @smurching; #1004, #1085 @dbczumar; #1033, #1046 @sueann; #1053 @tomasatdatabricks; #987 @hanyucui; #935, #941 @jimthompson5802; #963 @amilbourne; #1016 @andrewmchen; #991 @jaroslawk; #1007 @mparkhe)
+
+
 0.9.0.1 (2019-04-09)
 --------------------
 Bugfix release (PyPI only) with the following changes:
