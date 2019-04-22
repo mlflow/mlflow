@@ -164,7 +164,8 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
 
 
-def test_create_run_all_args(mlflow_client):
+@pytest.mark.parametrize("parent_run_id_kwarg", [None, "my-parent-id"])
+def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     source_name = "Hello"
     entry_point = "entry"
     source_version = "abc"
@@ -180,9 +181,11 @@ def test_create_run_all_args(mlflow_client):
             MLFLOW_PARENT_RUN_ID: "7",
             "my": "tag",
             "other": "tag",
-        }
+        },
+        "parent_run_id": parent_run_id_kwarg
     }
-    experiment_id = mlflow_client.create_experiment('Run A Lot')
+    experiment_id = mlflow_client.create_experiment('Run A Lot (parent_run_id=%s)'
+                                                    % (parent_run_id_kwarg))
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_uuid
     print("Run id=%s" % run_id)
@@ -199,7 +202,7 @@ def test_create_run_all_args(mlflow_client):
     for tag in create_run_kwargs["tags"]:
         assert tag in run.data.tags
     assert run.data.tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
-
+    assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
     assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
 

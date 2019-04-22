@@ -79,7 +79,7 @@ class RunInfo(_MLflowObject):
 
     @property
     def experiment_id(self):
-        """Integer ID of the experiment for the current run."""
+        """String ID of the experiment for the current run."""
         return self._experiment_id
 
     @property
