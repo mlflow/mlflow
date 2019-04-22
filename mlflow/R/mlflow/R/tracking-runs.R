@@ -442,7 +442,9 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 
 #' Start Run
 #'
-#' Starts a new run. If `client` is not provided, this function also registers the created run as the active run.
+#' Starts a new run. If `client` is not provided, this function infers contextual information such as
+#'   source name and version, and also registers the created run as the active run. If `client` is provided,
+#'   no inference is done, and additional arguments such as `user_id` and `start_time` can be provided.
 #'
 #' @param run_uuid If specified, get the run with the specified UUID and log metrics
 #'   and params under that run. The run's end time is unset and its status is set to

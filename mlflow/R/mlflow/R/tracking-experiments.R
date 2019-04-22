@@ -159,8 +159,9 @@ mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NU
 
 #' Set Experiment
 #'
-#' Sets an experiment as the active experiment. If the experiment does not exist,
-#'   creates an experiment with provided name.
+#' Sets an experiment as the active experiment. Either the name or ID of the experiment can be provided.
+#'   If the a name is provided but the experiment does not exist, this function creates an experiment
+#'   with provided name.
 #'
 #' @param experiment_name Name of experiment to be activated.
 #' @param experiment_id ID of experiment to be activated.

@@ -38,7 +38,9 @@ Defaults to the current file if none provided.}
 \item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
-Starts a new run. If `client` is not provided, this function also registers the created run as the active run.
+Starts a new run. If `client` is not provided, this function infers contextual information such as
+  source name and version, and also registers the created run as the active run. If `client` is provided,
+  no inference is done, and additional arguments such as `user_id` and `start_time` can be provided.
 }
 \details{
 When `client` is not specified, these functions attempt to infer the current active client.
