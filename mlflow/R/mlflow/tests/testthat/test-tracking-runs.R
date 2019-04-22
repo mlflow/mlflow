@@ -131,31 +131,31 @@ test_that("mlflow_log_batch() works", {
   params <- run$params[[1]]
   tags <- run$tags[[1]]
 
-  expect_identical(
+  expect_setequal(
     metrics$key,
     c("mse", "rmse")
   )
-  expect_identical(
+  expect_setequal(
     metrics$value,
     c(21, 42)
   )
 
-  expect_identical(
+  expect_setequal(
     params$key,
     c("optimizer", "l1")
   )
 
-  expect_identical(
+  expect_setequal(
     params$value,
     c("adam", "0.01")
   )
 
-  expect_identical(
+  expect_setequal(
     tags$key,
     c("model_type", "data_year")
   )
 
-  expect_identical(
+  expect_setequal(
     tags$value,
     c("regression", "2015")
   )
