@@ -23,6 +23,10 @@ from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
+from tests.legacy_db_models import Base as LegacyBase
+from tests.integration.utils import invoke_cli_runner
+from mlflow.store.db import cli
+
 
 DB_URI = 'sqlite://'
 ARTIFACT_URI = 'artifact_folder'
@@ -240,15 +244,21 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             # TODO: could we make this API take a DB URI instead? Would it be bad to recreate an
             # engine? Or is there a way to directly test __init__ (currently doesn't work because
             # __init__ also creates all the tables)
-            engine = sqlalchemy.create_engine("sqlite:///%s" % tmp)
+            db_url = "sqlite:///%s" % tmp
+            engine = sqlalchemy.create_engine(db_url)
             with self.assertRaises(MlflowException) as ex:
                 SqlAlchemyStore._verify_schema(engine)
             self.assertIn("Detected out-of-date database schema.", str(ex.exception))
+            # Create legacy tables, verify schema is still out of date
+            LegacyBase.metadata.create_all(engine)
+            with self.assertRaises(MlflowException) as ex:
+                SqlAlchemyStore._verify_schema(engine)
+            self.assertIn("Detected out-of-date database schema.", str(ex.exception))
+            # Run migrations, verify things are ok
+            invoke_cli_runner(cli.upgrade, db_url)
+            SqlAlchemyStore._verify_schema(engine)
         finally:
             os.remove(tmp)
-
-        # Programatically run each DB migration & verify that we detect a schema mismatch until
-        # all migrations have run
 
 
     def test_run_needs_uuid(self):
@@ -1113,4 +1123,15 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
 
+
+class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqliteInMemory):
+    def _setup_database(self, filename=''):
+        _, tmpfile = tempfile.mkstemp()
+        db_url = "sqlite:///%s" % tmpfile
+        print(db_url)
+        engine = sqlalchemy.create_engine(db_url)
+        LegacyBase.metadata.create_all(engine)
+        # Run migrations
+        invoke_cli_runner(cli.upgrade, db_url)
+        self.store = SqlAlchemyStore(db_url, ARTIFACT_URI)
 

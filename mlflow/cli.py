@@ -16,6 +16,7 @@ import mlflow.pyfunc.cli
 import mlflow.rfunc.cli
 import mlflow.sagemaker.cli
 import mlflow.runs
+import mlflow.store.db.cli
 
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.logging_utils import eprint
@@ -261,6 +262,7 @@ cli.add_command(mlflow.rfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)
+cli.add_command(mlflow.store.db.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
 
