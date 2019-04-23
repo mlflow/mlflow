@@ -15,6 +15,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAM
 
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import build_docker_example_base_image
+from tests.projects.utils import docker
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
@@ -60,6 +61,14 @@ def test_docker_project_execution(
         assert run_tags[k] == v
     for k, v in approx_expected_tags.items():
         assert run_tags[k].startswith(v)
+    # Check if project's directory structure is copied properly into docker image.
+    client = docker.from_env()
+    project_subdirectory_exists = client.containers.run(
+        run.data.tags['mlflow.docker.image.name'],
+        'sh -c \'if [ -d "subdirectory" ]; then (echo "yes") else (echo "no") fi\'',
+        auto_remove=True
+    ).strip()
+    assert project_subdirectory_exists == 'yes'
 
 
 @pytest.mark.parametrize("tracking_uri, expected_command_segment", [
