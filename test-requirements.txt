@@ -8,8 +8,8 @@ mock==2.0.0
 moto==1.3.7
 pandas<=0.23.4
 prospector[with_pyroma]==0.12.7
-pep8==1.7.1
 pyarrow==0.12.1
+pycodestyle>=2.5.0
 pylint==1.8.2
 pyspark==2.4.0
 pytest==3.2.1
