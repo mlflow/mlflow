@@ -138,5 +138,6 @@ def _get_host_creds_from_default_store():
     store = utils._get_store()
     if not isinstance(store, RestStore):
         raise MlflowException('Failed to get credentials for DBFS; they are read from the ' +
-                              'Databricks CLI credentials or _TRACKING* environment variables.')
+                              'Databricks CLI credentials or MLFLOW_TRACKING* environment ' +
+                              'variables.')
     return store.get_host_creds
