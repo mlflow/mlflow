@@ -19,7 +19,6 @@ from collections import namedtuple
 import yaml
 
 import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.tracking
 from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
@@ -29,6 +28,8 @@ from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.pyfunc.constants import (CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                                     CONTENT_TYPE_JSON)
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
@@ -158,7 +159,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     scoring_response_1 = score_model_in_sagemaker_docker_container(
             model_path=model_path,
             data=spark_model_iris.pandas_df,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
     np.testing.assert_array_almost_equal(
             spark_model_iris.predictions,
@@ -168,7 +169,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     scoring_response_2 = score_model_in_sagemaker_docker_container(
             model_path=model_path,
             data=spark_model_iris.pandas_df.to_json(orient="split"),
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            content_type=CONTENT_TYPE_JSON,
             flavor=mlflow.mleap.FLAVOR_NAME)
     np.testing.assert_array_almost_equal(
             spark_model_iris.predictions,
@@ -183,7 +184,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
     scoring_response = score_model_in_sagemaker_docker_container(
             model_path=model_path,
             data=spark_model_iris.pandas_df,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            content_type=CONTENT_TYPE_JSON,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
     deployed_model_preds = json.loads(scoring_response.content)
 

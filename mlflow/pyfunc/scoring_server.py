@@ -13,17 +13,16 @@ Defines two endpoints:
 from __future__ import print_function
 
 import json
-import traceback
 import logging
 
-import pandas as pd
-import flask
-from six import reraise
 
-from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
+import flask
+
+from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.utils.rest_utils import NumpyEncoder
 from mlflow.server.handlers import catch_mlflow_exception
+from mlflow.pyfunc.utils import (parse_csv_input, parse_json_input,
+                                 handle_serving_error)
 
 try:
     from StringIO import StringIO
@@ -32,78 +31,12 @@ except ImportError:
 
 from mlflow.utils import get_jsonable_obj
 
-CONTENT_TYPE_CSV = "text/csv"
-CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
-CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
-
-MODEL_ARTIFACT_PATH_VAR = 'MLFLOW_MODEL_ARTIFACT_PATH'
-
-CONTENT_TYPES = [
-    CONTENT_TYPE_CSV,
-    CONTENT_TYPE_JSON,
-    CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_ORIENTED
-]
+from mlflow.pyfunc.constants import (MODEL_ARTIFACT_PATH_VAR, CONTENT_TYPE_CSV,
+                                     CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                                     CONTENT_TYPE_JSON_RECORDS_ORIENTED, CONTENT_TYPES)
 
 
 _logger = logging.getLogger(__name__)
-
-
-def parse_json_input(json_input, orient="split"):
-    """
-    :param json_input: A JSON-formatted string representation of a Pandas DataFrame, or a stream
-                       containing such a string representation.
-    :param orient: The Pandas DataFrame orientation of the JSON input. This is either 'split'
-                   or 'records'.
-    """
-    # pylint: disable=broad-except
-    try:
-        return pd.read_json(json_input, orient=orient, dtype=False)
-    except Exception:
-        _handle_serving_error(
-                error_message=(
-                    "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                    " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
-                    " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
-                    " method.".format(orient=orient)),
-                error_code=MALFORMED_REQUEST)
-
-
-def parse_csv_input(csv_input):
-    """
-    :param csv_input: A CSV-formatted string representation of a Pandas DataFrame, or a stream
-                      containing such a string representation.
-    """
-    # pylint: disable=broad-except
-    try:
-        return pd.read_csv(csv_input)
-    except Exception:
-        _handle_serving_error(
-                error_message=(
-                    "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                    " a valid CSV-formatted Pandas DataFrame produced using the"
-                    " `pandas.DataFrame.to_csv()` method."),
-                error_code=MALFORMED_REQUEST)
-
-
-def _handle_serving_error(error_message, error_code):
-    """
-    Logs information about an exception thrown by model inference code that is currently being
-    handled and reraises it with the specified error message. The exception stack trace
-    is also included in the reraised error message.
-
-    :param error_message: A message for the reraised exception.
-    :param error_code: An appropriate error code for the reraised exception. This should be one of
-                       the codes listed in the `mlflow.protos.databricks_pb2` proto.
-    """
-    traceback_buf = StringIO()
-    traceback.print_exc(file=traceback_buf)
-    reraise(MlflowException,
-            MlflowException(
-                message=error_message,
-                error_code=error_code,
-                stack_trace=traceback_buf.getvalue()))
 
 
 def _load_model():
@@ -165,7 +98,7 @@ def transformation():  # pylint: disable=unused-variable
     try:
         raw_predictions = model.predict(data)
     except Exception:
-        _handle_serving_error(
+        handle_serving_error(
                 error_message=(
                     "Encountered an unexpected error while evaluating the model. Verify"
                     " that the serialized input Dataframe is compatible with the model for"

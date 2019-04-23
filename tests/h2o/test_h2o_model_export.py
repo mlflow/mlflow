@@ -16,13 +16,14 @@ from h2o.estimators.gbm import H2OGradientBoostingEstimator
 
 import mlflow.h2o
 import mlflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.pyfunc.constants import CONTENT_TYPE_JSON
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
@@ -213,7 +214,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(h2o_iris_model, m
     scoring_response = score_model_in_sagemaker_docker_container(
             model_path=model_path,
             data=h2o_iris_model.inference_data.as_data_frame(),
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
+            content_type=CONTENT_TYPE_JSON,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 

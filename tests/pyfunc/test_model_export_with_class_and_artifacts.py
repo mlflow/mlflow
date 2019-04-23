@@ -18,7 +18,6 @@ import mlflow
 import mlflow.pyfunc
 import mlflow.pyfunc.cli
 import mlflow.pyfunc.model
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -26,6 +25,7 @@ from mlflow.tracking.utils import get_artifact_uri as utils_get_artifact_uri
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.pyfunc.constants import CONTENT_TYPE_JSON_SPLIT_ORIENTED
 
 import tests
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -190,7 +190,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
     scoring_response = pyfunc_serve_and_score_model(
             model_path=pyfunc_model_path,
             data=sample_input,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
@@ -218,7 +218,7 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
     scoring_response = pyfunc_serve_and_score_model(
             model_path=pyfunc_model_path,
             data=sample_input,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
         np.array(json.loads(scoring_response.text)),
@@ -246,7 +246,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
     scoring_response = pyfunc_serve_and_score_model(
             model_path=pyfunc_model_path,
             data=sample_input,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
     np.testing.assert_array_equal(
@@ -638,7 +638,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(
     scoring_response = score_model_in_sagemaker_docker_container(
             model_path=pyfunc_model_path,
             data=inference_df,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 

@@ -20,7 +20,6 @@ from sklearn.preprocessing import FunctionTransformer as SKFunctionTransformer
 
 import mlflow.sklearn
 import mlflow.utils
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -29,6 +28,7 @@ from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.pyfunc.constants import CONTENT_TYPE_JSON_SPLIT_ORIENTED
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 
@@ -350,7 +350,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(sklearn_knn_model
     scoring_response = score_model_in_sagemaker_docker_container(
             model_path=model_path,
             data=inference_df,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 

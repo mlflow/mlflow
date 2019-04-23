@@ -9,8 +9,10 @@ from subprocess import Popen, PIPE, STDOUT
 
 import pandas as pd
 
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
+
+from mlflow.pyfunc.constants import (CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                                     CONTENT_TYPE_JSON, CONTENT_TYPE_CSV)
 
 
 def random_int(lo=1, hi=1e10):
@@ -69,7 +71,7 @@ def pyfunc_serve_and_score_model(
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
     for x in iter(proc.stdout.readline, ""):
         print(x)
-        m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
+        m = re.match(pattern=".*Listening at: http://127.0.0.1:(\\d+).*", string=x)
         if m:
             return _evaluate_scoring_proc(
                     proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds)
@@ -114,11 +116,11 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
         if type(data) == pd.DataFrame:
-            if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON:
+            if content_type == CONTENT_TYPE_JSON:
                 data = data.to_json(orient="records")
-            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
+            elif content_type == CONTENT_TYPE_JSON_SPLIT_ORIENTED:
                 data = data.to_json(orient="split")
-            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
+            elif content_type == CONTENT_TYPE_CSV:
                 data = data.to_csv()
             else:
                 raise Exception(

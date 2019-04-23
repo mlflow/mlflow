@@ -476,11 +476,11 @@ def _get_or_create_conda_env(conda_env_path, is_web_server_deploy=False):
         if conda_env_path:
             process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
                               conda_env_path], stream_output=True)
-            if is_web_server_deploy:
-                clean_up_file(conda_env_path)
         else:
             process.exec_cmd(
                 [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
+    if is_web_server_deploy:
+        clean_up_file(conda_env_path)
     return project_env_name
 
 

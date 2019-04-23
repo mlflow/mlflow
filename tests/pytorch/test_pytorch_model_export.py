@@ -19,7 +19,6 @@ from torch.utils.data import DataLoader
 
 import mlflow.pyfunc as pyfunc
 import mlflow.pytorch
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -27,6 +26,7 @@ from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.pyfunc.constants import CONTENT_TYPE_JSON_SPLIT_ORIENTED
 
 _logger = logging.getLogger(__name__)
 
@@ -357,7 +357,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
     scoring_response = pyfunc_serve_and_score_model(
             model_path=model_path,
             data=data[0],
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
 
@@ -379,7 +379,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
     scoring_response = pyfunc_serve_and_score_model(
             model_path=model_path,
             data=data[0],
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
 
@@ -430,7 +430,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     scoring_response = pyfunc_serve_and_score_model(
             model_path=pyfunc_model_path,
             data=data[0],
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
     assert scoring_response.status_code == 200
 
@@ -633,7 +633,7 @@ def test_sagemaker_docker_model_scoring_with_sequential_model_and_default_conda_
     scoring_response = score_model_in_sagemaker_docker_container(
             model_path=model_path,
             data=data[0],
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME,
             activity_polling_timeout_seconds=360)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))

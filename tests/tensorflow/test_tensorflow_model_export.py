@@ -17,13 +17,13 @@ import tensorflow as tf
 
 import mlflow
 import mlflow.tensorflow
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
 from mlflow.tracking.utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+from mlflow.pyfunc.constants import CONTENT_TYPE_JSON_SPLIT_ORIENTED
 
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
@@ -446,7 +446,7 @@ def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path
     scoring_response = score_model_in_sagemaker_docker_container(
             model_path=model_path,
             data=saved_tf_iris_model.inference_df,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
 

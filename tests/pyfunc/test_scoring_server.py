@@ -8,11 +8,14 @@ import pytest
 import sklearn.datasets as datasets
 import sklearn.neighbors as knn
 
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST, BAD_REQUEST
 
 from tests.helper_functions import pyfunc_serve_and_score_model, random_int, random_str
+from mlflow.pyfunc.constants import (CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                                     CONTENT_TYPE_CSV, CONTENT_TYPE_JSON,
+                                     CONTENT_TYPE_JSON_RECORDS_ORIENTED)
+from mlflow.pyfunc.utils import parse_json_input
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -41,7 +44,7 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=incorrect_json_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_json = json.loads(response.content)
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
@@ -57,7 +60,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
     response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=malformed_json_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_json = json.loads(response.content)
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
@@ -75,7 +78,7 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
     response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=pandas_table_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_json = json.loads(response.content)
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
@@ -91,7 +94,7 @@ def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stackt
     response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=incompatible_df,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_json = json.loads(response.content)
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(BAD_REQUEST)
@@ -108,7 +111,7 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
     response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=incorrect_csv_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_CSV)
+            content_type=CONTENT_TYPE_CSV)
     response_json = json.loads(response.content)
     assert "error_code" in response_json
     assert response_json["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
@@ -124,7 +127,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
     response_records_content_type = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=pandas_record_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED)
+            content_type=CONTENT_TYPE_JSON_RECORDS_ORIENTED)
     assert response_records_content_type.status_code == 200
 
 
@@ -136,13 +139,13 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
     response_default_content_type = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=pandas_split_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON)
+            content_type=CONTENT_TYPE_JSON)
     assert response_default_content_type.status_code == 200
 
     response = pyfunc_serve_and_score_model(
             model_path=os.path.abspath(model_path),
             data=pandas_split_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+            content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert response.status_code == 200
 
 
@@ -164,7 +167,7 @@ def test_parse_json_input_records_oriented():
             "col_z": [random_str(4) for _ in range(size)],
             "col_a": [random_int() for _ in range(size)]}
     p1 = pd.DataFrame.from_dict(data)
-    p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="records"), orient="records")
+    p2 = parse_json_input(p1.to_json(orient="records"), orient="records")
     # "records" orient may shuffle column ordering. Hence comparing each column Series
     for col in data.keys():
         assert all(p1[col] == p2[col])
@@ -176,7 +179,7 @@ def test_parse_json_input_split_oriented():
             "col_z": [random_str(4) for _ in range(size)],
             "col_a": [random_int() for _ in range(size)]}
     p1 = pd.DataFrame.from_dict(data)
-    p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="split"), orient="split")
+    p2 = parse_json_input(p1.to_json(orient="split"), orient="split")
     assert all(p1 == p2)
 
 
@@ -187,7 +190,7 @@ def test_records_oriented_json_to_df():
            '{"zip":"95128","cost":23.0,"score":0},' \
            '{"zip":"95128","cost":12.1,"score":10}' \
            ']'
-    df = pyfunc_scoring_server.parse_json_input(jstr, orient="records")
+    df = parse_json_input(jstr, orient="records")
 
     assert set(df.columns) == {'zip', 'cost', 'score'}
     assert set(str(dt) for dt in df.dtypes) == {'object', 'float64', 'int64'}
@@ -197,7 +200,7 @@ def test_split_oriented_json_to_df():
     # test that datatype for "zip" column is not converted to "int64"
     jstr = '{"columns":["zip","cost","count"],"index":[0,1,2],' \
            '"data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]}'
-    df = pyfunc_scoring_server.parse_json_input(jstr, orient="split")
+    df = parse_json_input(jstr, orient="split")
 
     assert set(df.columns) == {'zip', 'cost', 'count'}
     assert set(str(dt) for dt in df.dtypes) == {'object', 'float64', 'int64'}

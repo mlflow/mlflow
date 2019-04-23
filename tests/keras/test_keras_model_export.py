@@ -14,7 +14,7 @@ import yaml
 
 import mlflow
 import mlflow.keras
-import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
+
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.tracking.utils import _get_model_log_dir
@@ -24,6 +24,7 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+from mlflow.pyfunc.constants import CONTENT_TYPE_JSON_SPLIT_ORIENTED
 
 
 @pytest.fixture(scope='module')
@@ -82,7 +83,7 @@ def test_model_save_load(model, model_path, data, predicted):
     scoring_response = pyfunc_serve_and_score_model(
         model_path=os.path.abspath(model_path),
         data=pd.DataFrame(x),
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+        content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
                == predicted)
 
@@ -222,7 +223,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
     scoring_response = score_model_in_sagemaker_docker_container(
         model_path=model_path,
         data=data[0],
-        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
         activity_polling_timeout_seconds=500)
     deployed_model_preds = pd.DataFrame(json.loads(scoring_response.content))
