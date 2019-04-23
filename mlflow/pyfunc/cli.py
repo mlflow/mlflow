@@ -24,8 +24,8 @@ def _rerun_in_conda(conda_env_path):
     activate_path = _get_conda_bin_executable("activate")
     commands = []
     commands.append("source {} {}".format(activate_path, conda_env_name))
-    safe_argv = [shlex_quote(arg) for arg in sys.argv]
-    commands.append(" ".join(safe_argv) + " --no-conda")
+    safe_argv = [shlex_quote(arg) for arg in sys.argv[1:]]
+    commands.append("mlflow " + " ".join(safe_argv) + " --no-conda")
     commandline = " && ".join(commands)
     _logger.info("=== Running command '%s'", commandline)
     child = subprocess.Popen(["bash", "-c", commandline], close_fds=True)
