@@ -1,7 +1,6 @@
-# ONLY USED IN TESTS
 # Snapshot of MLflow DB models as of the 0.9.1 release
 # (copied from https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py),
-# prior to the first database migration
+# prior to the first database migration. Used to standardize initial database state.
 import time
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (

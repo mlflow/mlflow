@@ -23,6 +23,9 @@ from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
     _validate_run_id
+from mlflow.store.db import cli
+from mlflow.store.dbmodels.legacy_models import Base as LegacyBase
+
 
 _logger = logging.getLogger(__name__)
 
@@ -63,7 +66,14 @@ class SqlAlchemyStore(AbstractStore):
         self.db_type = urllib.parse.urlparse(db_uri).scheme
         self.artifact_root_uri = default_artifact_root
         self.engine = sqlalchemy.create_engine(db_uri)
-        Base.metadata.create_all(self.engine)
+        insp = sqlalchemy.inspect(self.engine)
+        # On a completely fresh MLflow installation against an empty database (verify database
+        # emptiness by checking that 'experiments' isn't in the list of table names), run all
+        # DB migrations
+        if "experiments" not in insp.get_table_names():
+            LegacyBase.metadata.create_all(self.engine)
+            _logger.info("Initializing MLflow database by running migrations")
+            cli.do_upgrade(db_uri)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = self._get_managed_session_maker(SessionMaker)
@@ -81,9 +91,9 @@ class SqlAlchemyStore(AbstractStore):
         mc = MigrationContext.configure(engine.connect())
         diff = compare_metadata(mc, Base.metadata)
         if len(diff) > 0:
-            _logger.error("Detected one or more differences between current database schema and  "
-                         "desired schema, exiting. Diff:\n%s" %
-                         pprint.pprint(diff, indent=2, width=20))
+            _logger.error("Detected one or more differences between current database schema and "
+                          "desired schema, exiting. Diff:\n%s" %
+                          pprint.pprint(diff, indent=2, width=20))
             raise MlflowException(
                 "Detected out-of-date database schema. Run 'mlflow db upgrade %s' to migrate your "
                 "database to latest schema. NOTE: schema migration may result in database downtime "
