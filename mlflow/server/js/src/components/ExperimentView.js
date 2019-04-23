@@ -401,7 +401,7 @@ export class ExperimentView extends Component {
           <div className="ExperimentView-run-buttons">
             <span className="run-count">
               {runInfos.length > SEARCH_MAX_RESULTS ?
-                'Showing the latest 1000 matching runs' :
+                `Showing the latest ${SEARCH_MAX_RESULTS} matching runs` :
                 `${runInfos.length} matching ${runInfos.length === 1 ? 'run' : 'runs'}`
               }
             </span>
