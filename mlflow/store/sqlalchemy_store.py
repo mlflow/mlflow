@@ -71,9 +71,7 @@ class SqlAlchemyStore(AbstractStore):
         # emptiness by checking that 'experiments' isn't in the list of table names), run all
         # DB migrations
         if "experiments" not in insp.get_table_names():
-            LegacyBase.metadata.create_all(self.engine)
-            _logger.info("Initializing MLflow database by running migrations")
-            cli.do_upgrade(db_uri)
+            SqlAlchemyStore._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = self._get_managed_session_maker(SessionMaker)
@@ -85,6 +83,12 @@ class SqlAlchemyStore(AbstractStore):
         if len(self.list_experiments()) == 0:
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
+
+    @staticmetehod
+    def _initialize_tables(self, engine):
+        LegacyBase.metadata.create_all(self.engine)
+        _logger.info("Initializing MLflow database by running migrations")
+        cli.do_upgrade(engine.url)
 
     @staticmethod
     def _verify_schema(engine):

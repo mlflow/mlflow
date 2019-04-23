@@ -16,7 +16,7 @@ import mlflow.pyfunc.cli
 import mlflow.rfunc.cli
 import mlflow.sagemaker.cli
 import mlflow.runs
-import mlflow.store.db.cli
+import mlflow.store.db.utils
 
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.logging_utils import eprint
@@ -256,13 +256,24 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
 
+@click.argument("url")
+def upgradedb(url):
+    """
+    Upgrade an MLflow tracking database.
+
+    :param url Database URL, like sqlite:///<absolute-path-to-local-db-file>. See
+    https://docs.sqlalchemy.org/en/13/core/engines.html#database-urls for a full list of valid
+    database URLs.
+    """
+    mlflow.store.db.utils.upgrade_db(url)
+
+
 cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
 cli.add_command(mlflow.rfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)
-cli.add_command(mlflow.store.db.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
 
