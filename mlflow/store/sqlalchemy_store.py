@@ -383,7 +383,7 @@ class SqlAlchemyStore(AbstractStore):
                 # we would be unable to determine the cause of failure for the first session's
                 # "commit" operation.
                 session.commit()
-            except sqlalchemy.exc.IntegrityError as e:
+            except sqlalchemy.exc.IntegrityError:
                 # Roll back the current session to make it usable for further transactions. In the
                 # event of an error during "commit", a rollback is required in order to continue
                 # using the session. In this case, we re-use the session because the SqlRun, `run`,
