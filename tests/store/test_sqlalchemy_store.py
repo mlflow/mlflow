@@ -397,7 +397,6 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         exp = self.store.get_experiment(run.info.experiment_id)
         exp.to_proto()
 
-
     def test_delete_run(self):
         run = self._run_factory()
 

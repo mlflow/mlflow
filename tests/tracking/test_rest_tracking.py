@@ -57,14 +57,18 @@ def _await_server_down_or_die(process, timeout=60):
     if process.is_alive():
         raise Exception('Server failed to shutdown after %s seconds' % timeout)
 
-def _init_server(backend_uri):
+
+def _init_server(backend_uri, artifact_uri):
     """
     Once per run of the entire set of tests, we create a new server, and
     clean it up at the end.
     """
     mlflow.set_tracking_uri(None)
     server_port = _get_safe_port()
-    env = {BACKEND_STORE_URI_ENV_VAR: backend_uri, ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=artifact_root_dir)}
+    env = {
+        BACKEND_STORE_URI_ENV_VAR: backend_uri,
+        ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=artifact_uri),
+    }
     with mock.patch.dict(os.environ, env):
         process = Process(target=lambda: app.run(LOCALHOST, server_port))
         process.start()
@@ -82,28 +86,31 @@ def _get_safe_port():
     sock.close()
     return port
 
-server_root_dir = tempfile.mkdtemp("test_rest_tracking")
-artifact_root_dir = tempfile.mkdtemp(suffix="artifacts", dir=server_root_dir)
+# Root directory for all stores (backend or artifact stores) created during this suite
+SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
+# Root directory for all artifact stores created during this suite
+SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
+# Backend store URIs to test against
 BACKEND_URIS = [
-    "sqlite:////%s/test-database.db" % server_root_dir,  # SQLAlchemyStore
-    os.path.join(server_root_dir, "file_store_root"),  # FileStore
+    "sqlite:////%s/test-database.db" % SUITE_ROOT_DIR,  # SQLAlchemyStore
+    os.path.join(SUITE_ROOT_DIR, "file_store_root"),  # FileStore
 ]
-SERVER_URLS = []
-SERVER_PROCS = []
-BACKEND_URI_TO_SERVER_URL = {}
-for uri in BACKEND_URIS:
-    server_url, process = _init_server(backend_uri=uri)
-    SERVER_PROCS.append(process)
-    SERVER_URLS.append(server_url)
-    BACKEND_URI_TO_SERVER_URL[uri] = server_url
+# Map of backend URI to tuple (server URL, Process). We populate this map by constructing
+# a server per backend URI
+BACKEND_URI_TO_SERVER_URL_AND_PROC = {
+    uri: _init_server(backend_uri=uri, artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
+    for uri in BACKEND_URIS
+}
 
 
 def pytest_generate_tests(metafunc):
     """
-    Dynamically pass the list of generated
+    Automatically parametrize each each fixture/test that depends on `backend_store_uri` with the
+    list of backend store URIs.
     """
     if 'backend_store_uri' in metafunc.fixturenames:
         metafunc.parametrize('backend_store_uri', BACKEND_URIS)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def server_urls():
@@ -111,16 +118,17 @@ def server_urls():
     Clean up all servers created for testing in `pytest_generate_tests`
     """
     yield
-    for server_url, process in zip(SERVER_URLS, SERVER_PROCS):
+    for server_url, process in BACKEND_URI_TO_SERVER_URL_AND_PROC.values():
         print("Terminating server at %s..." % (server_url))
         process.terminate()
         _await_server_down_or_die(process)
-    shutil.rmtree(server_root_dir)
+    shutil.rmtree(SUITE_ROOT_DIR)
 
 
 @pytest.fixture()
 def tracking_server_uri(backend_store_uri):
-    return BACKEND_URI_TO_SERVER_URL[backend_store_uri]
+    url, _ = BACKEND_URI_TO_SERVER_URL_AND_PROC[backend_store_uri]
+    return url
 
 
 @pytest.fixture()
