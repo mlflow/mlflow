@@ -46,7 +46,7 @@ def test_artifact_uri_factory(mock_client):
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it;
     # We do need to set up a fake access key for the code to run though
     os.environ['AZURE_STORAGE_ACCESS_KEY'] = ''
-    repo = get_artifact_repository(TEST_URI, mock.Mock())
+    repo = get_artifact_repository(TEST_URI)
     assert isinstance(repo, AzureBlobArtifactRepository)
     del os.environ['AZURE_STORAGE_ACCESS_KEY']
 
