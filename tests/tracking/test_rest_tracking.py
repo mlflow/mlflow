@@ -12,7 +12,6 @@ import shutil
 import time
 import tempfile
 
-from click.testing import CliRunner
 
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag
@@ -22,7 +21,7 @@ from mlflow.tracking import MlflowClient
 from mlflow.tracking.utils import _tracking_store_registry
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
     MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
-
+from tests.integration.utils import invoke_cli_runner
 
 LOCALHOST = '127.0.0.1'
 
@@ -170,12 +169,12 @@ def test_delete_restore_experiment(mlflow_client):
 
 def test_delete_restore_experiment_cli(mlflow_client, cli_env):
     experiment_name = "DeleteriousCLI"
-    CliRunner(env=cli_env).invoke(mlflow.experiments.commands, ['create', experiment_name])
+    invoke_cli_runner(mlflow.experiments.commands, ['create', experiment_name], env=cli_env)
     experiment_id = mlflow_client.get_experiment_by_name(experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
-    CliRunner(env=cli_env).invoke(mlflow.experiments.commands, ['delete', str(experiment_id)])
+    invoke_cli_runner(mlflow.experiments.commands, ['delete', str(experiment_id)], env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'deleted'
-    CliRunner(env=cli_env).invoke(mlflow.experiments.commands, ['restore', str(experiment_id)])
+    invoke_cli_runner(mlflow.experiments.commands, ['restore', str(experiment_id)], env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
 
 
@@ -190,12 +189,12 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     bad_experiment_name = "CLIBadName"
     good_experiment_name = "CLIGoodName"
 
-    CliRunner(env=cli_env).invoke(mlflow.experiments.commands, ['create', bad_experiment_name])
+    invoke_cli_runner(mlflow.experiments.commands, ['create', bad_experiment_name], env=cli_env)
     experiment_id = mlflow_client.get_experiment_by_name(bad_experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
-    CliRunner(env=cli_env).invoke(
+    invoke_cli_runner(
             mlflow.experiments.commands,
-            ['rename', str(experiment_id), good_experiment_name])
+            ['rename', str(experiment_id), good_experiment_name], env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
 
 
