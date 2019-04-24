@@ -26,7 +26,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _get_model_log_dir
 from mlflow.utils.file_utils import TempDir
 
 

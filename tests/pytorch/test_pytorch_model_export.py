@@ -274,7 +274,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
                                  artifact_path=artifact_path,
                                  conda_env=pytorch_custom_env)
         run_id = mlflow.active_run().info.run_uuid
-    model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
+    model_path = tracking.artifact_utils._get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -308,7 +308,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
                                  artifact_path=artifact_path,
                                  conda_env=None)
         run_id = mlflow.active_run().info.run_uuid
-    model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
+    model_path = tracking.artifact_utils._get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -423,7 +423,8 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
                          })
         pyfunc_run_id = mlflow.active_run().info.run_uuid
 
-    pyfunc_model_path = tracking.utils._get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
+    pyfunc_model_path = tracking.artifact_utils._get_model_log_dir(pyfunc_artifact_path,
+                                                                   pyfunc_run_id)
 
     # Deploy the custom pyfunc model and ensure that it is able to successfully load its
     # constituent PyTorch model via `mlflow.pytorch.load_model`
@@ -543,7 +544,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
             pytorch_model=module_scoped_subclassed_model,
             conda_env=None)
         run_id = mlflow.active_run().info.run_uuid
-    model_path = tracking.utils._get_model_log_dir(artifact_path, run_id)
+    model_path = tracking.artifact_utils._get_model_log_dir(artifact_path, run_id)
 
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)

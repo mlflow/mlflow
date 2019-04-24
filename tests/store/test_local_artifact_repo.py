@@ -2,8 +2,6 @@ import os
 import unittest
 
 from mlflow.exceptions import MlflowException
-from mock import Mock
-
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.file_utils import TempDir
@@ -15,7 +13,7 @@ class TestLocalArtifactRepo(unittest.TestCase):
 
     def test_basic_functions(self):
         with TempDir() as test_root, TempDir() as tmp:
-            repo = get_artifact_repository(test_root.path(), Mock())
+            repo = get_artifact_repository(test_root.path())
             self.assertIsInstance(repo, LocalArtifactRepository)
             self.assertListEqual(repo.list_artifacts(), [])
             with self.assertRaises(Exception):

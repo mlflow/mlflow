@@ -1,5 +1,5 @@
 # pylint: disable=redefined-outer-name
-from mock import Mock, MagicMock
+from mock import MagicMock
 import pytest
 import os
 import ftplib
@@ -15,7 +15,7 @@ def ftp_mock():
 
 
 def test_artifact_uri_factory():
-    repo = get_artifact_repository("ftp://user:pass@test_ftp:123/some/path", Mock())
+    repo = get_artifact_repository("ftp://user:pass@test_ftp:123/some/path")
     assert isinstance(repo, FTPArtifactRepository)
 
 

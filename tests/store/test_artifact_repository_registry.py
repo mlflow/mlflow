@@ -4,8 +4,6 @@ from six.moves import reload_module as reload
 
 import mlflow
 from mlflow.store.artifact_repository_registry import ArtifactRepositoryRegistry
-from mlflow.store.rest_store import RestStore
-from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 
 def test_standard_artifact_registry():
@@ -69,38 +67,6 @@ def test_plugin_registration():
     assert repository_instance == mock_plugin.return_value
 
     mock_plugin.assert_called_once_with("mock-scheme://fake-host/fake-path")
-
-
-def test_dbfs_instantiation():
-    artifact_repository_registry = ArtifactRepositoryRegistry()
-
-    mock_dbfs_constructor = mock.Mock()
-    artifact_repository_registry.register("dbfs", mock_dbfs_constructor)
-
-    mock_get_host_creds = mock.Mock()
-    rest_store = RestStore(mock_get_host_creds)
-
-    mock_dbfs_repo = artifact_repository_registry.get_artifact_repository(
-        artifact_uri="dbfs://test-path", store=rest_store
-    )
-    assert mock_dbfs_repo == mock_dbfs_constructor.return_value
-    mock_dbfs_constructor.assert_called_once_with("dbfs://test-path", mock_get_host_creds)
-
-
-def test_incorrect_dbfs_instantiation():
-    artifact_repository_registry = ArtifactRepositoryRegistry()
-
-    mock_dbfs_constructor = mock.Mock()
-    artifact_repository_registry.register("dbfs", mock_dbfs_constructor)
-
-    sql_store = SqlAlchemyStore("sqlite://", "./mlruns")
-
-    with pytest.raises(mlflow.exceptions.MlflowException, match="must be an instance of RestStore"):
-        artifact_repository_registry.get_artifact_repository(
-            artifact_uri="dbfs://test-path", store=sql_store
-        )
-
-    mock_dbfs_constructor.assert_not_called()
 
 
 def test_get_unknown_scheme():

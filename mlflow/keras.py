@@ -200,7 +200,7 @@ def load_model(path, run_id=None):
     >>> predictions = keras_model.predict(x_test)
     """
     if run_id is not None:
-        path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
+        path = mlflow.tracking.artifact_utils._get_model_log_dir(model_name=path, run_id=run_id)
     path = os.path.abspath(path)
     flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a

@@ -37,7 +37,7 @@ def log_artifact(local_file, run_id, artifact_path):
     """
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri, store)
+    artifact_repo = get_artifact_repository(artifact_uri)
     artifact_repo.log_artifact(local_file, artifact_path)
     _logger.info("Logged artifact from local file %s to artifact_path=%s",
                  local_file, artifact_path)
@@ -59,7 +59,7 @@ def log_artifacts(local_dir, run_id, artifact_path):
     """
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri, store)
+    artifact_repo = get_artifact_repository(artifact_uri)
     artifact_repo.log_artifacts(local_dir, artifact_path)
     _logger.info("Logged artifact from local dir %s to artifact_path=%s", local_dir, artifact_path)
 
@@ -77,7 +77,7 @@ def list_artifacts(run_id, artifact_path):
     artifact_path = artifact_path if artifact_path is not None else ""
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri, store)
+    artifact_repo = get_artifact_repository(artifact_uri)
     file_infos = artifact_repo.list_artifacts(artifact_path)
     print(_file_infos_to_json(file_infos))
 
@@ -100,6 +100,6 @@ def download_artifacts(run_id, artifact_path):
     artifact_path = artifact_path if artifact_path is not None else ""
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri, store)
+    artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path)
     print(artifact_location)

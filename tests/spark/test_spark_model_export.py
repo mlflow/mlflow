@@ -25,7 +25,7 @@ from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration

@@ -22,7 +22,7 @@ def gcs_mock():
 
 
 def test_artifact_uri_factory():
-    repo = get_artifact_repository("gs://test_bucket/some/path", mock.Mock())
+    repo = get_artifact_repository("gs://test_bucket/some/path")
     assert isinstance(repo, GCSArtifactRepository)
 
 
