@@ -17,26 +17,14 @@ from click.testing import CliRunner
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
-from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR
-from mlflow.store.file_store import FileStore
+from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
+from mlflow.tracking.utils import _tracking_store_registry
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
     MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
 
 
 LOCALHOST = '127.0.0.1'
-SERVER_PORT = 0
-
-server_root_dir = tempfile.mkdtemp("test_rest_tracking_file_store")
-
-
-def _get_safe_port():
-    """Returns an ephemeral port that is very likely to be free to bind to."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((LOCALHOST, 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 def _await_server_up_or_die(port, timeout=60):
@@ -69,35 +57,70 @@ def _await_server_down_or_die(process, timeout=60):
     if process.is_alive():
         raise Exception('Server failed to shutdown after %s seconds' % timeout)
 
-
-@pytest.fixture(scope="module", autouse=True)
-def init_and_tear_down_server(request):
+def _init_server(backend_uri):
     """
     Once per run of the entire set of tests, we create a new server, and
     clean it up at the end.
     """
     mlflow.set_tracking_uri(None)
-    global SERVER_PORT
-    SERVER_PORT = _get_safe_port()
-    env = {BACKEND_STORE_URI_ENV_VAR: server_root_dir}
+    server_port = _get_safe_port()
+    env = {BACKEND_STORE_URI_ENV_VAR: backend_uri, ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=artifact_root_dir)}
     with mock.patch.dict(os.environ, env):
-        process = Process(target=lambda: app.run(LOCALHOST, SERVER_PORT))
+        process = Process(target=lambda: app.run(LOCALHOST, server_port))
         process.start()
-    _await_server_up_or_die(SERVER_PORT)
+    _await_server_up_or_die(server_port)
+    res = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
+    print("Lauenching tracking server against backend  URI %s, res %s" % (backend_uri, res))
+    return res, process
 
-    # Yielding here causes pytest to resume execution at the end of all tests.
+
+def _get_safe_port():
+    """Returns an ephemeral port that is very likely to be free to bind to."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((LOCALHOST, 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
+
+server_root_dir = tempfile.mkdtemp("test_rest_tracking")
+artifact_root_dir = tempfile.mkdtemp(suffix="artifacts", dir=server_root_dir)
+BACKEND_URIS = [
+    "sqlite:////%s/test-database.db" % server_root_dir,  # SQLAlchemyStore
+    os.path.join(server_root_dir, "file_store_root"),  # FileStore
+]
+SERVER_URLS = []
+SERVER_PROCS = []
+BACKEND_URI_TO_SERVER_URL = {}
+for uri in BACKEND_URIS:
+    server_url, process = _init_server(backend_uri=uri)
+    SERVER_PROCS.append(process)
+    SERVER_URLS.append(server_url)
+    BACKEND_URI_TO_SERVER_URL[uri] = server_url
+
+
+def pytest_generate_tests(metafunc):
+    """
+    Dynamically pass the list of generated
+    """
+    if 'backend_store_uri' in metafunc.fixturenames:
+        metafunc.parametrize('backend_store_uri', BACKEND_URIS)
+
+@pytest.fixture(scope="module", autouse=True)
+def server_urls():
+    """
+    Clean up all servers created for testing in `pytest_generate_tests`
+    """
     yield
-
-    print("Terminating server...")
-    process.terminate()
-    _await_server_down_or_die(process)
+    for server_url, process in zip(SERVER_URLS, SERVER_PROCS):
+        print("Terminating server at %s..." % (server_url))
+        process.terminate()
+        _await_server_down_or_die(process)
     shutil.rmtree(server_root_dir)
 
 
 @pytest.fixture()
-def tracking_server_uri():
-    """Provides a tracking URI for communicating with the local tracking server."""
-    return "http://{hostname}:{port}".format(hostname=LOCALHOST, port=SERVER_PORT)
+def tracking_server_uri(backend_store_uri):
+    return BACKEND_URI_TO_SERVER_URL[backend_store_uri]
 
 
 @pytest.fixture()
@@ -125,7 +148,7 @@ def test_create_get_list_experiment(mlflow_client):
     assert exp.artifact_location == 'my_location'
 
     experiments = mlflow_client.list_experiments()
-    assert set([e.name for e in experiments]) == {'My Experiment'}
+    assert set([e.name for e in experiments]) == {'My Experiment', 'Default'}
 
 
 def test_delete_restore_experiment(mlflow_client):
@@ -156,8 +179,8 @@ def test_rename_experiment(mlflow_client):
 
 
 def test_rename_experiment_cli(mlflow_client, cli_env):
-    bad_experiment_name = "BadName"
-    good_experiment_name = "GoodName"
+    bad_experiment_name = "CLIBadName"
+    good_experiment_name = "CLIGoodName"
 
     CliRunner(env=cli_env).invoke(mlflow.experiments.commands, ['create', bad_experiment_name])
     experiment_id = mlflow_client.get_experiment_by_name(bad_experiment_name).experiment_id
@@ -220,7 +243,7 @@ def test_create_run_defaults(mlflow_client):
     assert run.info.user_id is not None  # we should pick some default
 
 
-def test_log_metrics_params_tags(mlflow_client):
+def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment('Oh My')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
@@ -234,15 +257,15 @@ def test_log_metrics_params_tags(mlflow_client):
     assert run.data.params.get('param') == 'value'
     assert run.data.tags.get('taggity') == 'do-dah'
     # TODO(sid): replace this with mlflow_client.get_metric_history
-    fs = FileStore(server_root_dir)
-    metric_history0 = fs.get_metric_history(run_id, "metric")
+    store = _tracking_store_registry.get_store(backend_store_uri)
+    metric_history0 = store.get_metric_history(run_id, "metric")
     assert len(metric_history0) == 1
     metric0 = metric_history0[0]
     assert metric0.key == "metric"
     assert metric0.value == 123.456
     assert metric0.timestamp == 789
     assert metric0.step == 2
-    metric_history1 = fs.get_metric_history(run_id, "stepless-metric")
+    metric_history1 = store.get_metric_history(run_id, "stepless-metric")
     assert len(metric_history1) == 1
     metric1 = metric_history1[0]
     assert metric1.key == "stepless-metric"
@@ -251,7 +274,7 @@ def test_log_metrics_params_tags(mlflow_client):
     assert metric1.step == 0
 
 
-def test_log_batch(mlflow_client):
+def test_log_batch(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment('Batch em up')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
@@ -264,8 +287,8 @@ def test_log_batch(mlflow_client):
     assert run.data.params.get('param') == 'value'
     assert run.data.tags.get('taggity') == 'do-dah'
     # TODO(sid): replace this with mlflow_client.get_metric_history
-    fs = FileStore(server_root_dir)
-    metric_history = fs.get_metric_history(run_id, "metric")
+    store = _tracking_store_registry.get_store(backend_store_uri)
+    metric_history = store.get_metric_history(run_id, "metric")
     assert len(metric_history) == 1
     metric = metric_history[0]
     assert metric.key == "metric"
