@@ -336,8 +336,7 @@ def _list_experiments():
 
 @catch_mlflow_exception
 def _get_artifact_repo(run):
-    store = _get_store()
-    return get_artifact_repository(run.info.artifact_uri, store)
+    return get_artifact_repository(run.info.artifact_uri)
 
 
 @catch_mlflow_exception
