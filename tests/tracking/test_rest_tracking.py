@@ -25,14 +25,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFL
 
 
 LOCALHOST = '127.0.0.1'
-server_root_dir = tempfile.mkdtemp("test_rest_tracking")
-artifact_root_dir = tempfile.mkdtemp(suffix="artifacts", dir=server_root_dir)
-BACKEND_URIS = [
-    "sqlite:////%s/test-database.db" % server_root_dir,  # SQLAlchemyStore
-    os.path.join(server_root_dir, "file_store_root"),  # FileStore
-]
 
-BACKEND_URI_TO_SERVER_URL = {}
 
 def _await_server_up_or_die(port, timeout=60):
     """Waits until the local flask server is listening on the given port."""
@@ -80,6 +73,7 @@ def _init_server(backend_uri):
     print("Lauenching tracking server against backend  URI %s, res %s" % (backend_uri, res))
     return res, process
 
+
 def _get_safe_port():
     """Returns an ephemeral port that is very likely to be free to bind to."""
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -88,31 +82,41 @@ def _get_safe_port():
     sock.close()
     return port
 
+server_root_dir = tempfile.mkdtemp("test_rest_tracking")
+artifact_root_dir = tempfile.mkdtemp(suffix="artifacts", dir=server_root_dir)
+BACKEND_URIS = [
+    "sqlite:////%s/test-database.db" % server_root_dir,  # SQLAlchemyStore
+    os.path.join(server_root_dir, "file_store_root"),  # FileStore
+]
+SERVER_URLS = []
+SERVER_PROCS = []
+BACKEND_URI_TO_SERVER_URL = {}
+for uri in BACKEND_URIS:
+    server_url, process = _init_server(backend_uri=uri)
+    SERVER_PROCS.append(process)
+    SERVER_URLS.append(server_url)
+    BACKEND_URI_TO_SERVER_URL[uri] = server_url
+
+
+def pytest_generate_tests(metafunc):
+    """
+    Dynamically pass the list of generated
+    """
+    if 'backend_store_uri' in metafunc.fixturenames:
+        metafunc.parametrize('backend_store_uri', BACKEND_URIS)
+
 @pytest.fixture(scope="module", autouse=True)
 def server_urls():
     """
     Clean up all servers created for testing in `pytest_generate_tests`
     """
-    server_procs = []
-    global BACKEND_URI_TO_SERVER_URL
-    for uri in BACKEND_URIS:
-        server_url, process = _init_server(backend_uri=uri)
-        BACKEND_URI_TO_SERVER_URL[server_url] = uri
-        server_procs.append(process)
     yield
-    for i, process in enumerate(server_procs):
-        print("Terminating server (%s of %s)..." % (i, len(server_procs)))
+    for server_url, process in zip(SERVER_URLS, SERVER_PROCS):
+        print("Terminating server at %s..." % (server_url))
         process.terminate()
         _await_server_down_or_die(process)
     shutil.rmtree(server_root_dir)
 
-
-def pytest_generate_tests(metafunc):
-    """
-    Automatically parametrize each each fixture/test with the list of backend store URIs
-    """
-    if 'backend_store_uri' in metafunc.fixturenames:
-        metafunc.parametrize('backend_store_uri', BACKEND_URIS)
 
 @pytest.fixture()
 def tracking_server_uri(backend_store_uri):
