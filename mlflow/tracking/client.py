@@ -162,14 +162,15 @@ class MlflowClient(object):
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None):
+    def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
         Log a metric against the run ID. If timestamp is not provided, uses
-        the current timestamp.
+        the current timestamp. The metric's step defaults to 0 if unspecified.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
-        _validate_metric(key, value, timestamp, 0)
-        metric = Metric(key, value, timestamp, 0)
+        step = step if step is not None else 0
+        _validate_metric(key, value, timestamp, step)
+        metric = Metric(key, value, timestamp, step)
         self.store.log_metric(run_id, metric)
 
     def log_param(self, run_id, key, value):
@@ -215,7 +216,7 @@ class MlflowClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
-        artifact_repo = get_artifact_repository(run.info.artifact_uri, self.store)
+        artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.log_artifact(local_path, artifact_path)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
@@ -226,7 +227,7 @@ class MlflowClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
-        artifact_repo = get_artifact_repository(run.info.artifact_uri, self.store)
+        artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):
@@ -240,7 +241,7 @@ class MlflowClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
-        artifact_repo = get_artifact_repository(artifact_root, self.store)
+        artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.list_artifacts(path)
 
     def download_artifacts(self, run_id, path):
@@ -254,7 +255,7 @@ class MlflowClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
-        artifact_repo = get_artifact_repository(artifact_root, self.store)
+        artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.download_artifacts(path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
