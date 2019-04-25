@@ -1,6 +1,7 @@
 import sqlalchemy
 import uuid
 from contextlib import contextmanager
+import posixpath
 from six.moves import urllib
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -163,7 +164,7 @@ class SqlAlchemyStore(AbstractStore):
         return instance, created
 
     def _get_artifact_location(self, experiment_id):
-        return build_path(self.artifact_root_uri, str(experiment_id))
+        return posixpath.join(self.artifact_root_uri, str(experiment_id))
 
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
@@ -268,8 +269,8 @@ class SqlAlchemyStore(AbstractStore):
                                       INVALID_STATE)
 
             run_uuid = uuid.uuid4().hex
-            artifact_location = build_path(experiment.artifact_location, run_uuid,
-                                           SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
+            artifact_location = posixpath.join(experiment.artifact_location, run_uuid,
+                                               SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
             run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_uuid,
                          experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                          source_name=source_name, entry_point_name=entry_point_name,

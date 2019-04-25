@@ -7,7 +7,6 @@ from mlflow.utils.validation import path_not_unique, bad_path_message
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
-from mlflow.utils.file_utils import build_path
 
 
 class ArtifactRepository:
@@ -78,7 +77,7 @@ class ArtifactRepository:
 
         def download_artifacts_into(artifact_path, dest_dir):
             basename = posixpath.basename(artifact_path)
-            local_path = build_path(dest_dir, basename)
+            local_path = os.path.join(dest_dir, basename)
             listing = self.list_artifacts(artifact_path)
             if len(listing) > 0:
                 # Artifact_path is a directory, so make a directory for it and download everything

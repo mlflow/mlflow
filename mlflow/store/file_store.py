@@ -19,7 +19,7 @@ from mlflow.utils.validation import _validate_metric_name, _validate_param_name,
 
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
-                                     read_yaml, find, read_file_lines, read_file, build_path,
+                                     read_yaml, find, read_file_lines, read_file,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all, local_file_uri_to_path, path_to_local_file_uri)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
