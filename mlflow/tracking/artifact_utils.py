@@ -10,7 +10,6 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _get_store
 
 
-# TODO(sueann): maybe move to RunsArtifactRepository so the circular dependency is clear?
 def get_artifact_uri(run_id, artifact_path=None):
     """
     Get the absolute URI of the specified artifact in the specified run. If `path` is not specified,
@@ -35,6 +34,7 @@ def get_artifact_uri(run_id, artifact_path=None):
 
     store = _get_store()
     run = store.get_run(run_id)
+    # Maybe move this method to RunsArtifactRepository so the circular dependency is clearer.
     assert urllib.parse.urlparse(run.info.artifact_uri).scheme != "runs"  # avoid an infinite loop
     if artifact_path is None:
         return run.info.artifact_uri

@@ -28,18 +28,24 @@ class RunsArtifactRepository(ArtifactRepository):
     def parse_runs_uri(run_uri):
         parsed = urllib.parse.urlparse(run_uri)
         if parsed.scheme != "runs":
-            raise MlflowException("Not a proper runs:/ URI: %s" % run_uri)
+            raise MlflowException(
+                "Not a proper runs:/ URI: %s. " % run_uri +
+                "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'")
         # hostname = parsed.netloc  # TODO: support later
 
         path = parsed.path
         if not path.startswith('/') or len(path) <= 1:
-            raise MlflowException("Not a proper runs:/ URI: %s" % run_uri)
+            raise MlflowException(
+                "Not a proper runs:/ URI: %s. " % run_uri +
+                "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'")
         path = path[1:]
 
         path_parts = path.split('/')
         run_id = path_parts[0]
         if run_id == '':
-            raise MlflowException("Not a proper runs:/ URI: %s" % run_uri)
+            raise MlflowException(
+                "Not a proper runs:/ URI: %s. " % run_uri +
+                "Runs URIs must be of the form 'runs:/<run_id>/run-relative/path/to/artifact'")
 
         artifact_path = '/'.join(path_parts[1:]) if len(path_parts) > 1 else None
         artifact_path = artifact_path if artifact_path != '' else None
