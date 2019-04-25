@@ -32,7 +32,8 @@ def test_parse_runs_uri_invalid_input(uri):
         RunsArtifactRepository.parse_runs_uri(uri)
 
 
-def test_runs_artifact_repo_init(tracking_uri_mock):
+@pytest.mark.usefixtures("tracking_uri_mock")
+def test_runs_artifact_repo_init():
     artifact_location = "s3://blah_bucket/"
     experiment_id = mlflow.create_experiment("expr_abc", artifact_location)
     with mlflow.start_run(experiment_id=experiment_id):
