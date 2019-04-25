@@ -1,4 +1,5 @@
 import os
+import posixpath
 import tempfile
 from abc import abstractmethod, ABCMeta
 
@@ -21,14 +22,6 @@ class ArtifactRepository:
         self.artifact_uri = artifact_uri
 
     @abstractmethod
-    def get_path_module(self):
-        """
-        :return: The Python path module that should be used for parsing and modifying artifact
-                 paths. For example, if the artifact repository's URI scheme uses POSIX paths,
-                 this method may return the ``posixpath`` module.
-        """
-
-    @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):
         """
         Log a local file as an artifact, optionally taking an ``artifact_path`` to place it in
@@ -37,7 +30,7 @@ class ArtifactRepository:
 
         :param local_file: Path to artifact to log
         :param artifact_path: Directory within the run's artifact directory in which to log the
-                              artifact
+                              artifact.
         """
         pass
 
@@ -79,11 +72,12 @@ class ArtifactRepository:
 
         :return: Absolute path of the local filesystem location containing the downloaded artifacts.
         """
+
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         # without downloading it, or to get a pre-signed URL for cloud storage.
 
         def download_artifacts_into(artifact_path, dest_dir):
-            basename = self.get_path_module().basename(artifact_path)
+            basename = posixpath.basename(artifact_path)
             local_path = build_path(dest_dir, basename)
             listing = self.list_artifacts(artifact_path)
             if len(listing) > 0:
@@ -101,16 +95,16 @@ class ArtifactRepository:
 
         if not os.path.exists(dst_path):
             raise MlflowException(
-                    message=(
-                        "The destination path for downloaded artifacts does not"
-                        " exist! Destination path: {dst_path}".format(dst_path=dst_path)),
-                    error_code=RESOURCE_DOES_NOT_EXIST)
+                message=(
+                    "The destination path for downloaded artifacts does not"
+                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)),
+                error_code=RESOURCE_DOES_NOT_EXIST)
         elif not os.path.isdir(dst_path):
             raise MlflowException(
-                    message=(
-                        "The destination path for downloaded artifacts must be a directory!"
-                        " Destination path: {dst_path}".format(dst_path=dst_path)),
-                    error_code=INVALID_PARAMETER_VALUE)
+                message=(
+                    "The destination path for downloaded artifacts must be a directory!"
+                    " Destination path: {dst_path}".format(dst_path=dst_path)),
+                error_code=INVALID_PARAMETER_VALUE)
 
         return download_artifacts_into(artifact_path, dst_path)
 

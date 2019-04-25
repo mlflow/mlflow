@@ -21,7 +21,7 @@ from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
                                      read_yaml, find, read_file_lines, read_file, build_path,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
-                                     list_all, uri_to_path, local_uri_from_path)
+                                     list_all, local_file_uri_to_path, path_to_local_file_uri)
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
@@ -75,9 +75,9 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super(FileStore, self).__init__()
-        self.root_directory = root_directory or _default_root_dir()
-        self.artifact_root_uri = artifact_root_uri or self.root_directory
-        self.trash_folder = build_path(self.root_directory, FileStore.TRASH_FOLDER_NAME)
+        self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
+        self.artifact_root_uri = artifact_root_uri or path_to_local_file_uri(self.root_directory)
+        self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
@@ -116,29 +116,31 @@ class FileStore(AbstractStore):
         _validate_run_id(run_uuid)
         if not self._has_experiment(experiment_id):
             return None
-        return build_path(self._get_experiment_path(experiment_id, assert_exists=True), run_uuid)
+        return os.path.join(self._get_experiment_path(experiment_id, assert_exists=True),
+                              run_uuid)
 
     def _get_metric_path(self, experiment_id, run_uuid, metric_key):
         _validate_run_id(run_uuid)
         _validate_metric_name(metric_key)
-        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.METRICS_FOLDER_NAME,
-                          metric_key)
+        return os.path.join(self._get_run_dir(experiment_id, run_uuid),
+                              FileStore.METRICS_FOLDER_NAME,
+                              metric_key)
 
     def _get_param_path(self, experiment_id, run_uuid, param_name):
         _validate_run_id(run_uuid)
         _validate_param_name(param_name)
-        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME,
+        return os.path.join(self._get_run_dir(experiment_id, run_uuid), FileStore.PARAMS_FOLDER_NAME,
                           param_name)
 
     def _get_tag_path(self, experiment_id, run_uuid, tag_name):
         _validate_run_id(run_uuid)
         _validate_tag_name(tag_name)
-        return build_path(self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME,
+        return os.path.join(self._get_run_dir(experiment_id, run_uuid), FileStore.TAGS_FOLDER_NAME,
                           tag_name)
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
-        artifacts_dir = build_path(self.get_experiment(experiment_id).artifact_location,
+        artifacts_dir = os.path.join(self.get_experiment(experiment_id).artifact_location,
                                    run_uuid,
                                    FileStore.ARTIFACTS_FOLDER_NAME)
         return artifacts_dir

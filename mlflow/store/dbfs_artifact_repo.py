@@ -1,4 +1,5 @@
 import os
+import posixpath
 import json
 
 from mlflow.entities import FileInfo
@@ -61,15 +62,12 @@ class DbfsArtifactRepository(ArtifactRepository):
     def _get_dbfs_endpoint(self, artifact_path):
         return "/dbfs%s" % self._get_dbfs_path(artifact_path)
 
-    def get_path_module(self):
-        import posixpath
-        return posixpath
 
     def log_artifact(self, local_file, artifact_path=None):
-        basename = self.get_path_module().basename(local_file)
+        basename = os.path.basename(local_file)
         if artifact_path:
             http_endpoint = self._get_dbfs_endpoint(
-                self.get_path_module().join(artifact_path, basename))
+                posixpath.join(artifact_path, basename))
         else:
             http_endpoint = self._get_dbfs_endpoint(basename)
         if os.stat(local_file).st_size == 0:
@@ -88,10 +86,10 @@ class DbfsArtifactRepository(ArtifactRepository):
         for (dirpath, _, filenames) in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
-                rel_path = self.get_path_module().relpath(dirpath, local_dir)
-                artifact_subdir = self.get_path_module().join(artifact_path, rel_path)
+                rel_path = os.path.relpath(dirpath, local_dir)
+                artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
-                file_path = self.get_path_module().join(dirpath, name)
+                file_path = os.path.join(dirpath, name)
                 self.log_artifact(file_path, artifact_subdir)
 
     def list_artifacts(self, path=None):

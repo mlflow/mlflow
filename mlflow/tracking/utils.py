@@ -1,11 +1,11 @@
 from __future__ import print_function
 
 import os
+import posixpath
 import sys
 import warnings
 
 import entrypoints
-from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -14,9 +14,8 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
-from mlflow.utils import env, rest_utils, file_utils
+from mlflow.utils import env, rest_utils, file_utils, get_uri_scheme
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 _LOCAL_FS_URI_PREFIX = "file:///"
@@ -95,20 +94,16 @@ def get_artifact_uri(run_id, artifact_path=None):
     """
     if not run_id:
         raise MlflowException(
-                message="A run_id must be specified in order to obtain an artifact uri!",
-                error_code=INVALID_PARAMETER_VALUE)
+            message="A run_id must be specified in order to obtain an artifact uri!",
+            error_code=INVALID_PARAMETER_VALUE)
 
     store = _get_store()
     run = store.get_run(run_id)
     if artifact_path is None:
         return run.info.artifact_uri
     else:
-        # Path separators may not be consistent across all artifact repositories. Therefore, when
-        # joining the run's artifact root directory with the artifact's relative path, we use the
-        # path module defined by the appropriate artifact repository
-        artifact_path_module =\
-            get_artifact_repository(run.info.artifact_uri, store).get_path_module()
-        return artifact_path_module.join(run.info.artifact_uri, artifact_path)
+        return posixpath.join(run.info.artifact_uri, artifact_path)
+
 
 
 def _download_artifact_from_uri(artifact_uri, output_path=None):
@@ -118,14 +113,12 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
                         a local output path will be created.
     """
     store = _get_store(artifact_uri=artifact_uri)
-    artifact_path_module =\
-        get_artifact_repository(artifact_uri, store).get_path_module()
     artifact_src_dir = artifact_path_module.dirname(artifact_uri)
     artifact_src_relative_path = artifact_path_module.basename(artifact_uri)
     artifact_repo = get_artifact_repository(
-            artifact_uri=artifact_src_dir, store=store)
+        artifact_uri=artifact_src_dir, store=store)
     return artifact_repo.download_artifacts(
-            artifact_path=artifact_src_relative_path, dst_path=output_path)
+        artifact_path=artifact_src_relative_path, dst_path=output_path)
 
 
 def _is_local_uri(uri):
@@ -170,6 +163,7 @@ def _get_rest_store(store_uri, **_):
             token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
             ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == 'true',
         )
+
     return RestStore(get_default_host_creds)
 
 
@@ -188,13 +182,18 @@ def _get_databricks_rest_store(store_uri, **_):
     profile = get_db_profile_from_uri(store_uri)
     return RestStore(lambda: get_databricks_host_creds(profile))
 
-def _get_uri_scheme(uri):
-    if uri == "databricks":
-        return uri
-    drive, path = os.path.splitdrive(store_uri)
-    if drive: # windows abs path do not have a scheme
-        return ""
-    return urllib.parse.urlparse(store_uri).scheme
+
+def _get_posix_path(path):
+    if os.path == posixpath:
+        return path
+    drive, path = os.path.splitdrive(path)
+    path_elems = _deconstruct_path(path)
+    if path_elems[0] == os.path.sep:
+        path_elems[0] = posixpath.sep
+    return posixpath.join(*([drive] + path_elems))
+
+
+
 
 class TrackingStoreRegistry:
     """Scheme-based registry for tracking store implementations
@@ -230,8 +229,6 @@ class TrackingStoreRegistry:
                     stacklevel=2
                 )
 
-
-
     def get_store(self, store_uri=None, artifact_uri=None):
         """Get a store from the registry based on the scheme of store_uri
 
@@ -245,8 +242,7 @@ class TrackingStoreRegistry:
                  requirements.
         """
         store_uri = store_uri if store_uri is not None else get_tracking_uri()
-
-        scheme = _get_uri_scheme(store_uri)
+        scheme = store_uri if store_uri == "databricks" else get_uri_scheme(store_uri)
 
         try:
             store_builder = self._registry[scheme]
@@ -275,7 +271,6 @@ _tracking_store_registry.register_entrypoints()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
-
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 

@@ -1,10 +1,14 @@
 import codecs
 import gzip
 import os
+import posixpath
 import shutil
 import tarfile
 import tempfile
 import urllib
+
+from six.moves import urllib_parse
+from six.moves.urllib.request import pathname2url
 
 import yaml
 
@@ -25,11 +29,6 @@ def is_file(name):
 
 def exists(name):
     return os.path.exists(name)
-
-
-def build_path(*path_segments):
-    """ Returns the path formed by joining the passed-in path segments. """
-    return os.path.join(*path_segments)
 
 
 def list_all(root, filter_func=lambda x: True, full_path=False):
@@ -346,18 +345,44 @@ def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
 
 
-def uri_to_path(uri):
+def path_to_local_file_uri(path):
+    path = pathname2url(path)
+    if path == posixpath.abspath(path):
+        return "file://{path}".format(path=path)
+    else:
+        return "file:{path}".format(path=path)
+
+
+def local_file_uri_to_path(uri):
     """
     Convert file URI aor path to normalized path.
 
     :param uri: File URI or path.
     :return: Normalized path.
     """
-    if not uri.startswith("file:"):
-        return os.path.normpath(uri)
     return urllib.request.url2pathname(urllib.parse.urlparse(uri).path)
 
 
+
+
+
+def _deconstruct_path(path, path_module):
+    a, b = path_module.split(path)
+    if not a:
+        return [b]
+    if not b:
+        return [a]
+    return _deconstruct_path(a, path_module) + [b]
+
+
+def get_posix_path(path):
+    if os.path == posixpath:
+        return path
+    drive, path = os.path.splitdrive(path)
+    path_elems = _deconstruct_path(path)
+    if path_elems[0] == os.path.sep:
+        path_elems[0] = posixpath.sep
+    return posixpath.join(*([drive] + path_elems))
 
 
 def local_uri_from_path(path):
