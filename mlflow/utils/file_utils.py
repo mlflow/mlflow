@@ -363,9 +363,6 @@ def local_file_uri_to_path(uri):
     return urllib.request.url2pathname(urllib.parse.urlparse(uri).path)
 
 
-
-
-
 def _deconstruct_path(path, path_module):
     a, b = path_module.split(path)
     if not a:

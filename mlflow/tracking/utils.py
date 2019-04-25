@@ -90,7 +90,7 @@ def _is_databricks_uri(uri):
 
 
 def _get_file_store(store_uri, **_):
-    return FileStore(file_utils.uri_to_path(store_uri), store_uri)
+    return FileStore(file_utils.local_file_uri_to_path(store_uri), store_uri)
 
 
 def _is_database_uri(uri):
