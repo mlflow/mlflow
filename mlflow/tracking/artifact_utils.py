@@ -2,12 +2,15 @@
 Utilities for dealing with artifacts in the context of a Run.
 """
 
+from six.moves import urllib
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _get_store
 
 
+# TODO(sueann): maybe move to RunsArtifactRepository so the circular dependency is clear?
 def get_artifact_uri(run_id, artifact_path=None):
     """
     Get the absolute URI of the specified artifact in the specified run. If `path` is not specified,
@@ -32,6 +35,7 @@ def get_artifact_uri(run_id, artifact_path=None):
 
     store = _get_store()
     run = store.get_run(run_id)
+    assert urllib.parse.urlparse(run.info.artifact_uri).scheme != "runs"  # avoid an infinite loop
     if artifact_path is None:
         return run.info.artifact_uri
     else:
@@ -43,7 +47,7 @@ def get_artifact_uri(run_id, artifact_path=None):
         return artifact_path_module.join(run.info.artifact_uri, artifact_path)
 
 
-# TODO(sueann): This method does not require a Run and its internals should be moved to
+# TODO: This method does not require a Run and its internals should be moved to
 #  data.download_uri (requires confirming that Projects will not break with this change).
 def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
