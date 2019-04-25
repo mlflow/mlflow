@@ -44,4 +44,4 @@ def test_runs_artifact_repo_gets_correct_internal_repo():
 
         assert runs_repo.artifact_uri == runs_uri
         assert get_artifact_repo_mock.call_count == 1
-        get_artifact_repo_mock.call_args_list[0][0][0] == absolute_uri
+        assert get_artifact_repo_mock.call_args_list[0][0][0] == absolute_uri
