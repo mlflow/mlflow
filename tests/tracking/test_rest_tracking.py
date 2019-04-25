@@ -57,24 +57,26 @@ def _await_server_down_or_die(process, timeout=60):
         raise Exception('Server failed to shutdown after %s seconds' % timeout)
 
 
-def _init_server(backend_uri, artifact_uri):
+def _init_server(backend_uri, root_artifact_uri):
     """
-    Once per run of the entire set of tests, we create a new server, and
-    clean it up at the end.
+    Launch a new REST server using the tracking store specified by backend_uri and root artifact
+    directory specified by root_artifact_uri.
+    :returns A tuple (url, process) containing the string URL of the server and a handle to the
+             server process (a multiprocessing.Process object).
     """
     mlflow.set_tracking_uri(None)
     server_port = _get_safe_port()
     env = {
         BACKEND_STORE_URI_ENV_VAR: backend_uri,
-        ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=artifact_uri),
+        ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=root_artifact_uri),
     }
     with mock.patch.dict(os.environ, env):
         process = Process(target=lambda: app.run(LOCALHOST, server_port))
         process.start()
     _await_server_up_or_die(server_port)
-    res = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
-    print("Lauenching tracking server against backend  URI %s, res %s" % (backend_uri, res))
-    return res, process
+    url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
+    print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))
+    return url, process
 
 
 def _get_safe_port():
@@ -97,7 +99,7 @@ BACKEND_URIS = [
 # Map of backend URI to tuple (server URL, Process). We populate this map by constructing
 # a server per backend URI
 BACKEND_URI_TO_SERVER_URL_AND_PROC = {
-    uri: _init_server(backend_uri=uri, artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
+    uri: _init_server(backend_uri=uri, root_artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
     for uri in BACKEND_URIS
 }
 
