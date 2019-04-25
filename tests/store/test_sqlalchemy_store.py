@@ -1091,3 +1091,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])
         self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+
+    def test_create_run_to_proto(self):
+        experiment_id = self._experiment_factory('test_create_run')
+        for exp_id in [experiment_id, int(experiment_id)]:
+            expected = self._get_run_configs(experiment_id=int(experiment_id))
+            actual = self.store.create_run(**expected)
+            actual.to_proto()
