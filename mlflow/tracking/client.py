@@ -12,7 +12,7 @@ from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import utils
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
-    _validate_experiment_name, _validate_metric
+    _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
@@ -133,6 +133,7 @@ class MlflowClient(object):
         :return: Integer ID of the created experiment.
         """
         _validate_experiment_name(name)
+        _validate_experiment_artifact_location(artifact_location)
         return self.store.create_experiment(
             name=name,
             artifact_location=artifact_location,
