@@ -17,13 +17,13 @@ import mlflow.sklearn
 import mlflow.sagemaker as mfs
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
+    INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.tracking.artifact_utils import _get_model_log_dir
 
 from tests.sagemaker.mock import mock_sagemaker, Endpoint, EndpointOperation
 
-TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id"])
+TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "run_uri"])
 
 
 @pytest.fixture
@@ -36,7 +36,8 @@ def pretrained_model():
         lr.fit(X, y)
         mlflow.sklearn.log_model(lr, model_path)
         run_id = mlflow.active_run().info.run_uuid
-        return TrainedModel(model_path, run_id)
+        run_uri = "runs:/" + run_id + "/" + model_path
+        return TrainedModel(model_path, run_id, run_uri)
 
 
 @pytest.fixture
@@ -98,8 +99,7 @@ def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
     with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="bad_flavor",
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+                   model_uri=pretrained_model.run_uri,
                    flavor=unsupported_flavor)
 
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -109,14 +109,14 @@ def test_deployment_with_missing_flavor_raises_exception(pretrained_model):
     missing_flavor = "mleap"
     with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="missing-flavor",
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+                   model_uri=pretrained_model.run_uri,
                    flavor=missing_flavor)
 
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
 def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrained_model):
+    # TODO(sueann): how to get rid of _get_model_log_dir calls
     logged_model_path = _get_model_log_dir(pretrained_model.model_path, pretrained_model.run_id)
     model_config_path = os.path.join(logged_model_path, "MLmodel")
     model_config = Model.load(model_config_path)
@@ -125,6 +125,7 @@ def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrain
 
     with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="missing-flavor",
+                   # TODO(sueann): er, no path?
                    model_path=logged_model_path,
                    flavor=None)
 
@@ -133,6 +134,7 @@ def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrain
 
 def test_validate_deployment_flavor_validates_python_function_flavor_successfully(
         pretrained_model):
+    # TODO(sueann): how to get rid of _get_model_log_dir calls
     model_config_path = os.path.join(_get_model_log_dir(
         pretrained_model.model_path, pretrained_model.run_id), "MLmodel")
     model_config = Model.load(model_config_path)
@@ -141,6 +143,7 @@ def test_validate_deployment_flavor_validates_python_function_flavor_successfull
 
 
 def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrained_model):
+    # TODO(sueann): how to get rid of _get_model_log_dir calls
     model_config_path = os.path.join(_get_model_log_dir(
         pretrained_model.model_path, pretrained_model.run_id), "MLmodel")
     model_config = Model.load(model_config_path)
@@ -155,8 +158,7 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
         pretrained_model):
     with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="test-app",
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+                   model_uri=pretrained_model.run_uri,
                    mode=mfs.DEPLOYMENT_MODE_CREATE,
                    archive=False,
                    synchronous=False)
@@ -165,13 +167,13 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+# TODO(sueann): add similar tests for local file path, one remote filestore.
 @mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names(
         pretrained_model, sagemaker_client):
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     region_name = sagemaker_client.meta.region_name
@@ -193,14 +195,12 @@ def test_deploying_application_with_preexisting_name_in_create_mode_throws_excep
         pretrained_model):
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     with pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name=app_name,
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+                   model_uri=pretrained_model.run_uri,
                    mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     assert "an application with the same name already exists" in exc.value.message
@@ -217,8 +217,7 @@ def test_deploy_in_synchronous_mode_waits_for_endpoint_creation_to_complete_befo
     app_name = "test-app"
     deployment_start_time = time.time()
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_CREATE,
                synchronous=True)
     deployment_end_time = time.time()
@@ -238,8 +237,7 @@ def test_deploy_create_in_asynchronous_mode_returns_before_endpoint_creation_com
     app_name = "test-app"
     deployment_start_time = time.time()
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_CREATE,
                synchronous=False,
                archive=True)
@@ -259,15 +257,13 @@ def test_deploy_replace_in_asynchronous_mode_returns_before_endpoint_creation_co
 
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_CREATE,
                synchronous=True)
 
     update_start_time = time.time()
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_REPLACE,
                synchronous=False,
                archive=True)
@@ -306,8 +302,7 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
     with mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_creations),\
             pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="test-app",
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+                   model_uri=pretrained_model.run_uri,
                    mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     assert "deployment operation failed" in exc.value.message
@@ -318,14 +313,12 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
 def test_deploy_in_add_mode_adds_new_model_to_existing_endpoint(pretrained_model, sagemaker_client):
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
     models_added = 1
     for _ in range(11):
         mfs.deploy(app_name=app_name,
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+                   model_uri=pretrained_model.run_uri,
                    mode=mfs.DEPLOYMENT_MODE_ADD,
                    archive=True,
                    synchronous=False)
@@ -344,14 +337,12 @@ def test_deploy_in_replace_model_removes_preexisting_models_from_endpoint(
         pretrained_model, sagemaker_client):
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_ADD)
 
     for _ in range(11):
         mfs.deploy(app_name=app_name,
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+                   model_uri=pretrained_model.run_uri,
                    mode=mfs.DEPLOYMENT_MODE_ADD,
                    archive=True,
                    synchronous=False)
@@ -367,8 +358,7 @@ def test_deploy_in_replace_model_removes_preexisting_models_from_endpoint(
         variant["ModelName"] for variant in production_variants_before_replacement]
 
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_REPLACE,
                archive=True,
                synchronous=False)
@@ -396,8 +386,7 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
 
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     boto_caller = botocore.client.BaseClient._make_api_call
@@ -421,8 +410,7 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
     with mock.patch("botocore.client.BaseClient._make_api_call", new=fail_endpoint_updates),\
             pytest.raises(MlflowException) as exc:
         mfs.deploy(app_name="test-app",
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+                   model_uri=pretrained_model.run_uri,
                    mode=mfs.DEPLOYMENT_MODE_REPLACE)
 
     assert "deployment operation failed" in exc.value.message
@@ -438,8 +426,7 @@ def test_deploy_in_replace_mode_waits_for_endpoint_update_completion_before_dele
 
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
     endpoint_config_name_before_replacement = sagemaker_client.describe_endpoint(
             EndpointName=app_name)["EndpointConfigName"]
@@ -466,8 +453,7 @@ def test_deploy_in_replace_mode_waits_for_endpoint_update_completion_before_dele
 
     with mock.patch("botocore.client.BaseClient._make_api_call", new=validate_deletes):
         mfs.deploy(app_name=app_name,
-                   model_path=pretrained_model.model_path,
-                   run_id=pretrained_model.run_id,
+                   model_uri=pretrained_model.run_uri,
                    mode=mfs.DEPLOYMENT_MODE_REPLACE,
                    archive=False)
 
@@ -481,8 +467,7 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
 
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
-               model_path=pretrained_model.model_path,
-               run_id=pretrained_model.run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_CREATE)
 
     s3_client = boto3.client("s3", region_name=region_name)
@@ -502,8 +487,7 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
         mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
         new_run_id = mlflow.active_run().info.run_uuid
     mfs.deploy(app_name=app_name,
-               model_path=new_artifact_path,
-               run_id=new_run_id,
+               model_uri=pretrained_model.run_uri,
                mode=mfs.DEPLOYMENT_MODE_REPLACE,
                archive=True,
                synchronous=True)

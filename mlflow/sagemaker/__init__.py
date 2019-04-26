@@ -22,7 +22,8 @@ from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
-from mlflow.tracking.artifact_utils import _get_model_log_dir
+from mlflow.store.runs_artifact_repo import RunsArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _get_model_log_dir
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.utils.logging_utils import eprint
@@ -202,7 +203,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
     os.system(cmd)
 
 
-def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=None,
+def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
            image_url=None, region_name="us-west-2", mode=DEPLOYMENT_MODE_CREATE, archive=False,
            instance_type=DEFAULT_SAGEMAKER_INSTANCE_TYPE,
            instance_count=DEFAULT_SAGEMAKER_INSTANCE_COUNT, vpc_config=None, flavor=None,
@@ -216,8 +217,9 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
     :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
 
     :param app_name: Name of the deployed application.
-    :param path: Path to the model. Either local if no ``run_id`` or MLflow-relative if ``run_id``
-                 is specified.
+    :param model_uri: URI to the model. See `Documentations on Artifacts
+                      <https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>`_
+                      for supported URI schemes.
     :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
                                access the specified Docker image and S3 bucket containing MLflow
                                model artifacts. If unspecified, the currently-assumed role will be
@@ -231,7 +233,6 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                                https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
-    :param run_id: MLflow run ID.
     :param image: Name of the Docker image to be used. if not specified, uses a
                   publicly-available pre-built image.
     :param region_name: Name of the AWS region to which to deploy the application.
@@ -318,10 +319,10 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                     deployment_modes=",".join(DEPLOYMENT_MODES)),
                 error_code=INVALID_PARAMETER_VALUE)
 
-    s3_bucket_prefix = model_path
-    if run_id:
-        model_path = _get_model_log_dir(model_path, run_id)
-        s3_bucket_prefix = os.path.join(run_id, s3_bucket_prefix)
+    parsed = urllib.parse.urlparse(model_uri)
+    s3_bucket_prefix = parsed.path
+    print(s3_bucket_prefix)  ############ DEBUG
+    model_path = _download_artifact_from_uri(model_uri)
 
     model_config_path = os.path.join(model_path, "MLmodel")
     if not os.path.exists(model_config_path):
@@ -368,6 +369,12 @@ def deploy(app_name, model_path, execution_role_arn=None, bucket=None, run_id=No
                                prefix=s3_bucket_prefix,
                                region_name=region_name,
                                s3_client=s3_client)
+
+    try:
+        (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
+    except MlflowException:
+        run_id = None
+
     if endpoint_exists:
         deployment_operation = _update_sagemaker_endpoint(
                 endpoint_name=app_name, image_url=image_url, model_s3_path=model_s3_path,
@@ -525,6 +532,7 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
             delete_operation.clean_up()
 
 
+# TODO(sueann): remove run_id, add tests for run URI
 def run_local(model_path, run_id=None, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     """
     Serve model locally in a SageMaker compatible Docker container.

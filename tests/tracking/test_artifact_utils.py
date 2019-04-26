@@ -45,3 +45,20 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
     with open(os.path.join(
             artifact_output_path, logged_artifact_subdir, artifact_file_name), "r") as f:
         assert f.read() == artifact_text
+
+
+# TODO(sueann): this might be worth having since we are switching everything over
+# def test_download_artifact_from_uri_vs_get_model_log_dir():
+#     _download_artifact_from_uri
+#
+#     def pretrained_model():
+#         model_path = "model"
+#     with mlflow.start_run():
+#         X = np.array([-2, -1, 0, 1, 2, 1]).reshape(-1, 1)
+#         y = np.array([0, 0, 1, 1, 1, 0])
+#         lr = LogisticRegression()
+#         lr.fit(X, y)
+#         mlflow.sklearn.log_model(lr, model_path)
+#         run_id = mlflow.active_run().info.run_uuid
+#         run_uri = "runs:/" + run_id + "/" + model_path
+#         return TrainedModel(model_path, run_id, run_uri)

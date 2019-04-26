@@ -24,10 +24,9 @@ def commands():
 
 @commands.command("deploy")
 @click.option("--app-name", "-a", help="Application name", required=True)
-@cli_args.MODEL_PATH
+@cli_args.MODEL_URI
 @click.option("--execution-role-arn", "-e", default=None, help="SageMaker execution role")
 @click.option("--bucket", "-b", default=None, help="S3 bucket to store model artifacts")
-@cli_args.RUN_ID
 @click.option("--image-url", "-i", default=None, help="ECR URL for the Docker image")
 @click.option("--region-name", default="us-west-2",
               help="Name of the AWS region in which to deploy the application")
@@ -90,8 +89,8 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
         with open(vpc_config, "r") as f:
             vpc_config = json.load(f)
 
-    mlflow.sagemaker.deploy(app_name=app_name, model_path=model_path,
-                            execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
+    mlflow.sagemaker.deploy(app_name=app_name, model_uri=model_uri,
+                            execution_role_arn=execution_role_arn, bucket=bucket,
                             image_url=image_url, region_name=region_name, mode=mode,
                             archive=archive, instance_type=instance_type,
                             instance_count=instance_count, vpc_config=vpc_config, flavor=flavor,
