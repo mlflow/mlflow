@@ -5,6 +5,7 @@ import docker
 import kubernetes.client
 from kubernetes import config
 from pprint import pprint
+import os
 
 _logger = logging.getLogger(__name__)
 
@@ -30,6 +31,10 @@ def push_image_to_registry(image, registry, namespace, docker_auth_config):
 
 def _get_kubernetes_job_definition(image, image_namespace, job_namespace, command, env_vars):
     enviroment_variables = ""
+    if os.environ.get('AZURE_STORAGE_ACCESS_KEY'):
+        env_vars['AZURE_STORAGE_ACCESS_KEY'] = os.environ['AZURE_STORAGE_ACCESS_KEY']
+    if os.environ.get('AZURE_STORAGE_CONNECTION_STRING'):
+        env_vars['AZURE_STORAGE_CONNECTION_STRING'] = os.environ['AZURE_STORAGE_CONNECTION_STRING']
     for key in env_vars.keys():
         enviroment_variables += "        - name: {name}\n".format(name=key)
         enviroment_variables += "          value: \"{value}\"\n".format(value=env_vars[key])
