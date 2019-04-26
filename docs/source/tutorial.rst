@@ -28,7 +28,7 @@ To run this tutorial, you'll need to:
     .. container:: python
 
        - Install MLflow (via ``pip install mlflow``)
-       - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
+       - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``cd`` into the ``examples`` directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
@@ -37,7 +37,7 @@ To run this tutorial, you'll need to:
 
     .. container:: R
 
-       - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
+       - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Install the MLflow package (via ``install.packages("mlflow")``)
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
@@ -155,7 +155,7 @@ Now that you have your training code, you can package it so that other data scie
 
     .. container:: python
 
-      You do this by using :doc:`projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
+      You do this by using :doc:`projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
       .. code-block:: yaml
