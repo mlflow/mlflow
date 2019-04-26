@@ -72,7 +72,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
          backend=None, backend_config=None, use_conda=True,
-         storage_dir=None, synchronous=True, run_id=None):
+         storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
@@ -146,7 +146,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)   
     elif mode == "kubernetes":
-        from mlflow.projects.kubernetes import run_kubernetes_job
+        from mlflow.projects.kubernetes import run_kubernetes_job, push_image_to_registry
         if project.docker_env:
             tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_ENV, MLFLOW_DOCKER)
             _validate_docker_env(project.docker_env)
@@ -154,10 +154,12 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             image = _build_docker_image(work_dir=work_dir,
                                         project=project,
                                         active_run=active_run)
-            # kube.push_image_to_registry(image, registry, namespace, auth_config)
+            push_image_to_registry(image, project.docker_env.get('registry'),
+                                   project.docker_env.get('namespace'), docker_auth_config)
             run_kubernetes_job(image,
-                               'docker',
-                               '["mlflow",  "run", ".", "-P", "alpha", "0.4"]',
+                               project.docker_env.get('namespace'),
+                               project.kubernetes_env.get('job_namespace'),
+                               '["mlflow",  "run", ".", "-P", "alpha=0.4"]',
                                _get_run_env_vars(run_id=active_run.info.run_uuid,
                                                  experiment_id=active_run.info.experiment_id))
 
@@ -169,7 +171,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 def run(uri, entry_point="main", version=None, parameters=None,
         experiment_name=None, experiment_id=None,
         backend=None, backend_config=None, use_conda=True,
-        storage_dir=None, synchronous=True, run_id=None):
+        storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
 
@@ -241,7 +243,8 @@ def run(uri, entry_point="main", version=None, parameters=None,
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
         parameters=parameters, backend=backend, backend_config=cluster_spec_dict,
-        use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id)
+        use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id,
+        docker_auth_config=None)
     if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj

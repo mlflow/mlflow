@@ -2,10 +2,9 @@ import mock
 import yaml
 import json
 import kubernetes
+import mock
 from mlflow.projects import kubernetes as kb
 from mlflow import tracking
-from mlflow.utils.logging_utils import eprint
-
 
 def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     """
@@ -15,13 +14,14 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     namespace = 'default'
     command = "['mlflow',  'run', '.', '-P', 'alpha', '0.4']"
     env_vars = {'RUN_ID': '1'}
-    job_definition = kb._get_kubernetes_job_definition(image=image, namespace=namespace,
+    job_definition = kb._get_kubernetes_job_definition(image=image, job_namespace=namespace,
+                                                       image_namespace=namespace,
                                                        command=command, env_vars=env_vars)
 
     container_spec = job_definition['spec']['template']['spec']['containers'][0]
     assert container_spec['name'] == image
-    assert container_spec['image'] == image
-    assert container_spec['command'] == yaml.load(command)
+    assert container_spec['image'] == namespace + '/' + image
+    assert container_spec['command'] == command
     assert container_spec['env'][0]['name'] == 'RUN_ID'
     assert container_spec['env'][0]['value'] == '1'
 
@@ -31,7 +31,8 @@ def test_call_kubernetes_api():
     command = "['mlflow',  'run', '.', '-P', 'alpha', '0.4']"
     env_vars = {'RUN_ID': '1'}
     with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kubernetes_api_mock:
-        kb.run_kubernetes_job(image=image, namespace=namespace, command=command, env_vars=env_vars)
+        kb.run_kubernetes_job(image=image, job_namespace=namespace, image_namespace=namespace,
+                              command=command, env_vars=env_vars)
         assert kubernetes_api_mock.call_count == 1
 
         args = kubernetes_api_mock.call_args_list
@@ -65,8 +66,35 @@ def test_call_kubernetes_api():
 def test_call_kubernetes_api_with_error():
     pass
 
-def test_push_image_to_registry():    
-    pass
+def test_push_image_to_registry():
+    image = 'image'
+    registry = 'registry'
+    namespace = 'namespace'
+    docker_repo_auth_config = '{"username":"me", "password":"pass"}'
+    with mock.patch("docker.from_env") as docker_mock:
+        client = mock.MagicMock()
+        docker_mock.return_value = client
+        kb.push_image_to_registry(image, registry, namespace, docker_repo_auth_config)
+        assert client.images.push.call_count == 1
+
+        args = client.images.push.call_args_list
+        assert args[0][1]['repository'] == registry + '/' + namespace + '/' + image
+        assert args[0][1]['auth_config'] == json.loads(docker_repo_auth_config)
+
+def test_push_image_to_dockerhub():
+    image = 'image'
+    registry = None
+    namespace = 'namespace'
+    docker_repo_auth_config = '{"username":"me", "password":"pass"}'
+    with mock.patch("docker.from_env") as docker_mock:
+        client = mock.MagicMock()
+        docker_mock.return_value = client
+        kb.push_image_to_registry(image, registry, namespace, docker_repo_auth_config)
+        assert client.images.push.call_count == 1
+
+        args = client.images.push.call_args_list
+        assert args[0][1]['repository'] == namespace + '/' + image
+        assert args[0][1]['auth_config'] == json.loads(docker_repo_auth_config)
 
 def test_push_image_to_registry_with_error():
     pass

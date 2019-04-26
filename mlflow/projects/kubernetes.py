@@ -1,18 +1,34 @@
 import yaml
+import json
+import logging
 import docker
 import kubernetes.client
 from kubernetes import config
 from pprint import pprint
 
-def push_image_to_registry(image, registry, namespace, auth_config):
-    repository = registry + '/' + namespace + '/' + image
+_logger = logging.getLogger(__name__)
+
+def push_image_to_registry(image, registry, namespace, docker_auth_config):
+    docker_auth_config = json.loads(docker_auth_config)
+    repository = namespace + '/' + image
+    client = docker.from_env()
+
+    if registry:
+        repository = registry + '/' + repository
+        client.login(username=docker_auth_config['username'],
+                     password=docker_auth_config['password'],
+                     registry=registry)
+    else:
+        client.login(username=docker_auth_config['username'],
+                     password=docker_auth_config['password'])
+
     client = docker.from_env()
     image = client.images.get(name=image)
     image.tag(repository)
-    server_return = client.images.push(repository, auth_config=auth_config)
-    # pprint(server_return)
+    server_return = client.images.push(repository=repository, auth_config=docker_auth_config)
+    _logger.info(server_return)
 
-def _get_kubernetes_job_definition(image, namespace, command, env_vars):
+def _get_kubernetes_job_definition(image, image_namespace, job_namespace, command, env_vars):
     enviroment_variables = ""
     for key in env_vars.keys():
         enviroment_variables += "        - name: {name}\n".format(name=key)
@@ -28,19 +44,21 @@ def _get_kubernetes_job_definition(image, namespace, command, env_vars):
         "    spec:\n"
         "      containers:\n"
         "      - name: {container_name}\n"
-        "        image: {image_name}\n"
+        "        image: {image_namespace}/{image_name}\n"
         "        command: {command}\n"
         "        env:\n"
         "{enviroment_variables}"
         "      restartPolicy: Never\n"
         "  backoffLimit: 4\n"
-    ).format(job_name=image, job_namespace=namespace,
-             container_name=image, image_name=image,
+    ).format(job_name=image, job_namespace=job_namespace,
+             container_name=image, image_namespace=image_namespace, image_name=image,
              command=command, enviroment_variables=enviroment_variables)
+    _logger.info(yaml.load(job_template))
     return yaml.load(job_template)
     
-def run_kubernetes_job(image, namespace, command, env_vars):
-    job_definition = _get_kubernetes_job_definition(image, namespace, command, env_vars)
+def run_kubernetes_job(image, image_namespace, job_namespace, command, env_vars):
+    job_definition = _get_kubernetes_job_definition(image, image_namespace, job_namespace,
+                                                    command, env_vars)
     # pprint(job_definition)
 
     config.load_kube_config()
@@ -48,15 +66,6 @@ def run_kubernetes_job(image, namespace, command, env_vars):
     api_response = api_instance.create_namespaced_job(namespace=job_definition['metadata']['namespace'],
                                                       body=job_definition, pretty=True)
     # pprint(api_response)
-
-# registry = 'docker-registry.default.svc:5000'
-# image = 'mlflow-docker-example-5e74a5a'
-# namespace = 'dremio-brk'
-# auth_config = {'username':'"oc whoami"', 'password':'"oc whoami -t"', 'reauth':True, 'registry':registry}
-
-# push_image_to_kubernetes(image=image, registry=registry, namespace=namespace, auth_config=auth_config)
-# run_kubernetes_job(image='mlflow-docker-example-5e74a5a', namespace='default')
-
 
 # class KubernetesSubmittedRun(SubmittedRun):
 #     """

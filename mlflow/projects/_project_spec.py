@@ -27,6 +27,7 @@ def load_project(directory):
         project_name = None
     conda_path = yaml_obj.get("conda_env")
     docker_env = yaml_obj.get("docker_env")
+    kubernetes_env = yaml_obj.get("kubernetes_env")
     if docker_env and not docker_env.get("image"):
         raise ExecutionException("Docker environment specified but no image "
                                  "attribute found.")
@@ -43,22 +44,23 @@ def load_project(directory):
             raise ExecutionException("Project specified conda environment file %s, but no such "
                                      "file was found." % conda_env_path)
         return Project(conda_env_path=conda_env_path, entry_points=entry_points,
-                       docker_env=docker_env, name=project_name)
+                       docker_env=docker_env, name=project_name, kubernetes_env=kubernetes_env)
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
         return Project(conda_env_path=default_conda_path, entry_points=entry_points,
-                       docker_env=docker_env, name=project_name)
+                       docker_env=docker_env, name=project_name, kubernetes_env=kubernetes_env)
     return Project(conda_env_path=None, entry_points=entry_points,
-                   docker_env=docker_env, name=project_name)
+                   docker_env=docker_env, name=project_name, kubernetes_env=kubernetes_env)
 
 
 class Project(object):
     """A project specification loaded from an MLproject file in the passed-in directory."""
-    def __init__(self, conda_env_path, entry_points, docker_env, name):
+    def __init__(self, conda_env_path, entry_points, docker_env, name, kubernetes_env):
         self.conda_env_path = conda_env_path
         self._entry_points = entry_points
         self.docker_env = docker_env
         self.name = name
+        self.kubernetes_env = kubernetes_env
 
     def get_entry_point(self, entry_point):
         if entry_point in self._entry_points:

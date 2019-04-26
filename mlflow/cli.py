@@ -84,7 +84,7 @@ def cli():
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
 def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
-        backend_config, no_conda, storage_dir, run_id):
+        backend_config, no_conda, storage_dir, run_id, docker_auth_config):
     """
     Run an MLflow project from the given URI.
 
@@ -134,6 +134,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             storage_dir=storage_dir,
             synchronous=backend == "local" or backend is None,
             run_id=run_id,
+            docker_auth_config=docker_auth_config,
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
