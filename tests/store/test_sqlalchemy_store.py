@@ -164,7 +164,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(len(result), 1)
 
         experiment_id = self.store.create_experiment(name='test exp')
-
+        self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 2)
