@@ -106,7 +106,7 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
                 training_run = tracking_client.get_run(p.run_id)
 
                 def get_metric(metric_name):
-                    return [m.value for m in training_run.data.metrics if m.key == metric_name][0]
+                    return training_run.data.metrics[metric_name].value
 
                 # cap the loss at the loss of the null model
                 train_loss = min(null_valid_loss,

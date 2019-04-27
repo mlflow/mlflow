@@ -17,7 +17,7 @@ import mlflow.pyfunc.model
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _get_model_log_dir
 
 
 def _load_pyfunc(path):

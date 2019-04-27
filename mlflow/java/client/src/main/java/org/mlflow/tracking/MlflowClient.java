@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  * Client to an MLflow Tracking Sever.
  */
 public class MlflowClient {
-  private static final long DEFAULT_EXPERIMENT_ID = 0;
+  private static final String DEFAULT_EXPERIMENT_ID = "0";
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
   private final ArtifactRepositoryFactory artifactRepositoryFactory;
@@ -71,7 +71,7 @@ public class MlflowClient {
    * Creates a new run under the given experiment with no application name.
    * @return RunInfo created by the server
    */
-  public RunInfo createRun(long experimentId) {
+  public RunInfo createRun(String experimentId) {
     return createRun(experimentId, "Java Application");
   }
 
@@ -79,7 +79,7 @@ public class MlflowClient {
    * Creates a new run under the given experiment with the given application name.
    * @return RunInfo created by the server
    */
-  public RunInfo createRun(long experimentId, String appName) {
+  public RunInfo createRun(String experimentId, String appName) {
     CreateRun.Builder request = CreateRun.newBuilder();
     request.setExperimentId(experimentId);
     request.setSourceName(appName);
@@ -115,8 +115,8 @@ public class MlflowClient {
   /**
    * @return a list of all RunInfos associated with the given experiment.
    */
-  public List<RunInfo> listRunInfos(long experimentId) {
-    List<Long> experimentIds = new ArrayList<>();
+  public List<RunInfo> listRunInfos(String experimentId) {
+    List<String> experimentIds = new ArrayList<>();
     experimentIds.add(experimentId);
     return searchRuns(experimentIds, null);
   }
@@ -131,7 +131,7 @@ public class MlflowClient {
    *
    * @return a list of all RunInfos that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<Long> experimentIds, String searchFilter) {
+  public List<RunInfo> searchRuns(List<String> experimentIds, String searchFilter) {
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
   }
 
@@ -147,10 +147,11 @@ public class MlflowClient {
    *
    * @return a list of all RunInfos that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<Long> experimentIds,
+  public List<RunInfo> searchRuns(List<String> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType) {
     SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIds);
+
     if (searchFilter != null) {
       builder.setFilter(searchFilter);
     }
@@ -171,9 +172,9 @@ public class MlflowClient {
   }
 
   /** @return  an experiment with the given id. */
-  public GetExperiment.Response getExperiment(long experimentId) {
+  public GetExperiment.Response getExperiment(String experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
-      .setParameter("experiment_id", "" + experimentId);
+      .setParameter("experiment_id", experimentId);
     return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
   }
 
@@ -188,26 +189,26 @@ public class MlflowClient {
    * @param experimentName Name of the experiment. This must be unique across all experiments.
    * @return experiment id of the newly created experiment.
    */
-  public long createExperiment(String experimentName) {
+  public String createExperiment(String experimentName) {
     String ijson = mapper.makeCreateExperimentRequest(experimentName);
     String ojson = httpCaller.post("experiments/create", ijson);
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
   /** Mark an experiment and associated runs, params, metrics, etc for deletion. */
-  public void deleteExperiment(long experimentId) {
+  public void deleteExperiment(String experimentId) {
     String ijson = mapper.makeDeleteExperimentRequest(experimentId);
     httpCaller.post("experiments/delete", ijson);
   }
 
   /** Restore an experiment marked for deletion. */
-  public void restoreExperiment(long experimentId) {
+  public void restoreExperiment(String experimentId) {
     String ijson = mapper.makeRestoreExperimentRequest(experimentId);
     httpCaller.post("experiments/restore", ijson);
   }
 
   /** Update an experiment's name. The new name must be unique. */
-  public void renameExperiment(long experimentId, String newName) {
+  public void renameExperiment(String experimentId, String newName) {
     String ijson = mapper.makeUpdateExperimentRequest(experimentId, newName);
     httpCaller.post("experiments/update", ijson);
   }

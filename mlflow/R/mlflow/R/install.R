@@ -18,10 +18,10 @@ mlflow_install <- function() {
     "pandas",
     "mlflow"
   )
-
-  if (!"r-mlflow" %in% conda_list()$name) {
-    conda_create("r-mlflow")
-    conda_install(packages, envname = "r-mlflow", pip = TRUE)
+  conda <- mlflow_conda_bin()
+  if (!"r-mlflow" %in% conda_list(conda = conda)$name) {
+    conda_create("r-mlflow", conda = conda)
+    conda_install(packages, envname = "r-mlflow", pip = TRUE, conda = conda)
   }
 }
 
@@ -39,5 +39,12 @@ mlflow_install <- function() {
 #' @importFrom reticulate conda_install conda_create conda_list
 #' @export
 mlflow_uninstall <- function() {
-  reticulate::conda_remove(envname = "r-mlflow")
+  reticulate::conda_remove(envname = "r-mlflow", conda = mlflow_conda_bin())
+}
+
+
+mlflow_conda_bin <- function() {
+  conda_home <- Sys.getenv("MLFLOW_CONDA_HOME", NA)
+  conda <- if (!is.na(conda_home)) paste(conda_home, "bin", "conda", sep = "/") else "auto"
+  conda_binary(conda = conda)
 }

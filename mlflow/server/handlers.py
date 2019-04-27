@@ -136,8 +136,8 @@ def _create_experiment():
 def _get_experiment():
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
-    response_message.experiment.MergeFrom(_get_store().get_experiment(request_message.experiment_id)
-                                          .to_proto())
+    experiment = _get_store().get_experiment(request_message.experiment_id).to_proto()
+    response_message.experiment.MergeFrom(experiment)
     run_info_entities = _get_store().list_run_infos(request_message.experiment_id,
                                                     run_view_type=ViewType.ACTIVE_ONLY)
     response_message.runs.extend([r.to_proto() for r in run_info_entities])
@@ -235,7 +235,8 @@ def _restore_run():
 @catch_mlflow_exception
 def _log_metric():
     request_message = _get_request_message(LogMetric())
-    metric = Metric(request_message.key, request_message.value, request_message.timestamp)
+    metric = Metric(request_message.key, request_message.value, request_message.timestamp,
+                    request_message.step)
     _get_store().log_metric(request_message.run_uuid, metric)
     response_message = LogMetric.Response()
     response = Response(mimetype='application/json')
@@ -284,7 +285,9 @@ def _search_runs():
         run_view_type = ViewType.from_proto(request_message.run_view_type)
     sf = SearchFilter(anded_expressions=request_message.anded_expressions,
                       filter_string=request_message.filter)
-    run_entities = _get_store().search_runs(request_message.experiment_ids, sf, run_view_type)
+    max_results = request_message.max_results
+    experiment_ids = request_message.experiment_ids
+    run_entities = _get_store().search_runs(experiment_ids, sf, run_view_type, max_results)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -333,8 +336,7 @@ def _list_experiments():
 
 @catch_mlflow_exception
 def _get_artifact_repo(run):
-    store = _get_store()
-    return get_artifact_repository(run.info.artifact_uri, store)
+    return get_artifact_repository(run.info.artifact_uri)
 
 
 @catch_mlflow_exception

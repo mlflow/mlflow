@@ -8,10 +8,11 @@ import os
 import time
 from six import iteritems
 
+from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import utils
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
-    _validate_experiment_name, _validate_metric
+    _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
@@ -52,7 +53,8 @@ class MlflowClient(object):
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
-    def create_run(self, experiment_id, user_id=None, run_name=None, start_time=None, tags=None):
+    def create_run(self, experiment_id, user_id=None, run_name=None, start_time=None,
+                   parent_run_id=None, tags=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -62,6 +64,8 @@ class MlflowClient(object):
 
         :param user_id: If not provided, use the current user as a default.
         :param start_time: If not provided, use the current timestamp.
+        :param parent_run_id Optional parent run ID - takes precedence over parent run ID included
+                             in the `tags` argument.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
         :return: :py:class:`mlflow.entities.Run` that was created.
@@ -72,7 +76,8 @@ class MlflowClient(object):
         # Extract run attributes from tags
         # This logic is temporary; by the 1.0 release, this information will only be stored in tags
         # and will not be available as attributes of the run
-        parent_run_id = tags.get(MLFLOW_PARENT_RUN_ID)
+        final_parent_run_id =\
+            tags.get(MLFLOW_PARENT_RUN_ID) if parent_run_id is None else parent_run_id
         source_name = tags.get(MLFLOW_SOURCE_NAME, "Python Application")
         source_version = tags.get(MLFLOW_GIT_COMMIT)
         entry_point_name = tags.get(MLFLOW_PROJECT_ENTRY_POINT)
@@ -90,7 +95,7 @@ class MlflowClient(object):
             start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
             # The below arguments remain set for backwards compatability:
-            parent_run_id=parent_run_id,
+            parent_run_id=final_parent_run_id,
             source_type=source_type,
             source_name=source_name,
             entry_point_name=entry_point_name,
@@ -128,6 +133,7 @@ class MlflowClient(object):
         :return: Integer ID of the created experiment.
         """
         _validate_experiment_name(name)
+        _validate_experiment_artifact_location(artifact_location)
         return self.store.create_experiment(
             name=name,
             artifact_location=artifact_location,
@@ -157,14 +163,15 @@ class MlflowClient(object):
         """
         self.store.rename_experiment(experiment_id, new_name)
 
-    def log_metric(self, run_id, key, value, timestamp=None):
+    def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
         Log a metric against the run ID. If timestamp is not provided, uses
-        the current timestamp.
+        the current timestamp. The metric's step defaults to 0 if unspecified.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
-        _validate_metric(key, value, timestamp)
-        metric = Metric(key, value, timestamp)
+        step = step if step is not None else 0
+        _validate_metric(key, value, timestamp, step)
+        metric = Metric(key, value, timestamp, step)
         self.store.log_metric(run_id, metric)
 
     def log_param(self, run_id, key, value):
@@ -195,7 +202,7 @@ class MlflowClient(object):
         :returns: None
         """
         for metric in metrics:
-            _validate_metric(metric.key, metric.value, metric.timestamp)
+            _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:
             _validate_param_name(param.key)
         for tag in tags:
@@ -210,7 +217,7 @@ class MlflowClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
-        artifact_repo = get_artifact_repository(run.info.artifact_uri, self.store)
+        artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.log_artifact(local_path, artifact_path)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
@@ -221,7 +228,7 @@ class MlflowClient(object):
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
-        artifact_repo = get_artifact_repository(run.info.artifact_uri, self.store)
+        artifact_repo = get_artifact_repository(run.info.artifact_uri)
         artifact_repo.log_artifacts(local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):
@@ -235,7 +242,7 @@ class MlflowClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
-        artifact_repo = get_artifact_repository(artifact_root, self.store)
+        artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.list_artifacts(path)
 
     def download_artifacts(self, run_id, path):
@@ -249,7 +256,7 @@ class MlflowClient(object):
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
-        artifact_repo = get_artifact_repository(artifact_root, self.store)
+        artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.download_artifacts(path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
@@ -275,7 +282,9 @@ class MlflowClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string, run_view_type=ViewType.ACTIVE_ONLY):
+    def search_runs(self, experiment_ids, filter_string,
+                    run_view_type=ViewType.ACTIVE_ONLY,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT):
         """
         Search experiments that fit the search criteria.
 
@@ -283,11 +292,15 @@ class MlflowClient(object):
         :param filter_string: Filter query string.
         :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                               defined in :py:class:`mlflow.entities.ViewType`.
-        :return:
+        :param max_results: Maximum number of runs desired.
+
+        :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
+            expressions
         """
         return self.store.search_runs(experiment_ids=experiment_ids,
                                       search_filter=SearchFilter(filter_string=filter_string),
-                                      run_view_type=run_view_type)
+                                      run_view_type=run_view_type,
+                                      max_results=max_results)
 
 
 def _get_user_id():

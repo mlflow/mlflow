@@ -1,4 +1,4 @@
-from mock import Mock, MagicMock
+from mock import MagicMock
 import pytest
 from tempfile import NamedTemporaryFile
 import pysftp
@@ -16,9 +16,7 @@ def sftp_mock():
 def test_artifact_uri_factory():
     from paramiko.ssh_exception import SSHException
     with pytest.raises(SSHException):
-        get_artifact_repository(
-            "sftp://user:pass@test_sftp:123/some/path",
-            Mock())
+        get_artifact_repository("sftp://user:pass@test_sftp:123/some/path")
 
 
 def test_list_artifacts_empty(sftp_mock):

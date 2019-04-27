@@ -27,7 +27,7 @@ class TestRunInfo(unittest.TestCase):
     @staticmethod
     def _create():
         run_uuid = str(uuid.uuid4())
-        experiment_id = random_int(10, 2000)
+        experiment_id = str(random_int(10, 2000))
         name = random_str(random_int(10, 40))
         source_type = random_int(1, 4)
         source_name = random_str(random_int(100, 300))
