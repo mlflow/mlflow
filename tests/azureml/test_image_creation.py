@@ -398,8 +398,8 @@ def test_build_image_includes_mlflow_home_as_file_dependency_if_specified(
         image_config = create_image_call_kwargs["image_config"]
         assert dockerfile_mlflow_path in image_config.dependencies
 
-@pytest.mark.large
 
+@pytest.mark.large
 def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -441,8 +441,8 @@ def test_execution_script_init_method_attempts_to_load_correct_azure_ml_model(
         assert get_model_path_call_kwargs["model_name"] == model_name
         assert get_model_path_call_kwargs["version"] == model_version
 
-@pytest.mark.large
 
+@pytest.mark.large
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_numpy_arrays(
         sklearn_model, sklearn_data, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
@@ -485,8 +485,8 @@ def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_o
         output_data = run(pd.DataFrame(data=sklearn_data[0]).to_json(orient="split"))
         np.testing.assert_array_equal(output_data, pyfunc_outputs)
 
-@pytest.mark.large
 
+@pytest.mark.large
 def test_execution_script_run_method_scores_pandas_dfs_successfully_when_model_outputs_pandas_dfs(
         keras_model, keras_data, model_path):
     mlflow.keras.save_model(keras_model=keras_model, path=model_path)

@@ -15,7 +15,9 @@ trap 'err=1' ERR
 #     echo "Sagemaker container build failed, output:";
 #     cat $SAGEMAKER_OUT;
 #   fi
-pytest tests
+pytest tests --large --ignore=tests/h2o --ignore=tests/keras \
+  --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
+  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml tests
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
 pytest --verbose tests/h2o --large
