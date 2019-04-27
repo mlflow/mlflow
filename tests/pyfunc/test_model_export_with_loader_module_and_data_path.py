@@ -49,6 +49,7 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
+@pytest.mark.large
 def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -70,6 +71,7 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
 
 
+@pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -92,6 +94,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
 
 
+@pytest.mark.large
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(dst_path=model_path,
@@ -99,6 +102,7 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
 
+@pytest.mark.large
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model",

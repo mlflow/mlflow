@@ -1,7 +1,5 @@
 sudo: true
 language: python
-# Note: can remove this once Travis's default Python version switches to 3.6 on April 16, 2019.
-python: 3.6
 
 services:
   - docker

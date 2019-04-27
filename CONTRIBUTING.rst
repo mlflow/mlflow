@@ -138,9 +138,17 @@ run tests annotated with @pytest.mark.large. For example, to run all pyfunc test
     pytest tests/pyfunc --large
 
 Note: Certain model tests are not well-isolated (can result in OOMs when run in the same Python
-process), so simply invoking ``pytest`` or ``pytest tests`` is not known to work. If you'd like to
+process), so simply invoking ``pytest`` or ``pytest tests`` may not work. If you'd like to
 run multiple model tests, we recommend doing so via separate ``pytest`` invocations, e.g.
 ``pytest --verbose tests/sklearn --large && pytest --verbose tests/tensorflow --large``
+
+Note also that some tests do not run as part of PR builds on Travis. In particular, PR builds
+exclude:
+
+  - Tests marked with @pytest.mark.requires_ssh. These tests require that passwordless SSH access to
+    localhost be enabled, and can be run via ``pytest --requires-ssh``.
+  - Tests marked with @pytest.mark.release. These tests can be run via ``pytest --release``.
+
 
 Building Protobuf Files
 -----------------------

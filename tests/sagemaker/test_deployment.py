@@ -94,6 +94,7 @@ def mock_sagemaker_aws_services(fn):
     return mock_wrapper
 
 
+@pytest.mark.large
 def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
     with pytest.raises(MlflowException) as exc:
@@ -105,6 +106,7 @@ def test_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+@pytest.mark.large
 def test_deployment_with_missing_flavor_raises_exception(pretrained_model):
     missing_flavor = "mleap"
     with pytest.raises(MlflowException) as exc:
@@ -116,6 +118,7 @@ def test_deployment_with_missing_flavor_raises_exception(pretrained_model):
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+@pytest.mark.large
 def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrained_model):
     logged_model_path = _get_model_log_dir(pretrained_model.model_path, pretrained_model.run_id)
     model_config_path = os.path.join(logged_model_path, "MLmodel")
@@ -131,6 +134,7 @@ def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrain
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+@pytest.mark.large
 def test_validate_deployment_flavor_validates_python_function_flavor_successfully(
         pretrained_model):
     model_config_path = os.path.join(_get_model_log_dir(
@@ -140,6 +144,7 @@ def test_validate_deployment_flavor_validates_python_function_flavor_successfull
             model_config=model_config, flavor=mlflow.pyfunc.FLAVOR_NAME)
 
 
+@pytest.mark.large
 def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrained_model):
     model_config_path = os.path.join(_get_model_log_dir(
         pretrained_model.model_path, pretrained_model.run_id), "MLmodel")
@@ -151,6 +156,7 @@ def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrai
     assert selected_flavor in model_config.flavors
 
 
+@pytest.mark.large
 def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exception(
         pretrained_model):
     with pytest.raises(MlflowException) as exc:
@@ -164,7 +170,7 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
     assert "Resources must be archived" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names(
         pretrained_model, sagemaker_client):
@@ -187,7 +193,7 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names(
     assert app_name in [endpoint["EndpointName"]
                         for endpoint in sagemaker_client.list_endpoints()["Endpoints"]]
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploying_application_with_preexisting_name_in_create_mode_throws_exception(
         pretrained_model):
@@ -206,7 +212,7 @@ def test_deploying_application_with_preexisting_name_in_create_mode_throws_excep
     assert "an application with the same name already exists" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_synchronous_mode_waits_for_endpoint_creation_to_complete_before_returning(
         pretrained_model, sagemaker_client):
@@ -227,7 +233,7 @@ def test_deploy_in_synchronous_mode_waits_for_endpoint_creation_to_complete_befo
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
     assert endpoint_description["EndpointStatus"] == Endpoint.STATUS_IN_SERVICE
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_create_in_asynchronous_mode_returns_before_endpoint_creation_completes(
         pretrained_model, sagemaker_client):
@@ -249,7 +255,7 @@ def test_deploy_create_in_asynchronous_mode_returns_before_endpoint_creation_com
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
     assert endpoint_description["EndpointStatus"] == Endpoint.STATUS_CREATING
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_replace_in_asynchronous_mode_returns_before_endpoint_creation_completes(
         pretrained_model, sagemaker_client):
@@ -277,7 +283,7 @@ def test_deploy_replace_in_asynchronous_mode_returns_before_endpoint_creation_co
     endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
     assert endpoint_description["EndpointStatus"] == Endpoint.STATUS_UPDATING
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
         pretrained_model, sagemaker_client):
@@ -313,7 +319,7 @@ def test_deploy_in_create_mode_throws_exception_after_endpoint_creation_fails(
     assert "deployment operation failed" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_add_mode_adds_new_model_to_existing_endpoint(pretrained_model, sagemaker_client):
     app_name = "test-app"
@@ -338,7 +344,7 @@ def test_deploy_in_add_mode_adds_new_model_to_existing_endpoint(pretrained_model
     production_variants = endpoint_config_response["ProductionVariants"]
     assert len(production_variants) == models_added
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_replace_model_removes_preexisting_models_from_endpoint(
         pretrained_model, sagemaker_client):
@@ -386,7 +392,7 @@ def test_deploy_in_replace_model_removes_preexisting_models_from_endpoint(
     assert all([model_name not in deployed_models_after_replacement
                 for model_name in deployed_models_before_replacement])
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
         pretrained_model, sagemaker_client):
@@ -428,7 +434,7 @@ def test_deploy_in_replace_mode_throws_exception_after_endpoint_update_fails(
     assert "deployment operation failed" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_replace_mode_waits_for_endpoint_update_completion_before_deleting_resources(
         pretrained_model, sagemaker_client):
@@ -471,7 +477,7 @@ def test_deploy_in_replace_mode_waits_for_endpoint_update_completion_before_dele
                    mode=mfs.DEPLOYMENT_MODE_REPLACE,
                    archive=False)
 
-
+@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
         pretrained_model, sagemaker_client):
