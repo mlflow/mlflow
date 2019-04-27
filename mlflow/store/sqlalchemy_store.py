@@ -23,7 +23,7 @@ from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
     _validate_run_id
-from mlflow.store.db import cli
+from mlflow.store.db.utils import upgrade_db
 from mlflow.store.dbmodels.legacy_models import Base as LegacyBase
 
 
@@ -84,11 +84,11 @@ class SqlAlchemyStore(AbstractStore):
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
 
-    @staticmetehod
-    def _initialize_tables(self, engine):
-        LegacyBase.metadata.create_all(self.engine)
-        _logger.info("Initializing MLflow database by running migrations")
-        cli.do_upgrade(engine.url)
+    @staticmethod
+    def _initialize_tables(engine):
+        _logger.info("Creating initial MLflow database tables...")
+        LegacyBase.metadata.create_all(engine)
+        upgrade_db(str(engine.url))
 
     @staticmethod
     def _verify_schema(engine):

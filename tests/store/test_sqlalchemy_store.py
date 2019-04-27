@@ -17,7 +17,7 @@ from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.dbmodels import models
-from mlflow import entities
+from mlflow import entities, cli
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.file_utils import TempDir
@@ -25,7 +25,6 @@ from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 from mlflow.store.dbmodels.legacy_models import Base as LegacyBase
 from tests.integration.utils import invoke_cli_runner
-from mlflow.store.db import cli
 
 
 DB_URI = 'sqlite:///'
@@ -253,8 +252,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             with self.assertRaises(MlflowException) as ex:
                 SqlAlchemyStore._verify_schema(engine)
             self.assertIn("Detected out-of-date database schema.", str(ex.exception))
-            # Run migrations, verify things are ok
-            invoke_cli_runner(cli.upgrade, db_url)
+            # Run migrations, schema verification should now pass
+            invoke_cli_runner(cli.upgradedb, db_url)
             SqlAlchemyStore._verify_schema(engine)
         finally:
             os.remove(tmp)
@@ -1131,7 +1130,7 @@ class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqlite):
         db_url = "sqlite:///%s" % self.tmpfile
         engine = sqlalchemy.create_engine(db_url)
         LegacyBase.metadata.create_all(engine)
-        invoke_cli_runner(cli.upgrade, db_url)
+        invoke_cli_runner(cli.upgradedb, db_url)
         self.store = SqlAlchemyStore(db_url, ARTIFACT_URI)
 
     def setUp(self):

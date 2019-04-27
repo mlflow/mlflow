@@ -256,6 +256,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
 
+@cli.command()
 @click.argument("url")
 def upgradedb(url):
     """
