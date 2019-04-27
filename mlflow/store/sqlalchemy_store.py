@@ -184,6 +184,7 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException('Experiment(name={}) already exists. '
                                       'Error: {}'.format(name, str(e)), RESOURCE_ALREADY_EXISTS)
 
+            session.flush()
             return str(experiment.experiment_id)
 
     def _list_experiments(self, session, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY):
@@ -277,13 +278,14 @@ class SqlAlchemyStore(AbstractStore):
                          start_time=start_time, end_time=None,
                          source_version=source_version, lifecycle_stage=LifecycleStage.ACTIVE)
 
+            tags_dict = {}
             for tag in tags:
-                run.tags.append(SqlTag(key=tag.key, value=tag.value))
+                tags_dict[tag.key] = tag.value
             if parent_run_id:
-                run.tags.append(SqlTag(key=MLFLOW_PARENT_RUN_ID, value=parent_run_id))
+                tags_dict[MLFLOW_PARENT_RUN_ID] = parent_run_id
             if run_name:
-                run.tags.append(SqlTag(key=MLFLOW_RUN_NAME, value=run_name))
-
+                tags_dict[MLFLOW_RUN_NAME] = run_name
+            run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()

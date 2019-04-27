@@ -164,7 +164,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(len(result), 1)
 
         experiment_id = self.store.create_experiment(name='test exp')
-
+        self.assertEqual(experiment_id, "1")
         with self.store.ManagedSessionMaker() as session:
             result = session.query(models.SqlExperiment).all()
             self.assertEqual(len(result), 2)
@@ -352,40 +352,50 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         expected = self._get_run_configs(
             name=run_name, experiment_id=experiment_id, parent_run_id=parent_run_id)
 
-        actual = self.store.create_run(**expected)
+        created_run = self.store.create_run(**expected)
+        fetched_run = self.store.get_run(created_run.info.run_uuid)
 
-        self.assertEqual(actual.info.experiment_id, experiment_id)
-        self.assertEqual(actual.info.user_id, expected["user_id"])
-        self.assertEqual(actual.info.name, run_name)
-        self.assertEqual(actual.info.source_type, expected["source_type"])
-        self.assertEqual(actual.info.source_name, expected["source_name"])
-        self.assertEqual(actual.info.source_version, expected["source_version"])
-        self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
-        self.assertEqual(actual.info.start_time, expected["start_time"])
+        for actual in [created_run, fetched_run]:
+            self.assertEqual(actual.info.experiment_id, experiment_id)
+            self.assertEqual(actual.info.user_id, expected["user_id"])
+            self.assertEqual(actual.info.name, run_name)
+            self.assertEqual(actual.info.source_type, expected["source_type"])
+            self.assertEqual(actual.info.source_name, expected["source_name"])
+            self.assertEqual(actual.info.source_version, expected["source_version"])
+            self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
+            self.assertEqual(actual.info.start_time, expected["start_time"])
 
-        # Run creation should add two additional tags containing the run name and parent run id.
-        # Check for the existence of these two tags
-        self.assertEqual(
-            actual.data.tags, {MLFLOW_PARENT_RUN_ID: parent_run_id, MLFLOW_RUN_NAME: run_name})
+            # Run creation should add two additional tags containing the run name and parent run id.
+            # Check for the existence of these two tags
+            self.assertEqual(
+                actual.data.tags, {MLFLOW_PARENT_RUN_ID: parent_run_id, MLFLOW_RUN_NAME: run_name})
 
-    def test_to_mlflow_entity(self):
-        # Create a run and obtain an MLflow Run entity associated with the new run
-        run = self._run_factory()
+    def test_to_mlflow_entity_and_proto(self):
+        # Create a run and log metrics, params, tags to the run
+        created_run = self._run_factory()
+        run_uuid = created_run.info.run_uuid
+        self.store.log_metric(
+            run_uuid=run_uuid,
+            metric=entities.Metric(key='my-metric', value=3.4, timestamp=0, step=0))
+        self.store.log_param(run_uuid=run_uuid, param=Param(key='my-param', value='param-val'))
+        self.store.set_tag(run_uuid=run_uuid, tag=RunTag(key='my-tag', value='tag-val'))
 
+        # Verify that we can fetch the run & convert it to proto - Python protobuf bindings
+        # will perform type-checking to ensure all values have the right types
+        run = self.store.get_run(run_uuid)
+        run.to_proto()
+
+        # Verify attributes of the Python run entity
         self.assertIsInstance(run.info, entities.RunInfo)
         self.assertIsInstance(run.data, entities.RunData)
 
-        for key, metric in run.data.metrics.items():
-            self.assertEqual(metric.key, key)
-            self.assertIsInstance(metric, entities.Metric)
+        self.assertEqual(run.data.metrics, {"my-metric": 3.4})
+        self.assertEqual(run.data.params, {"my-param": "param-val"})
+        self.assertEqual(run.data.tags["my-tag"], "tag-val")
 
-        for param_key, param_val in run.data.params:
-            self.assertIsInstance(param_key, str)
-            self.assertIsInstance(param_val, str)
-
-        for tag_key, tag_val in run.data.tags.items():
-            self.assertIsInstance(tag_key, str)
-            self.assertIsInstance(tag_val, str)
+        # Get the parent experiment of the run, verify it can be converted to protobuf
+        exp = self.store.get_experiment(run.info.experiment_id)
+        exp.to_proto()
 
     def test_delete_run(self):
         run = self._run_factory()
@@ -474,6 +484,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         param2 = entities.Param('new param', 'new key')
         self.store.log_param(run.info.run_uuid, param)
         self.store.log_param(run.info.run_uuid, param2)
+        self.store.log_param(run.info.run_uuid, param2)
 
         run = self.store.get_run(run.info.run_uuid)
         self.assertEqual(2, len(run.data.params))
@@ -522,11 +533,15 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         tkey = 'test tag'
         tval = 'a boogie'
+        new_val = "new val"
         tag = entities.RunTag(tkey, tval)
+        new_tag = entities.RunTag(tkey, new_val)
         self.store.set_tag(run.info.run_uuid, tag)
+        # Overwriting tags is allowed
+        self.store.set_tag(run.info.run_uuid, new_tag)
 
         run = self.store.get_run(run.info.run_uuid)
-        self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == tval)
+        self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
 
     def test_get_metric_history(self):
         run = self._run_factory()
