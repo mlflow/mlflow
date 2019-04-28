@@ -3,8 +3,6 @@ Contributing to MLflow
 We welcome community contributions to MLflow. This page describes how to develop/test your changes
 to MLflow locally.
 
-Python
-------
 The majority of the MLflow codebase is in Python. This includes the CLI, Tracking Server,
 Artifact Repositories (e.g., S3 or Azure Blob Storage backends), and of course the Python fluent,
 tracking, and model APIs.
@@ -127,6 +125,11 @@ Verify that the unit tests & linter pass before submitting a pull request by run
     # making changes to these components, we recommend running the relevant tests (e.g. tests under
     # tests/keras for changes to Keras model support) locally before submitting a pull request.
     ./travis/run-large-python-tests.sh
+
+Python tests are split into "small" & "large" categories, with new tests falling into the "small"
+category by default. Tests that take 10 or more seconds to run should be marked as large tests
+via the @pytest.mark.large annotation. Dependencies for small and large tests can be added to
+travis/small-requirements.txt and travis/large-requirements.txt, respectively.
 
 We use `pytest <https://docs.pytest.org/en/latest/contents.html>`_ to run Python tests.
 You can run tests for one or more test directories or files via
