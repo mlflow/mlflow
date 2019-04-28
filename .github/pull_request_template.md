@@ -3,9 +3,6 @@
 (Please fill in changes proposed in this fix)
  
 ## How is this patch tested?
-In general, code changes should be accompanied by new tests or modifications to existing tests. For
-example, all new features should have unit & integration test coverage, and bugfix PRs should
-come with regression tests (i.e. a test that would fail without the bugfix).
  
 (Details)
  
