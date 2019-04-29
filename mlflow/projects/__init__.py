@@ -148,7 +148,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     elif mode == "kubernetes":
         from mlflow.projects.kubernetes import run_kubernetes_job, push_image_to_registry
         if project.docker_env:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_ENV, MLFLOW_DOCKER)
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_PROJECT_ENV, "kubernetes")
             _validate_docker_env(project.docker_env)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
@@ -156,12 +156,12 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                         active_run=active_run)
             push_image_to_registry(image, project.docker_env.get('registry'),
                                    project.docker_env.get('namespace'), docker_auth_config)
-            run_kubernetes_job(image,
-                               project.docker_env.get('namespace'),
-                               project.kubernetes_env.get('job_namespace'),
-                               '["mlflow",  "run", ".", "-P", "alpha=0.4"]',
-                               _get_run_env_vars(run_id=active_run.info.run_uuid,
-                                                 experiment_id=active_run.info.experiment_id))
+            return run_kubernetes_job(image,
+                                      project.docker_env.get('namespace'),
+                                      project.kubernetes_env.get('job_namespace'),
+                                      '["mlflow",  "run", ".", "-P", "alpha=0.4", "--no-conda"]',
+                                      _get_run_env_vars(run_id=active_run.info.run_uuid,
+                                                        experiment_id=active_run.info.experiment_id))
 
     supported_modes = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
