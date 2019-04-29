@@ -3,6 +3,7 @@ import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
+import { SEARCH_MAX_RESULTS } from '../Actions';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -400,7 +401,7 @@ export default class ExperimentViewUtil {
         }
       }
     });
-    return mergedRows;
+    return mergedRows.slice(0, SEARCH_MAX_RESULTS);
   }
 
   static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {
