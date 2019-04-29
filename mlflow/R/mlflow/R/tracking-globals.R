@@ -1,5 +1,3 @@
-mlflow_get_run_id <- function(run) cast_nullable_string(run$run_uuid)
-
 mlflow_set_active_run_id <- function(run_id) {
   .globals$active_run_id <- run_id
 }
