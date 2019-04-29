@@ -270,13 +270,21 @@ store* specified as ``./path_to_store`` or ``file:/path_to_store``, or a SQL con
 for a *database-backed store*. For the latter, the argument must be a SQL connection string
 specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported
 database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+For backwards compatibility, ``--file-store`` is an alias for --backend-store-uri
+
+.. important::
+
+    ``mlflow server`` will fail against a database-backed store with an out-of-date database schema.
+    To prevent this, upgrade your database schema to the latest supported version via
+    ``mlflow upgradedb [db_uri]``. Note that schema migrations can result in database downtime, may
+    take longer on larger databases, and are not guaranteed to be transactional. As such, consider
+    taking a backup of your database prior to running ``mlflow upgradedb``.
+
 
 By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (the same as when
 running ``mlflow run`` locally), but when running a server, make sure that this points to a
 persistent (that is, non-ephemeral) file system location.
 
-.. note::
-  For backwards compatibility, ``--file-store`` is an alias for this option.
 
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).

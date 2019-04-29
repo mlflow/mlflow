@@ -114,6 +114,27 @@ When developing, you can make Python changes available in R by running (from mlf
 Please also follow the recommendations from the
 `Advanced R - Style Guide <http://adv-r.had.co.nz/Style.html>`_ regarding naming and styling.
 
+Database Schema Changes
+-----------------------
+MLflow's Tracking component supports storing experiment and run data in a SQL backend. This
+subsection discusses how to make changes to the tracking database schema.
+
+To make tracking schema changes, first modify the corresponding Python object representations
+in ``mlflow/store/db/models.py``. Then, run the following from your
+checkout of MLflow:
+
+```
+# starting at the root of the project
+$ pwd
+~/mlflow
+# after making database schema changes e.g. to mlflow/store/db/models.py
+$ cd mlflow
+# MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
+$ alembic revision -m "add new field to db"
+  Generating
+~/mlflow/mlflow/migrations/versions/12341123_add_new_field_to_db.py
+```
+
 
 Launching the Development UI
 ----------------------------

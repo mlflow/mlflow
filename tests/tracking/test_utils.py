@@ -115,7 +115,9 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
     env = {
         _TRACKING_URI_ENV_VAR: uri
     }
-    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine:
+    with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine,\
+            mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore._verify_schema"), \
+            mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore._initialize_tables"):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
