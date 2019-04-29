@@ -96,7 +96,7 @@ class SqlAlchemyStore(AbstractStore):
         diff = compare_metadata(mc, Base.metadata)
         if len(diff) > 0:
             _logger.error("Detected one or more differences between current database schema and "
-                          "desired schema, exiting. Diff:\n%s" %
+                          "desired schema, exiting. Diff:\n %s",
                           pprint.pprint(diff, indent=2, width=20))
             raise MlflowException(
                 "Detected out-of-date database schema. Run 'mlflow db upgrade %s' to migrate your "

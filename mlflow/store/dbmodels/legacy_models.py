@@ -48,7 +48,7 @@ def _create_entity(base, model):
                     metrics = {}
                     for o in obj:
                         if o.key not in metrics or o.timestamp > metrics.get(o.key).timestamp:
-                            metrics[o.key] = Metric(o.key, o.value, o.timestamp)
+                            metrics[o.key] = Metric(o.key, o.value, o.timestamp, None)
                     obj = metrics.values()
                 elif k == 'params':
                     obj = [Param(o.key, o.value) for o in obj]
