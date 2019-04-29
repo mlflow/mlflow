@@ -4,7 +4,6 @@ import logging
 import docker
 import kubernetes.client
 from kubernetes import config
-from pprint import pprint
 import os
 
 _logger = logging.getLogger(__name__)
@@ -60,8 +59,15 @@ def _get_kubernetes_job_definition(image, image_namespace, job_namespace, comman
              command=command, enviroment_variables=enviroment_variables)
     _logger.info(yaml.load(job_template))
     return yaml.load(job_template)
-    
-def run_kubernetes_job(image, image_namespace, job_namespace, command, env_vars):
+
+def _get_run_command(parameters):
+    command = ['mlflow',  'run', '.', '--no-conda']
+    for key, value in parameters.items():
+        command.extend(["-P", "%s=%s" % (key, value)])
+    return command
+            
+def run_kubernetes_job(image, image_namespace, job_namespace, parameters, env_vars):
+    command = _get_run_command(parameters)
     job_definition = _get_kubernetes_job_definition(image, image_namespace, job_namespace,
                                                     command, env_vars)
     # pprint(job_definition)

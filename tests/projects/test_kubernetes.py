@@ -6,13 +6,21 @@ import mock
 from mlflow.projects import kubernetes as kb
 from mlflow import tracking
 
+def test_run_command_creation():  # pylint: disable=unused-argument
+    """
+    Tests command creation.
+    """
+    parameters = {'alpha': '0.5'}
+    command = job_definition = kb._get_run_command(parameters)
+    assert ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5'] == command
+
 def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     """
     Tests job specification for Kubernetes.
     """
     image = 'mlflow-docker-example-5e74a5a'
     namespace = 'default'
-    command = "['mlflow',  'run', '.', '-P', 'alpha', '0.4']"
+    command = ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5']
     env_vars = {'RUN_ID': '1'}
     job_definition = kb._get_kubernetes_job_definition(image=image, job_namespace=namespace,
                                                        image_namespace=namespace,
@@ -28,11 +36,11 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
 def test_call_kubernetes_api():
     image = 'mlflow-docker-example-5e74a5a'
     namespace = 'default'
-    command = "['mlflow',  'run', '.', '-P', 'alpha', '0.4']"
+    parameters = {'alpha': '0.5'}
     env_vars = {'RUN_ID': '1'}
     with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kubernetes_api_mock:
         kb.run_kubernetes_job(image=image, job_namespace=namespace, image_namespace=namespace,
-                              command=command, env_vars=env_vars)
+                              parameters=parameters, env_vars=env_vars)
         assert kubernetes_api_mock.call_count == 1
 
         args = kubernetes_api_mock.call_args_list

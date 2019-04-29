@@ -159,7 +159,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             return run_kubernetes_job(image,
                                       project.docker_env.get('namespace'),
                                       project.kubernetes_env.get('job_namespace'),
-                                      '["mlflow",  "run", ".", "-P", "alpha=0.4", "--no-conda"]',
+                                      parameters,
                                       _get_run_env_vars(run_id=active_run.info.run_uuid,
                                                         experiment_id=active_run.info.experiment_id))
 
