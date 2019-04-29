@@ -1,6 +1,5 @@
 import entrypoints
 import warnings
-from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.gcs_artifact_repo import GCSArtifactRepository

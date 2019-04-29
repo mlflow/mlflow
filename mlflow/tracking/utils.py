@@ -135,16 +135,6 @@ def _get_databricks_rest_store(store_uri, **_):
     return RestStore(lambda: get_databricks_host_creds(profile))
 
 
-def _get_posix_path(path):
-    if os.path == posixpath:
-        return path
-    drive, path = os.path.splitdrive(path)
-    path_elems = _deconstruct_path(path)
-    if path_elems[0] == os.path.sep:
-        path_elems[0] = posixpath.sep
-    return posixpath.join(*([drive] + path_elems))
-
-
 class TrackingStoreRegistry:
     """Scheme-based registry for tracking store implementations
 

@@ -7,7 +7,6 @@ import tarfile
 import tempfile
 import urllib
 
-from six.moves import urllib_parse
 from six.moves.urllib.request import pathname2url
 
 import yaml
@@ -361,25 +360,6 @@ def local_file_uri_to_path(uri):
     :return: Normalized path.
     """
     return urllib.request.url2pathname(urllib.parse.urlparse(uri).path)
-
-
-def _deconstruct_path(path, path_module):
-    a, b = path_module.split(path)
-    if not a:
-        return [b]
-    if not b:
-        return [a]
-    return _deconstruct_path(a, path_module) + [b]
-
-
-def get_posix_path(path):
-    if os.path == posixpath:
-        return path
-    drive, path = os.path.splitdrive(path)
-    path_elems = _deconstruct_path(path)
-    if path_elems[0] == os.path.sep:
-        path_elems[0] = posixpath.sep
-    return posixpath.join(*([drive] + path_elems))
 
 
 def local_uri_from_path(path):

@@ -1,9 +1,6 @@
 import os
 import pytest
 
-from mlflow.exceptions import MlflowException
-from mock import Mock
-
 import ntpath
 
 from mlflow import tracking
@@ -25,7 +22,7 @@ class TestLocalArtifactRepo(object):
             pytest.skip("skipping direct path as artifact_uri, not supported on windows")
 
         with TempDir() as test_root, TempDir() as tmp:
-            repo = get_artifact_repository(prefix + test_root.path(), Mock())
+            repo = get_artifact_repository(prefix + test_root.path())
             assert isinstance(repo, LocalArtifactRepository)
             assert repo.list_artifacts() == []
             with pytest.raises(Exception):
