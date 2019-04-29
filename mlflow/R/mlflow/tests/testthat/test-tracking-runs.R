@@ -67,8 +67,8 @@ test_that("logging functionality", {
   metric_history <- mlflow_get_metric_history("mse", ended_run$info$run_uuid)
   expect_identical(metric_history$key, c("mse", "mse"))
   expect_identical(metric_history$value, c(24, 25))
-  expect_identical(metric_history$timestamp >= run$info$start_time, c(TRUE, TRUE))
-  expect_identical(metric_history$timestamp <= run$info$end_time, c(TRUE, TRUE))
+  expect_true(all(metric_history$timestamp >= run$info$start_time))
+  expect_true(all(metric_history$timestamp <= run$info$end_time))
 
 
   expect_error(
