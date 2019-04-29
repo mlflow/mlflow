@@ -7,8 +7,8 @@ from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 import os
 
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
-                                    _validate_tag_name, _validate_run_id, \
-                                    _validate_batch_log_data, _validate_batch_log_limits
+    _validate_tag_name, _validate_run_id, _validate_batch_log_data, \
+    _validate_batch_log_limits, _validate_experiment_artifact_location
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a", "Ab-5_", os.path.normpath("a/b/c"), "a.b.c", ".a",
@@ -115,3 +115,10 @@ def test_validate_batch_log_data():
     _validate_batch_log_data(
         metrics=[Metric("metric-key", 1.0, 0, 0)], params=[Param("param-key", "param-val")],
         tags=[RunTag("tag-key", "tag-val")])
+
+
+def test_validate_experiment_artifact_location():
+    _validate_experiment_artifact_location('abcde')
+    _validate_experiment_artifact_location(None)
+    with pytest.raises(MlflowException):
+        _validate_experiment_artifact_location('runs:/blah/bleh/blergh')

@@ -25,6 +25,7 @@ import { Icon, Popover } from 'antd';
 
 import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
+import {SEARCH_MAX_RESULTS} from "../Actions";
 
 export const DEFAULT_EXPANDED_VALUE = false;
 
@@ -399,7 +400,10 @@ export class ExperimentView extends Component {
           </form>
           <div className="ExperimentView-run-buttons">
             <span className="run-count">
-              {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
+              {runInfos.length > SEARCH_MAX_RESULTS ?
+                `Showing the latest ${SEARCH_MAX_RESULTS} matching runs` :
+                `${runInfos.length} matching ${runInfos.length === 1 ? 'run' : 'runs'}`
+              }
             </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare

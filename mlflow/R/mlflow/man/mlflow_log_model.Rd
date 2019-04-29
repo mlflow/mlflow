@@ -13,6 +13,6 @@ mlflow_log_model(fn, artifact_path)
 will be saved.}
 }
 \description{
-Logs a model in the given run. Similar to `mlflow_save_model()`
+Logs a model for this run. Similar to `mlflow_save_model()`
 but stores model as an artifact within the active run.
 }
