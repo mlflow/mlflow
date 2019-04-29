@@ -17,7 +17,9 @@ import logging
 
 import pandas
 import tensorflow as tf
+from multipledispatch import dispatch
 
+import numpy as np
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -275,13 +277,29 @@ class _TFWrapper(object):
                 for sigdef_output, tnsr_info in signature_def.outputs.items()
         }
 
-    def predict(self, df):
+    @dispatch(object)
+    def predict(self, inputs):
+        raise(NotImplementedError)
+
+    @dispatch(pandas.DataFrame)
+    def predict(self, inputs):
         with self.tf_graph.as_default():
             # Build the feed dict, mapping input tensors to DataFrame column values.
             feed_dict = {
-                    self.input_tensor_mapping[tensor_column_name]: df[tensor_column_name].values
+                    self.input_tensor_mapping[tensor_column_name]: inputs[tensor_column_name].values
                     for tensor_column_name in self.input_tensor_mapping.keys()
             }
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
             return pandas.DataFrame(data=pred_dict)
+
+    @dispatch(np.ndarray)
+    def predict(self, inputs):
+        with self.tf_graph.as_default():
+            # Build the feed dict, mapping input tensors to a numpy array
+            feed_dict = {
+                    list(self.input_tensor_mapping.values())[0]: inputs
+            }
+            raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
+            return raw_preds[list(self.output_tensors.keys())[0]]
+
