@@ -19,7 +19,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
-from mlflow.tracking.artifact_utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
 from tests.sagemaker.mock import mock_sagemaker, Endpoint, EndpointOperation
 
@@ -116,8 +116,7 @@ def test_deployment_with_missing_flavor_raises_exception(pretrained_model):
 
 
 def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrained_model):
-    # TODO(sueann): how to get rid of _get_model_log_dir calls
-    logged_model_path = _get_model_log_dir(pretrained_model.model_path, pretrained_model.run_id)
+    logged_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     model_config_path = os.path.join(logged_model_path, "MLmodel")
     model_config = Model.load(model_config_path)
     del model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
@@ -134,18 +133,16 @@ def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrain
 
 def test_validate_deployment_flavor_validates_python_function_flavor_successfully(
         pretrained_model):
-    # TODO(sueann): how to get rid of _get_model_log_dir calls
-    model_config_path = os.path.join(_get_model_log_dir(
-        pretrained_model.model_path, pretrained_model.run_id), "MLmodel")
+    model_config_path = os.path.join(_download_artifact_from_uri(pretrained_model.model_uri),
+                                     "MLmodel")
     model_config = Model.load(model_config_path)
     mfs._validate_deployment_flavor(
             model_config=model_config, flavor=mlflow.pyfunc.FLAVOR_NAME)
 
 
 def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrained_model):
-    # TODO(sueann): how to get rid of _get_model_log_dir calls
-    model_config_path = os.path.join(_get_model_log_dir(
-        pretrained_model.model_path, pretrained_model.run_id), "MLmodel")
+    model_config_path = os.path.join(_download_artifact_from_uri(pretrained_model.model_uri),
+                                     "MLmodel")
     model_config = Model.load(model_config_path)
 
     selected_flavor = mfs._get_preferred_deployment_flavor(model_config=model_config)

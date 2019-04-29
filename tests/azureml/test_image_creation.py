@@ -244,6 +244,7 @@ def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(skl
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
         run_id = mlflow.active_run().info.run_uuid
+    # TODO(sueann): how to get rid of _get_model_log_dir calls
     model_config = Model.load(os.path.join(_get_model_log_dir(artifact_path, run_id), "MLmodel"))
 
     with AzureMLMocks() as aml_mocks:

@@ -17,7 +17,8 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.artifact_utils import _get_model_log_dir
+from mlflow.store.runs_artifact_repo import RunsArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _get_model_log_dir
 from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
@@ -26,7 +27,7 @@ from mlflow.version import VERSION as mlflow_version
 _logger = logging.getLogger(__name__)
 
 
-def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None,
+def build_image(model_uri, workspace, image_name=None, model_name=None,
                 mlflow_home=None, description=None, tags=None, synchronous=True):
     """
     Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
@@ -37,10 +38,10 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     For information about the input data formats accepted by this webserver, see the
     :ref:`MLflow deployment tools documentation <azureml_deployment>`.
 
-    :param model_path: The path to MLflow model for which the image will be built. If a run id
-                       is specified, this is should be a run-relative path. Otherwise, it
-                       should be a local path.
-    :param run_id: MLflow run ID.
+    :param model_uri: URI to the MLflow model for which the image will be built. See `Documentations
+                      on Artifacts
+                      <https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>`_
+                      for supported URI schemes.
     :param image_name: The name to assign the Azure Container Image that will be created. If
                        unspecified, a unique image name will be generated.
     :param model_name: The name to assign the Azure Model will be created. If unspecified,
@@ -110,10 +111,10 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     from azureml.core.image import ContainerImage
     from azureml.core.model import Model as AzureModel
 
-    if run_id is not None:
-        absolute_model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
-    else:
-        absolute_model_path = os.path.abspath(model_path)
+    # TODO(sueann): make sure if a relative local path is specified _download_artifact_from_uri returns the absolute path
+    # TODO(sueann): add tests for: 1 remote store, local filestore absolute path, local filestore relative path.
+    absolute_model_path = _download_artifact_from_uri(model_uri)
+    #absolute_model_path = os.path.abspath(model_path)
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
@@ -126,6 +127,11 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                          " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
                 error_code=INVALID_PARAMETER_VALUE)
 
+    try:
+        (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
+    except MlflowException:
+        run_id = None
+    # TODO(sueann): fix
     tags = _build_tags(relative_model_path=model_path, run_id=run_id,
                        model_python_version=model_python_version, user_tags=tags)
 
@@ -199,6 +205,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
 
 
 def _build_tags(relative_model_path, run_id, model_python_version=None, user_tags=None):
+    # TODO(sueann): model_path -> model_uri ?? relative_model_path???
     """
     :param model_path: The path to MLflow model for which the image is being built. If a run id
                        is specified, this is a run-relative path. Otherwise, it is a local path.
