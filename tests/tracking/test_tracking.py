@@ -143,6 +143,7 @@ def test_start_and_end_run(tracking_uri_mock):
     end_run()
     finished_run = tracking.MlflowClient().get_run(active_run.info.run_uuid)
     # Validate metrics
+    # Call GetMetricHistory API & check that metric timestamp is between run start and finish
     assert len(finished_run.data.metrics) == 1
     assert finished_run.data.metrics["name_1"] == 25
 

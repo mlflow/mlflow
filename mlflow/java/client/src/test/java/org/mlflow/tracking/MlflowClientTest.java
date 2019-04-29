@@ -142,7 +142,8 @@ public class MlflowClientTest {
     client.setTag(runId, "user_email", USER_EMAIL);
 
     // Update finished run
-    client.setTerminated(runId, RunStatus.FINISHED, startTime + 1001);
+    client.setTerminated(runId, RunStatus.FINISHED);
+    long endTime = System.currentTimeMillis();
 
     List<RunInfo> updatedRunInfos = client.listRunInfos(expId);
     Assert.assertEquals(updatedRunInfos.size(), 1);
@@ -157,6 +158,8 @@ public class MlflowClientTest {
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
     assertRunInfo(runInfo, expId, sourceFile);
+    Assert.assertTrue(runInfo.getStartTime() > startTime); // verify run start and end are set in ms
+    Assert.assertTrue(runInfo.getEndTime() < endTime);
 
     // Assert parent run ID is not set.
     Assert.assertTrue(run.getData().getTagsList().stream().noneMatch(
@@ -275,8 +278,11 @@ public class MlflowClientTest {
 
     List<Metric> metrics = run.getData().getMetricsList();
     Assert.assertEquals(metrics.size(), 2);
-    assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
-    assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
+    RunInfo rInfo = run.getInfo();
+    assertMetric(metrics, "accuracy_score", ACCURACY_SCORE, rInfo.getStartTime(),
+      rInfo.getEndTime());
+    assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS, rInfo.getStartTime(),
+      rInfo.getEndTime());
     assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
 
     List<RunTag> tags = run.getData().getTagsList();
