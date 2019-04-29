@@ -11,12 +11,11 @@ import atexit
 import time
 import logging
 
-import mlflow.tracking.utils
 from mlflow.entities import Run, SourceType, RunStatus, Param, RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking import context
+from mlflow.tracking import artifact_utils, context
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, \
@@ -188,26 +187,30 @@ def set_tag(key, value):
     MlflowClient().set_tag(run_id, key, value)
 
 
-def log_metric(key, value):
+def log_metric(key, value, step=None):
     """
     Log a metric under the current run, creating a run if necessary.
 
     :param key: Metric name (string).
     :param value: Metric value (float).
+    :param step: Metric step (int). Defaults to zero if unspecified.
     """
     run_id = _get_or_start_run().info.run_uuid
-    MlflowClient().log_metric(run_id, key, value, int(time.time()))
+    MlflowClient().log_metric(run_id, key, value, int(time.time()), step or 0)
 
 
-def log_metrics(metrics):
+def log_metrics(metrics, step=None):
     """
     Log multiple metrics for the current run, starting a run if no runs are active.
     :param metrics: Dictionary of metric_name: String -> value: Float
+    :param step: A single integer step at which to log the specified
+                 Metrics. If unspecified, each metric is logged at step zero.
+
     :returns: None
     """
     run_id = _get_or_start_run().info.run_uuid
     timestamp = int(time.time())
-    metrics_arr = [Metric(key, value, timestamp, 0) for key, value in metrics.items()]
+    metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
 
@@ -286,8 +289,8 @@ def get_artifact_uri(artifact_path=None):
              is not provided and the currently active run uses an S3-backed store, this may be a
              URI of the form ``s3://<bucket_name>/path/to/artifact/root``.
     """
-    return mlflow.tracking.utils.get_artifact_uri(
-        run_id=_get_or_start_run().info.run_uuid, artifact_path=artifact_path)
+    return artifact_utils.get_artifact_uri(run_id=_get_or_start_run().info.run_uuid,
+                                           artifact_path=artifact_path)
 
 
 def _get_or_start_run():

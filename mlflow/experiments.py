@@ -35,7 +35,7 @@ def create(experiment_name, artifact_location):
     """
     store = _get_store()
     exp_id = store.create_experiment(experiment_name, artifact_location)
-    print("Created experiment '%s' with id %d" % (experiment_name, exp_id))
+    print("Created experiment '%s' with id %s" % (experiment_name, exp_id))
 
 
 @commands.command("list")
