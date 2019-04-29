@@ -17,7 +17,8 @@ class LocalArtifactRepository(ArtifactRepository):
         verify_artifact_path(artifact_path)
         # NOTE: The artifact_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
-        artifact_path = os.path.normpath(artifact_path)
+        if artifact_path:
+            artifact_path = os.path.normpath(artifact_path)
 
         artifact_dir = os.path.join(self.artifact_dir, artifact_path) if artifact_path else \
             self.artifact_dir
@@ -28,7 +29,8 @@ class LocalArtifactRepository(ArtifactRepository):
     def log_artifacts(self, local_dir, artifact_path=None):
         # NOTE: The artifact_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
-        artifact_path = os.path.normpath(artifact_path)
+        if artifact_path:
+            artifact_path = os.path.normpath(artifact_path)
         artifact_dir = os.path.join(self.artifact_dir, artifact_path) if artifact_path else \
             self.artifact_dir
         if not os.path.exists(artifact_dir):
@@ -38,7 +40,8 @@ class LocalArtifactRepository(ArtifactRepository):
     def list_artifacts(self, path=None):
         # NOTE: The path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
-        path = os.path.normpath(path)
+        if path:
+            path = os.path.normpath(path)
         list_dir = os.path.join(self.artifact_dir, path) if path else self.artifact_dir
         if os.path.isdir(list_dir):
             artifact_files = list_all(list_dir, full_path=True)
