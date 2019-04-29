@@ -2,7 +2,7 @@
 % Please edit documentation in R/tracking-ui.R
 \name{mlflow_ui}
 \alias{mlflow_ui}
-\title{MLflow User Interface}
+\title{Run MLflow User Interface}
 \usage{
 mlflow_ui(x, ...)
 }
@@ -12,7 +12,7 @@ mlflow_ui(x, ...)
 \item{...}{Optional arguments passed to `mlflow_server()` when `x` is a path to a file store.}
 }
 \description{
-Launches MLflow user interface.
+Launches the MLflow user interface.
 }
 \examples{
 \dontrun{

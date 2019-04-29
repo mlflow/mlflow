@@ -20,9 +20,9 @@ or \code{conda.yaml}.}
 \item{conda_env}{Path to Conda dependencies file.}
 }
 \value{
-This funciton must return a list of flavors that conform to
+This function must return a list of flavors that conform to
   the MLmodel specification.
 }
 \description{
-Saves model in MLflow's Keras flavor.
+Saves model in MLflow Keras flavor.
 }

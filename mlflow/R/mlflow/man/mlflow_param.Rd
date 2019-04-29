@@ -2,20 +2,20 @@
 % Please edit documentation in R/project-param.R
 \name{mlflow_param}
 \alias{mlflow_param}
-\title{Read Command Line Parameter}
+\title{Read Command-Line Parameter}
 \usage{
 mlflow_param(name, default = NULL, type = NULL, description = NULL)
 }
 \arguments{
-\item{name}{The name for this parameter.}
+\item{name}{The name of the parameter.}
 
-\item{default}{The default value for this parameter.}
+\item{default}{The default value of the parameter.}
 
 \item{type}{Type of this parameter. Required if `default` is not set. If specified,
 must be one of "numeric", "integer", or "string".}
 
-\item{description}{Optional description for this parameter.}
+\item{description}{Optional description for the parameter.}
 }
 \description{
-Reads a command line parameter.
+Reads a command-line parameter.
 }

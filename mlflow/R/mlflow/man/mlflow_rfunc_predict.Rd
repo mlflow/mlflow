@@ -16,13 +16,13 @@ mlflow_rfunc_predict(model_path, run_uuid = NULL, input_path = NULL,
 
 \item{output_path}{'JSON' or 'CSV' file where the prediction will be written to.}
 
-\item{data}{Data frame to be scored. This can be utilized for testing purposes and can only
+\item{data}{Data frame to be scored. This can be used for testing purposes and can only
 be specified when `input_path` is not specified.}
 
 \item{restore}{Should \code{mlflow_restore_snapshot()} be called before serving?}
 }
 \description{
-Predict using an RFunc MLflow Model from a file or data frame.
+Performs prediction using an RFunc MLflow model from a file or data frame.
 }
 \examples{
 \dontrun{

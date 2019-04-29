@@ -2,7 +2,7 @@
 % Please edit documentation in R/tracking-client.R
 \name{mlflow_client}
 \alias{mlflow_client}
-\title{Initialize an MLflow client}
+\title{Initialize an MLflow Client}
 \usage{
 mlflow_client(tracking_uri = NULL)
 }
@@ -11,6 +11,5 @@ mlflow_client(tracking_uri = NULL)
 set by `mlflow_set_tracking_uri()`.}
 }
 \description{
-Initialize an MLflow client
+Initialize an MLflow Client
 }
-\keyword{internal}

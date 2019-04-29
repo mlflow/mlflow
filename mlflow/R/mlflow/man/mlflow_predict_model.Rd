@@ -2,7 +2,7 @@
 % Please edit documentation in R/model.R
 \name{mlflow_predict_model}
 \alias{mlflow_predict_model}
-\title{Generate prediction with MLflow model.}
+\title{Generate Prediction with MLflow Model}
 \usage{
 mlflow_predict_model(model, data)
 }
@@ -12,5 +12,5 @@ mlflow_predict_model(model, data)
 \item{data}{Dataframe to be scored.}
 }
 \description{
-Generate prediction with MLflow model.
+Generates a prediction with an MLflow model.
 }

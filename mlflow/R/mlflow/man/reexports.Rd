@@ -5,6 +5,7 @@
 \alias{reexports}
 \alias{\%||\%}
 \alias{\%>\%}
+\alias{\%<-\%}
 \title{Objects exported from other packages}
 \keyword{internal}
 \description{
@@ -15,5 +16,7 @@ below to see their documentation.
   \item{purrr}{\code{\link[purrr]{\%>\%}}}
 
   \item{rlang}{\code{\link[rlang]{\%||\%}}}
+
+  \item{zeallot}{\code{\link[zeallot]{\%<-\%}}}
 }}
 

@@ -7,5 +7,5 @@
 mlflow_get_tracking_uri()
 }
 \description{
-Get Remote Tracking URI
+Gets the remote tracking URI.
 }

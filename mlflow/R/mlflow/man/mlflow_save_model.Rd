@@ -20,6 +20,6 @@ or \code{conda.yaml}.}
 \item{conda_env}{Path to Conda dependencies file.}
 }
 \description{
-Saves model in MLflow's format that can later be used
+Saves model in MLflow format that can later be used
 for prediction and serving.
 }

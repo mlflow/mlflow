@@ -7,6 +7,7 @@
 #' @param version Version of the project to run, as a Git commit reference for Git projects.
 #' @param param_list A list of parameters.
 #' @param experiment_id ID of the experiment under which to launch the run.
+#' @param experiment_name Name of the experiment under which to launch the run.
 #' @param mode Execution mode to use for run.
 #' @param cluster_spec Path to JSON file describing the cluster to use when launching a run on Databricks.
 #' @param git_username Username for HTTP(S) Git authentication.
@@ -25,7 +26,7 @@ mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list
                        git_username = NULL, git_password = NULL, no_conda = FALSE,
                        storage_dir = NULL) {
   if (!is.null(experiment_name) && !is.null(experiment_id)) {
-    stop("Specify only one of 'experiment_name' or 'experiment_id'.")
+    stop("Specify only one of `experiment_name` or `experiment_id`.")
   }
   if (is.null(experiment_name)) {
     experiment_id <- mlflow_infer_experiment_id(experiment_id)
