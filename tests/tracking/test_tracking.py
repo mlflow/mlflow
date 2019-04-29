@@ -289,7 +289,7 @@ def test_log_param(tracking_uri_mock):
         mlflow.log_param("name_1", "a")
         mlflow.log_param("name_2", "b")
         mlflow.log_param("name_1", "c")
-        mlflow.log_param(path_name, 5)
+        mlflow.log_param("nested/nested/name", 5)
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate params
     assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
