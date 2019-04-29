@@ -17,16 +17,16 @@ mlflow_rfunc_serve(model_path, run_uuid = NULL, host = "127.0.0.1",
 
 \item{port}{Port to use to serve model, as numeric.}
 
-\item{daemonized}{Makes 'httpuv' server daemonized so R interactive sessions
+\item{daemonized}{Makes `httpuv` server daemonized so R interactive sessions
 are not blocked to handle requests. To terminate a daemonized server, call
-'httpuv::stopDaemonizedServer()' with the handle returned from this call.}
+`httpuv::stopDaemonizedServer()` with the handle returned from this call.}
 
 \item{browse}{Launch browser with serving landing page?}
 
 \item{restore}{Should \code{mlflow_restore_snapshot()} be called before serving?}
 }
 \description{
-Serve an RFunc MLflow Model as a local web api.
+Serves an RFunc MLflow model as a local web API.
 }
 \examples{
 \dontrun{

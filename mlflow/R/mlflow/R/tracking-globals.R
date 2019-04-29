@@ -1,27 +1,17 @@
-#' Active Run
-#'
-#' Retrieves the active run.
-#'
-#' @export
-mlflow_active_run <- function() {
-  .globals$active_run
+mlflow_set_active_run_id <- function(run_id) {
+  .globals$active_run_id <- run_id
 }
 
-mlflow_set_active_run <- function(run) {
-  .globals$active_run <- run
-  invisible(run)
+mlflow_get_active_run_id <- function() {
+  .globals$active_run_id
+}
+
+mlflow_set_active_experiment_id <- function(experiment_id) {
+  .globals$active_experiment_id <- experiment_id
 }
 
 mlflow_get_active_experiment_id <- function() {
   .globals$active_experiment_id
-}
-
-mlflow_set_active_experiment_id <- function(experiment_id) {
-  if (!identical(experiment_id, .globals$active_experiment_id)) {
-    .globals$active_experiment_id <- experiment_id
-  }
-
-  invisible(experiment_id)
 }
 
 #' Set Remote Tracking URI
