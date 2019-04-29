@@ -31,6 +31,7 @@ class LocalArtifactRepository(ArtifactRepository):
         dir_util.copy_tree(src=local_dir, dst=artifact_dir)
 
     def list_artifacts(self, path=None):
+
         list_dir = self._resolve_path(path)
 
         artifact_dir = self.artifact_uri

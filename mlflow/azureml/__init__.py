@@ -114,6 +114,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     # TODO(sueann): make sure if a relative local path is specified _download_artifact_from_uri returns the absolute path
     # TODO(sueann): add tests for: 1 remote store, local filestore absolute path, local filestore relative path.
     absolute_model_path = _download_artifact_from_uri(model_uri)
+    print("absolute? " + absolute_model_path) ####### DEBUG: just checking that the returned path is absolute
     #absolute_model_path = os.path.abspath(model_path)
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=absolute_model_path)
@@ -205,7 +206,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
 
 
 def _build_tags(relative_model_path, run_id, model_python_version=None, user_tags=None):
-    # TODO(sueann): model_path -> model_uri ?? relative_model_path???
+    # TODO(sueann): model_path -> model_uri ?? why is it called relative_model_path?
     """
     :param model_path: The path to MLflow model for which the image is being built. If a run id
                        is specified, this is a run-relative path. Otherwise, it is a local path.

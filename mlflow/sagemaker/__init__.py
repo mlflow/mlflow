@@ -320,8 +320,8 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                 error_code=INVALID_PARAMETER_VALUE)
 
     parsed = urllib.parse.urlparse(model_uri)
-    s3_bucket_prefix = parsed.path
-    print(s3_bucket_prefix)  ############ DEBUG
+    # TODO: convert to posix on windows
+    s3_bucket_prefix = parsed.path[1:] if parsed.path.startswith('/') else parsed.path
     model_path = _download_artifact_from_uri(model_uri)
 
     model_config_path = os.path.join(model_path, "MLmodel")
