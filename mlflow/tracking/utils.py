@@ -6,6 +6,7 @@ import sys
 import warnings
 
 import entrypoints
+from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -13,6 +14,7 @@ from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.utils import env, rest_utils, file_utils, get_uri_scheme
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
@@ -67,10 +69,8 @@ def get_tracking_uri():
         return _tracking_uri
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
-    elif os.sep == "/":
-        return os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
     else:
-        return _LOCAL_FS_URI_PREFIX + os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+        return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
 
 def _is_local_uri(uri):
@@ -143,8 +143,6 @@ def _get_posix_path(path):
     if path_elems[0] == os.path.sep:
         path_elems[0] = posixpath.sep
     return posixpath.join(*([drive] + path_elems))
-
-
 
 
 class TrackingStoreRegistry:

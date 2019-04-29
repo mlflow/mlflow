@@ -7,7 +7,6 @@ from mlflow.entities import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
 
 
-
 class SFTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via sftp."""
 

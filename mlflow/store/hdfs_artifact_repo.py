@@ -23,7 +23,6 @@ class HdfsArtifactRepository(ArtifactRepository):
         self.host, self.port, self.path = _resolve_connection_params(artifact_uri)
         super(HdfsArtifactRepository, self).__init__(artifact_uri)
 
-
     def log_artifact(self, local_file, artifact_path=None):
         """
             Log artifact in hdfs.

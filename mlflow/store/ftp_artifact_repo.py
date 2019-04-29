@@ -62,7 +62,6 @@ class FTPArtifactRepository(ArtifactRepository):
             ftp.voidcmd('TYPE A')
         return size
 
-
     def log_artifact(self, local_file, artifact_path=None):
         with self.get_ftp_client() as ftp:
             artifact_dir = posixpath.join(self.path, artifact_path) \
@@ -116,7 +115,7 @@ class FTPArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(self.path, remote_file_path) \
-                if remote_file_path else self.path
+            if remote_file_path else self.path
         with self.get_ftp_client() as ftp:
             with open(local_path, 'wb') as f:
                 ftp.retrbinary('RETR ' + remote_full_path, f)

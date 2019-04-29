@@ -34,7 +34,6 @@ class GCSArtifactRepository(ArtifactRepository):
             path = path[1:]
         return parsed.netloc, path
 
-
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
@@ -75,7 +74,7 @@ class GCSArtifactRepository(ArtifactRepository):
 
         results = bkt.list_blobs(prefix=prefix, delimiter="/")
         for result in results:
-            blob_path = result.name[len(artifact_path)+1:]
+            blob_path = result.name[len(artifact_path) + 1:]
             infos.append(FileInfo(blob_path, False, result.size))
 
         return sorted(infos, key=lambda f: f.path)
@@ -86,7 +85,7 @@ class GCSArtifactRepository(ArtifactRepository):
         for page in results.pages:
             dir_paths.update(page.prefixes)
 
-        return [FileInfo(path[len(artifact_path)+1:-1], True, None)for path in dir_paths]
+        return [FileInfo(path[len(artifact_path) + 1:-1], True, None) for path in dir_paths]
 
     def _download_file(self, remote_file_path, local_path):
         (bucket, remote_root_path) = self.parse_gcs_uri(self.artifact_uri)

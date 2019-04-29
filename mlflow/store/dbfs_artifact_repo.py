@@ -66,7 +66,6 @@ class DbfsArtifactRepository(ArtifactRepository):
     def _get_dbfs_endpoint(self, artifact_path):
         return "/dbfs%s" % self._get_dbfs_path(artifact_path)
 
-
     def log_artifact(self, local_file, artifact_path=None):
         basename = os.path.basename(local_file)
         if artifact_path:
