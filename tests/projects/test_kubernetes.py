@@ -27,7 +27,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
                                                        command=command, env_vars=env_vars)
 
     container_spec = job_definition['spec']['template']['spec']['containers'][0]
-    assert container_spec['name'] == image
+    assert container_spec['name'].startswith(image)
     assert container_spec['image'] == namespace + '/' + image
     assert container_spec['command'] == command
     assert container_spec['env'][0]['name'] == 'RUN_ID'
@@ -45,31 +45,6 @@ def test_call_kubernetes_api():
 
         args = kubernetes_api_mock.call_args_list
         assert args[0][1]['namespace'] == namespace
-
-        # # Test bad tracking URI
-        # tracking_uri_mock.return_value = tmpdir.strpath
-        # with pytest.raises(ExecutionException):
-        #     run_databricks_project(cluster_spec_mock, block=True)
-        # assert db_api_req_mock.call_count == 0
-        # db_api_req_mock.reset_mock()
-        # mlflow_service = mlflow.tracking.MlflowClient()
-        # assert len(mlflow_service.list_run_infos(experiment_id=0)) == 0
-        # tracking_uri_mock.return_value = "http://"
-        # # Test misspecified parameters
-        # with pytest.raises(ExecutionException):
-        #     mlflow.projects.run(
-        #         TEST_PROJECT_DIR, mode="databricks", entry_point="greeter",
-        #         cluster_spec=cluster_spec_mock)
-        # assert db_api_req_mock.call_count == 0
-        # db_api_req_mock.reset_mock()
-        # # Test bad cluster spec
-        # with pytest.raises(ExecutionException):
-        #     mlflow.projects.run(TEST_PROJECT_DIR, mode="databricks", block=True, cluster_spec=None)
-        # assert db_api_req_mock.call_count == 0
-        # db_api_req_mock.reset_mock()
-        # # Test that validations pass with good tracking URIs
-        # databricks.before_run_validations("http://", cluster_spec_mock)
-        # databricks.before_run_validations("databricks", cluster_spec_mock)
 
 def test_call_kubernetes_api_with_error():
     pass
