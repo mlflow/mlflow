@@ -7,7 +7,6 @@ docker_env:
 
 kubernetes_env:
   job_namespace: mlflow
-  context: 
 
 entry_points:
   main:

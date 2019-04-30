@@ -147,7 +147,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)   
     elif mode == "kubernetes":
-        from mlflow.projects.kubernetes import run_kubernetes_job, push_image_to_registry
+        from mlflow.projects import kubernetes as kb
         if project.docker_env:
             tracking.MlflowClient().set_tag(active_run.info.run_uuid,
                                             MLFLOW_PROJECT_ENV,
@@ -157,16 +157,18 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             image = _build_docker_image(work_dir=work_dir,
                                         project=project,
                                         active_run=active_run)
-            push_image_to_registry(image, project.docker_env.get('registry'),
-                                   project.docker_env.get('namespace'), docker_auth_config)
-            return run_kubernetes_job(image,
-                                      project.docker_env.get('namespace'),
-                                      project.kubernetes_env.get('job_namespace'),
-                                      parameters,
-                                      _get_run_env_vars(
-                                          run_id=active_run.info.run_uuid,
-                                          experiment_id=active_run.info.experiment_id),
-                                      kube_context)
+            kb.push_image_to_registry(image, project.docker_env.get('registry'),
+                                      project.docker_env.get('namespace'), docker_auth_config)
+            job_name = kb.run_kubernetes_job(image,
+                                             project.docker_env.get('namespace'),
+                                             project.kubernetes_env.get('job_namespace'),
+                                             parameters,
+                                             _get_run_env_vars(
+                                                  run_id=active_run.info.run_uuid,
+                                                  experiment_id=active_run.info.experiment_id),
+                                             kube_context)
+            return kb.monitor_job_status(job_name,
+                                         project.kubernetes_env.get('job_namespace'))
 
     supported_modes = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
