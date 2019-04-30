@@ -146,6 +146,7 @@ def test_start_and_end_run(tracking_uri_mock):
     assert len(finished_run.data.metrics) == 1
     assert finished_run.data.metrics["name_1"] == 25
 
+
 def test_metric_timestamp(tracking_uri_mock):
     with mlflow.start_run() as active_run:
         mlflow.log_metric("name_1", 25)
