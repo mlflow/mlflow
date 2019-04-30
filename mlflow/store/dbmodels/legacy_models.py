@@ -28,6 +28,7 @@ RunStatusTypes = [
     "RUNNING",
 ]
 
+
 class SqlExperiment(Base):
     """
     DB model for :py:class:`mlflow.entities.Experiment`. These are recorded in ``experiment`` table.
@@ -63,14 +64,6 @@ class SqlExperiment(Base):
 
     def __repr__(self):
         return '<SqlExperiment ({}, {})>'.format(self.experiment_id, self.name)
-
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.Experiment`.
-        """
-        return _create_entity(Experiment, self)
 
 
 class SqlRun(Base):

@@ -1175,4 +1175,3 @@ class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqlite):
             SqlAlchemyStore._verify_schema(engine)
         finally:
             os.remove(tmp)
-

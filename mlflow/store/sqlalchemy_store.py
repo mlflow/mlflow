@@ -4,7 +4,7 @@ import uuid
 from contextlib import contextmanager
 
 from six.moves import urllib
-from alembic.migration import MigrationContext
+from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.autogenerate import compare_metadata
 import sqlalchemy
 

@@ -29,4 +29,7 @@ def upgrade():
 
 
 def downgrade():
+    # This migration cannot safely be downgraded; once metric data with the same
+    # (key, timestamp, run_uuid, value) are inserted (differing only in their `step`), we cannot
+    # revert to a schema where (key, timestamp, run_uuid, value) is the metric primary key.
     pass
