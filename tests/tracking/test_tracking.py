@@ -143,9 +143,24 @@ def test_start_and_end_run(tracking_uri_mock):
     end_run()
     finished_run = tracking.MlflowClient().get_run(active_run.info.run_uuid)
     # Validate metrics
-    # Call GetMetricHistory API & check that metric timestamp is between run start and finish
     assert len(finished_run.data.metrics) == 1
     assert finished_run.data.metrics["name_1"] == 25
+
+def test_metric_timestamp(tracking_uri_mock, tmpdir):
+    with mlflow.start_run() as active_run:
+        mlflow.log_metric("name_1", 25)
+        mlflow.log_metric("name_1", 30)
+        run_id = active_run.info.run_uuid
+    # Check that metric timestamps are between run start and finish
+    # TODO: use client get_metric_history API here instead once it exists
+    fs = FileStore(os.path.join(tmpdir.strpath, "mlruns"))
+    history = fs.get_metric_history(run_id, "name_1")
+    finished_run = tracking.MlflowClient().get_run(run_id)
+    assert len(history) == 2
+    assert all([
+        m.timestamp >= finished_run.info.start_time and m.timestamp <= finished_run.info.end_time
+        for m in history
+    ])
 
 
 def test_log_batch(tracking_uri_mock, tmpdir):
@@ -211,13 +226,13 @@ def test_log_metric(tracking_uri_mock, tmpdir):
     fs = FileStore(os.path.join(tmpdir.strpath, "mlruns"))
     metric_history_name1 = fs.get_metric_history(run_uuid, "name_1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set([
-        (25, 300, 0),
-        (30, 302, 5),
-        (40, 303, -2),
+        (25, 300 * 1000, 0),
+        (30, 302 * 1000, 5),
+        (40, 303 * 1000, -2),
     ])
     metric_history_name2 = fs.get_metric_history(run_uuid, "name_2")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == set([
-        (-3, 301, 0),
+        (-3, 301 * 1000, 0),
     ])
 
 
