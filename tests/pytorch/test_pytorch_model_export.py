@@ -174,6 +174,7 @@ def sequential_predicted(sequential_model, data):
     return _predict(sequential_model, data)
 
 
+@pytest.mark.large
 def test_log_model(sequential_model, data, sequential_predicted):
     old_uri = tracking.get_tracking_uri()
     # should_start_run tests whether or not calling log_model() automatically starts a run.
@@ -197,6 +198,7 @@ def test_log_model(sequential_model, data, sequential_predicted):
                 tracking.set_tracking_uri(old_uri)
 
 
+@pytest.mark.large
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
@@ -222,6 +224,7 @@ def test_raise_exception(sequential_model):
             mlflow.pytorch.load_model(path)
 
 
+@pytest.mark.large
 def test_save_and_load_model(sequential_model, model_path, data, sequential_predicted):
     mlflow.pytorch.save_model(sequential_model, model_path)
 
@@ -235,6 +238,7 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
         pyfunc_loaded.predict(data[0]).values[:, 0], sequential_predicted, decimal=4)
 
 
+@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         sequential_model, model_path, pytorch_custom_env):
     mlflow.pytorch.save_model(
@@ -252,6 +256,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == pytorch_custom_env_text
 
 
+@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     conda_env = dict(mlflow.pytorch.DEFAULT_CONDA_ENV)
     conda_env["dependencies"].append("pytest")
@@ -266,6 +271,7 @@ def test_model_save_accepts_conda_env_as_dict(sequential_model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
+@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         sequential_model, pytorch_custom_env):
     artifact_path = "model"
@@ -288,6 +294,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_text == pytorch_custom_env_text
 
 
+@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sequential_model, model_path):
     mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path, conda_env=None)
@@ -300,6 +307,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
 
 
+@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sequential_model):
     artifact_path = "model"
@@ -318,6 +326,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     assert conda_env == mlflow.pytorch.DEFAULT_CONDA_ENV
 
 
+@pytest.mark.large
 def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model, model_path):
     mlflow.pytorch.save_model(pytorch_model=sequential_model, path=model_path)
     saver_pytorch_version = "1.0"
@@ -346,6 +355,7 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
     ])
 
 
+@pytest.mark.large
 def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_conda_env(
         module_scoped_subclassed_model, model_path, data):
     mlflow.pytorch.save_model(
@@ -368,6 +378,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
         decimal=4)
 
 
+@pytest.mark.large
 def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickle_module(
         main_scoped_subclassed_model, model_path, data):
     mlflow.pytorch.save_model(
@@ -390,6 +401,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
         decimal=4)
 
 
+@pytest.mark.large
 def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         module_scoped_subclassed_model, model_path, data):
     # Save a PyTorch model whose class is defined in the current test suite. Because the
@@ -442,6 +454,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
         decimal=4)
 
 
+@pytest.mark.large
 def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_time(
         module_scoped_subclassed_model, model_path):
     custom_pickle_module = pickle
@@ -468,6 +481,7 @@ def test_load_pyfunc_loads_torch_model_using_pickle_module_specified_at_save_tim
     assert custom_pickle_module.__name__ in imported_modules
 
 
+@pytest.mark.large
 def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time(
         module_scoped_subclassed_model):
     custom_pickle_module = pickle
@@ -497,6 +511,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
     assert custom_pickle_module.__name__ in imported_modules
 
 
+@pytest.mark.large
 def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
         module_scoped_subclassed_model, model_path, data):
     """
@@ -529,6 +544,7 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
         decimal=4)
 
 
+@pytest.mark.large
 def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
         module_scoped_subclassed_model, model_path, data):
     """
@@ -565,6 +581,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
         decimal=4)
 
 
+@pytest.mark.large
 def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
         module_scoped_subclassed_model, model_path):
     mlflow.pytorch.save_model(
@@ -602,6 +619,7 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
     ])
 
 
+@pytest.mark.large
 def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
         main_scoped_subclassed_model, model_path):
     mlflow.pytorch.save_model(
