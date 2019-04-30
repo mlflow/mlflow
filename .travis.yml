@@ -5,9 +5,23 @@ services:
 
 matrix:
   include:
-    - python: 2.7
-    - python: 3.6
+    - stage: small
+    - language: python
+      name: "Lint (Python 3.6)"
+      python: 3.6
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+        - pip install -r ./travis/lint-requirements.txt
+      script:
+        - ./lint.sh
+    - language: python
+      python: 2.7
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-small-python-tests.sh
     - language: r
+      name: "R"
       cache: packages
       before_install:
         - export NOT_CRAN=true
@@ -15,6 +29,8 @@ matrix:
         - Rscript -e 'install.packages("devtools")'
         - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
         - cd ../../..
+      install:
+        - source ./travis/install-common-deps.sh
       script:
         - cd mlflow/R/mlflow
         - R CMD build .
@@ -26,6 +42,9 @@ matrix:
         - export COVR_RUNNING=true
         - Rscript -e 'covr::codecov()'
     - language: java
+      name: "Java"
+      install:
+        - source ./travis/install-common-deps.sh
       script:
         - cd mlflow/java
         - mvn clean package -q
@@ -33,74 +52,35 @@ matrix:
       node_js:
         - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
       install:
+      name: "Node.js"
       script:
         - cd mlflow/server/js
         - npm i
         - ./lint.sh
         - npm test -- --coverage
+    - stage: large
+    - language: python
+      python: 2.7
+      install:
+        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-large-python-tests.sh
 
+# Travis runs an extra top-level job for each build stage - depending on the build stage, we either
+# run small or large Python tests below.
 install:
-  - sudo mkdir -p /travis-install
-  - sudo chown travis /travis-install
-  # (The conda installation steps below are taken from http://conda.pydata.org/docs/travis.html)
-  # We do this conditionally because it saves us some downloading if the
-  # version is the same.
-  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+  - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
+  - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+      INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
+      wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
+      sudo unzip /travis-install/protoc.zip -d /usr;
     else
-      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+      INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh;
     fi
 
-  - bash /travis-install/miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  # Useful for debugging any issues with conda
-  - conda info -a
-  - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
-  - source activate test-environment
-  - python --version
-  - pip install --upgrade pip
-  # Install Python test dependencies only if we're running Python tests
-  - if [[ ! -z "$TRAVIS_PYTHON_VERSION" ]]; then
-      travis_wait pip install -r dev-requirements.txt -q;
-      travis_wait pip install -r test-requirements.txt -q;
-    fi
-  - pip install .
-  - export MLFLOW_HOME=$(pwd)
-  # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
-  - sudo rm -f /etc/boto.cfg
-  # Install protoc
-  - wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip
-  - sudo unzip /travis-install/protoc.zip -d /usr
 script:
-  - ./lint.sh
-  - sudo ./test-generate-protos.sh
-  - pip list
-  - which mlflow
-  - echo $MLFLOW_HOME
-  # TODO(czumar): Re-enable container building and associated SageMaker tests once the container
-  # build process is no longer hanging
-  # - SAGEMAKER_OUT=$(mktemp)
-  # - if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
-  #     echo "Sagemaker container build succeeded.";
-  #   else
-  #     echo "Sagemaker container build failed, output:";
-  #     cat $SAGEMAKER_OUT;
-  #   fi
-  # Run tests that don't leverage specific ML frameworks
-  - pytest --cov=mlflow --verbose --large --ignore=tests/h2o --ignore=tests/keras
-    --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn
-    --ignore=tests/spark --ignore=tests/tensorflow
-  # Run ML framework tests in their own Python processes. TODO: find a better method of isolating
-  # tests.
-  - pytest --verbose tests/h2o --large
-  # TODO(smurching): Re-enable Keras tests once they're no longer flaky
-  # - pytest --verbose tests/keras --large
-  - pytest --verbose tests/pytorch --large
-  - pytest --verbose tests/pyfunc --large
-  - pytest --verbose tests/sagemaker --large
-  - pytest --verbose tests/sagemaker/mock --large
-  - pytest --verbose tests/sklearn --large
-  - pytest --verbose tests/spark --large
-  - pytest --verbose tests/tensorflow --large
+  - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+      ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
+    else
+      ./travis/run-large-python-tests.sh;
+    fi
