@@ -1,68 +1,32 @@
-# Snapshot of MLflow DB models as of the 0.9.1 release
-# (copied from https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py),
-# prior to the first database migration. Used to standardize initial database state.
+# Snapshot of MLflow DB models as of the 0.9.1 release, prior to the first database migration.
+# Used to standardize initial database state.
+# Copied from https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, with
+# modifications to substitute constants from MLflow with hard-coded values (e.g. replacing
+# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK").
 import time
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
     Column, String, Float, ForeignKey, Integer, CheckConstraint,
     BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
-from mlflow.entities import (
-    Experiment, RunTag, Metric, Param, RunData, RunInfo,
-    SourceType, RunStatus, Run, ViewType)
-from mlflow.entities.lifecycle_stage import LifecycleStage
 
 Base = declarative_base()
 
 
 SourceTypes = [
-    SourceType.to_string(SourceType.NOTEBOOK),
-    SourceType.to_string(SourceType.JOB),
-    SourceType.to_string(SourceType.LOCAL),
-    SourceType.to_string(SourceType.UNKNOWN),
-    SourceType.to_string(SourceType.PROJECT)
+    "NOTEBOOK",
+    "JOB",
+    "LOCAL",
+    "UNKNOWN",
+    "PROJECT",
 ]
 
 RunStatusTypes = [
-    RunStatus.to_string(RunStatus.SCHEDULED),
-    RunStatus.to_string(RunStatus.FAILED),
-    RunStatus.to_string(RunStatus.FINISHED),
-    RunStatus.to_string(RunStatus.RUNNING)
+    "SCHEDULED",
+    "FAILED",
+    "FINISHED",
+    "RUNNING",
 ]
-
-
-def _create_entity(base, model):
-
-    # create dict of kwargs properties for entity and return the initialized entity
-    config = {}
-    for k in base._properties():
-        # check if its mlflow entity and build it
-        obj = getattr(model, k)
-
-        if isinstance(model, SqlRun):
-            if base is RunData:
-                # Run data contains list for metrics, params and tags
-                # so obj will be a list so we need to convert those items
-                if k == 'metrics':
-                    # only get latest recorded metrics per key
-                    metrics = {}
-                    for o in obj:
-                        if o.key not in metrics or o.timestamp > metrics.get(o.key).timestamp:
-                            metrics[o.key] = Metric(o.key, o.value, o.timestamp, None)
-                    obj = metrics.values()
-                elif k == 'params':
-                    obj = [Param(o.key, o.value) for o in obj]
-                elif k == 'tags':
-                    obj = [RunTag(o.key, o.value) for o in obj]
-            elif base is RunInfo:
-                if k == 'source_type':
-                    obj = SourceType.from_string(obj)
-                elif k == "status":
-                    obj = RunStatus.from_string(obj)
-
-        config[k] = obj
-    return base(**config)
-
 
 class SqlExperiment(Base):
     """
@@ -84,7 +48,7 @@ class SqlExperiment(Base):
     Default artifact location for this experiment: `String` (limit 256 characters). Defined as
                                                     *Non null* in table schema.
     """
-    lifecycle_stage = Column(String(32), default=LifecycleStage.ACTIVE)
+    lifecycle_stage = Column(String(32), default="active")
     """
     Lifecycle Stage of experiment: `String` (limit 32 characters).
                                     Can be either ``active`` (default) or ``deleted``.
@@ -92,7 +56,7 @@ class SqlExperiment(Base):
 
     __table_args__ = (
         CheckConstraint(
-            lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+            lifecycle_stage.in_(["active", "deleted"]),
             name='lifecycle_stage'),
         PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
@@ -123,7 +87,7 @@ class SqlRun(Base):
     """
     Run name: `String` (limit 250 characters).
     """
-    source_type = Column(String(20), default=SourceType.to_string(SourceType.LOCAL))
+    source_type = Column(String(20), default="LOCAL")
     """
     Source Type: `String` (limit 20 characters). Can be one of ``NOTEBOOK``, ``JOB``, ``PROJECT``,
                  ``LOCAL`` (default), or ``UNKNOWN``.
@@ -140,7 +104,7 @@ class SqlRun(Base):
     """
     User ID: `String` (limit 256 characters). Defaults to ``null``.
     """
-    status = Column(String(20), default=RunStatus.to_string(RunStatus.SCHEDULED))
+    status = Column(String(20), default="SCHEDULED")
     """
     Run Status: `String` (limit 20 characters). Can be one of ``RUNNING``, ``SCHEDULED`` (default),
                 ``FINISHED``, ``FAILED``.
@@ -157,7 +121,7 @@ class SqlRun(Base):
     """
     Source version: `String` (limit 50 characters).
     """
-    lifecycle_stage = Column(String(20), default=LifecycleStage.ACTIVE)
+    lifecycle_stage = Column(String(20), default="active")
     """
     Lifecycle Stage of run: `String` (limit 32 characters).
                             Can be either ``active`` (default) or ``deleted``.
@@ -178,21 +142,10 @@ class SqlRun(Base):
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
-        CheckConstraint(lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+        CheckConstraint(lifecycle_stage.in_(["active", "deleted"]),
                         name='lifecycle_stage'),
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
-
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.Run`.
-        """
-        # run has diff parameter names in __init__ than in properties_ so we do this manually
-        info = _create_entity(RunInfo, self)
-        data = _create_entity(RunData, self)
-        return Run(run_info=info, run_data=data)
 
 
 class SqlTag(Base):
@@ -224,14 +177,6 @@ class SqlTag(Base):
 
     def __repr__(self):
         return '<SqlRunTag({}, {})>'.format(self.key, self.value)
-
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.RunTag`.
-        """
-        return _create_entity(RunTag, self)
 
 
 class SqlMetric(Base):
@@ -267,14 +212,6 @@ class SqlMetric(Base):
     def __repr__(self):
         return '<SqlMetric({}, {}, {})>'.format(self.key, self.value, self.timestamp)
 
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.Metric`.
-        """
-        return _create_entity(Metric, self)
-
 
 class SqlParam(Base):
     __tablename__ = 'params'
@@ -303,11 +240,3 @@ class SqlParam(Base):
 
     def __repr__(self):
         return '<SqlParam({}, {})>'.format(self.key, self.value)
-
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.Param`.
-        """
-        return _create_entity(Param, self)

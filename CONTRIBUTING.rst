@@ -116,25 +116,24 @@ Please also follow the recommendations from the
 
 Database Schema Changes
 -----------------------
-MLflow's Tracking component supports storing experiment and run data in a SQL backend. This
-subsection discusses how to make changes to the tracking database schema.
-
-To make tracking schema changes, first modify the corresponding Python object representations
-in ``mlflow/store/db/models.py``. Then, run the following from your
+MLflow's Tracking component supports storing experiment and run data in a SQL backend. To
+make changes to the tracking database schema, run the following from your
 checkout of MLflow:
 
 ```
 # starting at the root of the project
 $ pwd
 ~/mlflow
-# after making database schema changes e.g. to mlflow/store/db/models.py
 $ cd mlflow
 # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
 $ alembic revision -m "add new field to db"
-  Generating
-~/mlflow/mlflow/migrations/versions/12341123_add_new_field_to_db.py
+  Generating ~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py
+
 ```
 
+These commands generate a new migration script (e.g. at
+~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py) that you should then edit to add
+migration logic.
 
 Launching the Development UI
 ----------------------------
