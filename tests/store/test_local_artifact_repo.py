@@ -1,11 +1,9 @@
 import os
 import pytest
 
-
 from mlflow.exceptions import MlflowException
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.file_utils import TempDir
-
 
 
 @pytest.fixture
@@ -138,4 +136,3 @@ def test_hidden_files_are_logged_correctly(local_artifact_repo):
             f.write("42")
         local_artifact_repo.log_artifact(hidden_file)
         assert open(local_artifact_repo.download_artifacts(hidden_file)).read() == "42"
-
