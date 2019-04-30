@@ -146,16 +146,15 @@ def test_start_and_end_run(tracking_uri_mock):
     assert len(finished_run.data.metrics) == 1
     assert finished_run.data.metrics["name_1"] == 25
 
-def test_metric_timestamp(tracking_uri_mock, tmpdir):
+def test_metric_timestamp(tracking_uri_mock):
     with mlflow.start_run() as active_run:
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_1", 30)
         run_id = active_run.info.run_uuid
     # Check that metric timestamps are between run start and finish
-    # TODO: use client get_metric_history API here instead once it exists
-    fs = FileStore(os.path.join(tmpdir.strpath, "mlruns"))
-    history = fs.get_metric_history(run_id, "name_1")
-    finished_run = tracking.MlflowClient().get_run(run_id)
+    client = mlflow.tracking.MlflowClient()
+    history = client.get_metric_history(run_id, "name_1")
+    finished_run = client.get_run(run_id)
     assert len(history) == 2
     assert all([
         m.timestamp >= finished_run.info.start_time and m.timestamp <= finished_run.info.end_time
