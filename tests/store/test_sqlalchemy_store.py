@@ -8,6 +8,8 @@ import warnings
 from alembic import command
 from alembic.script import ScriptDirectory
 from alembic.config import Config
+from alembic.migration import MigrationContext  # pylint: disable=import-error
+from alembic.autogenerate import compare_metadata
 import mock
 import sqlalchemy
 import time
@@ -27,6 +29,7 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 from mlflow.store.dbmodels.legacy_models import Base as LegacyBase
+from mlflow.store.dbmodels.models import Base
 from tests.integration.utils import invoke_cli_runner
 
 
@@ -1175,3 +1178,11 @@ class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqlite):
             SqlAlchemyStore._verify_schema(engine)
         finally:
             os.remove(tmp)
+
+    def test_store_generated_schema_matches_base(self):
+        # Given that setUp() creates a SQLAlchemyStore against self.tmpfile, directly verify that
+        # self.tmpfile contains a database with a valid schema
+        engine = sqlalchemy.create_engine("sqlite:///%s" % self.tmpfile)
+        mc = MigrationContext.configure(engine.connect())
+        diff = compare_metadata(mc, Base.metadata)
+        assert len(diff) == 0
