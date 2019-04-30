@@ -10,6 +10,7 @@ from datetime import datetime
 
 _logger = logging.getLogger(__name__)
 
+
 def push_image_to_registry(image, registry, namespace, docker_auth_config):
     docker_auth_config = json.loads(docker_auth_config)
     repository = namespace + '/' + image
@@ -28,7 +29,7 @@ def push_image_to_registry(image, registry, namespace, docker_auth_config):
     image = client.images.get(name=image)
     image.tag(repository)
     server_return = client.images.push(repository=repository, auth_config=docker_auth_config)
-    # _logger.info(server_return)
+
 
 def _get_kubernetes_job_definition(image, image_namespace, job_namespace, command, env_vars):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
@@ -63,34 +64,37 @@ def _get_kubernetes_job_definition(image, image_namespace, job_namespace, comman
     _logger.info(yaml.load(job_template))
     return yaml.load(job_template)
 
+
 def _get_run_command(parameters):
     command = ['mlflow',  'run', '.', '--no-conda']
     for key, value in parameters.items():
         command.extend(["-P", "%s=%s" % (key, value)])
     return command
-            
-def run_kubernetes_job(image, image_namespace, job_namespace, parameters, env_vars):
+
+
+def run_kubernetes_job(image, image_namespace, job_namespace, parameters, env_vars, kube_context):
     command = _get_run_command(parameters)
     job_definition = _get_kubernetes_job_definition(image, image_namespace, job_namespace,
                                                     command, env_vars)
     job_name = job_definition['metadata']['name']
-    config.load_kube_config()
+    config.load_kube_config(context=kube_context)
     api_instance = kubernetes.client.BatchV1Api()
     api_response = api_instance.create_namespaced_job(namespace=job_namespace,
                                                       body=job_definition, pretty=True)
     job_status = api_response.status
-    while job_status.start_time == None:
+    while job_status.start_time is None:
         _logger.info("Waiting for Job to start")
         time.sleep(5)
         api_response = api_instance.read_namespaced_job_status(job_name,
                                                                job_namespace,
                                                                pretty=True)
         job_status = api_response.status
-    _logger.info("Job started at {0}".format(job_status.start_time.strftime('%Y-%m-%d-%H-%M-%S-%f')))
-    pod = _get_related_pod(job_name, job_namespace)
-    _get_pod_logs(pod, job_namespace)
+    _logger.info("Job started at {0}".format(
+        job_status.start_time.strftime('%Y-%m-%d-%H-%M-%S-%f')))
+    return job_name
 
-def _get_related_pod(job_name, job_namespace):
+
+def monitor_job_status(job_name, job_namespace):
     api_instance = kubernetes.client.CoreV1Api()
     pods = api_instance.list_namespaced_pod(job_namespace, pretty=True,
                                             label_selector="job-name={0}".format(job_name))
@@ -102,9 +106,6 @@ def _get_related_pod(job_name, job_namespace):
                                                       job_namespace,
                                                       pretty=True)
     _logger.info("Pod running")
-    return pod
-
-def _get_pod_logs(pod, job_namespace):
     api_instance = kubernetes.client.CoreV1Api()
     for line in api_instance.read_namespaced_pod_log(pod.metadata.name, job_namespace,
                                                      follow=True, _preload_content=False).stream():

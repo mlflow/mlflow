@@ -6,7 +6,7 @@ docker_env:
   registry:
 
 kubernetes_env:
-  job_namespace: teste-helm
+  job_namespace: mlflow
   context: 
 
 entry_points:

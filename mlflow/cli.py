@@ -83,8 +83,12 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
+@click.option("--docker-auth-config", metavar="MLFLOW_DOCKER_AUTH_CONFIG",
+              help="Username and Password for Docker authentication.")
+@click.option("--kube-context", metavar="MLFLOW_KUBE_CONTEXT",
+              help="Name of Kubernetes context where the training will run.")
 def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
-        backend_config, no_conda, storage_dir, run_id, docker_auth_config):
+        backend_config, no_conda, storage_dir, run_id,  docker_auth_config, kube_context):
     """
     Run an MLflow project from the given URI.
 
@@ -135,6 +139,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             synchronous=backend == "local" or backend is None,
             run_id=run_id,
             docker_auth_config=docker_auth_config,
+            kube_context=kube_context
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)

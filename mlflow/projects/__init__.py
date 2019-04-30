@@ -72,7 +72,8 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
          backend=None, backend_config=None, use_conda=True,
-         storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None):
+         storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None,
+         kube_context=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
@@ -148,7 +149,9 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     elif mode == "kubernetes":
         from mlflow.projects.kubernetes import run_kubernetes_job, push_image_to_registry
         if project.docker_env:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_PROJECT_ENV, "kubernetes")
+            tracking.MlflowClient().set_tag(active_run.info.run_uuid,
+                                            MLFLOW_PROJECT_ENV,
+                                            "kubernetes")
             _validate_docker_env(project.docker_env)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
@@ -160,8 +163,10 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                       project.docker_env.get('namespace'),
                                       project.kubernetes_env.get('job_namespace'),
                                       parameters,
-                                      _get_run_env_vars(run_id=active_run.info.run_uuid,
-                                                        experiment_id=active_run.info.experiment_id))
+                                      _get_run_env_vars(
+                                          run_id=active_run.info.run_uuid,
+                                          experiment_id=active_run.info.experiment_id),
+                                      kube_context)
 
     supported_modes = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -171,7 +176,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 def run(uri, entry_point="main", version=None, parameters=None,
         experiment_name=None, experiment_id=None,
         backend=None, backend_config=None, use_conda=True,
-        storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None):
+        storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None,
+        kube_context=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
 
@@ -218,6 +224,11 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
+    :param docker_auth_config: Dictionary containing docker username and password for Repository
+                               authentication.
+    :param kube_context: Name of Kubernetes context where the training will run. The context needs
+                         to be configured previously in the machine where mlflow will trigger
+                         the run.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
     """
@@ -244,7 +255,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
         parameters=parameters, backend=backend, backend_config=cluster_spec_dict,
         use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id,
-        docker_auth_config=None)
+        docker_auth_config=docker_auth_config, kube_context=kube_context)
     if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj

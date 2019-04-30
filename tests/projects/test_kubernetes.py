@@ -25,7 +25,6 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     job_definition = kb._get_kubernetes_job_definition(image=image, job_namespace=namespace,
                                                        image_namespace=namespace,
                                                        command=command, env_vars=env_vars)
-
     container_spec = job_definition['spec']['template']['spec']['containers'][0]
     assert container_spec['name'].startswith(image)
     assert container_spec['image'] == namespace + '/' + image
@@ -38,16 +37,15 @@ def test_call_kubernetes_api():
     namespace = 'default'
     parameters = {'alpha': '0.5'}
     env_vars = {'RUN_ID': '1'}
+    kube_context = "docker-for-desktop"
     with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kubernetes_api_mock:
-        kb.run_kubernetes_job(image=image, job_namespace=namespace, image_namespace=namespace,
-                              parameters=parameters, env_vars=env_vars)
+        job_name = kb.run_kubernetes_job(image=image, job_namespace=namespace,
+                                         image_namespace=namespace, parameters=parameters,
+                                         env_vars=env_vars, kube_context=kube_context)
+        assert job_name.startswith(image)
         assert kubernetes_api_mock.call_count == 1
-
         args = kubernetes_api_mock.call_args_list
         assert args[0][1]['namespace'] == namespace
-
-def test_call_kubernetes_api_with_error():
-    pass
 
 def test_push_image_to_registry():
     image = 'image'
@@ -78,6 +76,3 @@ def test_push_image_to_dockerhub():
         args = client.images.push.call_args_list
         assert args[0][1]['repository'] == namespace + '/' + image
         assert args[0][1]['auth_config'] == json.loads(docker_repo_auth_config)
-
-def test_push_image_to_registry_with_error():
-    pass
