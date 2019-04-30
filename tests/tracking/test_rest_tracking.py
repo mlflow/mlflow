@@ -265,16 +265,14 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     assert run.data.metrics.get('stepless-metric') == 987.654
     assert run.data.params.get('param') == 'value'
     assert run.data.tags.get('taggity') == 'do-dah'
-    # TODO(sid): replace this with mlflow_client.get_metric_history
-    store = _tracking_store_registry.get_store(backend_store_uri)
-    metric_history0 = store.get_metric_history(run_id, "metric")
+    metric_history0 = mlflow_client.get_metric_history(run_id, "metric")
     assert len(metric_history0) == 1
     metric0 = metric_history0[0]
     assert metric0.key == "metric"
     assert metric0.value == 123.456
     assert metric0.timestamp == 789
     assert metric0.step == 2
-    metric_history1 = store.get_metric_history(run_id, "stepless-metric")
+    metric_history1 = mlflow_client.get_metric_history(run_id, "stepless-metric")
     assert len(metric_history1) == 1
     metric1 = metric_history1[0]
     assert metric1.key == "stepless-metric"
@@ -295,9 +293,7 @@ def test_log_batch(mlflow_client, backend_store_uri):
     assert run.data.metrics.get('metric') == 123.456
     assert run.data.params.get('param') == 'value'
     assert run.data.tags.get('taggity') == 'do-dah'
-    # TODO(sid): replace this with mlflow_client.get_metric_history
-    store = _tracking_store_registry.get_store(backend_store_uri)
-    metric_history = store.get_metric_history(run_id, "metric")
+    metric_history = mlflow_client.get_metric_history(run_id, "metric")
     assert len(metric_history) == 1
     metric = metric_history[0]
     assert metric.key == "metric"
