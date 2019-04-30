@@ -1180,9 +1180,15 @@ class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqlite):
             os.remove(tmp)
 
     def test_store_generated_schema_matches_base(self):
-        # Given that setUp() creates a SQLAlchemyStore against self.tmpfile, directly verify that
-        # self.tmpfile contains a database with a valid schema
-        engine = sqlalchemy.create_engine("sqlite:///%s" % self.tmpfile)
-        mc = MigrationContext.configure(engine.connect())
-        diff = compare_metadata(mc, Base.metadata)
-        assert len(diff) == 0
+        _, tmpfile = tempfile.mkstemp()
+        try:
+            # Create a SQLAlchemyStore against tmpfile, directly verify that tmpfile contains a
+            # database with a valid schema
+            db_url = "sqlite:///%s" % tmpfile
+            SqlAlchemyStore(db_url, ARTIFACT_URI)
+            engine = sqlalchemy.create_engine("sqlite:///%s" % self.tmpfile)
+            mc = MigrationContext.configure(engine.connect())
+            diff = compare_metadata(mc, Base.metadata)
+            assert len(diff) == 0
+        finally:
+            os.remove(tmpfile)
