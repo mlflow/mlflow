@@ -77,6 +77,21 @@ def test_load_docker_project(tmpdir):
     assert project.docker_env.get("image") == "some-image"
 
 
+def test_load_kubernetes_project(tmpdir):
+    tmpdir.join("MLproject").write(textwrap.dedent("""
+    kubernetes_env:
+        job_namespace: job-namespace
+        image_namespace: image-namespace
+        registry: dockehub.com
+    """))
+    project = _project_spec.load_project(tmpdir.strpath)
+    assert project._entry_points == {}
+    assert project.conda_env_path is None
+    assert project.kubernetes_env.get("job_namespace") == "job-namespace"
+    assert project.kubernetes_env.get("image_namespace") == "image-namespace"
+    assert project.kubernetes_env.get("registry") == "dockehub.com"
+
+
 @pytest.mark.parametrize("invalid_project_contents, expected_error_msg", [
     (textwrap.dedent("""
     docker_env:

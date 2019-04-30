@@ -154,13 +154,15 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                             "kubernetes")
             _validate_docker_env(project.docker_env)
             _validate_docker_installation()
+            _validate_kubernetes_env(project.kubernetes_env)
             image = _build_docker_image(work_dir=work_dir,
                                         project=project,
                                         active_run=active_run)
-            kb.push_image_to_registry(image, project.docker_env.get('registry'),
-                                      project.docker_env.get('namespace'), docker_auth_config)
+            kb.push_image_to_registry(image, project.kubernetes_env.get('registry'),
+                                      project.kubernetes_env.get('image_namespace'),
+                                      docker_auth_config)
             job_name = kb.run_kubernetes_job(image,
-                                             project.docker_env.get('namespace'),
+                                             project.kubernetes_env.get('image_namespace'),
                                              project.kubernetes_env.get('job_namespace'),
                                              parameters,
                                              _get_run_env_vars(
@@ -707,6 +709,15 @@ def _validate_docker_env(docker_env):
     if not docker_env.get('image'):
         raise ExecutionException("Project with docker environment must specify the docker image "
                                  "to use via an 'image' field under the 'docker_env' field")
+
+
+def _validate_kubernetes_env(kubernetes_env):
+    if not kubernetes_env.get('job_namespace'):
+        raise ExecutionException("To run projects on kubernetes mode you must specify "
+                                 "'job_namespace' field under the 'kubernetes_env' field")
+    if not kubernetes_env.get('image_namespace'):
+        raise ExecutionException("To run projects on kubernetes mode you must specify "
+                                 "'image_namespace' field under the 'kubernetes_env' field")
 
 
 def _create_docker_build_ctx(work_dir, dockerfile_contents):

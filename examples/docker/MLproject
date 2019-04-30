@@ -2,11 +2,11 @@ name: docker-example
 
 docker_env:
   image:  mlflow-docker-example
-  namespace: marcusrehm
-  registry:
 
 kubernetes_env:
   job_namespace: mlflow
+  image_namespace: marcusrehm
+  registry:
 
 entry_points:
   main:

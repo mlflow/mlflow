@@ -32,7 +32,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     assert container_spec['env'][0]['name'] == 'RUN_ID'
     assert container_spec['env'][0]['value'] == '1'
 
-def test_call_kubernetes_api():
+def test_run_kubernetes_job():
     image = 'mlflow-docker-example-5e74a5a'
     namespace = 'default'
     parameters = {'alpha': '0.5'}
