@@ -53,6 +53,18 @@ def test_download_artifacts(local_artifact_repo):
         with open(artifact_src_path, "w") as f:
             f.write(artifact_text)
         local_artifact_repo.log_artifact(artifact_src_path)
+        dst_path = local_artifact_repo.download_artifacts(artifact_path=artifact_rel_path)
+        assert open(dst_path).read() == artifact_text
+
+
+def test_download_artifacts_returns_absolute_paths(local_artifact_repo):
+    artifact_rel_path = "test.txt"
+    artifact_text = "hello world!"
+    with TempDir(chdr=True) as local_dir:
+        artifact_src_path = local_dir.path(artifact_rel_path)
+        with open(artifact_src_path, "w") as f:
+            f.write(artifact_text)
+        local_artifact_repo.log_artifact(artifact_src_path)
 
         for dst_dir in ["dst1", local_dir.path("dst2"), None]:
             if dst_dir is not None:
@@ -61,7 +73,6 @@ def test_download_artifacts(local_artifact_repo):
                 artifact_path=artifact_rel_path,
                 dst_path=dst_dir)
             assert dst_path == os.path.abspath(dst_path)
-            assert open(dst_path).read() == artifact_text
 
 
 @pytest.mark.parametrize("repo_subdir_path", [
