@@ -12,7 +12,6 @@ import shutil
 import time
 import tempfile
 
-
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
@@ -86,6 +85,7 @@ def _get_safe_port():
     port = sock.getsockname()[1]
     sock.close()
     return port
+
 
 # Root directory for all stores (backend or artifact stores) created during this suite
 SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
@@ -195,8 +195,8 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     experiment_id = mlflow_client.get_experiment_by_name(bad_experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
     invoke_cli_runner(
-            mlflow.experiments.commands,
-            ['rename', str(experiment_id), good_experiment_name], env=cli_env)
+        mlflow.experiments.commands,
+        ['rename', str(experiment_id), good_experiment_name], env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
 
 
