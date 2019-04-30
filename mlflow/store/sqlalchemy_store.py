@@ -68,9 +68,16 @@ class SqlAlchemyStore(AbstractStore):
         self.engine = sqlalchemy.create_engine(db_uri)
         insp = sqlalchemy.inspect(self.engine)
         # On a completely fresh MLflow installation against an empty database (verify database
-        # emptiness by checking that 'experiments' isn't in the list of table names), run all
+        # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
         # DB migrations
-        if "experiments" not in insp.get_table_names():
+        expected_tables = set([
+            SqlExperiment.__tablename__,
+            SqlRun.__tablename__,
+            SqlMetric.__tablename__,
+            SqlParam.__tablename__,
+            SqlTag.__tablename__
+        ])
+        if len(expected_tables & set(insp.get_table_names())) == 0:
             SqlAlchemyStore._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
