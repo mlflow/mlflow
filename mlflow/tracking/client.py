@@ -53,6 +53,17 @@ class MlflowClient(object):
         _validate_run_id(run_id)
         return self.store.get_run(run_id)
 
+    def get_metric_history(self, run_id, key):
+        """
+        Return a list of metric objects corresponding to all values logged for a given metric.
+
+        :param run_id: Unique identifier for run
+        :param key: Metric name within the run
+
+        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
+        """
+        return self.store.get_metric_history(run_uuid=run_id, metric_key=key)
+
     def create_run(self, experiment_id, user_id=None, run_name=None, start_time=None,
                    parent_run_id=None, tags=None):
         """
