@@ -61,7 +61,7 @@ test_that("logging functionality", {
 
   mlflow_end_run()
   end_run_upper_bound <- round(as.numeric(Sys.time()) * 1000)
-  ended_run <- mlflow_get_run(run_id)
+  ended_run <- mlflow_get_run(run_id = run_id)
   expect_true(ended_run$info$start_time >= start_time_lower_bound)
   expect_true(ended_run$info$start_time <= end_run_upper_bound)
   metric_history <- mlflow_get_metric_history("mse", ended_run$info$run_uuid)
