@@ -2,7 +2,6 @@ import os
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
