@@ -6,13 +6,16 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
+
 @pytest.fixture
 def local_artifact_root(tmpdir):
     return str(tmpdir)
 
+
 @pytest.fixture
 def local_artifact_repo(local_artifact_root):
     return LocalArtifactRepository(artifact_uri=local_artifact_root)
+
 
 def test_list_artifacts(local_artifact_repo, local_artifact_root):
     assert len(local_artifact_repo.list_artifacts()) == 0
@@ -81,7 +84,7 @@ def test_download_artifacts_returns_absolute_paths(local_artifact_repo):
     "aaa/bbb/ccc/ddd",
 ])
 def test_artifacts_are_logged_to_and_downloaded_from_repo_subdirectory_successfully(
-    local_artifact_repo, repo_subdir_path):
+        local_artifact_repo, repo_subdir_path):
     artifact_rel_path = "test.txt"
     artifact_text = "hello world!"
     with TempDir(chdr=True) as local_dir:
