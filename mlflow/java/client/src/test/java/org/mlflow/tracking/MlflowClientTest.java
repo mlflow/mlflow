@@ -137,6 +137,8 @@ public class MlflowClientTest {
     // Log metrics
     client.logMetric(runId, "accuracy_score", ACCURACY_SCORE);
     client.logMetric(runId, "zero_one_loss", ZERO_ONE_LOSS);
+    client.logMetric(runId, "logged_multiple_times", 2.0);
+    client.logMetric(runId, "logged_multiple_times", -1.0);
 
     // Log tag
     client.setTag(runId, "user_email", USER_EMAIL);
@@ -158,8 +160,9 @@ public class MlflowClientTest {
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
     assertRunInfo(runInfo, expId, sourceFile);
-    Assert.assertTrue(runInfo.getStartTime() > startTime); // verify run start and end are set in ms
-    Assert.assertTrue(runInfo.getEndTime() < endTime);
+    // verify run start and end are set in ms
+    Assert.assertTrue(runInfo.getStartTime() >= startTime);
+    Assert.assertTrue(runInfo.getEndTime() <= endTime);
 
     // Assert parent run ID is not set.
     Assert.assertTrue(run.getData().getTagsList().stream().noneMatch(
@@ -277,13 +280,15 @@ public class MlflowClientTest {
     assertParam(params, "max_depth", MAX_DEPTH);
 
     List<Metric> metrics = run.getData().getMetricsList();
-    Assert.assertEquals(metrics.size(), 2);
-    RunInfo rInfo = run.getInfo();
-    assertMetric(metrics, "accuracy_score", ACCURACY_SCORE, rInfo.getStartTime(),
-      rInfo.getEndTime());
-    assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS, rInfo.getStartTime(),
-      rInfo.getEndTime());
+    Assert.assertEquals(metrics.size(), 3);
+    assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
+    assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
+    assertMetric(metrics, "logged_multiple_times", -1.0);
     assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
+
+    List<Metric> metricHistory = client.getMetricHistory(runId, "logged_multiple_times");
+    assertMetricHistory(metricHistory, "logged_multiple_times", Arrays.asList(2.0, -1.0),
+      Arrays.asList(0L, 0L));
 
     List<RunTag> tags = run.getData().getTagsList();
     Assert.assertEquals(tags.size(), 1);

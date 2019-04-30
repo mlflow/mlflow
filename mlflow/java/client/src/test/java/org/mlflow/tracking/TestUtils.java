@@ -30,7 +30,21 @@ public class TestUtils {
   }
 
   public static void assertMetric(List<Metric> metrics, String key, double value, long runStart, long runEnd) {
-    Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value) && e.getTimestamp() >= runStart && e.getTimestamp() <= runEnd).findFirst().isPresent());
+    Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) &&
+      equals(e.getValue(), value) && e.getTimestamp() >= runStart &&
+      e.getTimestamp() <= runEnd
+    ).findFirst().isPresent());
+  }
+
+  public static void assertMetricHistory(List<Metric> history, String key, List<Double> values, List<Long> steps) {
+    Assert.assertEquals(history.size(), values.size());
+    Assert.assertEquals(history.size(), steps.size());
+    for (int i = 0; i < history.size(); i++) {
+      Metric metric = history.get(i);
+      Assert.assertEquals(metric.getKey(), key);
+      Assert.assertTrue(equals(metric.getValue(), values.get(i)));
+      Assert.assertTrue(equals(metric.getStep(), steps.get(i)));
+    }
   }
 
   public static void assertTag(List<RunTag> tags, String key, String value) {
