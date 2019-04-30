@@ -10,7 +10,6 @@ import mock
 import pytest
 
 import mlflow
-
 from mlflow import tracking
 from mlflow.entities import RunStatus, LifecycleStage, Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
@@ -204,11 +203,9 @@ def test_log_metric(tracking_uri_mock, tmpdir):
     finished_run = tracking.MlflowClient().get_run(run_uuid)
     # Validate metrics
     assert len(finished_run.data.metrics) == 3
-
     expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     for key, value in finished_run.data.metrics.items():
         assert expected_pairs[key] == value
-
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_uuid, "name_1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set([
@@ -247,8 +244,7 @@ def get_store_mock(tmpdir):
 
 
 def test_set_tags(tracking_uri_mock):
-    path = os.path.normpath("nested/nested/name")
-    exact_expected_tags = {"name_1": "c", "name_2": "b", path: "5"}
+    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
     approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
     with start_run() as active_run:
         run_uuid = active_run.info.run_uuid
@@ -332,7 +328,6 @@ def test_log_artifact(tracking_uri_mock):
         with start_run():
             artifact_uri = mlflow.get_artifact_uri()
             run_artifact_dir = local_file_uri_to_path(artifact_uri)
-
             mlflow.log_artifact(path0, parent_dir)
         expected_dir = os.path.join(run_artifact_dir, parent_dir) \
             if parent_dir is not None else run_artifact_dir
@@ -361,7 +356,7 @@ def test_uri_types():
     assert utils._is_local_uri("mlruns")
     assert utils._is_local_uri("./mlruns")
     assert utils._is_local_uri("file:///foo/mlruns")
-    assert utils._is_local_uri("file:/foo/mlruns")
+    assert utils._is_local_uri("file:foo/mlruns")
     assert not utils._is_local_uri("https://whatever")
     assert not utils._is_local_uri("http://whatever")
     assert not utils._is_local_uri("databricks")
