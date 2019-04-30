@@ -60,6 +60,8 @@ def _create_entity(base, model):
                     obj = SourceType.from_string(obj)
                 elif k == "status":
                     obj = RunStatus.from_string(obj)
+                elif k == "experiment_id":
+                    obj = str(obj)
 
         # Our data model defines experiment_ids as ints, but the in-memory representation was
         # changed to be a string in time for 1.0.
