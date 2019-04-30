@@ -41,11 +41,13 @@ Imports:
   xml2,
   yaml,
   pryr,
-  rlang (>= 0.2.0)
-RoxygenNote: 6.1.0
+  rlang (>= 0.2.0),
+  zeallot,
+  tibble,
+  glue
+RoxygenNote: 6.1.1
 Suggests: 
   covr,
   keras,
   lintr,
   testthat
-

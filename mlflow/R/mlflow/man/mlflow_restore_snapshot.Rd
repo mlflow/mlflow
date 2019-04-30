@@ -8,5 +8,5 @@ mlflow_restore_snapshot()
 }
 \description{
 Restores a snapshot of all dependencies required to run the files in the
-current directory
+current directory.
 }

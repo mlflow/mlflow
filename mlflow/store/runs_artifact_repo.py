@@ -88,7 +88,7 @@ class RunsArtifactRepository(ArtifactRepository):
 
         :return: List of artifacts as FileInfo listed directly under path.
         """
-        self.repo.list_artifacts(path)
+        return self.repo.list_artifacts(path)
 
     def _download_file(self, remote_file_path, local_path):
         """

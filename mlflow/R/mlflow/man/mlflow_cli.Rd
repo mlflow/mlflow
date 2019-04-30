@@ -18,14 +18,13 @@ Defaults to \code{FALSE}.}
 
 \item{stderr_callback}{NULL, or a function to call for every chunk of the standard error.}
 
-\item{client}{Client object can set additional environment variables required by the cli process.}
-
+\item{client}{Mlflow client to provide environment for the cli process.}
 }
 \value{
 A \code{processx} task.
 }
 \description{
-Executes a generic MLflow command through the command line interface.
+Runs a generic MLflow command through the command-line interface.
 }
 \examples{
 \dontrun{

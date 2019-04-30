@@ -52,7 +52,7 @@ mlflow_timestamp <- function() {
 
 mlflow_write_model_spec <- function(path, content) {
   content$utc_time_created <- mlflow_timestamp()
-  content$run_id <- active_run_id()
+  content$run_id <- mlflow_get_active_run_id()
 
   write_yaml(
     purrr::compact(content),
