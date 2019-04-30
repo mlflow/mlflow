@@ -258,7 +258,7 @@ class SqlMetric(Base):
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
     """
-    step = Column(BigInteger, default=0)
+    step = Column(BigInteger, default=0, nullable=False)
     """
     Step recorded for this metric entry: `BigInteger`.
     """

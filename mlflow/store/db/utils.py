@@ -22,7 +22,7 @@ def _upgrade_db(url):
 
     _logger.info("Updating database tables at %s", url)
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    package_dir = os.path.normpath(os.path.join(current_dir, '..', '..'))
+    package_dir = os.path.normpath(os.path.join(current_dir, os.pardir, os.pardir))
     directory = os.path.join(package_dir, 'alembic')
     config = Config(os.path.join(package_dir, 'alembic.ini'))
     config.set_main_option('script_location', directory)

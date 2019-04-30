@@ -5,6 +5,9 @@ import tempfile
 import unittest
 import warnings
 
+from alembic import command
+from alembic.script import ScriptDirectory
+from alembic.config import Config
 import mock
 import sqlalchemy
 import time
@@ -237,26 +240,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             added_param = params[0].to_mlflow_entity()
             self.assertEqual(added_param.value, new_param.value)
             self.assertEqual(added_param.key, new_param.key)
-
-    def test_sqlalchemy_store_detects_schema_mismatch(self):
-        # Initialize an empty database & verify that we detect a schema mismatch
-        _, tmp = tempfile.mkstemp()
-        try:
-            db_url = "sqlite:///%s" % tmp
-            engine = sqlalchemy.create_engine(db_url)
-            with self.assertRaises(MlflowException) as ex:
-                SqlAlchemyStore._verify_schema(engine)
-            self.assertIn("Detected out-of-date database schema.", str(ex.exception))
-            # Create legacy tables, verify schema is still out of date
-            LegacyBase.metadata.create_all(engine)
-            with self.assertRaises(MlflowException) as ex:
-                SqlAlchemyStore._verify_schema(engine)
-            self.assertIn("Detected out-of-date database schema.", str(ex.exception))
-            # Run migrations, schema verification should now pass
-            invoke_cli_runner(cli.upgradedb, db_url)
-            SqlAlchemyStore._verify_schema(engine)
-        finally:
-            os.remove(tmp)
 
     def test_run_needs_uuid(self):
         # Depending on the implementation, a NULL identity key may result in different
@@ -1154,3 +1137,42 @@ class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqlite):
 
     def tearDown(self):
         os.remove(self.tmpfile)
+
+    def test_sqlalchemy_store_detects_schema_mismatch(self):
+        # Initialize an empty database & verify that we detect a schema mismatch
+        _, tmp = tempfile.mkstemp()
+        try:
+            db_url = "sqlite:///%s" % tmp
+            engine = sqlalchemy.create_engine(db_url)
+            # Verify empty database is out of date
+            with self.assertRaises(MlflowException) as ex:
+                SqlAlchemyStore._verify_schema(engine)
+            self.assertIn("Detected out-of-date database schema.", str(ex.exception))
+            # Create legacy tables, verify schema is still out of date
+            LegacyBase.metadata.create_all(engine)
+            with self.assertRaises(MlflowException) as ex:
+                SqlAlchemyStore._verify_schema(engine)
+            self.assertIn("Detected out-of-date database schema.", str(ex.exception))
+            # Get list of migration scripts
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            package_dir = os.path.normpath(
+                os.path.join(current_dir, os.pardir, os.pardir, 'mlflow'))
+            directory = os.path.join(package_dir, 'alembic')
+            config = Config(os.path.join(package_dir, 'alembic.ini'))
+            config.set_main_option('script_location', directory)
+            config.set_main_option('sqlalchemy.url', db_url)
+            script = ScriptDirectory.from_config(config)
+            # Run each migration. Until the last one, schema should be out of date
+            revisions = list(script.walk_revisions())
+            revisions.reverse()
+            for rev in revisions[:-1]:
+                command.upgrade(config, rev.revision)
+                with self.assertRaises(MlflowException) as ex:
+                    SqlAlchemyStore._verify_schema(engine)
+                self.assertIn("Detected out-of-date database schema.", str(ex.exception))
+            # Run migrations, schema verification should now pass
+            invoke_cli_runner(cli.upgradedb, db_url)
+            SqlAlchemyStore._verify_schema(engine)
+        finally:
+            os.remove(tmp)
+
