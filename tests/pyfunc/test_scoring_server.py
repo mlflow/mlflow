@@ -33,6 +33,7 @@ def model_path(tmpdir):
     return str(os.path.join(tmpdir.strpath, "model"))
 
 
+@pytest.mark.large
 def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
@@ -49,6 +50,7 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
     assert "stack_trace" in response_json
 
 
+@pytest.mark.large
 def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
@@ -65,6 +67,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
     assert "stack_trace" in response_json
 
 
+@pytest.mark.large
 def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
@@ -83,6 +86,7 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
     assert "stack_trace" in response_json
 
 
+@pytest.mark.large
 def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
@@ -99,6 +103,7 @@ def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stackt
     assert "stack_trace" in response_json
 
 
+@pytest.mark.large
 def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
@@ -116,6 +121,7 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
     assert "stack_trace" in response_json
 
 
+@pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_records_orientation(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
@@ -128,6 +134,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
     assert response_records_content_type.status_code == 200
 
 
+@pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_split_orientation(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
@@ -146,6 +153,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
     assert response.status_code == 200
 
 
+@pytest.mark.large
 def test_scoring_server_responds_to_invalid_content_type_request_with_unsupported_content_type_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
@@ -158,6 +166,7 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
     assert response.status_code == 415
 
 
+@pytest.mark.large
 def test_parse_json_input_records_oriented():
     size = 20
     data = {"col_m": [random_int(0, 1000) for _ in range(size)],
@@ -170,6 +179,7 @@ def test_parse_json_input_records_oriented():
         assert all(p1[col] == p2[col])
 
 
+@pytest.mark.large
 def test_parse_json_input_split_oriented():
     size = 200
     data = {"col_m": [random_int(0, 1000) for _ in range(size)],
@@ -180,6 +190,7 @@ def test_parse_json_input_split_oriented():
     assert all(p1 == p2)
 
 
+@pytest.mark.large
 def test_records_oriented_json_to_df():
     # test that datatype for "zip" column is not converted to "int64"
     jstr = '[' \
@@ -193,6 +204,7 @@ def test_records_oriented_json_to_df():
     assert set(str(dt) for dt in df.dtypes) == {'object', 'float64', 'int64'}
 
 
+@pytest.mark.large
 def test_split_oriented_json_to_df():
     # test that datatype for "zip" column is not converted to "int64"
     jstr = '{"columns":["zip","cost","count"],"index":[0,1,2],' \
