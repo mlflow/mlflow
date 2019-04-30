@@ -59,6 +59,13 @@ public class MlflowClient {
     return mapper.toGetRunResponse(httpCaller.get(builder.toString())).getRun();
   }
 
+  public List<Metric> getMetricHistory(String runUuid, String key) {
+    URIBuilder builder = newURIBuilder("metrics/get-history")
+      .setParameter("run_uuid", runUuid)
+      .setParameter("metric_key", key);
+    return mapper.toGetMetricHistoryResponse(httpCaller.get(builder.toString())).getMetricsList();
+  }
+
   /**
    * Creates a new run under the default experiment with no application name.
    * @return RunInfo created by the server

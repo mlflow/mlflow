@@ -126,6 +126,12 @@ class MlflowProtobufMapper {
     return builder.build();
   }
 
+  GetMetricHistory.Response toGetMetricHistoryResponse(String json) {
+    GetMetricHistory.Response.Builder builder = GetMetricHistory.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
   CreateRun.Response toCreateRunResponse(String json) {
     CreateRun.Response.Builder builder = CreateRun.Response.newBuilder();
     merge(json, builder);

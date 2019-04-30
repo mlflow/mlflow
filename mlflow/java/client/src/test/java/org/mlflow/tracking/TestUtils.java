@@ -28,6 +28,17 @@ public class TestUtils {
     Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
   }
 
+  public static void assertMetricHistory(List<Metric> history, String key, List<Double> values, List<Long> steps) {
+    Assert.assertEquals(history.size(), values.size());
+    Assert.assertEquals(history.size(), steps.size());
+    for (int i = 0; i < history.size(); i++) {
+      Metric metric = history.get(i);
+      Assert.assertEquals(metric.getKey(), key);
+      Assert.assertTrue(equals(metric.getValue(), values.get(i)));
+      Assert.assertTrue(equals(metric.getStep(), steps.get(i)));
+    }
+  }
+
   public static void assertTag(List<RunTag> tags, String key, String value) {
     Assert.assertTrue(tags.stream().filter(e -> e.getKey().equals(key) && e.getValue().equals(value)).findFirst().isPresent());
   }

@@ -164,18 +164,17 @@ def test_log_batch(tracking_uri_mock, tmpdir):
         run_uuid = active_run.info.run_uuid
         mlflow.tracking.MlflowClient().log_batch(run_id=run_uuid, metrics=metrics, params=params,
                                                  tags=tags)
-    finished_run = tracking.MlflowClient().get_run(run_uuid)
+    client = tracking.MlflowClient()
+    finished_run = client.get_run(run_uuid)
     # Validate metrics
     assert len(finished_run.data.metrics) == 2
     for key, value in finished_run.data.metrics.items():
         assert expected_metrics[key] == value
-    # TODO: use client get_metric_history API here instead once it exists
-    fs = FileStore(os.path.join(tmpdir.strpath, "mlruns"))
-    metric_history0 = fs.get_metric_history(run_uuid, "metric-key0")
+    metric_history0 = client.get_metric_history(run_uuid, "metric-key0")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history0]) == set([
         (1.0, t, 0),
     ])
-    metric_history1 = fs.get_metric_history(run_uuid, "metric-key1")
+    metric_history1 = client.get_metric_history(run_uuid, "metric-key1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history1]) == set([
         (4.0, t, 1),
     ])
@@ -206,15 +205,14 @@ def test_log_metric(tracking_uri_mock, tmpdir):
     expected_pairs = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}
     for key, value in finished_run.data.metrics.items():
         assert expected_pairs[key] == value
-    # TODO: use client get_metric_history API here instead once it exists
-    fs = FileStore(os.path.join(tmpdir.strpath, "mlruns"))
-    metric_history_name1 = fs.get_metric_history(run_uuid, "name_1")
+    client = tracking.MlflowClient()
+    metric_history_name1 = client.get_metric_history(run_uuid, "name_1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set([
         (25, 300, 0),
         (30, 302, 5),
         (40, 303, -2),
     ])
-    metric_history_name2 = fs.get_metric_history(run_uuid, "name_2")
+    metric_history_name2 = client.get_metric_history(run_uuid, "name_2")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == set([
         (-3, 301, 0),
     ])
