@@ -97,7 +97,8 @@ class ArtifactRepository:
             return local_path
 
         if dst_path is None:
-            dst_path = os.path.abspath(tempfile.mkdtemp())
+            dst_path = tempfile.mkdtemp()
+        dst_path = os.path.abspath(dst_path)
 
         if not os.path.exists(dst_path):
             raise MlflowException(
