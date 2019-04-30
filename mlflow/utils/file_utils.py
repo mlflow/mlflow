@@ -5,9 +5,10 @@ import posixpath
 import shutil
 import tarfile
 import tempfile
-import urllib
+
 
 from six.moves.urllib.request import pathname2url
+from six.moves import urllib
 
 import yaml
 
