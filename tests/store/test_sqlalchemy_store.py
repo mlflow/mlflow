@@ -1186,7 +1186,7 @@ class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqlite):
             # database with a valid schema
             db_url = "sqlite:///%s" % tmpfile
             SqlAlchemyStore(db_url, ARTIFACT_URI)
-            engine = sqlalchemy.create_engine("sqlite:///%s" % self.tmpfile)
+            engine = sqlalchemy.create_engine(db_url)
             mc = MigrationContext.configure(engine.connect())
             diff = compare_metadata(mc, Base.metadata)
             assert len(diff) == 0
