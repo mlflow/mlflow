@@ -1,5 +1,20 @@
 context("Tracking")
 
+mlflow_clear_test_dir <- function(path) {
+  purrr::safely(mlflow_end_run)()
+  mlflow_set_active_experiment_id(NULL)
+  if (dir.exists(path)) {
+    unlink(path, recursive = TRUE)
+  }
+  deregister_local_servers()
+}
+
+deregister_local_servers <- function() {
+  purrr::walk(as.list(mlflow:::.globals$url_mapping), ~ .x$handle$kill())
+  rlang::env_unbind(mlflow:::.globals, "url_mapping")
+}
+
+
 test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
@@ -43,7 +58,7 @@ test_that("mlflow_set_tag() should return NULL invisibly", {
 test_that("logging functionality", {
   mlflow_clear_test_dir("mlruns")
 
-  start_time_lower_bound <- round(as.numeric(Sys.time()) * 1000)
+  start_time_lower_bound <- floor(as.numeric(Sys.time()) * 1000)
   mlflow_start_run()
 
   mlflow_log_metric("mse", 24)
@@ -53,22 +68,30 @@ test_that("logging functionality", {
   mlflow_log_param("param_key", "param_value")
 
   run <- mlflow_get_run()
-  run_id <- run$info$run_uuid
+  run_id <- run$run_uuid
   expect_identical(run$tags[[1]]$key, "tag_key")
   expect_identical(run$tags[[1]]$value, "tag_value")
   expect_identical(run$params[[1]]$key, "param_key")
   expect_identical(run$params[[1]]$value, "param_value")
 
   mlflow_end_run()
-  end_run_upper_bound <- round(as.numeric(Sys.time()) * 1000)
+  end_time_upper_bound <- ceiling(as.numeric(Sys.time()) * 1000)
   ended_run <- mlflow_get_run(run_id = run_id)
-  expect_true(ended_run$info$start_time >= start_time_lower_bound)
-  expect_true(ended_run$info$start_time <= end_run_upper_bound)
-  metric_history <- mlflow_get_metric_history("mse", ended_run$info$run_uuid)
+  run_start_time <- as.numeric(ended_run$start_time) * 1000
+  run_end_time <- as.numeric(ended_run$end_time) * 1000
+  print(paste("Run start time", run_start_time))
+  print(paste("Run start time lower bound ", start_time_lower_bound))
+  print(paste("Run end time", run_end_time))
+  print(paste("Run end time lower bound ", end_time_upper_bound))
+  expect_true(run_start_time >= start_time_lower_bound)
+  expect_true(run_end_time <= end_time_upper_bound)
+  metric_history <- mlflow_get_metric_history("mse", ended_run$run_uuid)
   expect_identical(metric_history$key, c("mse", "mse"))
   expect_identical(metric_history$value, c(24, 25))
-  expect_true(all(metric_history$timestamp >= run$info$start_time))
-  expect_true(all(metric_history$timestamp <= run$info$end_time))
+  print(paste("Metric history timestamp", metric_history$timestamp))
+  metric_timestamps <- floor(as.numeric(metric_history$timestamp) * 1000)
+  expect_true(all(metric_timestamps >= run_start_time))
+  expect_true(all(metric_timestamps <= run_end_time))
 
 
   expect_error(
