@@ -16,7 +16,7 @@ def local_artifact_repo(local_artifact_root):
 
 def test_list_artifacts(local_artifact_repo, local_artifact_root):
     assert len(local_artifact_repo.list_artifacts()) == 0
-   
+
     artifact_rel_path = "artifact"
     artifact_path = os.path.join(local_artifact_root, artifact_rel_path)
     with open(artifact_path, "w") as f:
