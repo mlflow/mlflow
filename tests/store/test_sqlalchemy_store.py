@@ -1207,7 +1207,7 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
     """
     def _setup_database(self, filename=''):
         # db_url = "sqlite:///%s" % self.tmpfile
-        db_url = "mysql://root:password@localhost:33060/sidtest"
+        db_url = "mysql://root@localhost:3306/sidtest"
         engine = sqlalchemy.create_engine(db_url)
         LegacyBase.metadata.drop_all(engine)
         from alembic import command
