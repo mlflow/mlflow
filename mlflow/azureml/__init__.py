@@ -47,13 +47,6 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
                       supported-artifact-stores>`_.
-    :param model_uri: URI to the MLflow model for which the image will be built, for example:
-                          - "/Users/me/path/to/local/model"
-                          - "s3://my_bucket/path/to/model"
-                          - "runs://<run_id>/path/to/model"
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
     :param image_name: The name to assign the Azure Container Image that will be created. If
                        unspecified, a unique image name will be generated.
     :param model_name: The name to assign the Azure Model will be created. If unspecified,
