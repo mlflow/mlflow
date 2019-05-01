@@ -5,6 +5,16 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+def _get_alembic_config(db_url):
+    from alembic.config import Config
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    package_dir = os.path.normpath(os.path.join(current_dir, os.pardir, os.pardir))
+    directory = os.path.join(package_dir, 'alembic')
+    config = Config(os.path.join(package_dir, 'alembic.ini'))
+    config.set_main_option('script_location', directory)
+    config.set_main_option('sqlalchemy.url', db_url)
+    return config
+
 
 def _upgrade_db(url):
     """
@@ -18,13 +28,7 @@ def _upgrade_db(url):
     """
     # alembic adds significant import time, so we import it lazily
     from alembic import command
-    from alembic.config import Config
 
     _logger.info("Updating database tables at %s", url)
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    package_dir = os.path.normpath(os.path.join(current_dir, os.pardir, os.pardir))
-    directory = os.path.join(package_dir, 'alembic')
-    config = Config(os.path.join(package_dir, 'alembic.ini'))
-    config.set_main_option('script_location', directory)
-    config.set_main_option('sqlalchemy.url', url)
+    config = _get_alembic_config(url)
     command.upgrade(config, 'heads')
