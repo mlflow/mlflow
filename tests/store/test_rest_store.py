@@ -149,7 +149,7 @@ class TestRestStore(unittest.TestCase):
             metric_protos = [metric.to_proto() for metric in metrics]
             param_protos = [param.to_proto() for param in params]
             tag_protos = [tag.to_proto() for tag in tags]
-            body = message_to_json(LogBatch(run_uuid="u2", run_id="u2", metrics=metric_protos,
+            body = message_to_json(LogBatch(run_id="u2", metrics=metric_protos,
                                             params=param_protos, tags=tag_protos))
             self._verify_requests(mock_http, creds,
                                   "runs/log-batch", "POST", body)
