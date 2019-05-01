@@ -50,6 +50,7 @@ setup(
         'docker>=3.6.0',
         'entrypoints',
         'sqlparse',
+        'sqlalchemy',
     ],
     entry_points='''
         [console_scripts]

@@ -99,16 +99,19 @@ class SqlAlchemyStore(AbstractStore):
 
     @staticmethod
     def _verify_schema(engine):
-        mc = MigrationContext.configure(engine.connect())
-        diff = compare_metadata(mc, Base.metadata)
-        if len(diff) > 0:
-            _logger.error("Detected one or more differences between current database schema and "
-                          "desired schema, exiting. Diff:\n %s",
-                          pprint.pprint(diff, indent=2, width=20))
-            raise MlflowException(
-                "Detected out-of-date database schema. Run 'mlflow db upgrade %s' to migrate your "
-                "database to latest schema. NOTE: schema migration may result in database downtime "
-                "- please consult your database's documentation for more detail." % engine.url)
+        with engine.connect() as connection:
+            mc = MigrationContext.configure(connection)
+            diff = compare_metadata(mc, Base.metadata)
+            if len(diff) > 0:
+                _logger.error("Detected one or more differences between current database schema "
+                              "and desired schema, exiting. Diff:\n %s",
+                              pprint.pformat(diff, indent=2, width=20))
+                raise MlflowException(
+                    "Detected out-of-date database schema. Take a backup of your database, then "
+                    "run 'mlflow db upgrade %s' to migrate your database to the latest schema. "
+                    "NOTE: schema migration may result in database downtime "
+                    "- please consult your database's documentation for more detail." % engine.url)
+
 
     @staticmethod
     def _get_managed_session_maker(SessionMaker):

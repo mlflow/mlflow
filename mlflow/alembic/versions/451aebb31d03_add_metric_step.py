@@ -7,7 +7,7 @@ Create Date: 2019-04-22 15:29:24.921354
 """
 from alembic import op
 import sqlalchemy as sa
-
+from sqlalchemy.sql import column, func
 
 # revision identifiers, used by Alembic.
 revision = '451aebb31d03'
@@ -22,10 +22,16 @@ def upgrade():
     # databases (see more info at https://alembic.sqlalchemy.org/en/latest/
     # batch.html#running-batch-migrations-for-sqlite-and-other-databases)
     with op.batch_alter_table("metrics") as batch_op:
-        batch_op.drop_constraint(constraint_name='metric_pk')
+        batch_op.drop_constraint(constraint_name='metric_pk', type_='primary')
         batch_op.create_primary_key(
             constraint_name='metric_pk',
             columns=['key', 'timestamp', 'step', 'run_uuid', 'value'])
+    with op.batch_alter_table("runs") as batch_op:
+        batch_op.drop_constraint(constraint_name='lifecycle_stage')
+        batch_op.create_check_constraint(
+            "lifecycle_stage_runs",
+            column('lifecycle_stage').in_(["active", "deleted"])
+        )
 
 
 def downgrade():
