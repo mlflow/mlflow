@@ -83,9 +83,10 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
-@click.option("--docker-auth-config", metavar="MLFLOW_DOCKER_AUTH_CONFIG",
+@click.option("--docker-auth-config", metavar="MLFLOW_DOCKER_AUTH_CONFIG", 
+              envvar="MLFLOW_DOCKER_AUTH_CONFIG",
               help="Username and Password for Docker authentication.")
-@click.option("--kube-context", metavar="MLFLOW_KUBE_CONTEXT",
+@click.option("--kube-context", metavar="MLFLOW_KUBE_CONTEXT", envvar="MLFLOW_KUBE_CONTEXT",
               help="Name of Kubernetes context where the training will run.")
 def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
         backend_config, no_conda, storage_dir, run_id,  docker_auth_config, kube_context):
@@ -124,6 +125,11 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
         except ValueError as e:
             eprint("Invalid cluster spec JSON. Parse error: %s" % e)
             raise
+    if mode == "kubernetes":
+        if docker_auth_config is None or kube_context is None:
+            eprint("Specify 'docker_auth_config' and 'kube_context' when using kubernetes mode.")
+            sys.exit(1)
+
     try:
         projects.run(
             uri,
