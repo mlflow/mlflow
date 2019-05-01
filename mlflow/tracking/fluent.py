@@ -196,7 +196,7 @@ def log_metric(key, value, step=None):
     :param step: Metric step (int). Defaults to zero if unspecified.
     """
     run_id = _get_or_start_run().info.run_uuid
-    MlflowClient().log_metric(run_id, key, value, int(time.time()), step or 0)
+    MlflowClient().log_metric(run_id, key, value, int(time.time() * 1000), step or 0)
 
 
 def log_metrics(metrics, step=None):
