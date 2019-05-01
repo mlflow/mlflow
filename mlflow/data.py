@@ -84,7 +84,7 @@ def download_uri(uri, output_path):
               help="Output path into which to download the artifact.")
 def download(uri, output_path):
     """
-    Download the artifact at the specified DBFS or S3 URI into the specified local output path, or
+    Download the artifact at the specified DBFS, S3, or GCS URI into the specified local output path, or
     the current directory if no output path is specified.
     """
     if output_path is None:
