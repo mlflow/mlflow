@@ -15,7 +15,7 @@ import tempfile
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
-from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+from mlflow.server import REL_STATIC_DIR, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.utils import _tracking_store_registry
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
@@ -57,13 +57,15 @@ def _await_server_down_or_die(process, timeout=60):
 
 
 class App(object):
-    def __init__(self, hostname, port, app):
+    def __init__(self, hostname, port, flask_args):
         self._hostname = hostname
         self._port = port
-        self._app = app
+        self._flask_args = flask_args
 
     def __call__(self):
-        self._app.run(self._hostname, self._port)
+        from flask import Flask, send_from_directory
+        self.app = Flask(**self._flask_args)
+        self.app.run(self._hostname, self._port)
 
 
 def _init_server(backend_uri, root_artifact_uri):
@@ -81,7 +83,9 @@ def _init_server(backend_uri, root_artifact_uri):
     }
 
     with mock.patch.dict(os.environ, env):
-        process = Process(target=App(hostname=LOCALHOST, port=server_port, app=app))
+        process = Process(target=App(hostname=LOCALHOST, port=server_port,
+                                     flask_args={"import_name": __name__,
+                                                 "static_folder": REL_STATIC_DIR}))
         process.start()
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
