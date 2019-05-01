@@ -4,7 +4,7 @@ and ensures we can use the tracking API to communicate with it.
 """
 
 import mock
-from multiprocessing import Process
+from subprocess import Popen, PIPE, STDOUT
 import os
 import pytest
 import socket
@@ -12,10 +12,11 @@ import shutil
 import time
 import tempfile
 
+
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
-
+from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.utils import _tracking_store_registry
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
@@ -50,26 +51,14 @@ def _await_server_down_or_die(process, timeout=60):
     """Waits until the local flask server process is terminated."""
     print('Awaiting termination of server process...')
     start_time = time.time()
-    while process.is_alive() and time.time() - start_time < timeout:
+    def wait():
+        process.wait()
+    from threading import Thread
+    Thread(target=wait).start()
+    while process.returncode is None and time.time() - start_time < timeout:
         time.sleep(0.5)
-    if process.is_alive():
+    if process.returncode is None:
         raise Exception('Server failed to shutdown after %s seconds' % timeout)
-
-
-class App(object):
-    def __init__(self, hostname, port, backend_store_uri, artifact_root_env_var):
-        self._hostname = hostname
-        self._port = port
-        self._backend_store_uri = backend_store_uri
-        self._artifact_root_env_var = artifact_root_env_var
-
-    def __call__(self):
-        from mlflow.server import app
-        from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
-        import os
-        os.environ[BACKEND_STORE_URI_ENV_VAR] = self._backend_store_uri
-        os.environ[ARTIFACT_ROOT_ENV_VAR] = self._artifact_root_env_var
-        app.run(self._hostname, self._port)
 
 
 def _init_server(backend_uri, root_artifact_uri):
@@ -81,10 +70,22 @@ def _init_server(backend_uri, root_artifact_uri):
     """
     mlflow.set_tracking_uri(None)
     server_port = _get_safe_port()
-    process = Process(target=App(hostname=LOCALHOST, port=server_port,
-                                 backend_store_uri=backend_uri,
-                                 artifact_root_env_var=root_artifact_uri))
-    process.start()
+    env = {
+        BACKEND_STORE_URI_ENV_VAR: backend_uri,
+        ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=root_artifact_uri),
+    }
+    with mock.patch.dict(os.environ, env):
+        cmd = ["python",
+               "-c",
+               'from mlflow.server import app; app.run("{hostname}", {port})'.format(
+                   hostname=LOCALHOST, port=server_port)]
+
+        print("cmd =", cmd)
+        process = Popen(cmd,
+                        stdout=PIPE,
+                        stderr=STDOUT,
+                        universal_newlines=True)
+
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
     print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))
@@ -134,6 +135,7 @@ def server_urls():
     yield
     for server_url, process in BACKEND_URI_TO_SERVER_URL_AND_PROC.values():
         print("Terminating server at %s..." % (server_url))
+        print("type = ", type(process))
         process.terminate()
         _await_server_down_or_die(process)
     shutil.rmtree(SUITE_ROOT_DIR)
