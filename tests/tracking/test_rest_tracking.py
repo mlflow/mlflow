@@ -4,7 +4,7 @@ and ensures we can use the tracking API to communicate with it.
 """
 
 import mock
-from multiprocessing import Process, freeze_support
+from multiprocessing import Process
 import os
 import pytest
 import socket
@@ -15,7 +15,7 @@ import tempfile
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
-from mlflow.server import REL_STATIC_DIR, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+
 from mlflow.tracking import MlflowClient
 from mlflow.tracking.utils import _tracking_store_registry
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
@@ -23,10 +23,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFL
 from tests.integration.utils import invoke_cli_runner
 
 LOCALHOST = '127.0.0.1'
-
-
-if __name__ == '__main__':
-    freeze_support()
 
 
 def _await_server_up_or_die(port, timeout=60):
@@ -61,12 +57,18 @@ def _await_server_down_or_die(process, timeout=60):
 
 
 class App(object):
-    def __init__(self, hostname, port):
+    def __init__(self, hostname, port, backend_store_uri, artifact_root_env_var):
         self._hostname = hostname
         self._port = port
+        self._backend_store_uri = backend_store_uri
+        self._artifact_root_env_var = artifact_root_env_var
 
     def __call__(self):
         from mlflow.server import app
+        from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+        import os
+        os.environ[BACKEND_STORE_URI_ENV_VAR] = self._backend_store_uri
+        os.environ[ARTIFACT_ROOT_ENV_VAR] = self._artifact_root_env_var
         app.run(self._hostname, self._port)
 
 
@@ -79,14 +81,10 @@ def _init_server(backend_uri, root_artifact_uri):
     """
     mlflow.set_tracking_uri(None)
     server_port = _get_safe_port()
-    env = {
-        BACKEND_STORE_URI_ENV_VAR: backend_uri,
-        ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=root_artifact_uri),
-    }
-
-    with mock.patch.dict(os.environ, env):
-        process = Process(target=App(hostname=LOCALHOST, port=server_port))
-        process.start()
+    process = Process(target=App(hostname=LOCALHOST, port=server_port,
+                                 backend_store_uri=backend_uri,
+                                 artifact_root_env_var=root_artifact_uri))
+    process.start()
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
     print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))

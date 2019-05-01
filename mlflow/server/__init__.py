@@ -13,11 +13,6 @@ STATIC_PREFIX_ENV_VAR = "MLFLOW_STATIC_PREFIX"
 
 REL_STATIC_DIR = "js/build"
 
-if __name__ == '__main__':
-    from multiprocessing import freeze_support
-    freeze_support()
-
-
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
