@@ -54,14 +54,14 @@ public class MlflowClient {
    *
    * @return Run associated with the id.
    */
-  public Run getRun(String runUuid) {
-    URIBuilder builder = newURIBuilder("runs/get").setParameter("run_uuid", runUuid);
+  public Run getRun(String runId) {
+    URIBuilder builder = newURIBuilder("runs/get").setParameter("run_uuid", runId);
     return mapper.toGetRunResponse(httpCaller.get(builder.toString())).getRun();
   }
 
-  public List<Metric> getMetricHistory(String runUuid, String key) {
+  public List<Metric> getMetricHistory(String runId, String key) {
     URIBuilder builder = newURIBuilder("metrics/get-history")
-      .setParameter("run_uuid", runUuid)
+      .setParameter("run_uuid", runId)
       .setParameter("metric_key", key);
     return mapper.toGetMetricHistoryResponse(httpCaller.get(builder.toString())).getMetricsList();
   }
@@ -240,50 +240,50 @@ public class MlflowClient {
    * Logs a parameter against the given run, as a key-value pair.
    * This cannot be called against the same parameter key more than once.
    */
-  public void logParam(String runUuid, String key, String value) {
-    sendPost("runs/log-parameter", mapper.makeLogParam(runUuid, key, value));
+  public void logParam(String runId, String key, String value) {
+    sendPost("runs/log-parameter", mapper.makeLogParam(runId, key, value));
   }
 
   /**
    * Logs a new metric against the given run, as a key-value pair.
    * New values for the same metric may be recorded over time, and are marked with a timestamp.
    * */
-  public void logMetric(String runUuid, String key, double value) {
-    sendPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value,
+  public void logMetric(String runId, String key, double value) {
+    sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value,
       System.currentTimeMillis()));
   }
 
   /**
    * Logs a new tag against the given run, as a key-value pair.
    */
-  public void setTag(String runUuid, String key, String value) {
-    sendPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
+  public void setTag(String runId, String key, String value) {
+    sendPost("runs/set-tag", mapper.makeSetTag(runId, key, value));
   }
 
   /**
-   * Log multiple metrics, params, and/or tags against a given run (argument runUuid).
+   * Log multiple metrics, params, and/or tags against a given run (argument runId).
    * Argument metrics, params, and tag iterables can be nulls.
    */
-  public void logBatch(String runUuid,
+  public void logBatch(String runId,
       Iterable<Metric> metrics,
       Iterable<Param> params,
       Iterable<RunTag> tags) {
-    sendPost("runs/log-batch", mapper.makeLogBatch(runUuid, metrics, params, tags));
+    sendPost("runs/log-batch", mapper.makeLogBatch(runId, metrics, params, tags));
   }
 
   /** Sets the status of a run to be FINISHED at the current time. */
-  public void setTerminated(String runUuid) {
-    setTerminated(runUuid, RunStatus.FINISHED);
+  public void setTerminated(String runId) {
+    setTerminated(runId, RunStatus.FINISHED);
   }
 
   /** Sets the status of a run to be completed at the current time. */
-  public void setTerminated(String runUuid, RunStatus status) {
-    setTerminated(runUuid, status, System.currentTimeMillis());
+  public void setTerminated(String runId, RunStatus status) {
+    setTerminated(runId, status, System.currentTimeMillis());
   }
 
   /** Sets the status of a run to be completed at the given endTime. */
-  public void setTerminated(String runUuid, RunStatus status, long endTime) {
-    sendPost("runs/update", mapper.makeUpdateRun(runUuid, status, endTime));
+  public void setTerminated(String runId, RunStatus status, long endTime) {
+    sendPost("runs/update", mapper.makeUpdateRun(runId, status, endTime));
   }
 
   /**
