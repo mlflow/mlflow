@@ -184,7 +184,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # the runs table
         run = self._run_factory()
         with self.store.ManagedSessionMaker() as session:
-            new_tag = models.SqlTag(run_id=run.info.run_id, key='test', value='val')
+            new_tag = models.SqlTag(run_uuid=run.info.run_id, key='test', value='val')
             session.add(new_tag)
             session.commit()
             added_tags = [
@@ -202,7 +202,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # the runs table
         run = self._run_factory()
         with self.store.ManagedSessionMaker() as session:
-            new_metric = models.SqlMetric(run_id=run.info.run_id, key='accuracy', value=0.89)
+            new_metric = models.SqlMetric(run_uuid=run.info.run_id, key='accuracy', value=0.89)
             session.add(new_metric)
             session.commit()
             metrics = session.query(models.SqlMetric).all()
@@ -220,7 +220,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run = self._run_factory()
         with self.store.ManagedSessionMaker() as session:
             new_param = models.SqlParam(
-                run_id=run.info.run_id, key='accuracy', value='test param')
+                run_uuid=run.info.run_id, key='accuracy', value='test param')
             session.add(new_param)
             session.commit()
             params = session.query(models.SqlParam).all()
@@ -272,7 +272,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             'experiment_id': experiment_id,
             'name': 'test run',
             'user_id': 'Anderson',
-            'run_id': 'test',
+            'run_uuid': 'test',
             'status': RunStatus.to_string(RunStatus.SCHEDULED),
             'source_type': SourceType.to_string(SourceType.LOCAL),
             'source_name': 'Python application',
@@ -403,7 +403,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.store.delete_run(run.info.run_id)
 
         with self.store.ManagedSessionMaker() as session:
-            actual = session.query(models.SqlRun).filter_by(run_id=run.info.run_id).first()
+            actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
 
             deleted_run = self.store.get_run(run.info.run_id)

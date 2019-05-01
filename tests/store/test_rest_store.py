@@ -113,27 +113,30 @@ class TestRestStore(unittest.TestCase):
                                                                       value=source_name),
                                                           ProtoRunTag(key='mlflow.source.type',
                                                                       value='LOCAL')]))
-                st_body = message_to_json(SetTag(run_id='', key='mlflow.runName', value=run_name))
+                st_body = message_to_json(SetTag(
+                    run_uuid='', run_id='', key='mlflow.runName', value=run_name))
                 assert mock_http.call_count == 2
                 exp_calls = [("runs/create", "POST", cr_body), ("runs/set-tag", "POST", st_body)]
                 self._verify_request_has_calls(mock_http, creds, exp_calls)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
-            body = message_to_json(LogParam(run_id="some_uuid", key="k1", value="v1"))
+            body = message_to_json(LogParam(
+                run_uuid="some_uuid", run_id="some_uuid", key="k1", value="v1"))
             self._verify_requests(mock_http, creds,
                                   "runs/log-parameter", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.set_tag("some_uuid", RunTag("t1", "abcd"*1000))
-            body = message_to_json(SetTag(run_id="some_uuid", key="t1", value="abcd"*1000))
+            body = message_to_json(SetTag(
+                run_uuid="some_uuid", run_id="some_uuid", key="t1", value="abcd"*1000))
             self._verify_requests(mock_http, creds,
                                   "runs/set-tag", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.log_metric("u2", Metric("m1", 0.87, 12345, 3))
-            body = message_to_json(LogMetric(run_id="u2", key="m1", value=0.87, timestamp=12345,
-                                             step=3))
+            body = message_to_json(LogMetric(
+                run_uuid="u2", run_id="u2", key="m1", value=0.87, timestamp=12345, step=3))
             self._verify_requests(mock_http, creds,
                                   "runs/log-metric", "POST", body)
 
@@ -146,7 +149,7 @@ class TestRestStore(unittest.TestCase):
             metric_protos = [metric.to_proto() for metric in metrics]
             param_protos = [param.to_proto() for param in params]
             tag_protos = [tag.to_proto() for tag in tags]
-            body = message_to_json(LogBatch(run_id="u2", metrics=metric_protos,
+            body = message_to_json(LogBatch(run_uuid="u2", run_id="u2", metrics=metric_protos,
                                             params=param_protos, tags=tag_protos))
             self._verify_requests(mock_http, creds,
                                   "runs/log-batch", "POST", body)
