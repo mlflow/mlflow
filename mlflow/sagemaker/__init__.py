@@ -217,7 +217,7 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
     :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
 
     :param app_name: Name of the deployed application.
-    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker, 
+    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker,
                       for example:
                           - "/Users/me/path/to/local/model"
                           - "file:///Users/me/path/to/local/model"
@@ -375,14 +375,14 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
 
     if endpoint_exists:
         deployment_operation = _update_sagemaker_endpoint(
-                endpoint_name=app_name, model_name=model_name, model_s3_path=model_s3_path, 
-                model_uri=model_uri, image_url=image_url, flavor=flavor, 
+                endpoint_name=app_name, model_name=model_name, model_s3_path=model_s3_path,
+                model_uri=model_uri, image_url=image_url, flavor=flavor,
                 instance_type=instance_type, instance_count=instance_count, vpc_config=vpc_config,
                 mode=mode, role=execution_role_arn, sage_client=sage_client, s3_client=s3_client)
     else:
         deployment_operation = _create_sagemaker_endpoint(
-                endpoint_name=app_name, model_name=model_name, model_s3_path=model_s3_path, 
-                model_uri=model_uri, image_url=image_url, flavor=flavor, 
+                endpoint_name=app_name, model_name=model_name, model_s3_path=model_s3_path,
+                model_uri=model_uri, image_url=image_url, flavor=flavor,
                 instance_type=instance_type, instance_count=instance_count, vpc_config=vpc_config,
                 role=execution_role_arn, sage_client=sage_client)
 
@@ -696,8 +696,8 @@ def _get_sagemaker_config_name(endpoint_name):
     return "{en}-config-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
 
 
-def _create_sagemaker_endpoint(endpoint_name, model_name, model_s3_path, model_uri, image_url, 
-                               flavor, instance_type, vpc_config, instance_count, role, 
+def _create_sagemaker_endpoint(endpoint_name, model_name, model_s3_path, model_uri, image_url,
+                               flavor, instance_type, vpc_config, instance_count, role,
                                sage_client):
     """
     :param endpoint_name: The name of the SageMaker endpoint to create.
@@ -781,8 +781,8 @@ def _create_sagemaker_endpoint(endpoint_name, model_name, model_s3_path, model_u
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
 
-def _update_sagemaker_endpoint(endpoint_name, model_name, model_uri, image_url, model_s3_path, 
-                               flavor, instance_type, instance_count, vpc_config, mode, role, 
+def _update_sagemaker_endpoint(endpoint_name, model_name, model_uri, image_url, model_s3_path,
+                               flavor, instance_type, instance_count, vpc_config, mode, role,
                                sage_client, s3_client):
     """
     :param endpoint_name: The name of the SageMaker endpoint to update.

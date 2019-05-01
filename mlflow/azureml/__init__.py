@@ -38,7 +38,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     For information about the input data formats accepted by this webserver, see the
     :ref:`MLflow deployment tools documentation <azureml_deployment>`.
 
-    :param model_uri: The location, in URI format, of the MLflow model for which to build an Azure 
+    :param model_uri: The location, in URI format, of the MLflow model for which to build an Azure
                       ML deployment image, for example:
                           - "/Users/me/path/to/local/model"
                           - "file:///Users/me/path/to/local/model"
@@ -212,12 +212,12 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
 def _build_tags(model_uri, model_python_version=None, user_tags=None):
     """
     :param model_uri: URI to the MLflow model.
-    :param model_python_version: The version of Python that was used to train the model, if 
-                                 the model was trained in Python. 
+    :param model_python_version: The version of Python that was used to train the model, if
+                                 the model was trained in Python.
     :param user_tags: A collection of user-specified tags to append to the set of default tags.
     """
     tags = dict(user_tags) if user_tags is not None else {}
-    tags["model_uri"] = model_uri 
+    tags["model_uri"] = model_uri
     if model_python_version is not None:
         tags["python_version"] = model_python_version
     return tags
