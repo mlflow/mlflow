@@ -16,7 +16,17 @@ matrix:
       script:
         - ./lint.sh
     - language: python
+      before_install:
+        - sudo mysql -e "use mysql; update user set authentication_string=PASSWORD('password') where User='root'; update user set plugin='mysql_native_password';FLUSH PRIVILEGES;"
+        - sudo mysql_upgrade -u root -pnew_password
+        - sudo service mysql restart
+        - sudo mysql -e 'CREATE DATABASE sidtest;'
       python: 2.7
+      before_install:
+        - sudo mysql -e "use mysql; update user set authentication_string=PASSWORD('password') where User='root'; update user set plugin='mysql_native_password';FLUSH PRIVILEGES;"
+        - sudo mysql_upgrade -u root -pnew_password
+        - sudo service mysql restart
+        - sudo mysql -e 'CREATE DATABASE sidtest;'
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
