@@ -116,7 +116,6 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     from azureml.core.image import ContainerImage
     from azureml.core.model import Model as AzureModel
 
-    # TODO(sueann): add tests for: 1 remote store, local filestore absolute path, local filestore relative path.
     absolute_model_path = _download_artifact_from_uri(model_uri)
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=absolute_model_path)
