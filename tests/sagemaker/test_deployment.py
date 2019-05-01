@@ -184,11 +184,17 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names(
     region_name = sagemaker_client.meta.region_name
     s3_client = boto3.client("s3", region_name=region_name)
     default_bucket = mfs._get_default_s3_bucket(region_name)
+    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
+    endpoint_production_variants = endpoint_description["ProductionVariants"]
+    assert len(endpoint_production_variants) == 1
+    model_name = endpoint_production_variants[0]["VariantName"]
+    assert model_name in [
+        model["ModelName"] for model in sagemaker_client.list_models()["Models"]
+    ]
     object_names = [
-        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]]
-    assert any([pretrained_model.run_id in object_name for object_name in object_names])
-    assert any([app_name in model["ModelName"]
-                for model in sagemaker_client.list_models()["Models"]])
+        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
+    ]
+    assert any([model_name in object_name for object_name in object_names])
     assert any([app_name in config["EndpointConfigName"]
                 for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]])
     assert app_name in [endpoint["EndpointName"]
