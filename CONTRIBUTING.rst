@@ -124,6 +124,8 @@ Verify that the unit tests & linter pass before submitting a pull request by run
     # small tests pass. Note: models and model deployment tests are considered "large" tests. If
     # making changes to these components, we recommend running the relevant tests (e.g. tests under
     # tests/keras for changes to Keras model support) locally before submitting a pull request.
+    # TODO update this with instructions for running MySQL tests locally (need to set env vars
+    # pointing to a DB server). Maybe we can run the tests nightly instead.
     ./travis/run-large-python-tests.sh
 
 Python tests are split into "small" & "large" categories, with new tests falling into the "small"

@@ -22,9 +22,9 @@ from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import build_path, mkdir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
-    _validate_run_id
+    _validate_run_id, _validate_metric
 from mlflow.store.db.utils import _upgrade_db
-from mlflow.store.dbmodels.legacy_models import Base as LegacyBase
+from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
 
 _logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ class SqlAlchemyStore(AbstractStore):
     @staticmethod
     def _initialize_tables(engine):
         _logger.info("Creating initial MLflow database tables...")
-        LegacyBase.metadata.create_all(engine)
+        InitialBase.metadata.create_all(engine)
         _upgrade_db(str(engine.url))
 
     @staticmethod
@@ -108,7 +108,7 @@ class SqlAlchemyStore(AbstractStore):
                               pprint.pformat(diff, indent=2, width=20))
                 raise MlflowException(
                     "Detected out-of-date database schema. Take a backup of your database, then "
-                    "run 'mlflow db upgrade %s' to migrate your database to the latest schema. "
+                    "run 'mlflow upgradedb %s' to migrate your database to the latest schema. "
                     "NOTE: schema migration may result in database downtime "
                     "- please consult your database's documentation for more detail." % engine.url)
 
@@ -392,6 +392,7 @@ class SqlAlchemyStore(AbstractStore):
             self._save_to_db(objs=run, session=session)
 
     def log_metric(self, run_uuid, metric):
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_uuid, session=session)
             self._check_run_is_active(run)

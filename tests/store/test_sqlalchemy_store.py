@@ -11,6 +11,7 @@ from alembic.config import Config
 from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.autogenerate import compare_metadata
 import mock
+import pytest
 import sqlalchemy
 import time
 import mlflow
@@ -29,7 +30,7 @@ from mlflow.store.db.utils import _get_alembic_config
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
-from mlflow.store.dbmodels.legacy_models import Base as LegacyBase
+from mlflow.store.dbmodels.initial_models import Base as InitialBase
 from mlflow.store.dbmodels.models import Base
 from tests.integration.utils import invoke_cli_runner
 
@@ -40,19 +41,17 @@ ARTIFACT_URI = 'artifact_folder'
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
-    def _setup_database(self, filename=''):
-        # use a static file name to initialize sqllite to test retention.
-        self.store = SqlAlchemyStore(DB_URI + filename, ARTIFACT_URI)
+    def _get_store(self, db_uri=''):
+        return SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
-        self.store = None
         _, self.temp_dbfile = tempfile.mkstemp()
-        self._setup_database(self.temp_dbfile)
+        self.db_url = DB_URI + self.temp_dbfile
+        self.store = self._get_store(self.db_url)
 
     def tearDown(self):
-        if self.store:
-            models.Base.metadata.drop_all(self.store.engine)
+        models.Base.metadata.drop_all(self.store.engine)
         os.remove(self.temp_dbfile)
         shutil.rmtree(ARTIFACT_URI)
 
@@ -84,46 +83,42 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertEqual(first.name, "Default")
 
     def test_default_experiment_lifecycle(self):
-        with TempDir(chdr=True) as tmp:
-            tmp_file_name = "sqlite_file_to_lifecycle_test_{}.db".format(int(time.time()))
-            self._setup_database(tmp.path(tmp_file_name))
+        default_experiment = self.store.get_experiment(experiment_id=0)
+        self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
+        self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
-            default_experiment = self.store.get_experiment(experiment_id=0)
-            self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
-            self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+        self._experiment_factory('aNothEr')
+        all_experiments = [e.name for e in self.store.list_experiments()]
+        six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
 
-            self._experiment_factory('aNothEr')
-            all_experiments = [e.name for e in self.store.list_experiments()]
-            six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
+        self.store.delete_experiment(0)
 
-            self.store.delete_experiment(0)
+        six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
+        another = self.store.get_experiment(1)
+        self.assertEqual('aNothEr', another.name)
 
-            six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
-            another = self.store.get_experiment(1)
-            self.assertEqual('aNothEr', another.name)
+        default_experiment = self.store.get_experiment(experiment_id=0)
+        self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
+        self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-            default_experiment = self.store.get_experiment(experiment_id=0)
-            self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
-            self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
+        # destroy SqlStore and make a new one
+        del self.store
+        self.store = self._get_store(self.db_url)
 
-            # destroy SqlStore and make a new one
-            del self.store
-            self._setup_database(tmp.path(tmp_file_name))
+        # test that default experiment is not reactivated
+        default_experiment = self.store.get_experiment(experiment_id=0)
+        self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
+        self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-            # test that default experiment is not reactivated
-            default_experiment = self.store.get_experiment(experiment_id=0)
-            self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
-            self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
+        six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
+        all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
+        six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
 
-            six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
-            all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
-            six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
+        # ensure that experiment ID dor active experiment is unchanged
+        another = self.store.get_experiment(1)
+        self.assertEqual('aNothEr', another.name)
 
-            # ensure that experiment ID dor active experiment is unchanged
-            another = self.store.get_experiment(1)
-            self.assertEqual('aNothEr', another.name)
-
-            self.store = None
+        self.store = None
 
     def test_raise_duplicate_experiments(self):
         with self.assertRaises(Exception):
@@ -488,7 +483,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
             self.store.log_metric(run.info.run_uuid, metric)
             warnings.resetwarnings()
-        assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_log_param(self):
         run = self._run_factory()
@@ -1125,18 +1120,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
 class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqlite):
     """
-    Test case where user has an existing DB with schema generated by LegacyBase,
+    Test case where user has an existing DB with schema generated by InitialBase,
     then migrates their DB.
     """
     def _setup_database(self, filename=''):
         # db_url = "sqlite:///%s" % self.tmpfile
         db_url = "mysql://root:password@localhost:33060/sidtest"
         engine = sqlalchemy.create_engine(db_url)
-        LegacyBase.metadata.drop_all(engine)
+        InitialBase.metadata.drop_all(engine)
         from alembic import command
         config = _get_alembic_config(db_url)
         command.stamp(config, "base")
-        LegacyBase.metadata.create_all(engine)
+        InitialBase.metadata.create_all(engine)
         invoke_cli_runner(cli.upgradedb, db_url)
         self.store = SqlAlchemyStore(db_url, ARTIFACT_URI)
 
@@ -1158,7 +1153,7 @@ class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqlite):
                 SqlAlchemyStore._verify_schema(engine)
             self.assertIn("Detected out-of-date database schema.", str(ex.exception))
             # Create legacy tables, verify schema is still out of date
-            LegacyBase.metadata.create_all(engine)
+            InitialBase.metadata.create_all(engine)
             with self.assertRaises(MlflowException) as ex:
                 SqlAlchemyStore._verify_schema(engine)
             self.assertIn("Detected out-of-date database schema.", str(ex.exception))
@@ -1199,27 +1194,39 @@ class TestSqlAlchemyStoreSqliteLegacyDB(TestSqlAlchemyStoreSqlite):
         finally:
             os.remove(tmpfile)
 
-
+@pytest.mark.large
 class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
     """
-    Test case where user has an existing DB with schema generated by LegacyBase,
+    Test case where user has an existing DB with schema generated by InitialBase,
     then migrates their DB.
     """
-    def _setup_database(self, filename=''):
-        # db_url = "sqlite:///%s" % self.tmpfile
-        db_url = "mysql://root:password@localhost:3306/sidtest"
-        engine = sqlalchemy.create_engine(db_url)
-        LegacyBase.metadata.drop_all(engine)
-        from alembic import command
-        config = _get_alembic_config(db_url)
-        command.stamp(config, "base")
-        LegacyBase.metadata.create_all(engine)
-        invoke_cli_runner(cli.upgradedb, db_url)
-        self.store = SqlAlchemyStore(db_url, ARTIFACT_URI)
+    DEFAULT_MYSQL_PORT = 3306
+    def _create_database(self, db_server_url, db_name):
+        engine = sqlalchemy.create_engine(db_server_url)
+        engine.execute("CREATE DATABASE %s" % db_name)
+
+    def _drop_database(self, db_server_url, db_name):
+        engine = sqlalchemy.create_engine(db_server_url)
+        engine.execute("DROP DATABASE %s" % db_name)
 
     def setUp(self):
-        _, self.tmpfile = tempfile.mkstemp()
-        self._setup_database(self.tmpfile)
+        db_username = os.environ.get("MYSQL_TEST_USERNAME")
+        db_password = os.environ.get("MYSQL_TEST_PASSWORD")
+        db_port = int(os.environ["MYSQL_TEST_PORT"]) if "MYSQL_TEST_PORT" in os.environ \
+            else TestSqlAlchemyStoreMysqlDb.DEFAULT_MYSQL_PORT
+        if db_username is None or db_password is None:
+            raise Exception(
+                "Username and password for database tests must be specified via the "
+                "MYSQL_TEST_USERNAME and MYSQL_TEST_PASSWORD environment variables. "
+                "environment variable. In posix shells, you can rerun your test command "
+                "with the environment variables set, e.g: MYSQL_TEST_USERNAME=your_username "
+                "MYSQL_TEST_PASSWORD=your_password <your-test-command>. You may optionally "
+                "specify a database port via MYSQL_TEST_PORT (default is 3306).")
+        self.db_name = "test_sqlalchemy_store_%s" % uuid.uuid4().hex[:5]
+        self.db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port)
+        self._create_database(self.db_server_url, self.db_name)
+        self.db_url = "%s/%s" % (self.db_server_url, self.db_name)
+        self.store = self._get_store(self.db_url)
 
     def tearDown(self):
-        os.remove(self.tmpfile)
+        self._drop_database(self.db_server_url, self.db_name)
