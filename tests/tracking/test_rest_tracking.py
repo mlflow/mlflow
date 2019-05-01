@@ -12,7 +12,6 @@ import shutil
 import time
 import tempfile
 
-
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
@@ -51,8 +50,10 @@ def _await_server_down_or_die(process, timeout=60):
     """Waits until the local flask server process is terminated."""
     print('Awaiting termination of server process...')
     start_time = time.time()
+
     def wait():
         process.wait()
+
     from threading import Thread
     Thread(target=wait).start()
     while process.returncode is None and time.time() - start_time < timeout:
