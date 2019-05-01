@@ -43,24 +43,36 @@ test_that("mlflow_set_tag() should return NULL invisibly", {
 test_that("logging functionality", {
   mlflow_clear_test_dir("mlruns")
 
+  start_time_lower_bound <- Sys.time()
   mlflow_start_run()
 
   mlflow_log_metric("mse", 24)
   mlflow_log_metric("mse", 25)
-  metric_history <- mlflow_get_metric_history("mse")
-  expect_identical(metric_history$key, c("mse", "mse"))
-  expect_identical(metric_history$value, c(24, 25))
 
   mlflow_set_tag("tag_key", "tag_value")
   mlflow_log_param("param_key", "param_value")
 
   run <- mlflow_get_run()
+  run_id <- run$run_uuid
   expect_identical(run$tags[[1]]$key, "tag_key")
   expect_identical(run$tags[[1]]$value, "tag_value")
   expect_identical(run$params[[1]]$key, "param_key")
   expect_identical(run$params[[1]]$value, "param_value")
 
   mlflow_end_run()
+  end_time_upper_bound <- Sys.time()
+  ended_run <- mlflow_get_run(run_id = run_id)
+  run_start_time <- ended_run$start_time
+  run_end_time <- ended_run$end_time
+  expect_true(difftime(run_start_time, start_time_lower_bound) >= 0)
+  expect_true(difftime(run_end_time, end_time_upper_bound) <= 0)
+  metric_history <- mlflow_get_metric_history("mse", ended_run$run_uuid)
+  expect_identical(metric_history$key, c("mse", "mse"))
+  expect_identical(metric_history$value, c(24, 25))
+  expect_true(all(difftime(metric_history$timestamp, run_start_time) >= 0))
+  expect_true(all(difftime(metric_history$timestamp, run_end_time) <= 0))
+
+
   expect_error(
     mlflow_get_run(),
     "`run_id` must be specified when there is no active run\\."
