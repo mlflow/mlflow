@@ -251,7 +251,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
             session.add_all([m1, m2, p1, p2])
 
-            run_data = models.SqlRun(run_id=uuid.uuid4().hex)
+            run_data = models.SqlRun(run_uuid=uuid.uuid4().hex)
             run_data.params.append(p1)
             run_data.params.append(p2)
             run_data.metrics.append(m1)
@@ -407,7 +407,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
 
             deleted_run = self.store.get_run(run.info.run_id)
-            self.assertEqual(actual.run_id, deleted_run.info.run_id)
+            self.assertEqual(actual.run_uuid, deleted_run.info.run_id)
 
     def test_log_metric(self):
         run = self._run_factory()
