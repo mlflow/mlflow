@@ -22,7 +22,7 @@ def upgrade():
     # databases (see more info at https://alembic.sqlalchemy.org/en/latest/
     # batch.html#running-batch-migrations-for-sqlite-and-other-databases)
     with op.batch_alter_table("metrics") as batch_op:
-        batch_op.drop_constraint(constraint_name='metric_pk')
+        batch_op.drop_constraint(constraint_name='metric_pk', type_="primary")
         batch_op.create_primary_key(
             constraint_name='metric_pk',
             columns=['key', 'timestamp', 'step', 'run_uuid', 'value'])
