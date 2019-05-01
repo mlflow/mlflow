@@ -55,6 +55,14 @@ def _await_server_down_or_die(process, timeout=60):
     if process.is_alive():
         raise Exception('Server failed to shutdown after %s seconds' % timeout)
 
+class App(object):
+    def __init__(self, hostname, port, app):
+        self._hostname = hostname
+        self._port = port
+        self._app = app
+    def __call__(self):
+        self._app.run(self._hostname, self._port)
+
 
 def _init_server(backend_uri, root_artifact_uri):
     """
@@ -69,8 +77,9 @@ def _init_server(backend_uri, root_artifact_uri):
         BACKEND_STORE_URI_ENV_VAR: backend_uri,
         ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=root_artifact_uri),
     }
+
     with mock.patch.dict(os.environ, env):
-        process = Process(target=lambda: app.run(LOCALHOST, server_port))
+        process = Process(target=App(hostname=LOCALHOST, port=server_port))
         process.start()
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
