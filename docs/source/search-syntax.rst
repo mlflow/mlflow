@@ -104,21 +104,20 @@ had a prediction accuracy of 94.5% or higher.
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient()
+  from mlflow.tracking.client import MlflowClient
 
   query = "params.model = 'CNN' and params.layers = '10' and metrics.'prediction accuracy' >= 0.945"
-  runs = MlflowClient().search_runs([3, 4, 17], query, ViewTypes.ACTIVE_ONLY)
+  runs = MlflowClient().search_runs(["3", "4", "17"], query, ViewType.ACTIVE_ONLY)
 
 
 Search all known experiments for any MLflow runs created using the Inception model architecture.
 
 .. code-block:: py
 
-  from mlflow.tracking.client import MlflowClient()
+  from mlflow.tracking.client import MlflowClient
 
-  runs = MlflowClient().search_runs(MlflowClient().list_experiments(),
-                                    "params.model = 'Inception'",
-                                    ViewType.ALL)
+  all_experiments = [exp.experiment_id for exp in MlflowClient().list_experiments()]
+  runs = MlflowClient().search_runs(all_experiments, "params.model = 'Inception'", ViewType.ALL)
 
 Java
 ^^^^
@@ -126,5 +125,5 @@ The Java API is similar to Python API.
 
 .. code-block:: java
 
-  List<Long> experimentIds = Arrays.asList(1, 2, 4, 8);
+  List<Long> experimentIds = Arrays.asList("1", "2", "4", "8");
   List<RunInfo> searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 99.90");
