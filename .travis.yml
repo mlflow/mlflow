@@ -6,59 +6,60 @@ services:
 
 matrix:
   include:
-    - stage: small
-    - language: python
-      name: "Lint (Python 3.6)"
-      python: 3.6
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-        - pip install -r ./travis/lint-requirements.txt
-      script:
-        - ./lint.sh
-    - language: python
-      python: 2.7
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-small-python-tests.sh
-    - language: r
-      name: "R"
-      cache: packages
-      before_install:
-        - export NOT_CRAN=true
-        - cd mlflow/R/mlflow
-        - Rscript -e 'install.packages("devtools")'
-        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
-        - cd ../../..
-      install:
-        - source ./travis/install-common-deps.sh
-      script:
-        - cd mlflow/R/mlflow
-        - R CMD build .
-        - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
-        - cd tests
-        - export LINTR_COMMENT_BOT=false
-        - Rscript ../.travis.R
-      after_success:
-        - export COVR_RUNNING=true
-        - Rscript -e 'covr::codecov()'
-    - language: java
-      name: "Java"
-      install:
-        - source ./travis/install-common-deps.sh
-      script:
-        - cd mlflow/java
-        - mvn clean package -q
-    - language: node_js
-      node_js:
-        - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
-      install:
-      name: "Node.js"
-      script:
-        - cd mlflow/server/js
-        - npm i
-        - ./lint.sh
-        - npm test -- --coverage
+# NOTE: temporarily commenting out small tests to debug
+#    - stage: small
+#    - language: python
+#      name: "Lint (Python 3.6)"
+#      python: 3.6
+#      install:
+#        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+#        - pip install -r ./travis/lint-requirements.txt
+#      script:
+#        - ./lint.sh
+#    - language: python
+#      python: 2.7
+#      install:
+#        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+#      script:
+#        - ./travis/run-small-python-tests.sh
+#    - language: r
+#      name: "R"
+#      cache: packages
+#      before_install:
+#        - export NOT_CRAN=true
+#        - cd mlflow/R/mlflow
+#        - Rscript -e 'install.packages("devtools")'
+#        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
+#        - cd ../../..
+#      install:
+#        - source ./travis/install-common-deps.sh
+#      script:
+#        - cd mlflow/R/mlflow
+#        - R CMD build .
+#        - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
+#        - cd tests
+#        - export LINTR_COMMENT_BOT=false
+#        - Rscript ../.travis.R
+#      after_success:
+#        - export COVR_RUNNING=true
+#        - Rscript -e 'covr::codecov()'
+#    - language: java
+#      name: "Java"
+#      install:
+#        - source ./travis/install-common-deps.sh
+#      script:
+#        - cd mlflow/java
+#        - mvn clean package -q
+#    - language: node_js
+#      node_js:
+#        - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
+#      install:
+#      name: "Node.js"
+#      script:
+#        - cd mlflow/server/js
+#        - npm i
+#        - ./lint.sh
+#        - npm test -- --coverage
     - stage: large
     - language: python
       python: 2.7
