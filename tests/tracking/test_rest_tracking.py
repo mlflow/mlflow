@@ -4,7 +4,7 @@ and ensures we can use the tracking API to communicate with it.
 """
 
 import mock
-from multiprocessing import Process
+from multiprocessing import Process, freeze_support
 import os
 import pytest
 import socket
@@ -362,3 +362,7 @@ def test_artifacts(mlflow_client):
 
     dir_artifacts = mlflow_client.download_artifacts(run_id, 'dir')
     assert open('%s/my.file' % dir_artifacts, 'r').read() == 'Hello, World!'
+
+
+if __name__ == '__main__':
+    freeze_support()
