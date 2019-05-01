@@ -25,6 +25,10 @@ from tests.integration.utils import invoke_cli_runner
 LOCALHOST = '127.0.0.1'
 
 
+if __name__ == '__main__':
+    freeze_support()
+
+
 def _await_server_up_or_die(port, timeout=60):
     """Waits until the local flask server is listening on the given port."""
     print('Awaiting server to be up on %s:%s' % (LOCALHOST, port))
@@ -362,7 +366,3 @@ def test_artifacts(mlflow_client):
 
     dir_artifacts = mlflow_client.download_artifacts(run_id, 'dir')
     assert open('%s/my.file' % dir_artifacts, 'r').read() == 'Hello, World!'
-
-
-if __name__ == '__main__':
-    freeze_support()
