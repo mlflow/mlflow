@@ -287,6 +287,10 @@ public class MlflowClient {
   }
 
   /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
    * Send a GET to the following path, including query parameters.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server
@@ -296,6 +300,10 @@ public class MlflowClient {
   }
 
   /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
    * Send a POST to the following path, with a String-encoded JSON body.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server
