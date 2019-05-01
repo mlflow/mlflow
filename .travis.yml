@@ -64,7 +64,7 @@ matrix:
     - language: python
       python: 2.7
       before_install:
-        - source ./travis/setup_mysql.sh
+        - source ./travis/setup-mysql.sh
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
@@ -74,7 +74,7 @@ matrix:
 # run small or large Python tests below.
 before_install:
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Large" ]]; then
-      source ./travis/setup_mysql.sh
+      source ./travis/setup-mysql.sh;
     fi
 
 install:
