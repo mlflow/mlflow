@@ -360,10 +360,5 @@ def local_file_uri_to_path(uri):
     :param uri: File URI or path.
     :return: Normalized path.
     """
-    return urllib.request.url2pathname(urllib.parse.urlparse(uri).path)
-
-
-def local_uri_from_path(path):
-    path = os.path.abspath(path)
-    prefix = "file://" if os.sep == "/" else mlflow.tracking.utils._LOCAL_FS_URI_PREFIX
-    return prefix + path
+    path = urllib.parse.urlparse(uri).path if uri.startswith("file:") else uri
+    return urllib.request.url2pathname(path)
