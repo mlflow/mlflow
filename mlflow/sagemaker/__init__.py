@@ -319,11 +319,7 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                     deployment_modes=",".join(DEPLOYMENT_MODES)),
                 error_code=INVALID_PARAMETER_VALUE)
 
-    parsed = urllib.parse.urlparse(model_uri)
-    # TODO: convert to posix on windows
-    s3_bucket_prefix = parsed.path[1:] if parsed.path.startswith('/') else parsed.path
     model_path = _download_artifact_from_uri(model_uri)
-
     model_config_path = os.path.join(model_path, "MLmodel")
     if not os.path.exists(model_config_path):
         raise MlflowException(
@@ -356,6 +352,7 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                         mode_replace=DEPLOYMENT_MODE_REPLACE)),
                 error_code=INVALID_PARAMETER_VALUE)
 
+    model_name = _get_sagemaker_model_name(endpoint_name=app_name)
     if not image_url:
         image_url = _get_default_image_url(region_name=region_name)
     if not execution_role_arn:
@@ -366,27 +363,22 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
 
     model_s3_path = _upload_s3(local_model_path=model_path,
                                bucket=bucket,
-                               prefix=s3_bucket_prefix,
+                               prefix=model_name,
                                region_name=region_name,
                                s3_client=s3_client)
 
-    try:
-        (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
-    except MlflowException:
-        run_id = None
-
     if endpoint_exists:
         deployment_operation = _update_sagemaker_endpoint(
-                endpoint_name=app_name, image_url=image_url, model_s3_path=model_s3_path,
-                run_id=run_id, flavor=flavor, instance_type=instance_type,
-                instance_count=instance_count, vpc_config=vpc_config, mode=mode,
-                role=execution_role_arn, sage_client=sage_client, s3_client=s3_client)
+                endpoint_name=app_name, model_name=model_name, model_s3_path=model_s3_path, 
+                model_uri=model_uri, image_url=image_url, flavor=flavor, 
+                instance_type=instance_type, instance_count=instance_count, vpc_config=vpc_config,
+                mode=mode, role=execution_role_arn, sage_client=sage_client, s3_client=s3_client)
     else:
         deployment_operation = _create_sagemaker_endpoint(
-                endpoint_name=app_name, image_url=image_url, model_s3_path=model_s3_path,
-                run_id=run_id, flavor=flavor, instance_type=instance_type,
-                instance_count=instance_count, vpc_config=vpc_config, role=execution_role_arn,
-                sage_client=sage_client)
+                endpoint_name=app_name, model_name=model_name, model_s3_path=model_s3_path, 
+                model_uri=model_uri, image_url=image_url, flavor=flavor, 
+                instance_type=instance_type, instance_count=instance_count, vpc_config=vpc_config,
+                role=execution_role_arn, sage_client=sage_client)
 
     if synchronous:
         _logger.info("Waiting for the deployment operation to complete...")
@@ -695,12 +687,16 @@ def _get_sagemaker_config_name(endpoint_name):
     return "{en}-config-{uid}".format(en=endpoint_name, uid=get_unique_resource_id())
 
 
-def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor,
-                               instance_type, vpc_config, instance_count, role, sage_client):
+def _create_sagemaker_endpoint(endpoint_name, model_name, model_s3_path, model_uri, image_url, 
+                               flavor, instance_type, vpc_config, instance_count, role, 
+                               sage_client):
     """
-    :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
+    :param endpoint_name: The name of the SageMaker endpoint to create.
+    :param model_name: The name to assign the new SageMaker model that will be associated with the
+                       specified endpoint.
     :param model_s3_path: S3 path where we stored the model artifacts.
-    :param run_id: Run ID that generated this model.
+    :param model_uri: URI of the MLflow model to associate with the specified SageMaker endpoint.
+    :param image_url: URL of the ECR-hosted docker image the model is being deployed into.
     :param flavor: The name of the flavor of the model to use for deployment.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
@@ -711,12 +707,11 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     """
     _logger.info("Creating new endpoint with name: %s ...", endpoint_name)
 
-    model_name = _get_sagemaker_model_name(endpoint_name)
     model_response = _create_sagemaker_model(model_name=model_name,
                                              model_s3_path=model_s3_path,
+                                             model_uri=model_uri,
                                              flavor=flavor,
                                              vpc_config=vpc_config,
-                                             run_id=run_id,
                                              image_url=image_url,
                                              execution_role=role,
                                              sage_client=sage_client)
@@ -777,13 +772,16 @@ def _create_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
 
-def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, flavor,
-                               instance_type, instance_count, vpc_config, mode, role,
+def _update_sagemaker_endpoint(endpoint_name, model_name, model_uri, image_url, model_s3_path, 
+                               flavor, instance_type, instance_count, vpc_config, mode, role, 
                                sage_client, s3_client):
     """
+    :param endpoint_name: The name of the SageMaker endpoint to update.
+    :param model_name: The name to assign the new SageMaker model that will be associated with the
+                       specified endpoint.
+    :param model_uri: URI of the MLflow model to associate with the specified SageMaker endpoint.
     :param image_url: URL of the ECR-hosted Docker image the model is being deployed into
     :param model_s3_path: S3 path where we stored the model artifacts
-    :param run_id: Run ID that generated this model
     :param flavor: The name of the flavor of the model to use for deployment.
     :param instance_type: The type of SageMaker ML instance on which to deploy the model.
     :param instance_count: The number of SageMaker ML instances on which to deploy the model.
@@ -810,12 +808,11 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
 
     _logger.info("Found active endpoint with arn: %s. Updating...", endpoint_arn)
 
-    new_model_name = _get_sagemaker_model_name(endpoint_name)
-    new_model_response = _create_sagemaker_model(model_name=new_model_name,
+    new_model_response = _create_sagemaker_model(model_name=model_name,
                                                  model_s3_path=model_s3_path,
+                                                 model_uri=model_uri,
                                                  flavor=flavor,
                                                  vpc_config=vpc_config,
-                                                 run_id=run_id,
                                                  image_url=image_url,
                                                  execution_role=role,
                                                  sage_client=sage_client)
@@ -829,8 +826,8 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
         production_variants = []
 
     new_production_variant = {
-        'VariantName': new_model_name,
-        'ModelName': new_model_name,
+        'VariantName': model_name,
+        'ModelName': model_name,
         'InitialInstanceCount': instance_count,
         'InstanceType': instance_type,
         'InitialVariantWeight': new_model_weight
@@ -900,14 +897,15 @@ def _update_sagemaker_endpoint(endpoint_name, image_url, model_s3_path, run_id, 
     return _SageMakerOperation(status_check_fn=status_check_fn, cleanup_fn=cleanup_fn)
 
 
-def _create_sagemaker_model(model_name, model_s3_path, flavor, vpc_config, run_id, image_url,
+def _create_sagemaker_model(model_name, model_s3_path, model_uri, flavor, vpc_config, image_url,
                             execution_role, sage_client):
     """
+    :param model_name: The name to assign the new SageMaker model that is created.
     :param model_s3_path: S3 path where the model artifacts are stored.
+    :param model_uri: URI of the MLflow model associated with the new SageMaker model.
     :param flavor: The name of the flavor of the model.
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
                        new SageMaker model associated with this SageMaker endpoint.
-    :param run_id: Run ID that generated this model.
     :param image_url: URL of the ECR-hosted Docker image that will serve as the
                       model's container,
     :param execution_role: The ARN of the role that SageMaker will assume when creating the model.
@@ -923,7 +921,7 @@ def _create_sagemaker_model(model_name, model_s3_path, flavor, vpc_config, run_i
             'Environment': _get_deployment_config(flavor_name=flavor),
         },
         "ExecutionRoleArn": execution_role,
-        "Tags": [{'Key': 'run_id', 'Value': str(run_id)}],
+        "Tags": [{'Key': 'model_uri', 'Value': str(model_uri)}],
     }
     if vpc_config is not None:
         create_model_args["VpcConfig"] = vpc_config
