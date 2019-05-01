@@ -117,21 +117,21 @@ class RestStore(AbstractStore):
             experiment_id=str(experiment_id), new_name=new_name))
         self._call_endpoint(UpdateExperiment, req_body)
 
-    def get_run(self, run_uuid):
+    def get_run(self, run_id):
         """
         Fetch the run from backend store
 
-        :param run_uuid: Unique identifier for the run
+        :param run_id: Unique identifier for the run
 
         :return: A single Run object if it exists, otherwise raises an Exception
         """
-        req_body = message_to_json(GetRun(run_uuid=run_uuid))
+        req_body = message_to_json(GetRun(run_uuid=run_id, run_id=run_id))
         response_proto = self._call_endpoint(GetRun, req_body)
         return Run.from_proto(response_proto.run)
 
-    def update_run_info(self, run_uuid, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time):
         """ Updates the metadata of the specified run. """
-        req_body = message_to_json(UpdateRun(run_uuid=run_uuid, status=run_status,
+        req_body = message_to_json(UpdateRun(run_uuid=run_id, run_id=run_id, status=run_status,
                                              end_time=end_time))
         response_proto = self._call_endpoint(UpdateRun, req_body)
         return RunInfo.from_proto(response_proto.run_info)
@@ -158,51 +158,55 @@ class RestStore(AbstractStore):
         run = Run.from_proto(response_proto.run)
         if run_name:
             # TODO: optimization: This is making 2 calls to backend store. Include with above call.
-            self.set_tag(run.info.run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
+            self.set_tag(run.info.run_id, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return run
 
-    def log_metric(self, run_uuid, metric):
+    def log_metric(self, run_id, metric):
         """
         Log a metric for the specified run
 
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param metric: Metric instance to log
         """
         req_body = message_to_json(LogMetric(
-            run_uuid=run_uuid, key=metric.key, value=metric.value, timestamp=metric.timestamp,
+            run_uuid=run_id, run_id=run_id,
+            key=metric.key, value=metric.value, timestamp=metric.timestamp,
             step=metric.step))
         self._call_endpoint(LogMetric, req_body)
 
-    def log_param(self, run_uuid, param):
+    def log_param(self, run_id, param):
         """
         Log a param for the specified run
 
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param param: Param instance to log
         """
-        req_body = message_to_json(LogParam(run_uuid=run_uuid, key=param.key, value=param.value))
+        req_body = message_to_json(LogParam(
+            run_uuid=run_id, run_id=run_id, key=param.key, value=param.value))
         self._call_endpoint(LogParam, req_body)
 
-    def set_tag(self, run_uuid, tag):
+    def set_tag(self, run_id, tag):
         """
         Set a tag for the specified run
 
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param tag: RunTag instance to log
         """
-        req_body = message_to_json(SetTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
+        req_body = message_to_json(SetTag(
+            run_uuid=run_id, run_id=run_id, key=tag.key, value=tag.value))
         self._call_endpoint(SetTag, req_body)
 
-    def get_metric_history(self, run_uuid, metric_key):
+    def get_metric_history(self, run_id, metric_key):
         """
         Return all logged values for a given metric.
 
-        :param run_uuid: Unique identifier for run
+        :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
-        req_body = message_to_json(GetMetricHistory(run_uuid=run_uuid, metric_key=metric_key))
+        req_body = message_to_json(GetMetricHistory(
+            run_uuid=run_id, run_id=run_id, metric_key=metric_key))
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
