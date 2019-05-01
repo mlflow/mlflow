@@ -63,7 +63,7 @@ matrix:
     - stage: large
     - language: python
       python: 2.7
-      before_install;
+      before_install:
         - source ./travis/setup_mysql.sh
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
