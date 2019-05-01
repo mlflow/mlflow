@@ -61,15 +61,13 @@ def _await_server_down_or_die(process, timeout=60):
 
 
 class App(object):
-    def __init__(self, hostname, port, flask_args):
+    def __init__(self, hostname, port):
         self._hostname = hostname
         self._port = port
-        self._flask_args = flask_args
 
     def __call__(self):
-        from flask import Flask, send_from_directory
-        self.app = Flask(**self._flask_args)
-        self.app.run(self._hostname, self._port)
+        from mlflow.server import app
+        app.run(self._hostname, self._port)
 
 
 def _init_server(backend_uri, root_artifact_uri):
@@ -87,9 +85,7 @@ def _init_server(backend_uri, root_artifact_uri):
     }
 
     with mock.patch.dict(os.environ, env):
-        process = Process(target=App(hostname=LOCALHOST, port=server_port,
-                                     flask_args={"import_name": __name__,
-                                                 "static_folder": REL_STATIC_DIR}))
+        process = Process(target=App(hostname=LOCALHOST, port=server_port))
         process.start()
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
