@@ -20,7 +20,6 @@ matrix:
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
-        - cat ~travis/.my.cnf
         - ./travis/run-small-python-tests.sh
     - language: r
       name: "R"
