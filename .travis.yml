@@ -75,7 +75,8 @@ matrix:
 before_install:
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Large" ]]; then
       source ./travis/setup_mysql.sh
-    fi;
+    fi
+
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
