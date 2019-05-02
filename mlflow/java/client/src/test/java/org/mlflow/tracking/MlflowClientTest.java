@@ -144,7 +144,8 @@ public class MlflowClientTest {
     client.setTag(runId, "user_email", USER_EMAIL);
 
     // Update finished run
-    client.setTerminated(runId, RunStatus.FINISHED, startTime + 1001);
+    client.setTerminated(runId, RunStatus.FINISHED);
+    long endTime = System.currentTimeMillis();
 
     List<RunInfo> updatedRunInfos = client.listRunInfos(expId);
     Assert.assertEquals(updatedRunInfos.size(), 1);
@@ -159,6 +160,9 @@ public class MlflowClientTest {
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
     assertRunInfo(runInfo, expId, sourceFile);
+    // verify run start and end are set in ms
+    Assert.assertTrue(runInfo.getStartTime() >= startTime);
+    Assert.assertTrue(runInfo.getEndTime() <= endTime);
 
     // Assert parent run ID is not set.
     Assert.assertTrue(run.getData().getTagsList().stream().noneMatch(
