@@ -16,7 +16,7 @@ trap 'err=1' ERR
 #     cat $SAGEMAKER_OUT;
 #   fi
 # NB: Also add --ignore'd tests to run-small-python-tests.sh
-pytest tests --large-only --ignore=tests/h2o --ignore=tests/keras \
+pytest tests --large --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
   --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --capture=no
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
