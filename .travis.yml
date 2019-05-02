@@ -2,18 +2,8 @@ dist: trusty
 
 language: python
 
-# Enable MySQL as described in https://docs.travis-ci.com/user/database-setup/#mysql-57
-addons:
-  apt:
-    sources:
-      - mysql-5.7-trusty
-    packages:
-      - mysql-server
-      - mysql-client
-
 services:
   - docker
-  - mysql
 
 matrix:
   include:
@@ -82,11 +72,6 @@ matrix:
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
-before_install:
-  - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Large" ]]; then
-      source ./travis/setup-mysql.sh;
-    fi
-
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
   - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
