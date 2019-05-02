@@ -4,7 +4,7 @@ import shutil
 import sys
 
 import sqlalchemy
-from sqlalchemy.schema import MetaData
+from sqlalchemy.schema import CreateTable, MetaData
 import tempfile
 
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
@@ -12,13 +12,12 @@ from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 def dump_db_schema(metadata, dst_file):
     print("Writing database schema to %s" % dst_file)
-
-    def _dump(sql, *multiparams, **params):  # pylint: disable=unused-argument
-        schema = sql.compile(dialect=engine.dialect)
-        with open(dst_file, "a") as handle:
-            handle.write(str(schema))
-    engine = sqlalchemy.create_engine('sqlite://', strategy='mock', executor=_dump)
-    metadata.create_all(engine, checkfirst=False)
+    # Write out table schema as described in
+    # https://docs.sqlalchemy.org/en/13/faq/
+    # metadata_schema.html#how-can-i-get-the-create-table-drop-table-output-as-a-string
+    schema = "".join([str(CreateTable(ti)) for ti in metadata.sorted_tables])
+    with open(dst_file, "w") as handle:
+        handle.write(schema)
 
 
 def dump_sqlalchemy_store_schema(dst_file):

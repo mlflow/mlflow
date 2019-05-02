@@ -1,6 +1,15 @@
-dist: xenial
+dist: trusty
 
 language: python
+
+# Enable MySQL as described in https://docs.travis-ci.com/user/database-setup/#mysql-57
+addons:
+  apt:
+    sources:
+      - mysql-5.7-trusty
+    packages:
+      - mysql-server
+      - mysql-client
 
 services:
   - docker

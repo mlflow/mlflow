@@ -39,30 +39,30 @@ CREATE TABLE runs (
 
 
 CREATE TABLE metrics (
-	"key" VARCHAR(250) NOT NULL, 
+	key VARCHAR(250) NOT NULL, 
 	value FLOAT NOT NULL, 
 	timestamp BIGINT NOT NULL, 
 	run_uuid VARCHAR(32) NOT NULL, 
 	step BIGINT DEFAULT '0' NOT NULL, 
-	CONSTRAINT metric_pk PRIMARY KEY ("key", value, timestamp, run_uuid, step), 
+	CONSTRAINT metric_pk PRIMARY KEY (key, value, timestamp, run_uuid, step), 
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 
 CREATE TABLE params (
-	"key" VARCHAR(250) NOT NULL, 
+	key VARCHAR(250) NOT NULL, 
 	value VARCHAR(250) NOT NULL, 
 	run_uuid VARCHAR(32) NOT NULL, 
-	CONSTRAINT param_pk PRIMARY KEY ("key", run_uuid), 
+	CONSTRAINT param_pk PRIMARY KEY (key, run_uuid), 
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
 
 CREATE TABLE tags (
-	"key" VARCHAR(250) NOT NULL, 
+	key VARCHAR(250) NOT NULL, 
 	value VARCHAR(250), 
 	run_uuid VARCHAR(32) NOT NULL, 
-	CONSTRAINT tag_pk PRIMARY KEY ("key", run_uuid), 
+	CONSTRAINT tag_pk PRIMARY KEY (key, run_uuid), 
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
