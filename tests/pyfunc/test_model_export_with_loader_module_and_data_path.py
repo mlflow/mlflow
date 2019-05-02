@@ -83,7 +83,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
                                 data_path=sk_model_path,
                                 loader_module=os.path.basename(__file__)[:-3],
                                 code_path=[__file__])
-        pyfunc_run_id = mlflow.active_run().info.run_uuid
+        pyfunc_run_id = mlflow.active_run().info.run_id
 
     pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
     model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))

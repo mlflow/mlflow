@@ -47,11 +47,12 @@ class TestFileStore(unittest.TestCase):
             # add runs
             self.exp_data[exp]["runs"] = []
             for _ in range(2):
-                run_uuid = uuid.uuid4().hex
-                self.exp_data[exp]["runs"].append(run_uuid)
-                run_folder = os.path.join(exp_folder, run_uuid)
+                run_id = uuid.uuid4().hex
+                self.exp_data[exp]["runs"].append(run_id)
+                run_folder = os.path.join(exp_folder, run_id)
                 os.makedirs(run_folder)
-                run_info = {"run_uuid": run_uuid,
+                run_info = {"run_uuid": run_id,
+                            "run_id": run_id,
                             "experiment_id": exp,
                             "name": random_str(random_int(10, 40)),
                             "source_type": random_int(1, 4),
@@ -66,7 +67,7 @@ class TestFileStore(unittest.TestCase):
                             "artifact_uri": "%s/%s" % (run_folder, FileStore.ARTIFACTS_FOLDER_NAME),
                             }
                 write_yaml(run_folder, FileStore.META_DATA_FILE_NAME, run_info)
-                self.run_data[run_uuid] = run_info
+                self.run_data[run_id] = run_info
                 # params
                 params_folder = os.path.join(run_folder, FileStore.PARAMS_FOLDER_NAME)
                 os.makedirs(params_folder)
@@ -78,7 +79,7 @@ class TestFileStore(unittest.TestCase):
                     with open(param_file, 'w') as f:
                         f.write(param_value)
                     params[param_name] = param_value
-                self.run_data[run_uuid]["params"] = params
+                self.run_data[run_id]["params"] = params
                 # metrics
                 metrics_folder = os.path.join(run_folder, FileStore.METRICS_FOLDER_NAME)
                 os.makedirs(metrics_folder)
@@ -95,7 +96,7 @@ class TestFileStore(unittest.TestCase):
                         with open(metric_file, 'a') as f:
                             f.write("%d %d\n" % (timestamp, metric_value))
                     metrics[metric_name] = values
-                self.run_data[run_uuid]["metrics"] = metrics
+                self.run_data[run_id]["metrics"] = metrics
                 # artifacts
                 os.makedirs(os.path.join(run_folder, FileStore.ARTIFACTS_FOLDER_NAME))
 
@@ -278,9 +279,9 @@ class TestFileStore(unittest.TestCase):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
         return old_dict
 
-    def _verify_run(self, fs, run_uuid):
-        run = fs.get_run(run_uuid)
-        run_info = self.run_data[run_uuid]
+    def _verify_run(self, fs, run_id):
+        run = fs.get_run(run_id)
+        run_info = self.run_data[run_id]
         run_info.pop("metrics", None)
         run_info.pop("params", None)
         run_info.pop("tags", None)
@@ -291,24 +292,24 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
             runs = self.exp_data[exp_id]["runs"]
-            for run_uuid in runs:
-                self._verify_run(fs, run_uuid)
+            for run_id in runs:
+                self._verify_run(fs, run_id)
 
     def test_get_run_int_experiment_id_backcompat(self):
         fs = FileStore(self.test_root)
         exp_id = FileStore.DEFAULT_EXPERIMENT_ID
-        run_uuid = self.exp_data[exp_id]["runs"][0]
-        root_dir = os.path.join(self.test_root, exp_id, run_uuid)
+        run_id = self.exp_data[exp_id]["runs"][0]
+        root_dir = os.path.join(self.test_root, exp_id, run_id)
         with safe_edit_yaml(root_dir, "meta.yaml", self._experiment_id_edit_func):
-            self._verify_run(fs, run_uuid)
+            self._verify_run(fs, run_id)
 
     def test_list_run_infos(self):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
             run_infos = fs.list_run_infos(exp_id, run_view_type=ViewType.ALL)
             for run_info in run_infos:
-                run_uuid = run_info.run_uuid
-                dict_run_info = self.run_data[run_uuid]
+                run_id = run_info.run_id
+                dict_run_info = self.run_data[run_id]
                 dict_run_info.pop("metrics")
                 dict_run_info.pop("params")
                 dict_run_info.pop("tags")
@@ -317,7 +318,7 @@ class TestFileStore(unittest.TestCase):
 
     def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):
         fs = FileStore(self.test_root)
-        run_uuid = self._create_run(fs).info.run_uuid
+        run_id = self._create_run(fs).info.run_id
 
         metric_name = "test-metric-1"
         # Check that we get the max of (step, timestamp, value) in that order
@@ -332,13 +333,13 @@ class TestFileStore(unittest.TestCase):
             (-1, 800, 800),
         ]
         for step, timestamp, value in reversed(tuples_to_log):
-            fs.log_metric(run_uuid, Metric(metric_name, value, timestamp, step))
+            fs.log_metric(run_id, Metric(metric_name, value, timestamp, step))
 
-        metric_history = fs.get_metric_history(run_uuid, metric_name)
+        metric_history = fs.get_metric_history(run_id, metric_name)
         logged_tuples = [(m.step, m.timestamp, m.value) for m in metric_history]
         assert set(logged_tuples) == set(tuples_to_log)
 
-        run_data = fs.get_run(run_uuid).data
+        run_data = fs.get_run(run_id).data
         run_metrics = run_data.metrics
         assert len(run_metrics) == 1
         assert run_metrics[metric_name] == 20
@@ -352,9 +353,9 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
             runs = self.exp_data[exp_id]["runs"]
-            for run_uuid in runs:
-                run_info = self.run_data[run_uuid]
-                metrics = fs.get_all_metrics(run_uuid)
+            for run_id in runs:
+                run_info = self.run_data[run_id]
+                metrics = fs.get_all_metrics(run_id)
                 metrics_dict = run_info.pop("metrics")
                 for metric in metrics:
                     expected_timestamp, expected_value = max(metrics_dict[metric.key])
@@ -365,11 +366,11 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         for exp_id in self.experiments:
             runs = self.exp_data[exp_id]["runs"]
-            for run_uuid in runs:
-                run_info = self.run_data[run_uuid]
+            for run_id in runs:
+                run_info = self.run_data[run_id]
                 metrics = run_info.pop("metrics")
                 for metric_name, values in metrics.items():
-                    metric_history = fs.get_metric_history(run_uuid, metric_name)
+                    metric_history = fs.get_metric_history(run_id, metric_name)
                     sorted_values = sorted(values, reverse=True)
                     for metric in metric_history:
                         timestamp, metric_value = sorted_values.pop()
@@ -380,7 +381,7 @@ class TestFileStore(unittest.TestCase):
     def _search(self, fs, experiment_id, filter_str=None,
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
         search_filter = SearchFilter(filter_string=filter_str) if filter_str else None
-        return [r.info.run_uuid
+        return [r.info.run_id
                 for r in fs.search_runs([experiment_id], search_filter, run_view_type, max_results)]
 
     def test_search_runs(self):
@@ -396,10 +397,10 @@ class TestFileStore(unittest.TestCase):
         experiment_id = self.experiments[0]
         r1 = fs.create_run(
             experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
-            None, [], None).info.run_uuid
+            None, [], None).info.run_id
         r2 = fs.create_run(
             experiment_id, 'user', 'name', 'source_type', 'source_name', 'entry_point_name', 0,
-            None, [], None).info.run_uuid
+            None, [], None).info.run_id
 
         fs.set_tag(r1, RunTag('generic_tag', 'p_val'))
         fs.set_tag(r2, RunTag('generic_tag', 'p_val'))
@@ -439,7 +440,7 @@ class TestFileStore(unittest.TestCase):
         exp = fs.create_experiment("search_with_max_results")
 
         runs = [fs.create_run(exp, 'user', 'r_%d' % r, 'source_type', 'source_name', 'entry_point',
-                              r, None, [], None).info.run_uuid
+                              r, None, [], None).info.run_id
                 for r in range(10)]
         runs.reverse()
 
@@ -458,9 +459,9 @@ class TestFileStore(unittest.TestCase):
         exp = fs.create_experiment("test_search_with_deterministic_max_results")
 
         # Create 10 runs with the same start_time.
-        # Sort based on run_uuid
+        # Sort based on run_id
         runs = sorted([fs.create_run(exp, 'user', 'r_%d' % r, 'source_type', 'source_name',
-                                     'entry_point', 1000, None, [], None).info.run_uuid
+                                     'entry_point', 1000, None, [], None).info.run_id
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(fs, exp, max_results=n))
@@ -468,27 +469,27 @@ class TestFileStore(unittest.TestCase):
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
-        fs.log_param(run_uuid, Param(WEIRD_PARAM_NAME, "Value"))
-        run = fs.get_run(run_uuid)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_param(run_id, Param(WEIRD_PARAM_NAME, "Value"))
+        run = fs.get_run(run_id)
         assert run.data.params[WEIRD_PARAM_NAME] == "Value"
 
     def test_log_empty_str(self):
         PARAM_NAME = "new param"
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
-        fs.log_param(run_uuid, Param(PARAM_NAME, ""))
-        run = fs.get_run(run_uuid)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_param(run_id, Param(PARAM_NAME, ""))
+        run = fs.get_run(run_id)
         assert run.data.params[PARAM_NAME] == ""
 
     def test_weird_metric_names(self):
         WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
-        fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234, 0))
-        run = fs.get_run(run_uuid)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_metric(run_id, Metric(WEIRD_METRIC_NAME, 10, 1234, 0))
+        run = fs.get_run(run_id)
         assert run.data.metrics[WEIRD_METRIC_NAME] == 10
-        history = fs.get_metric_history(run_uuid, WEIRD_METRIC_NAME)
+        history = fs.get_metric_history(run_id, WEIRD_METRIC_NAME)
         assert len(history) == 1
         metric = history[0]
         assert metric.key == WEIRD_METRIC_NAME
@@ -498,37 +499,37 @@ class TestFileStore(unittest.TestCase):
     def test_weird_tag_names(self):
         WEIRD_TAG_NAME = "this is/a weird/but valid tag"
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
-        fs.set_tag(run_uuid, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
-        run = fs.get_run(run_uuid)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.set_tag(run_id, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
+        run = fs.get_run(run_id)
         assert run.data.tags[WEIRD_TAG_NAME] == "Muhahaha!"
 
     def test_set_tags(self):
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
-        fs.set_tag(run_uuid, RunTag("tag0", "value0"))
-        fs.set_tag(run_uuid, RunTag("tag1", "value1"))
-        tags = fs.get_run(run_uuid).data.tags
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.set_tag(run_id, RunTag("tag0", "value0"))
+        fs.set_tag(run_id, RunTag("tag1", "value1"))
+        tags = fs.get_run(run_id).data.tags
         assert tags["tag0"] == "value0"
         assert tags["tag1"] == "value1"
 
         # Can overwrite tags.
-        fs.set_tag(run_uuid, RunTag("tag0", "value2"))
-        tags = fs.get_run(run_uuid).data.tags
+        fs.set_tag(run_id, RunTag("tag0", "value2"))
+        tags = fs.get_run(run_id).data.tags
         assert tags["tag0"] == "value2"
         assert tags["tag1"] == "value1"
 
         # Can set multiline tags.
-        fs.set_tag(run_uuid, RunTag("multiline_tag", "value2\nvalue2\nvalue2"))
-        tags = fs.get_run(run_uuid).data.tags
+        fs.set_tag(run_id, RunTag("multiline_tag", "value2\nvalue2\nvalue2"))
+        tags = fs.get_run(run_id).data.tags
         assert tags["multiline_tag"] == "value2\nvalue2\nvalue2"
 
     def test_unicode_tag(self):
         fs = FileStore(self.test_root)
-        run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         value = u"𝐼 𝓈𝑜𝓁𝑒𝓂𝓃𝓁𝓎 𝓈𝓌𝑒𝒶𝓇 𝓉𝒽𝒶𝓉 𝐼 𝒶𝓂 𝓊𝓅 𝓉𝑜 𝓃𝑜 𝑔𝑜𝑜𝒹"
-        fs.set_tag(run_uuid, RunTag("message", value))
-        tags = fs.get_run(run_uuid).data.tags
+        fs.set_tag(run_id, RunTag("message", value))
+        tags = fs.get_run(run_id).data.tags
         assert tags["message"] == value
 
     def test_get_deleted_run(self):
@@ -563,7 +564,7 @@ class TestFileStore(unittest.TestCase):
         exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
         run = fs.create_run(exp_id, 'user', 'name', 'source_type', 'source_name',
                             'entry_point_name', 0, None, [], 'test_parent_run_id')
-        assert fs.get_run(run.info.run_uuid).data.tags[MLFLOW_PARENT_RUN_ID] == 'test_parent_run_id'
+        assert fs.get_run(run.info.run_id).data.tags[MLFLOW_PARENT_RUN_ID] == 'test_parent_run_id'
 
     def test_default_experiment_initialization(self):
         fs = FileStore(self.test_root)
@@ -666,13 +667,13 @@ class TestFileStore(unittest.TestCase):
             source_type='source_type', source_name='source_name',
             entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
             parent_run_id=None)
-        run_uuid = run.info.run_uuid
+        run_id = run.info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 0)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         fs.log_batch(
-            run_id=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
-        self._verify_logged(fs, run_uuid, metric_entities, param_entities, tag_entities)
+            run_id=run_id, metrics=metric_entities, params=param_entities, tags=tag_entities)
+        self._verify_logged(fs, run_id, metric_entities, param_entities, tag_entities)
 
     def _create_run(self, fs):
         return fs.create_run(
@@ -681,9 +682,9 @@ class TestFileStore(unittest.TestCase):
             entry_point_name='entry_point_name', start_time=0, source_version=None, tags=[],
             parent_run_id=None)
 
-    def _verify_logged(self, fs, run_uuid, metrics, params, tags):
-        run = fs.get_run(run_uuid)
-        all_metrics = sum([fs.get_metric_history(run_uuid, key)
+    def _verify_logged(self, fs, run_id, metrics, params, tags):
+        run = fs.get_run(run_id)
+        all_metrics = sum([fs.get_metric_history(run_id, key)
                            for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
         logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
@@ -713,7 +714,7 @@ class TestFileStore(unittest.TestCase):
                 log_batch_kwargs.update(kwargs)
                 print(log_batch_kwargs)
                 with self.assertRaises(MlflowException) as e:
-                    fs.log_batch(run.info.run_uuid, **log_batch_kwargs)
+                    fs.log_batch(run.info.run_id, **log_batch_kwargs)
                 self.assertIn(str(e.exception.message), "Some internal error")
                 assert e.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
@@ -729,24 +730,24 @@ class TestFileStore(unittest.TestCase):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
         params = [Param("p-key", "p-val")]
-        fs.log_batch(run.info.run_uuid, metrics=[], params=params, tags=[])
-        fs.log_batch(run.info.run_uuid, metrics=[], params=params, tags=[])
-        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=params, tags=[])
+        fs.log_batch(run.info.run_id, metrics=[], params=params, tags=[])
+        fs.log_batch(run.info.run_id, metrics=[], params=params, tags=[])
+        self._verify_logged(fs, run.info.run_id, metrics=[], params=params, tags=[])
 
     def test_log_batch_tags_idempotency(self):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
-        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
-        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
-        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[],
+        fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+        fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+        self._verify_logged(fs, run.info.run_id, metrics=[], params=[],
                             tags=[RunTag("t-key", "t-val")])
 
     def test_log_batch_allows_tag_overwrite(self):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
-        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "val")])
-        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
-        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[],
+        fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "val")])
+        fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
+        self._verify_logged(fs, run.info.run_id, metrics=[], params=[],
                             tags=[RunTag("t-key", "newval")])
 
     def test_log_batch_same_metric_repeated_single_req(self):
@@ -754,28 +755,28 @@ class TestFileStore(unittest.TestCase):
         run = self._create_run(fs)
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
         metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
-        fs.log_batch(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
-        self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+        fs.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(fs, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
 
     def test_log_batch_same_metric_repeated_multiple_reqs(self):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
         metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
-        fs.log_batch(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
-        self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0], tags=[])
-        fs.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])
-        self._verify_logged(fs, run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+        fs.log_batch(run.info.run_id, params=[], metrics=[metric0], tags=[])
+        self._verify_logged(fs, run.info.run_id, params=[], metrics=[metric0], tags=[])
+        fs.log_batch(run.info.run_id, params=[], metrics=[metric1], tags=[])
+        self._verify_logged(fs, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
 
     def test_log_batch_allows_tag_overwrite_single_req(self):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
         tags = [RunTag("t-key", "val"), RunTag("t-key", "newval")]
-        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=tags)
-        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[], tags=[tags[-1]])
+        fs.log_batch(run.info.run_id, metrics=[], params=[], tags=tags)
+        self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[tags[-1]])
 
     def test_log_batch_accepts_empty_payload(self):
         fs = FileStore(self.test_root)
         run = self._create_run(fs)
-        fs.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[])
-        self._verify_logged(fs, run.info.run_uuid, metrics=[], params=[], tags=[])
+        fs.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
+        self._verify_logged(fs, run.info.run_id, metrics=[], params=[], tags=[])

@@ -199,15 +199,15 @@ def test_run_local_git_repo(local_git_repo,
     submitted_run.wait()
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
-    run_uuid = submitted_run.run_id
+    run_id = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
     run_infos = mlflow_service.list_run_infos(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
     assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
-    store_run_uuid = run_infos[0].run_uuid
-    assert run_uuid == store_run_uuid
-    run = mlflow_service.get_run(run_uuid)
+    store_run_id = run_infos[0].run_id
+    assert run_id == store_run_id
+    run = mlflow_service.get_run(run_id)
 
     assert run.info.status == RunStatus.FINISHED
     assert run.data.params == {"use_start_run": use_start_run}
@@ -270,15 +270,15 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     submitted_run.wait()
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
-    run_uuid = submitted_run.run_id
+    run_id = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
 
     run_infos = mlflow_service.list_run_infos(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
     assert len(run_infos) == 1
-    store_run_uuid = run_infos[0].run_uuid
-    assert run_uuid == store_run_uuid
-    run = mlflow_service.get_run(run_uuid)
+    store_run_id = run_infos[0].run_id
+    assert run_id == store_run_id
+    run = mlflow_service.get_run(run_id)
 
     assert run.info.status == RunStatus.FINISHED
 
@@ -294,15 +294,15 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
 def test_run_with_parent(tmpdir, tracking_uri_mock):  # pylint: disable=unused-argument
     """Verify that if we are in a nested run, mlflow.projects.run() will have a parent_run_id."""
     with mlflow.start_run():
-        parent_run_id = mlflow.active_run().info.run_uuid
+        parent_run_id = mlflow.active_run().info.run_id
         submitted_run = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="test_tracking",
             parameters={"use_start_run": "1"},
             use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
     assert submitted_run.run_id is not None
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
-    run_uuid = submitted_run.run_id
-    run = mlflow.tracking.MlflowClient().get_run(run_uuid)
+    run_id = submitted_run.run_id
+    run = mlflow.tracking.MlflowClient().get_run(run_id)
     assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 

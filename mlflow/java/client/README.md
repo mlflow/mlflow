@@ -46,7 +46,7 @@ See [ApiClient.java](src/main/java/org/mlflow/client/ApiClient.java)
 and [Service.java domain objects](src/main/java/org/mlflow/api/proto/mlflow/Service.java).
 
 ```
-Run getRun(String runUuid)
+Run getRun(String runId)
 RunInfo createRun()
 RunInfo createRun(String experimentId)
 RunInfo createRun(String experimentId, String appName)
@@ -59,12 +59,12 @@ GetExperiment.Response getExperiment(String experimentId)
 Optional<Experiment> getExperimentByName(String experimentName)
 long createExperiment(String experimentName)
 
-void logParam(String runUuid, String key, String value)
-void logMetric(String runUuid, String key, float value)
-void setTerminated(String runUuid)
-void setTerminated(String runUuid, RunStatus status)
-void setTerminated(String runUuid, RunStatus status, long endTime)
-ListArtifacts.Response listArtifacts(String runUuid, String path)
+void logParam(String runId, String key, String value)
+void logMetric(String runId, String key, float value)
+void setTerminated(String runId)
+void setTerminated(String runId, RunStatus status)
+void setTerminated(String runId, RunStatus status, long endTime)
+ListArtifacts.Response listArtifacts(String runId, String path)
 ```
 
 ## Usage

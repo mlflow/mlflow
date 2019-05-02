@@ -188,7 +188,7 @@ def test_log_model(sequential_model, data, sequential_predicted):
                 mlflow.pytorch.log_model(sequential_model, artifact_path="pytorch")
 
                 # Load model
-                run_id = mlflow.active_run().info.run_uuid
+                run_id = mlflow.active_run().info.run_id
                 sequential_model_loaded = mlflow.pytorch.load_model("pytorch", run_id=run_id)
 
                 test_predictions = _predict(sequential_model_loaded, data)
@@ -279,7 +279,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         mlflow.pytorch.log_model(pytorch_model=sequential_model,
                                  artifact_path=artifact_path,
                                  conda_env=pytorch_custom_env)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = tracking.artifact_utils._get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -315,7 +315,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         mlflow.pytorch.log_model(pytorch_model=sequential_model,
                                  artifact_path=artifact_path,
                                  conda_env=None)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = tracking.artifact_utils._get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -433,7 +433,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
                          artifacts={
                             "pytorch_model": model_path,
                          })
-        pyfunc_run_id = mlflow.active_run().info.run_uuid
+        pyfunc_run_id = mlflow.active_run().info.run_id
 
     pyfunc_model_path = tracking.artifact_utils._get_model_log_dir(pyfunc_artifact_path,
                                                                    pyfunc_run_id)
@@ -493,7 +493,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
             pytorch_model=module_scoped_subclassed_model,
             conda_env=None,
             pickle_module=custom_pickle_module)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
 
     import_module_fn = importlib.import_module
     imported_modules = []
@@ -559,7 +559,7 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
             artifact_path=artifact_path,
             pytorch_model=module_scoped_subclassed_model,
             conda_env=None)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = tracking.artifact_utils._get_model_log_dir(artifact_path, run_id)
 
     model_conf_path = os.path.join(model_path, "MLmodel")
