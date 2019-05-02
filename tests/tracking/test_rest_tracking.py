@@ -122,7 +122,7 @@ def _get_sqlite_uri():
 # Backend store URIs to test against
 BACKEND_URIS = [
     _get_sqlite_uri(),  # SqlAlchemy
-    os.path.join(SUITE_ROOT_DIR, "file_store_root"),  # FileStore
+    path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "file_store_root")),  # FileStore
 ]
 
 # Map of backend URI to tuple (server URL, Process). We populate this map by constructing
