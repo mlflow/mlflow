@@ -26,6 +26,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 
@@ -62,6 +63,50 @@ def get_azure_workspace():
     # pylint: disable=import-error
     from azureml.core import Workspace
     return Workspace.get("test_workspace")
+
+
+@pytest.fixture(scope='session', autouse=True)
+def set_boto_credentials():
+    """
+    In order to test that Azure images are built successfully for models
+    located in remote stores, we test the image build process against
+    `s3://` URIs. This method sets fake boto credentials to facilitate
+    such testing.
+    """
+    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
+    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
+
+
+def mock_s3_bucket(bucket_name):
+    """
+    In order to test that Azure images are built successfully for models
+    located in remote stores, we test the image build process against
+    `s3://` URIs. This method creates a mock S3 bucket to facilitate such
+    testing.
+    """
+    # Import `wraps` from `six` instead of `functools` to properly set the
+    # wrapped function's `__wrapped__` attribute to the required value
+    # in Python 2
+    import boto3
+    from six import wraps
+    from moto import mock_s3
+
+    def build_mock_wrapper(fn):
+        @mock_s3
+        @wraps(fn)
+        def mock_wrapper(*args, **kwargs):
+            region_name = "us-west-2"
+            s3_client = boto3.client("s3", region_name=region_name)
+            s3_client.create_bucket(
+                Bucket=bucket_name,
+                CreateBucketConfiguration={
+                    "LocationConstraint": region_name,
+                })
+            return fn(*args, **kwargs)
+        return mock_wrapper
+
+    return build_mock_wrapper
 
 
 @pytest.fixture(scope="module")
@@ -146,6 +191,24 @@ def test_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_model):
         workspace = get_azure_workspace()
         model_uri = "runs:///{run_id}/{artifact_path}".format(
             run_id=run_id, artifact_path=artifact_path)
+        mlflow.azureml.build_image(model_uri=model_uri, workspace=workspace)
+
+        assert aml_mocks["register_model"].call_count == 1
+        assert aml_mocks["create_image"].call_count == 1
+
+
+@pytest.mark.large
+@mock_s3_bucket("test_bucket")
+@mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
+def test_build_image_with_remote_uri_calls_expected_azure_routines(sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    artifact_path = "model"
+    s3_artifact_repo = S3ArtifactRepository("s3://test_bucket")
+    s3_artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+    model_uri = "s3://test_bucket/{artifact_path}".format(artifact_path=artifact_path)
+
+    with AzureMLMocks() as aml_mocks:
+        workspace = get_azure_workspace()
         mlflow.azureml.build_image(model_uri=model_uri, workspace=workspace)
 
         assert aml_mocks["register_model"].call_count == 1
@@ -607,6 +670,33 @@ def test_cli_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_mod
         run_id = mlflow.active_run().info.run_uuid
     model_uri = "runs:/{run_id}/{artifact_path}".format(
         run_id=run_id, artifact_path=artifact_path)
+
+    with AzureMLMocks() as aml_mocks:
+        result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+                mlflow.azureml.cli.commands,
+                [
+                    'build-image',
+                    '-m', model_uri,
+                    '-w', 'test_workspace',
+                    '-i', 'image_name',
+                    '-n', 'model_name',
+                ])
+        assert result.exit_code == 0
+
+        assert aml_mocks["register_model"].call_count == 1
+        assert aml_mocks["create_image"].call_count == 1
+        assert aml_mocks["load_workspace"].call_count == 1
+
+
+@pytest.mark.large
+@mock_s3_bucket("test_bucket")
+@mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
+def test_cli_build_image_with_remote_uri_calls_expected_azure_routines(sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
+    artifact_path = "model"
+    s3_artifact_repo = S3ArtifactRepository("s3://test_bucket")
+    s3_artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+    model_uri = "s3://test_bucket/{artifact_path}".format(artifact_path=artifact_path)
 
     with AzureMLMocks() as aml_mocks:
         result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
