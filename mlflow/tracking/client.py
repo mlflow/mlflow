@@ -63,7 +63,7 @@ class MlflowClient(object):
         """
         return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
-    def create_run(self, experiment_id, user_id=None, run_name=None, start_time=None,
+    def create_run(self, experiment_id, user_id=None, start_time=None,
                    parent_run_id=None, tags=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
@@ -83,33 +83,11 @@ class MlflowClient(object):
 
         tags = tags if tags else {}
 
-        # Extract run attributes from tags
-        # This logic is temporary; by the 1.0 release, this information will only be stored in tags
-        # and will not be available as attributes of the run
-        final_parent_run_id =\
-            tags.get(MLFLOW_PARENT_RUN_ID) if parent_run_id is None else parent_run_id
-        source_name = tags.get(MLFLOW_SOURCE_NAME, "Python Application")
-        source_version = tags.get(MLFLOW_GIT_COMMIT)
-        entry_point_name = tags.get(MLFLOW_PROJECT_ENTRY_POINT)
-
-        source_type_string = tags.get(MLFLOW_SOURCE_TYPE)
-        if source_type_string is None:
-            source_type = SourceType.LOCAL
-        else:
-            source_type = SourceType.from_string(source_type_string)
-
         return self.store.create_run(
             experiment_id=experiment_id,
             user_id=user_id if user_id is not None else _get_user_id(),
-            run_name=run_name,
             start_time=start_time or int(time.time() * 1000),
-            tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
-            # The below arguments remain set for backwards compatability:
-            parent_run_id=final_parent_run_id,
-            source_type=source_type,
-            source_name=source_name,
-            entry_point_name=entry_point_name,
-            source_version=source_version
+            tags=[RunTag(key, value) for (key, value) in iteritems(tags)]
         )
 
     def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):

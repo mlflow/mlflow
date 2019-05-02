@@ -304,8 +304,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment.name = new_name
             self._save_to_db(objs=experiment, session=session)
 
-    def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags, parent_run_id):
+    def create_run(self, experiment_id, user_id, start_time, tags):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
 
@@ -316,20 +315,16 @@ class SqlAlchemyStore(AbstractStore):
             run_id = uuid.uuid4().hex
             artifact_location = posixpath.join(experiment.artifact_location, run_id,
                                                SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
-            run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_id,
-                         experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
-                         source_name=source_name, entry_point_name=entry_point_name,
+            run = SqlRun(name="", artifact_uri=artifact_location, run_uuid=run_id,
+                         experiment_id=experiment_id, source_type=SourceType.to_string(SourceType.UNKNOWN),
+                         source_name="", entry_point_name="",
                          user_id=user_id, status=RunStatus.to_string(RunStatus.RUNNING),
                          start_time=start_time, end_time=None,
-                         source_version=source_version, lifecycle_stage=LifecycleStage.ACTIVE)
+                         source_version="", lifecycle_stage=LifecycleStage.ACTIVE)
 
             tags_dict = {}
             for tag in tags:
                 tags_dict[tag.key] = tag.value
-            if parent_run_id:
-                tags_dict[MLFLOW_PARENT_RUN_ID] = parent_run_id
-            if run_name:
-                tags_dict[MLFLOW_RUN_NAME] = run_name
             run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
             self._save_to_db(objs=run, session=session)
 

@@ -77,22 +77,12 @@ public class MlflowClient {
   }
 
   /**
-   * Creates a new run under the given experiment with no application name.
+   * Creates a new run under the given experiment.
    * @return RunInfo created by the server
    */
   public RunInfo createRun(String experimentId) {
-    return createRun(experimentId, "Java Application");
-  }
-
-  /**
-   * Creates a new run under the given experiment with the given application name.
-   * @return RunInfo created by the server
-   */
-  public RunInfo createRun(String experimentId, String appName) {
     CreateRun.Builder request = CreateRun.newBuilder();
     request.setExperimentId(experimentId);
-    request.setSourceName(appName);
-    request.setSourceType(SourceType.LOCAL);
     request.setStartTime(System.currentTimeMillis());
     String username = System.getProperty("user.name");
     if (username != null) {

@@ -324,8 +324,7 @@ class FileStore(AbstractStore):
         self._overwrite_run_info(new_info)
         return new_info
 
-    def create_run(self, experiment_id, user_id, run_name, source_type,
-                   source_name, entry_point_name, start_time, source_version, tags, parent_run_id):
+    def create_run(self, experiment_id, user_id, start_time, tags):
         """
         Creates a run with the specified attributes.
         """
@@ -343,13 +342,10 @@ class FileStore(AbstractStore):
                 databricks_pb2.INVALID_STATE)
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
-        run_info = RunInfo(run_uuid=run_uuid, run_id=run_uuid, experiment_id=experiment_id,
-                           name="",
-                           artifact_uri=artifact_uri, source_type=source_type,
-                           source_name=source_name,
-                           entry_point_name=entry_point_name, user_id=user_id,
+        run_info = RunInfo(run_uuid=run_uuid, run_id=run_uuid, eexperiment_id=experiment_id,
+                           artifact_uri=artifact_uri, user_id=user_id,
                            status=RunStatus.RUNNING, start_time=start_time, end_time=None,
-                           source_version=source_version, lifecycle_stage=LifecycleStage.ACTIVE)
+                           lifecycle_stage=LifecycleStage.ACTIVE)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         mkdir(run_dir)
@@ -360,10 +356,6 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
-        if parent_run_id:
-            self.set_tag(run_uuid, RunTag(key=MLFLOW_PARENT_RUN_ID, value=parent_run_id))
-        if run_name:
-            self.set_tag(run_uuid, RunTag(key=MLFLOW_RUN_NAME, value=run_name))
         return Run(run_info=run_info, run_data=None)
 
     def get_run(self, run_id):

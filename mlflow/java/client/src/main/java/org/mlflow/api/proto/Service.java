@@ -6059,91 +6059,6 @@ public final class Service {
 
     /**
      * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    boolean hasName();
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    java.lang.String getName();
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    com.google.protobuf.ByteString
-        getNameBytes();
-
-    /**
-     * <pre>
-     * Source type.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    boolean hasSourceType();
-    /**
-     * <pre>
-     * Source type.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    org.mlflow.api.proto.Service.SourceType getSourceType();
-
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    boolean hasSourceName();
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    java.lang.String getSourceName();
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    com.google.protobuf.ByteString
-        getSourceNameBytes();
-
-    /**
-     * <pre>
      * User who initiated the run.
      * </pre>
      *
@@ -6218,70 +6133,6 @@ public final class Service {
      * <code>optional int64 end_time = 9;</code>
      */
     long getEndTime();
-
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    boolean hasSourceVersion();
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    java.lang.String getSourceVersion();
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    com.google.protobuf.ByteString
-        getSourceVersionBytes();
-
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    boolean hasEntryPointName();
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    java.lang.String getEntryPointName();
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    com.google.protobuf.ByteString
-        getEntryPointNameBytes();
 
     /**
      * <pre>
@@ -6364,15 +6215,10 @@ public final class Service {
       runUuid_ = "";
       runId_ = "";
       experimentId_ = "";
-      name_ = "";
-      sourceType_ = 1;
-      sourceName_ = "";
       userId_ = "";
       status_ = 1;
       startTime_ = 0L;
       endTime_ = 0L;
-      sourceVersion_ = "";
-      entryPointName_ = "";
       artifactUri_ = "";
       lifecycleStage_ = "";
     }
@@ -6413,33 +6259,9 @@ public final class Service {
               experimentId_ = bs;
               break;
             }
-            case 26: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000008;
-              name_ = bs;
-              break;
-            }
-            case 32: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Service.SourceType value = org.mlflow.api.proto.Service.SourceType.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(4, rawValue);
-              } else {
-                bitField0_ |= 0x00000010;
-                sourceType_ = rawValue;
-              }
-              break;
-            }
-            case 42: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000020;
-              sourceName_ = bs;
-              break;
-            }
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000040;
+              bitField0_ |= 0x00000008;
               userId_ = bs;
               break;
             }
@@ -6450,42 +6272,30 @@ public final class Service {
               if (value == null) {
                 unknownFields.mergeVarintField(7, rawValue);
               } else {
-                bitField0_ |= 0x00000080;
+                bitField0_ |= 0x00000010;
                 status_ = rawValue;
               }
               break;
             }
             case 64: {
-              bitField0_ |= 0x00000100;
+              bitField0_ |= 0x00000020;
               startTime_ = input.readInt64();
               break;
             }
             case 72: {
-              bitField0_ |= 0x00000200;
+              bitField0_ |= 0x00000040;
               endTime_ = input.readInt64();
-              break;
-            }
-            case 82: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000400;
-              sourceVersion_ = bs;
-              break;
-            }
-            case 90: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000800;
-              entryPointName_ = bs;
               break;
             }
             case 106: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00001000;
+              bitField0_ |= 0x00000080;
               artifactUri_ = bs;
               break;
             }
             case 114: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00002000;
+              bitField0_ |= 0x00000100;
               lifecycleStage_ = bs;
               break;
             }
@@ -6693,155 +6503,6 @@ public final class Service {
       }
     }
 
-    public static final int NAME_FIELD_NUMBER = 3;
-    private volatile java.lang.Object name_;
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    public boolean hasName() {
-      return ((bitField0_ & 0x00000008) == 0x00000008);
-    }
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    public java.lang.String getName() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          name_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Human readable name that identifies this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string name = 3;</code>
-     */
-    public com.google.protobuf.ByteString
-        getNameBytes() {
-      java.lang.Object ref = name_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        name_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int SOURCE_TYPE_FIELD_NUMBER = 4;
-    private int sourceType_;
-    /**
-     * <pre>
-     * Source type.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    public boolean hasSourceType() {
-      return ((bitField0_ & 0x00000010) == 0x00000010);
-    }
-    /**
-     * <pre>
-     * Source type.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    public org.mlflow.api.proto.Service.SourceType getSourceType() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.Service.SourceType result = org.mlflow.api.proto.Service.SourceType.valueOf(sourceType_);
-      return result == null ? org.mlflow.api.proto.Service.SourceType.NOTEBOOK : result;
-    }
-
-    public static final int SOURCE_NAME_FIELD_NUMBER = 5;
-    private volatile java.lang.Object sourceName_;
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public boolean hasSourceName() {
-      return ((bitField0_ & 0x00000020) == 0x00000020);
-    }
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public java.lang.String getSourceName() {
-      java.lang.Object ref = sourceName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          sourceName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Source identifier: GitHub URL, name of notebook, name of job, etc.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public com.google.protobuf.ByteString
-        getSourceNameBytes() {
-      java.lang.Object ref = sourceName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sourceName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     public static final int USER_ID_FIELD_NUMBER = 6;
     private volatile java.lang.Object userId_;
     /**
@@ -6852,7 +6513,7 @@ public final class Service {
      * <code>optional string user_id = 6;</code>
      */
     public boolean hasUserId() {
-      return ((bitField0_ & 0x00000040) == 0x00000040);
+      return ((bitField0_ & 0x00000008) == 0x00000008);
     }
     /**
      * <pre>
@@ -6906,7 +6567,7 @@ public final class Service {
      * <code>optional .mlflow.RunStatus status = 7;</code>
      */
     public boolean hasStatus() {
-      return ((bitField0_ & 0x00000080) == 0x00000080);
+      return ((bitField0_ & 0x00000010) == 0x00000010);
     }
     /**
      * <pre>
@@ -6931,7 +6592,7 @@ public final class Service {
      * <code>optional int64 start_time = 8;</code>
      */
     public boolean hasStartTime() {
-      return ((bitField0_ & 0x00000100) == 0x00000100);
+      return ((bitField0_ & 0x00000020) == 0x00000020);
     }
     /**
      * <pre>
@@ -6954,7 +6615,7 @@ public final class Service {
      * <code>optional int64 end_time = 9;</code>
      */
     public boolean hasEndTime() {
-      return ((bitField0_ & 0x00000200) == 0x00000200);
+      return ((bitField0_ & 0x00000040) == 0x00000040);
     }
     /**
      * <pre>
@@ -6965,126 +6626,6 @@ public final class Service {
      */
     public long getEndTime() {
       return endTime_;
-    }
-
-    public static final int SOURCE_VERSION_FIELD_NUMBER = 10;
-    private volatile java.lang.Object sourceVersion_;
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    public boolean hasSourceVersion() {
-      return ((bitField0_ & 0x00000400) == 0x00000400);
-    }
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    public java.lang.String getSourceVersion() {
-      java.lang.Object ref = sourceVersion_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          sourceVersion_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Git commit hash of the code used for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 10;</code>
-     */
-    public com.google.protobuf.ByteString
-        getSourceVersionBytes() {
-      java.lang.Object ref = sourceVersion_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sourceVersion_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int ENTRY_POINT_NAME_FIELD_NUMBER = 11;
-    private volatile java.lang.Object entryPointName_;
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    public boolean hasEntryPointName() {
-      return ((bitField0_ & 0x00000800) == 0x00000800);
-    }
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    public java.lang.String getEntryPointName() {
-      java.lang.Object ref = entryPointName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          entryPointName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Name of the entry point for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 11;</code>
-     */
-    public com.google.protobuf.ByteString
-        getEntryPointNameBytes() {
-      java.lang.Object ref = entryPointName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        entryPointName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
     }
 
     public static final int ARTIFACT_URI_FIELD_NUMBER = 13;
@@ -7100,7 +6641,7 @@ public final class Service {
      * <code>optional string artifact_uri = 13;</code>
      */
     public boolean hasArtifactUri() {
-      return ((bitField0_ & 0x00001000) == 0x00001000);
+      return ((bitField0_ & 0x00000080) == 0x00000080);
     }
     /**
      * <pre>
@@ -7160,7 +6701,7 @@ public final class Service {
      * <code>optional string lifecycle_stage = 14;</code>
      */
     public boolean hasLifecycleStage() {
-      return ((bitField0_ & 0x00002000) == 0x00002000);
+      return ((bitField0_ & 0x00000100) == 0x00000100);
     }
     /**
      * <pre>
@@ -7225,36 +6766,21 @@ public final class Service {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, experimentId_);
       }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, name_);
-      }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
-        output.writeEnum(4, sourceType_);
-      }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, sourceName_);
-      }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, userId_);
       }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
         output.writeEnum(7, status_);
       }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         output.writeInt64(8, startTime_);
       }
-      if (((bitField0_ & 0x00000200) == 0x00000200)) {
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         output.writeInt64(9, endTime_);
       }
-      if (((bitField0_ & 0x00000400) == 0x00000400)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, sourceVersion_);
-      }
-      if (((bitField0_ & 0x00000800) == 0x00000800)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 11, entryPointName_);
-      }
-      if (((bitField0_ & 0x00001000) == 0x00001000)) {
+      if (((bitField0_ & 0x00000080) == 0x00000080)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 13, artifactUri_);
       }
-      if (((bitField0_ & 0x00002000) == 0x00002000)) {
+      if (((bitField0_ & 0x00000100) == 0x00000100)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 14, lifecycleStage_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
@@ -7276,40 +6802,24 @@ public final class Service {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, experimentId_);
       }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, name_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, userId_);
       }
       if (((bitField0_ & 0x00000010) == 0x00000010)) {
         size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(4, sourceType_);
-      }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, sourceName_);
-      }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, userId_);
-      }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
-        size += com.google.protobuf.CodedOutputStream
           .computeEnumSize(7, status_);
       }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(8, startTime_);
       }
-      if (((bitField0_ & 0x00000200) == 0x00000200)) {
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(9, endTime_);
       }
-      if (((bitField0_ & 0x00000400) == 0x00000400)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, sourceVersion_);
-      }
-      if (((bitField0_ & 0x00000800) == 0x00000800)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, entryPointName_);
-      }
-      if (((bitField0_ & 0x00001000) == 0x00001000)) {
+      if (((bitField0_ & 0x00000080) == 0x00000080)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(13, artifactUri_);
       }
-      if (((bitField0_ & 0x00002000) == 0x00002000)) {
+      if (((bitField0_ & 0x00000100) == 0x00000100)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(14, lifecycleStage_);
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
@@ -7346,20 +6856,6 @@ public final class Service {
         result = result && getExperimentId()
             .equals(other.getExperimentId());
       }
-      result = result && (hasName() == other.hasName());
-      if (hasName()) {
-        result = result && getName()
-            .equals(other.getName());
-      }
-      result = result && (hasSourceType() == other.hasSourceType());
-      if (hasSourceType()) {
-        result = result && sourceType_ == other.sourceType_;
-      }
-      result = result && (hasSourceName() == other.hasSourceName());
-      if (hasSourceName()) {
-        result = result && getSourceName()
-            .equals(other.getSourceName());
-      }
       result = result && (hasUserId() == other.hasUserId());
       if (hasUserId()) {
         result = result && getUserId()
@@ -7378,16 +6874,6 @@ public final class Service {
       if (hasEndTime()) {
         result = result && (getEndTime()
             == other.getEndTime());
-      }
-      result = result && (hasSourceVersion() == other.hasSourceVersion());
-      if (hasSourceVersion()) {
-        result = result && getSourceVersion()
-            .equals(other.getSourceVersion());
-      }
-      result = result && (hasEntryPointName() == other.hasEntryPointName());
-      if (hasEntryPointName()) {
-        result = result && getEntryPointName()
-            .equals(other.getEntryPointName());
       }
       result = result && (hasArtifactUri() == other.hasArtifactUri());
       if (hasArtifactUri()) {
@@ -7422,18 +6908,6 @@ public final class Service {
         hash = (37 * hash) + EXPERIMENT_ID_FIELD_NUMBER;
         hash = (53 * hash) + getExperimentId().hashCode();
       }
-      if (hasName()) {
-        hash = (37 * hash) + NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getName().hashCode();
-      }
-      if (hasSourceType()) {
-        hash = (37 * hash) + SOURCE_TYPE_FIELD_NUMBER;
-        hash = (53 * hash) + sourceType_;
-      }
-      if (hasSourceName()) {
-        hash = (37 * hash) + SOURCE_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getSourceName().hashCode();
-      }
       if (hasUserId()) {
         hash = (37 * hash) + USER_ID_FIELD_NUMBER;
         hash = (53 * hash) + getUserId().hashCode();
@@ -7451,14 +6925,6 @@ public final class Service {
         hash = (37 * hash) + END_TIME_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getEndTime());
-      }
-      if (hasSourceVersion()) {
-        hash = (37 * hash) + SOURCE_VERSION_FIELD_NUMBER;
-        hash = (53 * hash) + getSourceVersion().hashCode();
-      }
-      if (hasEntryPointName()) {
-        hash = (37 * hash) + ENTRY_POINT_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getEntryPointName().hashCode();
       }
       if (hasArtifactUri()) {
         hash = (37 * hash) + ARTIFACT_URI_FIELD_NUMBER;
@@ -7611,28 +7077,18 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000002);
         experimentId_ = "";
         bitField0_ = (bitField0_ & ~0x00000004);
-        name_ = "";
-        bitField0_ = (bitField0_ & ~0x00000008);
-        sourceType_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000010);
-        sourceName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
         userId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000008);
         status_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000010);
         startTime_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000020);
         endTime_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000200);
-        sourceVersion_ = "";
-        bitField0_ = (bitField0_ & ~0x00000400);
-        entryPointName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000800);
+        bitField0_ = (bitField0_ & ~0x00000040);
         artifactUri_ = "";
-        bitField0_ = (bitField0_ & ~0x00001000);
+        bitField0_ = (bitField0_ & ~0x00000080);
         lifecycleStage_ = "";
-        bitField0_ = (bitField0_ & ~0x00002000);
+        bitField0_ = (bitField0_ & ~0x00000100);
         return this;
       }
 
@@ -7676,45 +7132,25 @@ public final class Service {
         if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
           to_bitField0_ |= 0x00000008;
         }
-        result.name_ = name_;
+        result.userId_ = userId_;
         if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.sourceType_ = sourceType_;
+        result.status_ = status_;
         if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
           to_bitField0_ |= 0x00000020;
         }
-        result.sourceName_ = sourceName_;
+        result.startTime_ = startTime_;
         if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
           to_bitField0_ |= 0x00000040;
         }
-        result.userId_ = userId_;
+        result.endTime_ = endTime_;
         if (((from_bitField0_ & 0x00000080) == 0x00000080)) {
           to_bitField0_ |= 0x00000080;
         }
-        result.status_ = status_;
+        result.artifactUri_ = artifactUri_;
         if (((from_bitField0_ & 0x00000100) == 0x00000100)) {
           to_bitField0_ |= 0x00000100;
-        }
-        result.startTime_ = startTime_;
-        if (((from_bitField0_ & 0x00000200) == 0x00000200)) {
-          to_bitField0_ |= 0x00000200;
-        }
-        result.endTime_ = endTime_;
-        if (((from_bitField0_ & 0x00000400) == 0x00000400)) {
-          to_bitField0_ |= 0x00000400;
-        }
-        result.sourceVersion_ = sourceVersion_;
-        if (((from_bitField0_ & 0x00000800) == 0x00000800)) {
-          to_bitField0_ |= 0x00000800;
-        }
-        result.entryPointName_ = entryPointName_;
-        if (((from_bitField0_ & 0x00001000) == 0x00001000)) {
-          to_bitField0_ |= 0x00001000;
-        }
-        result.artifactUri_ = artifactUri_;
-        if (((from_bitField0_ & 0x00002000) == 0x00002000)) {
-          to_bitField0_ |= 0x00002000;
         }
         result.lifecycleStage_ = lifecycleStage_;
         result.bitField0_ = to_bitField0_;
@@ -7781,21 +7217,8 @@ public final class Service {
           experimentId_ = other.experimentId_;
           onChanged();
         }
-        if (other.hasName()) {
-          bitField0_ |= 0x00000008;
-          name_ = other.name_;
-          onChanged();
-        }
-        if (other.hasSourceType()) {
-          setSourceType(other.getSourceType());
-        }
-        if (other.hasSourceName()) {
-          bitField0_ |= 0x00000020;
-          sourceName_ = other.sourceName_;
-          onChanged();
-        }
         if (other.hasUserId()) {
-          bitField0_ |= 0x00000040;
+          bitField0_ |= 0x00000008;
           userId_ = other.userId_;
           onChanged();
         }
@@ -7808,23 +7231,13 @@ public final class Service {
         if (other.hasEndTime()) {
           setEndTime(other.getEndTime());
         }
-        if (other.hasSourceVersion()) {
-          bitField0_ |= 0x00000400;
-          sourceVersion_ = other.sourceVersion_;
-          onChanged();
-        }
-        if (other.hasEntryPointName()) {
-          bitField0_ |= 0x00000800;
-          entryPointName_ = other.entryPointName_;
-          onChanged();
-        }
         if (other.hasArtifactUri()) {
-          bitField0_ |= 0x00001000;
+          bitField0_ |= 0x00000080;
           artifactUri_ = other.artifactUri_;
           onChanged();
         }
         if (other.hasLifecycleStage()) {
-          bitField0_ |= 0x00002000;
+          bitField0_ |= 0x00000100;
           lifecycleStage_ = other.lifecycleStage_;
           onChanged();
         }
@@ -8164,291 +7577,6 @@ public final class Service {
         return this;
       }
 
-      private java.lang.Object name_ = "";
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public boolean hasName() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public java.lang.String getName() {
-        java.lang.Object ref = name_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            name_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public com.google.protobuf.ByteString
-          getNameBytes() {
-        java.lang.Object ref = name_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          name_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public Builder setName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000008;
-        name_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public Builder clearName() {
-        bitField0_ = (bitField0_ & ~0x00000008);
-        name_ = getDefaultInstance().getName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Human readable name that identifies this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string name = 3;</code>
-       */
-      public Builder setNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000008;
-        name_ = value;
-        onChanged();
-        return this;
-      }
-
-      private int sourceType_ = 1;
-      /**
-       * <pre>
-       * Source type.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public boolean hasSourceType() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
-      }
-      /**
-       * <pre>
-       * Source type.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public org.mlflow.api.proto.Service.SourceType getSourceType() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.Service.SourceType result = org.mlflow.api.proto.Service.SourceType.valueOf(sourceType_);
-        return result == null ? org.mlflow.api.proto.Service.SourceType.NOTEBOOK : result;
-      }
-      /**
-       * <pre>
-       * Source type.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public Builder setSourceType(org.mlflow.api.proto.Service.SourceType value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        bitField0_ |= 0x00000010;
-        sourceType_ = value.getNumber();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Source type.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public Builder clearSourceType() {
-        bitField0_ = (bitField0_ & ~0x00000010);
-        sourceType_ = 1;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object sourceName_ = "";
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public boolean hasSourceName() {
-        return ((bitField0_ & 0x00000020) == 0x00000020);
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public java.lang.String getSourceName() {
-        java.lang.Object ref = sourceName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            sourceName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public com.google.protobuf.ByteString
-          getSourceNameBytes() {
-        java.lang.Object ref = sourceName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          sourceName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder setSourceName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        sourceName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder clearSourceName() {
-        bitField0_ = (bitField0_ & ~0x00000020);
-        sourceName_ = getDefaultInstance().getSourceName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Source identifier: GitHub URL, name of notebook, name of job, etc.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder setSourceNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        sourceName_ = value;
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object userId_ = "";
       /**
        * <pre>
@@ -8458,7 +7586,7 @@ public final class Service {
        * <code>optional string user_id = 6;</code>
        */
       public boolean hasUserId() {
-        return ((bitField0_ & 0x00000040) == 0x00000040);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <pre>
@@ -8513,7 +7641,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000008;
         userId_ = value;
         onChanged();
         return this;
@@ -8526,7 +7654,7 @@ public final class Service {
        * <code>optional string user_id = 6;</code>
        */
       public Builder clearUserId() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000008);
         userId_ = getDefaultInstance().getUserId();
         onChanged();
         return this;
@@ -8543,7 +7671,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000040;
+  bitField0_ |= 0x00000008;
         userId_ = value;
         onChanged();
         return this;
@@ -8558,7 +7686,7 @@ public final class Service {
        * <code>optional .mlflow.RunStatus status = 7;</code>
        */
       public boolean hasStatus() {
-        return ((bitField0_ & 0x00000080) == 0x00000080);
+        return ((bitField0_ & 0x00000010) == 0x00000010);
       }
       /**
        * <pre>
@@ -8583,7 +7711,7 @@ public final class Service {
         if (value == null) {
           throw new NullPointerException();
         }
-        bitField0_ |= 0x00000080;
+        bitField0_ |= 0x00000010;
         status_ = value.getNumber();
         onChanged();
         return this;
@@ -8596,7 +7724,7 @@ public final class Service {
        * <code>optional .mlflow.RunStatus status = 7;</code>
        */
       public Builder clearStatus() {
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000010);
         status_ = 1;
         onChanged();
         return this;
@@ -8611,7 +7739,7 @@ public final class Service {
        * <code>optional int64 start_time = 8;</code>
        */
       public boolean hasStartTime() {
-        return ((bitField0_ & 0x00000100) == 0x00000100);
+        return ((bitField0_ & 0x00000020) == 0x00000020);
       }
       /**
        * <pre>
@@ -8631,7 +7759,7 @@ public final class Service {
        * <code>optional int64 start_time = 8;</code>
        */
       public Builder setStartTime(long value) {
-        bitField0_ |= 0x00000100;
+        bitField0_ |= 0x00000020;
         startTime_ = value;
         onChanged();
         return this;
@@ -8644,7 +7772,7 @@ public final class Service {
        * <code>optional int64 start_time = 8;</code>
        */
       public Builder clearStartTime() {
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000020);
         startTime_ = 0L;
         onChanged();
         return this;
@@ -8659,7 +7787,7 @@ public final class Service {
        * <code>optional int64 end_time = 9;</code>
        */
       public boolean hasEndTime() {
-        return ((bitField0_ & 0x00000200) == 0x00000200);
+        return ((bitField0_ & 0x00000040) == 0x00000040);
       }
       /**
        * <pre>
@@ -8679,7 +7807,7 @@ public final class Service {
        * <code>optional int64 end_time = 9;</code>
        */
       public Builder setEndTime(long value) {
-        bitField0_ |= 0x00000200;
+        bitField0_ |= 0x00000040;
         endTime_ = value;
         onChanged();
         return this;
@@ -8692,232 +7820,8 @@ public final class Service {
        * <code>optional int64 end_time = 9;</code>
        */
       public Builder clearEndTime() {
-        bitField0_ = (bitField0_ & ~0x00000200);
+        bitField0_ = (bitField0_ & ~0x00000040);
         endTime_ = 0L;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object sourceVersion_ = "";
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public boolean hasSourceVersion() {
-        return ((bitField0_ & 0x00000400) == 0x00000400);
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public java.lang.String getSourceVersion() {
-        java.lang.Object ref = sourceVersion_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            sourceVersion_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public com.google.protobuf.ByteString
-          getSourceVersionBytes() {
-        java.lang.Object ref = sourceVersion_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          sourceVersion_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public Builder setSourceVersion(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000400;
-        sourceVersion_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public Builder clearSourceVersion() {
-        bitField0_ = (bitField0_ & ~0x00000400);
-        sourceVersion_ = getDefaultInstance().getSourceVersion();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Git commit hash of the code used for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 10;</code>
-       */
-      public Builder setSourceVersionBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000400;
-        sourceVersion_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object entryPointName_ = "";
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public boolean hasEntryPointName() {
-        return ((bitField0_ & 0x00000800) == 0x00000800);
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public java.lang.String getEntryPointName() {
-        java.lang.Object ref = entryPointName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            entryPointName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public com.google.protobuf.ByteString
-          getEntryPointNameBytes() {
-        java.lang.Object ref = entryPointName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          entryPointName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public Builder setEntryPointName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000800;
-        entryPointName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public Builder clearEntryPointName() {
-        bitField0_ = (bitField0_ & ~0x00000800);
-        entryPointName_ = getDefaultInstance().getEntryPointName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Name of the entry point for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 11;</code>
-       */
-      public Builder setEntryPointNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000800;
-        entryPointName_ = value;
         onChanged();
         return this;
       }
@@ -8934,7 +7838,7 @@ public final class Service {
        * <code>optional string artifact_uri = 13;</code>
        */
       public boolean hasArtifactUri() {
-        return ((bitField0_ & 0x00001000) == 0x00001000);
+        return ((bitField0_ & 0x00000080) == 0x00000080);
       }
       /**
        * <pre>
@@ -8998,7 +7902,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00001000;
+  bitField0_ |= 0x00000080;
         artifactUri_ = value;
         onChanged();
         return this;
@@ -9014,7 +7918,7 @@ public final class Service {
        * <code>optional string artifact_uri = 13;</code>
        */
       public Builder clearArtifactUri() {
-        bitField0_ = (bitField0_ & ~0x00001000);
+        bitField0_ = (bitField0_ & ~0x00000080);
         artifactUri_ = getDefaultInstance().getArtifactUri();
         onChanged();
         return this;
@@ -9034,7 +7938,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00001000;
+  bitField0_ |= 0x00000080;
         artifactUri_ = value;
         onChanged();
         return this;
@@ -9049,7 +7953,7 @@ public final class Service {
        * <code>optional string lifecycle_stage = 14;</code>
        */
       public boolean hasLifecycleStage() {
-        return ((bitField0_ & 0x00002000) == 0x00002000);
+        return ((bitField0_ & 0x00000100) == 0x00000100);
       }
       /**
        * <pre>
@@ -9104,7 +8008,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00002000;
+  bitField0_ |= 0x00000100;
         lifecycleStage_ = value;
         onChanged();
         return this;
@@ -9117,7 +8021,7 @@ public final class Service {
        * <code>optional string lifecycle_stage = 14;</code>
        */
       public Builder clearLifecycleStage() {
-        bitField0_ = (bitField0_ & ~0x00002000);
+        bitField0_ = (bitField0_ & ~0x00000100);
         lifecycleStage_ = getDefaultInstance().getLifecycleStage();
         onChanged();
         return this;
@@ -9134,7 +8038,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00002000;
+  bitField0_ |= 0x00000100;
         lifecycleStage_ = value;
         onChanged();
         return this;
@@ -18848,126 +17752,6 @@ public final class Service {
 
     /**
      * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    boolean hasRunName();
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    java.lang.String getRunName();
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    com.google.protobuf.ByteString
-        getRunNameBytes();
-
-    /**
-     * <pre>
-     * Originating source for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    boolean hasSourceType();
-    /**
-     * <pre>
-     * Originating source for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    org.mlflow.api.proto.Service.SourceType getSourceType();
-
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    boolean hasSourceName();
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    java.lang.String getSourceName();
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    com.google.protobuf.ByteString
-        getSourceNameBytes();
-
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    boolean hasEntryPointName();
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    java.lang.String getEntryPointName();
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    com.google.protobuf.ByteString
-        getEntryPointNameBytes();
-
-    /**
-     * <pre>
      * Unix timestamp of when the run started in milliseconds.
      * </pre>
      *
@@ -18982,38 +17766,6 @@ public final class Service {
      * <code>optional int64 start_time = 7;</code>
      */
     long getStartTime();
-
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    boolean hasSourceVersion();
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    java.lang.String getSourceVersion();
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    com.google.protobuf.ByteString
-        getSourceVersionBytes();
 
     /**
      * <pre>
@@ -19058,38 +17810,6 @@ public final class Service {
      */
     org.mlflow.api.proto.Service.RunTagOrBuilder getTagsOrBuilder(
         int index);
-
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    boolean hasParentRunId();
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    java.lang.String getParentRunId();
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    com.google.protobuf.ByteString
-        getParentRunIdBytes();
   }
   /**
    * Protobuf type {@code mlflow.CreateRun}
@@ -19106,14 +17826,8 @@ public final class Service {
     private CreateRun() {
       experimentId_ = "";
       userId_ = "";
-      runName_ = "";
-      sourceType_ = 1;
-      sourceName_ = "";
-      entryPointName_ = "";
       startTime_ = 0L;
-      sourceVersion_ = "";
       tags_ = java.util.Collections.emptyList();
-      parentRunId_ = "";
     }
 
     @java.lang.Override
@@ -19152,60 +17866,18 @@ public final class Service {
               userId_ = bs;
               break;
             }
-            case 26: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
-              runName_ = bs;
-              break;
-            }
-            case 32: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              org.mlflow.api.proto.Service.SourceType value = org.mlflow.api.proto.Service.SourceType.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(4, rawValue);
-              } else {
-                bitField0_ |= 0x00000008;
-                sourceType_ = rawValue;
-              }
-              break;
-            }
-            case 42: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000010;
-              sourceName_ = bs;
-              break;
-            }
-            case 50: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000020;
-              entryPointName_ = bs;
-              break;
-            }
             case 56: {
-              bitField0_ |= 0x00000040;
+              bitField0_ |= 0x00000004;
               startTime_ = input.readInt64();
               break;
             }
-            case 66: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000080;
-              sourceVersion_ = bs;
-              break;
-            }
             case 74: {
-              if (!((mutable_bitField0_ & 0x00000100) == 0x00000100)) {
+              if (!((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
                 tags_ = new java.util.ArrayList<org.mlflow.api.proto.Service.RunTag>();
-                mutable_bitField0_ |= 0x00000100;
+                mutable_bitField0_ |= 0x00000008;
               }
               tags_.add(
                   input.readMessage(org.mlflow.api.proto.Service.RunTag.PARSER, extensionRegistry));
-              break;
-            }
-            case 82: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000100;
-              parentRunId_ = bs;
               break;
             }
             default: {
@@ -19223,7 +17895,7 @@ public final class Service {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000100) == 0x00000100)) {
+        if (((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
           tags_ = java.util.Collections.unmodifiableList(tags_);
         }
         this.unknownFields = unknownFields.build();
@@ -20029,218 +18701,6 @@ public final class Service {
       }
     }
 
-    public static final int RUN_NAME_FIELD_NUMBER = 3;
-    private volatile java.lang.Object runName_;
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    public boolean hasRunName() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
-    }
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    public java.lang.String getRunName() {
-      java.lang.Object ref = runName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          runName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Human readable name for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-     * instead.
-     * </pre>
-     *
-     * <code>optional string run_name = 3;</code>
-     */
-    public com.google.protobuf.ByteString
-        getRunNameBytes() {
-      java.lang.Object ref = runName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        runName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int SOURCE_TYPE_FIELD_NUMBER = 4;
-    private int sourceType_;
-    /**
-     * <pre>
-     * Originating source for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    public boolean hasSourceType() {
-      return ((bitField0_ & 0x00000008) == 0x00000008);
-    }
-    /**
-     * <pre>
-     * Originating source for the run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.SourceType source_type = 4;</code>
-     */
-    public org.mlflow.api.proto.Service.SourceType getSourceType() {
-      @SuppressWarnings("deprecation")
-      org.mlflow.api.proto.Service.SourceType result = org.mlflow.api.proto.Service.SourceType.valueOf(sourceType_);
-      return result == null ? org.mlflow.api.proto.Service.SourceType.NOTEBOOK : result;
-    }
-
-    public static final int SOURCE_NAME_FIELD_NUMBER = 5;
-    private volatile java.lang.Object sourceName_;
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public boolean hasSourceName() {
-      return ((bitField0_ & 0x00000010) == 0x00000010);
-    }
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public java.lang.String getSourceName() {
-      java.lang.Object ref = sourceName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          sourceName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * String descriptor for the run's source. For example, name or description of a notebook, or the
-     * URL or path to a project.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string source_name = 5;</code>
-     */
-    public com.google.protobuf.ByteString
-        getSourceNameBytes() {
-      java.lang.Object ref = sourceName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sourceName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int ENTRY_POINT_NAME_FIELD_NUMBER = 6;
-    private volatile java.lang.Object entryPointName_;
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    public boolean hasEntryPointName() {
-      return ((bitField0_ & 0x00000020) == 0x00000020);
-    }
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    public java.lang.String getEntryPointName() {
-      java.lang.Object ref = entryPointName_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          entryPointName_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Name of the project entry point associated with the current run, if any.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.project.entryPoint`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string entry_point_name = 6;</code>
-     */
-    public com.google.protobuf.ByteString
-        getEntryPointNameBytes() {
-      java.lang.Object ref = entryPointName_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        entryPointName_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     public static final int START_TIME_FIELD_NUMBER = 7;
     private long startTime_;
     /**
@@ -20251,7 +18711,7 @@ public final class Service {
      * <code>optional int64 start_time = 7;</code>
      */
     public boolean hasStartTime() {
-      return ((bitField0_ & 0x00000040) == 0x00000040);
+      return ((bitField0_ & 0x00000004) == 0x00000004);
     }
     /**
      * <pre>
@@ -20262,66 +18722,6 @@ public final class Service {
      */
     public long getStartTime() {
       return startTime_;
-    }
-
-    public static final int SOURCE_VERSION_FIELD_NUMBER = 8;
-    private volatile java.lang.Object sourceVersion_;
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    public boolean hasSourceVersion() {
-      return ((bitField0_ & 0x00000080) == 0x00000080);
-    }
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    public java.lang.String getSourceVersion() {
-      java.lang.Object ref = sourceVersion_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          sourceVersion_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * Git commit hash of the source code used to create run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the
-     * ``mlflow.source.git.commit`` run tag instead.
-     * </pre>
-     *
-     * <code>optional string source_version = 8;</code>
-     */
-    public com.google.protobuf.ByteString
-        getSourceVersionBytes() {
-      java.lang.Object ref = sourceVersion_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        sourceVersion_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
     }
 
     public static final int TAGS_FIELD_NUMBER = 9;
@@ -20379,66 +18779,6 @@ public final class Service {
       return tags_.get(index);
     }
 
-    public static final int PARENT_RUN_ID_FIELD_NUMBER = 10;
-    private volatile java.lang.Object parentRunId_;
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    public boolean hasParentRunId() {
-      return ((bitField0_ & 0x00000100) == 0x00000100);
-    }
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    public java.lang.String getParentRunId() {
-      java.lang.Object ref = parentRunId_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          parentRunId_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <pre>
-     * ID of the parent run which started this run.
-     * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-     * tag instead.
-     * </pre>
-     *
-     * <code>optional string parent_run_id = 10;</code>
-     */
-    public com.google.protobuf.ByteString
-        getParentRunIdBytes() {
-      java.lang.Object ref = parentRunId_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        parentRunId_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -20460,28 +18800,10 @@ public final class Service {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, userId_);
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, runName_);
-      }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        output.writeEnum(4, sourceType_);
-      }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, sourceName_);
-      }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, entryPointName_);
-      }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         output.writeInt64(7, startTime_);
-      }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, sourceVersion_);
       }
       for (int i = 0; i < tags_.size(); i++) {
         output.writeMessage(9, tags_.get(i));
-      }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 10, parentRunId_);
       }
       unknownFields.writeTo(output);
     }
@@ -20499,31 +18821,12 @@ public final class Service {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, userId_);
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, runName_);
-      }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(4, sourceType_);
-      }
-      if (((bitField0_ & 0x00000010) == 0x00000010)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, sourceName_);
-      }
-      if (((bitField0_ & 0x00000020) == 0x00000020)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, entryPointName_);
-      }
-      if (((bitField0_ & 0x00000040) == 0x00000040)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(7, startTime_);
-      }
-      if (((bitField0_ & 0x00000080) == 0x00000080)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, sourceVersion_);
       }
       for (int i = 0; i < tags_.size(); i++) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(9, tags_.get(i));
-      }
-      if (((bitField0_ & 0x00000100) == 0x00000100)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(10, parentRunId_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -20551,42 +18854,13 @@ public final class Service {
         result = result && getUserId()
             .equals(other.getUserId());
       }
-      result = result && (hasRunName() == other.hasRunName());
-      if (hasRunName()) {
-        result = result && getRunName()
-            .equals(other.getRunName());
-      }
-      result = result && (hasSourceType() == other.hasSourceType());
-      if (hasSourceType()) {
-        result = result && sourceType_ == other.sourceType_;
-      }
-      result = result && (hasSourceName() == other.hasSourceName());
-      if (hasSourceName()) {
-        result = result && getSourceName()
-            .equals(other.getSourceName());
-      }
-      result = result && (hasEntryPointName() == other.hasEntryPointName());
-      if (hasEntryPointName()) {
-        result = result && getEntryPointName()
-            .equals(other.getEntryPointName());
-      }
       result = result && (hasStartTime() == other.hasStartTime());
       if (hasStartTime()) {
         result = result && (getStartTime()
             == other.getStartTime());
       }
-      result = result && (hasSourceVersion() == other.hasSourceVersion());
-      if (hasSourceVersion()) {
-        result = result && getSourceVersion()
-            .equals(other.getSourceVersion());
-      }
       result = result && getTagsList()
           .equals(other.getTagsList());
-      result = result && (hasParentRunId() == other.hasParentRunId());
-      if (hasParentRunId()) {
-        result = result && getParentRunId()
-            .equals(other.getParentRunId());
-      }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -20606,38 +18880,14 @@ public final class Service {
         hash = (37 * hash) + USER_ID_FIELD_NUMBER;
         hash = (53 * hash) + getUserId().hashCode();
       }
-      if (hasRunName()) {
-        hash = (37 * hash) + RUN_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getRunName().hashCode();
-      }
-      if (hasSourceType()) {
-        hash = (37 * hash) + SOURCE_TYPE_FIELD_NUMBER;
-        hash = (53 * hash) + sourceType_;
-      }
-      if (hasSourceName()) {
-        hash = (37 * hash) + SOURCE_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getSourceName().hashCode();
-      }
-      if (hasEntryPointName()) {
-        hash = (37 * hash) + ENTRY_POINT_NAME_FIELD_NUMBER;
-        hash = (53 * hash) + getEntryPointName().hashCode();
-      }
       if (hasStartTime()) {
         hash = (37 * hash) + START_TIME_FIELD_NUMBER;
         hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
             getStartTime());
       }
-      if (hasSourceVersion()) {
-        hash = (37 * hash) + SOURCE_VERSION_FIELD_NUMBER;
-        hash = (53 * hash) + getSourceVersion().hashCode();
-      }
       if (getTagsCount() > 0) {
         hash = (37 * hash) + TAGS_FIELD_NUMBER;
         hash = (53 * hash) + getTagsList().hashCode();
-      }
-      if (hasParentRunId()) {
-        hash = (37 * hash) + PARENT_RUN_ID_FIELD_NUMBER;
-        hash = (53 * hash) + getParentRunId().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -20777,26 +19027,14 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000001);
         userId_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
-        runName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
-        sourceType_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000008);
-        sourceName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000010);
-        entryPointName_ = "";
-        bitField0_ = (bitField0_ & ~0x00000020);
         startTime_ = 0L;
-        bitField0_ = (bitField0_ & ~0x00000040);
-        sourceVersion_ = "";
-        bitField0_ = (bitField0_ & ~0x00000080);
+        bitField0_ = (bitField0_ & ~0x00000004);
         if (tagsBuilder_ == null) {
           tags_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000100);
+          bitField0_ = (bitField0_ & ~0x00000008);
         } else {
           tagsBuilder_.clear();
         }
-        parentRunId_ = "";
-        bitField0_ = (bitField0_ & ~0x00000200);
         return this;
       }
 
@@ -20836,40 +19074,16 @@ public final class Service {
         if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000004;
         }
-        result.runName_ = runName_;
-        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
-          to_bitField0_ |= 0x00000008;
-        }
-        result.sourceType_ = sourceType_;
-        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
-          to_bitField0_ |= 0x00000010;
-        }
-        result.sourceName_ = sourceName_;
-        if (((from_bitField0_ & 0x00000020) == 0x00000020)) {
-          to_bitField0_ |= 0x00000020;
-        }
-        result.entryPointName_ = entryPointName_;
-        if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
-          to_bitField0_ |= 0x00000040;
-        }
         result.startTime_ = startTime_;
-        if (((from_bitField0_ & 0x00000080) == 0x00000080)) {
-          to_bitField0_ |= 0x00000080;
-        }
-        result.sourceVersion_ = sourceVersion_;
         if (tagsBuilder_ == null) {
-          if (((bitField0_ & 0x00000100) == 0x00000100)) {
+          if (((bitField0_ & 0x00000008) == 0x00000008)) {
             tags_ = java.util.Collections.unmodifiableList(tags_);
-            bitField0_ = (bitField0_ & ~0x00000100);
+            bitField0_ = (bitField0_ & ~0x00000008);
           }
           result.tags_ = tags_;
         } else {
           result.tags_ = tagsBuilder_.build();
         }
-        if (((from_bitField0_ & 0x00000200) == 0x00000200)) {
-          to_bitField0_ |= 0x00000100;
-        }
-        result.parentRunId_ = parentRunId_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -20929,37 +19143,14 @@ public final class Service {
           userId_ = other.userId_;
           onChanged();
         }
-        if (other.hasRunName()) {
-          bitField0_ |= 0x00000004;
-          runName_ = other.runName_;
-          onChanged();
-        }
-        if (other.hasSourceType()) {
-          setSourceType(other.getSourceType());
-        }
-        if (other.hasSourceName()) {
-          bitField0_ |= 0x00000010;
-          sourceName_ = other.sourceName_;
-          onChanged();
-        }
-        if (other.hasEntryPointName()) {
-          bitField0_ |= 0x00000020;
-          entryPointName_ = other.entryPointName_;
-          onChanged();
-        }
         if (other.hasStartTime()) {
           setStartTime(other.getStartTime());
-        }
-        if (other.hasSourceVersion()) {
-          bitField0_ |= 0x00000080;
-          sourceVersion_ = other.sourceVersion_;
-          onChanged();
         }
         if (tagsBuilder_ == null) {
           if (!other.tags_.isEmpty()) {
             if (tags_.isEmpty()) {
               tags_ = other.tags_;
-              bitField0_ = (bitField0_ & ~0x00000100);
+              bitField0_ = (bitField0_ & ~0x00000008);
             } else {
               ensureTagsIsMutable();
               tags_.addAll(other.tags_);
@@ -20972,7 +19163,7 @@ public final class Service {
               tagsBuilder_.dispose();
               tagsBuilder_ = null;
               tags_ = other.tags_;
-              bitField0_ = (bitField0_ & ~0x00000100);
+              bitField0_ = (bitField0_ & ~0x00000008);
               tagsBuilder_ = 
                 com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
                    getTagsFieldBuilder() : null;
@@ -20980,11 +19171,6 @@ public final class Service {
               tagsBuilder_.addAllMessages(other.tags_);
             }
           }
-        }
-        if (other.hasParentRunId()) {
-          bitField0_ |= 0x00000200;
-          parentRunId_ = other.parentRunId_;
-          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -21216,409 +19402,6 @@ public final class Service {
         return this;
       }
 
-      private java.lang.Object runName_ = "";
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public boolean hasRunName() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public java.lang.String getRunName() {
-        java.lang.Object ref = runName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            runName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public com.google.protobuf.ByteString
-          getRunNameBytes() {
-        java.lang.Object ref = runName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          runName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public Builder setRunName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        runName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public Builder clearRunName() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        runName_ = getDefaultInstance().getRunName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Human readable name for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-       * instead.
-       * </pre>
-       *
-       * <code>optional string run_name = 3;</code>
-       */
-      public Builder setRunNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        runName_ = value;
-        onChanged();
-        return this;
-      }
-
-      private int sourceType_ = 1;
-      /**
-       * <pre>
-       * Originating source for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public boolean hasSourceType() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
-      }
-      /**
-       * <pre>
-       * Originating source for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public org.mlflow.api.proto.Service.SourceType getSourceType() {
-        @SuppressWarnings("deprecation")
-        org.mlflow.api.proto.Service.SourceType result = org.mlflow.api.proto.Service.SourceType.valueOf(sourceType_);
-        return result == null ? org.mlflow.api.proto.Service.SourceType.NOTEBOOK : result;
-      }
-      /**
-       * <pre>
-       * Originating source for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public Builder setSourceType(org.mlflow.api.proto.Service.SourceType value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        bitField0_ |= 0x00000008;
-        sourceType_ = value.getNumber();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Originating source for the run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.SourceType source_type = 4;</code>
-       */
-      public Builder clearSourceType() {
-        bitField0_ = (bitField0_ & ~0x00000008);
-        sourceType_ = 1;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object sourceName_ = "";
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public boolean hasSourceName() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public java.lang.String getSourceName() {
-        java.lang.Object ref = sourceName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            sourceName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public com.google.protobuf.ByteString
-          getSourceNameBytes() {
-        java.lang.Object ref = sourceName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          sourceName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder setSourceName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000010;
-        sourceName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder clearSourceName() {
-        bitField0_ = (bitField0_ & ~0x00000010);
-        sourceName_ = getDefaultInstance().getSourceName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * String descriptor for the run's source. For example, name or description of a notebook, or the
-       * URL or path to a project.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string source_name = 5;</code>
-       */
-      public Builder setSourceNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000010;
-        sourceName_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object entryPointName_ = "";
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public boolean hasEntryPointName() {
-        return ((bitField0_ & 0x00000020) == 0x00000020);
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public java.lang.String getEntryPointName() {
-        java.lang.Object ref = entryPointName_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            entryPointName_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public com.google.protobuf.ByteString
-          getEntryPointNameBytes() {
-        java.lang.Object ref = entryPointName_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          entryPointName_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public Builder setEntryPointName(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        entryPointName_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public Builder clearEntryPointName() {
-        bitField0_ = (bitField0_ & ~0x00000020);
-        entryPointName_ = getDefaultInstance().getEntryPointName();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Name of the project entry point associated with the current run, if any.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.project.entryPoint`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string entry_point_name = 6;</code>
-       */
-      public Builder setEntryPointNameBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000020;
-        entryPointName_ = value;
-        onChanged();
-        return this;
-      }
-
       private long startTime_ ;
       /**
        * <pre>
@@ -21628,7 +19411,7 @@ public final class Service {
        * <code>optional int64 start_time = 7;</code>
        */
       public boolean hasStartTime() {
-        return ((bitField0_ & 0x00000040) == 0x00000040);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
@@ -21648,7 +19431,7 @@ public final class Service {
        * <code>optional int64 start_time = 7;</code>
        */
       public Builder setStartTime(long value) {
-        bitField0_ |= 0x00000040;
+        bitField0_ |= 0x00000004;
         startTime_ = value;
         onChanged();
         return this;
@@ -21661,120 +19444,8 @@ public final class Service {
        * <code>optional int64 start_time = 7;</code>
        */
       public Builder clearStartTime() {
-        bitField0_ = (bitField0_ & ~0x00000040);
+        bitField0_ = (bitField0_ & ~0x00000004);
         startTime_ = 0L;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object sourceVersion_ = "";
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public boolean hasSourceVersion() {
-        return ((bitField0_ & 0x00000080) == 0x00000080);
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public java.lang.String getSourceVersion() {
-        java.lang.Object ref = sourceVersion_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            sourceVersion_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public com.google.protobuf.ByteString
-          getSourceVersionBytes() {
-        java.lang.Object ref = sourceVersion_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          sourceVersion_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public Builder setSourceVersion(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000080;
-        sourceVersion_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public Builder clearSourceVersion() {
-        bitField0_ = (bitField0_ & ~0x00000080);
-        sourceVersion_ = getDefaultInstance().getSourceVersion();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * Git commit hash of the source code used to create run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the
-       * ``mlflow.source.git.commit`` run tag instead.
-       * </pre>
-       *
-       * <code>optional string source_version = 8;</code>
-       */
-      public Builder setSourceVersionBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000080;
-        sourceVersion_ = value;
         onChanged();
         return this;
       }
@@ -21782,9 +19453,9 @@ public final class Service {
       private java.util.List<org.mlflow.api.proto.Service.RunTag> tags_ =
         java.util.Collections.emptyList();
       private void ensureTagsIsMutable() {
-        if (!((bitField0_ & 0x00000100) == 0x00000100)) {
+        if (!((bitField0_ & 0x00000008) == 0x00000008)) {
           tags_ = new java.util.ArrayList<org.mlflow.api.proto.Service.RunTag>(tags_);
-          bitField0_ |= 0x00000100;
+          bitField0_ |= 0x00000008;
          }
       }
 
@@ -21978,7 +19649,7 @@ public final class Service {
       public Builder clearTags() {
         if (tagsBuilder_ == null) {
           tags_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000100);
+          bitField0_ = (bitField0_ & ~0x00000008);
           onChanged();
         } else {
           tagsBuilder_.clear();
@@ -22083,124 +19754,12 @@ public final class Service {
           tagsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
               org.mlflow.api.proto.Service.RunTag, org.mlflow.api.proto.Service.RunTag.Builder, org.mlflow.api.proto.Service.RunTagOrBuilder>(
                   tags_,
-                  ((bitField0_ & 0x00000100) == 0x00000100),
+                  ((bitField0_ & 0x00000008) == 0x00000008),
                   getParentForChildren(),
                   isClean());
           tags_ = null;
         }
         return tagsBuilder_;
-      }
-
-      private java.lang.Object parentRunId_ = "";
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public boolean hasParentRunId() {
-        return ((bitField0_ & 0x00000200) == 0x00000200);
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public java.lang.String getParentRunId() {
-        java.lang.Object ref = parentRunId_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            parentRunId_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public com.google.protobuf.ByteString
-          getParentRunIdBytes() {
-        java.lang.Object ref = parentRunId_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          parentRunId_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public Builder setParentRunId(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000200;
-        parentRunId_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public Builder clearParentRunId() {
-        bitField0_ = (bitField0_ & ~0x00000200);
-        parentRunId_ = getDefaultInstance().getParentRunId();
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * ID of the parent run which started this run.
-       * This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-       * tag instead.
-       * </pre>
-       *
-       * <code>optional string parent_run_id = 10;</code>
-       */
-      public Builder setParentRunIdBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000200;
-        parentRunId_ = value;
-        onChanged();
-        return this;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -33868,34 +31427,6 @@ public final class Service {
 
     /**
      * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    boolean hasFloat();
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    org.mlflow.api.proto.Service.FloatClause getFloat();
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    org.mlflow.api.proto.Service.FloatClauseOrBuilder getFloatOrBuilder();
-
-    /**
-     * <pre>
      * Double clause of comparison
      * </pre>
      *
@@ -33967,20 +31498,6 @@ public final class Service {
               key_ = bs;
               break;
             }
-            case 18: {
-              org.mlflow.api.proto.Service.FloatClause.Builder subBuilder = null;
-              if (clauseCase_ == 2) {
-                subBuilder = ((org.mlflow.api.proto.Service.FloatClause) clause_).toBuilder();
-              }
-              clause_ =
-                  input.readMessage(org.mlflow.api.proto.Service.FloatClause.PARSER, extensionRegistry);
-              if (subBuilder != null) {
-                subBuilder.mergeFrom((org.mlflow.api.proto.Service.FloatClause) clause_);
-                clause_ = subBuilder.buildPartial();
-              }
-              clauseCase_ = 2;
-              break;
-            }
             case 26: {
               org.mlflow.api.proto.Service.DoubleClause.Builder subBuilder = null;
               if (clauseCase_ == 3) {
@@ -34032,7 +31549,6 @@ public final class Service {
     private java.lang.Object clause_;
     public enum ClauseCase
         implements com.google.protobuf.Internal.EnumLite {
-      FLOAT(2),
       DOUBLE(3),
       CLAUSE_NOT_SET(0);
       private final int value;
@@ -34049,7 +31565,6 @@ public final class Service {
 
       public static ClauseCase forNumber(int value) {
         switch (value) {
-          case 2: return FLOAT;
           case 3: return DOUBLE;
           case 0: return CLAUSE_NOT_SET;
           default: return null;
@@ -34120,47 +31635,6 @@ public final class Service {
       }
     }
 
-    public static final int FLOAT_FIELD_NUMBER = 2;
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    public boolean hasFloat() {
-      return clauseCase_ == 2;
-    }
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.FloatClause getFloat() {
-      if (clauseCase_ == 2) {
-         return (org.mlflow.api.proto.Service.FloatClause) clause_;
-      }
-      return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-    }
-    /**
-     * <pre>
-     * [Deprecated in 0.7.0, to be removed in future version]
-     * Float clause for comparison. Use 'double' instead.
-     * </pre>
-     *
-     * <code>optional .mlflow.FloatClause float = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.FloatClauseOrBuilder getFloatOrBuilder() {
-      if (clauseCase_ == 2) {
-         return (org.mlflow.api.proto.Service.FloatClause) clause_;
-      }
-      return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-    }
-
     public static final int DOUBLE_FIELD_NUMBER = 3;
     /**
      * <pre>
@@ -34216,9 +31690,6 @@ public final class Service {
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, key_);
       }
-      if (clauseCase_ == 2) {
-        output.writeMessage(2, (org.mlflow.api.proto.Service.FloatClause) clause_);
-      }
       if (clauseCase_ == 3) {
         output.writeMessage(3, (org.mlflow.api.proto.Service.DoubleClause) clause_);
       }
@@ -34233,10 +31704,6 @@ public final class Service {
       size = 0;
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, key_);
-      }
-      if (clauseCase_ == 2) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(2, (org.mlflow.api.proto.Service.FloatClause) clause_);
       }
       if (clauseCase_ == 3) {
         size += com.google.protobuf.CodedOutputStream
@@ -34267,10 +31734,6 @@ public final class Service {
           other.getClauseCase());
       if (!result) return false;
       switch (clauseCase_) {
-        case 2:
-          result = result && getFloat()
-              .equals(other.getFloat());
-          break;
         case 3:
           result = result && getDouble()
               .equals(other.getDouble());
@@ -34294,10 +31757,6 @@ public final class Service {
         hash = (53 * hash) + getKey().hashCode();
       }
       switch (clauseCase_) {
-        case 2:
-          hash = (37 * hash) + FLOAT_FIELD_NUMBER;
-          hash = (53 * hash) + getFloat().hashCode();
-          break;
         case 3:
           hash = (37 * hash) + DOUBLE_FIELD_NUMBER;
           hash = (53 * hash) + getDouble().hashCode();
@@ -34474,13 +31933,6 @@ public final class Service {
           to_bitField0_ |= 0x00000001;
         }
         result.key_ = key_;
-        if (clauseCase_ == 2) {
-          if (floatBuilder_ == null) {
-            result.clause_ = clause_;
-          } else {
-            result.clause_ = floatBuilder_.build();
-          }
-        }
         if (clauseCase_ == 3) {
           if (doubleBuilder_ == null) {
             result.clause_ = clause_;
@@ -34544,10 +31996,6 @@ public final class Service {
           onChanged();
         }
         switch (other.getClauseCase()) {
-          case FLOAT: {
-            mergeFloat(other.getFloat());
-            break;
-          }
           case DOUBLE: {
             mergeDouble(other.getDouble());
             break;
@@ -34699,187 +32147,6 @@ public final class Service {
         key_ = value;
         onChanged();
         return this;
-      }
-
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.FloatClause, org.mlflow.api.proto.Service.FloatClause.Builder, org.mlflow.api.proto.Service.FloatClauseOrBuilder> floatBuilder_;
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public boolean hasFloat() {
-        return clauseCase_ == 2;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.FloatClause getFloat() {
-        if (floatBuilder_ == null) {
-          if (clauseCase_ == 2) {
-            return (org.mlflow.api.proto.Service.FloatClause) clause_;
-          }
-          return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-        } else {
-          if (clauseCase_ == 2) {
-            return floatBuilder_.getMessage();
-          }
-          return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public Builder setFloat(org.mlflow.api.proto.Service.FloatClause value) {
-        if (floatBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          clause_ = value;
-          onChanged();
-        } else {
-          floatBuilder_.setMessage(value);
-        }
-        clauseCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public Builder setFloat(
-          org.mlflow.api.proto.Service.FloatClause.Builder builderForValue) {
-        if (floatBuilder_ == null) {
-          clause_ = builderForValue.build();
-          onChanged();
-        } else {
-          floatBuilder_.setMessage(builderForValue.build());
-        }
-        clauseCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public Builder mergeFloat(org.mlflow.api.proto.Service.FloatClause value) {
-        if (floatBuilder_ == null) {
-          if (clauseCase_ == 2 &&
-              clause_ != org.mlflow.api.proto.Service.FloatClause.getDefaultInstance()) {
-            clause_ = org.mlflow.api.proto.Service.FloatClause.newBuilder((org.mlflow.api.proto.Service.FloatClause) clause_)
-                .mergeFrom(value).buildPartial();
-          } else {
-            clause_ = value;
-          }
-          onChanged();
-        } else {
-          if (clauseCase_ == 2) {
-            floatBuilder_.mergeFrom(value);
-          }
-          floatBuilder_.setMessage(value);
-        }
-        clauseCase_ = 2;
-        return this;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public Builder clearFloat() {
-        if (floatBuilder_ == null) {
-          if (clauseCase_ == 2) {
-            clauseCase_ = 0;
-            clause_ = null;
-            onChanged();
-          }
-        } else {
-          if (clauseCase_ == 2) {
-            clauseCase_ = 0;
-            clause_ = null;
-          }
-          floatBuilder_.clear();
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.FloatClause.Builder getFloatBuilder() {
-        return getFloatFieldBuilder().getBuilder();
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.FloatClauseOrBuilder getFloatOrBuilder() {
-        if ((clauseCase_ == 2) && (floatBuilder_ != null)) {
-          return floatBuilder_.getMessageOrBuilder();
-        } else {
-          if (clauseCase_ == 2) {
-            return (org.mlflow.api.proto.Service.FloatClause) clause_;
-          }
-          return org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-        }
-      }
-      /**
-       * <pre>
-       * [Deprecated in 0.7.0, to be removed in future version]
-       * Float clause for comparison. Use 'double' instead.
-       * </pre>
-       *
-       * <code>optional .mlflow.FloatClause float = 2;</code>
-       */
-      private com.google.protobuf.SingleFieldBuilderV3<
-          org.mlflow.api.proto.Service.FloatClause, org.mlflow.api.proto.Service.FloatClause.Builder, org.mlflow.api.proto.Service.FloatClauseOrBuilder> 
-          getFloatFieldBuilder() {
-        if (floatBuilder_ == null) {
-          if (!(clauseCase_ == 2)) {
-            clause_ = org.mlflow.api.proto.Service.FloatClause.getDefaultInstance();
-          }
-          floatBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
-              org.mlflow.api.proto.Service.FloatClause, org.mlflow.api.proto.Service.FloatClause.Builder, org.mlflow.api.proto.Service.FloatClauseOrBuilder>(
-                  (org.mlflow.api.proto.Service.FloatClause) clause_,
-                  getParentForChildren(),
-                  isClean());
-          clause_ = null;
-        }
-        clauseCase_ = 2;
-        onChanged();;
-        return floatBuilder_;
       }
 
       private com.google.protobuf.SingleFieldBuilderV3<
@@ -38475,60 +35742,6 @@ public final class Service {
 
     /**
      * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    java.util.List<org.mlflow.api.proto.Service.SearchExpression> 
-        getAndedExpressionsList();
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    org.mlflow.api.proto.Service.SearchExpression getAndedExpressions(int index);
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    int getAndedExpressionsCount();
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    java.util.List<? extends org.mlflow.api.proto.Service.SearchExpressionOrBuilder> 
-        getAndedExpressionsOrBuilderList();
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    org.mlflow.api.proto.Service.SearchExpressionOrBuilder getAndedExpressionsOrBuilder(
-        int index);
-
-    /**
-     * <pre>
      * A filter expression over params, metrics, and tags, allowing returning a subset of
      * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
      * between a param/metric/tag and a constant.
@@ -38636,7 +35849,6 @@ public final class Service {
     }
     private SearchRuns() {
       experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      andedExpressions_ = java.util.Collections.emptyList();
       filter_ = "";
       runViewType_ = 1;
       maxResults_ = 1000;
@@ -38673,15 +35885,6 @@ public final class Service {
                 mutable_bitField0_ |= 0x00000001;
               }
               experimentIds_.add(bs);
-              break;
-            }
-            case 18: {
-              if (!((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
-                andedExpressions_ = new java.util.ArrayList<org.mlflow.api.proto.Service.SearchExpression>();
-                mutable_bitField0_ |= 0x00000002;
-              }
-              andedExpressions_.add(
-                  input.readMessage(org.mlflow.api.proto.Service.SearchExpression.PARSER, extensionRegistry));
               break;
             }
             case 24: {
@@ -38724,9 +35927,6 @@ public final class Service {
       } finally {
         if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
           experimentIds_ = experimentIds_.getUnmodifiableView();
-        }
-        if (((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
-          andedExpressions_ = java.util.Collections.unmodifiableList(andedExpressions_);
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -39685,71 +36885,6 @@ public final class Service {
       return experimentIds_.getByteString(index);
     }
 
-    public static final int ANDED_EXPRESSIONS_FIELD_NUMBER = 2;
-    private java.util.List<org.mlflow.api.proto.Service.SearchExpression> andedExpressions_;
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public java.util.List<org.mlflow.api.proto.Service.SearchExpression> getAndedExpressionsList() {
-      return andedExpressions_;
-    }
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public java.util.List<? extends org.mlflow.api.proto.Service.SearchExpressionOrBuilder> 
-        getAndedExpressionsOrBuilderList() {
-      return andedExpressions_;
-    }
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public int getAndedExpressionsCount() {
-      return andedExpressions_.size();
-    }
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.SearchExpression getAndedExpressions(int index) {
-      return andedExpressions_.get(index);
-    }
-    /**
-     * <pre>
-     * This field is deprecated and will be removed in MLflow 1.0.
-     * Expressions describing runs (AND-ed together when filtering runs).
-     * See 'filter' for a simpler on-the-wire representation of these expressions.
-     * </pre>
-     *
-     * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-     */
-    public org.mlflow.api.proto.Service.SearchExpressionOrBuilder getAndedExpressionsOrBuilder(
-        int index) {
-      return andedExpressions_.get(index);
-    }
-
     public static final int FILTER_FIELD_NUMBER = 4;
     private volatile java.lang.Object filter_;
     /**
@@ -39904,9 +37039,6 @@ public final class Service {
       for (int i = 0; i < experimentIds_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, experimentIds_.getRaw(i));
       }
-      for (int i = 0; i < andedExpressions_.size(); i++) {
-        output.writeMessage(2, andedExpressions_.get(i));
-      }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         output.writeEnum(3, runViewType_);
       }
@@ -39932,10 +37064,6 @@ public final class Service {
         }
         size += dataSize;
         size += 1 * getExperimentIdsList().size();
-      }
-      for (int i = 0; i < andedExpressions_.size(); i++) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeMessageSize(2, andedExpressions_.get(i));
       }
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.CodedOutputStream
@@ -39966,8 +37094,6 @@ public final class Service {
       boolean result = true;
       result = result && getExperimentIdsList()
           .equals(other.getExperimentIdsList());
-      result = result && getAndedExpressionsList()
-          .equals(other.getAndedExpressionsList());
       result = result && (hasFilter() == other.hasFilter());
       if (hasFilter()) {
         result = result && getFilter()
@@ -39996,10 +37122,6 @@ public final class Service {
       if (getExperimentIdsCount() > 0) {
         hash = (37 * hash) + EXPERIMENT_IDS_FIELD_NUMBER;
         hash = (53 * hash) + getExperimentIdsList().hashCode();
-      }
-      if (getAndedExpressionsCount() > 0) {
-        hash = (37 * hash) + ANDED_EXPRESSIONS_FIELD_NUMBER;
-        hash = (53 * hash) + getAndedExpressionsList().hashCode();
       }
       if (hasFilter()) {
         hash = (37 * hash) + FILTER_FIELD_NUMBER;
@@ -40141,7 +37263,6 @@ public final class Service {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
-          getAndedExpressionsFieldBuilder();
         }
       }
       @java.lang.Override
@@ -40149,18 +37270,12 @@ public final class Service {
         super.clear();
         experimentIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000001);
-        if (andedExpressionsBuilder_ == null) {
-          andedExpressions_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000002);
-        } else {
-          andedExpressionsBuilder_.clear();
-        }
         filter_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         runViewType_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         maxResults_ = 1000;
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         return this;
       }
 
@@ -40194,24 +37309,15 @@ public final class Service {
           bitField0_ = (bitField0_ & ~0x00000001);
         }
         result.experimentIds_ = experimentIds_;
-        if (andedExpressionsBuilder_ == null) {
-          if (((bitField0_ & 0x00000002) == 0x00000002)) {
-            andedExpressions_ = java.util.Collections.unmodifiableList(andedExpressions_);
-            bitField0_ = (bitField0_ & ~0x00000002);
-          }
-          result.andedExpressions_ = andedExpressions_;
-        } else {
-          result.andedExpressions_ = andedExpressionsBuilder_.build();
-        }
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
           to_bitField0_ |= 0x00000001;
         }
         result.filter_ = filter_;
-        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
           to_bitField0_ |= 0x00000002;
         }
         result.runViewType_ = runViewType_;
-        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
+        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
           to_bitField0_ |= 0x00000004;
         }
         result.maxResults_ = maxResults_;
@@ -40274,34 +37380,8 @@ public final class Service {
           }
           onChanged();
         }
-        if (andedExpressionsBuilder_ == null) {
-          if (!other.andedExpressions_.isEmpty()) {
-            if (andedExpressions_.isEmpty()) {
-              andedExpressions_ = other.andedExpressions_;
-              bitField0_ = (bitField0_ & ~0x00000002);
-            } else {
-              ensureAndedExpressionsIsMutable();
-              andedExpressions_.addAll(other.andedExpressions_);
-            }
-            onChanged();
-          }
-        } else {
-          if (!other.andedExpressions_.isEmpty()) {
-            if (andedExpressionsBuilder_.isEmpty()) {
-              andedExpressionsBuilder_.dispose();
-              andedExpressionsBuilder_ = null;
-              andedExpressions_ = other.andedExpressions_;
-              bitField0_ = (bitField0_ & ~0x00000002);
-              andedExpressionsBuilder_ = 
-                com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                   getAndedExpressionsFieldBuilder() : null;
-            } else {
-              andedExpressionsBuilder_.addAllMessages(other.andedExpressions_);
-            }
-          }
-        }
         if (other.hasFilter()) {
-          bitField0_ |= 0x00000004;
+          bitField0_ |= 0x00000002;
           filter_ = other.filter_;
           onChanged();
         }
@@ -40470,354 +37550,6 @@ public final class Service {
         return this;
       }
 
-      private java.util.List<org.mlflow.api.proto.Service.SearchExpression> andedExpressions_ =
-        java.util.Collections.emptyList();
-      private void ensureAndedExpressionsIsMutable() {
-        if (!((bitField0_ & 0x00000002) == 0x00000002)) {
-          andedExpressions_ = new java.util.ArrayList<org.mlflow.api.proto.Service.SearchExpression>(andedExpressions_);
-          bitField0_ |= 0x00000002;
-         }
-      }
-
-      private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.Service.SearchExpression, org.mlflow.api.proto.Service.SearchExpression.Builder, org.mlflow.api.proto.Service.SearchExpressionOrBuilder> andedExpressionsBuilder_;
-
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public java.util.List<org.mlflow.api.proto.Service.SearchExpression> getAndedExpressionsList() {
-        if (andedExpressionsBuilder_ == null) {
-          return java.util.Collections.unmodifiableList(andedExpressions_);
-        } else {
-          return andedExpressionsBuilder_.getMessageList();
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public int getAndedExpressionsCount() {
-        if (andedExpressionsBuilder_ == null) {
-          return andedExpressions_.size();
-        } else {
-          return andedExpressionsBuilder_.getCount();
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpression getAndedExpressions(int index) {
-        if (andedExpressionsBuilder_ == null) {
-          return andedExpressions_.get(index);
-        } else {
-          return andedExpressionsBuilder_.getMessage(index);
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder setAndedExpressions(
-          int index, org.mlflow.api.proto.Service.SearchExpression value) {
-        if (andedExpressionsBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.set(index, value);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.setMessage(index, value);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder setAndedExpressions(
-          int index, org.mlflow.api.proto.Service.SearchExpression.Builder builderForValue) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.set(index, builderForValue.build());
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.setMessage(index, builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAndedExpressions(org.mlflow.api.proto.Service.SearchExpression value) {
-        if (andedExpressionsBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.add(value);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addMessage(value);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAndedExpressions(
-          int index, org.mlflow.api.proto.Service.SearchExpression value) {
-        if (andedExpressionsBuilder_ == null) {
-          if (value == null) {
-            throw new NullPointerException();
-          }
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.add(index, value);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addMessage(index, value);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAndedExpressions(
-          org.mlflow.api.proto.Service.SearchExpression.Builder builderForValue) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.add(builderForValue.build());
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addMessage(builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAndedExpressions(
-          int index, org.mlflow.api.proto.Service.SearchExpression.Builder builderForValue) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.add(index, builderForValue.build());
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addMessage(index, builderForValue.build());
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder addAllAndedExpressions(
-          java.lang.Iterable<? extends org.mlflow.api.proto.Service.SearchExpression> values) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          com.google.protobuf.AbstractMessageLite.Builder.addAll(
-              values, andedExpressions_);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.addAllMessages(values);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder clearAndedExpressions() {
-        if (andedExpressionsBuilder_ == null) {
-          andedExpressions_ = java.util.Collections.emptyList();
-          bitField0_ = (bitField0_ & ~0x00000002);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.clear();
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public Builder removeAndedExpressions(int index) {
-        if (andedExpressionsBuilder_ == null) {
-          ensureAndedExpressionsIsMutable();
-          andedExpressions_.remove(index);
-          onChanged();
-        } else {
-          andedExpressionsBuilder_.remove(index);
-        }
-        return this;
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpression.Builder getAndedExpressionsBuilder(
-          int index) {
-        return getAndedExpressionsFieldBuilder().getBuilder(index);
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpressionOrBuilder getAndedExpressionsOrBuilder(
-          int index) {
-        if (andedExpressionsBuilder_ == null) {
-          return andedExpressions_.get(index);  } else {
-          return andedExpressionsBuilder_.getMessageOrBuilder(index);
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public java.util.List<? extends org.mlflow.api.proto.Service.SearchExpressionOrBuilder> 
-           getAndedExpressionsOrBuilderList() {
-        if (andedExpressionsBuilder_ != null) {
-          return andedExpressionsBuilder_.getMessageOrBuilderList();
-        } else {
-          return java.util.Collections.unmodifiableList(andedExpressions_);
-        }
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpression.Builder addAndedExpressionsBuilder() {
-        return getAndedExpressionsFieldBuilder().addBuilder(
-            org.mlflow.api.proto.Service.SearchExpression.getDefaultInstance());
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.SearchExpression.Builder addAndedExpressionsBuilder(
-          int index) {
-        return getAndedExpressionsFieldBuilder().addBuilder(
-            index, org.mlflow.api.proto.Service.SearchExpression.getDefaultInstance());
-      }
-      /**
-       * <pre>
-       * This field is deprecated and will be removed in MLflow 1.0.
-       * Expressions describing runs (AND-ed together when filtering runs).
-       * See 'filter' for a simpler on-the-wire representation of these expressions.
-       * </pre>
-       *
-       * <code>repeated .mlflow.SearchExpression anded_expressions = 2;</code>
-       */
-      public java.util.List<org.mlflow.api.proto.Service.SearchExpression.Builder> 
-           getAndedExpressionsBuilderList() {
-        return getAndedExpressionsFieldBuilder().getBuilderList();
-      }
-      private com.google.protobuf.RepeatedFieldBuilderV3<
-          org.mlflow.api.proto.Service.SearchExpression, org.mlflow.api.proto.Service.SearchExpression.Builder, org.mlflow.api.proto.Service.SearchExpressionOrBuilder> 
-          getAndedExpressionsFieldBuilder() {
-        if (andedExpressionsBuilder_ == null) {
-          andedExpressionsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-              org.mlflow.api.proto.Service.SearchExpression, org.mlflow.api.proto.Service.SearchExpression.Builder, org.mlflow.api.proto.Service.SearchExpressionOrBuilder>(
-                  andedExpressions_,
-                  ((bitField0_ & 0x00000002) == 0x00000002),
-                  getParentForChildren(),
-                  isClean());
-          andedExpressions_ = null;
-        }
-        return andedExpressionsBuilder_;
-      }
-
       private java.lang.Object filter_ = "";
       /**
        * <pre>
@@ -40838,7 +37570,7 @@ public final class Service {
        * <code>optional string filter = 4;</code>
        */
       public boolean hasFilter() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       /**
        * <pre>
@@ -40926,7 +37658,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         filter_ = value;
         onChanged();
         return this;
@@ -40950,7 +37682,7 @@ public final class Service {
        * <code>optional string filter = 4;</code>
        */
       public Builder clearFilter() {
-        bitField0_ = (bitField0_ & ~0x00000004);
+        bitField0_ = (bitField0_ & ~0x00000002);
         filter_ = getDefaultInstance().getFilter();
         onChanged();
         return this;
@@ -40978,7 +37710,7 @@ public final class Service {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000004;
+  bitField0_ |= 0x00000002;
         filter_ = value;
         onChanged();
         return this;
@@ -40994,7 +37726,7 @@ public final class Service {
        * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
        */
       public boolean hasRunViewType() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
+        return ((bitField0_ & 0x00000004) == 0x00000004);
       }
       /**
        * <pre>
@@ -41021,7 +37753,7 @@ public final class Service {
         if (value == null) {
           throw new NullPointerException();
         }
-        bitField0_ |= 0x00000008;
+        bitField0_ |= 0x00000004;
         runViewType_ = value.getNumber();
         onChanged();
         return this;
@@ -41035,7 +37767,7 @@ public final class Service {
        * <code>optional .mlflow.ViewType run_view_type = 3 [default = ACTIVE_ONLY];</code>
        */
       public Builder clearRunViewType() {
-        bitField0_ = (bitField0_ & ~0x00000008);
+        bitField0_ = (bitField0_ & ~0x00000004);
         runViewType_ = 1;
         onChanged();
         return this;
@@ -41050,7 +37782,7 @@ public final class Service {
        * <code>optional int32 max_results = 5 [default = 1000];</code>
        */
       public boolean hasMaxResults() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
+        return ((bitField0_ & 0x00000008) == 0x00000008);
       }
       /**
        * <pre>
@@ -41070,7 +37802,7 @@ public final class Service {
        * <code>optional int32 max_results = 5 [default = 1000];</code>
        */
       public Builder setMaxResults(int value) {
-        bitField0_ |= 0x00000010;
+        bitField0_ |= 0x00000008;
         maxResults_ = value;
         onChanged();
         return this;
@@ -41083,7 +37815,7 @@ public final class Service {
        * <code>optional int32 max_results = 5 [default = 1000];</code>
        */
       public Builder clearMaxResults() {
-        bitField0_ = (bitField0_ & ~0x00000010);
+        bitField0_ = (bitField0_ & ~0x00000008);
         maxResults_ = 1000;
         onChanged();
         return this;
@@ -48994,175 +45726,166 @@ public final class Service {
       "Data\"g\n\007RunData\022\037\n\007metrics\030\001 \003(\0132\016.mlflo" +
       "w.Metric\022\035\n\006params\030\002 \003(\0132\r.mlflow.Param\022" +
       "\034\n\004tags\030\003 \003(\0132\016.mlflow.RunTag\"$\n\006RunTag\022" +
-      "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\311\002\n\007RunInfo\022" +
+      "\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t\"\313\001\n\007RunInfo\022" +
       "\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\017 \001(\t\022\025\n\rexp" +
-      "eriment_id\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\'\n\013source" +
-      "_type\030\004 \001(\0162\022.mlflow.SourceType\022\023\n\013sourc" +
-      "e_name\030\005 \001(\t\022\017\n\007user_id\030\006 \001(\t\022!\n\006status\030" +
-      "\007 \001(\0162\021.mlflow.RunStatus\022\022\n\nstart_time\030\010" +
-      " \001(\003\022\020\n\010end_time\030\t \001(\003\022\026\n\016source_version" +
-      "\030\n \001(\t\022\030\n\020entry_point_name\030\013 \001(\t\022\024\n\014arti" +
-      "fact_uri\030\r \001(\t\022\027\n\017lifecycle_stage\030\016 \001(\t\"" +
-      "\226\001\n\nExperiment\022\025\n\rexperiment_id\030\001 \001(\t\022\014\n" +
-      "\004name\030\002 \001(\t\022\031\n\021artifact_location\030\003 \001(\t\022\027" +
-      "\n\017lifecycle_stage\030\004 \001(\t\022\030\n\020last_update_t" +
-      "ime\030\005 \001(\003\022\025\n\rcreation_time\030\006 \001(\003\"\221\001\n\020Cre" +
-      "ateExperiment\022\022\n\004name\030\001 \001(\tB\004\210\265\030\001\022\031\n\021art" +
-      "ifact_location\030\002 \001(\t\032!\n\010Response\022\025\n\rexpe" +
-      "riment_id\030\001 \001(\t:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\"\230\001\n\017ListExperiments" +
-      "\022#\n\tview_type\030\001 \001(\0162\020.mlflow.ViewType\0323\n" +
-      "\010Response\022\'\n\013experiments\030\001 \003(\0132\022.mlflow." +
-      "Experiment:+\342?(\n&com.databricks.rpc.RPC[" +
-      "$this.Response]\"\254\001\n\rGetExperiment\022\033\n\rexp" +
-      "eriment_id\030\001 \001(\tB\004\210\265\030\001\032Q\n\010Response\022&\n\nex" +
-      "periment\030\001 \001(\0132\022.mlflow.Experiment\022\035\n\004ru" +
-      "ns\030\002 \003(\0132\017.mlflow.RunInfo:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"h\n\020Delete" +
-      "Experiment\022\033\n\rexperiment_id\030\001 \001(\tB\004\210\265\030\001\032" +
-      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"i\n\021RestoreExperiment\022\033\n" +
-      "\rexperiment_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Response:+" +
-      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
-      "se]\"z\n\020UpdateExperiment\022\033\n\rexperiment_id" +
-      "\030\001 \001(\tB\004\210\265\030\001\022\020\n\010new_name\030\002 \001(\t\032\n\n\010Respon" +
-      "se:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\"\321\002\n\tCreateRun\022\025\n\rexperiment_id\030\001" +
-      " \001(\t\022\017\n\007user_id\030\002 \001(\t\022\020\n\010run_name\030\003 \001(\t\022" +
-      "\'\n\013source_type\030\004 \001(\0162\022.mlflow.SourceType" +
-      "\022\023\n\013source_name\030\005 \001(\t\022\030\n\020entry_point_nam" +
-      "e\030\006 \001(\t\022\022\n\nstart_time\030\007 \001(\003\022\026\n\016source_ve" +
-      "rsion\030\010 \001(\t\022\034\n\004tags\030\t \003(\0132\016.mlflow.RunTa" +
-      "g\022\025\n\rparent_run_id\030\n \001(\t\032$\n\010Response\022\030\n\003" +
-      "run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com.databri" +
-      "cks.rpc.RPC[$this.Response]\"\276\001\n\tUpdateRu" +
-      "n\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\004 \001(\t\022!\n\006s" +
-      "tatus\030\002 \001(\0162\021.mlflow.RunStatus\022\020\n\010end_ti" +
-      "me\030\003 \001(\003\032-\n\010Response\022!\n\010run_info\030\001 \001(\0132\017" +
-      ".mlflow.RunInfo:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]\"Z\n\tDeleteRun\022\024\n\006run" +
-      "_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Response:+\342?(\n&com.da" +
-      "tabricks.rpc.RPC[$this.Response]\"[\n\nRest" +
-      "oreRun\022\024\n\006run_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Response" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\270\001\n\tLogMetric\022\020\n\010run_uuid\030\001 \001(\t\022\016\n" +
-      "\006run_id\030\006 \001(\t\022\021\n\003key\030\002 \001(\tB\004\210\265\030\001\022\023\n\005valu" +
-      "e\030\003 \001(\001B\004\210\265\030\001\022\027\n\ttimestamp\030\004 \001(\003B\004\210\265\030\001\022\017" +
-      "\n\004step\030\005 \001(\003:\0010\032\n\n\010Response:+\342?(\n&com.da" +
-      "tabricks.rpc.RPC[$this.Response]\"\215\001\n\010Log" +
-      "Param\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\004 \001(\t\022" +
-      "\021\n\003key\030\002 \001(\tB\004\210\265\030\001\022\023\n\005value\030\003 \001(\tB\004\210\265\030\001\032" +
-      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]\"\213\001\n\006SetTag\022\020\n\010run_uuid\030" +
-      "\001 \001(\t\022\016\n\006run_id\030\004 \001(\t\022\021\n\003key\030\002 \001(\tB\004\210\265\030\001" +
-      "\022\023\n\005value\030\003 \001(\tB\004\210\265\030\001\032\n\n\010Response:+\342?(\n&" +
-      "com.databricks.rpc.RPC[$this.Response]\"}" +
-      "\n\006GetRun\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\002 \001" +
-      "(\t\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\212\001\n\020SearchExpression\0220\n\006metric\030\001 \001" +
-      "(\0132\036.mlflow.MetricSearchExpressionH\000\0226\n\t" +
-      "parameter\030\002 \001(\0132!.mlflow.ParameterSearch" +
-      "ExpressionH\000B\014\n\nexpression\"}\n\026MetricSear" +
-      "chExpression\022\013\n\003key\030\001 \001(\t\022$\n\005float\030\002 \001(\013" +
-      "2\023.mlflow.FloatClauseH\000\022&\n\006double\030\003 \001(\0132" +
-      "\024.mlflow.DoubleClauseH\000B\010\n\006clause\"Z\n\031Par" +
-      "ameterSearchExpression\022\013\n\003key\030\001 \001(\t\022&\n\006s" +
-      "tring\030\002 \001(\0132\024.mlflow.StringClauseH\000B\010\n\006c" +
-      "lause\"1\n\014StringClause\022\022\n\ncomparator\030\001 \001(" +
-      "\t\022\r\n\005value\030\002 \001(\t\"0\n\013FloatClause\022\022\n\ncompa" +
-      "rator\030\001 \001(\t\022\r\n\005value\030\002 \001(\002\"1\n\014DoubleClau" +
-      "se\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005value\030\002 \001(\001\"\216\002" +
-      "\n\nSearchRuns\022\026\n\016experiment_ids\030\001 \003(\t\0223\n\021" +
-      "anded_expressions\030\002 \003(\0132\030.mlflow.SearchE" +
-      "xpression\022\016\n\006filter\030\004 \001(\t\0224\n\rrun_view_ty" +
-      "pe\030\003 \001(\0162\020.mlflow.ViewType:\013ACTIVE_ONLY\022" +
-      "\031\n\013max_results\030\005 \001(\005:\0041000\032%\n\010Response\022\031" +
-      "\n\004runs\030\001 \003(\0132\013.mlflow.Run:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"\253\001\n\rListA" +
-      "rtifacts\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\003 \001" +
-      "(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010root_uri" +
-      "\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileInfo:" +
-      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
-      "nse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir" +
-      "\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020GetMetricH" +
-      "istory\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\003 \001(\t" +
-      "\022\030\n\nmetric_key\030\002 \001(\tB\004\210\265\030\001\032+\n\010Response\022\037" +
-      "\n\007metrics\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]\"\261\001\n" +
-      "\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003" +
-      "(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r.mlf" +
-      "low.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032" +
-      "\n\n\010Response:+\342?(\n&com.databricks.rpc.RPC" +
-      "[$this.Response]*6\n\010ViewType\022\017\n\013ACTIVE_O" +
-      "NLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSour" +
-      "ceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT" +
-      "\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus" +
-      "\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED" +
-      "\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\271\023\n\rMlflowSer" +
-      "vice\022\234\001\n\020createExperiment\022\030.mlflow.Creat" +
-      "eExperiment\032!.mlflow.CreateExperiment.Re" +
-      "sponse\"K\202\265\030G\n0\n\004POST\022\"/preview/mlflow/ex" +
-      "periments/create\032\004\010\002\020\000\020\001*\021Create Experim" +
-      "ent\022\225\001\n\017listExperiments\022\027.mlflow.ListExp" +
-      "eriments\032 .mlflow.ListExperiments.Respon" +
-      "se\"G\202\265\030C\n-\n\003GET\022 /preview/mlflow/experim" +
-      "ents/list\032\004\010\002\020\000\020\001*\020List Experiments\022\214\001\n\r" +
-      "getExperiment\022\025.mlflow.GetExperiment\032\036.m" +
-      "lflow.GetExperiment.Response\"D\202\265\030@\n,\n\003GE" +
-      "T\022\037/preview/mlflow/experiments/get\032\004\010\002\020\000" +
-      "\020\001*\016Get Experiment\022\234\001\n\020deleteExperiment\022" +
-      "\030.mlflow.DeleteExperiment\032!.mlflow.Delet" +
-      "eExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/pre" +
-      "view/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021" +
-      "Delete Experiment\022\241\001\n\021restoreExperiment\022" +
-      "\031.mlflow.RestoreExperiment\032\".mlflow.Rest" +
-      "oreExperiment.Response\"M\202\265\030I\n1\n\004POST\022#/p" +
-      "review/mlflow/experiments/restore\032\004\010\002\020\000\020" +
-      "\001*\022Restore Experiment\022\234\001\n\020updateExperime" +
-      "nt\022\030.mlflow.UpdateExperiment\032!.mlflow.Up" +
-      "dateExperiment.Response\"K\202\265\030G\n0\n\004POST\022\"/" +
-      "preview/mlflow/experiments/update\032\004\010\002\020\000\020" +
-      "\001*\021Update Experiment\022y\n\tcreateRun\022\021.mlfl" +
-      "ow.CreateRun\032\032.mlflow.CreateRun.Response" +
-      "\"=\202\265\0309\n)\n\004POST\022\033/preview/mlflow/runs/cre" +
-      "ate\032\004\010\002\020\000\020\001*\nCreate Run\022y\n\tupdateRun\022\021.m" +
-      "lflow.UpdateRun\032\032.mlflow.UpdateRun.Respo" +
-      "nse\"=\202\265\0309\n)\n\004POST\022\033/preview/mlflow/runs/" +
-      "update\032\004\010\002\020\000\020\001*\nUpdate Run\022m\n\tdeleteRun\022" +
-      "\021.mlflow.DeleteRun\032\032.mlflow.DeleteRun.Re" +
-      "sponse\"1\202\265\030-\n)\n\004POST\022\033/preview/mlflow/ru" +
-      "ns/delete\032\004\010\002\020\000\020\001\022q\n\nrestoreRun\022\022.mlflow" +
-      ".RestoreRun\032\033.mlflow.RestoreRun.Response" +
-      "\"2\202\265\030.\n*\n\004POST\022\034/preview/mlflow/runs/res" +
-      "tore\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021.mlflow.LogMe" +
-      "tric\032\032.mlflow.LogMetric.Response\"A\202\265\030=\n-" +
-      "\n\004POST\022\037/preview/mlflow/runs/log-metric\032" +
-      "\004\010\002\020\000\020\001*\nLog Metric\022|\n\010logParam\022\020.mlflow" +
-      ".LogParam\032\031.mlflow.LogParam.Response\"C\202\265" +
-      "\030?\n0\n\004POST\022\"/preview/mlflow/runs/log-par" +
-      "ameter\032\004\010\002\020\000\020\001*\tLog Param\022n\n\006setTag\022\016.ml" +
-      "flow.SetTag\032\027.mlflow.SetTag.Response\";\202\265" +
-      "\0307\n*\n\004POST\022\034/preview/mlflow/runs/set-tag" +
-      "\032\004\010\002\020\000\020\001*\007Set Tag\022i\n\006getRun\022\016.mlflow.Get" +
-      "Run\032\027.mlflow.GetRun.Response\"6\202\265\0302\n%\n\003GE" +
-      "T\022\030/preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get" +
-      " Run\022\247\001\n\nsearchRuns\022\022.mlflow.SearchRuns\032" +
-      "\033.mlflow.SearchRuns.Response\"h\202\265\030d\n)\n\004PO" +
-      "ST\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\n(\n" +
-      "\003GET\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\020" +
-      "\001*\013Search Runs\022\213\001\n\rlistArtifacts\022\025.mlflo" +
-      "w.ListArtifacts\032\036.mlflow.ListArtifacts.R" +
-      "esponse\"C\202\265\030?\n+\n\003GET\022\036/preview/mlflow/ar" +
-      "tifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\235\001\n" +
-      "\020getMetricHistory\022\030.mlflow.GetMetricHist" +
-      "ory\032!.mlflow.GetMetricHistory.Response\"L" +
-      "\202\265\030H\n0\n\003GET\022#/preview/mlflow/metrics/get" +
-      "-history\032\004\010\002\020\000\020\001*\022Get Metric History\022x\n\010" +
-      "logBatch\022\020.mlflow.LogBatch\032\031.mlflow.LogB" +
-      "atch.Response\"?\202\265\030;\n,\n\004POST\022\036/preview/ml" +
-      "flow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036" +
-      "\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "eriment_id\030\002 \001(\t\022\017\n\007user_id\030\006 \001(\t\022!\n\006sta" +
+      "tus\030\007 \001(\0162\021.mlflow.RunStatus\022\022\n\nstart_ti" +
+      "me\030\010 \001(\003\022\020\n\010end_time\030\t \001(\003\022\024\n\014artifact_u" +
+      "ri\030\r \001(\t\022\027\n\017lifecycle_stage\030\016 \001(\t\"\226\001\n\nEx" +
+      "periment\022\025\n\rexperiment_id\030\001 \001(\t\022\014\n\004name\030" +
+      "\002 \001(\t\022\031\n\021artifact_location\030\003 \001(\t\022\027\n\017life" +
+      "cycle_stage\030\004 \001(\t\022\030\n\020last_update_time\030\005 " +
+      "\001(\003\022\025\n\rcreation_time\030\006 \001(\003\"\221\001\n\020CreateExp" +
+      "eriment\022\022\n\004name\030\001 \001(\tB\004\210\265\030\001\022\031\n\021artifact_" +
+      "location\030\002 \001(\t\032!\n\010Response\022\025\n\rexperiment" +
+      "_id\030\001 \001(\t:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\"\230\001\n\017ListExperiments\022#\n\tvi" +
+      "ew_type\030\001 \001(\0162\020.mlflow.ViewType\0323\n\010Respo" +
+      "nse\022\'\n\013experiments\030\001 \003(\0132\022.mlflow.Experi" +
+      "ment:+\342?(\n&com.databricks.rpc.RPC[$this." +
+      "Response]\"\254\001\n\rGetExperiment\022\033\n\rexperimen" +
+      "t_id\030\001 \001(\tB\004\210\265\030\001\032Q\n\010Response\022&\n\nexperime" +
+      "nt\030\001 \001(\0132\022.mlflow.Experiment\022\035\n\004runs\030\002 \003" +
+      "(\0132\017.mlflow.RunInfo:+\342?(\n&com.databricks" +
+      ".rpc.RPC[$this.Response]\"h\n\020DeleteExperi" +
+      "ment\022\033\n\rexperiment_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Res" +
+      "ponse:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"i\n\021RestoreExperiment\022\033\n\rexper" +
+      "iment_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Response:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"z\n" +
+      "\020UpdateExperiment\022\033\n\rexperiment_id\030\001 \001(\t" +
+      "B\004\210\265\030\001\022\020\n\010new_name\030\002 \001(\t\032\n\n\010Response:+\342?" +
+      "(\n&com.databricks.rpc.RPC[$this.Response" +
+      "]\"\270\001\n\tCreateRun\022\025\n\rexperiment_id\030\001 \001(\t\022\017" +
+      "\n\007user_id\030\002 \001(\t\022\022\n\nstart_time\030\007 \001(\003\022\034\n\004t" +
+      "ags\030\t \003(\0132\016.mlflow.RunTag\032$\n\010Response\022\030\n" +
+      "\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com.databr" +
+      "icks.rpc.RPC[$this.Response]\"\276\001\n\tUpdateR" +
+      "un\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\004 \001(\t\022!\n\006" +
+      "status\030\002 \001(\0162\021.mlflow.RunStatus\022\020\n\010end_t" +
+      "ime\030\003 \001(\003\032-\n\010Response\022!\n\010run_info\030\001 \001(\0132" +
+      "\017.mlflow.RunInfo:+\342?(\n&com.databricks.rp" +
+      "c.RPC[$this.Response]\"Z\n\tDeleteRun\022\024\n\006ru" +
+      "n_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Response:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]\"[\n\nRes" +
+      "toreRun\022\024\n\006run_id\030\001 \001(\tB\004\210\265\030\001\032\n\n\010Respons" +
+      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]\"\270\001\n\tLogMetric\022\020\n\010run_uuid\030\001 \001(\t\022\016" +
+      "\n\006run_id\030\006 \001(\t\022\021\n\003key\030\002 \001(\tB\004\210\265\030\001\022\023\n\005val" +
+      "ue\030\003 \001(\001B\004\210\265\030\001\022\027\n\ttimestamp\030\004 \001(\003B\004\210\265\030\001\022" +
+      "\017\n\004step\030\005 \001(\003:\0010\032\n\n\010Response:+\342?(\n&com.d" +
+      "atabricks.rpc.RPC[$this.Response]\"\215\001\n\010Lo" +
+      "gParam\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\004 \001(\t" +
+      "\022\021\n\003key\030\002 \001(\tB\004\210\265\030\001\022\023\n\005value\030\003 \001(\tB\004\210\265\030\001" +
+      "\032\n\n\010Response:+\342?(\n&com.databricks.rpc.RP" +
+      "C[$this.Response]\"\213\001\n\006SetTag\022\020\n\010run_uuid" +
+      "\030\001 \001(\t\022\016\n\006run_id\030\004 \001(\t\022\021\n\003key\030\002 \001(\tB\004\210\265\030" +
+      "\001\022\023\n\005value\030\003 \001(\tB\004\210\265\030\001\032\n\n\010Response:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "}\n\006GetRun\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\002 " +
+      "\001(\t\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlflow.Ru" +
+      "n:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]\"\212\001\n\020SearchExpression\0220\n\006metric\030\001 " +
+      "\001(\0132\036.mlflow.MetricSearchExpressionH\000\0226\n" +
+      "\tparameter\030\002 \001(\0132!.mlflow.ParameterSearc" +
+      "hExpressionH\000B\014\n\nexpression\"W\n\026MetricSea" +
+      "rchExpression\022\013\n\003key\030\001 \001(\t\022&\n\006double\030\003 \001" +
+      "(\0132\024.mlflow.DoubleClauseH\000B\010\n\006clause\"Z\n\031" +
+      "ParameterSearchExpression\022\013\n\003key\030\001 \001(\t\022&" +
+      "\n\006string\030\002 \001(\0132\024.mlflow.StringClauseH\000B\010" +
+      "\n\006clause\"1\n\014StringClause\022\022\n\ncomparator\030\001" +
+      " \001(\t\022\r\n\005value\030\002 \001(\t\"0\n\013FloatClause\022\022\n\nco" +
+      "mparator\030\001 \001(\t\022\r\n\005value\030\002 \001(\002\"1\n\014DoubleC" +
+      "lause\022\022\n\ncomparator\030\001 \001(\t\022\r\n\005value\030\002 \001(\001" +
+      "\"\331\001\n\nSearchRuns\022\026\n\016experiment_ids\030\001 \003(\t\022" +
+      "\016\n\006filter\030\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020" +
+      ".mlflow.ViewType:\013ACTIVE_ONLY\022\031\n\013max_res" +
+      "ults\030\005 \001(\005:\0041000\032%\n\010Response\022\031\n\004runs\030\001 \003" +
+      "(\0132\013.mlflow.Run:+\342?(\n&com.databricks.rpc" +
+      ".RPC[$this.Response]\"\253\001\n\rListArtifacts\022\020" +
+      "\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\003 \001(\t\022\014\n\004path" +
+      "\030\002 \001(\t\032=\n\010Response\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005" +
+      "files\030\002 \003(\0132\020.mlflow.FileInfo:+\342?(\n&com." +
+      "databricks.rpc.RPC[$this.Response]\";\n\010Fi" +
+      "leInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\t" +
+      "file_size\030\003 \001(\003\"\250\001\n\020GetMetricHistory\022\020\n\010" +
+      "run_uuid\030\001 \001(\t\022\016\n\006run_id\030\003 \001(\t\022\030\n\nmetric" +
+      "_key\030\002 \001(\tB\004\210\265\030\001\032+\n\010Response\022\037\n\007metrics\030" +
+      "\001 \003(\0132\016.mlflow.Metric:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]\"\261\001\n\010LogBatch\022" +
+      "\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016.mlflo" +
+      "w.Metric\022\035\n\006params\030\003 \003(\0132\r.mlflow.Param\022" +
+      "\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032\n\n\010Respons" +
+      "e:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014D" +
+      "ELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010" +
+      "NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCA" +
+      "L\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNIN" +
+      "G\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAIL" +
+      "ED\020\004\022\n\n\006KILLED\020\0052\271\023\n\rMlflowService\022\234\001\n\020c" +
+      "reateExperiment\022\030.mlflow.CreateExperimen" +
+      "t\032!.mlflow.CreateExperiment.Response\"K\202\265" +
+      "\030G\n0\n\004POST\022\"/preview/mlflow/experiments/" +
+      "create\032\004\010\002\020\000\020\001*\021Create Experiment\022\225\001\n\017li" +
+      "stExperiments\022\027.mlflow.ListExperiments\032 " +
+      ".mlflow.ListExperiments.Response\"G\202\265\030C\n-" +
+      "\n\003GET\022 /preview/mlflow/experiments/list\032" +
+      "\004\010\002\020\000\020\001*\020List Experiments\022\214\001\n\rgetExperim" +
+      "ent\022\025.mlflow.GetExperiment\032\036.mlflow.GetE" +
+      "xperiment.Response\"D\202\265\030@\n,\n\003GET\022\037/previe" +
+      "w/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Get Ex" +
+      "periment\022\234\001\n\020deleteExperiment\022\030.mlflow.D" +
+      "eleteExperiment\032!.mlflow.DeleteExperimen" +
+      "t.Response\"K\202\265\030G\n0\n\004POST\022\"/preview/mlflo" +
+      "w/experiments/delete\032\004\010\002\020\000\020\001*\021Delete Exp" +
+      "eriment\022\241\001\n\021restoreExperiment\022\031.mlflow.R" +
+      "estoreExperiment\032\".mlflow.RestoreExperim" +
+      "ent.Response\"M\202\265\030I\n1\n\004POST\022#/preview/mlf" +
+      "low/experiments/restore\032\004\010\002\020\000\020\001*\022Restore" +
+      " Experiment\022\234\001\n\020updateExperiment\022\030.mlflo" +
+      "w.UpdateExperiment\032!.mlflow.UpdateExperi" +
+      "ment.Response\"K\202\265\030G\n0\n\004POST\022\"/preview/ml" +
+      "flow/experiments/update\032\004\010\002\020\000\020\001*\021Update " +
+      "Experiment\022y\n\tcreateRun\022\021.mlflow.CreateR" +
+      "un\032\032.mlflow.CreateRun.Response\"=\202\265\0309\n)\n\004" +
+      "POST\022\033/preview/mlflow/runs/create\032\004\010\002\020\000\020" +
+      "\001*\nCreate Run\022y\n\tupdateRun\022\021.mlflow.Upda" +
+      "teRun\032\032.mlflow.UpdateRun.Response\"=\202\265\0309\n" +
+      ")\n\004POST\022\033/preview/mlflow/runs/update\032\004\010\002" +
+      "\020\000\020\001*\nUpdate Run\022m\n\tdeleteRun\022\021.mlflow.D" +
+      "eleteRun\032\032.mlflow.DeleteRun.Response\"1\202\265" +
+      "\030-\n)\n\004POST\022\033/preview/mlflow/runs/delete\032" +
+      "\004\010\002\020\000\020\001\022q\n\nrestoreRun\022\022.mlflow.RestoreRu" +
+      "n\032\033.mlflow.RestoreRun.Response\"2\202\265\030.\n*\n\004" +
+      "POST\022\034/preview/mlflow/runs/restore\032\004\010\002\020\000" +
+      "\020\001\022}\n\tlogMetric\022\021.mlflow.LogMetric\032\032.mlf" +
+      "low.LogMetric.Response\"A\202\265\030=\n-\n\004POST\022\037/p" +
+      "review/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\nL" +
+      "og Metric\022|\n\010logParam\022\020.mlflow.LogParam\032" +
+      "\031.mlflow.LogParam.Response\"C\202\265\030?\n0\n\004POST" +
+      "\022\"/preview/mlflow/runs/log-parameter\032\004\010\002" +
+      "\020\000\020\001*\tLog Param\022n\n\006setTag\022\016.mlflow.SetTa" +
+      "g\032\027.mlflow.SetTag.Response\";\202\265\0307\n*\n\004POST" +
+      "\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007" +
+      "Set Tag\022i\n\006getRun\022\016.mlflow.GetRun\032\027.mlfl" +
+      "ow.GetRun.Response\"6\202\265\0302\n%\n\003GET\022\030/previe" +
+      "w/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\247\001\n\ns" +
+      "earchRuns\022\022.mlflow.SearchRuns\032\033.mlflow.S" +
+      "earchRuns.Response\"h\202\265\030d\n)\n\004POST\022\033/previ" +
+      "ew/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/pre" +
+      "view/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search " +
+      "Runs\022\213\001\n\rlistArtifacts\022\025.mlflow.ListArti" +
+      "facts\032\036.mlflow.ListArtifacts.Response\"C\202" +
+      "\265\030?\n+\n\003GET\022\036/preview/mlflow/artifacts/li" +
+      "st\032\004\010\002\020\000\020\001*\016List Artifacts\022\235\001\n\020getMetric" +
+      "History\022\030.mlflow.GetMetricHistory\032!.mlfl" +
+      "ow.GetMetricHistory.Response\"L\202\265\030H\n0\n\003GE" +
+      "T\022#/preview/mlflow/metrics/get-history\032\004" +
+      "\010\002\020\000\020\001*\022Get Metric History\022x\n\010logBatch\022\020" +
+      ".mlflow.LogBatch\032\031.mlflow.LogBatch.Respo" +
+      "nse\"?\202\265\030;\n,\n\004POST\022\036/preview/mlflow/runs/" +
+      "log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036\n\024org.mlfl" +
+      "ow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -49213,7 +45936,7 @@ public final class Service {
     internal_static_mlflow_RunInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RunInfo_descriptor,
-        new java.lang.String[] { "RunUuid", "RunId", "ExperimentId", "Name", "SourceType", "SourceName", "UserId", "Status", "StartTime", "EndTime", "SourceVersion", "EntryPointName", "ArtifactUri", "LifecycleStage", });
+        new java.lang.String[] { "RunUuid", "RunId", "ExperimentId", "UserId", "Status", "StartTime", "EndTime", "ArtifactUri", "LifecycleStage", });
     internal_static_mlflow_Experiment_descriptor =
       getDescriptor().getMessageTypes().get(6);
     internal_static_mlflow_Experiment_fieldAccessorTable = new
@@ -49297,7 +46020,7 @@ public final class Service {
     internal_static_mlflow_CreateRun_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateRun_descriptor,
-        new java.lang.String[] { "ExperimentId", "UserId", "RunName", "SourceType", "SourceName", "EntryPointName", "StartTime", "SourceVersion", "Tags", "ParentRunId", });
+        new java.lang.String[] { "ExperimentId", "UserId", "StartTime", "Tags", });
     internal_static_mlflow_CreateRun_Response_descriptor =
       internal_static_mlflow_CreateRun_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_CreateRun_Response_fieldAccessorTable = new
@@ -49399,7 +46122,7 @@ public final class Service {
     internal_static_mlflow_MetricSearchExpression_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_MetricSearchExpression_descriptor,
-        new java.lang.String[] { "Key", "Float", "Double", "Clause", });
+        new java.lang.String[] { "Key", "Double", "Clause", });
     internal_static_mlflow_ParameterSearchExpression_descriptor =
       getDescriptor().getMessageTypes().get(23);
     internal_static_mlflow_ParameterSearchExpression_fieldAccessorTable = new
@@ -49429,7 +46152,7 @@ public final class Service {
     internal_static_mlflow_SearchRuns_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_descriptor,
-        new java.lang.String[] { "ExperimentIds", "AndedExpressions", "Filter", "RunViewType", "MaxResults", });
+        new java.lang.String[] { "ExperimentIds", "Filter", "RunViewType", "MaxResults", });
     internal_static_mlflow_SearchRuns_Response_descriptor =
       internal_static_mlflow_SearchRuns_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_SearchRuns_Response_fieldAccessorTable = new
