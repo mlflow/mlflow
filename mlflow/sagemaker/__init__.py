@@ -219,14 +219,17 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
     :param app_name: Name of the deployed application.
     :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker,
                       for example:
-                          - "/Users/me/path/to/local/model"
-                          - "relative/path/to/local/model"
-                          - "file:///Users/me/path/to/local/model"
-                          - "s3://my_bucket/path/to/model"
-                          - "runs://<mlflow_run_id>/path/to/model"
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``file:///Users/me/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs://<mlflow_run_id>/path/to/model``
+
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
                       supported-artifact-stores>`_.
+
     :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
                                access the specified Docker image and S3 bucket containing MLflow
                                model artifacts. If unspecified, the currently-assumed role will be
@@ -537,14 +540,17 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
 
     :param model_uri: The location, in URI format, of the MLflow model to serve locally,
                       for example:
-                          - "/Users/me/path/to/local/model"
-                          - "relative/path/to/local/model"
-                          - "file:///Users/me/path/to/local/model"
-                          - "s3://my_bucket/path/to/model"
-                          - "runs://<mlflow_run_id>/path/to/model"
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``file:///Users/me/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs://<mlflow_run_id>/path/to/model``
+
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
                       supported-artifact-stores>`_.
+
     :param port: Local port.
     :param image: Name of the Docker image to be used.
     :param flavor: The name of the flavor of the model to use for local serving. If ``None``,
