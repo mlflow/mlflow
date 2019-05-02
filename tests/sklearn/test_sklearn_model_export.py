@@ -115,7 +115,7 @@ def test_model_log(sklearn_logreg_model, model_path):
                         sk_model=sklearn_logreg_model.model,
                         artifact_path=artifact_path,
                         conda_env=conda_env)
-                run_id = mlflow.active_run().info.run_uuid
+                run_id = mlflow.active_run().info.run_id
 
                 reloaded_logreg_model = mlflow.sklearn.load_model(artifact_path, run_id)
                 np.testing.assert_array_equal(
@@ -211,7 +211,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model.model,
                                  artifact_path=artifact_path,
                                  conda_env=sklearn_custom_env)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -264,7 +264,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=knn_model, artifact_path=artifact_path, conda_env=None,
                                  serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -291,7 +291,7 @@ def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_
     with mlflow.start_run():
         mlflow.sklearn.log_model(
                 sk_model=sklearn_knn_model.model, artifact_path=artifact_path, conda_env=None)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     sklearn_conf = _get_flavor_configuration(

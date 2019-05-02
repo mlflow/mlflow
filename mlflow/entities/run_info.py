@@ -8,13 +8,13 @@ from mlflow.protos.service_pb2 import RunInfo as ProtoRunInfo
 def check_run_is_active(run_info):
     if run_info.lifecycle_stage != LifecycleStage.ACTIVE:
         raise MlflowException("The run {} must be in 'active' lifecycle_stage."
-                              .format(run_info.run_uuid))
+                              .format(run_info.run_id))
 
 
 def check_run_is_deleted(run_info):
     if run_info.lifecycle_stage != LifecycleStage.DELETED:
         raise MlflowException("The run {} must be in 'deleted' lifecycle_stage."
-                              .format(run_info.run_uuid))
+                              .format(run_info.run_id))
 
 
 class RunInfo(_MLflowObject):
@@ -22,11 +22,9 @@ class RunInfo(_MLflowObject):
     Metadata about a run.
     """
 
-    def __init__(self, run_uuid, experiment_id, name, source_type, source_name, entry_point_name,
-                 user_id, status, start_time, end_time, source_version, lifecycle_stage,
-                 artifact_uri=None):
-        if run_uuid is None:
-            raise Exception("run_uuid cannot be None")
+    def __init__(self, run_uuid, experiment_id, name, source_type, source_name,
+                 entry_point_name, user_id, status, start_time, end_time, source_version,
+                 lifecycle_stage, artifact_uri=None, run_id=None):
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
         if name is None:
@@ -41,7 +39,11 @@ class RunInfo(_MLflowObject):
             raise Exception("status cannot be None")
         if start_time is None:
             raise Exception("start_time cannot be None")
-        self._run_uuid = run_uuid
+        actual_run_id = run_id or run_uuid
+        if actual_run_id is None:
+            raise Exception("run_id and run_uuid cannot both be None")
+        self._run_uuid = actual_run_id
+        self._run_id = actual_run_id
         self._experiment_id = experiment_id
         self._name = name
         self._source_type = source_type
@@ -74,8 +76,13 @@ class RunInfo(_MLflowObject):
 
     @property
     def run_uuid(self):
-        """String containing run UUID."""
+        """[Deprecated, use run_id instead] String containing run UUID."""
         return self._run_uuid
+
+    @property
+    def run_id(self):
+        """String containing run id."""
+        return self._run_id
 
     @property
     def experiment_id(self):
@@ -147,6 +154,7 @@ class RunInfo(_MLflowObject):
     def to_proto(self):
         proto = ProtoRunInfo()
         proto.run_uuid = self.run_uuid
+        proto.run_id = self.run_id
         proto.experiment_id = self.experiment_id
         proto.name = self.name
         proto.source_type = self.source_type
@@ -172,8 +180,8 @@ class RunInfo(_MLflowObject):
         # An absent end time is represented with a NoneType in the `RunInfo` class
         if end_time == 0:
             end_time = None
-        return cls(run_uuid=proto.run_uuid, experiment_id=proto.experiment_id, name=proto.name,
-                   source_type=proto.source_type, source_name=proto.source_name,
+        return cls(run_uuid=proto.run_uuid, run_id=proto.run_id, experiment_id=proto.experiment_id,
+                   name=proto.name, source_type=proto.source_type, source_name=proto.source_name,
                    entry_point_name=proto.entry_point_name, user_id=proto.user_id,
                    status=proto.status, start_time=proto.start_time, end_time=end_time,
                    source_version=proto.source_version, lifecycle_stage=proto.lifecycle_stage,

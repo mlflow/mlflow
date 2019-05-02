@@ -47,9 +47,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         return self.store.create_experiment(name=names)
 
-    def _verify_logged(self, run_uuid, metrics, params, tags):
-        run = self.store.get_run(run_uuid)
-        all_metrics = sum([self.store.get_metric_history(run_uuid, key)
+    def _verify_logged(self, run_id, metrics, params, tags):
+        run = self.store.get_run(run_id)
+        all_metrics = sum([self.store.get_metric_history(run_id, key)
                            for key in run.data.metrics], [])
         assert len(all_metrics) == len(metrics)
         logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
@@ -179,12 +179,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_run_tag_model(self):
         # Create a run whose UUID we can reference when creating tag models.
-        # `run_uuid` is a foreign key in the tags table; therefore, in order
+        # `run_id` is a foreign key in the tags table; therefore, in order
         # to insert a tag with a given run UUID, the UUID must be present in
         # the runs table
         run = self._run_factory()
         with self.store.ManagedSessionMaker() as session:
-            new_tag = models.SqlTag(run_uuid=run.info.run_uuid, key='test', value='val')
+            new_tag = models.SqlTag(run_uuid=run.info.run_id, key='test', value='val')
             session.add(new_tag)
             session.commit()
             added_tags = [
@@ -197,12 +197,12 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_metric_model(self):
         # Create a run whose UUID we can reference when creating metric models.
-        # `run_uuid` is a foreign key in the tags table; therefore, in order
+        # `run_id` is a foreign key in the tags table; therefore, in order
         # to insert a metric with a given run UUID, the UUID must be present in
         # the runs table
         run = self._run_factory()
         with self.store.ManagedSessionMaker() as session:
-            new_metric = models.SqlMetric(run_uuid=run.info.run_uuid, key='accuracy', value=0.89)
+            new_metric = models.SqlMetric(run_uuid=run.info.run_id, key='accuracy', value=0.89)
             session.add(new_metric)
             session.commit()
             metrics = session.query(models.SqlMetric).all()
@@ -214,13 +214,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_param_model(self):
         # Create a run whose UUID we can reference when creating parameter models.
-        # `run_uuid` is a foreign key in the tags table; therefore, in order
+        # `run_id` is a foreign key in the tags table; therefore, in order
         # to insert a parameter with a given run UUID, the UUID must be present in
         # the runs table
         run = self._run_factory()
         with self.store.ManagedSessionMaker() as session:
             new_param = models.SqlParam(
-                run_uuid=run.info.run_uuid, key='accuracy', value='test param')
+                run_uuid=run.info.run_id, key='accuracy', value='test param')
             session.add(new_param)
             session.commit()
             params = session.query(models.SqlParam).all()
@@ -353,7 +353,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             name=run_name, experiment_id=experiment_id, parent_run_id=parent_run_id)
 
         created_run = self.store.create_run(**expected)
-        fetched_run = self.store.get_run(created_run.info.run_uuid)
+        fetched_run = self.store.get_run(created_run.info.run_id)
 
         for actual in [created_run, fetched_run]:
             self.assertEqual(actual.info.experiment_id, experiment_id)
@@ -373,16 +373,16 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def test_to_mlflow_entity_and_proto(self):
         # Create a run and log metrics, params, tags to the run
         created_run = self._run_factory()
-        run_uuid = created_run.info.run_uuid
+        run_id = created_run.info.run_id
         self.store.log_metric(
-            run_uuid=run_uuid,
+            run_id=run_id,
             metric=entities.Metric(key='my-metric', value=3.4, timestamp=0, step=0))
-        self.store.log_param(run_uuid=run_uuid, param=Param(key='my-param', value='param-val'))
-        self.store.set_tag(run_uuid=run_uuid, tag=RunTag(key='my-tag', value='tag-val'))
+        self.store.log_param(run_id=run_id, param=Param(key='my-param', value='param-val'))
+        self.store.set_tag(run_id=run_id, tag=RunTag(key='my-tag', value='tag-val'))
 
         # Verify that we can fetch the run & convert it to proto - Python protobuf bindings
         # will perform type-checking to ensure all values have the right types
-        run = self.store.get_run(run_uuid)
+        run = self.store.get_run(run_id)
         run.to_proto()
 
         # Verify attributes of the Python run entity
@@ -400,14 +400,14 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def test_delete_run(self):
         run = self._run_factory()
 
-        self.store.delete_run(run.info.run_uuid)
+        self.store.delete_run(run.info.run_id)
 
         with self.store.ManagedSessionMaker() as session:
-            actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_uuid).first()
+            actual = session.query(models.SqlRun).filter_by(run_uuid=run.info.run_id).first()
             self.assertEqual(actual.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-            deleted_run = self.store.get_run(run.info.run_uuid)
-            self.assertEqual(actual.run_uuid, deleted_run.info.run_uuid)
+            deleted_run = self.store.get_run(run.info.run_id)
+            self.assertEqual(actual.run_uuid, deleted_run.info.run_id)
 
     def test_log_metric(self):
         run = self._run_factory()
@@ -416,23 +416,23 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = 100.0
         metric = entities.Metric(tkey, tval, int(time.time()), 0)
         metric2 = entities.Metric(tkey, tval, int(time.time()) + 2, 0)
-        self.store.log_metric(run.info.run_uuid, metric)
-        self.store.log_metric(run.info.run_uuid, metric2)
+        self.store.log_metric(run.info.run_id, metric)
+        self.store.log_metric(run.info.run_id, metric2)
 
-        run = self.store.get_run(run.info.run_uuid)
+        run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
 
         # SQL store _get_run method returns full history of recorded metrics.
         # Should return duplicates as well
         # MLflow RunData contains only the last reported values for metrics.
         with self.store.ManagedSessionMaker() as session:
-            sql_run_metrics = self.store._get_run(session, run.info.run_uuid).metrics
+            sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
             self.assertEqual(2, len(sql_run_metrics))
             self.assertEqual(1, len(run.data.metrics))
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
-        run_uuid = run.info.run_uuid
+        run_id = run.info.run_id
         metric_name = "test-metric-1"
         # Check that we get the max of (step, timestamp, value) in that order
         tuples_to_log = [
@@ -446,13 +446,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
             (-1, 800, 800),
         ]
         for step, timestamp, value in reversed(tuples_to_log):
-            self.store.log_metric(run_uuid, Metric(metric_name, value, timestamp, step))
+            self.store.log_metric(run_id, Metric(metric_name, value, timestamp, step))
 
-        metric_history = self.store.get_metric_history(run_uuid, metric_name)
+        metric_history = self.store.get_metric_history(run_id, metric_name)
         logged_tuples = [(m.step, m.timestamp, m.value) for m in metric_history]
         assert set(logged_tuples) == set(tuples_to_log)
 
-        run_data = self.store.get_run(run_uuid).data
+        run_data = self.store.get_run(run_id).data
         run_metrics = run_data.metrics
         assert len(run_metrics) == 1
         assert run_metrics[metric_name] == 20
@@ -471,7 +471,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         warnings.simplefilter("ignore")
         with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
-            self.store.log_metric(run.info.run_uuid, metric)
+            self.store.log_metric(run.info.run_id, metric)
             warnings.resetwarnings()
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
@@ -482,11 +482,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = '100.0'
         param = entities.Param(tkey, tval)
         param2 = entities.Param('new param', 'new key')
-        self.store.log_param(run.info.run_uuid, param)
-        self.store.log_param(run.info.run_uuid, param2)
-        self.store.log_param(run.info.run_uuid, param2)
+        self.store.log_param(run.info.run_id, param)
+        self.store.log_param(run.info.run_id, param2)
+        self.store.log_param(run.info.run_id, param2)
 
-        run = self.store.get_run(run.info.run_uuid)
+        run = self.store.get_run(run.info.run_id)
         self.assertEqual(2, len(run.data.params))
         self.assertTrue(tkey in run.data.params and run.data.params[tkey] == tval)
 
@@ -497,10 +497,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = '100.0'
         param = entities.Param(tkey, tval)
         param2 = entities.Param(tkey, 'newval')
-        self.store.log_param(run.info.run_uuid, param)
+        self.store.log_param(run.info.run_id, param)
 
         with self.assertRaises(MlflowException) as e:
-            self.store.log_param(run.info.run_uuid, param2)
+            self.store.log_param(run.info.run_id, param2)
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
 
     def test_log_empty_str(self):
@@ -510,10 +510,10 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tval = ''
         param = entities.Param(tkey, tval)
         param2 = entities.Param('new param', 'new key')
-        self.store.log_param(run.info.run_uuid, param)
-        self.store.log_param(run.info.run_uuid, param2)
+        self.store.log_param(run.info.run_id, param)
+        self.store.log_param(run.info.run_id, param2)
 
-        run = self.store.get_run(run.info.run_uuid)
+        run = self.store.get_run(run.info.run_id)
         self.assertEqual(2, len(run.data.params))
         self.assertTrue(tkey in run.data.params and run.data.params[tkey] == tval)
 
@@ -525,7 +525,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         param = entities.Param(tkey, tval)
 
         with self.assertRaises(MlflowException) as exception_context:
-            self.store.log_param(run.info.run_uuid, param)
+            self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
     def test_set_tag(self):
@@ -536,11 +536,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         new_val = "new val"
         tag = entities.RunTag(tkey, tval)
         new_tag = entities.RunTag(tkey, new_val)
-        self.store.set_tag(run.info.run_uuid, tag)
+        self.store.set_tag(run.info.run_id, tag)
         # Overwriting tags is allowed
-        self.store.set_tag(run.info.run_uuid, new_tag)
+        self.store.set_tag(run.info.run_id, new_tag)
 
-        run = self.store.get_run(run.info.run_uuid)
+        run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
 
     def test_get_metric_history(self):
@@ -553,9 +553,9 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         ]
 
         for metric in expected:
-            self.store.log_metric(run.info.run_uuid, metric)
+            self.store.log_metric(run.info.run_id, metric)
 
-        actual = self.store.get_metric_history(run.info.run_uuid, key)
+        actual = self.store.get_metric_history(run.info.run_id, key)
 
         six.assertCountEqual(self,
                              [(m.key, m.value, m.timestamp) for m in expected],
@@ -563,11 +563,11 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_list_run_infos(self):
         experiment_id = self._experiment_factory('test_exp')
-        r1 = self._run_factory(config=self._get_run_configs('t1', experiment_id)).info.run_uuid
-        r2 = self._run_factory(config=self._get_run_configs('t2', experiment_id)).info.run_uuid
+        r1 = self._run_factory(config=self._get_run_configs('t1', experiment_id)).info.run_id
+        r2 = self._run_factory(config=self._get_run_configs('t2', experiment_id)).info.run_id
 
         def _runs(experiment_id, view_type):
-            return [r.run_uuid for r in self.store.list_run_infos(experiment_id, view_type)]
+            return [r.run_id for r in self.store.list_run_infos(experiment_id, view_type)]
 
         six.assertCountEqual(self, [r1, r2], _runs(experiment_id, ViewType.ALL))
         six.assertCountEqual(self, [r1, r2], _runs(experiment_id, ViewType.ACTIVE_ONLY))
@@ -593,7 +593,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         new_status = entities.RunStatus.FINISHED
         endtime = int(time.time())
 
-        actual = self.store.update_run_info(run.info.run_uuid, new_status, endtime)
+        actual = self.store.update_run_info(run.info.run_id, new_status, endtime)
 
         self.assertEqual(actual.status, new_status)
         self.assertEqual(actual.end_time, endtime)
@@ -620,57 +620,57 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(run.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
         with self.assertRaises(MlflowException) as e:
-            self.store.restore_run(run.info.run_uuid)
+            self.store.restore_run(run.info.run_id)
         self.assertIn("must be in 'deleted' state", e.exception.message)
 
-        self.store.delete_run(run.info.run_uuid)
+        self.store.delete_run(run.info.run_id)
         with self.assertRaises(MlflowException) as e:
-            self.store.delete_run(run.info.run_uuid)
+            self.store.delete_run(run.info.run_id)
         self.assertIn("must be in 'active' state", e.exception.message)
 
-        deleted = self.store.get_run(run.info.run_uuid)
-        self.assertEqual(deleted.info.run_uuid, run.info.run_uuid)
+        deleted = self.store.get_run(run.info.run_id)
+        self.assertEqual(deleted.info.run_id, run.info.run_id)
         self.assertEqual(deleted.info.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-        self.store.restore_run(run.info.run_uuid)
+        self.store.restore_run(run.info.run_id)
         with self.assertRaises(MlflowException) as e:
-            self.store.restore_run(run.info.run_uuid)
+            self.store.restore_run(run.info.run_id)
             self.assertIn("must be in 'deleted' state", e.exception.message)
-        restored = self.store.get_run(run.info.run_uuid)
-        self.assertEqual(restored.info.run_uuid, run.info.run_uuid)
+        restored = self.store.get_run(run.info.run_id)
+        self.assertEqual(restored.info.run_id, run.info.run_id)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
     def test_error_logging_to_deleted_run(self):
         exp = self._experiment_factory('error_logging')
-        run_uuid = self._run_factory(self._get_run_configs(experiment_id=exp)).info.run_uuid
+        run_id = self._run_factory(self._get_run_configs(experiment_id=exp)).info.run_id
 
-        self.store.delete_run(run_uuid)
-        self.assertEqual(self.store.get_run(run_uuid).info.lifecycle_stage,
+        self.store.delete_run(run_id)
+        self.assertEqual(self.store.get_run(run_id).info.lifecycle_stage,
                          entities.LifecycleStage.DELETED)
         with self.assertRaises(MlflowException) as e:
-            self.store.log_param(run_uuid, entities.Param("p1345", "v1"))
+            self.store.log_param(run_id, entities.Param("p1345", "v1"))
         self.assertIn("must be in 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
-            self.store.log_metric(run_uuid, entities.Metric("m1345", 1.0, 123, 0))
+            self.store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
         self.assertIn("must be in 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
-            self.store.set_tag(run_uuid, entities.RunTag("t1345", "tv1"))
+            self.store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
         self.assertIn("must be in 'active' state", e.exception.message)
 
         # restore this run and try again
-        self.store.restore_run(run_uuid)
-        self.assertEqual(self.store.get_run(run_uuid).info.lifecycle_stage,
+        self.store.restore_run(run_id)
+        self.assertEqual(self.store.get_run(run_id).info.lifecycle_stage,
                          entities.LifecycleStage.ACTIVE)
-        self.store.log_param(run_uuid, entities.Param("p1345", "v22"))
-        self.store.log_metric(run_uuid, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
-        self.store.set_tag(run_uuid, entities.RunTag("t1345", "tv44"))
+        self.store.log_param(run_id, entities.Param("p1345", "v22"))
+        self.store.log_metric(run_id, entities.Metric("m1345", 34.0, 85, 1))  # earlier timestamp
+        self.store.set_tag(run_id, entities.RunTag("t1345", "tv44"))
 
-        run = self.store.get_run(run_uuid)
+        run = self.store.get_run(run_id)
         self.assertEqual(run.data.params, {"p1345": "v22"})
         self.assertEqual(run.data.metrics, {"m1345": 34.0})
-        metric_history = self.store.get_metric_history(run_uuid, "m1345")
+        metric_history = self.store.get_metric_history(run_id, "m1345")
         self.assertEqual(len(metric_history), 1)
         metric_obj = metric_history[0]
         self.assertEqual(metric_obj.key, "m1345")
@@ -688,7 +688,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         search_runs.anded_expressions.extend(param_expressions or [])
         search_filter = SearchFilter(anded_expressions=search_runs.anded_expressions,
                                      filter_string=filter_string)
-        return [r.info.run_uuid
+        return [r.info.run_id
                 for r in self.store.search_runs([experiment_id], search_filter,
                                                 run_view_type, max_results)]
 
@@ -708,7 +708,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
-        runs = [self._run_factory(self._get_run_configs('r_%d' % r, exp)).info.run_uuid
+        runs = [self._run_factory(self._get_run_configs('r_%d' % r, exp)).info.run_id
                 for r in range(3)]
 
         six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ALL))
@@ -729,8 +729,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_search_params(self):
         experiment_id = self._experiment_factory('search_params')
-        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
-        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_uuid
+        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_id
 
         self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
         self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
@@ -770,8 +770,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_search_tags(self):
         experiment_id = self._experiment_factory('search_tags')
-        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
-        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_uuid
+        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_id
 
         self.store.set_tag(r1, entities.RunTag('generic_tag', 'p_val'))
         self.store.set_tag(r2, entities.RunTag('generic_tag', 'p_val'))
@@ -812,8 +812,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_search_metrics(self):
         experiment_id = self._experiment_factory('search_params')
-        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
-        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_uuid
+        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_id
 
         self.store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
         self.store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
@@ -890,8 +890,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
     def test_search_full(self):
         experiment_id = self._experiment_factory('search_params')
-        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
-        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_uuid
+        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_id
 
         self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
         self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
@@ -940,7 +940,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def test_search_with_max_results(self):
         exp = self._experiment_factory('search_with_max_results')
         runs = [self._run_factory(self._get_run_configs('r_%d' % r, exp,
-                                                        start_time=r)).info.run_uuid
+                                                        start_time=r)).info.run_id
                 for r in range(1200)]
         # reverse the ordering, since we created in increasing order of start_time
         runs.reverse()
@@ -956,26 +956,26 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
     def test_search_with_deterministic_max_results(self):
         exp = self._experiment_factory('test_search_with_deterministic_max_results')
         # Create 10 runs with the same start_time.
-        # Sort based on run_uuid
+        # Sort based on run_id
         runs = sorted([self._run_factory(self._get_run_configs('r_%d' % r, exp,
-                                                               start_time=10)).info.run_uuid
+                                                               start_time=10)).info.run_id
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(exp, max_results=n))
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
-        run_uuid = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
+        run_id = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 1)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         self.store.log_batch(
-            run_id=run_uuid, metrics=metric_entities, params=param_entities, tags=tag_entities)
-        run = self.store.get_run(run_uuid)
+            run_id=run_id, metrics=metric_entities, params=param_entities, tags=tag_entities)
+        run = self.store.get_run(run_id)
         assert run.data.tags == {"t1": "t1val", "t2": "t2val", MLFLOW_RUN_NAME: "r1"}
         assert run.data.params == {"p1": "p1val", "p2": "p2val"}
         metric_histories = sum(
-            [self.store.get_metric_history(run_uuid, key) for key in run.data.metrics], [])
+            [self.store.get_metric_history(run_id, key) for key in run.data.metrics], [])
         metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
         assert set(metrics) == set([("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)])
 
@@ -983,13 +983,13 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
         # SQL limitations, etc)
         experiment_id = self._experiment_factory('log_batch_limits')
-        run_uuid = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_uuid
+        run_id = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
         metric_tuples = [("m%s" % i, i, 12345, i * 2) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
-        self.store.log_batch(run_id=run_uuid, metrics=metric_entities, params=[], tags=[])
-        run = self.store.get_run(run_uuid)
+        self.store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])
+        run = self.store.get_run(run_id)
         metric_histories = sum(
-            [self.store.get_metric_history(run_uuid, key) for key in run.data.metrics], [])
+            [self.store.get_metric_history(run_id, key) for key in run.data.metrics], [])
         metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
         assert set(metrics) == set(metric_tuples)
 
@@ -999,17 +999,17 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         run = self._run_factory()
         tkey = 'my-param'
         param = entities.Param(tkey, 'orig-val')
-        self.store.log_param(run.info.run_uuid, param)
+        self.store.log_param(run.info.run_id, param)
 
         overwrite_param = entities.Param(tkey, 'newval')
         tag = entities.RunTag("tag-key", "tag-val")
         metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaises(MlflowException) as e:
-            self.store.log_batch(run.info.run_uuid, metrics=[metric], params=[overwrite_param],
+            self.store.log_batch(run.info.run_id, metrics=[metric], params=[overwrite_param],
                                  tags=[tag])
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        self._verify_logged(run.info.run_uuid, metrics=[], params=[param], tags=[])
+        self._verify_logged(run.info.run_id, metrics=[], params=[param], tags=[])
 
     def test_log_batch_param_overwrite_disallowed_single_req(self):
         # Test that attempting to overwrite a param via log_batch results in an exception
@@ -1020,16 +1020,16 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         tag = entities.RunTag("tag-key", "tag-val")
         metric = entities.Metric("metric-key", 3.0, 12345, 0)
         with self.assertRaises(MlflowException) as e:
-            self.store.log_batch(run.info.run_uuid, metrics=[metric], params=[param0, param1],
+            self.store.log_batch(run.info.run_id, metrics=[metric], params=[param0, param1],
                                  tags=[tag])
         self.assertIn("Changing param value is not allowed. Param with key=", e.exception.message)
         assert e.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
-        self._verify_logged(run.info.run_uuid, metrics=[], params=[param0], tags=[])
+        self._verify_logged(run.info.run_id, metrics=[], params=[param0], tags=[])
 
     def test_log_batch_accepts_empty_payload(self):
         run = self._run_factory()
-        self.store.log_batch(run.info.run_uuid, metrics=[], params=[], tags=[])
-        self._verify_logged(run.info.run_uuid, metrics=[], params=[], tags=[])
+        self.store.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
+        self._verify_logged(run.info.run_id, metrics=[], params=[], tags=[])
 
     def test_log_batch_internal_error(self):
         # Verify that internal errors during the DB save step for log_batch result in
@@ -1050,59 +1050,59 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
                 log_batch_kwargs = {"metrics": [], "params": [], "tags": []}
                 log_batch_kwargs.update(kwargs)
                 with self.assertRaises(MlflowException) as e:
-                    self.store.log_batch(run.info.run_uuid, **log_batch_kwargs)
+                    self.store.log_batch(run.info.run_id, **log_batch_kwargs)
                 self.assertIn(str(e.exception.message), "Some internal error")
 
     def test_log_batch_nonexistent_run(self):
-        nonexistent_run_uuid = uuid.uuid4().hex
+        nonexistent_run_id = uuid.uuid4().hex
         with self.assertRaises(MlflowException) as e:
-            self.store.log_batch(nonexistent_run_uuid, [], [], [])
+            self.store.log_batch(nonexistent_run_id, [], [], [])
         assert e.exception.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-        assert "Run with id=%s not found" % nonexistent_run_uuid in e.exception.message
+        assert "Run with id=%s not found" % nonexistent_run_id in e.exception.message
 
     def test_log_batch_params_idempotency(self):
         run = self._run_factory()
         params = [Param("p-key", "p-val")]
-        self.store.log_batch(run.info.run_uuid, metrics=[], params=params, tags=[])
-        self.store.log_batch(run.info.run_uuid, metrics=[], params=params, tags=[])
-        self._verify_logged(run.info.run_uuid, metrics=[], params=params, tags=[])
+        self.store.log_batch(run.info.run_id, metrics=[], params=params, tags=[])
+        self.store.log_batch(run.info.run_id, metrics=[], params=params, tags=[])
+        self._verify_logged(run.info.run_id, metrics=[], params=params, tags=[])
 
     def test_log_batch_tags_idempotency(self):
         run = self._run_factory()
         self.store.log_batch(
-            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
         self.store.log_batch(
-            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
         self._verify_logged(
-            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
+            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "t-val")])
 
     def test_log_batch_allows_tag_overwrite(self):
         run = self._run_factory()
         self.store.log_batch(
-            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "val")])
+            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "val")])
         self.store.log_batch(
-            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
+            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
         self._verify_logged(
-            run.info.run_uuid, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
+            run.info.run_id, metrics=[], params=[], tags=[RunTag("t-key", "newval")])
 
     def test_log_batch_allows_tag_overwrite_single_req(self):
         run = self._run_factory()
         tags = [RunTag("t-key", "val"), RunTag("t-key", "newval")]
-        self.store.log_batch(run.info.run_uuid, metrics=[], params=[], tags=tags)
-        self._verify_logged(run.info.run_uuid, metrics=[], params=[], tags=[tags[-1]])
+        self.store.log_batch(run.info.run_id, metrics=[], params=[], tags=tags)
+        self._verify_logged(run.info.run_id, metrics=[], params=[], tags=[tags[-1]])
 
     def test_log_batch_same_metric_repeated_single_req(self):
         run = self._run_factory()
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
         metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
-        self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
-        self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+        self.store.log_batch(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+        self._verify_logged(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
 
     def test_log_batch_same_metric_repeated_multiple_reqs(self):
         run = self._run_factory()
         metric0 = Metric(key="metric-key", value=1, timestamp=2, step=0)
         metric1 = Metric(key="metric-key", value=2, timestamp=3, step=0)
-        self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
-        self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0], tags=[])
-        self.store.log_batch(run.info.run_uuid, params=[], metrics=[metric1], tags=[])
-        self._verify_logged(run.info.run_uuid, params=[], metrics=[metric0, metric1], tags=[])
+        self.store.log_batch(run.info.run_id, params=[], metrics=[metric0], tags=[])
+        self._verify_logged(run.info.run_id, params=[], metrics=[metric0], tags=[])
+        self.store.log_batch(run.info.run_id, params=[], metrics=[metric1], tags=[])
+        self._verify_logged(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])

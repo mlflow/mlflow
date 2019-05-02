@@ -38,16 +38,16 @@ def test_docker_project_execution(
         TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
         parameters=expected_params, entry_point="test_tracking")
     # Validate run contents in the FileStore
-    run_uuid = submitted_run.run_id
+    run_id = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
     run_infos = mlflow_service.list_run_infos(
         experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
         run_view_type=ViewType.ACTIVE_ONLY)
     assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
-    store_run_uuid = run_infos[0].run_uuid
-    assert run_uuid == store_run_uuid
-    run = mlflow_service.get_run(run_uuid)
+    store_run_id = run_infos[0].run_id
+    assert run_id == store_run_id
+    run = mlflow_service.get_run(run_id)
     assert run.data.params == expected_params
     assert run.data.metrics == {"some_key": 3}
     exact_expected_tags = {MLFLOW_PROJECT_ENV: "docker"}
