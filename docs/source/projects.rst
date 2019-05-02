@@ -401,6 +401,9 @@ tells which kubernetes context to uses. Remember that it needs to be pre configu
 Both arguments can be passed in command line or using the ``MLFLOW_DOCKER_AUTH_CONFIG`` and ``MLFLOW_KUBE_CONTEXT``
 environment variables.
 
+To see it in action, you can use the `Docker example <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ 
+just changing the values in ``kubernetes_env`` section of MLproject file.
+
 Iterating Quickly
 -----------------
 
