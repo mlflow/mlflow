@@ -219,7 +219,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(h2o_iris_model, m
     reloaded_h2o_pyfunc = mlflow.pyfunc.load_pyfunc(model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=h2o_iris_model.inference_data.as_data_frame(),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             flavor=mlflow.pyfunc.FLAVOR_NAME)

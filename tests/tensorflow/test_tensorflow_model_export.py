@@ -457,7 +457,7 @@ def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path
                                  conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=saved_tf_iris_model.inference_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
