@@ -9,12 +9,14 @@ from collections import namedtuple
 import boto3
 import botocore
 import numpy as np
+from click.testing import CliRunner
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
 import mlflow.pyfunc
 import mlflow.sklearn
 import mlflow.sagemaker as mfs
+import mlflow.sagemaker.cli as mfscli
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
@@ -201,6 +203,41 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_loca
 
 @pytest.mark.large
 @mock_sagemaker_aws_services
+def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_local(
+        pretrained_model, sagemaker_client):
+    app_name = "test-app"
+    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+            mfscli.commands,
+            [
+                'deploy',
+                '-a', app_name,
+                '-m', pretrained_model.model_uri,
+                '--mode', mfs.DEPLOYMENT_MODE_CREATE,
+            ])
+    assert result.exit_code == 0
+
+    region_name = sagemaker_client.meta.region_name
+    s3_client = boto3.client("s3", region_name=region_name)
+    default_bucket = mfs._get_default_s3_bucket(region_name)
+    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
+    endpoint_production_variants = endpoint_description["ProductionVariants"]
+    assert len(endpoint_production_variants) == 1
+    model_name = endpoint_production_variants[0]["VariantName"]
+    assert model_name in [
+        model["ModelName"] for model in sagemaker_client.list_models()["Models"]
+    ]
+    object_names = [
+        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
+    ]
+    assert any([model_name in object_name for object_name in object_names])
+    assert any([app_name in config["EndpointConfigName"]
+                for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]])
+    assert app_name in [endpoint["EndpointName"]
+                        for endpoint in sagemaker_client.list_endpoints()["Endpoints"]]
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
         pretrained_model, sagemaker_client):
     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
@@ -226,6 +263,50 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
     ]
 
     s3_client = boto3.client("s3", region_name=region_name)
+    object_names = [
+        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
+    ]
+    assert any([model_name in object_name for object_name in object_names])
+    assert any([app_name in config["EndpointConfigName"]
+                for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]])
+    assert app_name in [endpoint["EndpointName"]
+                        for endpoint in sagemaker_client.list_endpoints()["Endpoints"]]
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deploy_cli_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
+        pretrained_model, sagemaker_client):
+    local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
+    artifact_path = "model"
+    region_name = sagemaker_client.meta.region_name
+    default_bucket = mfs._get_default_s3_bucket(region_name)
+    s3_artifact_repo = S3ArtifactRepository('s3://{}'.format(default_bucket))
+    s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
+    model_s3_uri = 's3://{bucket_name}/{artifact_path}'.format(
+        bucket_name=default_bucket, artifact_path=pretrained_model.model_path)
+
+    app_name = "test-app"
+    result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
+            mfscli.commands,
+            [
+                'deploy',
+                '-a', app_name,
+                '-m', model_s3_uri,
+                '--mode', mfs.DEPLOYMENT_MODE_CREATE,
+            ])
+    assert result.exit_code == 0
+
+    region_name = sagemaker_client.meta.region_name
+    s3_client = boto3.client("s3", region_name=region_name)
+    default_bucket = mfs._get_default_s3_bucket(region_name)
+    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
+    endpoint_production_variants = endpoint_description["ProductionVariants"]
+    assert len(endpoint_production_variants) == 1
+    model_name = endpoint_production_variants[0]["VariantName"]
+    assert model_name in [
+        model["ModelName"] for model in sagemaker_client.list_models()["Models"]
+    ]
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
