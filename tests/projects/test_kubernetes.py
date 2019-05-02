@@ -44,14 +44,15 @@ def test_run_kubernetes_job():
     with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
         with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
                 job_name = kb.run_kubernetes_job(image=image, job_namespace=namespace,
-                                                image_namespace=namespace, parameters=parameters,
-                                                env_vars=env_vars, kube_context=kube_context)
+                                                 image_namespace=namespace, parameters=parameters,
+                                                 env_vars=env_vars, kube_context=kube_context)
                 assert job_name.startswith(image)
                 assert kube_api_mock.call_count == 1
                 args = kube_api_mock.call_args_list
                 assert args[0][1]['namespace'] == namespace
                 args = kube_config_mock.call_args_list
                 assert args[0][1]['context'] == kube_context
+
 
 def test_push_image_to_registry():
     image = 'image'
