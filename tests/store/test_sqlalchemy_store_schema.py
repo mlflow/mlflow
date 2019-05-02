@@ -1,7 +1,6 @@
 """Tests verifying that the SQLAlchemyStore generates the expected database schema"""
 import difflib
 import os
-import sys
 
 import pytest
 from alembic import command
