@@ -236,7 +236,7 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
 
 @pytest.mark.parametrize("parent_run_id_kwarg", [None, "my-parent-id"])
 def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
-    print("test_create_run_all_args")
+    print("test_create_run_all_args", mlflow_client)
     source_name = "Hello"
     entry_point = "entry"
     source_version = "abc"
@@ -255,6 +255,10 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
         },
         "parent_run_id": parent_run_id_kwarg
     }
+    experiment_name = 'Run A Lot (parent_run_id=%s)' % (parent_run_id_kwarg)
+    print("creating experiment", experiment_name, create_run_kwargs)
+    print("tracking uri", mlflow.get_tracking_uri())
+
     experiment_id = mlflow_client.create_experiment('Run A Lot (parent_run_id=%s)'
                                                     % (parent_run_id_kwarg))
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
