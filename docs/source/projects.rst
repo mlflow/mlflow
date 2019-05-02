@@ -324,6 +324,9 @@ Deployment Mode
     includes setting cluster parameters such as a VM type. Of course, you can also run projects on
     any other computing infrastructure of your choice using the local version of the ``mlflow run``
     command (for example, submit a script that does ``mlflow run`` to a standard job queueing system).
+    
+    It's also possible to launch projects remotely in `Kubernetes <https://kubernetes.io/>`_ clusters 
+    using command-line (see :ref:`Run a project on Kubernetes <kubernetes_execution>`).
 
 Environment
     By default, MLflow Projects are run in the environment specified by the project directory
@@ -364,6 +367,39 @@ for your run. Then, run your project using the command
 where ``<uri>`` is a Git repository URI or a folder. You can pass Git credentials with the
 ``git-username`` and ``git-password`` arguments or using the ``MLFLOW_GIT_USERNAME`` and
 ``MLFLOW_GIT_PASSWORD`` environment variables.
+
+.. _kubernetes_execution:
+
+Run a project on Kubernetes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+MLflow projects can be executed in kubernetes clusters. Basically it uses the image created to run 
+projects in :ref:`Docker environment <project-docker-container-environments>`  and pushes it to an 
+image repository. After that it creates a Kubernetes Job that uses this image published and runs 
+the MLflow project on kubernetes.
+A brief overview of how to configure and use this feature is as follows:
+
+In MLproject file you need to setup the ``docker_env`` and ``kubernetes_env``. For ``docker_env`` please 
+see :ref:`Docker section <project-docker-container-environments>`. The ``kubernetes_env`` section in MLproject should be as:
+
+.. code-block:: yaml
+
+  kubernetes_env:
+    job_namespace: mlflow # kubernetes namespace where jobs will be executed.
+    image_namespace: username # docker image namespace where image will be pushed.
+    registry: # registry url for the repository where image will be pushed.
+
+Then, run your project using the command:
+
+.. code-block:: bash
+
+  mlflow run <uri> -m kubernetes --docker-auth-config "{\"username\":\"username\", \"password\":\"pass\"}" --kube-context <context-name>
+
+Where ``<uri>`` is a Git repository URI or a folder. You can pass Docker repository credentials to publish 
+the image with the ``docker-auth-config`` argument. Other argument needed is the ``kube-context`` that 
+tells which kubernetes context to uses. Remember that it needs to be pre configured before run projects.
+Both arguments can be passed in command line or using the ``MLFLOW_DOCKER_AUTH_CONFIG`` and ``MLFLOW_KUBE_CONTEXT``
+environment variables.
 
 Iterating Quickly
 -----------------
