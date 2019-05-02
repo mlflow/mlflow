@@ -17,7 +17,6 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
@@ -43,9 +42,8 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``
-                      - ``file:///Users/me/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
-                      - ``runs://<mlflow_run_id>/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#

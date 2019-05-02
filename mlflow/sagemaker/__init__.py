@@ -22,7 +22,6 @@ from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
-from mlflow.store.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_project
@@ -222,9 +221,8 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``
-                      - ``file:///Users/me/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
-                      - ``runs://<mlflow_run_id>/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
@@ -543,9 +541,8 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``
-                      - ``file:///Users/me/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
-                      - ``runs://<mlflow_run_id>/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
