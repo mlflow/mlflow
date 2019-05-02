@@ -1133,14 +1133,6 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
     """
     DEFAULT_MYSQL_PORT = 3306
 
-    def _create_database(self, db_server_url, db_name):
-        engine = sqlalchemy.create_engine(db_server_url)
-        engine.execute("CREATE DATABASE %s" % db_name)
-
-    def _drop_database(self, db_server_url, db_name):
-        engine = sqlalchemy.create_engine(db_server_url)
-        engine.execute("DROP DATABASE %s" % db_name)
-
     def setUp(self):
         db_username = os.environ.get("MYSQL_TEST_USERNAME")
         db_password = os.environ.get("MYSQL_TEST_PASSWORD")
@@ -1154,14 +1146,15 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
                 "with the environment variables set, e.g: MYSQL_TEST_USERNAME=your_username "
                 "MYSQL_TEST_PASSWORD=your_password <your-test-command>. You may optionally "
                 "specify a database port via MYSQL_TEST_PORT (default is 3306).")
-        self.db_name = "test_sqlalchemy_store_%s" % uuid.uuid4().hex[:5]
-        self.db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port)
-        self._create_database(self.db_server_url, self.db_name)
-        self.db_url = "%s/%s" % (self.db_server_url, self.db_name)
+        self._db_name = "test_sqlalchemy_store_%s" % uuid.uuid4().hex[:5]
+        db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port)
+        self._engine = sqlalchemy.create_engine(db_server_url)
+        self._engine.execute("CREATE DATABASE %s" % self._db_name)
+        self.db_url = "%s/%s" % (db_server_url, self._db_name)
         self.store = self._get_store(self.db_url)
 
     def tearDown(self):
-        self._drop_database(self.db_server_url, self.db_name)
+        self._engine.execute("DROP DATABASE %s" % self._db_name)
 
     def test_log_many_entities(self):
         """
