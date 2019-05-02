@@ -228,6 +228,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
 
     run = mlflow_client.get_run(run_id)
     assert run.info.run_id == run_id
+    assert run.info.run_uuid == run_id
     assert run.info.experiment_id == experiment_id
     assert run.info.user_id == create_run_kwargs["user_id"]
     assert run.info.source_type == SOURCE_TYPE_LOCAL
