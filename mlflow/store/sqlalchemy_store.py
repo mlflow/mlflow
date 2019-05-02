@@ -112,7 +112,6 @@ class SqlAlchemyStore(AbstractStore):
                     "NOTE: schema migration may result in database downtime "
                     "- please consult your database's documentation for more detail." % engine.url)
 
-
     @staticmethod
     def _get_managed_session_maker(SessionMaker):
         """

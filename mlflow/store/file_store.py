@@ -530,7 +530,7 @@ class FileStore(AbstractStore):
 
     def log_metric(self, run_uuid, metric):
         _validate_run_id(run_uuid)
-        _validate_metric(metric.key)
+        _validate_metric_name(metric.key)
         run = self.get_run(run_uuid)
         check_run_is_active(run.info)
         metric_path = self._get_metric_path(run.info.experiment_id, run_uuid, metric.key)

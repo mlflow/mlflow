@@ -5,6 +5,7 @@ import logging
 
 _logger = logging.getLogger(__name__)
 
+
 def _get_alembic_config(db_url):
     from alembic.config import Config
     current_dir = os.path.dirname(os.path.abspath(__file__))
