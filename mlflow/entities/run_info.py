@@ -22,16 +22,10 @@ class RunInfo(_MLflowObject):
     Metadata about a run.
     """
 
-<<<<<<< HEAD
-    def __init__(self, run_uuid, experiment_id, name, source_type, source_name,
-                 entry_point_name, user_id, status, start_time, end_time, source_version,
-                 lifecycle_stage, artifact_uri=None, run_id=None):
-=======
     def __init__(self, run_uuid, experiment_id, user_id, status, start_time, end_time,
-                 lifecycle_stage, artifact_uri=None):
+                 lifecycle_stage, artifact_uri=None, run_id=None):
         if run_uuid is None:
             raise Exception("run_uuid cannot be None")
->>>>>>> [RFC] Remove deprecated fields from REST API for 1.0
         if experiment_id is None:
             raise Exception("experiment_id cannot be None")
         if user_id is None:
