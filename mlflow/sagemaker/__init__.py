@@ -220,6 +220,7 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
     :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker,
                       for example:
                           - "/Users/me/path/to/local/model"
+                          - "relative/path/to/local/model"
                           - "file:///Users/me/path/to/local/model"
                           - "s3://my_bucket/path/to/model"
                           - "runs://<mlflow_run_id>/path/to/model"
@@ -537,6 +538,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
     :param model_uri: The location, in URI format, of the MLflow model to serve locally,
                       for example:
                           - "/Users/me/path/to/local/model"
+                          - "relative/path/to/local/model"
                           - "file:///Users/me/path/to/local/model"
                           - "s3://my_bucket/path/to/model"
                           - "runs://<mlflow_run_id>/path/to/model"
