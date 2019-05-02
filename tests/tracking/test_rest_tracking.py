@@ -191,6 +191,7 @@ def test_create_get_list_experiment(mlflow_client):
 
 
 def test_delete_restore_experiment(mlflow_client):
+    print("test_delete_restore_experiment")
     experiment_id = mlflow_client.create_experiment('Deleterious')
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
     mlflow_client.delete_experiment(experiment_id)
@@ -200,6 +201,7 @@ def test_delete_restore_experiment(mlflow_client):
 
 
 def test_delete_restore_experiment_cli(mlflow_client, cli_env):
+    print("test_delete_restore_experiment_cli")
     experiment_name = "DeleteriousCLI"
     invoke_cli_runner(mlflow.experiments.commands, ['create', experiment_name], env=cli_env)
     experiment_id = mlflow_client.get_experiment_by_name(experiment_name).experiment_id
@@ -211,6 +213,7 @@ def test_delete_restore_experiment_cli(mlflow_client, cli_env):
 
 
 def test_rename_experiment(mlflow_client):
+    print("test_rename_experiment")
     experiment_id = mlflow_client.create_experiment('BadName')
     assert mlflow_client.get_experiment(experiment_id).name == 'BadName'
     mlflow_client.rename_experiment(experiment_id, 'GoodName')
@@ -218,6 +221,7 @@ def test_rename_experiment(mlflow_client):
 
 
 def test_rename_experiment_cli(mlflow_client, cli_env):
+    print("test_rename_experiment_cli", cli_env)
     bad_experiment_name = "CLIBadName"
     good_experiment_name = "CLIGoodName"
 
@@ -232,6 +236,7 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
 
 @pytest.mark.parametrize("parent_run_id_kwarg", [None, "my-parent-id"])
 def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
+    print("test_create_run_all_args")
     source_name = "Hello"
     entry_point = "entry"
     source_version = "abc"
@@ -273,6 +278,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
 
 
 def test_create_run_defaults(mlflow_client):
+    print("test_create_run_defaults")
     experiment_id = mlflow_client.create_experiment('Run A Little')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
@@ -283,6 +289,7 @@ def test_create_run_defaults(mlflow_client):
 
 
 def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
+    print("test_log_metrics_params_tags")
     experiment_id = mlflow_client.create_experiment('Oh My')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
@@ -312,6 +319,7 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
 
 
 def test_log_batch(mlflow_client, backend_store_uri):
+    print("test_log_batch")
     experiment_id = mlflow_client.create_experiment('Batch em up')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
@@ -333,6 +341,7 @@ def test_log_batch(mlflow_client, backend_store_uri):
 
 
 def test_set_terminated_defaults(mlflow_client):
+    print("test_set_terminated_defaults")
     experiment_id = mlflow_client.create_experiment('Terminator 1')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
@@ -344,6 +353,7 @@ def test_set_terminated_defaults(mlflow_client):
 
 
 def test_set_terminated_status(mlflow_client):
+    print("test_set_terminated_status")
     experiment_id = mlflow_client.create_experiment('Terminator 2')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
@@ -355,6 +365,7 @@ def test_set_terminated_status(mlflow_client):
 
 
 def test_artifacts(mlflow_client):
+    print("mlflow_client")
     experiment_id = mlflow_client.create_experiment('Art In Fact')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
