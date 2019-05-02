@@ -630,7 +630,7 @@ def _get_docker_command(image, active_run):
                                  experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
     if tracking.utils._is_local_uri(tracking_uri):
-        path = file_utils.local_file_uri_to_path(tracking_uri)
+        path = file_utils.uri_to_path(tracking_uri)
         cmd += ["-v", "%s:%s" % (path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = _MLFLOW_DOCKER_TRACKING_DIR_PATH
     if tracking.utils._is_databricks_uri(tracking_uri):

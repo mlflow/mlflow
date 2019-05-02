@@ -13,7 +13,7 @@ from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.utils import env, rest_utils, file_utils, get_uri_scheme
-from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.file_utils import path_to_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
@@ -69,7 +69,7 @@ def get_tracking_uri():
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
     else:
-        return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
+        return path_to_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
 
 def _is_local_uri(uri):
@@ -89,7 +89,7 @@ def _is_databricks_uri(uri):
 
 
 def _get_file_store(store_uri, **_):
-    return FileStore(file_utils.local_file_uri_to_path(store_uri), store_uri)
+    return FileStore(file_utils.uri_to_path(store_uri), store_uri)
 
 
 def _is_database_uri(uri):
