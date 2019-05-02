@@ -8,7 +8,7 @@ def test_run_command_creation():  # pylint: disable=unused-argument
     Tests command creation.
     """
     parameters = {'alpha': '0.5'}
-    command = job_definition = kb._get_run_command(parameters)
+    command = kb._get_run_command(parameters)
     assert ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5'] == command
 
 

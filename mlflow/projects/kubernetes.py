@@ -28,7 +28,7 @@ def push_image_to_registry(image, registry, namespace, docker_auth_config):
     client = docker.from_env()
     image = client.images.get(name=image)
     image.tag(repository)
-    server_return = client.images.push(repository=repository, auth_config=docker_auth_config)
+    client.images.push(repository=repository, auth_config=docker_auth_config)
 
 
 def _get_kubernetes_job_definition(image, image_namespace, job_namespace, command, env_vars):
@@ -89,8 +89,7 @@ def run_kubernetes_job(image, image_namespace, job_namespace, parameters, env_va
                                                                job_namespace,
                                                                pretty=True)
         job_status = api_response.status
-    _logger.info("Job started at {0}".format(
-        job_status.start_time.strftime('%Y-%m-%d-%H-%M-%S-%f')))
+    _logger.info("Job started at %s" % job_status.start_time.strftime('%Y-%m-%d-%H-%M-%S-%f'))
     return job_name
 
 
