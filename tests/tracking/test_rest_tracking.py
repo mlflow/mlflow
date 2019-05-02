@@ -6,6 +6,7 @@ and ensures we can use the tracking API to communicate with it.
 import mock
 from subprocess import Popen, PIPE, STDOUT
 import os
+import sys
 import pytest
 import socket
 import shutil
@@ -17,9 +18,9 @@ from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
 from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
-from mlflow.tracking.utils import _tracking_store_registry
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
     MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
+from mlflow.utils.file_utils import path_to_local_file_uri
 from tests.integration.utils import invoke_cli_runner
 
 LOCALHOST = '127.0.0.1'
@@ -106,15 +107,19 @@ def _get_safe_port():
 SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
 # Root directory for all artifact stores created during this suite
 SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
-# Backend store URIs to test against
-from mlflow.utils.file_utils import path_to_local_file_uri
-
 
 def _get_sqlite_uri():
     path = path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "test-database.bd"))
     path = path[len("file://"):]
-    return "sqlite:////{}".format(path)
 
+    # NB: It looks like windows and posix have different requirements on number of slashes for
+    # whatever reason. Windows needs uri like 'sqlite:///C:/path/to/my/file' whereas posix expects
+    # sqlite://///path/to/my/file
+    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:////"
+    return prefix + path
+
+
+# Backend store URIs to test against
 BACKEND_URIS = [
     _get_sqlite_uri(),  # SqlAlchemy
     os.path.join(SUITE_ROOT_DIR, "file_store_root"),  # FileStore
