@@ -107,11 +107,16 @@ SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
 # Root directory for all artifact stores created during this suite
 SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
 # Backend store URIs to test against
-from mlflow.utils.file_utils import path_to_uri
+from mlflow.utils.file_utils import path_to_local_file_uri
+
+
+def _get_sqlite_uri():
+    path = path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "test-database.bd"))
+    path = path[len("file://"):]
+    return "sqlite:////{}".format(path)
 
 BACKEND_URIS = [
-    "sqlite:////{}".format(
-        path_to_uri(os.path.join(SUITE_ROOT_DIR, "test-database.bd"), scheme=None)),  # SqlAlchemy
+    _get_sqlite_uri(),  # SqlAlchemy
     os.path.join(SUITE_ROOT_DIR, "file_store_root"),  # FileStore
 ]
 

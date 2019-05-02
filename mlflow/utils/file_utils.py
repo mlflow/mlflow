@@ -344,23 +344,21 @@ def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
 
 
-def path_to_uri(path, scheme="file"):
+def path_to_local_file_uri(path):
     """
     Convert local filesystem path to uri with the given scheme.
     """
     path = pathname2url(path)
-    if not scheme:
-        return path
-    elif path == posixpath.abspath(path):
-        return "{scheme}://{path}".format(scheme=scheme, path=path)
+    if path == posixpath.abspath(path):
+        return "file://{path}".format(path=path)
     else:
-        return "{scheme}:{path}".format(scheme=scheme, path=path)
+        return "file:{path}".format(path=path)
 
 
-def uri_to_path(uri, scheme="file"):
+def local_file_uri_to_path(uri):
     """
     Convert URI to local filesystem path.
     No-op if the uri does not have the expected scheme.
     """
-    path = urllib.parse.urlparse(uri).path if uri.startswith("{}:".format(scheme)) else uri
+    path = urllib.parse.urlparse(uri).path if uri.startswith("file:") else uri
     return urllib.request.url2pathname(path)

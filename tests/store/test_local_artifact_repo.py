@@ -13,8 +13,8 @@ def local_artifact_root(tmpdir):
 
 @pytest.fixture
 def local_artifact_repo(local_artifact_root):
-    from mlflow.utils.file_utils import path_to_uri
-    return LocalArtifactRepository(artifact_uri=path_to_uri(local_artifact_root))
+    from mlflow.utils.file_utils import path_to_local_file_uri
+    return LocalArtifactRepository(artifact_uri=path_to_local_file_uri(local_artifact_root))
 
 
 def test_list_artifacts(local_artifact_repo, local_artifact_root):

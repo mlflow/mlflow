@@ -3,7 +3,7 @@ import os
 import shutil
 
 from mlflow.store.artifact_repo import ArtifactRepository, verify_artifact_path
-from mlflow.utils.file_utils import mkdir, list_all, get_file_info, uri_to_path
+from mlflow.utils.file_utils import mkdir, list_all, get_file_info, local_file_uri_to_path
 
 
 class LocalArtifactRepository(ArtifactRepository):
@@ -11,7 +11,7 @@ class LocalArtifactRepository(ArtifactRepository):
 
     def __init__(self, *args, **kwargs):
         super(LocalArtifactRepository, self).__init__(*args, **kwargs)
-        self.artifact_dir = uri_to_path(self.artifact_uri)
+        self.artifact_dir = local_file_uri_to_path(self.artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)
