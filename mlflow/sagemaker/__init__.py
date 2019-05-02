@@ -23,7 +23,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.store.runs_artifact_repo import RunsArtifactRepository
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _get_model_log_dir
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.utils.logging_utils import eprint

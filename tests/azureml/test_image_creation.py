@@ -26,7 +26,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri 
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 
 
@@ -144,7 +144,8 @@ def test_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_model):
 
     with AzureMLMocks() as aml_mocks:
         workspace = get_azure_workspace()
-        model_uri = "runs:///{run_id}/{artifact_path}".format(run_id=run_id, artifact_path=artifact_path)
+        model_uri = "runs:///{run_id}/{artifact_path}".format(
+            run_id=run_id, artifact_path=artifact_path)
         mlflow.azureml.build_image(model_uri=model_uri, workspace=workspace)
 
         assert aml_mocks["register_model"].call_count == 1
@@ -281,7 +282,7 @@ def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(skl
         assert len(register_model_call_args) == 1
         _, register_model_call_kwargs = register_model_call_args[0]
         called_tags = register_model_call_kwargs["tags"]
-        assert called_tags["model_uri"] == model_uri 
+        assert called_tags["model_uri"] == model_uri
         assert called_tags["python_version"] ==\
             model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.PY_VERSION]
 
@@ -289,7 +290,7 @@ def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(skl
         assert len(create_image_call_args) == 1
         _, create_image_call_kwargs = create_image_call_args[0]
         image_config = create_image_call_kwargs["image_config"]
-        assert image_config.tags["model_uri"] == model_uri 
+        assert image_config.tags["model_uri"] == model_uri
         assert image_config.tags["python_version"] ==\
             model_config.flavors[pyfunc.FLAVOR_NAME][pyfunc.PY_VERSION]
 
@@ -576,7 +577,7 @@ def test_cli_build_image_with_absolute_model_path_calls_expected_azure_routines(
 @pytest.mark.large
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_cli_build_image_with_relative_model_path_calls_expected_azure_routines(sklearn_model):
-    with TempDir(chdr=True): 
+    with TempDir(chdr=True):
         model_path = "model"
         mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
 
