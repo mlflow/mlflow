@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.entities import RunInfo, RunData, Run, SourceType, LifecycleStage, RunStatus
+from mlflow.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import SearchExpression, DoubleClause, \
     MetricSearchExpression, FloatClause, ParameterSearchExpression, StringClause
@@ -193,10 +193,9 @@ def test_invalid_clauses(filter_string, error_message):
 ])
 def test_bad_comparators(entity_type, bad_comparators, entity_value):
     run = Run(run_info=RunInfo(
-        run_uuid="hi", run_id="hi", experiment_id=0, name="name",
-        source_type=SourceType.PROJECT, source_name="source-name",
-        entry_point_name="entry-point-name", user_id="user-id", status=RunStatus.FAILED,
-        start_time=0, end_time=1, source_version="version", lifecycle_stage=LifecycleStage.ACTIVE),
+        run_uuid="hi", run_id="hi", experiment_id=0,
+        user_id="user-id", status=RunStatus.FAILED,
+        start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
         run_data=RunData(metrics=[], params=[], tags=[])
     )
     for bad_comparator in bad_comparators:

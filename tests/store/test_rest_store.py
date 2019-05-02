@@ -6,7 +6,7 @@ import six
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.entities import Param, Metric, RunTag, SourceType
+from mlflow.entities import Param, Metric, RunTag
 from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogParam, LogMetric, \
     SetTag, DeleteRun, RestoreRun, CreateRun, RunTag as ProtoRunTag, LogBatch
 from mlflow.store.rest_store import RestStore
@@ -106,9 +106,8 @@ class TestRestStore(unittest.TestCase):
                 mock.patch('mlflow.tracking.client._get_user_id', return_value=user_name), \
                 mock.patch('time.time', return_value=13579):
             with mlflow.start_run(experiment_id="43", run_name=run_name, source_name=source_name):
-                cr_body = message_to_json(CreateRun(experiment_id="43", run_name='',
-                                                    user_id=user_name, source_type=SourceType.LOCAL,
-                                                    source_name=source_name, start_time=13579000,
+                cr_body = message_to_json(CreateRun(experiment_id="43",
+                                                    user_id=user_name, start_time=13579000,
                                                     tags=[ProtoRunTag(key='mlflow.source.name',
                                                                       value=source_name),
                                                           ProtoRunTag(key='mlflow.source.type',

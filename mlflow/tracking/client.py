@@ -13,10 +13,8 @@ from mlflow.tracking import utils
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
-from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
+from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
-    MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
 
 _DEFAULT_USER_ID = "unknown"
 
@@ -63,8 +61,7 @@ class MlflowClient(object):
         """
         return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
-    def create_run(self, experiment_id, user_id=None, start_time=None,
-                   parent_run_id=None, tags=None):
+    def create_run(self, experiment_id, user_id=None, start_time=None, tags=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -74,8 +71,6 @@ class MlflowClient(object):
 
         :param user_id: If not provided, use the current user as a default.
         :param start_time: If not provided, use the current timestamp.
-        :param parent_run_id Optional parent run ID - takes precedence over parent run ID included
-                             in the `tags` argument.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
         :return: :py:class:`mlflow.entities.Run` that was created.

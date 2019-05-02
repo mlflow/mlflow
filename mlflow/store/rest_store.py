@@ -3,9 +3,8 @@ import json
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.abstract_store import AbstractStore
 
-from mlflow.entities import Experiment, Run, RunInfo, RunTag, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
 
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import http_request_safe
 
@@ -149,7 +148,7 @@ class RestStore(AbstractStore):
         """
         tag_protos = [tag.to_proto() for tag in tags]
         req_body = message_to_json(CreateRun(
-            experiment_id=str(experiment_id), user_id=user_id, run_name="",
+            experiment_id=str(experiment_id), user_id=user_id,
             start_time=start_time, tags=tag_protos))
         response_proto = self._call_endpoint(CreateRun, req_body)
         run = Run.from_proto(response_proto.run)

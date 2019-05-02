@@ -316,7 +316,8 @@ class SqlAlchemyStore(AbstractStore):
             artifact_location = posixpath.join(experiment.artifact_location, run_id,
                                                SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
             run = SqlRun(name="", artifact_uri=artifact_location, run_uuid=run_id,
-                         experiment_id=experiment_id, source_type=SourceType.to_string(SourceType.UNKNOWN),
+                         experiment_id=experiment_id,
+                         source_type=SourceType.to_string(SourceType.UNKNOWN),
                          source_name="", entry_point_name="",
                          user_id=user_id, status=RunStatus.to_string(RunStatus.RUNNING),
                          start_time=start_time, end_time=None,
