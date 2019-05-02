@@ -56,7 +56,7 @@ class ArtifactRepository:
     @abstractmethod
     def list_artifacts(self, path):
         """
-        Return all the artifacts for this run_uuid directly under path. If path is a file, returns
+        Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.
 
         :param path: Relative source path that contain desired artifacts
@@ -97,7 +97,8 @@ class ArtifactRepository:
             return local_path
 
         if dst_path is None:
-            dst_path = os.path.abspath(tempfile.mkdtemp())
+            dst_path = tempfile.mkdtemp()
+        dst_path = os.path.abspath(dst_path)
 
         if not os.path.exists(dst_path):
             raise MlflowException(

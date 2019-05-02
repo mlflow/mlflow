@@ -125,7 +125,7 @@ def test_build_image_with_run_relative_model_path_calls_expected_azure_routines(
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
 
     with AzureMLMocks() as aml_mocks:
         workspace = get_azure_workspace()
@@ -251,7 +251,7 @@ def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(skl
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_config = Model.load(os.path.join(_get_model_log_dir(artifact_path, run_id), "MLmodel"))
 
     with AzureMLMocks() as aml_mocks:
@@ -562,7 +562,7 @@ def test_cli_build_image_with_run_relative_model_path_calls_expected_azure_routi
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
 
     with AzureMLMocks() as aml_mocks:
         result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
@@ -595,7 +595,7 @@ def test_cli_build_image_parses_and_includes_user_specified_tags_in_azureml_imag
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
 
     with AzureMLMocks() as aml_mocks:
         result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(

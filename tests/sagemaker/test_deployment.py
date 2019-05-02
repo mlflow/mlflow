@@ -35,7 +35,7 @@ def pretrained_model():
         lr = LogisticRegression()
         lr.fit(X, y)
         mlflow.sklearn.log_model(lr, model_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
         return TrainedModel(model_path, run_id)
 
 
@@ -184,11 +184,17 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names(
     region_name = sagemaker_client.meta.region_name
     s3_client = boto3.client("s3", region_name=region_name)
     default_bucket = mfs._get_default_s3_bucket(region_name)
+    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
+    endpoint_production_variants = endpoint_description["ProductionVariants"]
+    assert len(endpoint_production_variants) == 1
+    model_name = endpoint_production_variants[0]["VariantName"]
+    assert model_name in [
+        model["ModelName"] for model in sagemaker_client.list_models()["Models"]
+    ]
     object_names = [
-        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]]
-    assert any([pretrained_model.run_id in object_name for object_name in object_names])
-    assert any([app_name in model["ModelName"]
-                for model in sagemaker_client.list_models()["Models"]])
+        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
+    ]
+    assert any([model_name in object_name for object_name in object_names])
     assert any([app_name in config["EndpointConfigName"]
                 for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]])
     assert app_name in [endpoint["EndpointName"]
@@ -517,7 +523,7 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
     new_artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
-        new_run_id = mlflow.active_run().info.run_uuid
+        new_run_id = mlflow.active_run().info.run_id
     mfs.deploy(app_name=app_name,
                model_path=new_artifact_path,
                run_id=new_run_id,
