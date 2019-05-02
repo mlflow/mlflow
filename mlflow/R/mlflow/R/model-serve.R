@@ -39,14 +39,15 @@ mlflow_rfunc_serve <- function(
   port = 8090,
   daemonized = FALSE,
   browse = !daemonized,
-  restore = FALSE
+  restore = FALSE,
+  digits = 4
 ) {
   mlflow_restore_or_warning(restore)
 
   model_path <- resolve_model_path(model_path, run_uuid)
 
   httpuv_start <- if (daemonized) httpuv::startDaemonizedServer else httpuv::runServer
-  serve_run(model_path, host, port, httpuv_start, browse && interactive())
+  serve_run(model_path, host, port, httpuv_start, browse && interactive(), digits)
 }
 
 serve_content_type <- function(file_path) {
@@ -126,7 +127,7 @@ serve_empty_page <- function(req, sess, model) {
   )
 }
 
-serve_handlers <- function(host, port) {
+serve_handlers <- function(host, port, digits) {
   handlers <- list(
     "^/swagger.json" = function(req, model) {
       list(
@@ -160,7 +161,7 @@ serve_handlers <- function(host, port) {
           "Content-Type" = paste0(serve_content_type("json"), "; charset=UTF-8")
         ),
         body = charToRaw(enc2utf8(
-          jsonlite::toJSON(list(predictions = results), auto_unbox = TRUE)
+          jsonlite::toJSON(list(predictions = results), auto_unbox = TRUE, digits = digits)
         ))
       )
     },
@@ -188,14 +189,14 @@ message_serve_start <- function(host, port, model) {
 }
 
 #' @importFrom utils browseURL
-serve_run <- function(model_path, host, port, start, browse) {
+serve_run <- function(model_path, host, port, start, browse, digits) {
   model <- mlflow_load_model(model_path)
 
   message_serve_start(host, port, model)
 
   if (browse) browseURL(paste0("http://", host, ":", port))
 
-  handlers <- serve_handlers(host, port)
+  handlers <- serve_handlers(host, port, digits)
 
   start(host, port, list(
     onHeaders = function(req) {
