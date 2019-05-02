@@ -92,17 +92,17 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     entry_point_obj = project.get_entry_point(entry_point)
     final_params, extra_params = entry_point_obj.compute_parameters(parameters, storage_dir=None)
     for key, value in (list(final_params.items()) + list(extra_params.items())):
-        tracking.MlflowClient().log_param(active_run.info.run_uuid, key, value)
+        tracking.MlflowClient().log_param(active_run.info.run_id, key, value)
 
     repo_url = _get_git_repo_url(work_dir)
     if repo_url is not None:
         for tag in [MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_REPO_URL]:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, tag, repo_url)
+            tracking.MlflowClient().set_tag(active_run.info.run_id, tag, repo_url)
 
     # Add branch name tag if a branch is specified through -version
     if _is_valid_branch_name(work_dir, version):
         for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, tag, version)
+            tracking.MlflowClient().set_tag(active_run.info.run_id, tag, version)
 
     if mode == "databricks":
         from mlflow.projects.databricks import run_databricks
@@ -117,7 +117,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         # If a docker_env attribute is defined in MLProject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_PROJECT_ENV, "docker")
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
             _validate_docker_env(project.docker_env)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
@@ -127,7 +127,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid, MLFLOW_PROJECT_ENV, "conda")
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
             command += _get_conda_command(conda_env_name)
@@ -138,12 +138,12 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             command += _get_entry_point_command(project, entry_point, parameters, storage_dir)
             command = command_separator.join(command)
             return _run_entry_point(command, work_dir, experiment_id,
-                                    run_id=active_run.info.run_uuid)
+                                    run_id=active_run.info.run_id)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters,
             experiment_id=experiment_id,
-            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_uuid)
+            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
     supported_modes = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (mode, supported_modes))
@@ -473,7 +473,7 @@ def _maybe_set_run_terminated(active_run, status):
     """
     if active_run is None:
         return
-    run_id = active_run.info.run_uuid
+    run_id = active_run.info.run_id
     cur_status = tracking.MlflowClient().get_run(run_id).info.status
     if RunStatus.is_terminated(cur_status):
         return
@@ -562,7 +562,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
     source_version = _get_git_commit(work_dir)
     existing_run = fluent.active_run()
     if existing_run:
-        parent_run_id = existing_run.info.run_uuid
+        parent_run_id = existing_run.info.run_id
     else:
         parent_run_id = None
 
@@ -626,7 +626,7 @@ def _validate_execution_environment(project, mode):
 def _get_docker_command(image, active_run):
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
-    env_vars = _get_run_env_vars(run_id=active_run.info.run_uuid,
+    env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
                                  experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
     if tracking.utils._is_local_uri(tracking_uri):
@@ -723,11 +723,11 @@ def _build_docker_image(work_dir, project, active_run):
         os.remove(build_ctx_path)
     except Exception:  # pylint: disable=broad-except
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
-    tracking.MlflowClient().set_tag(active_run.info.run_uuid,
+    tracking.MlflowClient().set_tag(active_run.info.run_id,
 
                                     MLFLOW_DOCKER_IMAGE_NAME,
                                     tag_name)
-    tracking.MlflowClient().set_tag(active_run.info.run_uuid,
+    tracking.MlflowClient().set_tag(active_run.info.run_id,
                                     MLFLOW_DOCKER_IMAGE_ID,
                                     image[0].id)
     return tag_name

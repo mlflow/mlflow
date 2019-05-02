@@ -185,7 +185,7 @@ def test_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_model):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
 
     with AzureMLMocks() as aml_mocks:
         workspace = get_azure_workspace()
@@ -331,7 +331,7 @@ def test_build_image_includes_default_metadata_in_azure_image_and_model_tags(skl
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_uri = "runs:///{run_id}/{artifact_path}".format(
         run_id=run_id, artifact_path=artifact_path)
     model_config = Model.load(
@@ -667,7 +667,7 @@ def test_cli_build_image_with_runs_uri_calls_expected_azure_routines(sklearn_mod
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_model, artifact_path=artifact_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_uri = "runs:/{run_id}/{artifact_path}".format(
         run_id=run_id, artifact_path=artifact_path)
 

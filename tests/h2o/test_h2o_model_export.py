@@ -96,7 +96,7 @@ def test_model_log(h2o_iris_model):
 
                 # Load model
                 h2o_model_loaded = mlflow.h2o.load_model(
-                        path=artifact_path, run_id=mlflow.active_run().info.run_uuid)
+                        path=artifact_path, run_id=mlflow.active_run().info.run_id)
                 assert all(
                         h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
                         h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
@@ -168,7 +168,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         mlflow.h2o.log_model(h2o_model=h2o_iris_model.model,
                              artifact_path=artifact_path,
                              conda_env=h2o_custom_env)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -202,7 +202,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.h2o.log_model(h2o_model=h2o_iris_model.model, artifact_path=artifact_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)

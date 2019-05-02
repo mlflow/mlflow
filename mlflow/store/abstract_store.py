@@ -99,7 +99,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def get_run(self, run_uuid):
+    def get_run(self, run_id):
         """
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
         contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
@@ -109,7 +109,7 @@ class AbstractStore:
         the value at the latest timestamp for each metric. If there are multiple values with the
         latest timestamp for a given metric, the maximum of these values is returned.
 
-        :param run_uuid: Unique identifier for the run.
+        :param run_id: Unique identifier for the run.
 
         :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                  raises an exception.
@@ -117,7 +117,7 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def update_run_info(self, run_uuid, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time):
         """
         Update the metadata of the specified run.
 
@@ -158,39 +158,39 @@ class AbstractStore:
         """
         pass
 
-    def log_metric(self, run_uuid, metric):
+    def log_metric(self, run_id, metric):
         """
         Log a metric for the specified run
 
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param metric: :py:class:`mlflow.entities.Metric` instance to log
         """
-        self.log_batch(run_uuid, metrics=[metric], params=[], tags=[])
+        self.log_batch(run_id, metrics=[metric], params=[], tags=[])
 
-    def log_param(self, run_uuid, param):
+    def log_param(self, run_id, param):
         """
         Log a param for the specified run
 
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param param: :py:class:`mlflow.entities.Param` instance to log
         """
-        self.log_batch(run_uuid, metrics=[], params=[param], tags=[])
+        self.log_batch(run_id, metrics=[], params=[param], tags=[])
 
-    def set_tag(self, run_uuid, tag):
+    def set_tag(self, run_id, tag):
         """
         Set a tag for the specified run
 
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
-        self.log_batch(run_uuid, metrics=[], params=[], tags=[tag])
+        self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
-    def get_metric_history(self, run_uuid, metric_key):
+    def get_metric_history(self, run_id, metric_key):
         """
         Return a list of metric objects corresponding to all values logged for a given metric.
 
-        :param run_uuid: Unique identifier for run
+        :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
