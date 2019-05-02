@@ -168,7 +168,7 @@ def test_build_image_with_absolute_model_path_calls_expected_azure_routines(
 @mock.patch("mlflow.azureml.mlflow_version", "0.7.0")
 def test_build_image_with_relative_model_path_calls_expected_azure_routines(
         sklearn_model):
-    with TempDir(chdr=True) as tmp:
+    with TempDir(chdr=True):
         model_path = "model"
         mlflow.sklearn.save_model(sk_model=sklearn_model, path=model_path)
         with AzureMLMocks() as aml_mocks:
