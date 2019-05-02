@@ -45,7 +45,7 @@ class MlflowClient(object):
         the value at the latest timestamp for each metric. If there are multiple values with the
         latest timestamp for a given metric, the maximum of these values is returned.
 
-        :param run_uuid: Unique identifier for the run.
+        :param run_id: Unique identifier for the run.
 
         :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                  raises an exception.
@@ -62,7 +62,7 @@ class MlflowClient(object):
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
-        return self.store.get_metric_history(run_uuid=run_id, metric_key=key)
+        return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
     def create_run(self, experiment_id, user_id=None, run_name=None, start_time=None,
                    parent_run_id=None, tags=None):

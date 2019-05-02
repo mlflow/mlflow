@@ -28,50 +28,6 @@ RunStatusTypes = [
 ]
 
 
-def _create_entity(base, model):
-
-    # create dict of kwargs properties for entity and return the initialized entity
-    config = {}
-    for k in base._properties():
-        # check if its mlflow entity and build it
-        obj = getattr(model, k)
-
-        if isinstance(model, SqlRun):
-            if base is RunData:
-                # Run data contains list for metrics, params and tags
-                # so obj will be a list so we need to convert those items
-                if k == 'metrics':
-                    # only get latest recorded metrics per key
-                    metrics = {}
-                    for o in obj:
-                        existing_metric = metrics.get(o.key)
-                        if (existing_metric is None)\
-                            or ((o.step, o.timestamp, o.value) >=
-                                (existing_metric.step, existing_metric.timestamp,
-                                 existing_metric.value)):
-                            metrics[o.key] = Metric(o.key, o.value, o.timestamp, o.step)
-                    obj = list(metrics.values())
-                elif k == 'params':
-                    obj = [Param(o.key, o.value) for o in obj]
-                elif k == 'tags':
-                    obj = [RunTag(o.key, o.value) for o in obj]
-            elif base is RunInfo:
-                if k == 'source_type':
-                    obj = SourceType.from_string(obj)
-                elif k == "status":
-                    obj = RunStatus.from_string(obj)
-                elif k == "experiment_id":
-                    obj = str(obj)
-
-        # Our data model defines experiment_ids as ints, but the in-memory representation was
-        # changed to be a string in time for 1.0.
-        if isinstance(model, SqlExperiment) and k == "experiment_id":
-            obj = str(obj)
-
-        config[k] = obj
-    return base(**config)
-
-
 class SqlExperiment(Base):
     """
     DB model for :py:class:`mlflow.entities.Experiment`. These are recorded in ``experiment`` table.
@@ -114,7 +70,11 @@ class SqlExperiment(Base):
 
         :return: :py:class:`mlflow.entities.Experiment`.
         """
-        return _create_entity(Experiment, self)
+        return Experiment(
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            artifact_location=self.artifact_location,
+            lifecycle_stage=self.lifecycle_stage)
 
 
 class SqlRun(Base):
@@ -197,10 +157,39 @@ class SqlRun(Base):
 
         :return: :py:class:`mlflow.entities.Run`.
         """
-        # run has diff parameter names in __init__ than in properties_ so we do this manually
-        info = _create_entity(RunInfo, self)
-        data = _create_entity(RunData, self)
-        return Run(run_info=info, run_data=data)
+        run_info = RunInfo(
+            run_uuid=self.run_uuid,
+            run_id=self.run_uuid,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            source_type=SourceType.from_string(self.source_type),
+            source_name=self.source_name,
+            entry_point_name=self.entry_point_name,
+            user_id=self.user_id,
+            status=RunStatus.from_string(self.status),
+            start_time=self.start_time,
+            end_time=self.end_time,
+            source_version=self.source_version,
+            lifecycle_stage=self.lifecycle_stage,
+            artifact_uri=self.artifact_uri)
+
+        # only get latest recorded metrics per key
+        all_metrics = [m.to_mlflow_entity() for m in self.metrics]
+        metrics = {}
+        for m in all_metrics:
+            existing_metric = metrics.get(m.key)
+            if (existing_metric is None)\
+                or ((m.step, m.timestamp, m.value) >=
+                    (existing_metric.step, existing_metric.timestamp,
+                        existing_metric.value)):
+                metrics[m.key] = m
+
+        run_data = RunData(
+            metrics=list(metrics.values()),
+            params=[p.to_mlflow_entity() for p in self.params],
+            tags=[t.to_mlflow_entity() for t in self.tags])
+
+        return Run(run_info=run_info, run_data=run_data)
 
 
 class SqlTag(Base):
@@ -239,7 +228,9 @@ class SqlTag(Base):
 
         :return: :py:class:`mlflow.entities.RunTag`.
         """
-        return _create_entity(RunTag, self)
+        return RunTag(
+            key=self.key,
+            value=self.value)
 
 
 class SqlMetric(Base):
@@ -285,7 +276,11 @@ class SqlMetric(Base):
 
         :return: :py:class:`mlflow.entities.Metric`.
         """
-        return _create_entity(Metric, self)
+        return Metric(
+            key=self.key,
+            value=self.value,
+            timestamp=self.timestamp,
+            step=self.step)
 
 
 class SqlParam(Base):
@@ -322,4 +317,6 @@ class SqlParam(Base):
 
         :return: :py:class:`mlflow.entities.Param`.
         """
-        return _create_entity(Param, self)
+        return Param(
+            key=self.key,
+            value=self.value)

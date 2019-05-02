@@ -212,9 +212,9 @@ service MlflowService {
     };
   }
 
-  // Get metadata, params, tags, and metrics for a run. Only the last logged value for each metric
-  // is returned.
-  //
+  // Get metadata, params, tags, and metrics for a run. In the case where multiple metrics
+  // with the same key are logged for a run, return only the value with the latest timestamp.
+  // If there are multiple values with the latest timestamp, return the maximum of these values.
   rpc getRun (GetRun) returns (GetRun.Response) {
     option (rpc) = {
       endpoints: [{
@@ -443,8 +443,12 @@ message RunTag {
 
 // Metadata of a single run.
 message RunInfo {
-  // Unique identifier for the run.
+  // [Deprecated, use run_id instead] Unique identifier for the run. This field will
+  // be removed in a future MLflow version.
   optional string run_uuid = 1;
+
+  // Unique identifier for the run.
+  optional string run_id = 15;
 
   // The experiment ID.
   optional string experiment_id = 2;
@@ -650,8 +654,12 @@ message CreateRun {
 message UpdateRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run to update.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run to update.. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run to update. Must be provided.
+  optional string run_id = 4;
 
   // Updated status of the run.
   optional RunStatus status = 2;
@@ -685,8 +693,12 @@ message RestoreRun {
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the metric.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run under which to log the metric. Must be provided.
+  optional string run_id = 6;
 
   // Name of the metric.
   optional string key = 2 [(validate_required) = true];
@@ -707,8 +719,12 @@ message LogMetric {
 message LogParam {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the param.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run under which to log the param. Must be provided.
+  optional string run_id = 4;
 
   // Name of the param. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
@@ -723,8 +739,12 @@ message LogParam {
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to set the tag.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run under which to log the tag. Must be provided.
+  optional string run_id = 4;
 
   // Name of the tag. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
@@ -739,8 +759,12 @@ message SetTag {
 message GetRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run to fetch.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run to fetch. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of he run to fetch. Must be provided.
+  optional string run_id = 2;
 
   message Response {
     // Run metadata (name, start time, etc) and data (metrics, params, etc).
@@ -851,8 +875,12 @@ message SearchRuns {
 message ListArtifacts {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run whose artifacts to list.
+  // [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+  // be removed in a future MLflow version.
   optional string run_uuid = 1;
+
+  // ID of the run whose artifacts to list. Must be provided.
+  optional string run_id = 3;
 
   // Filter artifacts matching this path (a relative path from the root artifact directory).
   optional string path = 2;
@@ -878,26 +906,15 @@ message FileInfo {
   optional int64 file_size = 3;
 }
 
-message GetArtifact {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // ID of the run from which to fetch the artifact.
-  optional string run_uuid = 1;
-
-  // Path of the artifact to fetch (relative to the root artifact directory for the run).
-  optional string path = 2;
-
-  message Response {
-    // Empty because the data of the file will be streamed back in the HTTP response.
-    // The response will have an HTTP status code of 404 if the artifact path is not found.
-  }
-}
-
 message GetMetricHistory {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run from which to fetch metric values.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+  // will be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run from which to fetch metric values. Must be provided.
+  optional string run_id = 3;
 
   // Name of the metric.
   optional string metric_key = 2 [(validate_required) = true];

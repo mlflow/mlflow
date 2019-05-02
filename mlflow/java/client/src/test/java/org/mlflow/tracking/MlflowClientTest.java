@@ -305,7 +305,7 @@ public class MlflowClientTest {
     // Test logging just metrics
     {
       RunInfo runCreated = client.createRun(expId);
-      String runUuid = runCreated.getRunUuid();
+      String runUuid = runCreated.getRunId();
       logger.debug("runUuid=" + runUuid);
 
       List<Metric> metrics = new ArrayList<>(Arrays.asList(createMetric("met1", 0.081D, 10),
@@ -313,7 +313,7 @@ public class MlflowClientTest {
       client.logBatch(runUuid, metrics, null, null);
 
       Run run = client.getRun(runUuid);
-      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+      Assert.assertEquals(run.getInfo().getRunId(), runUuid);
 
       List<Metric> loggedMetrics = run.getData().getMetricsList();
       Assert.assertEquals(loggedMetrics.size(), 2);
@@ -324,7 +324,7 @@ public class MlflowClientTest {
     // Test logging just params
     {
       RunInfo runCreated = client.createRun(expId);
-      String runUuid = runCreated.getRunUuid();
+      String runUuid = runCreated.getRunId();
       logger.debug("runUuid=" + runUuid);
 
       Set<Param> params = new HashSet<Param>(Arrays.asList(
@@ -334,7 +334,7 @@ public class MlflowClientTest {
       client.logBatch(runUuid, null, params, null);
 
       Run run = client.getRun(runUuid);
-      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+      Assert.assertEquals(run.getInfo().getRunId(), runUuid);
 
       List<Param> loggedParams = run.getData().getParamsList();
       Assert.assertEquals(loggedParams.size(), 3);
@@ -346,7 +346,7 @@ public class MlflowClientTest {
     // Test logging just tags
     {
       RunInfo runCreated = client.createRun(expId);
-      String runUuid = runCreated.getRunUuid();
+      String runUuid = runCreated.getRunId();
       logger.debug("runUuid=" + runUuid);
 
       Stack<RunTag> tags = new Stack();
@@ -354,7 +354,7 @@ public class MlflowClientTest {
       client.logBatch(runUuid, null, null, tags);
 
       Run run = client.getRun(runUuid);
-      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+      Assert.assertEquals(run.getInfo().getRunId(), runUuid);
 
       List<RunTag> loggedTags = run.getData().getTagsList();
       Assert.assertEquals(loggedTags.size(), 1);
@@ -364,7 +364,7 @@ public class MlflowClientTest {
     // All
     {
       RunInfo runCreated = client.createRun(expId);
-      String runUuid = runCreated.getRunUuid();
+      String runUuid = runCreated.getRunId();
       logger.debug("runUuid=" + runUuid);
 
       List<Metric> metrics = new LinkedList<>(Arrays.asList(createMetric("m1", 32.23D, 12)));
@@ -376,7 +376,7 @@ public class MlflowClientTest {
       client.logBatch(runUuid, metrics, params, tags);
 
       Run run = client.getRun(runUuid);
-      Assert.assertEquals(run.getInfo().getRunUuid(), runUuid);
+      Assert.assertEquals(run.getInfo().getRunId(), runUuid);
 
       List<Metric> loggedMetrics = run.getData().getMetricsList();
       Assert.assertEquals(loggedMetrics.size(), 1);
@@ -404,7 +404,7 @@ public class MlflowClientTest {
 
     RunInfo runCreated = client.createRun(expId, sourceFile);
     Assert.assertEquals(runCreated.getLifecycleStage(), "active");
-    String deleteRunId = runCreated.getRunUuid();
+    String deleteRunId = runCreated.getRunId();
     client.deleteRun(deleteRunId);
     Assert.assertEquals(client.getRun(deleteRunId).getInfo().getLifecycleStage(), "deleted");
     client.restoreRun(deleteRunId);

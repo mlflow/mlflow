@@ -55,13 +55,16 @@ public class MlflowClient {
    * @return Run associated with the id.
    */
   public Run getRun(String runId) {
-    URIBuilder builder = newURIBuilder("runs/get").setParameter("run_uuid", runId);
+    URIBuilder builder = newURIBuilder("runs/get")
+      .setParameter("run_uuid", runId)
+      .setParameter("run_id", runId);
     return mapper.toGetRunResponse(httpCaller.get(builder.toString())).getRun();
   }
 
   public List<Metric> getMetricHistory(String runId, String key) {
     URIBuilder builder = newURIBuilder("metrics/get-history")
       .setParameter("run_uuid", runId)
+      .setParameter("run_id", runId)
       .setParameter("metric_key", key);
     return mapper.toGetMetricHistoryResponse(httpCaller.get(builder.toString())).getMetricsList();
   }

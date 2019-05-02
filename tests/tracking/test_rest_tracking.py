@@ -223,10 +223,11 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     experiment_id = mlflow_client.create_experiment('Run A Lot (parent_run_id=%s)'
                                                     % (parent_run_id_kwarg))
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
-    run_id = created_run.info.run_uuid
+    run_id = created_run.info.run_id
     print("Run id=%s" % run_id)
 
     run = mlflow_client.get_run(run_id)
+    assert run.info.run_id == run_id
     assert run.info.run_uuid == run_id
     assert run.info.experiment_id == experiment_id
     assert run.info.user_id == create_run_kwargs["user_id"]
@@ -245,9 +246,9 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
 def test_create_run_defaults(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Run A Little')
     created_run = mlflow_client.create_run(experiment_id)
-    run_id = created_run.info.run_uuid
+    run_id = created_run.info.run_id
     run = mlflow_client.get_run(run_id)
-    assert run.info.run_uuid == run_id
+    assert run.info.run_id == run_id
     assert run.info.experiment_id == experiment_id
     assert run.info.user_id is not None  # we should pick some default
 
@@ -255,7 +256,7 @@ def test_create_run_defaults(mlflow_client):
 def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment('Oh My')
     created_run = mlflow_client.create_run(experiment_id)
-    run_id = created_run.info.run_uuid
+    run_id = created_run.info.run_id
     mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789, step=2)
     mlflow_client.log_metric(run_id, key='stepless-metric', value=987.654, timestamp=321)
     mlflow_client.log_param(run_id, 'param', 'value')
@@ -284,7 +285,7 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
 def test_log_batch(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment('Batch em up')
     created_run = mlflow_client.create_run(experiment_id)
-    run_id = created_run.info.run_uuid
+    run_id = created_run.info.run_id
     mlflow_client.log_batch(
         run_id=run_id,
         metrics=[Metric("metric", 123.456, 789, 3)], params=[Param("param", "value")],
@@ -305,7 +306,7 @@ def test_log_batch(mlflow_client, backend_store_uri):
 def test_set_terminated_defaults(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Terminator 1')
     created_run = mlflow_client.create_run(experiment_id)
-    run_id = created_run.info.run_uuid
+    run_id = created_run.info.run_id
     assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'RUNNING'
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id)
@@ -316,7 +317,7 @@ def test_set_terminated_defaults(mlflow_client):
 def test_set_terminated_status(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Terminator 2')
     created_run = mlflow_client.create_run(experiment_id)
-    run_id = created_run.info.run_uuid
+    run_id = created_run.info.run_id
     assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'RUNNING'
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id, 'FAILED')
@@ -327,7 +328,7 @@ def test_set_terminated_status(mlflow_client):
 def test_artifacts(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Art In Fact')
     created_run = mlflow_client.create_run(experiment_id)
-    run_id = created_run.info.run_uuid
+    run_id = created_run.info.run_id
     src_dir = tempfile.mkdtemp('test_artifacts_src')
     src_file = os.path.join(src_dir, 'my.file')
     with open(src_file, 'w') as f:

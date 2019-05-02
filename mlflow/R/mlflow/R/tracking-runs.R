@@ -18,6 +18,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, run_id = NULL, clien
   timestamp <- timestamp %||% current_time()
   mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
     run_uuid = run_id,
+    run_id = run_id,
     key = key,
     value = value,
     timestamp = timestamp
@@ -103,7 +104,7 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
   response <- mlflow_rest(
     "runs", "get",
     client = client, verb = "GET",
-    query = list(run_uuid = run_id)
+    query = list(run_uuid = run_id, run_id = run_id)
   )
   parse_run(response$run)
 }
@@ -177,6 +178,7 @@ mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
 
   mlflow_rest("runs", "set-tag", client = client, verb = "POST", data = list(
     run_uuid = run_id,
+    run_id = run_id,
     key = key,
     value = value
   ))
@@ -204,6 +206,7 @@ mlflow_log_param <- function(key, value, run_id = NULL, client = NULL) {
 
   mlflow_rest("runs", "log-parameter", client = client, verb = "POST", data = list(
     run_uuid = run_id,
+    run_id = run_id,
     key = key,
     value = cast_string(value)
   ))
@@ -229,7 +232,7 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
   response <- mlflow_rest(
     "metrics", "get-history",
     client = client, verb = "GET",
-    query = list(run_uuid = run_id, metric_key = metric_key)
+    query = list(run_uuid = run_id, run_id = run_id, metric_key = metric_key)
   )
 
   response$metrics %>%
@@ -289,6 +292,7 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
     client = client, verb = "GET",
     query = list(
       run_uuid = run_id,
+      run_id = run_id,
       path = path
     )
   )
@@ -305,6 +309,7 @@ mlflow_set_terminated <- function(status, end_time, run_id, client) {
 
   response <- mlflow_rest("runs", "update", verb = "POST", client = client, data = list(
     run_uuid = run_id,
+    run_id = run_id,
     status = status,
     end_time = end_time
   ))
@@ -446,10 +451,10 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #'   source name and version, and also registers the created run as the active run. If `client` is provided,
 #'   no inference is done, and additional arguments such as `user_id` and `start_time` can be provided.
 #'
-#' @param run_uuid If specified, get the run with the specified UUID and log metrics
+#' @param run_id If specified, get the run with the specified UUID and log metrics
 #'   and params under that run. The run's end time is unset and its status is set to
 #'   running, but the run's other attributes remain unchanged.
-#' @param experiment_id Used only when `run_uuid` is unspecified. ID of the experiment under
+#' @param experiment_id Used only when `run_id` is unspecified. ID of the experiment under
 #'   which to create the current run. If unspecified, the run is created under
 #'   a new experiment with a randomly generated name.
 #' @param source_name Name of the source file or URI of the project to be associated with the run.
@@ -471,7 +476,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' }
 #'
 #' @export
-mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name = NULL,
+mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, source_name = NULL,
                              source_version = NULL, entry_point_name = NULL,
                              source_type = NULL, user_id = NULL, run_name = NULL, start_time = NULL,
                              tags = NULL, client = NULL) {
@@ -479,7 +484,7 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
   # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
   #  an active run.
   if (!is.null(client)) {
-    if (!is.null(run_uuid)) stop("`run_uuid` should not be specified when `client` is specified.", call. = FALSE)
+    if (!is.null(run_id)) stop("`run_id` should not be specified when `client` is specified.", call. = FALSE)
     run <- mlflow_create_run(client = client, user_id = user_id, run_name = run_name, source_type = source_type,
                              source_name = source_name, entry_point_name = entry_point_name, start_time = start_time,
                              source_version = source_version, tags = tags, experiment_id = experiment_id)
@@ -501,16 +506,16 @@ mlflow_start_run <- function(run_uuid = NULL, experiment_id = NULL, source_name 
     )
   }
 
-  existing_run_uuid <- run_uuid %||% {
+  existing_run_id <- run_id %||% {
     env_run_id <- Sys.getenv("MLFLOW_RUN_ID")
     if (nchar(env_run_id)) env_run_id
   }
 
   client <- mlflow_client()
 
-  run <- if (!is.null(existing_run_uuid)) {
+  run <- if (!is.null(existing_run_id)) {
     # This is meant to pick up existing run when we're inside `mlflow_source()` called via `mlflow run`.
-    mlflow_get_run(client = client, run_id = existing_run_uuid)
+    mlflow_get_run(client = client, run_id = existing_run_id)
   } else {
     experiment_id <- mlflow_infer_experiment_id(experiment_id)
     client <- mlflow_client()

@@ -268,10 +268,10 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException('Experiment id={} must be active'.format(experiment_id),
                                       INVALID_STATE)
 
-            run_uuid = uuid.uuid4().hex
-            artifact_location = build_path(experiment.artifact_location, run_uuid,
+            run_id = uuid.uuid4().hex
+            artifact_location = build_path(experiment.artifact_location, run_id,
                                            SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
-            run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_uuid,
+            run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_id,
                          experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                          source_name=source_name, entry_point_name=entry_point_name,
                          user_id=user_id, status=RunStatus.to_string(RunStatus.RUNNING),
@@ -315,9 +315,9 @@ class SqlAlchemyStore(AbstractStore):
                                   .format(run.run_uuid, run.lifecycle_stage),
                                   INVALID_PARAMETER_VALUE)
 
-    def update_run_info(self, run_uuid, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.status = RunStatus.to_string(run_status)
             run.end_time = end_time
@@ -327,9 +327,9 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.info
 
-    def get_run(self, run_uuid):
+    def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             return run.to_mlflow_entity()
 
     def restore_run(self, run_id):
@@ -346,30 +346,30 @@ class SqlAlchemyStore(AbstractStore):
             run.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=run, session=session)
 
-    def log_metric(self, run_uuid, metric):
+    def log_metric(self, run_id, metric):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
-            self._get_or_create(model=SqlMetric, run_uuid=run_uuid, key=metric.key,
+            self._get_or_create(model=SqlMetric, run_uuid=run_id, key=metric.key,
                                 value=metric.value, timestamp=metric.timestamp, step=metric.step,
                                 session=session)
 
-    def get_metric_history(self, run_uuid, metric_key):
+    def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
-            metrics = session.query(SqlMetric).filter_by(run_uuid=run_uuid, key=metric_key).all()
+            metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
             return [metric.to_mlflow_entity() for metric in metrics]
 
-    def log_param(self, run_uuid, param):
+    def log_param(self, run_id, param):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             # if we try to update the value of an existing param this will fail
             # because it will try to create it with same run_uuid, param key
             try:
                 # This will check for various integrity checks for params table.
                 # ToDo: Consider prior checks for null, type, param name validations, ... etc.
-                self._get_or_create(model=SqlParam, session=session, run_uuid=run_uuid,
+                self._get_or_create(model=SqlParam, session=session, run_uuid=run_id,
                                     key=param.key, value=param.value)
                 # Explicitly commit the session in order to catch potential integrity errors
                 # while maintaining the current managed session scope ("commit" checks that
@@ -396,15 +396,15 @@ class SqlAlchemyStore(AbstractStore):
                         "Changing param value is not allowed. Param with key='{}' was already"
                         " logged with value='{}' for run ID='{}. Attempted logging new value"
                         " '{}'.".format(
-                            param.key, old_value, run_uuid, param.value), INVALID_PARAMETER_VALUE)
+                            param.key, old_value, run_id, param.value), INVALID_PARAMETER_VALUE)
                 else:
                     raise
 
-    def set_tag(self, run_uuid, tag):
+    def set_tag(self, run_id, tag):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            session.merge(SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
+            session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
     def search_runs(self, experiment_ids, search_filter, run_view_type,
                     max_results=SEARCH_MAX_RESULTS_THRESHOLD):

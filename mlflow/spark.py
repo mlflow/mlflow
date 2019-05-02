@@ -109,7 +109,7 @@ def log_model(spark_model, artifact_path, conda_env=None, jars=None, dfs_tmpdir=
     >>> mlflow.spark.log_model(model, "spark-model")
     """
     _validate_model(spark_model, jars)
-    run_id = mlflow.tracking.fluent._get_or_start_run().info.run_uuid
+    run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
     # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model,
     # since Spark may not be able to write directly to the driver's filesystem. For example,

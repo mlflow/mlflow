@@ -132,7 +132,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_uuid
+        sklearn_run_id = mlflow.active_run().info.run_id
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -146,7 +146,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
                                         run_id=sklearn_run_id)
                                 },
                                 python_model=main_scoped_model_class(test_predict))
-        pyfunc_run_id = mlflow.active_run().info.run_uuid
+        pyfunc_run_id = mlflow.active_run().info.run_id
 
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_artifact_path, run_id=pyfunc_run_id)
     np.testing.assert_array_equal(
@@ -362,7 +362,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_uuid
+        sklearn_run_id = mlflow.active_run().info.run_id
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
@@ -374,7 +374,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
                                 },
                                 python_model=main_scoped_model_class(predict_fn=None),
                                 conda_env=pyfunc_custom_env)
-        pyfunc_run_id = mlflow.active_run().info.run_uuid
+        pyfunc_run_id = mlflow.active_run().info.run_id
 
     pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
     pyfunc_conf = _get_flavor_configuration(
@@ -418,7 +418,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_uuid
+        sklearn_run_id = mlflow.active_run().info.run_id
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
@@ -429,7 +429,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
                                         run_id=sklearn_run_id)
                                 },
                                 python_model=main_scoped_model_class(predict_fn=None))
-        pyfunc_run_id = mlflow.active_run().info.run_uuid
+        pyfunc_run_id = mlflow.active_run().info.run_id
 
     pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
     pyfunc_conf = _get_flavor_configuration(

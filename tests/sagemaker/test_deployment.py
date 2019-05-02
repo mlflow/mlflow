@@ -35,7 +35,7 @@ def pretrained_model():
         lr = LogisticRegression()
         lr.fit(X, y)
         mlflow.sklearn.log_model(lr, model_path)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
         return TrainedModel(model_path, run_id)
 
 
@@ -523,7 +523,7 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
     new_artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
-        new_run_id = mlflow.active_run().info.run_uuid
+        new_run_id = mlflow.active_run().info.run_id
     mfs.deploy(app_name=app_name,
                model_path=new_artifact_path,
                run_id=new_run_id,

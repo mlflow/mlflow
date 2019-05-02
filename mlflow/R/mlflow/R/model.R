@@ -128,7 +128,7 @@ mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
 #' Performs prediction using an RFunc MLflow model from a file or data frame.
 #'
 #' @param model_path The path to the MLflow model, as a string.
-#' @param run_uuid Run ID of run to grab the model from.
+#' @param run_id Run ID of run to grab the model from.
 #' @param input_path Path to 'JSON' or 'CSV' file to be used for prediction.
 #' @param output_path 'JSON' or 'CSV' file where the prediction will be written to.
 #' @param data Data frame to be scored. This can be used for testing purposes and can only
@@ -154,7 +154,7 @@ mlflow_load_model <- function(model_path, flavor = NULL, run_id = NULL) {
 #' @export
 mlflow_rfunc_predict <- function(
   model_path,
-  run_uuid = NULL,
+  run_id = NULL,
   input_path = NULL,
   output_path = NULL,
   data = NULL,
@@ -162,7 +162,7 @@ mlflow_rfunc_predict <- function(
 ) {
   mlflow_restore_or_warning(restore)
 
-  model_path <- resolve_model_path(model_path, run_uuid)
+  model_path <- resolve_model_path(model_path, run_id)
 
   if (!xor(is.null(input_path), is.null(data)))
     stop("One and only one of `input_path` or `data` must be specified.")
@@ -195,9 +195,9 @@ mlflow_rfunc_predict <- function(
   }
 }
 
-resolve_model_path <- function(model_path, run_uuid, client = mlflow_client()) {
-  if (!is.null(run_uuid)) {
-    result <- mlflow_cli("artifacts", "download", "--run-id", run_uuid, "-a", model_path,
+resolve_model_path <- function(model_path, run_id, client = mlflow_client()) {
+  if (!is.null(run_id)) {
+    result <- mlflow_cli("artifacts", "download", "--run-id", run_id, "-a", model_path,
                          echo = FALSE, client = client)
     gsub("\n", "", result$stdout)
   } else {
