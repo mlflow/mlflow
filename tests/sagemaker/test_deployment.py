@@ -2,7 +2,6 @@ from __future__ import absolute_import
 
 import os
 import pytest
-from six.moves import urllib
 import time
 import mock
 from collections import namedtuple
@@ -138,8 +137,8 @@ def test_deployment_of_model_with_no_supported_flavors_raises_exception(pretrain
 @pytest.mark.large
 def test_validate_deployment_flavor_validates_python_function_flavor_successfully(
         pretrained_model):
-    model_config_path = os.path.join(_download_artifact_from_uri(pretrained_model.model_uri),
-                                     "MLmodel")
+    model_config_path = os.path.join(
+        _download_artifact_from_uri(pretrained_model.model_uri), "MLmodel")
     model_config = Model.load(model_config_path)
     mfs._validate_deployment_flavor(
             model_config=model_config, flavor=mlflow.pyfunc.FLAVOR_NAME)
@@ -147,8 +146,8 @@ def test_validate_deployment_flavor_validates_python_function_flavor_successfull
 
 @pytest.mark.large
 def test_get_preferred_deployment_flavor_obtains_valid_flavor_from_model(pretrained_model):
-    model_config_path = os.path.join(_download_artifact_from_uri(pretrained_model.model_uri),
-                                     "MLmodel")
+    model_config_path = os.path.join(
+        _download_artifact_from_uri(pretrained_model.model_uri), "MLmodel")
     model_config = Model.load(model_config_path)
 
     selected_flavor = mfs._get_preferred_deployment_flavor(model_config=model_config)
@@ -175,50 +174,6 @@ def test_attempting_to_deploy_in_asynchronous_mode_without_archiving_throws_exce
 @mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_local(
         pretrained_model, sagemaker_client):
-    local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
-    app_name = "test-app"
-    mfs.deploy(app_name=app_name,
-               model_uri=local_model_path,
-               mode=mfs.DEPLOYMENT_MODE_CREATE)
-
-    assert any([app_name in model["ModelName"]
-                for model in sagemaker_client.list_models()["Models"]])
-    assert any([app_name in config["EndpointConfigName"]
-                for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]])
-    assert app_name in [endpoint["EndpointName"]
-                        for endpoint in sagemaker_client.list_endpoints()["Endpoints"]]
-
-
-# @mock_sagemaker_aws_services
-# def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
-#         pretrained_model, sagemaker_client):
-#
-#     # TODO(sueann): this case is meant to test using a remote filestore URI as the model_uri
-#     #  so we're uploading the model to S3 here. it doesn't work yet because we're trying to
-#     #  upload a directory here - so this needs to be fixed.
-#     local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
-#     region_name = sagemaker_client.meta.region_name
-#     default_bucket = mfs._get_default_s3_bucket(region_name)
-#     s3_artifact_repo = S3ArtifactRepository('s3://{}'.format(default_bucket))
-#     s3_artifact_repo.log_artifact(local_model_path)
-#     model_s3_uri = 's3:/{}/{}'.format(default_bucket, pretrained_model.model_path)
-#
-#     app_name = "test-app"
-#     mfs.deploy(app_name=app_name,
-#                model_uri=model_s3_uri,
-#                mode=mfs.DEPLOYMENT_MODE_CREATE)
-#
-#     assert any([app_name in model["ModelName"]
-#                 for model in sagemaker_client.list_models()["Models"]])
-#     assert any([app_name in config["EndpointConfigName"]
-#                 for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]])
-#     assert app_name in [endpoint["EndpointName"]
-#                         for endpoint in sagemaker_client.list_endpoints()["Endpoints"]]
-
-
-@mock_sagemaker_aws_services
-def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names(
-        pretrained_model, sagemaker_client):
     app_name = "test-app"
     mfs.deploy(app_name=app_name,
                model_uri=pretrained_model.model_uri,
@@ -234,6 +189,43 @@ def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names(
     assert model_name in [
         model["ModelName"] for model in sagemaker_client.list_models()["Models"]
     ]
+    object_names = [
+        entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
+    ]
+    assert any([model_name in object_name for object_name in object_names])
+    assert any([app_name in config["EndpointConfigName"]
+                for config in sagemaker_client.list_endpoint_configs()["EndpointConfigs"]])
+    assert app_name in [endpoint["EndpointName"]
+                        for endpoint in sagemaker_client.list_endpoints()["Endpoints"]]
+
+
+@pytest.mark.large
+@mock_sagemaker_aws_services
+def test_deploy_creates_sagemaker_and_s3_resources_with_expected_names_from_s3(
+        pretrained_model, sagemaker_client):
+    local_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
+    artifact_path = "model"
+    region_name = sagemaker_client.meta.region_name
+    default_bucket = mfs._get_default_s3_bucket(region_name)
+    s3_artifact_repo = S3ArtifactRepository('s3://{}'.format(default_bucket))
+    s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
+    model_s3_uri = 's3://{bucket_name}/{artifact_path}'.format(
+        bucket_name=default_bucket, artifact_path=pretrained_model.model_path)
+
+    app_name = "test-app"
+    mfs.deploy(app_name=app_name,
+               model_uri=model_s3_uri,
+               mode=mfs.DEPLOYMENT_MODE_CREATE)
+
+    endpoint_description = sagemaker_client.describe_endpoint(EndpointName=app_name)
+    endpoint_production_variants = endpoint_description["ProductionVariants"]
+    assert len(endpoint_production_variants) == 1
+    model_name = endpoint_production_variants[0]["VariantName"]
+    assert model_name in [
+        model["ModelName"] for model in sagemaker_client.list_models()["Models"]
+    ]
+
+    s3_client = boto3.client("s3", region_name=region_name)
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
@@ -549,7 +541,6 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
     new_artifact_path = "model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sk_model, artifact_path=new_artifact_path)
-        new_run_id = mlflow.active_run().info.run_uuid
     mfs.deploy(app_name=app_name,
                model_uri=pretrained_model.model_uri,
                mode=mfs.DEPLOYMENT_MODE_REPLACE,
