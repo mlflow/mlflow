@@ -6,6 +6,7 @@ import mock
 from mlflow.projects import kubernetes as kb
 from mlflow import tracking
 
+
 def test_run_command_creation():  # pylint: disable=unused-argument
     """
     Tests command creation.
@@ -13,6 +14,7 @@ def test_run_command_creation():  # pylint: disable=unused-argument
     parameters = {'alpha': '0.5'}
     command = job_definition = kb._get_run_command(parameters)
     assert ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5'] == command
+
 
 def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     """
@@ -32,20 +34,24 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     assert container_spec['env'][0]['name'] == 'RUN_ID'
     assert container_spec['env'][0]['value'] == '1'
 
+
 def test_run_kubernetes_job():
     image = 'mlflow-docker-example-5e74a5a'
     namespace = 'default'
     parameters = {'alpha': '0.5'}
     env_vars = {'RUN_ID': '1'}
     kube_context = "docker-for-desktop"
-    with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kubernetes_api_mock:
-        job_name = kb.run_kubernetes_job(image=image, job_namespace=namespace,
-                                         image_namespace=namespace, parameters=parameters,
-                                         env_vars=env_vars, kube_context=kube_context)
-        assert job_name.startswith(image)
-        assert kubernetes_api_mock.call_count == 1
-        args = kubernetes_api_mock.call_args_list
-        assert args[0][1]['namespace'] == namespace
+    with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
+        with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
+                job_name = kb.run_kubernetes_job(image=image, job_namespace=namespace,
+                                                image_namespace=namespace, parameters=parameters,
+                                                env_vars=env_vars, kube_context=kube_context)
+                assert job_name.startswith(image)
+                assert kube_api_mock.call_count == 1
+                args = kube_api_mock.call_args_list
+                assert args[0][1]['namespace'] == namespace
+                args = kube_config_mock.call_args_list
+                assert args[0][1]['context'] == kube_context
 
 def test_push_image_to_registry():
     image = 'image'
@@ -61,6 +67,7 @@ def test_push_image_to_registry():
         args = client.images.push.call_args_list
         assert args[0][1]['repository'] == registry + '/' + namespace + '/' + image
         assert args[0][1]['auth_config'] == json.loads(docker_repo_auth_config)
+
 
 def test_push_image_to_dockerhub():
     image = 'image'

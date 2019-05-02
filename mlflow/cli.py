@@ -83,7 +83,7 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
-@click.option("--docker-auth-config", metavar="MLFLOW_DOCKER_AUTH_CONFIG", 
+@click.option("--docker-auth-config", metavar="MLFLOW_DOCKER_AUTH_CONFIG",
               envvar="MLFLOW_DOCKER_AUTH_CONFIG",
               help="Username and Password for Docker authentication.")
 @click.option("--kube-context", metavar="MLFLOW_KUBE_CONTEXT", envvar="MLFLOW_KUBE_CONTEXT",
