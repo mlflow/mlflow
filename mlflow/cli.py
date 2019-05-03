@@ -17,6 +17,7 @@ import mlflow.rfunc.cli
 import mlflow.sagemaker.cli
 import mlflow.runs
 import mlflow.store.db.utils
+import mlflow.db
 
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.logging_utils import eprint
@@ -256,17 +257,6 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
 
-@cli.command()
-@click.argument("url")
-def upgradedb(url):
-    """
-    Upgrade the schema of an MLflow tracking database to the latest supported version.
-    version. Note that schema migrations can be slow and are not guaranteed to be transactional -
-    we recommend taking a backup of your database before running migrations.
-    """
-    mlflow.store.db.utils._upgrade_db(url)
-
-
 cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
 cli.add_command(mlflow.rfunc.cli.commands)
@@ -275,6 +265,7 @@ cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
+cli.add_command(mlflow.db.commands)
 
 if __name__ == '__main__':
     cli()

@@ -10,7 +10,7 @@ from alembic.autogenerate import compare_metadata
 import sqlalchemy
 from sqlalchemy.schema import MetaData
 
-from mlflow import cli
+import mlflow.db
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.dbmodels.models import Base
@@ -59,7 +59,7 @@ def test_running_migrations_generates_expected_schema(tmpdir, expected_schema_fi
     """Test that migrating an existing database generates the desired schema."""
     engine = sqlalchemy.create_engine(db_url)
     InitialBase.metadata.create_all(engine)
-    invoke_cli_runner(cli.upgradedb, db_url)
+    invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
     engine = sqlalchemy.create_engine(db_url)
     created_tables_metadata = MetaData(bind=engine)
     created_tables_metadata.reflect()
@@ -90,7 +90,7 @@ def test_sqlalchemy_store_detects_schema_mismatch(
         command.upgrade(config, rev.revision)
         _assert_invalid_schema(engine)
     # Run migrations, schema verification should now pass
-    invoke_cli_runner(cli.upgradedb, db_url)
+    invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
     SqlAlchemyStore._verify_schema(engine)
 
 

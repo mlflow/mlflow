@@ -12,13 +12,14 @@ import time
 import mlflow
 import uuid
 
+import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.dbmodels import models
-from mlflow import entities, cli
+from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.search_utils import SearchFilter
@@ -1118,7 +1119,7 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
         self.db_url = "sqlite:///%s" % self.tmpfile
         engine = sqlalchemy.create_engine(self.db_url)
         InitialBase.metadata.create_all(engine)
-        invoke_cli_runner(cli.upgradedb, self.db_url)
+        invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
 
     def tearDown(self):

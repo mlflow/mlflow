@@ -276,9 +276,9 @@ For backwards compatibility, ``--file-store`` is an alias for --backend-store-ur
 
     ``mlflow server`` will fail against a database-backed store with an out-of-date database schema.
     To prevent this, upgrade your database schema to the latest supported version via
-    ``mlflow upgradedb [db_uri]``. Note that schema migrations can result in database downtime, may
+    ``mlflow db upgrade [db_uri]``. Note that schema migrations can result in database downtime, may
     take longer on larger databases, and are not guaranteed to be transactional. As such, always
-    take a backup of your database prior to running ``mlflow upgradedb`` - consult your database's
+    take a backup of your database prior to running ``mlflow db upgrade`` - consult your database's
     documentation for instructions on taking a backup.
 
 

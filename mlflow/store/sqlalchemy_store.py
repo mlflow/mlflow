@@ -108,7 +108,7 @@ class SqlAlchemyStore(AbstractStore):
                               pprint.pformat(diff, indent=2, width=20))
                 raise MlflowException(
                     "Detected out-of-date database schema. Take a backup of your database, then "
-                    "run 'mlflow upgradedb %s' to migrate your database to the latest schema. "
+                    "run 'mlflow db upgrade %s' to migrate your database to the latest schema. "
                     "NOTE: schema migration may result in database downtime "
                     "- please consult your database's documentation for more detail." % engine.url)
 
