@@ -32,7 +32,6 @@ from mlflow.utils.file_utils import TempDir
 
 from tests.helper_functions import set_boto_credentials, mock_s3_bucket
 
-
 pytestmark = pytest.mark.skipif(
         (sys.version_info < (3, 0)),
         reason="Tests require Python 3 to run!")
