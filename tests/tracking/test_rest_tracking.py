@@ -80,8 +80,9 @@ def _init_server(backend_uri, root_artifact_uri):
         cmd = ["python",
                "-c",
                'from mlflow.server import app; app.run("{hostname}", {port})'.format(
-                   hostname=LOCALHOST, port=server_port)]
-
+                   hostname=LOCALHOST, port=server_port),
+               ">>",
+               "C:\\logs_" + backend_uri[0:5] + ".txt"]
         print("cmd =", cmd)
         process = Popen(cmd,
                         stdout=PIPE,
