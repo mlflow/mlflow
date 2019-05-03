@@ -106,7 +106,7 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_i
       tags[[MLFLOW_DATABRICKS_TAGS$MLFLOW_DATABRICKS_WEBAPP_URL]] <- notebook_info$webapp_url
       tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- notebook_info$path
       tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
-      tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$NOTEBOOK)
+      tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$NOTEBOOK
       list(
         client = client,
         tags = tags,
