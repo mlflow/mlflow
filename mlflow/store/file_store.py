@@ -48,10 +48,10 @@ def _make_persisted_run_info_dict(run_info):
     run_info_dict = dict(run_info)
     run_info_dict['tags'] = []
     run_info_dict['name'] = ''
-    run_info_dict['source_type'] = None
-    run_info_dict['source_name'] = None
-    run_info_dict['entry_point_name'] = None
-    run_info_dict['source_version'] = None
+    run_info_dict['source_type'] = SourceType.LOCAL
+    run_info_dict['source_name'] = ''
+    run_info_dict['entry_point_name'] = ''
+    run_info_dict['source_version'] = ''
     return run_info_dict
 
 

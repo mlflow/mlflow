@@ -219,7 +219,6 @@ class RestStore(AbstractStore):
         """
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(experiment_ids=experiment_ids,
-                        anded_expressions=search_filter.search_expressions if search_filter else [],
                         filter=search_filter.filter_string if search_filter else None,
                         run_view_type=ViewType.to_proto(run_view_type),
                         max_results=max_results)

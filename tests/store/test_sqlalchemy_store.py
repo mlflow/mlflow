@@ -14,7 +14,6 @@ import uuid
 
 import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
-from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
@@ -23,7 +22,6 @@ from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.search_utils import SearchFilter
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
@@ -289,6 +287,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         run = models.SqlRun(**config).to_mlflow_entity()
 
         for k, v in config.items():
+            # These keys were removed from RunInfo.
+            if k in ['source_name', 'source_type', 'source_version', 'name', 'entry_point_name']:
+                continue
+
             v2 = getattr(run.info, k)
             if k == 'source_type':
                 self.assertEqual(v, SourceType.to_string(v2))
@@ -297,19 +299,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             else:
                 self.assertEqual(v, v2)
 
-    def _get_run_configs(self, name='test', experiment_id=None,
-                         tags=(), parent_run_id=None, start_time=None):
+    def _get_run_configs(self, experiment_id=None, tags=(), start_time=None):
         return {
             'experiment_id': experiment_id,
-            'run_name': name,
             'user_id': 'Anderson',
-            'source_type': SourceType.NOTEBOOK,
-            'source_name': 'Python application',
-            'entry_point_name': 'main.py',
             'start_time': start_time if start_time is not None else int(time.time()),
-            'source_version': mlflow.__version__,
-            'tags': tags,
-            'parent_run_id': parent_run_id,
+            'tags': tags
         }
 
     def _run_factory(self, config=None):
@@ -324,54 +319,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         return self.store.create_run(**config)
 
     def test_create_run_with_tags(self):
-        run_name = "test-run-1"
         experiment_id = self._experiment_factory('test_create_run')
         tags = [RunTag('3', '4'), RunTag('1', '2')]
-        expected = self._get_run_configs(name=run_name, experiment_id=experiment_id, tags=tags)
+        expected = self._get_run_configs(experiment_id=experiment_id, tags=tags)
 
         actual = self.store.create_run(**expected)
 
         self.assertEqual(actual.info.experiment_id, experiment_id)
         self.assertEqual(actual.info.user_id, expected["user_id"])
-        self.assertEqual(actual.info.name, run_name)
-        self.assertEqual(actual.info.source_type, expected["source_type"])
-        self.assertEqual(actual.info.source_name, expected["source_name"])
-        self.assertEqual(actual.info.source_version, expected["source_version"])
-        self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
         self.assertEqual(actual.info.start_time, expected["start_time"])
 
-        # Run creation should add an additional tag containing the run name. Check for
-        # its existence
-        self.assertEqual(len(actual.data.tags), len(tags) + 1)
-        name_tag = models.SqlTag(key=MLFLOW_RUN_NAME, value=run_name).to_mlflow_entity()
+        self.assertEqual(len(actual.data.tags), len(tags))
         expected_tags = {tag.key: tag.value for tag in tags}
-        expected_tags[name_tag.key] = name_tag.value
         self.assertEqual(actual.data.tags, expected_tags)
-
-    def test_create_run_with_parent_id(self):
-        run_name = "test-run-1"
-        parent_run_id = "parent_uuid_5"
-        experiment_id = self._experiment_factory('test_create_run')
-        expected = self._get_run_configs(
-            name=run_name, experiment_id=experiment_id, parent_run_id=parent_run_id)
-
-        created_run = self.store.create_run(**expected)
-        fetched_run = self.store.get_run(created_run.info.run_id)
-
-        for actual in [created_run, fetched_run]:
-            self.assertEqual(actual.info.experiment_id, experiment_id)
-            self.assertEqual(actual.info.user_id, expected["user_id"])
-            self.assertEqual(actual.info.name, run_name)
-            self.assertEqual(actual.info.source_type, expected["source_type"])
-            self.assertEqual(actual.info.source_name, expected["source_name"])
-            self.assertEqual(actual.info.source_version, expected["source_version"])
-            self.assertEqual(actual.info.entry_point_name, expected["entry_point_name"])
-            self.assertEqual(actual.info.start_time, expected["start_time"])
-
-            # Run creation should add two additional tags containing the run name and parent run id.
-            # Check for the existence of these two tags
-            self.assertEqual(
-                actual.data.tags, {MLFLOW_PARENT_RUN_ID: parent_run_id, MLFLOW_RUN_NAME: run_name})
 
     def test_to_mlflow_entity_and_proto(self):
         # Create a run and log metrics, params, tags to the run
@@ -566,8 +526,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_list_run_infos(self):
         experiment_id = self._experiment_factory('test_exp')
-        r1 = self._run_factory(config=self._get_run_configs('t1', experiment_id)).info.run_id
-        r2 = self._run_factory(config=self._get_run_configs('t2', experiment_id)).info.run_id
+        r1 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
+        r2 = self._run_factory(config=self._get_run_configs(experiment_id)).info.run_id
 
         def _runs(experiment_id, view_type):
             return [r.run_id for r in self.store.list_run_infos(experiment_id, view_type)]
@@ -683,35 +643,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.assertTrue(set([("t1345", "tv44")]) <= set(run.data.tags.items()))
 
     # Tests for Search API
-    def _search(self, experiment_id,
-                metrics_expressions=None, param_expressions=None, filter_string=None,
+    def _search(self, experiment_id, filter_string=None,
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
-        search_runs = SearchRuns()
-        search_runs.anded_expressions.extend(metrics_expressions or [])
-        search_runs.anded_expressions.extend(param_expressions or [])
-        search_filter = SearchFilter(anded_expressions=search_runs.anded_expressions,
-                                     filter_string=filter_string)
+        search_filter = SearchFilter(filter_string=filter_string)
         return [r.info.run_id
                 for r in self.store.search_runs([experiment_id], search_filter,
                                                 run_view_type, max_results)]
 
-    def _param_expression(self, key, comparator, val):
-        expr = SearchExpression()
-        expr.parameter.key = key
-        expr.parameter.string.comparator = comparator
-        expr.parameter.string.value = val
-        return expr
-
-    def _metric_expression(self, key, comparator, val):
-        expr = SearchExpression()
-        expr.metric.key = key
-        expr.metric.double.comparator = comparator
-        expr.metric.double.value = val
-        return expr
-
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
-        runs = [self._run_factory(self._get_run_configs('r_%d' % r, exp)).info.run_id
+        runs = [self._run_factory(self._get_run_configs(exp)).info.run_id
                 for r in range(3)]
 
         six.assertCountEqual(self, runs, self._search(exp, run_view_type=ViewType.ALL))
@@ -732,8 +673,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_search_params(self):
         experiment_id = self._experiment_factory('search_params')
-        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_id
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
         self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
         self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
@@ -745,36 +686,36 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.log_param(r2, entities.Param('p_b', 'ABC'))
 
         # test search returns both runs
-        expr = self._param_expression("generic_param", "=", "p_val")
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "params.generic_param = 'p_val'"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
         # test search returns appropriate run (same key different values per run)
-        expr = self._param_expression("generic_2", "=", "some value")
-        six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
-        expr = self._param_expression("generic_2", "=", "another value")
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "params.generic_2 = 'some value'"
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
+        filter_string = "params.generic_2 = 'another value'"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
-        expr = self._param_expression("generic_param", "=", "wrong_val")
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "params.generic_param = 'wrong_val'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
-        expr = self._param_expression("generic_param", "!=", "p_val")
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "params.generic_param != 'p_val'"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
-        expr = self._param_expression("generic_param", "!=", "wrong_val")
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
-        expr = self._param_expression("generic_2", "!=", "wrong_val")
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "params.generic_param != 'wrong_val'"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
+        filter_string = "params.generic_2 != 'wrong_val'"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
-        expr = self._param_expression("p_a", "=", "abc")
-        six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "params.p_a = 'abc'"
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
-        expr = self._param_expression("p_b", "=", "ABC")
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "params.p_b = 'ABC'"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
     def test_search_tags(self):
         experiment_id = self._experiment_factory('search_tags')
-        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_id
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
         self.store.set_tag(r1, entities.RunTag('generic_tag', 'p_val'))
         self.store.set_tag(r2, entities.RunTag('generic_tag', 'p_val'))
@@ -815,8 +756,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_search_metrics(self):
         experiment_id = self._experiment_factory('search_params')
-        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_id
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
         self.store.log_metric(r1, entities.Metric("common", 1.0, 1, 0))
         self.store.log_metric(r2, entities.Metric("common", 1.0, 1, 0))
@@ -830,71 +771,71 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))  # this is last timestamp
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
-        expr = self._metric_expression("common", "=", 1.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.common = 1.0"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("common", ">", 0.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.common > 0.0"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("common", ">=", 0.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.common >= 0.0"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("common", "<", 4.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.common < 4.0"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("common", "<=", 4.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.common <= 4.0"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("common", "!=", 1.0)
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.common != 1.0"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("common", ">=", 3.0)
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.common >= 3.0"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("common", "<=", 0.75)
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.common <= 0.75"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # tests for same metric name across runs with different values and timestamps
-        expr = self._metric_expression("measure_a", ">", 0.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.measure_a > 0.0"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("measure_a", "<", 50.0)
-        six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.measure_a < 50.0"
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("measure_a", "<", 1000.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.measure_a < 1000.0"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("measure_a", "!=", -12.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.measure_a != -12.0"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("measure_a", ">", 50.0)
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.measure_a > 50.0"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("measure_a", "=", 1.0)
-        six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.measure_a = 1.0"
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("measure_a", "=", 400.0)
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.measure_a = 400.0"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
         # test search with unique metric keys
-        expr = self._metric_expression("m_a", ">", 1.0)
-        six.assertCountEqual(self, [r1], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.m_a > 1.0"
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
-        expr = self._metric_expression("m_b", ">", 1.0)
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.m_b > 1.0"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
         # there is a recorded metric this threshold but not last timestamp
-        expr = self._metric_expression("m_b", ">", 5.0)
-        six.assertCountEqual(self, [], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.m_b > 5.0"
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # metrics matches last reported timestamp for 'm_b'
-        expr = self._metric_expression("m_b", "=", 4.0)
-        six.assertCountEqual(self, [r2], self._search(experiment_id, param_expressions=[expr]))
+        filter_string = "metrics.m_b = 4.0"
+        six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
     def test_search_full(self):
         experiment_id = self._experiment_factory('search_params')
-        r1 = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs('r2', experiment_id)).info.run_id
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
         self.store.log_param(r1, entities.Param('generic_param', 'p_val'))
         self.store.log_param(r2, entities.Param('generic_param', 'p_val'))
@@ -910,40 +851,27 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.log_metric(r2, entities.Metric("m_b", 4.0, 8, 0))
         self.store.log_metric(r2, entities.Metric("m_b", 8.0, 3, 0))
 
-        p_expr = self._param_expression("generic_param", "=", "p_val")
-        m_expr = self._metric_expression("common", "=", 1.0)
-        six.assertCountEqual(self, [r1, r2], self._search(experiment_id,
-                                                          param_expressions=[p_expr],
-                                                          metrics_expressions=[m_expr]))
+        filter_string = "params.generic_param = 'p_val' and metrics.common = 1.0"
+        six.assertCountEqual(self, [r1, r2], self._search(experiment_id, filter_string))
 
         # all params and metrics match
-        p_expr = self._param_expression("generic_param", "=", "p_val")
-        m1_expr = self._metric_expression("common", "=", 1.0)
-        m2_expr = self._metric_expression("m_a", ">", 1.0)
-        six.assertCountEqual(self, [r1], self._search(experiment_id,
-                                                      param_expressions=[p_expr],
-                                                      metrics_expressions=[m1_expr, m2_expr]))
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0"
+                         "and metrics.m_a > 1.0")
+        six.assertCountEqual(self, [r1], self._search(experiment_id, filter_string))
 
         # test with mismatch param
-        p_expr = self._param_expression("random_bad_name", "=", "p_val")
-        m1_expr = self._metric_expression("common", "=", 1.0)
-        m2_expr = self._metric_expression("m_a", ">", 1.0)
-        six.assertCountEqual(self, [], self._search(experiment_id,
-                                                    param_expressions=[p_expr],
-                                                    metrics_expressions=[m1_expr, m2_expr]))
+        filter_string = ("params.random_bad_name = 'p_val' and metrics.common = 1.0"
+                         "and metrics.m_a > 1.0")
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
         # test with mismatch metric
-        p_expr = self._param_expression("generic_param", "=", "p_val")
-        m1_expr = self._metric_expression("common", "=", 1.0)
-        m2_expr = self._metric_expression("m_a", ">", 100.0)
-        six.assertCountEqual(self, [], self._search(experiment_id,
-                                                    param_expressions=[p_expr],
-                                                    metrics_expressions=[m1_expr, m2_expr]))
+        filter_string = ("params.generic_param = 'p_val' and metrics.common = 1.0"
+                         "and metrics.m_a > 100.0")
+        six.assertCountEqual(self, [], self._search(experiment_id, filter_string))
 
     def test_search_with_max_results(self):
         exp = self._experiment_factory('search_with_max_results')
-        runs = [self._run_factory(self._get_run_configs('r_%d' % r, exp,
-                                                        start_time=r)).info.run_id
+        runs = [self._run_factory(self._get_run_configs(exp, start_time=r)).info.run_id
                 for r in range(1200)]
         # reverse the ordering, since we created in increasing order of start_time
         runs.reverse()
@@ -960,22 +888,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         exp = self._experiment_factory('test_search_with_deterministic_max_results')
         # Create 10 runs with the same start_time.
         # Sort based on run_id
-        runs = sorted([self._run_factory(self._get_run_configs('r_%d' % r, exp,
-                                                               start_time=10)).info.run_id
+        runs = sorted([self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(exp, max_results=n))
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
-        run_id = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
+        run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         metric_entities = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, 1)]
         param_entities = [Param("p1", "p1val"), Param("p2", "p2val")]
         tag_entities = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
         self.store.log_batch(
             run_id=run_id, metrics=metric_entities, params=param_entities, tags=tag_entities)
         run = self.store.get_run(run_id)
-        assert run.data.tags == {"t1": "t1val", "t2": "t2val", MLFLOW_RUN_NAME: "r1"}
+        assert run.data.tags == {"t1": "t1val", "t2": "t2val"}
         assert run.data.params == {"p1": "p1val", "p2": "p2val"}
         metric_histories = sum(
             [self.store.get_metric_history(run_id, key) for key in run.data.metrics], [])
@@ -986,7 +913,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # Test that log batch at the maximum allowed request size succeeds (i.e doesn't hit
         # SQL limitations, etc)
         experiment_id = self._experiment_factory('log_batch_limits')
-        run_id = self._run_factory(self._get_run_configs('r1', experiment_id)).info.run_id
+        run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         metric_tuples = [("m%s" % i, i, 12345, i * 2) for i in range(1000)]
         metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
         self.store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])

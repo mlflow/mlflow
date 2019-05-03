@@ -716,60 +716,6 @@ message GetRun {
   }
 }
 
-message SearchExpression {
-  // A single search filter.
-  oneof expression {
-    // A metric search expression.
-    MetricSearchExpression metric = 1;
-    // A parameter search expression.
-    ParameterSearchExpression parameter = 2;
-  }
-}
-
-message MetricSearchExpression {
-  // :ref:`mlflowMetric` key for search.
-  optional string key = 1;
-
-  oneof clause {
-    // Double clause of comparison
-    DoubleClause double = 3;
-  }
-}
-
-message ParameterSearchExpression {
-  // :ref:`mlflowParam` key for search.
-  optional string key = 1;
-
-  oneof clause {
-      // String clause for comparison.
-      StringClause string = 2;
-  }
-}
-
-message StringClause {
-  // OneOf ("==", "!=", "~")
-  optional string comparator = 1;
-
-  // String value for comparison.
-  optional string value = 2;
-}
-
-message FloatClause {
-  // OneOf (">", ">=", "==", "!=", "<=", "<")
-  optional string comparator = 1;
-
-  // Float value for comparison.
-  optional float value = 2;
-}
-
-message DoubleClause {
-  // OneOf (">", ">=", "==", "!=", "<=", "<")
-  optional string comparator = 1;
-
-  // Float value for comparison.
-  optional double value = 2;
-}
-
 message SearchRuns {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
