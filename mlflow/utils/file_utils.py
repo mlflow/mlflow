@@ -134,7 +134,7 @@ def write_yaml(root, file_name, data, overwrite=False):
         raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
 
     try:
-        with open(yaml_file_name, 'w') as yaml_file:
+        with open(yaml_file_name, 'w', encoding="utf8") as yaml_file:
             yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
     except Exception as e:
         raise e
