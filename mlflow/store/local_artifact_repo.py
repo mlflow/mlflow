@@ -28,6 +28,7 @@ class LocalArtifactRepository(ArtifactRepository):
         shutil.copy(local_file, artifact_dir)
 
     def log_artifacts(self, local_dir, artifact_path=None):
+        verify_artifact_path(artifact_path)
         # NOTE: The artifact_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
         if artifact_path:

@@ -135,4 +135,4 @@ def test_hidden_files_are_logged_correctly(local_artifact_repo):
         with open(hidden_file, "w") as f:
             f.write("42")
         local_artifact_repo.log_artifact(hidden_file)
-        assert open(local_artifact_repo.download_artifacts(hidden_file)).read() == "42"
+        assert open(local_artifact_repo.download_artifacts(".mystery")).read() == "42"
