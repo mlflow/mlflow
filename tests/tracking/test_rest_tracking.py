@@ -256,15 +256,19 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
         "parent_run_id": parent_run_id_kwarg
     }
     experiment_name = 'Run A Lot (parent_run_id=%s)' % (parent_run_id_kwarg)
+    print()
     print("creating experiment", experiment_name, create_run_kwargs)
-    print("tracking uri", mlflow.get_tracking_uri())
-
+    print()
     experiment_id = mlflow_client.create_experiment('Run A Lot (parent_run_id=%s)'
                                                     % (parent_run_id_kwarg))
+    print()
     print("experiment id=%s" % run_id)
+    print()
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_uuid
+    print()
     print("Run id=%s" % run_id)
+    print()
     run = mlflow_client.get_run(run_id)
     assert run.info.run_uuid == run_id
     assert run.info.experiment_id == experiment_id
