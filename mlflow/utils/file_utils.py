@@ -1,6 +1,7 @@
 import codecs
 import gzip
 import os
+from io import open
 import posixpath
 import shutil
 import tarfile
