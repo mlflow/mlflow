@@ -236,7 +236,7 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
 
 @pytest.mark.parametrize("parent_run_id_kwarg", [None, "my-parent-id"])
 def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
-    print("test_create_run_all_args", mlflow_client)
+    print("test_create_run_all_args", mlflow_client.tracking_uri, mlflow_client.store)
     source_name = "Hello"
     entry_point = "entry"
     source_version = "abc"
