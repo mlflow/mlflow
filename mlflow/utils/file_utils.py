@@ -7,6 +7,7 @@ import tarfile
 import tempfile
 
 from six.moves.urllib.request import pathname2url
+from six.moves.urllib.parse import unquote
 from six.moves import urllib
 
 import yaml
@@ -347,7 +348,7 @@ def relative_path_to_artifact_path(path):
         return path
     if os.path.abspath(path) == path:
         raise Exception("This method only works with relative paths.")
-    return pathname2url(path)
+    return unquote(pathname2url(path))
 
 def path_to_local_file_uri(path):
     """
