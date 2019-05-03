@@ -7,8 +7,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.store.rest_store import RestStore
 from mlflow.tracking import utils
+from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST
 from mlflow.utils.string_utils import strip_prefix
+
 
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
 GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
@@ -90,6 +92,7 @@ class DbfsArtifactRepository(ArtifactRepository):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
                 rel_path = os.path.relpath(dirpath, local_dir)
+                rel_path = relative_path_to_artifact_path(rel_path)
                 artifact_subdir = posixpath.join(artifact_path, rel_path)
             for name in filenames:
                 file_path = os.path.join(dirpath, name)

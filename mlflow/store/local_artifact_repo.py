@@ -63,5 +63,9 @@ class LocalArtifactRepository(ArtifactRepository):
         print("remote_file_path_normalized", remote_file_path)
         print("remote_file_path_normalized and joined", os.path.join(self.artifact_dir,
                                                                      remote_file_path))
-        shutil.copyfile(
-            os.path.join(self.artifact_dir, remote_file_path), local_path)
+        try:
+            shutil.copyfile(
+                os.path.join(self.artifact_dir, remote_file_path), local_path)
+            os.system("ls " + os.path.basename(local_path))
+        except Exception as ex:
+            print("FAILED!", ex)

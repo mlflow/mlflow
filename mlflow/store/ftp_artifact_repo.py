@@ -8,6 +8,7 @@ from six.moves import urllib
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
 class FTPArtifactRepository(ArtifactRepository):
@@ -87,6 +88,7 @@ class FTPArtifactRepository(ArtifactRepository):
             upload_path = dest_path
             if root != local_dir:
                 rel_path = os.path.relpath(root, local_dir)
+                rel_path = relative_path_to_artifact_path(rel_path)
                 upload_path = posixpath.join(dest_path_re, rel_path)
             if not filenames:
                 self._mkdir(posixpath.join(self.path, upload_path))

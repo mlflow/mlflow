@@ -14,7 +14,6 @@ import yaml
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MissingConfigException
-import mlflow.tracking
 
 ENCODING = "utf-8"
 

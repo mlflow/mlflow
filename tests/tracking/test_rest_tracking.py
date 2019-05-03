@@ -83,11 +83,7 @@ def _init_server(backend_uri, root_artifact_uri):
                'from mlflow.server import app; app.run("{hostname}", {port})'.format(
                    hostname=LOCALHOST, port=server_port)]
         process = Popen(cmd)
-        # def get_output():
-        #     with open("C:\\log_" + backend_uri[0:5] + ".txt", "w") as f:
-        #         for x in iter(process.stdout.readline, ""):
-        #             f.write(x)
-        # Thread(target=get_output).start()
+
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
     print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))
@@ -252,7 +248,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
         },
         "parent_run_id": parent_run_id_kwarg
     }
-    experiment_name = 'Run A Lot (parent_run_id=%s)' % (parent_run_id_kwarg)
     experiment_id = mlflow_client.create_experiment('Run A Lot (parent_run_id=%s)'
                                                     % (parent_run_id_kwarg))
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)

@@ -1,7 +1,6 @@
 # pylint: disable=redefined-outer-name
 from mock import MagicMock
 import pytest
-import os
 import posixpath
 import ftplib
 from ftplib import FTP

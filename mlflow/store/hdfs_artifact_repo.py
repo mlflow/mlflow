@@ -8,7 +8,7 @@ from six.moves import urllib
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import mkdir
+from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
 
 
 class HdfsArtifactRepository(ArtifactRepository):
@@ -189,7 +189,10 @@ def _relative_path(base_dir, subdir_path, path_module):
 
 
 def _relative_path_local(base_dir, subdir_path):
-    return _relative_path(base_dir, subdir_path, os.path)
+    rel_path = _relative_path(base_dir, subdir_path, os.path)
+    return relative_path_to_artifact_path(rel_path) if rel_path is not None else None
+
+
 
 
 def _relative_path_remote(base_dir, subdir_path):
