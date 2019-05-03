@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 
 import uuid
 import six
@@ -420,6 +421,13 @@ class FileStore(AbstractStore):
             for name in files:
                 abspath = os.path.join(root, name)
                 file_names.append(os.path.relpath(abspath, source_dirs[0]))
+        if sys.platform == "win32":
+            # Turn metric relative path into metric name.
+            # Metrics can have '/' in the name. On windows, '/' is interpreted as a separator.
+            # When the metric is read back the path will use '\' for separator.
+            # We need to translate the path into posix path.
+            from mlflow.utils.file_utils import relative_path_to_artifact_path
+            file_names = [relative_path_to_artifact_path(x) for x in file_names]
         return source_dirs[0], file_names
 
     @staticmethod

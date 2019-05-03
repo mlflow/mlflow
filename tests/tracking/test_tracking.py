@@ -139,9 +139,8 @@ def test_start_run_context_manager(tracking_uri_mock):
 
 def test_start_and_end_run(tracking_uri_mock):
     # Use the start_run() and end_run() APIs without a `with` block, verify they work.
-    active_run = start_run()
-    mlflow.log_metric("name_1", 25)
-    end_run()
+    with start_run() as active_run:
+        mlflow.log_metric("name_1", 25)
     finished_run = tracking.MlflowClient().get_run(active_run.info.run_uuid)
     # Validate metrics
     assert len(finished_run.data.metrics) == 1
