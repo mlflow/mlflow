@@ -1,7 +1,6 @@
 import codecs
 import gzip
 import os
-from io import open
 import posixpath
 import shutil
 import tarfile
@@ -136,7 +135,7 @@ def write_yaml(root, file_name, data, overwrite=False):
         raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
 
     try:
-        with open(yaml_file_name, 'w', encoding="utf8") as yaml_file:
+        with codecs.open(yaml_file_name, mode='w', encoding=ENCODING) as yaml_file:
             yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
     except Exception as e:
         raise e
@@ -158,9 +157,8 @@ def read_yaml(root, file_name):
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
         raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
-
     try:
-        with open(file_path, 'r', encoding="utf8") as yaml_file:
+        with codecs.open(file_path, mode='r', encoding=ENCODING) as yaml_file:
             return yaml.safe_load(yaml_file)
     except Exception as e:
         raise e
@@ -350,6 +348,7 @@ def relative_path_to_artifact_path(path):
     if os.path.abspath(path) == path:
         raise Exception("This method only works with relative paths.")
     return unquote(pathname2url(path))
+
 
 def path_to_local_file_uri(path):
     """

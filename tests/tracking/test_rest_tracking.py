@@ -108,6 +108,7 @@ SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
 # Root directory for all artifact stores created during this suite
 SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
 
+
 def _get_sqlite_uri():
     path = path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "test-database.bd"))
     path = path[len("file://"):]

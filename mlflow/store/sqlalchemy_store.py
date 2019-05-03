@@ -17,7 +17,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
-from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
+from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id
 
 
@@ -271,7 +271,7 @@ class SqlAlchemyStore(AbstractStore):
 
             run_id = uuid.uuid4().hex
             artifact_location = posixpath.join(experiment.artifact_location, run_id,
-                                           SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
+                                               SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
             run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_id,
                          experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                          source_name=source_name, entry_point_name=entry_point_name,
