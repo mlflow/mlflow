@@ -1,4 +1,4 @@
-"""Script that generates a dump of the SQL schema"""
+"""Script that generates a dump of the MLflow tracking database schema"""
 import os
 import shutil
 import sys
