@@ -4,14 +4,14 @@
 \alias{mlflow_rfunc_serve}
 \title{Serve an RFunc MLflow Model}
 \usage{
-mlflow_rfunc_serve(model_path, run_uuid = NULL, host = "127.0.0.1",
+mlflow_rfunc_serve(model_path, run_id = NULL, host = "127.0.0.1",
   port = 8090, daemonized = FALSE, browse = !daemonized,
   restore = FALSE)
 }
 \arguments{
 \item{model_path}{The path to the MLflow model, as a string.}
 
-\item{run_uuid}{ID of run to grab the model from.}
+\item{run_id}{ID of run to grab the model from.}
 
 \item{host}{Address to use to serve model, as a string.}
 

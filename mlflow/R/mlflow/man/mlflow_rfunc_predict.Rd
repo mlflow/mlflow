@@ -4,13 +4,13 @@
 \alias{mlflow_rfunc_predict}
 \title{Predict using RFunc MLflow Model}
 \usage{
-mlflow_rfunc_predict(model_path, run_uuid = NULL, input_path = NULL,
+mlflow_rfunc_predict(model_path, run_id = NULL, input_path = NULL,
   output_path = NULL, data = NULL, restore = FALSE)
 }
 \arguments{
 \item{model_path}{The path to the MLflow model, as a string.}
 
-\item{run_uuid}{Run ID of run to grab the model from.}
+\item{run_id}{Run ID of run to grab the model from.}
 
 \item{input_path}{Path to 'JSON' or 'CSV' file to be used for prediction.}
 

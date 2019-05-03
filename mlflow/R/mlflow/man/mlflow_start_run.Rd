@@ -4,17 +4,17 @@
 \alias{mlflow_start_run}
 \title{Start Run}
 \usage{
-mlflow_start_run(run_uuid = NULL, experiment_id = NULL,
+mlflow_start_run(run_id = NULL, experiment_id = NULL,
   source_name = NULL, source_version = NULL, entry_point_name = NULL,
   source_type = NULL, user_id = NULL, run_name = NULL,
   start_time = NULL, tags = NULL, client = NULL)
 }
 \arguments{
-\item{run_uuid}{If specified, get the run with the specified UUID and log metrics
+\item{run_id}{If specified, get the run with the specified UUID and log metrics
 and params under that run. The run's end time is unset and its status is set to
 running, but the run's other attributes remain unchanged.}
 
-\item{experiment_id}{Used only when `run_uuid` is unspecified. ID of the experiment under
+\item{experiment_id}{Used only when `run_id` is unspecified. ID of the experiment under
 which to create the current run. If unspecified, the run is created under
 a new experiment with a randomly generated name.}
 
