@@ -133,9 +133,12 @@ def test_log_artifacts(mock_client, tmpdir):
     repo.log_artifacts(parentd.strpath)
 
     mock_client.create_blob_from_path.assert_has_calls([
-        mock.call("container", TEST_ROOT_PATH + "/a.txt", parentd.strpath + "/a.txt"),
-        mock.call("container", TEST_ROOT_PATH + "/subdir/b.txt", subd.strpath + "/b.txt"),
-        mock.call("container", TEST_ROOT_PATH + "/subdir/c.txt", subd.strpath + "/c.txt"),
+        mock.call("container", TEST_ROOT_PATH + "/a.txt",
+                  os.path.normpath(parentd.strpath + "/a.txt")),
+        mock.call("container", TEST_ROOT_PATH + "/subdir/b.txt",
+                  os.path.normpath(subd.strpath + "/b.txt")),
+        mock.call("container", TEST_ROOT_PATH + "/subdir/c.txt",
+                  os.path.normpath(subd.strpath + "/c.txt")),
     ], any_order=True)
 
 
@@ -232,9 +235,9 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
         every level of the directory traversal.
         """
         # pylint: disable=unused-argument
-        if os.path.abspath(kwargs["prefix"]) == "/":
+        if posixpath.abspath(kwargs["prefix"]) == "/":
             return MockBlobList([dir_prefix])
-        if os.path.abspath(kwargs["prefix"]) == os.path.abspath(subdir_path):
+        if posixpath.abspath(kwargs["prefix"]) == posixpath.abspath(subdir_path):
             return MockBlobList([blob_1, blob_2])
         else:
             return MockBlobList([])
