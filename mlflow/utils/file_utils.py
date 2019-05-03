@@ -328,12 +328,10 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     if dst_dir is not None:
         dst_subpath = os.path.join(dst_dir, dst_subpath)
     dst_path = os.path.join(dst, dst_subpath)
-
-    dst_dirpath = os.path.dirname(dst_path)
-    if not os.path.exists(dst_dirpath):
-        os.makedirs(dst_dirpath)
-
     if os.path.isfile(src):
+        dst_dirpath = os.path.dirname(dst_path)
+        if not os.path.exists(dst_dirpath):
+            os.makedirs(dst_dirpath)
         shutil.copy(src=src, dst=dst_path)
     else:
         shutil.copytree(src=src, dst=dst_path)
