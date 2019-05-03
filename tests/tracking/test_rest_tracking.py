@@ -128,7 +128,8 @@ BACKEND_URIS = [
 # Map of backend URI to tuple (server URL, Process). We populate this map by constructing
 # a server per backend URI
 BACKEND_URI_TO_SERVER_URL_AND_PROC = {
-    uri: _init_server(backend_uri=uri, root_artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
+    uri: _init_server(backend_uri=uri,
+                      root_artifact_uri=path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR))
     for uri in BACKEND_URIS
 }
 
@@ -377,7 +378,7 @@ def test_set_terminated_status(mlflow_client):
 
 
 def test_artifacts(mlflow_client):
-    print("mlflow_client")
+    print("mlflow_client", mlflow_client)
     experiment_id = mlflow_client.create_experiment('Art In Fact')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_uuid
@@ -392,7 +393,7 @@ def test_artifacts(mlflow_client):
     assert set([a.path for a in root_artifacts_list]) == {'my.file', 'dir'}
 
     dir_artifacts_list = mlflow_client.list_artifacts(run_id, 'dir')
-    assert set([a.path for a in dir_artifacts_list]) == {'dir/my.file'}
+    assert set([a.path for a in dir_artifacts_list]) == {os.path.normpath('dir/my.file')}
 
     all_artifacts = mlflow_client.download_artifacts(run_id, '.')
     assert open('%s/my.file' % all_artifacts, 'r').read() == 'Hello, World!'
