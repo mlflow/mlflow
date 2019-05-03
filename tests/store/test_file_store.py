@@ -467,7 +467,7 @@ class TestFileStore(unittest.TestCase):
             assert(runs[:min(10, n)] == self._search(fs, exp, max_results=n))
 
     def test_weird_param_names(self):
-        WEIRD_PARAM_NAME = os.path.normpath("this is/a weird/but valid param")
+        WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_param(run_uuid, Param(WEIRD_PARAM_NAME, "Value"))
@@ -483,7 +483,7 @@ class TestFileStore(unittest.TestCase):
         assert run.data.params[PARAM_NAME] == ""
 
     def test_weird_metric_names(self):
-        WEIRD_METRIC_NAME = os.path.normpath("this is/a weird/but valid metric")
+        WEIRD_METRIC_NAME = "this is/a weird/but valid metric"
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.log_metric(run_uuid, Metric(WEIRD_METRIC_NAME, 10, 1234, 0))
@@ -497,7 +497,7 @@ class TestFileStore(unittest.TestCase):
         assert metric.timestamp == 1234
 
     def test_weird_tag_names(self):
-        WEIRD_TAG_NAME = os.path.normpath("this is/a weird/but valid tag")
+        WEIRD_TAG_NAME = "this is/a weird/but valid tag"
         fs = FileStore(self.test_root)
         run_uuid = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
         fs.set_tag(run_uuid, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
