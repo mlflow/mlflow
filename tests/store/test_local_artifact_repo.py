@@ -1,5 +1,6 @@
 import os
 import pytest
+import posixpath
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
@@ -101,7 +102,7 @@ def test_artifacts_are_logged_to_and_downloaded_from_repo_subdirectory_successfu
     assert open(os.path.join(downloaded_subdir, artifact_rel_path)).read() == artifact_text
 
     downloaded_file = local_artifact_repo.download_artifacts(
-        os.path.join(repo_subdir_path, artifact_rel_path))
+        posixpath.join(repo_subdir_path, artifact_rel_path))
     assert open(downloaded_file).read() == artifact_text
 
 
