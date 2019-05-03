@@ -24,10 +24,9 @@ def commands():
 
 @commands.command("deploy")
 @click.option("--app-name", "-a", help="Application name", required=True)
-@cli_args.MODEL_PATH
+@cli_args.MODEL_URI
 @click.option("--execution-role-arn", "-e", default=None, help="SageMaker execution role")
 @click.option("--bucket", "-b", default=None, help="S3 bucket to store model artifacts")
-@cli_args.RUN_ID
 @click.option("--image-url", "-i", default=None, help="ECR URL for the Docker image")
 @click.option("--region-name", default="us-west-2",
               help="Name of the AWS region in which to deploy the application")
@@ -72,8 +71,8 @@ def commands():
                     " for monitoring the health and status of the pending deployment via"
                     " native SageMaker APIs or the AWS console. If the command is executed"
                     " asynchronously using the `--async` flag, this value is ignored."))
-def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, region_name, mode,
-           archive, instance_type, instance_count, vpc_config, flavor, asynchronous, timeout):
+def deploy(app_name, model_uri, execution_role_arn, bucket, image_url, region_name, mode, archive,
+           instance_type, instance_count, vpc_config, flavor, asynchronous, timeout):
     """
     Deploy model on Sagemaker as a REST API endpoint. Current active AWS account needs to have
     correct permissions setup.
@@ -90,8 +89,8 @@ def deploy(app_name, model_path, execution_role_arn, bucket, run_id, image_url, 
         with open(vpc_config, "r") as f:
             vpc_config = json.load(f)
 
-    mlflow.sagemaker.deploy(app_name=app_name, model_path=model_path,
-                            execution_role_arn=execution_role_arn, bucket=bucket, run_id=run_id,
+    mlflow.sagemaker.deploy(app_name=app_name, model_uri=model_uri,
+                            execution_role_arn=execution_role_arn, bucket=bucket,
                             image_url=image_url, region_name=region_name, mode=mode,
                             archive=archive, instance_type=instance_type,
                             instance_count=instance_count, vpc_config=vpc_config, flavor=flavor,
@@ -141,8 +140,7 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
 
 
 @commands.command("run-local")
-@cli_args.MODEL_PATH
-@cli_args.RUN_ID
+@cli_args.MODEL_URI
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--image", "-i", default=IMAGE, help="Docker image name")
 @click.option("--flavor", "-f", default=None,
@@ -150,12 +148,11 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
                     " {supported_flavors}. If unspecified, a flavor will be automatically selected"
                     " from the model's available flavors.".format(
                         supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
-def run_local(model_path, run_id, port, image, flavor):
+def run_local(model_uri, port, image, flavor):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
     """
-    mlflow.sagemaker.run_local(
-        model_path=model_path, run_id=run_id, port=port, image=image, flavor=flavor)
+    mlflow.sagemaker.run_local(model_uri=model_uri, port=port, image=image, flavor=flavor)
 
 
 @commands.command("build-and-push-container")

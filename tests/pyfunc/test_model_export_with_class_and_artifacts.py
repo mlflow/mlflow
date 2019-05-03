@@ -658,7 +658,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(
 
     inference_df = pd.DataFrame(iris_data[0])
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_path=pyfunc_model_path,
+            model_uri=pyfunc_model_path,
             data=inference_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)

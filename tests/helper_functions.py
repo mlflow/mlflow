@@ -27,10 +27,10 @@ def random_file(ext):
 
 
 def score_model_in_sagemaker_docker_container(
-        model_path, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME,
+        model_uri, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME,
         activity_polling_timeout_seconds=500):
     """
-    :param model_path: Path to the model to be served.
+    :param model_uri: URI to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
                  Pandas dataframe or string of the format specified by `content_type`.
     :param content_type: The type of the data to send to the docker container for testing. This is
@@ -42,7 +42,7 @@ def score_model_in_sagemaker_docker_container(
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = _start_scoring_proc(
-            cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_path, '-p', "5000", "-f", flavor],
+            cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_uri, '-p', "5000", "-f", flavor],
             env=env)
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
