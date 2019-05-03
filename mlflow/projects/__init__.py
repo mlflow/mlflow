@@ -8,6 +8,7 @@ from distutils import dir_util
 import hashlib
 import json
 import os
+import sys
 import re
 import shutil
 import subprocess
@@ -545,8 +546,13 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
     final_env.update(env_map)
     # Launch `mlflow run` command as the leader of its own process group so that we can do a
     # best-effort cleanup of all its descendant processes if needed
-    return subprocess.Popen(
-        mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=os.setsid)
+    if sys.platform == "win32":
+        return subprocess.Popen(
+            mlflow_run_arr, env=final_env, universal_newlines=True,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+    else:
+        return subprocess.Popen(
+            mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=os.setsid)
 
 
 def _create_run(uri, experiment_id, work_dir, entry_point):

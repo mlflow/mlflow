@@ -17,6 +17,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, M
     MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
     LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT
 
+from mlflow.utils.file_utils import path_to_local_file_uri
+
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
@@ -46,7 +48,7 @@ def local_git_repo(tmpdir):
 
 @pytest.fixture
 def local_git_repo_uri(local_git_repo):
-    return "file://%s" % local_git_repo
+    return path_to_local_file_uri(local_git_repo)
 
 
 @pytest.fixture
