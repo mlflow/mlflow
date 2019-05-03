@@ -17,7 +17,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.tracking.artifact_utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION, get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree, _copy_project
 from mlflow.version import VERSION as mlflow_version
@@ -26,7 +26,7 @@ from mlflow.version import VERSION as mlflow_version
 _logger = logging.getLogger(__name__)
 
 
-def build_image(model_path, workspace, run_id=None, image_name=None, model_name=None,
+def build_image(model_uri, workspace, image_name=None, model_name=None,
                 mlflow_home=None, description=None, tags=None, synchronous=True):
     """
     Register an MLflow model with Azure ML and build an Azure ML ContainerImage for deployment.
@@ -37,10 +37,18 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     For information about the input data formats accepted by this webserver, see the
     :ref:`MLflow deployment tools documentation <azureml_deployment>`.
 
-    :param model_path: The path to MLflow model for which the image will be built. If a run id
-                       is specified, this is should be a run-relative path. Otherwise, it
-                       should be a local path.
-    :param run_id: MLflow run ID.
+    :param model_uri: The location, in URI format, of the MLflow model for which to build an Azure
+                      ML deployment image, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see the
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
+                      supported-artifact-stores>`_.
+
     :param image_name: The name to assign the Azure Container Image that will be created. If
                        unspecified, a unique image name will be generated.
     :param model_name: The name to assign the Azure Model will be created. If unspecified,
@@ -110,10 +118,7 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
     from azureml.core.image import ContainerImage
     from azureml.core.model import Model as AzureModel
 
-    if run_id is not None:
-        absolute_model_path = _get_model_log_dir(model_name=model_path, run_id=run_id)
-    else:
-        absolute_model_path = os.path.abspath(model_path)
+    absolute_model_path = _download_artifact_from_uri(model_uri)
 
     model_pyfunc_conf = _load_pyfunc_conf(model_path=absolute_model_path)
     model_python_version = model_pyfunc_conf.get(pyfunc.PY_VERSION, None)
@@ -126,8 +131,8 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
                          " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
                 error_code=INVALID_PARAMETER_VALUE)
 
-    tags = _build_tags(relative_model_path=model_path, run_id=run_id,
-                       model_python_version=model_python_version, user_tags=tags)
+    tags = _build_tags(model_uri=model_uri, model_python_version=model_python_version,
+                       user_tags=tags)
 
     if image_name is None:
         image_name = _get_mlflow_azure_resource_name()
@@ -198,20 +203,15 @@ def build_image(model_path, workspace, run_id=None, image_name=None, model_name=
         return image, registered_model
 
 
-def _build_tags(relative_model_path, run_id, model_python_version=None, user_tags=None):
+def _build_tags(model_uri, model_python_version=None, user_tags=None):
     """
-    :param model_path: The path to MLflow model for which the image is being built. If a run id
-                       is specified, this is a run-relative path. Otherwise, it is a local path.
-    :param run_id: MLflow run ID.
-    :param model_pyfunc_conf: The configuration for the `python_function` flavor within the
-                              specified model's "MLmodel" configuration.
+    :param model_uri: URI to the MLflow model.
+    :param model_python_version: The version of Python that was used to train the model, if
+                                 the model was trained in Python.
     :param user_tags: A collection of user-specified tags to append to the set of default tags.
     """
     tags = dict(user_tags) if user_tags is not None else {}
-    tags["model_path"] = relative_model_path if run_id is not None\
-        else os.path.abspath(relative_model_path)
-    if run_id is not None:
-        tags["run_id"] = run_id
+    tags["model_uri"] = model_uri
     if model_python_version is not None:
         tags["python_version"] = model_python_version
     return tags

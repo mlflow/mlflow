@@ -228,7 +228,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-        model_path=model_path,
+        model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
