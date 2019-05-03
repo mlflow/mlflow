@@ -88,8 +88,9 @@ def _init_server(backend_uri, root_artifact_uri):
                         universal_newlines=True)
 
         def get_output():
-            for x in iter(process.stdout.readline, ""):
-                print(backend_uri, "::", x, end='')
+            with open("C:\\log_" + backend_uri[0:5] + ".txt", "w") as f:
+                for x in iter(process.stdout.readline, ""):
+                    f.write(x)
         Thread(target=get_output).start()
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
