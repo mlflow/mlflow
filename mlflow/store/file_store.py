@@ -1,5 +1,6 @@
 import logging
 import os
+import posixpath
 import sys
 
 import uuid
@@ -142,9 +143,9 @@ class FileStore(AbstractStore):
 
     def _get_artifact_dir(self, experiment_id, run_uuid):
         _validate_run_id(run_uuid)
-        artifacts_dir = os.path.join(self.get_experiment(experiment_id).artifact_location,
-                                     run_uuid,
-                                     FileStore.ARTIFACTS_FOLDER_NAME)
+        artifacts_dir = posixpath.join(self.get_experiment(experiment_id).artifact_location,
+                                       run_uuid,
+                                       FileStore.ARTIFACTS_FOLDER_NAME)
         return artifacts_dir
 
     def _get_active_experiments(self, full_path=False):
