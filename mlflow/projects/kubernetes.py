@@ -2,10 +2,9 @@ import yaml
 import json
 import logging
 import docker
-import kubernetes.client
 import os
 import time
-from kubernetes import config
+import kubernetes
 from datetime import datetime
 
 _logger = logging.getLogger(__name__)
@@ -77,7 +76,7 @@ def run_kubernetes_job(image, image_namespace, job_namespace, parameters, env_va
     job_definition = _get_kubernetes_job_definition(image, image_namespace, job_namespace,
                                                     command, env_vars)
     job_name = job_definition['metadata']['name']
-    config.load_kube_config(context=kube_context)
+    kubernetes.config.load_kube_config(context=kube_context)
     api_instance = kubernetes.client.BatchV1Api()
     api_response = api_instance.create_namespaced_job(namespace=job_namespace,
                                                       body=job_definition, pretty=True)
