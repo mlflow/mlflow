@@ -82,16 +82,12 @@ def _init_server(backend_uri, root_artifact_uri):
                'from mlflow.server import app; app.run("{hostname}", {port})'.format(
                    hostname=LOCALHOST, port=server_port)]
         print("cmd =", cmd)
-        process = Popen(cmd,
-                        stdout=PIPE,
-                        stderr=STDOUT,
-                        universal_newlines=True)
-
-        def get_output():
-            with open("C:\\log_" + backend_uri[0:5] + ".txt", "w") as f:
-                for x in iter(process.stdout.readline, ""):
-                    f.write(x)
-        Thread(target=get_output).start()
+        process = Popen(cmd)
+        # def get_output():
+        #     with open("C:\\log_" + backend_uri[0:5] + ".txt", "w") as f:
+        #         for x in iter(process.stdout.readline, ""):
+        #             f.write(x)
+        # Thread(target=get_output).start()
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
     print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))
