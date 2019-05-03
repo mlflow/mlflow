@@ -29,9 +29,8 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, run_id = NULL, clien
 
 
 
-mlflow_create_run <- function(user_id = NULL, run_name = NULL, source_type = NULL,
-                              source_name = NULL, entry_point_name = NULL, start_time = NULL,
-                              source_version = NULL, tags = NULL, experiment_id = NULL, client) {
+mlflow_create_run <- function(user_id = NULL, start_time = NULL, tags = NULL,
+                              experiment_id = NULL, client) {
   experiment_id <- resolve_experiment_id(experiment_id)
   tags <- if (!is.null(tags)) tags %>%
     purrr::imap(~ list(key = .y, value = .x)) %>%
@@ -46,12 +45,7 @@ mlflow_create_run <- function(user_id = NULL, run_name = NULL, source_type = NUL
     data = list(
       experiment_id = experiment_id,
       user_id = user_id,
-      run_name = run_name,
-      source_type = source_type,
-      source_name = source_name,
-      entry_point_name = entry_point_name,
       start_time = start_time,
-      source_version = source_version,
       tags = tags
     )
   )
@@ -476,18 +470,15 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' }
 #'
 #' @export
-mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, source_name = NULL,
-                             source_version = NULL, entry_point_name = NULL,
-                             source_type = NULL, user_id = NULL, run_name = NULL, start_time = NULL,
-                             tags = NULL, client = NULL) {
+mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, user_id = NULL, 
+                             start_time = NULL, tags = NULL, client = NULL) {
 
   # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
   #  an active run.
   if (!is.null(client)) {
     if (!is.null(run_id)) stop("`run_id` should not be specified when `client` is specified.", call. = FALSE)
-    run <- mlflow_create_run(client = client, user_id = user_id, run_name = run_name, source_type = source_type,
-                             source_name = source_name, entry_point_name = entry_point_name, start_time = start_time,
-                             source_version = source_version, tags = tags, experiment_id = experiment_id)
+    run <- mlflow_create_run(client = client, user_id = user_id, start_time = start_time,
+                             tags = tags, experiment_id = experiment_id)
     return(run)
   }
 
@@ -498,7 +489,6 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, source_name = 
   if (!is.null(start_time)) stop("`start_time` should only be specified when `client` is specified.", call. = FALSE)
   if (!is.null(tags)) stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
 
-  source_type <- source_type %||% "LOCAL"
   active_run_id <- mlflow_get_active_run_id()
   if (!is.null(active_run_id)) {
     stop("Run with UUID ", active_run_id, " is already active.",
@@ -522,11 +512,7 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, source_name = 
 
     args <- mlflow_get_run_context(
       client,
-      experiment_id = experiment_id,
-      source_name = source_name,
-      source_version = source_version,
-      entry_point_name = entry_point_name,
-      source_type = source_type
+      experiment_id = experiment_id
     )
     do.call(mlflow_create_run, args)
   }
@@ -539,12 +525,14 @@ mlflow_get_run_context <- function(client, ...) {
   UseMethod("mlflow_get_run_context")
 }
 
-mlflow_get_run_context.default <- function(client, source_name, source_version, experiment_id,
-                                           ...) {
+mlflow_get_run_context.default <- function(client, experiment_id, ...) {
+  tags <- list()
+  tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- get_source_name()
+  tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
+  tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$LOCAL)
   list(
     client = client,
-    source_name = source_name %||% get_source_name(),
-    source_version = source_version %||% get_source_version(),
+    tags = tags,
     experiment_id = experiment_id %||% 0,
     ...
   )
@@ -586,3 +574,9 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
   if (identical(run_id, active_run_id)) mlflow_set_active_run_id(NULL)
   run
 }
+
+MLFLOW_TAGS <- list(
+  MLFLOW_SOURCE_NAME = "mlflow.source.name",
+  MLFLOW_SOURCE_VERSION = "mlflow.source.version",
+  MLFLOW_SOURCE_TYPE = "mlflow.source.type"
+)
