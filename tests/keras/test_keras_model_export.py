@@ -88,14 +88,14 @@ def test_model_save_load(model, model_path, data, predicted):
                == predicted)
 
     # test spark udf
-    spark_udf_preds = score_model_as_udf(os.path.abspath(model_path),
-                                         run_id=None,
+    spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
                                          pandas_df=pd.DataFrame(x),
                                          result_type="float")
     np.testing.assert_array_almost_equal(
         np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=4)
 
 
+@pytest.mark.large
 def test_model_load_from_runs_uri_succeeds(model, data, predicted):
     x, _ = data
 

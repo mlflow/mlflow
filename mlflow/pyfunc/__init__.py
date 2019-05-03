@@ -205,7 +205,7 @@ from mlflow import tracking
 from mlflow.models import Model
 from mlflow.pyfunc.model import PythonModel, PythonModelContext,\
     DEFAULT_CONDA_ENV
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri 
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -255,14 +255,12 @@ def add_to_model(model, loader_module, data=None, code=None, env=None, **kwargs)
     return model.add_flavor(FLAVOR_NAME, **parms)
 
 
-def _load_model_env(path, run_id=None):
+def _load_model_env(path):
     """
     Get ENV file string from a model configuration stored in Python Function format.
     Returned value is a model-relative path to a Conda Environment file,
     or None if none was specified at model save time
     """
-    if run_id is not None:
-        path = tracking.artifact_utils._get_model_log_dir(path, run_id)
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
@@ -316,7 +314,7 @@ def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None
             model_py_version, PYTHON_VERSION)
 
 
-def spark_udf(spark, path, run_id=None, result_type="double"):
+def spark_udf(spark, model_uri, result_type="double"):
     """
     A Spark UDF that can be used to invoke the Python function formatted model.
 
@@ -332,9 +330,17 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
     >>> df.withColumn("prediction", predict("name", "age")).show()
 
     :param spark: A SparkSession object.
-    :param path: A path containing a :py:mod:`mlflow.pyfunc` model.
-    :param run_id: ID of the run that produced this model. If provided, ``run_id`` is used to
-                   retrieve the model logged with MLflow.
+    :param model_uri: The location, in URI format, of the MLflow model with the
+                      :py:mod:`mlflow.pyfunc` flavor, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see the
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
+                      supported-artifact-stores>`_.
     :param result_type: the return type of the user-defined function. The value can be either a
                         :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
                         Only a primitive type or an array (pyspark.sql.types.ArrayType) of primitive
@@ -381,10 +387,8 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
                     "of the following types types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE)
 
-    if run_id:
-        path = tracking.artifact_utils._get_model_log_dir(path, run_id)
-
-    archive_path = SparkModelCache.add_local_model(spark, path)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)

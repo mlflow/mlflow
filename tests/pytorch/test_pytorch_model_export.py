@@ -190,7 +190,7 @@ def test_log_model(sequential_model, data, sequential_predicted):
                 model_uri = "runs:/{run_id}/{artifact_path}".format(
                     run_id=mlflow.active_run().info.run_id,
                     artifact_path=artifact_path)
-                
+
                 # Load model
                 sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_uri)
 
@@ -521,8 +521,8 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
         module_scoped_subclassed_model, model_path, data):
     """
     This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
-    by ``mlflow.pytorch.load_model``. The `data` path associated with these older models is 
-    serialized PyTorch model file, as opposed to the current format: a directory containing a 
+    by ``mlflow.pytorch.load_model``. The `data` path associated with these older models is
+    serialized PyTorch model file, as opposed to the current format: a directory containing a
     serialized model file and pickle module information.
     """
     mlflow.pytorch.save_model(
@@ -554,8 +554,8 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
         module_scoped_subclassed_model, model_path, data):
     """
     This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
-    by ``mlflow.pytorch.load_model``. The `data` path associated with these older models is 
-    serialized PyTorch model file, as opposed to the current format: a directory containing a 
+    by ``mlflow.pytorch.load_model``. The `data` path associated with these older models is
+    serialized PyTorch model file, as opposed to the current format: a directory containing a
     serialized model file and pickle module information.
     """
     artifact_path = "pytorch_model"

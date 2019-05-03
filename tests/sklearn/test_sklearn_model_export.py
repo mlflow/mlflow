@@ -124,7 +124,7 @@ def test_model_log(sklearn_logreg_model, model_path):
                         sklearn_logreg_model.model.predict(sklearn_logreg_model.inference_data),
                         reloaded_logreg_model.predict(sklearn_logreg_model.inference_data))
 
-                model_path = _download_artifact_from_uri(artifact_uri=model_uri) 
+                model_path = _download_artifact_from_uri(artifact_uri=model_uri)
                 model_config = Model.load(os.path.join(model_path, "MLmodel"))
                 assert pyfunc.FLAVOR_NAME in model_config.flavors
                 assert pyfunc.ENV in model_config.flavors[pyfunc.FLAVOR_NAME]

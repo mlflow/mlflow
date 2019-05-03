@@ -23,7 +23,7 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri 
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -207,12 +207,12 @@ def load_model(model_uri, tf_sess):
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key =\
         _get_and_parse_flavor_configuration(model_path=local_model_path)
-    return _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir, tf_sess=tf_sess, 
+    return _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir, tf_sess=tf_sess,
                                         tf_meta_graph_tags=tf_meta_graph_tags,
                                         tf_signature_def_key=tf_signature_def_key)
 
 
-def _load_tensorflow_saved_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags, 
+def _load_tensorflow_saved_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags,
                                  tf_signature_def_key):
     """
     Load a specified TensorFlow model consisting of a TensorFlow meta graph and signature definition
@@ -221,12 +221,12 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags
     :param tf_saved_model_dir: The local filesystem path or run-relative artifact path to the model.
     :param tf_sess: The TensorFlow session in which to the load the metagraph.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
-                               serialized ``SavedModel`` object. For more information, see the 
-                               ``tags`` parameter of the `tf.saved_model.builder.SavedModelBuilder 
+                               serialized ``SavedModel`` object. For more information, see the
+                               ``tags`` parameter of the `tf.saved_model.builder.SavedModelBuilder
                                method <https://www.tensorflow.org/api_docs/python/tf/saved_model/
                                builder/SavedModelBuilder#add_meta_graph>`_.
     :param tf_signature_def_key: A string identifying the input/output signature associated with the
-                                 model. This is a key within the serialized ``SavedModel``'s 
+                                 model. This is a key within the serialized ``SavedModel``'s
                                  signature definition mapping. For more information, see the
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
@@ -247,18 +247,18 @@ def _get_and_parse_flavor_configuration(model_path):
     """
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     :return: A triple containing the following elements:
-             
+
              - ``tf_saved_model_dir``: The local filesystem path to the underlying TensorFlow
                                        SavedModel directory.
-             - ``tf_meta_graph_tags``: A list of tags identifying the TensorFlow model's metagraph 
+             - ``tf_meta_graph_tags``: A list of tags identifying the TensorFlow model's metagraph
                                        within the serialized ``SavedModel`` object.
-             - ``tf_signature_def_key``: A string identifying the input/output signature associated 
-                                         with the model. This is a key within the serialized 
+             - ``tf_signature_def_key``: A string identifying the input/output signature associated
+                                         with the model. This is a key within the serialized
                                          ``SavedModel``'s signature definition mapping.
     """
     flavor_conf = _get_flavor_configuration(model_path=model_path, flavor_name=FLAVOR_NAME)
     tf_saved_model_dir = os.path.join(model_path, flavor_conf['saved_model_dir'])
-    tf_meta_graph_tags = flavor_conf['meta_graph_tags'] 
+    tf_meta_graph_tags = flavor_conf['meta_graph_tags']
     tf_signature_def_key = flavor_conf['signature_def_key']
     return tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key
 
