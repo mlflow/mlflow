@@ -21,7 +21,7 @@ from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
     MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
-from mlflow.utils.file_utils import path_to_local_file_uri
+from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
 from tests.integration.utils import invoke_cli_runner
 
 LOCALHOST = '127.0.0.1'
@@ -74,7 +74,8 @@ def _init_server(backend_uri, root_artifact_uri):
     server_port = _get_safe_port()
     env = {
         BACKEND_STORE_URI_ENV_VAR: backend_uri,
-        ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=root_artifact_uri),
+        ARTIFACT_ROOT_ENV_VAR: path_to_local_file_uri(
+            tempfile.mkdtemp(dir=local_file_uri_to_path(root_artifact_uri))),
     }
     with mock.patch.dict(os.environ, env):
         cmd = ["python",
@@ -129,7 +130,7 @@ BACKEND_URIS = [
 # a server per backend URI
 BACKEND_URI_TO_SERVER_URL_AND_PROC = {
     uri: _init_server(backend_uri=uri,
-                      root_artifact_uri=path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR))
+                      root_artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
     for uri in BACKEND_URIS
 }
 
