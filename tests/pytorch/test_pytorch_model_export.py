@@ -185,11 +185,14 @@ def test_log_model(sequential_model, data, sequential_predicted):
                 if should_start_run:
                     mlflow.start_run()
 
-                mlflow.pytorch.log_model(sequential_model, artifact_path="pytorch")
-
+                artifact_path = "pytorch"
+                mlflow.pytorch.log_model(sequential_model, artifact_path=artifact_path)
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id,
+                    artifact_path=artifact_path)
+                
                 # Load model
-                run_id = mlflow.active_run().info.run_id
-                sequential_model_loaded = mlflow.pytorch.load_model("pytorch", run_id=run_id)
+                sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_uri)
 
                 test_predictions = _predict(sequential_model_loaded, data)
                 np.testing.assert_array_equal(test_predictions, sequential_predicted)
@@ -202,7 +205,7 @@ def test_log_model(sequential_model, data, sequential_predicted):
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
         path = tmp.path("model")
-        with pytest.raises(MlflowException):
+        with pytest.raises(IOError):
             mlflow.pytorch.load_model(path)
 
         with pytest.raises(TypeError):
@@ -345,7 +348,7 @@ def test_load_model_with_differing_pytorch_version_logs_warning(sequential_model
             mock.patch("torch.__version__") as torch_version_mock:
         torch_version_mock.__str__ = lambda *args, **kwargs: loader_pytorch_version
         warn_mock.side_effect = custom_warn
-        mlflow.pytorch.load_model(path=model_path)
+        mlflow.pytorch.load_model(model_uri=model_path)
 
     assert any([
         "does not match installed PyTorch version" in log_message and
@@ -493,7 +496,9 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
             pytorch_model=module_scoped_subclassed_model,
             conda_env=None,
             pickle_module=custom_pickle_module)
-        run_id = mlflow.active_run().info.run_id
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
 
     import_module_fn = importlib.import_module
     imported_modules = []
@@ -505,7 +510,7 @@ def test_load_model_loads_torch_model_using_pickle_module_specified_at_save_time
     with mock.patch("importlib.import_module") as import_mock,\
             mock.patch("torch.load") as torch_load_mock:
         import_mock.side_effect = track_module_imports
-        pyfunc.load_pyfunc(artifact_path, run_id)
+        pyfunc.load_pyfunc(model_uri=model_uri)
 
     torch_load_mock.assert_called_with(mock.ANY, pickle_module=custom_pickle_module)
     assert custom_pickle_module.__name__ in imported_modules
@@ -516,9 +521,9 @@ def test_load_pyfunc_succeeds_when_data_is_model_file_instead_of_directory(
         module_scoped_subclassed_model, model_path, data):
     """
     This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
-    by `mlflow.pytorch.load_model`. The `data` path associated with these older models is serialized
-    PyTorch model file, as opposed to the current format: a directory containing a serialized
-    model file and pickle module information
+    by ``mlflow.pytorch.load_model``. The `data` path associated with these older models is 
+    serialized PyTorch model file, as opposed to the current format: a directory containing a 
+    serialized model file and pickle module information.
     """
     mlflow.pytorch.save_model(
         path=model_path,
@@ -549,9 +554,9 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
         module_scoped_subclassed_model, model_path, data):
     """
     This test verifies that PyTorch models saved in older versions of MLflow are loaded successfully
-    by `mlflow.pytorch.load_model`. The `data` path associated with these older models is serialized
-    PyTorch model file, as opposed to the current format: a directory containing a serialized
-    model file and pickle module information
+    by ``mlflow.pytorch.load_model``. The `data` path associated with these older models is 
+    serialized PyTorch model file, as opposed to the current format: a directory containing a 
+    serialized model file and pickle module information.
     """
     artifact_path = "pytorch_model"
     with mlflow.start_run():
@@ -608,7 +613,7 @@ def test_load_model_allows_user_to_override_pickle_module_via_keyword_argument(
             mock.patch("mlflow.pytorch._logger.warning") as warn_mock:
         mlflow_torch_pickle_load_mock.side_effect = validate_mlflow_torch_pickle_load_called
         warn_mock.side_effect = custom_warn
-        mlflow.pytorch.load_model(path=model_path, pickle_module=mlflow_pytorch_pickle_module)
+        mlflow.pytorch.load_model(model_uri=model_path, pickle_module=mlflow_pytorch_pickle_module)
 
     assert all(pickle_call_results.values())
     assert any([
@@ -638,7 +643,7 @@ def test_load_model_raises_exception_when_pickle_module_cannot_be_imported(
         f.write(bad_pickle_module_name)
 
     with pytest.raises(MlflowException) as exc_info:
-        mlflow.pytorch.load_model(model_path)
+        mlflow.pytorch.load_model(model_uri=model_path)
 
     assert "Failed to import the pickle module" in str(exc_info)
     assert bad_pickle_module_name in str(exc_info)

@@ -20,7 +20,7 @@ import mlflow.tensorflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
-from mlflow.tracking.artifact_utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import score_model_in_sagemaker_docker_container
@@ -169,8 +169,7 @@ def test_save_and_load_model_persists_and_restores_model_in_default_graph_contex
     tf_graph = tf.Graph()
     tf_sess = tf.Session(graph=tf_graph)
     with tf_graph.as_default():
-        signature_def = mlflow.tensorflow.load_model(
-                path=model_path, tf_sess=tf_sess)
+        signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
 
         for _, input_signature in signature_def.inputs.items():
             t_input = tf_graph.get_tensor_by_name(input_signature.name)
@@ -193,7 +192,7 @@ def test_save_and_load_model_persists_and_restores_model_in_custom_graph_context
     tf_sess = tf.Session(graph=tf_graph)
     custom_tf_context = tf_graph.device("/cpu:0")
     with custom_tf_context:
-        signature_def = mlflow.tensorflow.load_model(path=model_path, tf_sess=tf_sess)
+        signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
 
         for _, input_signature in signature_def.inputs.items():
             t_input = tf_graph.get_tensor_by_name(input_signature.name)
@@ -217,7 +216,7 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
 
     def load_and_evaluate(tf_sess, tf_graph, tf_context):
         with tf_context:
-            signature_def = mlflow.tensorflow.load_model(path=model_path, tf_sess=tf_sess)
+            signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
 
             input_signature = signature_def.inputs.items()
             assert len(input_signature) == len(expected_input_keys)
@@ -291,7 +290,7 @@ def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris
     # loaded from the specified MLflow model path
     shutil.rmtree(saved_tf_iris_model.path)
     with tf.Session(graph=tf.Graph()) as tf_sess:
-        signature_def = mlflow.tensorflow.load_model(path=model_path, tf_sess=tf_sess)
+        signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
 
 
 @pytest.mark.large
@@ -302,14 +301,14 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
                                     tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                     artifact_path=artifact_path)
-
-        run_id = mlflow.active_run().info.run_id
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
 
     tf_graph = tf.Graph()
     tf_sess = tf.Session(graph=tf_graph)
     with tf_graph.as_default():
-        signature_def = mlflow.tensorflow.load_model(
-                path=artifact_path, tf_sess=tf_sess, run_id=run_id)
+        signature_def = mlflow.tensorflow.load_model(model_uri=model_uri, tf_sess=tf_sess)
 
         for _, input_signature in signature_def.inputs.items():
             t_input = tf_graph.get_tensor_by_name(input_signature.name)
@@ -369,9 +368,11 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                     artifact_path=artifact_path,
                                     conda_env=tf_custom_env)
-        run_id = mlflow.active_run().info.run_id
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
 
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
@@ -411,9 +412,11 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                     artifact_path=artifact_path,
                                     conda_env=None)
-        run_id = mlflow.active_run().info.run_id
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
 
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:

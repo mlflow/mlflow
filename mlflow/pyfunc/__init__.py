@@ -205,6 +205,7 @@ from mlflow import tracking
 from mlflow.models import Model
 from mlflow.pyfunc.model import PythonModel, PythonModelContext,\
     DEFAULT_CONDA_ENV
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri 
 from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -265,26 +266,34 @@ def _load_model_env(path, run_id=None):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
-def load_pyfunc(path, run_id=None, suppress_warnings=False):
+def load_pyfunc(model_uri, suppress_warnings=False):
     """
     Load a model stored in Python function format.
 
-    :param path: Path to the model.
-    :param run_id: MLflow run ID.
+    :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see the
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
+                      supported-artifact-stores>`_.
+
     :param suppress_warnings: If True, non-fatal warning messages associated with the model
                               loading process will be suppressed. If False, these warning messages
                               will be emitted.
     """
-    if run_id is not None:
-        path = tracking.artifact_utils._get_model_log_dir(path, run_id)
-    conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
         _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
     if CODE in conf and conf[CODE]:
-        code_path = os.path.join(path, conf[CODE])
+        code_path = os.path.join(local_model_path, conf[CODE])
         mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
-    data_path = os.path.join(path, conf[DATA]) if (DATA in conf) else path
+    data_path = os.path.join(local_model_path, conf[DATA]) if (DATA in conf) else local_model_path
     return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
 
 

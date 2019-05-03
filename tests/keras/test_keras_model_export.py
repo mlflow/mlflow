@@ -68,7 +68,7 @@ def keras_custom_env(tmpdir):
 
 @pytest.mark.large
 def test_model_save_load(model, model_path, data, predicted):
-    x, y = data
+    x, _ = data
     mlflow.keras.save_model(model, model_path)
 
     # Loading Keras model
@@ -96,26 +96,45 @@ def test_model_save_load(model, model_path, data, predicted):
         np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=4)
 
 
+def test_model_load_from_runs_uri_succeeds(model, data, predicted):
+    x, _ = data
+
+    artifact_path = "model"
+    with mlflow.start_run():
+        mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
+
+    # Loading Keras model
+    model_loaded = mlflow.keras.load_model(model_uri)
+    assert all(model_loaded.predict(x) == predicted)
+
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri)
+    assert all(pyfunc_loaded.predict(x).values == predicted)
+
+
 @pytest.mark.large
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
-    x, y = data
+    x, _ = data
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
         try:
             if should_start_run:
                 mlflow.start_run()
-            mlflow.keras.log_model(model, artifact_path="keras_model")
+            artifact_path = "keras_model"
+            mlflow.keras.log_model(model, artifact_path=artifact_path)
+            model_uri = "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id,
+                artifact_path=artifact_path)
 
             # Load model
-            model_loaded = mlflow.keras.load_model(
-                "keras_model",
-                run_id=mlflow.active_run().info.run_id)
+            model_loaded = mlflow.keras.load_model(model_uri=model_uri)
             assert all(model_loaded.predict(x) == predicted)
 
             # Loading pyfunc model
-            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(
-                "keras_model",
-                run_id=mlflow.active_run().info.run_id)
+            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
             assert all(pyfunc_loaded.predict(x).values == predicted)
         finally:
             mlflow.end_run()

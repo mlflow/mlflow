@@ -93,10 +93,12 @@ def test_model_log(h2o_iris_model):
                 if should_start_run:
                     mlflow.start_run()
                 mlflow.h2o.log_model(h2o_model=h2o_model, artifact_path=artifact_path)
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id,
+                    artifact_path=artifact_path)
 
                 # Load model
-                h2o_model_loaded = mlflow.h2o.load_model(
-                        path=artifact_path, run_id=mlflow.active_run().info.run_id)
+                h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_uri)
                 assert all(
                         h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
                         h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
