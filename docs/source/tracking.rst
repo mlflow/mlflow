@@ -270,7 +270,7 @@ store* specified as ``./path_to_store`` or ``file:/path_to_store``, or a SQL con
 for a *database-backed store*. For the latter, the argument must be a SQL connection string
 specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported
 database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
-For backwards compatibility, ``--file-store`` is an alias for --backend-store-uri
+For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``.
 
 .. important::
 
