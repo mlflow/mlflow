@@ -1,4 +1,5 @@
 import os
+import posixpath
 import mock
 import pytest
 
@@ -167,11 +168,11 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
 
     blob_props_1 = BlobProperties()
     blob_props_1.content_length = 42
-    blob_1 = Blob(os.path.join(TEST_ROOT_PATH, file_path_1), props=blob_props_1)
+    blob_1 = Blob(posixpath.join(TEST_ROOT_PATH, file_path_1), props=blob_props_1)
 
     blob_props_2 = BlobProperties()
     blob_props_2.content_length = 42
-    blob_2 = Blob(os.path.join(TEST_ROOT_PATH, file_path_2), props=blob_props_2)
+    blob_2 = Blob(posixpath.join(TEST_ROOT_PATH, file_path_2), props=blob_props_2)
 
     def get_mock_listing(*args, **kwargs):
         """
@@ -182,7 +183,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
         directory traversal.
         """
         # pylint: disable=unused-argument
-        if os.path.abspath(kwargs["prefix"]) == os.path.abspath(TEST_ROOT_PATH):
+        if posixpath.abspath(kwargs["prefix"]) == posixpath.abspath(TEST_ROOT_PATH):
             return MockBlobList([blob_1, blob_2])
         else:
             return MockBlobList([])
@@ -273,7 +274,7 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
         directory traversal.
         """
         # pylint: disable=unused-argument
-        if os.path.abspath(kwargs["prefix"]) == os.path.abspath(TEST_ROOT_PATH):
+        if posixpath.abspath(kwargs["prefix"]) == posixpath.abspath(TEST_ROOT_PATH):
             # Return a blob that is not prefixed by the root path of the artifact store. This
             # should result in an exception being raised
             return MockBlobList([bad_blob])
