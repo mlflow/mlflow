@@ -158,7 +158,7 @@ def read_yaml(root, file_name):
         raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
 
     try:
-        with open(file_path, 'r') as yaml_file:
+        with open(file_path, 'r', encoding="utf8") as yaml_file:
             return yaml.safe_load(yaml_file)
     except Exception as e:
         raise e
