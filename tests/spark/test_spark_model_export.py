@@ -165,7 +165,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
 
     # 1. score and compare pyfunc deployed in Sagemaker docker container
     scoring_response_1 = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=spark_model_iris.pandas_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
@@ -175,7 +175,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
             decimal=4)
     # 2. score and compare mleap deployed in Sagemaker docker container
     scoring_response_2 = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=spark_model_iris.pandas_df.to_json(orient="split"),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             flavor=mlflow.mleap.FLAVOR_NAME)
@@ -220,7 +220,7 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                 cnt += 1
                 sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
                                  dfs_tmpdir=dfs_tmp_dir)
-                run_id = active_run().info.run_uuid
+                run_id = active_run().info.run_id
                 # test reloaded model
                 reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
                                                    dfs_tmpdir=dfs_tmp_dir)
@@ -295,7 +295,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
                 spark_model=spark_model_iris.model,
                 artifact_path=artifact_path,
                 conda_env=spark_custom_env)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -330,7 +330,7 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
     with mlflow.start_run():
         sparkm.log_model(
                 spark_model=spark_model_iris.model, artifact_path=artifact_path, conda_env=None)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -345,7 +345,7 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
     with mlflow.start_run():
-        rid = active_run().info.run_uuid
+        rid = active_run().info.run_id
         sparkm.log_model(spark_model=spark_model_iris.model,
                          sample_input=spark_model_iris.spark_df,
                          artifact_path=artifact_path)

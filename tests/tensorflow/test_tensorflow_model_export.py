@@ -303,7 +303,7 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                     artifact_path=artifact_path)
 
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
 
     tf_graph = tf.Graph()
     tf_sess = tf.Session(graph=tf_graph)
@@ -369,7 +369,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                     artifact_path=artifact_path,
                                     conda_env=tf_custom_env)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -411,7 +411,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
                                     tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                     artifact_path=artifact_path,
                                     conda_env=None)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -457,7 +457,7 @@ def test_model_deployment_with_default_conda_env(saved_tf_iris_model, model_path
                                  conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=saved_tf_iris_model.inference_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)

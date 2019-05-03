@@ -18,6 +18,7 @@ public class TestUtils {
     Assert.assertEquals(runInfo.getExperimentId(), experimentId);
     Assert.assertEquals(runInfo.getSourceName(), sourceName);
     Assert.assertNotEquals(runInfo.getUserId(), "");
+    Assert.assertTrue(runInfo.getStartTime() < runInfo.getEndTime());
   }
 
   public static void assertParam(List<Param> params, String key, String value) {
@@ -26,6 +27,13 @@ public class TestUtils {
 
   public static void assertMetric(List<Metric> metrics, String key, double value) {
     Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
+  }
+
+  public static void assertMetric(List<Metric> metrics, String key, double value, long runStart, long runEnd) {
+    Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) &&
+      equals(e.getValue(), value) && e.getTimestamp() >= runStart &&
+      e.getTimestamp() <= runEnd
+    ).findFirst().isPresent());
   }
 
   public static void assertMetricHistory(List<Metric> history, String key, List<Double> values, List<Long> steps) {

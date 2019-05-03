@@ -68,7 +68,7 @@ class Model(object):
         """
         with TempDir() as tmp:
             local_path = tmp.path("model")
-            run_id = mlflow.tracking.fluent._get_or_start_run().info.run_uuid
+            run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)

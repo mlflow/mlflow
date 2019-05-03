@@ -37,7 +37,7 @@ def test_runs_artifact_repo_init():
     artifact_location = "s3://blah_bucket/"
     experiment_id = mlflow.create_experiment("expr_abc", artifact_location)
     with mlflow.start_run(experiment_id=experiment_id):
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     runs_uri = "runs:/%s/path/to/model" % run_id
     runs_repo = RunsArtifactRepository(runs_uri)
 

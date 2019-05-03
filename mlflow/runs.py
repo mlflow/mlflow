@@ -41,7 +41,7 @@ def list_run(experiment_id, view):
     for run in runs:
         tags = {t.key: t.value for t in run.data.tags}
         run_name = tags.get(MLFLOW_RUN_NAME, "")
-        table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_uuid])
+        table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_id])
     print(tabulate(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
 
 

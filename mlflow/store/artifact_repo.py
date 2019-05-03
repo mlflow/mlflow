@@ -48,10 +48,10 @@ class ArtifactRepository:
     @abstractmethod
     def list_artifacts(self, path):
         """
-        Return all the artifacts for this run_uuid directly under path. If path is a file, returns
+        Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.
 
-        :param path: Relative source path that contain desired artifacts
+        :param path: Relative source path that contains desired artifacts
 
         :return: List of artifacts as FileInfo listed directly under path.
         """

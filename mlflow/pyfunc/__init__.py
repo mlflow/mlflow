@@ -605,7 +605,7 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
     """
     with TempDir() as tmp:
         local_path = tmp.path(artifact_path)
-        run_id = active_run().info.run_uuid
+        run_id = active_run().info.run_id
         save_model(dst_path=local_path, model=Model(artifact_path=artifact_path, run_id=run_id),
                    loader_module=loader_module, data_path=data_path, code_path=code_path,
                    conda_env=conda_env, python_model=python_model, artifacts=artifacts)
