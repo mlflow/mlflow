@@ -3,7 +3,8 @@ import os
 import shutil
 
 from mlflow.store.artifact_repo import ArtifactRepository, verify_artifact_path
-from mlflow.utils.file_utils import mkdir, list_all, get_file_info, local_file_uri_to_path
+from mlflow.utils.file_utils import mkdir, list_all, get_file_info, local_file_uri_to_path, \
+    relative_path_to_artifact_path
 
 
 class LocalArtifactRepository(ArtifactRepository):
@@ -45,15 +46,21 @@ class LocalArtifactRepository(ArtifactRepository):
         list_dir = os.path.join(self.artifact_dir, path) if path else self.artifact_dir
         if os.path.isdir(list_dir):
             artifact_files = list_all(list_dir, full_path=True)
-            infos = [get_file_info(f, os.path.relpath(f, self.artifact_dir))
+            infos = [get_file_info(f,
+                                   relative_path_to_artifact_path(
+                                       os.path.relpath(f, self.artifact_dir)))
                      for f in artifact_files]
             return sorted(infos, key=lambda f: f.path)
         else:
             return []
 
     def _download_file(self, remote_file_path, local_path):
+        print("_download_file", remote_file_path, local_path)
         # NOTE: The remote_file_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
         remote_file_path = os.path.normpath(remote_file_path)
+        print("remote_file_path_normalized", remote_file_path)
+        print("remote_file_path_normalized and joined", os.path.join(self.artifact_dir,
+                                                                     remote_file_path))
         shutil.copyfile(
             os.path.join(self.artifact_dir, remote_file_path), local_path)

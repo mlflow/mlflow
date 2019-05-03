@@ -344,6 +344,13 @@ def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
 
 
+def relative_path_to_artifact_path(path):
+    if os.path == posixpath:
+        return path
+    if os.path.abspath(path) == path:
+        raise Exception("This method only works with relative paths.")
+    return pathname2url(path)
+
 def path_to_local_file_uri(path):
     """
     Convert local filesystem path to uri with the given scheme.
