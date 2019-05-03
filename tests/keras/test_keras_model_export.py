@@ -17,7 +17,7 @@ import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model
-from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -66,6 +66,7 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
+@pytest.mark.large
 def test_model_save_load(model, model_path, data, predicted):
     x, y = data
     mlflow.keras.save_model(model, model_path)
@@ -95,6 +96,7 @@ def test_model_save_load(model, model_path, data, predicted):
         np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=4)
 
 
+@pytest.mark.large
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
     x, y = data
     # should_start_run tests whether or not calling log_model() automatically starts a run.
@@ -107,18 +109,19 @@ def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disabl
             # Load model
             model_loaded = mlflow.keras.load_model(
                 "keras_model",
-                run_id=mlflow.active_run().info.run_uuid)
+                run_id=mlflow.active_run().info.run_id)
             assert all(model_loaded.predict(x) == predicted)
 
             # Loading pyfunc model
             pyfunc_loaded = mlflow.pyfunc.load_pyfunc(
                 "keras_model",
-                run_id=mlflow.active_run().info.run_uuid)
+                run_id=mlflow.active_run().info.run_id)
             assert all(pyfunc_loaded.predict(x).values == predicted)
         finally:
             mlflow.end_run()
 
 
+@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         model, model_path, keras_custom_env):
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
@@ -135,6 +138,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == keras_custom_env_parsed
 
 
+@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(model, model_path):
     conda_env = dict(mlflow.keras.DEFAULT_CONDA_ENV)
     conda_env["dependencies"].append("pytest")
@@ -149,12 +153,13 @@ def test_model_save_accepts_conda_env_as_dict(model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
+@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.keras.log_model(
             keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -169,6 +174,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     assert saved_conda_env_parsed == keras_custom_env_parsed
 
 
+@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         model, model_path):
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
@@ -180,12 +186,13 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     assert conda_env == mlflow.keras.DEFAULT_CONDA_ENV
 
 
+@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         model):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path, conda_env=None)
-        run_id = mlflow.active_run().info.run_uuid
+        run_id = mlflow.active_run().info.run_id
     model_path = _get_model_log_dir(artifact_path, run_id)
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -196,6 +203,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     assert conda_env == mlflow.keras.DEFAULT_CONDA_ENV
 
 
+@pytest.mark.large
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
         model, model_path, data, predicted):
     """
@@ -220,7 +228,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-        model_path=model_path,
+        model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         flavor=mlflow.pyfunc.FLAVOR_NAME,

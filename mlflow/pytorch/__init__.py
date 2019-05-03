@@ -304,7 +304,7 @@ def load_model(path, run_id=None, **kwargs):
     >>> y_pred = pytorch_model(x_new_data)
     """
     if run_id is not None:
-        path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
+        path = mlflow.tracking.artifact_utils._get_model_log_dir(model_name=path, run_id=run_id)
     path = os.path.abspath(path)
 
     try:

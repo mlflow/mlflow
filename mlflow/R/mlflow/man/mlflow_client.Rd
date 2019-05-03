@@ -13,4 +13,3 @@ set by `mlflow_set_tracking_uri()`.}
 \description{
 Initialize an MLflow Client
 }
-\keyword{internal}

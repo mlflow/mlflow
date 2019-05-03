@@ -23,6 +23,7 @@ public class MlflowProtobufMapperTest {
 
     Map<String, String> expectedMessage = new HashMap<>();
     expectedMessage.put("run_uuid", "my-id");
+    expectedMessage.put("run_id", "my-id");
     expectedMessage.put("key", "my-key");
     expectedMessage.put("value", "my-value");
     Assert.assertEquals(serializedMessage, expectedMessage);
@@ -33,6 +34,6 @@ public class MlflowProtobufMapperTest {
     MlflowProtobufMapper mapper = new MlflowProtobufMapper();
     Service.CreateExperiment.Response result = mapper.toCreateExperimentResponse(
       "{\"experiment_id\": 123, \"what is this field\": \"even\"}");
-    Assert.assertEquals(result.getExperimentId(), 123);
+    Assert.assertEquals(result.getExperimentId(), "123");
   }
 }

@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from six.moves import urllib
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.dbmodels.db_types import MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
 from mlflow.entities import RunStatus, SourceType, Experiment
@@ -36,6 +37,7 @@ class SqlAlchemyStore(AbstractStore):
     is recorded in :py:class:`mlflow.store.dbmodels.models.SqlRun` and stored in the backend DB.
     """
     ARTIFACTS_FOLDER_NAME = "artifacts"
+    DEFAULT_EXPERIMENT_ID = "0"
 
     def __init__(self, db_uri, default_artifact_root):
         """
@@ -114,7 +116,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         table = SqlExperiment.__tablename__
         default_experiment = {
-            SqlExperiment.experiment_id.name: Experiment.DEFAULT_EXPERIMENT_ID,
+            SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
             SqlExperiment.artifact_location.name: self._get_artifact_location(0),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE
@@ -182,14 +184,16 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException('Experiment(name={}) already exists. '
                                       'Error: {}'.format(name, str(e)), RESOURCE_ALREADY_EXISTS)
 
-            return experiment.experiment_id
+            session.flush()
+            return str(experiment.experiment_id)
 
     def _list_experiments(self, session, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY):
         stages = LifecycleStage.view_type_to_stages(view_type)
         conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
 
         if ids and len(ids) > 0:
-            conditions.append(SqlExperiment.experiment_id.in_(ids))
+            int_ids = [int(eid) for eid in ids]
+            conditions.append(SqlExperiment.experiment_id.in_(int_ids))
 
         if names and len(names) > 0:
             conditions.append(SqlExperiment.name.in_(names))
@@ -202,6 +206,7 @@ class SqlAlchemyStore(AbstractStore):
                     self._list_experiments(session=session, view_type=view_type)]
 
     def _get_experiment(self, session, experiment_id, view_type):
+        experiment_id = experiment_id or SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
         experiments = self._list_experiments(
             session=session, ids=[experiment_id], view_type=view_type).all()
         if len(experiments) == 0:
@@ -263,23 +268,24 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException('Experiment id={} must be active'.format(experiment_id),
                                       INVALID_STATE)
 
-            run_uuid = uuid.uuid4().hex
-            artifact_location = build_path(experiment.artifact_location, run_uuid,
+            run_id = uuid.uuid4().hex
+            artifact_location = build_path(experiment.artifact_location, run_id,
                                            SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
-            run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_uuid,
+            run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_id,
                          experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                          source_name=source_name, entry_point_name=entry_point_name,
                          user_id=user_id, status=RunStatus.to_string(RunStatus.RUNNING),
                          start_time=start_time, end_time=None,
                          source_version=source_version, lifecycle_stage=LifecycleStage.ACTIVE)
 
+            tags_dict = {}
             for tag in tags:
-                run.tags.append(SqlTag(key=tag.key, value=tag.value))
+                tags_dict[tag.key] = tag.value
             if parent_run_id:
-                run.tags.append(SqlTag(key=MLFLOW_PARENT_RUN_ID, value=parent_run_id))
+                tags_dict[MLFLOW_PARENT_RUN_ID] = parent_run_id
             if run_name:
-                run.tags.append(SqlTag(key=MLFLOW_RUN_NAME, value=run_name))
-
+                tags_dict[MLFLOW_RUN_NAME] = run_name
+            run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
             self._save_to_db(objs=run, session=session)
 
             return run.to_mlflow_entity()
@@ -309,9 +315,9 @@ class SqlAlchemyStore(AbstractStore):
                                   .format(run.run_uuid, run.lifecycle_stage),
                                   INVALID_PARAMETER_VALUE)
 
-    def update_run_info(self, run_uuid, run_status, end_time):
+    def update_run_info(self, run_id, run_status, end_time):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             run.status = RunStatus.to_string(run_status)
             run.end_time = end_time
@@ -321,9 +327,9 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.info
 
-    def get_run(self, run_uuid):
+    def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             return run.to_mlflow_entity()
 
     def restore_run(self, run_id):
@@ -340,29 +346,30 @@ class SqlAlchemyStore(AbstractStore):
             run.lifecycle_stage = LifecycleStage.DELETED
             self._save_to_db(objs=run, session=session)
 
-    def log_metric(self, run_uuid, metric):
+    def log_metric(self, run_id, metric):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
-            self._get_or_create(model=SqlMetric, run_uuid=run_uuid, key=metric.key,
-                                value=metric.value, timestamp=metric.timestamp, session=session)
+            self._get_or_create(model=SqlMetric, run_uuid=run_id, key=metric.key,
+                                value=metric.value, timestamp=metric.timestamp, step=metric.step,
+                                session=session)
 
-    def get_metric_history(self, run_uuid, metric_key):
+    def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
-            metrics = session.query(SqlMetric).filter_by(run_uuid=run_uuid, key=metric_key).all()
+            metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
             return [metric.to_mlflow_entity() for metric in metrics]
 
-    def log_param(self, run_uuid, param):
+    def log_param(self, run_id, param):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             # if we try to update the value of an existing param this will fail
             # because it will try to create it with same run_uuid, param key
             try:
                 # This will check for various integrity checks for params table.
                 # ToDo: Consider prior checks for null, type, param name validations, ... etc.
-                self._get_or_create(model=SqlParam, session=session, run_uuid=run_uuid,
+                self._get_or_create(model=SqlParam, session=session, run_uuid=run_id,
                                     key=param.key, value=param.value)
                 # Explicitly commit the session in order to catch potential integrity errors
                 # while maintaining the current managed session scope ("commit" checks that
@@ -389,22 +396,31 @@ class SqlAlchemyStore(AbstractStore):
                         "Changing param value is not allowed. Param with key='{}' was already"
                         " logged with value='{}' for run ID='{}. Attempted logging new value"
                         " '{}'.".format(
-                            param.key, old_value, run_uuid, param.value), INVALID_PARAMETER_VALUE)
+                            param.key, old_value, run_id, param.value), INVALID_PARAMETER_VALUE)
                 else:
                     raise
 
-    def set_tag(self, run_uuid, tag):
+    def set_tag(self, run_id, tag):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_uuid, session=session)
+            run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            session.merge(SqlTag(run_uuid=run_uuid, key=tag.key, value=tag.value))
+            session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_THRESHOLD):
+        # TODO: push search query into backend database layer
+        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+            raise MlflowException("Invalid value for request parameter max_results. It must be at "
+                                  "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
+                                                                     max_results),
+                                  INVALID_PARAMETER_VALUE)
         with self.ManagedSessionMaker() as session:
             runs = [run.to_mlflow_entity()
                     for exp in experiment_ids
                     for run in self._list_runs(session, exp, run_view_type)]
-            return [run for run in runs if not search_filter or search_filter.filter(run)]
+            filtered = [run for run in runs if not search_filter or search_filter.filter(run)]
+            return sorted(filtered,
+                          key=lambda r: (-r.info.start_time, r.info.run_uuid))[:max_results]
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(

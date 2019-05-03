@@ -17,7 +17,7 @@ import mlflow.pyfunc.model
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _get_model_log_dir
 
 
 def _load_pyfunc(path):
@@ -49,6 +49,7 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
+@pytest.mark.large
 def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -70,6 +71,7 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
 
 
+@pytest.mark.large
 def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
@@ -81,7 +83,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
                                 data_path=sk_model_path,
                                 loader_module=os.path.basename(__file__)[:-3],
                                 code_path=[__file__])
-        pyfunc_run_id = mlflow.active_run().info.run_uuid
+        pyfunc_run_id = mlflow.active_run().info.run_id
 
     pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
     model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
@@ -92,6 +94,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
         sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
 
 
+@pytest.mark.large
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(dst_path=model_path,
@@ -99,6 +102,7 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
 
+@pytest.mark.large
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model",

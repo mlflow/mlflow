@@ -24,7 +24,7 @@ get_rest_config <- function(host_creds) {
   headers <- list()
   auth_header <- if (!is.na(host_creds$username) && !is.na(host_creds$password)) {
     basic_auth_str <- paste(host_creds$username, host_creds$password, sep = ":")
-    paste("Basic", base64encode(basic_auth_str), sep = " ")
+    paste("Basic", base64encode(charToRaw(basic_auth_str)), sep = " ")
   } else if (!is.na(host_creds$token)) {
     paste("Bearer", host_creds$token, sep = " ")
   } else {
@@ -33,6 +33,9 @@ get_rest_config <- function(host_creds) {
   if (!is.na(auth_header)) {
     headers$Authorization <- auth_header
   }
+
+  headers$`User-Agent` <- paste("mlflow-r-client", packageVersion("mlflow"), sep = "/")
+
   is_insecure <- list(true = TRUE, false = FALSE)[[tolower(host_creds$insecure)]]
   list(
     headers = headers,
@@ -44,7 +47,7 @@ get_rest_config <- function(host_creds) {
   )
 }
 
-#' @import httr
+#' @importFrom httr GET POST add_headers config content
 mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", version = "2.0") {
   host_creds <- client$get_host_creds()
   rest_config <- get_rest_config(host_creds)
@@ -54,6 +57,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )
+
   response <- switch(
     verb,
     GET = GET(
@@ -70,7 +74,7 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
       config = rest_config$config,
       do.call(add_headers, rest_config$headers)
     ),
-    stop("Verb '", verb, "' is unsupported.")
+    stop("Verb '", verb, "' is unsupported.", call. = FALSE)
   )
   if (response$status_code != 200) {
     message_body <- tryCatch(
@@ -87,8 +91,8 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
                  message_body,
                  "'",
                  sep = "")
-    stop(msg)
+    stop(msg, call. = FALSE)
   }
   text <- content(response, "text", encoding = "UTF-8")
-  jsonlite::fromJSON(text)
+  jsonlite::fromJSON(text, simplifyVector = FALSE)
 }

@@ -7,13 +7,19 @@ import mock
 from mock import Mock
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
+from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository, \
+    _get_host_creds_from_default_store
+from mlflow.store.file_store import FileStore
+from mlflow.store.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
 @pytest.fixture()
 def dbfs_artifact_repo():
-    return DbfsArtifactRepository('dbfs:/test/', lambda: MlflowHostCreds('http://host'))
+    with mock.patch('mlflow.store.dbfs_artifact_repo._get_host_creds_from_default_store') \
+            as get_creds_mock:
+        get_creds_mock.return_value = lambda: MlflowHostCreds('http://host')
+        return DbfsArtifactRepository('dbfs:/test/')
 
 
 TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
@@ -65,10 +71,13 @@ LIST_ARTIFACTS_SINGLE_FILE_RESPONSE = {
 
 class TestDbfsArtifactRepository(object):
     def test_init_validation_and_cleaning(self):
-        repo = DbfsArtifactRepository('dbfs:/test/', lambda: MlflowHostCreds('http://host'))
-        assert repo.artifact_uri == 'dbfs:/test'
-        with pytest.raises(MlflowException):
-            DbfsArtifactRepository('s3://test', lambda: MlflowHostCreds('http://host'))
+        with mock.patch('mlflow.store.dbfs_artifact_repo._get_host_creds_from_default_store') \
+                as get_creds_mock:
+            get_creds_mock.return_value = lambda: MlflowHostCreds('http://host')
+            repo = DbfsArtifactRepository('dbfs:/test/')
+            assert repo.artifact_uri == 'dbfs:/test'
+            with pytest.raises(MlflowException):
+                DbfsArtifactRepository('s3://test')
 
     @pytest.mark.parametrize("artifact_path,expected_endpoint", [
         (None, '/dbfs/test/test.txt'),
@@ -206,3 +215,16 @@ class TestDbfsArtifactRepository(object):
             _, kwargs_call_2 = chronological_download_calls[1]
             assert kwargs_call_1['endpoint'] == '/dbfs/test/dir'
             assert kwargs_call_2['endpoint'] == '/dbfs/test/a.txt'
+
+
+def test_get_host_creds_from_default_store_file_store():
+    with mock.patch('mlflow.tracking.utils._get_store') as get_store_mock:
+        get_store_mock.return_value = FileStore()
+        with pytest.raises(MlflowException):
+            _get_host_creds_from_default_store()
+
+
+def test_get_host_creds_from_default_store_rest_store():
+    with mock.patch('mlflow.tracking.utils._get_store') as get_store_mock:
+        get_store_mock.return_value = RestStore(lambda: MlflowHostCreds('http://host'))
+        assert isinstance(_get_host_creds_from_default_store()(), MlflowHostCreds)

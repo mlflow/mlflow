@@ -16,56 +16,59 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeDeleteExperimentRequest(long experimentId) {
+  String makeDeleteExperimentRequest(String experimentId) {
     DeleteExperiment.Builder builder = DeleteExperiment.newBuilder();
     builder.setExperimentId(experimentId);
     return print(builder);
   }
 
-  String makeRestoreExperimentRequest(long experimentId) {
+  String makeRestoreExperimentRequest(String experimentId) {
     RestoreExperiment.Builder builder = RestoreExperiment.newBuilder();
     builder.setExperimentId(experimentId);
     return print(builder);
   }
 
-  String makeUpdateExperimentRequest(long experimentId, String newExperimentName) {
+  String makeUpdateExperimentRequest(String experimentId, String newExperimentName) {
     UpdateExperiment.Builder builder = UpdateExperiment.newBuilder();
     builder.setExperimentId(experimentId);
     builder.setNewName(newExperimentName);
     return print(builder);
   }
 
-  String makeLogParam(String runUuid, String key, String value) {
+  String makeLogParam(String runId, String key, String value) {
     LogParam.Builder builder = LogParam.newBuilder();
-    builder.setRunUuid(runUuid);
+    builder.setRunUuid(runId);
+    builder.setRunId(runId);
     builder.setKey(key);
     builder.setValue(value);
     return print(builder);
   }
 
-  String makeLogMetric(String runUuid, String key, double value, long timestamp) {
+  String makeLogMetric(String runId, String key, double value, long timestamp) {
     LogMetric.Builder builder = LogMetric.newBuilder();
-    builder.setRunUuid(runUuid);
+    builder.setRunUuid(runId);
+    builder.setRunId(runId);
     builder.setKey(key);
     builder.setValue(value);
     builder.setTimestamp(timestamp);
     return print(builder);
   }
 
-  String makeSetTag(String runUuid, String key, String value) {
+  String makeSetTag(String runId, String key, String value) {
     SetTag.Builder builder = SetTag.newBuilder();
-    builder.setRunUuid(runUuid);
+    builder.setRunUuid(runId);
+    builder.setRunId(runId);
     builder.setKey(key);
     builder.setValue(value);
     return print(builder);
   }
 
-  String makeLogBatch(String runUuid,
+  String makeLogBatch(String runId,
       Iterable<Metric> metrics,
       Iterable<Param> params,
       Iterable<RunTag> tags) {
     LogBatch.Builder builder = LogBatch.newBuilder();
-    builder.setRunId(runUuid);
+    builder.setRunId(runId);
     if (metrics != null) {
       builder.addAllMetrics(metrics);
     }
@@ -78,23 +81,24 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeUpdateRun(String runUuid, RunStatus status, long endTime) {
+  String makeUpdateRun(String runId, RunStatus status, long endTime) {
     UpdateRun.Builder builder = UpdateRun.newBuilder();
-    builder.setRunUuid(runUuid);
+    builder.setRunUuid(runId);
+    builder.setRunId(runId);
     builder.setStatus(status);
     builder.setEndTime(endTime);
     return print(builder);
   }
 
-  String makeDeleteRun(String runUuid) {
+  String makeDeleteRun(String runId) {
     DeleteRun.Builder builder = DeleteRun.newBuilder();
-    builder.setRunId(runUuid);
+    builder.setRunId(runId);
     return print(builder);
   }
 
-  String makeRestoreRun(String runUuid) {
+  String makeRestoreRun(String runId) {
     RestoreRun.Builder builder = RestoreRun.newBuilder();
-    builder.setRunId(runUuid);
+    builder.setRunId(runId);
     return print(builder);
   }
 
@@ -122,6 +126,12 @@ class MlflowProtobufMapper {
 
   GetRun.Response toGetRunResponse(String json) {
     GetRun.Response.Builder builder = GetRun.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  GetMetricHistory.Response toGetMetricHistoryResponse(String json) {
+    GetMetricHistory.Response.Builder builder = GetMetricHistory.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }

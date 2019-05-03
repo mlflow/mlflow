@@ -61,8 +61,8 @@ def log_model(spark_model, sample_input, artifact_path):
     >>> pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
     >>> model = pipeline.fit(training)
     >>> #log parameters
-    >>> mlflow.log_parameter("max_iter", 10)
-    >>> mlflow.log_parameter("reg_param", 0.001)
+    >>> mlflow.log_param("max_iter", 10)
+    >>> mlflow.log_param("reg_param", 0.001)
     >>> #log the Spark MLlib model in MLeap format
     >>> mlflow.mleap.log_model(model, test_df, "mleap-model")
     """

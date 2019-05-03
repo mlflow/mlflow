@@ -13,7 +13,7 @@ from mlflow.utils import file_utils
 from mlflow.utils.file_utils import get_parent_dir, _copy_file_or_tree, TempDir
 from tests.projects.utils import TEST_PROJECT_DIR
 
-from tests.helper_functions import random_int, random_file
+from tests.helper_functions import random_int, random_file, safe_edit_yaml
 
 
 def test_yaml_read_and_write(tmpdir):
@@ -32,6 +32,17 @@ def test_yaml_read_and_write(tmpdir):
     # Check that UTF-8 strings are written properly to the file (rather than as ASCII
     # representations of their byte sequences).
     assert u"中文" in contents
+
+    def edit_func(old_dict):
+        old_dict["more_text"] = u"西班牙语"
+        return old_dict
+
+    assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
+    with safe_edit_yaml(temp_dir, yaml_file, edit_func):
+        editted_dict = file_utils.read_yaml(temp_dir, yaml_file)
+        assert "more_text" in editted_dict
+        assert editted_dict["more_text"] == u"西班牙语"
+    assert "more_text" not in file_utils.read_yaml(temp_dir, yaml_file)
 
 
 def test_mkdir(tmpdir):

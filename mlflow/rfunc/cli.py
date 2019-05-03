@@ -5,7 +5,7 @@ import os
 import subprocess
 import logging
 
-from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _get_model_log_dir
 from mlflow.utils import cli_args
 
 

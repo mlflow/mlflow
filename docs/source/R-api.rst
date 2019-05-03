@@ -816,8 +816,6 @@ Arguments
 +--------------+-------------------------------------------------------+
 | ``end_time`` | Unix timestamp of when the run ended in milliseconds. |
 +--------------+-------------------------------------------------------+
-| ``run_id``   | Run ID.                                               |
-+--------------+-------------------------------------------------------+
 
 .. _details-16:
 
@@ -1248,7 +1246,7 @@ frame.
 
 .. code:: r
 
-   mlflow_rfunc_predict(model_path, run_uuid = NULL, input_path = NULL,
+   mlflow_rfunc_predict(model_path, run_id = NULL, input_path = NULL,
      output_path = NULL, data = NULL, restore = FALSE)
 
 .. _arguments-32:
@@ -1262,7 +1260,7 @@ Arguments
 | ``model_path``                | The path to the MLflow model, as a   |
 |                               | string.                              |
 +-------------------------------+--------------------------------------+
-| ``run_uuid``                  | Run ID of run to grab the model      |
+| ``run_id``                  | Run ID of run to grab the model        |
 |                               | from.                                |
 +-------------------------------+--------------------------------------+
 | ``input_path``                | Path to ‘JSON’ or ‘CSV’ file to be   |
@@ -1297,7 +1295,7 @@ Serves an RFunc MLflow model as a local web API.
 
 .. code:: r
 
-   mlflow_rfunc_serve(model_path, run_uuid = NULL, host = "127.0.0.1",
+   mlflow_rfunc_serve(model_path, run_id = NULL, host = "127.0.0.1",
      port = 8090, daemonized = FALSE, browse = !daemonized,
      restore = FALSE)
 
@@ -1312,7 +1310,7 @@ Arguments
 | ``model_path``                | The path to the MLflow model, as a   |
 |                               | string.                              |
 +-------------------------------+--------------------------------------+
-| ``run_uuid``                  | ID of run to grab the model from.    |
+| ``run_id``                  | ID of run to grab the model from.      |
 +-------------------------------+--------------------------------------+
 | ``host``                      | Address to use to serve model, as a  |
 |                               | string.                              |
@@ -1698,7 +1696,7 @@ block.
 
 .. code:: r
 
-   mlflow_start_run(run_uuid = NULL, experiment_id = NULL,
+   mlflow_start_run(run_id = NULL, experiment_id = NULL,
      source_name = NULL, source_version = NULL, entry_point_name = NULL,
      source_type = "LOCAL")
 
@@ -1710,14 +1708,14 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``run_uuid``                  | If specified, get the run with the   |
+| ``run_id``                  | If specified, get the run with the     |
 |                               | specified UUID and log metrics and   |
 |                               | params under that run. The run’s end |
 |                               | time is unset and its status is set  |
 |                               | to running, but the run’s other      |
 |                               | attributes remain unchanged.         |
 +-------------------------------+--------------------------------------+
-| ``experiment_id``             | Used only when ``run_uuid`` is       |
+| ``experiment_id``             | Used only when ``run_id`` is         |
 |                               | unspecified. ID of the experiment    |
 |                               | under which to create the current    |
 |                               | run. If unspecified, the run is      |

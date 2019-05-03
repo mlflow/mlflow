@@ -9,7 +9,7 @@ version = imp.load_source(
 # Get a list of all files in the JS directory to include in our module
 def package_files(directory):
     paths = []
-    for (path, directories, filenames) in os.walk(directory):
+    for (path, _, filenames) in os.walk(directory):
         for filename in filenames:
             paths.append(os.path.join('..', path, filename))
     return paths

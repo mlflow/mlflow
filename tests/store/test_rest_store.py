@@ -12,7 +12,7 @@ from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogPa
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
 
 
 class TestRestStore(unittest.TestCase):
@@ -25,7 +25,7 @@ class TestRestStore(unittest.TestCase):
                 'method': 'GET',
                 'params': {'view_type': 'ACTIVE_ONLY'},
                 'url': 'https://hello/api/2.0/preview/mlflow/experiments/list',
-                'headers': {},
+                'headers': _DEFAULT_HEADERS,
                 'verify': True,
             }
             response = mock.MagicMock
@@ -54,7 +54,7 @@ class TestRestStore(unittest.TestCase):
     @mock.patch('requests.request')
     def test_response_with_unknown_fields(self, request):
         experiment_json = {
-            "experiment_id": 1,
+            "experiment_id": "1",
             "name": "My experiment",
             "artifact_location": "foo",
             "lifecycle_stage": "deleted",
@@ -105,39 +105,44 @@ class TestRestStore(unittest.TestCase):
                 mock.patch('mlflow.tracking.utils._get_store', return_value=store), \
                 mock.patch('mlflow.tracking.client._get_user_id', return_value=user_name), \
                 mock.patch('time.time', return_value=13579):
-            with mlflow.start_run(experiment_id=43, run_name=run_name, source_name=source_name):
-                cr_body = message_to_json(CreateRun(experiment_id=43, run_name='',
+            with mlflow.start_run(experiment_id="43", run_name=run_name, source_name=source_name):
+                cr_body = message_to_json(CreateRun(experiment_id="43", run_name='',
                                                     user_id=user_name, source_type=SourceType.LOCAL,
                                                     source_name=source_name, start_time=13579000,
                                                     tags=[ProtoRunTag(key='mlflow.source.name',
                                                                       value=source_name),
                                                           ProtoRunTag(key='mlflow.source.type',
                                                                       value='LOCAL')]))
-                st_body = message_to_json(SetTag(run_uuid='', key='mlflow.runName', value=run_name))
+                st_body = message_to_json(SetTag(
+                    run_uuid='', run_id='', key='mlflow.runName', value=run_name))
                 assert mock_http.call_count == 2
                 exp_calls = [("runs/create", "POST", cr_body), ("runs/set-tag", "POST", st_body)]
                 self._verify_request_has_calls(mock_http, creds, exp_calls)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
-            body = message_to_json(LogParam(run_uuid="some_uuid", key="k1", value="v1"))
+            body = message_to_json(LogParam(
+                run_uuid="some_uuid", run_id="some_uuid", key="k1", value="v1"))
             self._verify_requests(mock_http, creds,
                                   "runs/log-parameter", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.set_tag("some_uuid", RunTag("t1", "abcd"*1000))
-            body = message_to_json(SetTag(run_uuid="some_uuid", key="t1", value="abcd"*1000))
+            body = message_to_json(SetTag(
+                run_uuid="some_uuid", run_id="some_uuid", key="t1", value="abcd"*1000))
             self._verify_requests(mock_http, creds,
                                   "runs/set-tag", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            store.log_metric("u2", Metric("m1", 0.87, 12345))
-            body = message_to_json(LogMetric(run_uuid="u2", key="m1", value=0.87, timestamp=12345))
+            store.log_metric("u2", Metric("m1", 0.87, 12345, 3))
+            body = message_to_json(LogMetric(
+                run_uuid="u2", run_id="u2", key="m1", value=0.87, timestamp=12345, step=3))
             self._verify_requests(mock_http, creds,
                                   "runs/log-metric", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            metrics = [Metric("m1", 0.87, 12345), Metric("m2", 0.49, 12345)]
+            metrics = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, -1),
+                       Metric("m3", 0.58, 12345, 2)]
             params = [Param("p1", "p1val"), Param("p2", "p2val")]
             tags = [RunTag("t1", "t1val"), RunTag("t2", "t2val")]
             store.log_batch(run_id="u2", metrics=metrics, params=params, tags=tags)
@@ -162,16 +167,16 @@ class TestRestStore(unittest.TestCase):
                                   message_to_json(RestoreRun(run_id="u76")))
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            store.delete_experiment(0)
+            store.delete_experiment("0")
             self._verify_requests(mock_http, creds,
                                   "experiments/delete", "POST",
-                                  message_to_json(DeleteExperiment(experiment_id=0)))
+                                  message_to_json(DeleteExperiment(experiment_id="0")))
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
-            store.restore_experiment(0)
+            store.restore_experiment("0")
             self._verify_requests(mock_http, creds,
                                   "experiments/restore", "POST",
-                                  message_to_json(RestoreExperiment(experiment_id=0)))
+                                  message_to_json(RestoreExperiment(experiment_id="0")))
 
 
 if __name__ == '__main__':

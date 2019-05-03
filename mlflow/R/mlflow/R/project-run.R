@@ -26,7 +26,7 @@ mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list
                        git_username = NULL, git_password = NULL, no_conda = FALSE,
                        storage_dir = NULL) {
   if (!is.null(experiment_name) && !is.null(experiment_id)) {
-    stop("Specify only one of 'experiment_name' or 'experiment_id'.")
+    stop("Specify only one of `experiment_name` or `experiment_id`.")
   }
   if (is.null(experiment_name)) {
     experiment_id <- mlflow_infer_experiment_id(experiment_id)
@@ -53,6 +53,6 @@ mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list
   args <- if (!no_conda) args else c(args, "--no-conda")
   result <- do.call(mlflow_cli, c("run", args))
   matches <- regexec(".*Run \\(ID \\'([^\\']+).*", result$stderr)
-  run_uuid <- regmatches(result$stderr, matches)[[1]][[2]]
-  invisible(run_uuid)
+  run_id <- regmatches(result$stderr, matches)[[1]][[2]]
+  invisible(run_id)
 }
