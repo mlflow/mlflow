@@ -10,6 +10,7 @@ import sys
 import pytest
 import socket
 import shutil
+from threading import Thread
 import time
 import tempfile
 
@@ -55,7 +56,6 @@ def _await_server_down_or_die(process, timeout=60):
     def wait():
         process.wait()
 
-    from threading import Thread
     Thread(target=wait).start()
     while process.returncode is None and time.time() - start_time < timeout:
         time.sleep(0.5)
@@ -80,15 +80,17 @@ def _init_server(backend_uri, root_artifact_uri):
         cmd = ["python",
                "-c",
                'from mlflow.server import app; app.run("{hostname}", {port})'.format(
-                   hostname=LOCALHOST, port=server_port),
-               ">>",
-               "C:\\logs_" + backend_uri[0:5] + ".txt"]
+                   hostname=LOCALHOST, port=server_port)]
         print("cmd =", cmd)
         process = Popen(cmd,
                         stdout=PIPE,
                         stderr=STDOUT,
                         universal_newlines=True)
 
+        def get_output():
+            for x in iter(process.stdout.readline, ""):
+                print(backend_uri, "::", x, end='')
+        Thread(target=get_output).start()
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
     print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))
