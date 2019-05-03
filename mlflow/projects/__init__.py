@@ -145,7 +145,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         return _invoke_mlflow_run_subprocess(
             work_dir=work_dir, entry_point=entry_point, parameters=parameters,
             experiment_id=experiment_id,
-            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)   
+            use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
     elif mode == "kubernetes":
         from mlflow.projects import kubernetes as kb
         if project.docker_env:
