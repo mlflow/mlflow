@@ -275,8 +275,6 @@ By default ``--backend-store-uri`` is set to the local ``./mlruns`` directory (t
 running ``mlflow run`` locally), but when running a server, make sure that this points to a
 persistent (that is, non-ephemeral) file system location.
 
-.. note::
-  For backwards compatibility, ``--file-store`` is an alias for this option.
 
 The artifact store is a location suitable for large data (such as an S3 bucket or shared NFS
 file system) and is where clients log their artifact output (for example, models).
