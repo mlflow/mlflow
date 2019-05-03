@@ -8,7 +8,7 @@ from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
 from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository, _resolve_base_path, \
-    _relative_path, _parse_extra_conf
+    _relative_path_remote, _parse_extra_conf
 from mlflow.utils.file_utils import TempDir
 
 
@@ -134,8 +134,8 @@ def test_resolve_path():
 
 
 def test_relative_path():
-    assert _relative_path('/dir/some', '/dir/some/path/file.txt') == 'path/file.txt'
-    assert _relative_path('/dir/some', '/dir/some') is None
+    assert _relative_path_remote('/dir/some', '/dir/some/path/file.txt') == 'path/file.txt'
+    assert _relative_path_remote('/dir/some', '/dir/some') is None
 
 
 def test_parse_extra_conf():

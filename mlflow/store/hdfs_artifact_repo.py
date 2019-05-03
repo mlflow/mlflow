@@ -32,7 +32,7 @@ class HdfsArtifactRepository(ArtifactRepository):
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
-            _, file_name = posixpath.split(local_file)
+            _, file_name = os.path.split(local_file)
             destination = posixpath.join(hdfs_base_path, file_name)
             with hdfs.open(destination, 'wb') as output:
                 output.write(open(local_file, "rb").read())
@@ -53,7 +53,7 @@ class HdfsArtifactRepository(ArtifactRepository):
 
             for subdir_path, _, files in os.walk(local_dir):
 
-                relative_path = _relative_path(local_dir, subdir_path)
+                relative_path = _relative_path_local(local_dir, subdir_path)
 
                 hdfs_subdir_path = posixpath.join(hdfs_base_path, relative_path) \
                     if relative_path else hdfs_base_path
@@ -130,7 +130,7 @@ class HdfsArtifactRepository(ArtifactRepository):
 
             for path, is_dir, _ in self._walk_path(hdfs, hdfs_base_path):
 
-                relative_path = _relative_path(hdfs_base_path, path)
+                relative_path = _relative_path_remote(hdfs_base_path, path)
                 local_path = os.path.join(local_dir, relative_path) \
                     if relative_path else local_dir
 
@@ -183,10 +183,15 @@ def _resolve_base_path(path, artifact_path):
     return path
 
 
-def _relative_path(base_dir, subdir_path):
-    relative_path = os.path.relpath(subdir_path, base_dir)
+def _relative_path(base_dir, subdir_path, path_module):
+    relative_path = path_module.relpath(subdir_path, base_dir)
     return relative_path if relative_path is not '.' else None
 
+def _relative_path_local(base_dir, subdir_path):
+    return  _relative_path_local(base_dir, subdir_path, os.path)
+
+def _relative_path_remote(base_dir, subdir_path):
+    return _relative_path_local(base_dir, subdir_path, posixpath)
 
 def _tmp_dir(local_path):
     return os.path.abspath(tempfile.mkdtemp(dir=local_path))
