@@ -188,10 +188,10 @@ def _relative_path(base_dir, subdir_path, path_module):
     return relative_path if relative_path is not '.' else None
 
 def _relative_path_local(base_dir, subdir_path):
-    return  _relative_path_local(base_dir, subdir_path, os.path)
+    return  _relative_path(base_dir, subdir_path, os.path)
 
 def _relative_path_remote(base_dir, subdir_path):
-    return _relative_path_local(base_dir, subdir_path, posixpath)
+    return _relative_path(base_dir, subdir_path, posixpath)
 
 def _tmp_dir(local_path):
     return os.path.abspath(tempfile.mkdtemp(dir=local_path))
