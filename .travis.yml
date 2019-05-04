@@ -22,7 +22,10 @@ matrix:
         - ./travis/run-small-python-tests.sh
     - os: windows
       before_install:
-        - cinst -y python3;
+        - curl https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe >> miniconda.exe
+        - start /wait "" miniconda.exe /InstallationType=JustMe /RegisterPython=0 /S /D=Miniconda3
+        - Miniconda3\condabin\conda create -y -n"test" python=3.7
+        - Miniconda3\condabin\conda activate test
       name: "Windows"
       language: sh
       script:
