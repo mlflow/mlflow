@@ -59,8 +59,9 @@ matrix:
         - ./lint.sh
         - npm test -- --coverage
     - os: windows
+      before_install:
+        - cinst -y python3;
       name: "Windows small."
-      python: 3.6
       script:
         - cd mlflow
         - pip install -r dev-requirements.txt
