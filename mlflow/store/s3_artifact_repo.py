@@ -8,6 +8,7 @@ from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
 class S3ArtifactRepository(ArtifactRepository):
@@ -47,6 +48,7 @@ class S3ArtifactRepository(ArtifactRepository):
             upload_path = dest_path
             if root != local_dir:
                 rel_path = os.path.relpath(root, local_dir)
+                rel_path = relative_path_to_artifact_path(rel_path)
                 upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
                 s3_client.upload_file(
