@@ -81,7 +81,9 @@ matrix:
 # run small or large Python tests below.
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
-  - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+       echo "skipping this step windows."
+    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
       INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
       wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
       sudo unzip /travis-install/protoc.zip -d /usr;
@@ -90,7 +92,9 @@ install:
     fi
 
 script:
-  - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+       echo "skipping this step windows."
+    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
       ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
     else
       ./travis/run-large-python-tests.sh;
