@@ -58,6 +58,15 @@ matrix:
         - npm i
         - ./lint.sh
         - npm test -- --coverage
+    - os: windows
+      name: "Windows small."
+      python: 3.6
+      script:
+        - cd mlflow
+        - pip install -r dev-requirements.txt
+        - pip install -r travis/small-requirements.txt
+        - pip install -e .
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --ignore tests/projects tests
     - stage: large
     - language: python
       python: 2.7
