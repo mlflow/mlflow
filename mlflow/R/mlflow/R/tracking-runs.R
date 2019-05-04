@@ -470,7 +470,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' }
 #'
 #' @export
-mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, user_id = NULL, 
+mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, user_id = NULL,
                              start_time = NULL, tags = NULL, client = NULL) {
 
   # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
@@ -529,7 +529,7 @@ mlflow_get_run_context.default <- function(client, experiment_id, ...) {
   tags <- list()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- get_source_name()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
-  tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$LOCAL)
+  tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$LOCAL
   list(
     client = client,
     tags = tags,
