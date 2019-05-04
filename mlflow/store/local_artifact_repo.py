@@ -56,16 +56,8 @@ class LocalArtifactRepository(ArtifactRepository):
             return []
 
     def _download_file(self, remote_file_path, local_path):
-        print("_download_file", remote_file_path, local_path)
         # NOTE: The remote_file_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
-        remote_file_path = os.path.normpath(remote_file_path)
-        print("remote_file_path_normalized", remote_file_path)
-        print("remote_file_path_normalized and joined", os.path.join(self.artifact_dir,
-                                                                     remote_file_path))
-        try:
-            shutil.copyfile(
-                os.path.join(self.artifact_dir, remote_file_path), local_path)
-            os.system("ls " + os.path.basename(local_path))
-        except Exception as ex:
-            print("FAILED!", ex)
+        remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
+        shutil.copyfile(remote_file_path, local_path)
+
