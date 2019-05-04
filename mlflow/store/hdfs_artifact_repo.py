@@ -193,8 +193,6 @@ def _relative_path_local(base_dir, subdir_path):
     return relative_path_to_artifact_path(rel_path) if rel_path is not None else None
 
 
-
-
 def _relative_path_remote(base_dir, subdir_path):
     return _relative_path(base_dir, subdir_path, posixpath)
 
