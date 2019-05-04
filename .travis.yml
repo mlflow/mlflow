@@ -20,6 +20,17 @@ matrix:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
         - ./travis/run-small-python-tests.sh
+    - os: windows
+      before_install:
+        - cinst -y python3;
+      name: "Windows"
+      language: sh
+      script:
+        - cd mlflow
+        - pip install -r dev-requirements.txt
+        - pip install -r travis/small-requirements.txt
+        - pip install -e .
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --ignore tests/projects tests
     - language: r
       name: "R"
       cache: packages
@@ -58,16 +69,6 @@ matrix:
         - npm i
         - ./lint.sh
         - npm test -- --coverage
-    - os: windows
-      before_install:
-        - cinst -y python3;
-      name: "Windows small."
-      script:
-        - cd mlflow
-        - pip install -r dev-requirements.txt
-        - pip install -r travis/small-requirements.txt
-        - pip install -e .
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --ignore tests/projects tests
     - stage: large
     - language: python
       python: 2.7
