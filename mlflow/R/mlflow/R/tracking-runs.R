@@ -457,7 +457,6 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' @param entry_point_name Optional name of the entry point for to the current run.
 #' @param source_type Integer enum value describing the type of the run  ("local", "project", etc.).
 #' @param user_id User ID or LDAP for the user executing the run. Only used when `client` is specified.
-#' @param run_name Human readable name for run. Only used when `client` is specified.
 #' @param start_time Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.
 #' @param tags Additional metadata for run in key-value pairs. Only used when `client` is specified.
 #' @template roxlate-client
@@ -485,7 +484,6 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, user_id = NULL
   # Fluent mode, check to see if extraneous params passed.
 
   if (!is.null(user_id)) stop("`user_id` should only be specified when `client` is specified.", call. = FALSE)
-  if (!is.null(run_name)) stop("`run_name` should only be specified when `client` is specified.", call. = FALSE)
   if (!is.null(start_time)) stop("`start_time` should only be specified when `client` is specified.", call. = FALSE)
   if (!is.null(tags)) stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
 
