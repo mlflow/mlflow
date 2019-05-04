@@ -144,12 +144,13 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
 
 
 @cli.command()
-@click.option("--backend-store-uri", "--file-store", metavar="PATH",
+@click.option("--backend-store-uri", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI or path for backend store implementation. Acceptable backend store "
-                   "are SQLAlchemy compatible implementation or local storage. "
-                   "Example 'sqlite:///path/to/file.db'. "
-                   "By default file backed store will be used. (default: ./mlruns).")
+              help="URI to which to persist experiment and run data. Acceptable URIs are "
+                   "SQLAlchemy-compatible database connection strings "
+                   "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+                   "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
+                   "to the ./mlruns directory.")
 @click.option("--default-artifact-root", metavar="URI", default=None,
               help="Path to local directory to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
@@ -201,14 +202,13 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 
 
 @cli.command()
-@click.option("--backend-store-uri", "--file-store", metavar="PATH",
+@click.option("--backend-store-uri", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI or path for backend store implementation. Acceptable backend store "
-                   "are SQLAlchemy compatible implementation or local storage. Supports "
-                   "various SQLAlchemy compatible database like SQLite, MySQL, PostgreSQL. As an "
-                   "example MySQL backed store can be configured using connection string. "
-                   "'mysql://<user_name>:<password>@<host>:<port>/<database_name>' "
-                   "By default file based backed store will be used. (default: ./mlruns).")
+              help="URI to which to persist experiment and run data. Acceptable URIs are "
+                   "SQLAlchemy-compatible database connection strings "
+                   "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+                   "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
+                   "to the ./mlruns directory.")
 @click.option("--default-artifact-root", metavar="URI", default=None,
               help="Local or S3 URI to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
