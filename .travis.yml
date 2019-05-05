@@ -22,7 +22,7 @@ matrix:
         - ./travis/run-small-python-tests.sh
     - os: windows
       before_install:
-        - cinst --verbose -y python3 --install-args="'/DIR=C:\python'"
+        - cinst --verbose -y python3
         - set PATH="c:\python;c:\python\lib\site-packages;%PATH%"
       name: "Windows"
       language: sh
