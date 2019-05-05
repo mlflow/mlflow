@@ -48,9 +48,8 @@ public class MlflowClient {
   }
 
   /**
-   * Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
-   * same key are logged for the run, returns only the value with the latest timestamp. If there are
-   * multiple values with the latest timestamp, returns the maximum of these values.
+   * Gets metadata, params, tags, and metrics for a run. A single value is returned for each metric
+   * key: the most recently logged metric value at the largest step.
    *
    * @return Run associated with the id.
    */
@@ -253,7 +252,16 @@ public class MlflowClient {
    * */
   public void logMetric(String runId, String key, double value) {
     sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value,
-      System.currentTimeMillis()));
+      System.currentTimeMillis(), 0));
+  }
+
+  /**
+   * Logs a new metric against the given run, as a key-value pair.
+   * New values for the same metric may be recorded over time, and are marked with a timestamp.
+   * */
+  public void logMetric(String runId, String key, double value, long step) {
+    sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value,
+      System.currentTimeMillis(), step));
   }
 
   /**
