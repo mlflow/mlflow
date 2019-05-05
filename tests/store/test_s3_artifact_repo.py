@@ -14,6 +14,7 @@ from tests.helper_functions import set_boto_credentials, mock_s3_bucket
 def s3_artifact_root(mock_s3_bucket):
     return "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
 
+
 def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmpdir):
     file_name = "test.txt"
     file_path = os.path.join(str(tmpdir), file_name)
