@@ -47,6 +47,13 @@ public class TestUtils {
     }
   }
 
+  public static void assertMetricHistory(List<Metric> history, String key, List<Double> values, List<Long> timestamps, List<Long> steps) {
+    assertMetricHistory(history, key, values, steps);
+    for(int i = 0; i < history.size(); ++i) {
+      Assert.assertTrue(equals(history.get(i).getTimestamp(), timestamps.get(i)));
+    }
+  }
+
   public static void assertTag(List<RunTag> tags, String key, String value) {
     Assert.assertTrue(tags.stream().filter(e -> e.getKey().equals(key) && e.getValue().equals(value)).findFirst().isPresent());
   }
