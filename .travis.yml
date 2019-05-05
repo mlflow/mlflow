@@ -22,11 +22,12 @@ matrix:
         - ./travis/run-small-python-tests.sh
     - os: windows
       before_install:
-        - cinst -y python3
-        - set PATH="c:\python37;c:\python37\lib\site-packages;%PATH%"
+        - cinst --verbose -y python3 --install-args="'/DIR=C:\python'"
+        - set PATH="c:\python;c:\python\lib\site-packages;%PATH%"
       name: "Windows"
       language: sh
       script:
+        - echo %PATH%
         - cd mlflow
         - pip install -r dev-requirements.txt
         - pip install -r travis/small-requirements.txt
