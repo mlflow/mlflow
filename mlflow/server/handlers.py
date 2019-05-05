@@ -32,7 +32,7 @@ def _get_store():
         artifact_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
         if _is_database_uri(store_dir):
             from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-            return SqlAlchemyStore(store_dir, artifact_root)
+            _store = SqlAlchemyStore(store_dir, artifact_root)
         elif _is_local_uri(store_dir):
             from mlflow.store.file_store import FileStore
             _store = FileStore(store_dir, artifact_root)
