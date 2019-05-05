@@ -31,7 +31,6 @@ matrix:
         - pip install -r travis/small-requirements.txt
         - pip install -e .
       script:
-        - cd mlflow
         - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --ignore tests/projects tests
     - language: r
       name: "R"
