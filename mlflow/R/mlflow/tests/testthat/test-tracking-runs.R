@@ -54,6 +54,9 @@ test_that("logging functionality", {
 
   run <- mlflow_get_run()
   run_id <- run$run_uuid
+  cat(run$tags[[1]])
+  cat(run$tags[[1]]$key)
+  cat(run$tags[[1]]$value)
   expect_identical(run$tags[[1]]$key, "tag_key")
   expect_identical(run$tags[[1]]$value, "tag_value")
   expect_identical(run$params[[1]]$key, "param_key")
@@ -161,6 +164,10 @@ test_that("mlflow_log_batch() works", {
     params$value,
     c("adam", "0.01")
   )
+
+  cat(tags)
+  cat(tags$key)
+  cat(tags$value)
 
   expect_setequal(
     tags$key,
