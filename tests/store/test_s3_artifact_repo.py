@@ -1,13 +1,12 @@
 import os
 import posixpath
 
-import boto3
 import pytest
-from moto import mock_s3
 
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 
-from tests.helper_functions import set_boto_credentials, mock_s3_bucket
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 
 @pytest.fixture

@@ -30,7 +30,8 @@ from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 
-from tests.helper_functions import set_boto_credentials, mock_s3_bucket
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 pytestmark = pytest.mark.skipif(
         (sys.version_info < (3, 0)),

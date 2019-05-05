@@ -1,9 +1,7 @@
-import os
-
 import boto3
 import pytest
 
-from tests.helper_functions import set_boto_credentials
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.sagemaker.mock import mock_sagemaker
 
 
