@@ -23,11 +23,11 @@ matrix:
     - os: windows
       before_install:
         - cinst --verbose -y python3
-        - set PATH="c:\python;c:\python\lib\site-packages;%PATH%"
+        - export PATH="c:\python;c:\python\lib\site-packages;$PATH"
       name: "Windows"
       language: sh
       script:
-        - echo %PATH%
+        - echo $PATH
         - cd mlflow
         - pip install -r dev-requirements.txt
         - pip install -r travis/small-requirements.txt
