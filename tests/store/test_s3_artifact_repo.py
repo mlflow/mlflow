@@ -1,27 +1,17 @@
 import os
 import posixpath
 
-import boto3
 import pytest
-from moto import mock_s3
 
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 
-
-@pytest.fixture(scope='session', autouse=True)
-def set_boto_credentials():
-    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
-    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
-    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 
 @pytest.fixture
-def s3_artifact_root():
-    with mock_s3():
-        bucket_name = "test-bucket"
-        s3_client = boto3.client("s3")
-        s3_client.create_bucket(Bucket=bucket_name)
-        yield "s3://{bucket_name}".format(bucket_name=bucket_name)
+def s3_artifact_root(mock_s3_bucket):
+    return "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
 
 
 def test_file_artifact_is_logged_and_downloaded_successfully(s3_artifact_root, tmpdir):
