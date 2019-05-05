@@ -251,17 +251,15 @@ public class MlflowClient {
    * New values for the same metric may be recorded over time, and are marked with a timestamp.
    * */
   public void logMetric(String runId, String key, double value) {
-    sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value,
-      System.currentTimeMillis(), 0));
+    logMetric(runId, key, value, System.currentTimeMillis(), 0);
   }
 
   /**
    * Logs a new metric against the given run, as a key-value pair.
    * New values for the same metric may be recorded over time, and are marked with a timestamp.
    * */
-  public void logMetric(String runId, String key, double value, long step) {
-    sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value,
-      System.currentTimeMillis(), step));
+  public void logMetric(String runId, String key, double value, long timestamp, long step) {
+    sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value, timestamp, step));
   }
 
   /**
