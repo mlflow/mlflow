@@ -23,7 +23,7 @@ matrix:
     - os: windows
       before_install:
         - cinst --verbose -y python3
-        - export PATH="c:\python;c:\python\lib\site-packages;$PATH"
+        - export PATH="/c/Python37:/c/Python37/lib/site-packages:$PATH"
       name: "Windows"
       language: sh
       script:
