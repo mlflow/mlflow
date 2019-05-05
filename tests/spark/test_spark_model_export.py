@@ -25,6 +25,7 @@ from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -32,6 +33,8 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 
 @pytest.fixture
@@ -235,6 +238,22 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                 x = dfs_tmp_dir or sparkm.DFS_TMP
                 shutil.rmtree(x)
                 shutil.rmtree(tracking_dir)
+
+
+@pytest.mark.large
+def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
+    sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    reloaded_model = sparkm.load_model(model_uri=model_uri)
+    preds_df = reloaded_model.transform(spark_model_iris.spark_df)
+    preds = [x.prediction for x in preds_df.select("prediction").collect()]
+    assert spark_model_iris.predictions == preds
 
 
 @pytest.mark.large

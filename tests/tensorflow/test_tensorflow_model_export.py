@@ -20,10 +20,14 @@ import mlflow.tensorflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.exceptions import MlflowException
 from mlflow import pyfunc
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
@@ -170,6 +174,33 @@ def test_save_and_load_model_persists_and_restores_model_in_default_graph_contex
     tf_sess = tf.Session(graph=tf_graph)
     with tf_graph.as_default():
         signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
+
+        for _, input_signature in signature_def.inputs.items():
+            t_input = tf_graph.get_tensor_by_name(input_signature.name)
+            assert t_input is not None
+
+        for _, output_signature in signature_def.outputs.items():
+            t_output = tf_graph.get_tensor_by_name(output_signature.name)
+            assert t_output is not None
+
+
+@pytest.mark.large
+def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mock_s3_bucket):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    tf_graph = tf.Graph()
+    tf_sess = tf.Session(graph=tf_graph)
+    with tf_graph.as_default():
+        signature_def = mlflow.tensorflow.load_model(model_uri=model_uri, tf_sess=tf_sess)
 
         for _, input_signature in signature_def.inputs.items():
             t_input = tf_graph.get_tensor_by_name(input_signature.name)
