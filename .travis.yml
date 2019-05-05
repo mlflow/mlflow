@@ -23,7 +23,7 @@ matrix:
     - os: windows
       before_install:
         - cinst -y python3
-        - refreshenv
+        - set PATH=c:\python37;c:\python37\lib\site-packages;%PATH%
       name: "Windows"
       language: sh
       script:
