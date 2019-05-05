@@ -19,6 +19,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -26,6 +27,8 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -78,6 +81,23 @@ def test_model_save_load(h2o_iris_model, model_path):
     assert all(
             pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame()) ==
             h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
+
+
+@pytest.mark.large
+def test_load_model_from_remote_uri_succeeds(h2o_iris_model, model_path, mock_s3_bucket):
+    h2o_model = h2o_iris_model.model
+    mlflow.h2o.save_model(h2o_model=h2o_model, path=model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    h2o_model_loaded = mlflow.h2o.load_model(model_uri=model_uri)
+    assert all(
+        h2o_model_loaded.predict(h2o_iris_model.inference_data).as_data_frame() ==
+        h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
 
 
 @pytest.mark.large

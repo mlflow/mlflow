@@ -24,9 +24,13 @@ from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 
@@ -239,6 +243,21 @@ def test_save_and_load_model(sequential_model, model_path, data, sequential_pred
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
     np.testing.assert_array_almost_equal(
         pyfunc_loaded.predict(data[0]).values[:, 0], sequential_predicted, decimal=4)
+
+
+@pytest.mark.large
+def test_load_model_from_remote_uri_succeeds(
+        sequential_model, model_path, mock_s3_bucket, data, sequential_predicted):
+    mlflow.pytorch.save_model(sequential_model, model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    sequential_model_loaded = mlflow.pytorch.load_model(model_uri=model_uri)
+    np.testing.assert_array_equal(_predict(sequential_model_loaded, data), sequential_predicted)
 
 
 @pytest.mark.large

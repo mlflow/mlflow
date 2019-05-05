@@ -17,11 +17,14 @@ import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
@@ -96,23 +99,18 @@ def test_model_save_load(model, model_path, data, predicted):
 
 
 @pytest.mark.large
-def test_model_load_from_runs_uri_succeeds(model, data, predicted):
+def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
     x, _ = data
+    mlflow.keras.save_model(model, model_path)
 
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
-    with mlflow.start_run():
-        mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path)
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
-            run_id=mlflow.active_run().info.run_id,
-            artifact_path=artifact_path)
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
-    # Loading Keras model
-    model_loaded = mlflow.keras.load_model(model_uri)
+    model_uri = artifact_root + "/" + artifact_path
+    model_loaded = mlflow.keras.load_model(model_uri=model_uri)
     assert all(model_loaded.predict(x) == predicted)
-
-    # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri)
-    assert all(pyfunc_loaded.predict(x).values == predicted)
 
 
 @pytest.mark.large

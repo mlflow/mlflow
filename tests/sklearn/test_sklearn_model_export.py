@@ -25,11 +25,14 @@ from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.models import Model
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
@@ -95,6 +98,22 @@ def test_model_save_load(sklearn_knn_model, model_path):
     np.testing.assert_array_equal(
             reloaded_knn_model.predict(sklearn_knn_model.inference_data),
             reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data))
+
+
+@pytest.mark.large
+def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock_s3_bucket):
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    reloaded_knn_model = mlflow.sklearn.load_model(model_uri=model_uri)
+    np.testing.assert_array_equal(
+            sklearn_knn_model.model.predict(sklearn_knn_model.inference_data),
+            reloaded_knn_model.predict(sklearn_knn_model.inference_data))
 
 
 @pytest.mark.large
