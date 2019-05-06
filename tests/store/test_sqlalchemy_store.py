@@ -1,4 +1,5 @@
 import os
+import posixpath
 import shutil
 import six
 import tempfile
@@ -39,8 +40,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
-        _, self.temp_dbfile = tempfile.mkstemp()
-        self.db_url = DB_URI + self.temp_dbfile
+        handle, self.temp_dbfile = tempfile.mkstemp()
+        # Close handle immediately so that we can remove the file later on in Windows
+        handle.close()
+        self.db_url = "%s/%s" % (DB_URI, posixpath.abspath(self.temp_dbfile))
         self.store = self._get_store(self.db_url)
 
     def tearDown(self):
@@ -1115,8 +1118,9 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     then migrates their DB.
     """
     def setUp(self):
-        _, self.tmpfile = tempfile.mkstemp()
-        self.db_url = "sqlite:///%s" % self.tmpfile
+        handle, self.tmpfile = tempfile.mkstemp()
+        handle.close()
+        self.db_url = "%s/%s" % (DB_URI, posixpath.abspath(self.temp_dbfile))
         engine = sqlalchemy.create_engine(self.db_url)
         InitialBase.metadata.create_all(engine)
         invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
