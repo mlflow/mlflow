@@ -48,9 +48,8 @@ public class MlflowClient {
   }
 
   /**
-   * Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
-   * same key are logged for the run, returns only the value with the latest timestamp. If there are
-   * multiple values with the latest timestamp, returns the maximum of these values.
+   * Gets metadata, params, tags, and metrics for a run. A single value is returned for each metric
+   * key: the most recently logged metric value at the largest step.
    *
    * @return Run associated with the id.
    */
@@ -248,12 +247,30 @@ public class MlflowClient {
   }
 
   /**
-   * Logs a new metric against the given run, as a key-value pair.
-   * New values for the same metric may be recorded over time, and are marked with a timestamp.
-   * */
+   * Logs a new metric against the given run, as a key-value pair. Metrics are recorded
+   * against two axes: timestamp and step. This method uses the number of milliseconds
+   * since the Unix epoch for the timestamp, and it uses the default step of zero.
+   *
+   * @param runId the id of the run in which to record the metric
+   * @param key the key identifying the metric for which to record the specified value
+   * @param value the value of the metric
+   */
   public void logMetric(String runId, String key, double value) {
-    sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value,
-      System.currentTimeMillis()));
+    logMetric(runId, key, value, System.currentTimeMillis(), 0);
+  }
+
+  /**
+   * Logs a new metric against the given run, as a key-value pair. Metrics are recorded
+   * against two axes: timestamp and step.
+   *
+   * @param runId the id of the run in which to record the metric
+   * @param key the key identifying the metric for which to record the specified value
+   * @param value the value of the metric
+   * @param timestamp the timestamp at which to record the metric value
+   * @param step the step at which to record the metric value
+   */
+  public void logMetric(String runId, String key, double value, long timestamp, long step) {
+    sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value, timestamp, step));
   }
 
   /**
