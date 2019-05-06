@@ -29,8 +29,6 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 
@@ -40,6 +38,8 @@ _logger = logging.getLogger(__name__)
 try:
     from tests.helper_functions import pyfunc_serve_and_score_model
     from tests.helper_functions import score_model_in_sagemaker_docker_container
+    from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+    from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 except ImportError:
     _logger.warning(
         "Failed to import test helper functions. Tests depending on these functions may fail!")
