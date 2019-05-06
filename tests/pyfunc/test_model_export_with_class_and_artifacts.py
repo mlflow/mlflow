@@ -178,7 +178,7 @@ def test_model_load_from_remote_uri_succeeds(
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
-    artifact_repo.log_artifacts(sklearn_model_path, artifact_path=artifact_path)
+    artifact_repo.log_artifacts(pyfunc_model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
@@ -225,7 +225,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
 
     sample_input = pd.DataFrame(iris_data[0])
     scoring_response = pyfunc_serve_and_score_model(
-            model_path=pyfunc_model_path,
+            model_uri=pyfunc_model_path,
             data=sample_input,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
@@ -254,7 +254,7 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
 
     sample_input = pd.DataFrame(iris_data[0])
     scoring_response = pyfunc_serve_and_score_model(
-            model_path=pyfunc_model_path,
+            model_uri=pyfunc_model_path,
             data=sample_input,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert scoring_response.status_code == 200
@@ -283,7 +283,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
 
     sample_input = pd.DataFrame(iris_data[0])
     scoring_response = pyfunc_serve_and_score_model(
-            model_path=pyfunc_model_path,
+            model_uri=pyfunc_model_path,
             data=sample_input,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
@@ -315,7 +315,7 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
     sample_input.to_csv(input_csv_path, header=True, index=False)
     output_csv_path = os.path.join(str(tmpdir), "output.csv")
     process = Popen(['mlflow', 'pyfunc', 'predict',
-                     '--model-path', pyfunc_model_path,
+                     '--model-uri', pyfunc_model_path,
                      '-i', input_csv_path,
                      '-o', output_csv_path,
                      '--no-conda'],
@@ -349,7 +349,7 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
     sample_input.to_csv(input_csv_path, header=True, index=False)
     output_csv_path = os.path.join(str(tmpdir), "output.csv")
     process = Popen(['mlflow', 'pyfunc', 'predict',
-                     '--model-path', pyfunc_model_path,
+                     '--model-uri', pyfunc_model_path,
                      '-i', input_csv_path,
                      '-o', output_csv_path],
                     stderr=STDOUT,

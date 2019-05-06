@@ -49,9 +49,9 @@ def score_model_in_sagemaker_docker_container(
 
 
 def pyfunc_serve_and_score_model(
-        model_path, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
+        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
     """
-    :param model_path: Path to the model to be served.
+    :param model_uri: URI to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
                  Pandas dataframe or string of the format specified by `content_type`.
     :param content_type: The type of the data to send to the pyfunc server for testing. This is
