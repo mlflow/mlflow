@@ -12,9 +12,9 @@ from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
-from mlflow.utils import env, rest_utils
+from mlflow.utils import env, rest_utils, file_utils, get_uri_scheme
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 _LOCAL_FS_URI_PREFIX = "file:///"
@@ -69,7 +69,7 @@ def get_tracking_uri():
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
     else:
-        return os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+        return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
 
 def _is_local_uri(uri):
@@ -89,8 +89,7 @@ def _is_databricks_uri(uri):
 
 
 def _get_file_store(store_uri, **_):
-    path = urllib.parse.urlparse(store_uri).path if store_uri else None
-    return FileStore(path, path)
+    return FileStore(file_utils.local_file_uri_to_path(store_uri), store_uri)
 
 
 def _is_database_uri(uri):
@@ -115,6 +114,7 @@ def _get_rest_store(store_uri, **_):
             token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
             ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == 'true',
         )
+
     return RestStore(get_default_host_creds)
 
 
@@ -181,12 +181,8 @@ class TrackingStoreRegistry:
                  requirements.
         """
         store_uri = store_uri if store_uri is not None else get_tracking_uri()
+        scheme = store_uri if store_uri == "databricks" else get_uri_scheme(store_uri)
 
-        if store_uri == 'databricks':
-            # Add colon so databricks is parsed as scheme
-            store_uri += ':'
-
-        scheme = urllib.parse.urlparse(store_uri).scheme
         try:
             store_builder = self._registry[scheme]
         except KeyError:
@@ -214,7 +210,6 @@ _tracking_store_registry.register_entrypoints()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
-
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
