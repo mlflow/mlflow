@@ -40,9 +40,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
-        handle, self.temp_dbfile = tempfile.mkstemp()
+        fd, self.temp_dbfile = tempfile.mkstemp()
         # Close handle immediately so that we can remove the file later on in Windows
-        handle.close()
+        os.close(fd)
         self.db_url = "%s/%s" % (DB_URI, posixpath.abspath(self.temp_dbfile))
         self.store = self._get_store(self.db_url)
 
@@ -1118,8 +1118,8 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     then migrates their DB.
     """
     def setUp(self):
-        handle, self.tmpfile = tempfile.mkstemp()
-        handle.close()
+        fd, self.temp_dbfile = tempfile.mkstemp()
+        os.close(fd)
         self.db_url = "%s/%s" % (DB_URI, posixpath.abspath(self.temp_dbfile))
         engine = sqlalchemy.create_engine(self.db_url)
         InitialBase.metadata.create_all(engine)
@@ -1127,7 +1127,7 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
         self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
 
     def tearDown(self):
-        os.remove(self.tmpfile)
+        os.remove(self.temp_dbfile)
 
 
 @pytest.mark.release
