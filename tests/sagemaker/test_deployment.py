@@ -611,7 +611,6 @@ def test_deploy_in_replace_mode_with_archiving_does_not_delete_resources(
     models_before_replacement = [
             model["ModelName"] for model in sagemaker_client.list_models()["Models"]]
 
-
     model_uri = "runs:/{run_id}/{artifact_path}".format(
         run_id=pretrained_model.run_id, artifact_path=pretrained_model.model_path)
     sk_model = mlflow.sklearn.load_model(model_uri=model_uri)

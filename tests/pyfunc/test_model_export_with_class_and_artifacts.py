@@ -175,7 +175,6 @@ def test_model_load_from_remote_uri_succeeds(
                              },
                              python_model=main_scoped_model_class(test_predict))
 
-
     artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
     artifact_path = "model"
     artifact_repo = S3ArtifactRepository(artifact_root)
