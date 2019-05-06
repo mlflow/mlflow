@@ -2,7 +2,7 @@ from sys import version_info
 
 import numpy as np
 import pandas as pd
-
+from six.moves import urllib
 
 PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
                                                   minor=version_info.minor,
@@ -45,7 +45,7 @@ def get_unique_resource_id(max_length=None):
     import base64
     if max_length is not None and max_length <= 0:
         raise ValueError(
-                "The specified maximum length for the unique resource id must be positive!")
+            "The specified maximum length for the unique resource id must be positive!")
 
     uuid_bytes = uuid.uuid4().bytes
     # Use base64 encoding to shorten the UUID length. Note that the replacement of the
@@ -60,3 +60,7 @@ def get_unique_resource_id(max_length=None):
     if max_length is not None:
         unique_id = unique_id[:int(max_length)]
     return unique_id
+
+
+def get_uri_scheme(uri_or_path):
+    return urllib.parse.urlparse(uri_or_path).scheme

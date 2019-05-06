@@ -1,6 +1,7 @@
 """
 Utilities for dealing with artifacts in the context of a Run.
 """
+import posixpath
 
 from six.moves import urllib
 
@@ -39,12 +40,7 @@ def get_artifact_uri(run_id, artifact_path=None):
     if artifact_path is None:
         return run.info.artifact_uri
     else:
-        # Path separators may not be consistent across all artifact repositories. Therefore, when
-        # joining the run's artifact root directory with the artifact's relative path, we use the
-        # path module defined by the appropriate artifact repository
-        artifact_path_module = \
-            get_artifact_repository(run.info.artifact_uri).get_path_module()
-        return artifact_path_module.join(run.info.artifact_uri, artifact_path)
+        return posixpath.join(run.info.artifact_uri, artifact_path)
 
 
 # TODO: This method does not require a Run and its internals should be moved to
@@ -57,10 +53,8 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
     """
-    artifact_path_module = \
-        get_artifact_repository(artifact_uri).get_path_module()
-    artifact_src_dir = artifact_path_module.dirname(artifact_uri)
-    artifact_src_relative_path = artifact_path_module.basename(artifact_uri)
+    artifact_src_dir = posixpath.dirname(artifact_uri)
+    artifact_src_relative_path = posixpath.basename(artifact_uri)
     artifact_repo = get_artifact_repository(artifact_uri=artifact_src_dir)
     return artifact_repo.download_artifacts(artifact_path=artifact_src_relative_path,
                                             dst_path=output_path)

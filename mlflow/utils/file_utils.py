@@ -1,9 +1,14 @@
 import codecs
 import gzip
 import os
+import posixpath
 import shutil
 import tarfile
 import tempfile
+
+from six.moves.urllib.request import pathname2url
+from six.moves.urllib.parse import unquote
+from six.moves import urllib
 
 import yaml
 
@@ -23,11 +28,6 @@ def is_file(name):
 
 def exists(name):
     return os.path.exists(name)
-
-
-def build_path(*path_segments):
-    """ Returns the path formed by joining the passed-in path segments. """
-    return os.path.join(*path_segments)
 
 
 def list_all(root, filter_func=lambda x: True, full_path=False):
@@ -134,7 +134,7 @@ def write_yaml(root, file_name, data, overwrite=False):
         raise Exception("Yaml file '%s' exists as '%s" % (file_path, yaml_file_name))
 
     try:
-        with open(yaml_file_name, 'w') as yaml_file:
+        with codecs.open(yaml_file_name, mode='w', encoding=ENCODING) as yaml_file:
             yaml.safe_dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
     except Exception as e:
         raise e
@@ -156,9 +156,8 @@ def read_yaml(root, file_name):
     file_path = os.path.join(root, file_name)
     if not exists(file_path):
         raise MissingConfigException("Yaml file '%s' does not exist." % file_path)
-
     try:
-        with open(file_path, 'r') as yaml_file:
+        with codecs.open(file_path, mode='r', encoding=ENCODING) as yaml_file:
             return yaml.safe_load(yaml_file)
     except Exception as e:
         raise e
@@ -276,7 +275,7 @@ def make_tarfile(output_filename, source_dir, archive_name, custom_filter=None):
             tar.add(source_dir, arcname=archive_name, filter=_filter_timestamps)
         # When gzipping the tar, don't include the tar's filename or modification time in the
         # zipped archive (see https://docs.python.org/3/library/gzip.html#gzip.GzipFile)
-        with gzip.GzipFile(filename="", fileobj=open(output_filename, 'wb'), mode='wb', mtime=0)\
+        with gzip.GzipFile(filename="", fileobj=open(output_filename, 'wb'), mode='wb', mtime=0) \
                 as gzipped_tar, open(unzipped_filename, 'rb') as tar:
             gzipped_tar.write(tar.read())
     finally:
@@ -328,12 +327,10 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
     if dst_dir is not None:
         dst_subpath = os.path.join(dst_dir, dst_subpath)
     dst_path = os.path.join(dst, dst_subpath)
-
-    dst_dirpath = os.path.dirname(dst_path)
-    if not os.path.exists(dst_dirpath):
-        os.makedirs(dst_dirpath)
-
     if os.path.isfile(src):
+        dst_dirpath = os.path.dirname(dst_path)
+        if not os.path.exists(dst_dirpath):
+            os.makedirs(dst_dirpath)
         shutil.copy(src=src, dst=dst_path)
     else:
         shutil.copytree(src=src, dst=dst_path)
@@ -342,3 +339,31 @@ def _copy_file_or_tree(src, dst, dst_dir=None):
 
 def get_parent_dir(path):
     return os.path.abspath(os.path.join(path, os.pardir))
+
+
+def relative_path_to_artifact_path(path):
+    if os.path == posixpath:
+        return path
+    if os.path.abspath(path) == path:
+        raise Exception("This method only works with relative paths.")
+    return unquote(pathname2url(path))
+
+
+def path_to_local_file_uri(path):
+    """
+    Convert local filesystem path to uri with the given scheme.
+    """
+    path = pathname2url(path)
+    if path == posixpath.abspath(path):
+        return "file://{path}".format(path=path)
+    else:
+        return "file:{path}".format(path=path)
+
+
+def local_file_uri_to_path(uri):
+    """
+    Convert URI to local filesystem path.
+    No-op if the uri does not have the expected scheme.
+    """
+    path = urllib.parse.urlparse(uri).path if uri.startswith("file:") else uri
+    return urllib.request.url2pathname(path)
