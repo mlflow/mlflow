@@ -2,26 +2,31 @@
 #'
 #' Logs a metric for a run. Metrics key-value pair that records a single float measure.
 #'   During a single execution of a run, a particular metric can be logged several times.
-#'   Backend will keep track of historical values along with timestamps.
+#'   Backend will keep track of historical values along two axes: timestamp and step.
 #'
 #' @param key Name of the metric.
 #' @param value Float value for the metric being logged.
-#' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
+#' @param timestamp Timestamp at which to log the metric. Timestamp is rounded to the nearest
+#'  integer. If unspecified, the number of milliseconds since the Unix epoch is used.
+#' @param step Step at which to log the metric. Step is rounded to the nearest integer.
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
-mlflow_log_metric <- function(key, value, timestamp = NULL, run_id = NULL, client = NULL) {
+mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id = NULL,
+                              client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   key <- cast_string(key)
   value <- cast_scalar_double(value)
   timestamp <- cast_nullable_scalar_double(timestamp)
-  timestamp <- timestamp %||% current_time()
+  timestamp <- round(timestamp %||% current_time())
+  step <- round(cast_nullable_scalar_double(step))
   mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
     run_uuid = run_id,
     run_id = run_id,
     key = key,
     value = value,
-    timestamp = timestamp
+    timestamp = timestamp,
+    step = step 
   ))
   invisible(value)
 }
@@ -119,10 +124,13 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
 #' @param metrics A named list of metrics to log.
 #' @param params A named list of params to log.
 #' @param tags A named list of tags to log.
-#' @param timestamps (Optional) A list of timestamps of the same length as `metrics`.
+#' @param timestamps (Optional) A list of timestamps of the same length as `metrics`. Timestamps are
+#'  rounded to the nearest integer.
+#' @param steps (Optional) A list of steps of the same length as `metrics`. Steps are rounded to the  
+#'  nearest integer.
 #' @export
 mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, timestamps = NULL,
-                             run_id = NULL, client = NULL) {
+                             steps = NULL, run_id = NULL, client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
   metrics <- construct_batch_list(metrics)
@@ -135,19 +143,20 @@ mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, timesta
     } else {
       if (length(metrics) != length(timestamps))
         stop("`metrics` and `timestamps` must be of the same length.", call. = FALSE)
-      timestamps <- purrr::map(timestamps, ~ list(timestamp = .x))
+      timestamps <- purrr::map(timestamps, ~ list(timestamp = round(.x)))
       purrr::map2(metrics, timestamps, c)
     }
   }
+  metrics
 
-  mlflow_rest("runs", "log-batch", client = client, verb = "POST", data = list(
-    run_id = run_id,
-    metrics = metrics,
-    params = params,
-    tags = tags
-  ))
-
-  invisible(NULL)
+  # mlflow_rest("runs", "log-batch", client = client, verb = "POST", data = list(
+  #   run_id = run_id,
+  #   metrics = metrics,
+  #   params = params,
+  #   tags = tags
+  # ))
+  #
+  # invisible(NULL)
 }
 
 construct_batch_list <- function(l) {
