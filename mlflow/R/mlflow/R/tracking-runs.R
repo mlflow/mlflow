@@ -10,7 +10,8 @@
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
-mlflow_log_metric <- function(key, value, timestamp = NULL, run_id = NULL, client = NULL) {
+mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id = NULL,
+                              client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   key <- cast_string(key)
   value <- cast_scalar_double(value)
