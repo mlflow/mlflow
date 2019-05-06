@@ -22,8 +22,8 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.tracking.utils import get_artifact_uri as utils_get_artifact_uri
-from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import get_artifact_uri as utils_get_artifact_uri, \
+    _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -106,6 +106,7 @@ def pyfunc_custom_env(tmpdir):
     return conda_env
 
 
+@pytest.mark.large
 def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
@@ -126,11 +127,12 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
             test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
 
 
+@pytest.mark.large
 def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_uuid
+        sklearn_run_id = mlflow.active_run().info.run_id
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -144,7 +146,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
                                         run_id=sklearn_run_id)
                                 },
                                 python_model=main_scoped_model_class(test_predict))
-        pyfunc_run_id = mlflow.active_run().info.run_uuid
+        pyfunc_run_id = mlflow.active_run().info.run_id
 
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(path=pyfunc_artifact_path, run_id=pyfunc_run_id)
     np.testing.assert_array_equal(
@@ -152,6 +154,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
             test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
 
 
+@pytest.mark.large
 def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
     custom_kwargs = {
         "key1": "value1",
@@ -170,6 +173,7 @@ def test_add_to_model_adds_specified_kwargs_to_mlmodel_configuration():
     assert all([item in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME] for item in custom_kwargs])
 
 
+@pytest.mark.large
 def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_scoped_class(
         sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
@@ -198,6 +202,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
         loaded_pyfunc_model.predict(sample_input))
 
 
+@pytest.mark.large
 def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scoped_class(
         sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
@@ -225,6 +230,7 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
         loaded_pyfunc_model.predict(sample_input))
 
 
+@pytest.mark.large
 def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_scoped_class(
         sklearn_knn_model, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
@@ -254,6 +260,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
         loaded_pyfunc_model.predict(sample_input))
 
 
+@pytest.mark.large
 def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
         sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
@@ -287,6 +294,7 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
                                   loaded_pyfunc_model.predict(sample_input))
 
 
+@pytest.mark.large
 def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
         sklearn_knn_model, main_scoped_model_class, iris_data, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
@@ -319,6 +327,7 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
                                   loaded_pyfunc_model.predict(sample_input))
 
 
+@pytest.mark.large
 def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
         sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
@@ -347,12 +356,13 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == pyfunc_custom_env_parsed
 
 
+@pytest.mark.large
 def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
         sklearn_knn_model, main_scoped_model_class, pyfunc_custom_env):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_uuid
+        sklearn_run_id = mlflow.active_run().info.run_id
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
@@ -364,7 +374,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
                                 },
                                 python_model=main_scoped_model_class(predict_fn=None),
                                 conda_env=pyfunc_custom_env)
-        pyfunc_run_id = mlflow.active_run().info.run_uuid
+        pyfunc_run_id = mlflow.active_run().info.run_id
 
     pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
     pyfunc_conf = _get_flavor_configuration(
@@ -380,6 +390,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == pyfunc_custom_env_parsed
 
 
+@pytest.mark.large
 def test_save_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sklearn_logreg_model, main_scoped_model_class, tmpdir):
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
@@ -401,12 +412,13 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
     assert conda_env == mlflow.pyfunc.model.DEFAULT_CONDA_ENV
 
 
+@pytest.mark.large
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         sklearn_knn_model, main_scoped_model_class):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
-        sklearn_run_id = mlflow.active_run().info.run_uuid
+        sklearn_run_id = mlflow.active_run().info.run_id
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
@@ -417,7 +429,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
                                         run_id=sklearn_run_id)
                                 },
                                 python_model=main_scoped_model_class(predict_fn=None))
-        pyfunc_run_id = mlflow.active_run().info.run_uuid
+        pyfunc_run_id = mlflow.active_run().info.run_id
 
     pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
     pyfunc_conf = _get_flavor_configuration(
@@ -429,6 +441,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
     assert conda_env == mlflow.pyfunc.model.DEFAULT_CONDA_ENV
 
 
+@pytest.mark.large
 def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
         tmpdir, model_path, iris_data):
     directory_artifact_path = os.path.join(str(tmpdir), "directory_artifact")
@@ -460,6 +473,7 @@ def test_save_model_correctly_resolves_directory_artifact_with_nested_contents(
     assert loaded_model.predict(iris_data[0])
 
 
+@pytest.mark.large
 def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path):
     mlflow.pyfunc.save_model(dst_path=model_path,
                              python_model=ModuleScopedSklearnModel(predict_fn=None),
@@ -472,6 +486,7 @@ def test_save_model_with_no_artifacts_does_not_produce_artifacts_dir(model_path)
     assert mlflow.pyfunc.model.CONFIG_KEY_ARTIFACTS not in pyfunc_conf
 
 
+@pytest.mark.large
 def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(tmpdir):
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(dst_path=os.path.join(str(tmpdir), "model1"),
@@ -484,6 +499,7 @@ def test_save_model_with_python_model_argument_of_invalid_type_raises_exeption(t
     assert "python_model` must be a subclass of `PythonModel`" in str(exc_info)
 
 
+@pytest.mark.large
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(dst_path=model_path,
@@ -519,6 +535,7 @@ def test_save_model_with_unsupported_argument_combinations_throws_exception(mode
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
 
+@pytest.mark.large
 def test_log_model_with_unsupported_argument_combinations_throws_exception():
     with mlflow.start_run(), pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.log_model(artifact_path="pyfunc_model",
@@ -554,6 +571,7 @@ def test_log_model_with_unsupported_argument_combinations_throws_exception():
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 
 
+@pytest.mark.large
 def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs_warning(
         model_path):
     class TestModel(mlflow.pyfunc.PythonModel):
@@ -588,6 +606,7 @@ def test_load_model_with_differing_cloudpickle_version_at_micro_granularity_logs
     ])
 
 
+@pytest.mark.large
 def test_load_model_with_missing_cloudpickle_version_logs_warning(
         model_path):
     class TestModel(mlflow.pyfunc.PythonModel):
@@ -639,7 +658,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(
 
     inference_df = pd.DataFrame(iris_data[0])
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_path=pyfunc_model_path,
+            model_uri=pyfunc_model_path,
             data=inference_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)

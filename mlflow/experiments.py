@@ -9,7 +9,7 @@ from mlflow.data import is_uri
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
 
-EXPERIMENT_ID = click.argument("experiment_id", type=click.INT)
+EXPERIMENT_ID = click.argument("experiment_id", type=click.STRING)
 
 
 @click.group("experiments")
@@ -35,7 +35,7 @@ def create(experiment_name, artifact_location):
     """
     store = _get_store()
     exp_id = store.create_experiment(experiment_name, artifact_location)
-    print("Created experiment '%s' with id %d" % (experiment_name, exp_id))
+    print("Created experiment '%s' with id %s" % (experiment_name, exp_id))
 
 
 @commands.command("list")

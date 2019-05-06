@@ -261,7 +261,7 @@ def _load_model_env(path, run_id=None):
     or None if none was specified at model save time
     """
     if run_id is not None:
-        path = tracking.utils._get_model_log_dir(path, run_id)
+        path = tracking.artifact_utils._get_model_log_dir(path, run_id)
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
@@ -276,7 +276,7 @@ def load_pyfunc(path, run_id=None, suppress_warnings=False):
                               will be emitted.
     """
     if run_id is not None:
-        path = tracking.utils._get_model_log_dir(path, run_id)
+        path = tracking.artifact_utils._get_model_log_dir(path, run_id)
     conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
     model_py_version = conf.get(PY_VERSION)
     if not suppress_warnings:
@@ -373,7 +373,7 @@ def spark_udf(spark, path, run_id=None, result_type="double"):
             error_code=INVALID_PARAMETER_VALUE)
 
     if run_id:
-        path = tracking.utils._get_model_log_dir(path, run_id)
+        path = tracking.artifact_utils._get_model_log_dir(path, run_id)
 
     archive_path = SparkModelCache.add_local_model(spark, path)
 
@@ -605,7 +605,7 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
     """
     with TempDir() as tmp:
         local_path = tmp.path(artifact_path)
-        run_id = active_run().info.run_uuid
+        run_id = active_run().info.run_id
         save_model(dst_path=local_path, model=Model(artifact_path=artifact_path, run_id=run_id),
                    loader_module=loader_module, data_path=data_path, code_path=code_path,
                    conda_env=conda_env, python_model=python_model, artifacts=artifacts)

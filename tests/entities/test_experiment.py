@@ -13,7 +13,7 @@ class TestExperiment(unittest.TestCase):
         self.assertEqual(exp.lifecycle_stage, lifecyle_stage)
 
     def test_creation_and_hydration(self):
-        exp_id = random_int()
+        exp_id = str(random_int())
         name = "exp_%d_%d" % (random_int(), random_int())
         lifecycle_stage = LifecycleStage.ACTIVE
         location = random_file(".json")
