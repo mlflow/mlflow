@@ -361,7 +361,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(sklearn_knn_model
 
     inference_df = pd.DataFrame(sklearn_knn_model.inference_data)
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=inference_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
