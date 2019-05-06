@@ -29,11 +29,10 @@ public class TestUtils {
     Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
   }
 
-  public static void assertMetric(List<Metric> metrics, String key, double value, long runStart, long runEnd) {
-    Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) &&
-      equals(e.getValue(), value) && e.getTimestamp() >= runStart &&
-      e.getTimestamp() <= runEnd
-    ).findFirst().isPresent());
+  public static void assertMetric(List<Metric> metrics, String key, double value, long timestamp, long step) {
+    assertMetric(metrics, key, value);
+    Assert.assertTrue(metrics.stream().filter(
+      e -> equals(e.getTimestamp(), timestamp) && equals(e.getStep(), step)).findFirst().isPresent());
   }
 
   public static void assertMetricHistory(List<Metric> history, String key, List<Double> values, List<Long> steps) {
@@ -65,9 +64,10 @@ public class TestUtils {
     return "JavaTestExp_" + UUID.randomUUID().toString();
   }
 
-  public static Metric createMetric(String name, double value, long timestamp) {
+  public static Metric createMetric(String name, double value, long timestamp, long step) {
     Metric.Builder builder = Metric.newBuilder();
     builder.setKey(name).setValue(value).setTimestamp(timestamp);
+    builder.setKey(name).setValue(value).setStep(step);
     return builder.build();
   }
 

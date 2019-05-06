@@ -320,8 +320,9 @@ public class MlflowClientTest {
       String runUuid = runCreated.getRunId();
       logger.debug("runUuid=" + runUuid);
 
-      List<Metric> metrics = new ArrayList<>(Arrays.asList(createMetric("met1", 0.081D, 10),
-        createMetric("metric2", 82.3D, 100)));
+      List<Metric> metrics = new ArrayList<>(Arrays.asList(createMetric("met1", 0.081D, 10, 0),
+        createMetric("metric2", 82.3D, 100, 73), createMetric("metric3", 1.0D, 1000, 1),
+        createMetric("metric3", 2.0D, 2000, 3), createMetric("metric3", 3.0D, 0, -2)));
       client.logBatch(runUuid, metrics, null, null);
 
       Run run = client.getRun(runUuid);
@@ -329,8 +330,9 @@ public class MlflowClientTest {
 
       List<Metric> loggedMetrics = run.getData().getMetricsList();
       Assert.assertEquals(loggedMetrics.size(), 2);
-      assertMetric(loggedMetrics, "met1", 0.081D);
-      assertMetric(loggedMetrics, "metric2", 82.3D);
+      assertMetric(loggedMetrics, "met1", 0.081D, 10, 0);
+      assertMetric(loggedMetrics, "metric2", 82.3D, 100, 73);
+      assertMetric(loggedMetrics, "metric3", 2.0D, 2000, 3);
     }
 
     // Test logging just params
@@ -379,7 +381,7 @@ public class MlflowClientTest {
       String runUuid = runCreated.getRunId();
       logger.debug("runUuid=" + runUuid);
 
-      List<Metric> metrics = new LinkedList<>(Arrays.asList(createMetric("m1", 32.23D, 12)));
+      List<Metric> metrics = new LinkedList<>(Arrays.asList(createMetric("m1", 32.23D, 12, 0)));
       Vector<Param> params = new Vector<>(Arrays.asList(createParam("p1", "param1"),
         createParam("p2", "another param")));
       Set<RunTag> tags = new HashSet<>(Arrays.asList(createTag("t1", "t1"),
