@@ -329,7 +329,7 @@ public class MlflowClientTest {
       Assert.assertEquals(run.getInfo().getRunId(), runUuid);
 
       List<Metric> loggedMetrics = run.getData().getMetricsList();
-      Assert.assertEquals(loggedMetrics.size(), 2);
+      Assert.assertEquals(loggedMetrics.size(), 3);
       assertMetric(loggedMetrics, "met1", 0.081D, 10, 0);
       assertMetric(loggedMetrics, "metric2", 82.3D, 100, 73);
       assertMetric(loggedMetrics, "metric3", 2.0D, 2000, 3);
