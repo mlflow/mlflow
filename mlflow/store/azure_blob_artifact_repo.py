@@ -1,4 +1,5 @@
 import os
+import posixpath
 import re
 
 from six.moves import urllib
@@ -57,39 +58,35 @@ class AzureBlobArtifactRepository(ArtifactRepository):
             path = path[1:]
         return container, storage_account, path
 
-    def get_path_module(self):
-        import posixpath
-        return posixpath
-
     def log_artifact(self, local_file, artifact_path=None):
         (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
-            dest_path = self.get_path_module().join(dest_path, artifact_path)
-        dest_path = self.get_path_module().join(
-                dest_path, self.get_path_module().basename(local_file))
+            dest_path = posixpath.join(dest_path, artifact_path)
+        dest_path = posixpath.join(
+                dest_path, os.path.basename(local_file))
         self.client.create_blob_from_path(container, dest_path, local_file)
 
     def log_artifacts(self, local_dir, artifact_path=None):
         (container, _, dest_path) = self.parse_wasbs_uri(self.artifact_uri)
         if artifact_path:
-            dest_path = self.get_path_module().join(dest_path, artifact_path)
-        local_dir = self.get_path_module().abspath(local_dir)
+            dest_path = posixpath.join(dest_path, artifact_path)
+        local_dir = os.path.abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
             upload_path = dest_path
             if root != local_dir:
-                rel_path = self.get_path_module().relpath(root, local_dir)
-                upload_path = self.get_path_module().join(dest_path, rel_path)
+                rel_path = os.path.relpath(root, local_dir)
+                upload_path = posixpath.join(dest_path, rel_path)
             for f in filenames:
-                path = self.get_path_module().join(upload_path, f)
+                path = posixpath.join(upload_path, f)
                 self.client.create_blob_from_path(
-                    container, path, self.get_path_module().join(root, f))
+                    container, path, os.path.join(root, f))
 
     def list_artifacts(self, path=None):
         from azure.storage.blob.models import BlobPrefix
         (container, _, artifact_path) = self.parse_wasbs_uri(self.artifact_uri)
         dest_path = artifact_path
         if path:
-            dest_path = self.get_path_module().join(dest_path, path)
+            dest_path = posixpath.join(dest_path, path)
         infos = []
         prefix = dest_path + "/"
         marker = None  # Used to make next list request if this one exceeded the result limit
@@ -102,12 +99,12 @@ class AzureBlobArtifactRepository(ArtifactRepository):
                         " artifact path. Artifact path: {artifact_path}. Blob name:"
                         " {blob_name}".format(artifact_path=artifact_path, blob_name=r.name))
                 if isinstance(r, BlobPrefix):   # This is a prefix for items in a subdirectory
-                    subdir = self.get_path_module().relpath(path=r.name, start=artifact_path)
+                    subdir = posixpath.relpath(path=r.name, start=artifact_path)
                     if subdir.endswith("/"):
                         subdir = subdir[:-1]
                     infos.append(FileInfo(subdir, True, None))
                 else:  # Just a plain old blob
-                    file_name = self.get_path_module().relpath(path=r.name, start=artifact_path)
+                    file_name = posixpath.relpath(path=r.name, start=artifact_path)
                     infos.append(FileInfo(file_name, False, r.properties.content_length))
             # Check whether a new marker is returned, meaning we have to make another request
             if results.next_marker:
@@ -118,5 +115,5 @@ class AzureBlobArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         (container, _, remote_root_path) = self.parse_wasbs_uri(self.artifact_uri)
-        remote_full_path = self.get_path_module().join(remote_root_path, remote_file_path)
+        remote_full_path = posixpath.join(remote_root_path, remote_file_path)
         self.client.get_blob_to_path(container, remote_full_path, local_path)

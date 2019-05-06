@@ -52,10 +52,6 @@ class RunsArtifactRepository(ArtifactRepository):
 
         return run_id, artifact_path
 
-    def get_path_module(self):
-        import posixpath
-        return posixpath
-
     def log_artifact(self, local_file, artifact_path=None):
         """
         Log a local file as an artifact, optionally taking an ``artifact_path`` to place it in

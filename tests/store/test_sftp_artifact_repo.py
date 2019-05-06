@@ -6,6 +6,7 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.utils.file_utils import TempDir
 import os
+import posixpath
 
 
 @pytest.fixture
@@ -81,9 +82,9 @@ def test_list_artifacts_with_subdir(sftp_mock):
     sftp_mock.listdir = MagicMock(return_value=[file_path, subdir_name])
 
     sftp_mock.isdir = MagicMock(side_effect=lambda path: {
-            os.path.join(artifact_root_path, dir_name): True,
-            os.path.join(artifact_root_path, dir_name, file_path): False,
-            os.path.join(artifact_root_path, dir_name, subdir_name): True,
+            posixpath.join(artifact_root_path, dir_name): True,
+            posixpath.join(artifact_root_path, dir_name, file_path): False,
+            posixpath.join(artifact_root_path, dir_name, subdir_name): True,
         }[path])
 
     file_stat = MagicMock()
@@ -96,10 +97,10 @@ def test_list_artifacts_with_subdir(sftp_mock):
     sftp_mock.stat.assert_called_once_with(artifact_root_path + dir_name + '/' + file_path)
 
     assert len(artifacts) == 2
-    assert artifacts[0].path == os.path.join(dir_name, file_path)
+    assert artifacts[0].path == posixpath.join(dir_name, file_path)
     assert artifacts[0].is_dir is False
     assert artifacts[0].file_size == file_size
-    assert artifacts[1].path == os.path.join(dir_name, subdir_name)
+    assert artifacts[1].path == posixpath.join(dir_name, subdir_name)
     assert artifacts[1].is_dir is True
     assert artifacts[1].file_size is None
 
@@ -116,11 +117,11 @@ def test_log_artifact():
             store = SFTPArtifactRepository(sftp_path)
             store.log_artifact(local.name, artifact_path)
 
-            remote_file = os.path.join(
+            remote_file = posixpath.join(
                 remote.path(),
                 '.' if artifact_path is None else artifact_path,
                 os.path.basename(local.name))
-            assert os.path.isfile(remote_file)
+            assert posixpath.isfile(remote_file)
 
             with open(remote_file, 'r') as remote_content:
                 assert remote_content.read() == file_content
@@ -146,16 +147,16 @@ def test_log_artifacts():
             store = SFTPArtifactRepository(sftp_path)
             store.log_artifacts(local.path(), artifact_path)
 
-            remote_dir = os.path.join(
+            remote_dir = posixpath.join(
                 remote.path(),
                 '.' if artifact_path is None else artifact_path)
-            assert os.path.isdir(remote_dir)
-            assert os.path.isdir(os.path.join(remote_dir, directory))
-            assert os.path.isfile(os.path.join(remote_dir, file1))
-            assert os.path.isfile(os.path.join(remote_dir, directory, file2))
+            assert posixpath.isdir(remote_dir)
+            assert posixpath.isdir(posixpath.join(remote_dir, directory))
+            assert posixpath.isfile(posixpath.join(remote_dir, file1))
+            assert posixpath.isfile(posixpath.join(remote_dir, directory, file2))
 
-            with open(os.path.join(remote_dir, file1), 'r') as remote_content:
+            with open(posixpath.join(remote_dir, file1), 'r') as remote_content:
                 assert remote_content.read() == file_content_1
 
-            with open(os.path.join(remote_dir, directory, file2), 'rb') as remote_content:
+            with open(posixpath.join(remote_dir, directory, file2), 'rb') as remote_content:
                 assert remote_content.read() == file_content_2

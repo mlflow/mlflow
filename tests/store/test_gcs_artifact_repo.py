@@ -147,9 +147,9 @@ def test_log_artifacts(gcs_mock, tmpdir):
     gcs_mock.Client().get_bucket.assert_called_with('test_bucket')
     gcs_mock.Client().get_bucket().blob().upload_from_filename\
         .assert_has_calls([
-            mock.call('%s/a.txt' % subd.strpath),
-            mock.call('%s/b.txt' % subd.strpath),
-            mock.call('%s/c.txt' % subd.strpath),
+            mock.call(os.path.normpath('%s/a.txt' % subd.strpath)),
+            mock.call(os.path.normpath('%s/b.txt' % subd.strpath)),
+            mock.call(os.path.normpath('%s/c.txt' % subd.strpath)),
         ], any_order=True)
 
 
@@ -173,7 +173,7 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
         gcs_mock.Client().get_bucket().get_blob().download_to_filename.call_args_list
     assert len(download_calls) == 1
     download_path_arg = download_calls[0][0][0]
-    assert "/test.txt" in download_path_arg
+    assert "test.txt" in download_path_arg
 
 
 def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):

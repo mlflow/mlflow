@@ -1,7 +1,7 @@
 # pylint: disable=redefined-outer-name
 from mock import MagicMock
 import pytest
-import os
+import posixpath
 import ftplib
 from ftplib import FTP
 
@@ -175,15 +175,15 @@ def test_download_artifacts(ftp_mock):
     #     |- model.pb
     #     |- variables
     #        |- test.txt
-    dir_path = os.path.join(artifact_root_path, 'model')
+    dir_path = posixpath.join(artifact_root_path, 'model')
 
     # list artifacts at sub directory level
     model_file_path_sub = 'model.pb'
-    model_file_path_full = os.path.join(dir_path, model_file_path_sub)
+    model_file_path_full = posixpath.join(dir_path, model_file_path_sub)
     subdir_name = 'variables'
-    subdir_path_full = os.path.join(dir_path, subdir_name)
+    subdir_path_full = posixpath.join(dir_path, subdir_name)
     subfile_name = 'test.txt'
-    subfile_path_full = os.path.join(artifact_root_path, subdir_path_full, subfile_name)
+    subfile_path_full = posixpath.join(artifact_root_path, subdir_path_full, subfile_name)
 
     is_dir_mapping = {
         dir_path: True,

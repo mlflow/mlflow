@@ -17,6 +17,7 @@ from mlflow.store.file_store import FileStore
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
+from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
 
 from tests.projects.utils import tracking_uri_mock
@@ -138,9 +139,9 @@ def test_start_run_context_manager(tracking_uri_mock):
 
 def test_start_and_end_run(tracking_uri_mock):
     # Use the start_run() and end_run() APIs without a `with` block, verify they work.
-    active_run = start_run()
-    mlflow.log_metric("name_1", 25)
-    end_run()
+
+    with start_run() as active_run:
+        mlflow.log_metric("name_1", 25)
     finished_run = tracking.MlflowClient().get_run(active_run.info.run_id)
     # Validate metrics
     assert len(finished_run.data.metrics) == 1
@@ -341,7 +342,8 @@ def test_log_artifact(tracking_uri_mock):
     artifact_parent_dirs = ["some_parent_dir", None]
     for parent_dir in artifact_parent_dirs:
         with start_run():
-            run_artifact_dir = mlflow.get_artifact_uri()
+            artifact_uri = mlflow.get_artifact_uri()
+            run_artifact_dir = local_file_uri_to_path(artifact_uri)
             mlflow.log_artifact(path0, parent_dir)
         expected_dir = os.path.join(run_artifact_dir, parent_dir) \
             if parent_dir is not None else run_artifact_dir
@@ -351,7 +353,9 @@ def test_log_artifact(tracking_uri_mock):
     # Log multiple artifacts, verify they exist in the directory returned by get_artifact_uri
     for parent_dir in artifact_parent_dirs:
         with start_run():
-            run_artifact_dir = mlflow.get_artifact_uri()
+            artifact_uri = mlflow.get_artifact_uri()
+            run_artifact_dir = local_file_uri_to_path(artifact_uri)
+
             mlflow.log_artifacts(artifact_src_dir, parent_dir)
         # Check that the logged artifacts match
         expected_artifact_output_dir = os.path.join(run_artifact_dir, parent_dir) \
@@ -368,6 +372,7 @@ def test_uri_types():
     assert utils._is_local_uri("mlruns")
     assert utils._is_local_uri("./mlruns")
     assert utils._is_local_uri("file:///foo/mlruns")
+    assert utils._is_local_uri("file:foo/mlruns")
     assert not utils._is_local_uri("https://whatever")
     assert not utils._is_local_uri("http://whatever")
     assert not utils._is_local_uri("databricks")

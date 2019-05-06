@@ -4,23 +4,24 @@ and ensures we can use the tracking API to communicate with it.
 """
 
 import mock
-from multiprocessing import Process
+from subprocess import Popen, PIPE, STDOUT
 import os
+import sys
 import pytest
 import socket
 import shutil
+from threading import Thread
 import time
 import tempfile
-
 
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
 from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
-from mlflow.tracking.utils import _tracking_store_registry
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
     MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
+from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
 from tests.integration.utils import invoke_cli_runner
 
 LOCALHOST = '127.0.0.1'
@@ -51,9 +52,14 @@ def _await_server_down_or_die(process, timeout=60):
     """Waits until the local flask server process is terminated."""
     print('Awaiting termination of server process...')
     start_time = time.time()
-    while process.is_alive() and time.time() - start_time < timeout:
+
+    def wait():
+        process.wait()
+
+    Thread(target=wait).start()
+    while process.returncode is None and time.time() - start_time < timeout:
         time.sleep(0.5)
-    if process.is_alive():
+    if process.returncode is None:
         raise Exception('Server failed to shutdown after %s seconds' % timeout)
 
 
@@ -68,11 +74,16 @@ def _init_server(backend_uri, root_artifact_uri):
     server_port = _get_safe_port()
     env = {
         BACKEND_STORE_URI_ENV_VAR: backend_uri,
-        ARTIFACT_ROOT_ENV_VAR: tempfile.mkdtemp(dir=root_artifact_uri),
+        ARTIFACT_ROOT_ENV_VAR: path_to_local_file_uri(
+            tempfile.mkdtemp(dir=local_file_uri_to_path(root_artifact_uri))),
     }
     with mock.patch.dict(os.environ, env):
-        process = Process(target=lambda: app.run(LOCALHOST, server_port))
-        process.start()
+        cmd = ["python",
+               "-c",
+               'from mlflow.server import app; app.run("{hostname}", {port})'.format(
+                   hostname=LOCALHOST, port=server_port)]
+        process = Popen(cmd)
+
     _await_server_up_or_die(server_port)
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
     print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))
@@ -87,19 +98,35 @@ def _get_safe_port():
     sock.close()
     return port
 
+
 # Root directory for all stores (backend or artifact stores) created during this suite
 SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
 # Root directory for all artifact stores created during this suite
 SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
+
+
+def _get_sqlite_uri():
+    path = path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "test-database.bd"))
+    path = path[len("file://"):]
+
+    # NB: It looks like windows and posix have different requirements on number of slashes for
+    # whatever reason. Windows needs uri like 'sqlite:///C:/path/to/my/file' whereas posix expects
+    # sqlite://///path/to/my/file
+    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:////"
+    return prefix + path
+
+
 # Backend store URIs to test against
 BACKEND_URIS = [
-    "sqlite:////%s/test-database.db" % SUITE_ROOT_DIR,  # SQLAlchemyStore
-    os.path.join(SUITE_ROOT_DIR, "file_store_root"),  # FileStore
+    _get_sqlite_uri(),  # SqlAlchemy
+    path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "file_store_root")),  # FileStore
 ]
+
 # Map of backend URI to tuple (server URL, Process). We populate this map by constructing
 # a server per backend URI
 BACKEND_URI_TO_SERVER_URL_AND_PROC = {
-    uri: _init_server(backend_uri=uri, root_artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
+    uri: _init_server(backend_uri=uri,
+                      root_artifact_uri=SUITE_ARTIFACT_ROOT_DIR)
     for uri in BACKEND_URIS
 }
 
@@ -121,6 +148,7 @@ def server_urls():
     yield
     for server_url, process in BACKEND_URI_TO_SERVER_URL_AND_PROC.values():
         print("Terminating server at %s..." % (server_url))
+        print("type = ", type(process))
         process.terminate()
         _await_server_down_or_die(process)
     shutil.rmtree(SUITE_ROOT_DIR)
@@ -195,8 +223,8 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     experiment_id = mlflow_client.get_experiment_by_name(bad_experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
     invoke_cli_runner(
-            mlflow.experiments.commands,
-            ['rename', str(experiment_id), good_experiment_name], env=cli_env)
+        mlflow.experiments.commands,
+        ['rename', str(experiment_id), good_experiment_name], env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
 
 
@@ -225,7 +253,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_id
     print("Run id=%s" % run_id)
-
     run = mlflow_client.get_run(run_id)
     assert run.info.run_id == run_id
     assert run.info.run_uuid == run_id

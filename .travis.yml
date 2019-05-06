@@ -20,6 +20,18 @@ matrix:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
         - ./travis/run-small-python-tests.sh
+    - os: windows
+      name: "Windows"
+      language: sh
+      before_install:
+        - cinst -y python3
+      install:
+        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
+        - pip install -r dev-requirements.txt
+        - pip install -r travis/small-requirements.txt
+        - pip install -e .
+      script:
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --ignore tests/projects tests
     - language: r
       name: "R"
       cache: packages
@@ -70,7 +82,9 @@ matrix:
 # run small or large Python tests below.
 install:
   - echo "Build stage $TRAVIS_BUILD_STAGE_NAME"
-  - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+       echo "skipping this step on windows.";
+    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
       INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh &&
       wget https://github.com/google/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O /travis-install/protoc.zip &&
       sudo unzip /travis-install/protoc.zip -d /usr;
@@ -79,7 +93,9 @@ install:
     fi
 
 script:
-  - if [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
+  - if [[ "$TRAVIS_OS_NAME" == "windows" ]]; then
+       echo "skipping this step on windows.";
+    elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
       ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
     else
       ./travis/run-large-python-tests.sh;

@@ -25,7 +25,7 @@ def test_yaml_read_and_write(tmpdir):
     file_utils.write_yaml(temp_dir, yaml_file, data)
     read_data = file_utils.read_yaml(temp_dir, yaml_file)
     assert data == read_data
-    yaml_path = file_utils.build_path(temp_dir, yaml_file)
+    yaml_path = os.path.join(temp_dir, yaml_file)
     with codecs.open(yaml_path, encoding="utf-8") as handle:
         contents = handle.read()
     assert "!!python" not in contents

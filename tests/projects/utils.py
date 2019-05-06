@@ -7,6 +7,7 @@ import pytest
 import mlflow
 from mlflow.entities import RunStatus
 from mlflow.projects import _project_spec
+from mlflow.utils.file_utils import path_to_local_file_uri
 
 
 TEST_DIR = "tests"
@@ -46,7 +47,7 @@ def build_docker_example_base_image():
 @pytest.fixture()
 def tracking_uri_mock(tmpdir):
     try:
-        mlflow.set_tracking_uri(os.path.join(tmpdir.strpath, 'mlruns'))
+        mlflow.set_tracking_uri(path_to_local_file_uri(os.path.join(tmpdir.strpath, 'mlruns')))
         yield tmpdir
     finally:
         mlflow.set_tracking_uri(None)

@@ -1,6 +1,5 @@
 import entrypoints
 import warnings
-from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
@@ -12,6 +11,8 @@ from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
+
+from mlflow.utils import get_uri_scheme
 
 
 class ArtifactRepositoryRegistry:
@@ -57,7 +58,7 @@ class ArtifactRepositoryRegistry:
         :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
                  requirements.
         """
-        scheme = urllib.parse.urlparse(artifact_uri).scheme
+        scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
         if repository is None:
             raise MlflowException(
@@ -72,6 +73,7 @@ class ArtifactRepositoryRegistry:
 _artifact_repository_registry = ArtifactRepositoryRegistry()
 
 _artifact_repository_registry.register('', LocalArtifactRepository)
+_artifact_repository_registry.register('file', LocalArtifactRepository)
 _artifact_repository_registry.register('s3', S3ArtifactRepository)
 _artifact_repository_registry.register('gs', GCSArtifactRepository)
 _artifact_repository_registry.register('wasbs', AzureBlobArtifactRepository)

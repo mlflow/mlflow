@@ -112,7 +112,7 @@ class DatabricksJobRunner(object):
                             a directory containing an MLproject file).
         """
         temp_tarfile_dir = tempfile.mkdtemp()
-        temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
+        temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
 
         def custom_filter(x):
             return None if os.path.basename(x.name) == "mlruns" else x

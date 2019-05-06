@@ -1,5 +1,6 @@
 import os
 import pytest
+import posixpath
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
@@ -13,7 +14,8 @@ def local_artifact_root(tmpdir):
 
 @pytest.fixture
 def local_artifact_repo(local_artifact_root):
-    return LocalArtifactRepository(artifact_uri=local_artifact_root)
+    from mlflow.utils.file_utils import path_to_local_file_uri
+    return LocalArtifactRepository(artifact_uri=path_to_local_file_uri(local_artifact_root))
 
 
 def test_list_artifacts(local_artifact_repo, local_artifact_root):
@@ -100,7 +102,7 @@ def test_artifacts_are_logged_to_and_downloaded_from_repo_subdirectory_successfu
     assert open(os.path.join(downloaded_subdir, artifact_rel_path)).read() == artifact_text
 
     downloaded_file = local_artifact_repo.download_artifacts(
-        os.path.join(repo_subdir_path, artifact_rel_path))
+        posixpath.join(repo_subdir_path, artifact_rel_path))
     assert open(downloaded_file).read() == artifact_text
 
 
@@ -134,4 +136,4 @@ def test_hidden_files_are_logged_correctly(local_artifact_repo):
         with open(hidden_file, "w") as f:
             f.write("42")
         local_artifact_repo.log_artifact(hidden_file)
-        assert open(local_artifact_repo.download_artifacts(hidden_file)).read() == "42"
+        assert open(local_artifact_repo.download_artifacts(".mystery")).read() == "42"

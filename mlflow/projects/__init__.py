@@ -8,6 +8,7 @@ from distutils import dir_util
 import hashlib
 import json
 import os
+import sys
 import re
 import shutil
 import subprocess
@@ -545,8 +546,13 @@ def _run_mlflow_run_cmd(mlflow_run_arr, env_map):
     final_env.update(env_map)
     # Launch `mlflow run` command as the leader of its own process group so that we can do a
     # best-effort cleanup of all its descendant processes if needed
-    return subprocess.Popen(
-        mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=os.setsid)
+    if sys.platform == "win32":
+        return subprocess.Popen(
+            mlflow_run_arr, env=final_env, universal_newlines=True,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP)
+    else:
+        return subprocess.Popen(
+            mlflow_run_arr, env=final_env, universal_newlines=True, preexec_fn=os.setsid)
 
 
 def _create_run(uri, experiment_id, work_dir, entry_point):
@@ -630,7 +636,8 @@ def _get_docker_command(image, active_run):
                                  experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
     if tracking.utils._is_local_uri(tracking_uri):
-        cmd += ["-v", "%s:%s" % (tracking_uri, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
+        path = file_utils.local_file_uri_to_path(tracking_uri)
+        cmd += ["-v", "%s:%s" % (path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = _MLFLOW_DOCKER_TRACKING_DIR_PATH
     if tracking.utils._is_databricks_uri(tracking_uri):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
