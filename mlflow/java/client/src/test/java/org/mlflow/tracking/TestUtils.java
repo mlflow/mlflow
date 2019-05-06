@@ -30,7 +30,6 @@ public class TestUtils {
   }
 
   public static void assertMetric(List<Metric> metrics, String key, double value, long timestamp, long step) {
-    assertMetric(metrics, key, value);
     Assert.assertTrue(metrics.stream().filter(
       e -> e.getKey().equals(key) && equals(e.getValue(), value) && equals(e.getTimestamp(), timestamp)
       && equals(e.getStep(), step)).findFirst().isPresent());
