@@ -84,7 +84,7 @@ def test_model_save_load(model, model_path, data, predicted):
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
-        model_path=os.path.abspath(model_path),
+        model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
