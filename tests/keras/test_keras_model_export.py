@@ -17,11 +17,14 @@ import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _get_model_log_dir
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
@@ -68,7 +71,7 @@ def keras_custom_env(tmpdir):
 
 @pytest.mark.large
 def test_model_save_load(model, model_path, data, predicted):
-    x, y = data
+    x, _ = data
     mlflow.keras.save_model(model, model_path)
 
     # Loading Keras model
@@ -81,15 +84,14 @@ def test_model_save_load(model, model_path, data, predicted):
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
-        model_path=os.path.abspath(model_path),
+        model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
                == predicted)
 
     # test spark udf
-    spark_udf_preds = score_model_as_udf(os.path.abspath(model_path),
-                                         run_id=None,
+    spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
                                          pandas_df=pd.DataFrame(x),
                                          result_type="float")
     np.testing.assert_array_almost_equal(
@@ -97,25 +99,40 @@ def test_model_save_load(model, model_path, data, predicted):
 
 
 @pytest.mark.large
+def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
+    x, _ = data
+    mlflow.keras.save_model(model, model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    model_loaded = mlflow.keras.load_model(model_uri=model_uri)
+    assert all(model_loaded.predict(x) == predicted)
+
+
+@pytest.mark.large
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
-    x, y = data
+    x, _ = data
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
         try:
             if should_start_run:
                 mlflow.start_run()
-            mlflow.keras.log_model(model, artifact_path="keras_model")
+            artifact_path = "keras_model"
+            mlflow.keras.log_model(model, artifact_path=artifact_path)
+            model_uri = "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id,
+                artifact_path=artifact_path)
 
             # Load model
-            model_loaded = mlflow.keras.load_model(
-                "keras_model",
-                run_id=mlflow.active_run().info.run_id)
+            model_loaded = mlflow.keras.load_model(model_uri=model_uri)
             assert all(model_loaded.predict(x) == predicted)
 
             # Loading pyfunc model
-            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(
-                "keras_model",
-                run_id=mlflow.active_run().info.run_id)
+            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
             assert all(pyfunc_loaded.predict(x).values == predicted)
         finally:
             mlflow.end_run()

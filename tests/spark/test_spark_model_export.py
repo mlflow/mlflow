@@ -25,13 +25,16 @@ from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.tracking.artifact_utils import _get_model_log_dir
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 
 @pytest.fixture
@@ -139,7 +142,7 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_custom_env)
     # 1. score and compare reloaded sparkml model
-    reloaded_model = sparkm.load_model(path=model_path)
+    reloaded_model = sparkm.load_model(model_uri=model_path)
     preds_df = reloaded_model.transform(spark_model_iris.spark_df)
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
     assert spark_model_iris.predictions == preds1
@@ -148,7 +151,7 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     preds2 = m.predict(spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds2
     # 3. score and compare reloaded pyfunc Spark udf
-    preds3 = score_model_as_udf(model_path, run_id=None, pandas_df=spark_model_iris.pandas_df)
+    preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds3
     assert os.path.exists(sparkm.DFS_TMP)
 
@@ -190,11 +193,11 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
     sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=spark_model_iris.pandas_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
-    deployed_model_preds = json.loads(scoring_response.content)
+    deployed_model_preds = np.array(json.loads(scoring_response.content))
 
     np.testing.assert_array_almost_equal(
             deployed_model_preds,
@@ -220,10 +223,12 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                 cnt += 1
                 sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
                                  dfs_tmpdir=dfs_tmp_dir)
-                run_id = active_run().info.run_id
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id,
+                    artifact_path=artifact_path)
+
                 # test reloaded model
-                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
-                                                   dfs_tmpdir=dfs_tmp_dir)
+                reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmp_dir)
                 preds_df = reloaded_model.transform(spark_model_iris.spark_df)
                 preds = [x.prediction for x in preds_df.select("prediction").collect()]
                 assert spark_model_iris.predictions == preds
@@ -233,6 +238,22 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                 x = dfs_tmp_dir or sparkm.DFS_TMP
                 shutil.rmtree(x)
                 shutil.rmtree(tracking_dir)
+
+
+@pytest.mark.large
+def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
+    sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    reloaded_model = sparkm.load_model(model_uri=model_uri)
+    preds_df = reloaded_model.transform(spark_model_iris.spark_df)
+    preds = [x.prediction for x in preds_df.select("prediction").collect()]
+    assert spark_model_iris.predictions == preds
 
 
 @pytest.mark.large
@@ -295,9 +316,11 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
                 spark_model=spark_model_iris.model,
                 artifact_path=artifact_path,
                 conda_env=spark_custom_env)
-        run_id = mlflow.active_run().info.run_id
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
 
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
@@ -330,9 +353,11 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
     with mlflow.start_run():
         sparkm.log_model(
                 spark_model=spark_model_iris.model, artifact_path=artifact_path, conda_env=None)
-        run_id = mlflow.active_run().info.run_id
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
 
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
@@ -345,11 +370,14 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
     with mlflow.start_run():
-        rid = active_run().info.run_id
         sparkm.log_model(spark_model=spark_model_iris.model,
                          sample_input=spark_model_iris.spark_df,
                          artifact_path=artifact_path)
-    model_path = _get_model_log_dir(model_name=artifact_path, run_id=rid)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
+
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in mlflow_model.flavors
