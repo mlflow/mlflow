@@ -72,9 +72,9 @@ MLflow artifacts and then load them again for serving. There is an example train
     Score: 0.666
     Model saved in run <run-id>
 
-    $ mlflow sklearn serve -r <run-id> -m model
+    $ mlflow pyfunc serve -r <run-id> -m model
 
-    $ curl -d '[{"x": 1}, {"x": -1}]' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
+    $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
 
 
 
