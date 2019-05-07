@@ -136,6 +136,9 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
         sklearn_run_id = mlflow.active_run().info.run_id
+        sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=sklearn_artifact_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -144,16 +147,14 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     with mlflow.start_run():
         mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
                                 artifacts={
-                                    "sk_model": utils_get_artifact_uri(
-                                        artifact_path=sklearn_artifact_path,
-                                        run_id=sklearn_run_id)
+                                    "sk_model": sklearn_model_uri, 
                                 },
                                 python_model=main_scoped_model_class(test_predict))
-        model_uri = "runs:/{run_id}/{artifact_path}".format(
+        pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id,
             artifact_path=pyfunc_artifact_path)
 
-    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_uri)
     np.testing.assert_array_equal(
             loaded_pyfunc_model.predict(model_input=iris_data[0]),
             test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
@@ -162,8 +163,13 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
 @pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(
         sklearn_knn_model, main_scoped_model_class, tmpdir, mock_s3_bucket, iris_data):
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_repo = S3ArtifactRepository(artifact_root)
+
     sklearn_model_path = os.path.join(str(tmpdir), "sklearn_model")
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+    sklearn_artifact_path = "sk_model"
+    artifact_repo.log_artifacts(sklearn_model_path, artifact_path=sklearn_artifact_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -175,12 +181,10 @@ def test_model_load_from_remote_uri_succeeds(
                              },
                              python_model=main_scoped_model_class(test_predict))
 
-    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
-    artifact_path = "model"
-    artifact_repo = S3ArtifactRepository(artifact_root)
-    artifact_repo.log_artifacts(pyfunc_model_path, artifact_path=artifact_path)
+    pyfunc_artifact_path = "pyfunc_model"
+    artifact_repo.log_artifacts(pyfunc_model_path, artifact_path=pyfunc_artifact_path)
 
-    model_uri = artifact_root + "/" + artifact_path
+    model_uri = artifact_root + "/" + pyfunc_artifact_path 
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
     np.testing.assert_array_equal(
             loaded_pyfunc_model.predict(model_input=iris_data[0]),

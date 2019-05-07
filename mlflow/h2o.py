@@ -170,6 +170,8 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
                       supported-artifact-stores>`_.
+    :return: An `H2OEstimator model object 
+             <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/intro.html#models>`_.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)

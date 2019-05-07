@@ -169,7 +169,7 @@ class _KerasModelWrapper:
         return predicted
 
 
-def _load_pyfunc(model_file):
+def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
 
@@ -184,7 +184,7 @@ def _load_pyfunc(model_file):
         with graph.as_default():
             with sess.as_default():  # pylint:disable=not-context-manager
                 K.set_learning_phase(0)
-                m = _load_model(model_file)
+                m = _load_model(path)
         return _KerasModelWrapper(m, graph, sess)
     else:
         raise Exception("Unsupported backend '%s'" % K._BACKEND)
@@ -204,6 +204,8 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see the
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
                       supported-artifact-stores>`_.
+
+    :return: A Keras model instance.
 
     >>> # Load persisted model as a Keras model or as a PyFunc, call predict() on a Pandas DataFrame
     >>> keras_model = mlflow.keras.load_model("models", run_id="96771d893a5e46159d9f3b49bf9013e2")
