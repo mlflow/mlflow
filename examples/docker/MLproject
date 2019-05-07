@@ -5,7 +5,7 @@ docker_env:
 
 kubernetes_env:
   job_namespace: mlflow
-  image_namespace: marcusrehm
+  image_namespace: dockerhub_useraccount
   registry:
 
 entry_points:
