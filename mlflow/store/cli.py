@@ -108,9 +108,9 @@ def download_artifacts(run_id, artifact_path):
 @commands.command("download-from-uri")
 @click.option("--artifact-uri", "-a", required=True,
               help="URI pointing to the artifact file or artifacts directory.")
-def download_artifacts_from_uri(artifact_path):
+def download_artifacts_from_uri(artifact_uri):
     """
     Download an artifact file or directory from a given URI to a local directory.
     The output is the name of the file or directory on the local disk.
     """
-    print(_download_artifact_from_uri(artifact_path))
+    print(_download_artifact_from_uri(artifact_uri))

@@ -45,4 +45,5 @@ with(mlflow_start_run(), {
     mlflow_log_metric("mae", mae)
 
     mlflow_log_model(predictor, "model")
+
 })

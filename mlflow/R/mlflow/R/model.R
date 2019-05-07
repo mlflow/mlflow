@@ -88,7 +88,7 @@ mlflow_predict_model <- function(model, data) {
 #'        there are multiple flavors available.
 #' @export
 mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()) {
-  model_path <- mlflow_donwload_artifacts_from_uri(model_uri, client = client)
+  model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)
   supported_flavors <- supported_model_flavors()
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
   available_flavors <- intersect(names(spec$flavors), supported_flavors)
@@ -164,7 +164,7 @@ mlflow_rfunc_predict <- function(
 ) {
   mlflow_restore_or_warning(restore)
 
-  model_path <- mlflow_donwload_artifacts_from_uri(model_uri)
+  model_path <- mlflow_download_artifacts_from_uri(model_uri)
 
   if (!xor(is.null(input_path), is.null(data)))
     stop("One and only one of `input_path` or `data` must be specified.")
