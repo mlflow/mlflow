@@ -57,8 +57,8 @@ test_that("logging functionality", {
   cat(paste(print(run$tags[[1]])))
   cat(run$tags[[1]]$key)
   cat(run$tags[[1]]$value)
-  expect_identical(run$tags[[1]]$key, "tag_key")
-  expect_identical(run$tags[[1]]$value, "tag_value")
+  tags <- run$tags[[1]]
+  expect_identical("tag_value", tags]$value[tags$key == "tag_key"])
   expect_identical(run$params[[1]]$key, "param_key")
   expect_identical(run$params[[1]]$value, "param_value")
 
@@ -169,15 +169,8 @@ test_that("mlflow_log_batch() works", {
   cat(tags$key)
   cat(tags$value)
 
-  expect_setequal(
-    tags$key,
-    c("model_type", "data_year")
-  )
-
-  expect_setequal(
-    tags$value,
-    c("regression", "2015")
-  )
+  expect_identical("regression", tags]$value[tags$key == "model_type"])
+  expect_identical("2015", tags]$value[tags$key == "data_year"])
 })
 
 test_that("mlflow_log_batch() works with timestamp", {
