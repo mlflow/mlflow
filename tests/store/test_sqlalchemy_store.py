@@ -1,13 +1,18 @@
+import os
 import shutil
 import six
+import tempfile
 import unittest
 import warnings
 
 import mock
+import pytest
+import sqlalchemy
 import time
 import mlflow
 import uuid
 
+import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
 from mlflow.protos.service_pb2 import SearchRuns, SearchExpression
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
@@ -17,28 +22,32 @@ from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID
+from mlflow.store.dbmodels.initial_models import Base as InitialBase
+from tests.integration.utils import invoke_cli_runner
 
-DB_URI = 'sqlite://'
+
+DB_URI = 'sqlite:///'
 ARTIFACT_URI = 'artifact_folder'
 
 
-class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
+class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
-    def _setup_database(self, filename=''):
-        # use a static file name to initialize sqllite to test retention.
-        self.store = SqlAlchemyStore(DB_URI + filename, ARTIFACT_URI)
+    def _get_store(self, db_uri=''):
+        return SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
-        self.store = None
-        self._setup_database()
+        fd, self.temp_dbfile = tempfile.mkstemp()
+        # Close handle immediately so that we can remove the file later on in Windows
+        os.close(fd)
+        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        self.store = self._get_store(self.db_url)
 
     def tearDown(self):
-        if self.store:
-            models.Base.metadata.drop_all(self.store.engine)
+        models.Base.metadata.drop_all(self.store.engine)
+        os.remove(self.temp_dbfile)
         shutil.rmtree(ARTIFACT_URI)
 
     def _experiment_factory(self, names):
@@ -69,46 +78,40 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self.assertEqual(first.name, "Default")
 
     def test_default_experiment_lifecycle(self):
-        with TempDir(chdr=True) as tmp:
-            tmp_file_name = "sqlite_file_to_lifecycle_test_{}.db".format(int(time.time()))
-            self._setup_database("/" + tmp.path(tmp_file_name))
+        default_experiment = self.store.get_experiment(experiment_id=0)
+        self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
+        self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)
 
-            default_experiment = self.store.get_experiment(experiment_id=0)
-            self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
-            self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.ACTIVE)
+        self._experiment_factory('aNothEr')
+        all_experiments = [e.name for e in self.store.list_experiments()]
+        six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
 
-            self._experiment_factory('aNothEr')
-            all_experiments = [e.name for e in self.store.list_experiments()]
-            six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
+        self.store.delete_experiment(0)
 
-            self.store.delete_experiment(0)
+        six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
+        another = self.store.get_experiment(1)
+        self.assertEqual('aNothEr', another.name)
 
-            six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
-            another = self.store.get_experiment(1)
-            self.assertEqual('aNothEr', another.name)
+        default_experiment = self.store.get_experiment(experiment_id=0)
+        self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
+        self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-            default_experiment = self.store.get_experiment(experiment_id=0)
-            self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
-            self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
+        # destroy SqlStore and make a new one
+        del self.store
+        self.store = self._get_store(self.db_url)
 
-            # destroy SqlStore and make a new one
-            del self.store
-            self._setup_database("/" + tmp.path(tmp_file_name))
+        # test that default experiment is not reactivated
+        default_experiment = self.store.get_experiment(experiment_id=0)
+        self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
+        self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
 
-            # test that default experiment is not reactivated
-            default_experiment = self.store.get_experiment(experiment_id=0)
-            self.assertEqual(default_experiment.name, Experiment.DEFAULT_EXPERIMENT_NAME)
-            self.assertEqual(default_experiment.lifecycle_stage, entities.LifecycleStage.DELETED)
+        six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
+        all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
+        six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
 
-            six.assertCountEqual(self, ['aNothEr'], [e.name for e in self.store.list_experiments()])
-            all_experiments = [e.name for e in self.store.list_experiments(ViewType.ALL)]
-            six.assertCountEqual(self, set(['aNothEr', 'Default']), set(all_experiments))
-
-            # ensure that experiment ID dor active experiment is unchanged
-            another = self.store.get_experiment(1)
-            self.assertEqual('aNothEr', another.name)
-
-            self.store = None
+        # ensure that experiment ID dor active experiment is unchanged
+        another = self.store.get_experiment(1)
+        self.assertEqual('aNothEr', another.name)
 
     def test_raise_duplicate_experiments(self):
         with self.assertRaises(Exception):
@@ -473,7 +476,7 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
             self.store.log_metric(run.info.run_id, metric)
             warnings.resetwarnings()
-        assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
+        assert exception_context.exception.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
     def test_log_param(self):
         run = self._run_factory()
@@ -548,8 +551,8 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
 
         key = 'test'
         expected = [
-            models.SqlMetric(key=key, value=0.6, timestamp=1).to_mlflow_entity(),
-            models.SqlMetric(key=key, value=0.7, timestamp=2).to_mlflow_entity()
+            models.SqlMetric(key=key, value=0.6, timestamp=1, step=0).to_mlflow_entity(),
+            models.SqlMetric(key=key, value=0.7, timestamp=2, step=0).to_mlflow_entity()
         ]
 
         for metric in expected:
@@ -1106,3 +1109,63 @@ class TestSqlAlchemyStoreSqliteInMemory(unittest.TestCase):
         self._verify_logged(run.info.run_id, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric1], tags=[])
         self._verify_logged(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+
+
+class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
+    """
+    Test case where user has an existing DB with schema generated by InitialBase,
+    then migrates their DB.
+    """
+    def setUp(self):
+        fd, self.temp_dbfile = tempfile.mkstemp()
+        os.close(fd)
+        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        engine = sqlalchemy.create_engine(self.db_url)
+        InitialBase.metadata.create_all(engine)
+        invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
+        self.store = SqlAlchemyStore(self.db_url, ARTIFACT_URI)
+
+    def tearDown(self):
+        os.remove(self.temp_dbfile)
+
+
+@pytest.mark.release
+class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
+    """
+    Run tests against a MySQL database
+    """
+    DEFAULT_MYSQL_PORT = 3306
+
+    def setUp(self):
+        db_username = os.environ.get("MYSQL_TEST_USERNAME")
+        db_password = os.environ.get("MYSQL_TEST_PASSWORD")
+        db_port = int(os.environ["MYSQL_TEST_PORT"]) if "MYSQL_TEST_PORT" in os.environ \
+            else TestSqlAlchemyStoreMysqlDb.DEFAULT_MYSQL_PORT
+        if db_username is None or db_password is None:
+            raise Exception(
+                "Username and password for database tests must be specified via the "
+                "MYSQL_TEST_USERNAME and MYSQL_TEST_PASSWORD environment variables. "
+                "environment variable. In posix shells, you can rerun your test command "
+                "with the environment variables set, e.g: MYSQL_TEST_USERNAME=your_username "
+                "MYSQL_TEST_PASSWORD=your_password <your-test-command>. You may optionally "
+                "specify a database port via MYSQL_TEST_PORT (default is 3306).")
+        self._db_name = "test_sqlalchemy_store_%s" % uuid.uuid4().hex[:5]
+        db_server_url = "mysql://%s:%s@localhost:%s" % (db_username, db_password, db_port)
+        self._engine = sqlalchemy.create_engine(db_server_url)
+        self._engine.execute("CREATE DATABASE %s" % self._db_name)
+        self.db_url = "%s/%s" % (db_server_url, self._db_name)
+        self.store = self._get_store(self.db_url)
+
+    def tearDown(self):
+        self._engine.execute("DROP DATABASE %s" % self._db_name)
+
+    def test_log_many_entities(self):
+        """
+        Sanity check: verify that we can log a reasonable number of entities without failures due
+        to connection leaks etc.
+        """
+        run = self._run_factory()
+        for i in range(100):
+            self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
+            self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i,  "pval-%s" % i))
+            self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i,  "tval-%s" % i))

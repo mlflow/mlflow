@@ -1,30 +1,31 @@
+# Snapshot of MLflow DB models as of the 0.9.1 release, prior to the first database migration.
+# Used to standardize initial database state.
+# Copied from https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, with
+# modifications to substitute constants from MLflow with hard-coded values (e.g. replacing
+# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK").
 import time
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
     Column, String, Float, ForeignKey, Integer, CheckConstraint,
     BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
-from mlflow.entities import (
-    Experiment, RunTag, Metric, Param, RunData, RunInfo,
-    SourceType, RunStatus, Run, ViewType)
-from mlflow.entities.lifecycle_stage import LifecycleStage
 
 Base = declarative_base()
 
 
 SourceTypes = [
-    SourceType.to_string(SourceType.NOTEBOOK),
-    SourceType.to_string(SourceType.JOB),
-    SourceType.to_string(SourceType.LOCAL),
-    SourceType.to_string(SourceType.UNKNOWN),
-    SourceType.to_string(SourceType.PROJECT)
+    "NOTEBOOK",
+    "JOB",
+    "LOCAL",
+    "UNKNOWN",
+    "PROJECT",
 ]
 
 RunStatusTypes = [
-    RunStatus.to_string(RunStatus.SCHEDULED),
-    RunStatus.to_string(RunStatus.FAILED),
-    RunStatus.to_string(RunStatus.FINISHED),
-    RunStatus.to_string(RunStatus.RUNNING)
+    "SCHEDULED",
+    "FAILED",
+    "FINISHED",
+    "RUNNING",
 ]
 
 
@@ -48,7 +49,7 @@ class SqlExperiment(Base):
     Default artifact location for this experiment: `String` (limit 256 characters). Defined as
                                                     *Non null* in table schema.
     """
-    lifecycle_stage = Column(String(32), default=LifecycleStage.ACTIVE)
+    lifecycle_stage = Column(String(32), default="active")
     """
     Lifecycle Stage of experiment: `String` (limit 32 characters).
                                     Can be either ``active`` (default) or ``deleted``.
@@ -56,25 +57,13 @@ class SqlExperiment(Base):
 
     __table_args__ = (
         CheckConstraint(
-            lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+            lifecycle_stage.in_(["active", "deleted"]),
             name='lifecycle_stage'),
         PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
 
     def __repr__(self):
         return '<SqlExperiment ({}, {})>'.format(self.experiment_id, self.name)
-
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.Experiment`.
-        """
-        return Experiment(
-            experiment_id=str(self.experiment_id),
-            name=self.name,
-            artifact_location=self.artifact_location,
-            lifecycle_stage=self.lifecycle_stage)
 
 
 class SqlRun(Base):
@@ -91,7 +80,7 @@ class SqlRun(Base):
     """
     Run name: `String` (limit 250 characters).
     """
-    source_type = Column(String(20), default=SourceType.to_string(SourceType.LOCAL))
+    source_type = Column(String(20), default="LOCAL")
     """
     Source Type: `String` (limit 20 characters). Can be one of ``NOTEBOOK``, ``JOB``, ``PROJECT``,
                  ``LOCAL`` (default), or ``UNKNOWN``.
@@ -108,7 +97,7 @@ class SqlRun(Base):
     """
     User ID: `String` (limit 256 characters). Defaults to ``null``.
     """
-    status = Column(String(20), default=RunStatus.to_string(RunStatus.SCHEDULED))
+    status = Column(String(20), default="SCHEDULED")
     """
     Run Status: `String` (limit 20 characters). Can be one of ``RUNNING``, ``SCHEDULED`` (default),
                 ``FINISHED``, ``FAILED``.
@@ -125,7 +114,7 @@ class SqlRun(Base):
     """
     Source version: `String` (limit 50 characters).
     """
-    lifecycle_stage = Column(String(20), default=LifecycleStage.ACTIVE)
+    lifecycle_stage = Column(String(20), default="active")
     """
     Lifecycle Stage of run: `String` (limit 32 characters).
                             Can be either ``active`` (default) or ``deleted``.
@@ -146,50 +135,10 @@ class SqlRun(Base):
     __table_args__ = (
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
-        CheckConstraint(lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+        CheckConstraint(lifecycle_stage.in_(["active", "deleted"]),
                         name='lifecycle_stage'),
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
-
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.Run`.
-        """
-        run_info = RunInfo(
-            run_uuid=self.run_uuid,
-            run_id=self.run_uuid,
-            experiment_id=str(self.experiment_id),
-            name=self.name,
-            source_type=SourceType.from_string(self.source_type),
-            source_name=self.source_name,
-            entry_point_name=self.entry_point_name,
-            user_id=self.user_id,
-            status=RunStatus.from_string(self.status),
-            start_time=self.start_time,
-            end_time=self.end_time,
-            source_version=self.source_version,
-            lifecycle_stage=self.lifecycle_stage,
-            artifact_uri=self.artifact_uri)
-
-        # only get latest recorded metrics per key
-        all_metrics = [m.to_mlflow_entity() for m in self.metrics]
-        metrics = {}
-        for m in all_metrics:
-            existing_metric = metrics.get(m.key)
-            if (existing_metric is None)\
-                or ((m.step, m.timestamp, m.value) >=
-                    (existing_metric.step, existing_metric.timestamp,
-                        existing_metric.value)):
-                metrics[m.key] = m
-
-        run_data = RunData(
-            metrics=list(metrics.values()),
-            params=[p.to_mlflow_entity() for p in self.params],
-            tags=[t.to_mlflow_entity() for t in self.tags])
-
-        return Run(run_info=run_info, run_data=run_data)
 
 
 class SqlTag(Base):
@@ -222,16 +171,6 @@ class SqlTag(Base):
     def __repr__(self):
         return '<SqlRunTag({}, {})>'.format(self.key, self.value)
 
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.RunTag`.
-        """
-        return RunTag(
-            key=self.key,
-            value=self.value)
-
 
 class SqlMetric(Base):
     __tablename__ = 'metrics'
@@ -249,10 +188,6 @@ class SqlMetric(Base):
     Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
                                                ``metrics`` table.
     """
-    step = Column(BigInteger, default=0, nullable=False)
-    """
-    Step recorded for this metric entry: `BigInteger`.
-    """
     run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     """
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``metrics`` table.
@@ -264,23 +199,11 @@ class SqlMetric(Base):
     """
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'step', 'run_uuid', 'value', name='metric_pk'),
+        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', name='metric_pk'),
     )
 
     def __repr__(self):
-        return '<SqlMetric({}, {}, {}, {})>'.format(self.key, self.value, self.timestamp, self.step)
-
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.Metric`.
-        """
-        return Metric(
-            key=self.key,
-            value=self.value,
-            timestamp=self.timestamp,
-            step=self.step)
+        return '<SqlMetric({}, {}, {})>'.format(self.key, self.value, self.timestamp)
 
 
 class SqlParam(Base):
@@ -310,13 +233,3 @@ class SqlParam(Base):
 
     def __repr__(self):
         return '<SqlParam({}, {})>'.format(self.key, self.value)
-
-    def to_mlflow_entity(self):
-        """
-        Convert DB model to corresponding MLflow entity.
-
-        :return: :py:class:`mlflow.entities.Param`.
-        """
-        return Param(
-            key=self.key,
-            value=self.value)

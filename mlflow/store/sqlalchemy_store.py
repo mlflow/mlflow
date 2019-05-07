@@ -1,8 +1,13 @@
-import sqlalchemy
+import logging
+import pprint
 import uuid
 from contextlib import contextmanager
+
 import posixpath
 from six.moves import urllib
+from alembic.migration import MigrationContext  # pylint: disable=import-error
+from alembic.autogenerate import compare_metadata
+import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
@@ -17,8 +22,13 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
-from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
-    _validate_run_id
+from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
+    _validate_run_id, _validate_metric
+from mlflow.store.db.utils import _upgrade_db
+from mlflow.store.dbmodels.initial_models import Base as InitialBase
+
+
+_logger = logging.getLogger(__name__)
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -57,10 +67,23 @@ class SqlAlchemyStore(AbstractStore):
         self.db_type = urllib.parse.urlparse(db_uri).scheme
         self.artifact_root_uri = default_artifact_root
         self.engine = sqlalchemy.create_engine(db_uri)
-        Base.metadata.create_all(self.engine)
+        insp = sqlalchemy.inspect(self.engine)
+        # On a completely fresh MLflow installation against an empty database (verify database
+        # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
+        # DB migrations
+        expected_tables = set([
+            SqlExperiment.__tablename__,
+            SqlRun.__tablename__,
+            SqlMetric.__tablename__,
+            SqlParam.__tablename__,
+            SqlTag.__tablename__
+        ])
+        if len(expected_tables & set(insp.get_table_names())) == 0:
+            SqlAlchemyStore._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = self._get_managed_session_maker(SessionMaker)
+        SqlAlchemyStore._verify_schema(self.engine)
 
         if _is_local_uri(default_artifact_root):
             mkdir(local_file_uri_to_path(default_artifact_root))
@@ -68,6 +91,27 @@ class SqlAlchemyStore(AbstractStore):
         if len(self.list_experiments()) == 0:
             with self.ManagedSessionMaker() as session:
                 self._create_default_experiment(session)
+
+    @staticmethod
+    def _initialize_tables(engine):
+        _logger.info("Creating initial MLflow database tables...")
+        InitialBase.metadata.create_all(engine)
+        _upgrade_db(str(engine.url))
+
+    @staticmethod
+    def _verify_schema(engine):
+        with engine.connect() as connection:
+            mc = MigrationContext.configure(connection)
+            diff = compare_metadata(mc, Base.metadata)
+            if len(diff) > 0:
+                _logger.error("Detected one or more differences between current database schema "
+                              "and desired schema, exiting. Diff:\n %s",
+                              pprint.pformat(diff, indent=2, width=20))
+                raise MlflowException(
+                    "Detected out-of-date database schema. Take a backup of your database, then "
+                    "run 'mlflow db upgrade %s' to migrate your database to the latest schema. "
+                    "NOTE: schema migration may result in database downtime "
+                    "- please consult your database's documentation for more detail." % engine.url)
 
     @staticmethod
     def _get_managed_session_maker(SessionMaker):
@@ -348,6 +392,7 @@ class SqlAlchemyStore(AbstractStore):
             self._save_to_db(objs=run, session=session)
 
     def log_metric(self, run_id, metric):
+        _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
