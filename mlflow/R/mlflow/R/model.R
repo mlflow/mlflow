@@ -142,6 +142,7 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
 #' jsonlite::write_json(iris, "iris.json")
 #'
 #' # predict existing model from json data
+#' # load the model from local relative path.
 #' mlflow_rfunc_predict("file:mlflow_roundtrip", "iris.json")
 #' }
 #'
