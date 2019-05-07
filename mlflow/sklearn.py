@@ -244,6 +244,8 @@ def load_model(model_uri):
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
                       supported-artifact-stores>`_.
 
+    :return: A scikit-learn model.
+
     >>> import mlflow.sklearn
     >>> sk_model = mlflow.sklearn.load_model("sk_models", run_id="96771d893a5e46159d9f3b49bf9013e2")
     >>> #use Pandas DataFrame to make predictions

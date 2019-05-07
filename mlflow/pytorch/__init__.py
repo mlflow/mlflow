@@ -308,6 +308,7 @@ def load_model(model_uri, **kwargs):
                       supported-artifact-stores>`_.
 
     :param kwargs: kwargs to pass to ``torch.load`` method.
+    :return: A PyTorch model.
 
     >>> import torch
     >>> import mlflow
