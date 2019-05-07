@@ -9,5 +9,3 @@
 #'                  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 #'          For more information about supported URI schemes, see the Artifacts Documentation
 #'                  `<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>`_.
-
-
