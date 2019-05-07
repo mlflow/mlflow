@@ -147,7 +147,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     with mlflow.start_run():
         mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
                                 artifacts={
-                                    "sk_model": sklearn_model_uri, 
+                                    "sk_model": sklearn_model_uri,
                                 },
                                 python_model=main_scoped_model_class(test_predict))
         pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
@@ -184,7 +184,7 @@ def test_model_load_from_remote_uri_succeeds(
     pyfunc_artifact_path = "pyfunc_model"
     artifact_repo.log_artifacts(pyfunc_model_path, artifact_path=pyfunc_artifact_path)
 
-    model_uri = artifact_root + "/" + pyfunc_artifact_path 
+    model_uri = artifact_root + "/" + pyfunc_artifact_path
     loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
     np.testing.assert_array_equal(
             loaded_pyfunc_model.predict(model_input=iris_data[0]),

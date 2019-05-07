@@ -171,7 +171,7 @@ def load_model(model_uri):
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
                       supported-artifact-stores>`_.
 
-    :return: An `H2OEstimator model object 
+    :return: An `H2OEstimator model object
              <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/intro.html#models>`_.
     """
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
