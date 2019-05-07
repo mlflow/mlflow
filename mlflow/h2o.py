@@ -15,9 +15,10 @@ import yaml
 
 import h2o
 
+import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
-import mlflow.tracking
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -148,24 +149,34 @@ class _H2OModelWrapper:
 def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+
+    :param path: Local filesystem path to the MLflow Model with the ``h2o`` flavor.
     """
     return _H2OModelWrapper(_load_model(path, init=True))
 
 
-def load_model(path, run_id=None):
+def load_model(model_uri):
     """
     Load an H2O model from a local file (if ``run_id`` is ``None``) or a run.
     This function expects there is an H2O instance initialised with ``h2o.init``.
 
-    :param path: Local filesystem path or run-relative artifact path to the model saved
-                 by :py:func:`mlflow.h2o.save_model`.
-    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see the
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
+                      supported-artifact-stores>`_.
+
+    :return: An `H2OEstimator model object
+             <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/intro.html#models>`_.
     """
-    if run_id is not None:
-        path = mlflow.tracking.artifact_utils._get_model_log_dir(model_name=path, run_id=run_id)
-    path = os.path.abspath(path)
-    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.h2o`
-    h2o_model_file_path = os.path.join(path, flavor_conf.get("data", "model.h2o"))
+    h2o_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.h2o"))
     return _load_model(path=h2o_model_file_path)

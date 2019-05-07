@@ -35,6 +35,7 @@ from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir
@@ -322,12 +323,20 @@ def _load_model(model_path, dfs_tmpdir=None):
     return PipelineModel.load(model_path)
 
 
-def load_model(path, run_id=None, dfs_tmpdir=None):
+def load_model(model_uri, dfs_tmpdir=None):
     """
     Load the Spark MLlib model from the path.
 
-    :param path: Local filesystem path or run-relative artifact path to the model.
-    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see the
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
+                      supported-artifact-stores>`_.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model will be loaded from this
                        destination. Defaults to ``/tmp/mlflow``.
@@ -344,17 +353,17 @@ def load_model(path, run_id=None, dfs_tmpdir=None):
     >>>  # Make predictions on test documents.
     >>> prediction = model.transform(test)
     """
-    if run_id is not None:
-        path = mlflow.tracking.artifact_utils._get_model_log_dir(model_name=path, run_id=run_id)
-    path = os.path.abspath(path)
-    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    spark_model_artifacts_path = os.path.join(path, flavor_conf['model_data'])
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    spark_model_artifacts_path = os.path.join(local_model_path, flavor_conf['model_data'])
     return _load_model(model_path=spark_model_artifacts_path, dfs_tmpdir=dfs_tmpdir)
 
 
 def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+
+    :param path: Local filesystem path to the MLflow Model with the ``spark`` flavor.
     """
     # NOTE: The getOrCreate() call below may change settings of the active session which we do not
     # intend to do here. In particular, setting master to local[1] can break distributed clusters.
