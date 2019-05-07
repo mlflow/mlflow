@@ -145,15 +145,18 @@ class RunView extends Component {
   }
 
   getRunCommand() {
-    const { run, params } = this.props;
+    const { tags, params } = this.props;
     let runCommand = null;
-    if (run.source_type === "PROJECT") {
-      runCommand = 'mlflow run ' + shellEscape(run.source_name);
-      if (run.source_version && run.source_version !== "latest") {
-        runCommand += ' -v ' + shellEscape(run.source_version);
+    const sourceName = Utils.getSourceName(tags);
+    const sourceVersion = Utils.getSourceVersion(tags);
+    const entryPointName = Utils.getEntryPointName(tags);
+    if (Utils.getSourceType(tags) === "PROJECT") {
+      runCommand = 'mlflow run ' + shellEscape(sourceName);
+      if (sourceVersion && sourceVersion !== "latest") {
+        runCommand += ' -v ' + shellEscape(sourceVersion);
       }
-      if (run.entry_point_name && run.entry_point_name !== "main") {
-        runCommand += ' -e ' + shellEscape(run.entry_point_name);
+      if (entryPointName && entryPointName !== "main") {
+        runCommand += ' -e ' + shellEscape(entryPointName);
       }
       Object.values(params).sort().forEach(p => {
         runCommand += ' -P ' + shellEscape(p.key + '=' + p.value);
@@ -221,21 +224,21 @@ class RunView extends Component {
           <div className="run-info">
             <span className="metadata-header">Source: </span>
             <span className="metadata-info">
-              {Utils.renderSourceTypeIcon(run.source_type)}
-              {Utils.renderSource(run, tags, queryParams)}
+              {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
+              {Utils.renderSource(tags, queryParams)}
             </span>
           </div>
-          {run.source_version ?
+          {Utils.getSourceVersion(tags) ?
             <div className="run-info">
               <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
+              <span className="metadata-info">{Utils.renderVersion(tags, false)}</span>
             </div>
             : null
           }
-          {run.source_type === "PROJECT" ?
+          {Utils.getSourceType(tags) === "PROJECT" ?
             <div className="run-info">
               <span className="metadata-header">Entry Point: </span>
-              <span className="metadata-info">{run.entry_point_name || "main"}</span>
+              <span className="metadata-info">{Utils.getEntryPointName(tags) || "main"}</span>
             </div>
             : null
           }

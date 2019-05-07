@@ -113,15 +113,6 @@ export const RunInfo = Immutable.Record({
   experiment_id: undefined,
 
   // optional STRING
-  name: undefined,
-
-  // optional SourceType
-  source_type: undefined,
-
-  // optional STRING
-  source_name: undefined,
-
-  // optional STRING
   user_id: undefined,
 
   // optional RunStatus
@@ -132,12 +123,6 @@ export const RunInfo = Immutable.Record({
 
   // optional INT64
   end_time: undefined,
-
-  // optional STRING
-  source_version: undefined,
-
-  // optional STRING
-  entry_point_name: undefined,
 
   // optional STRING
   artifact_uri: undefined,
@@ -166,15 +151,6 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
   getExperimentId() {
     return this.experiment_id !== undefined ? this.experiment_id : 0;
   },
-  getName() {
-    return this.name !== undefined ? this.name : '';
-  },
-  getSourceType() {
-    return this.source_type !== undefined ? this.source_type : 'NOTEBOOK';
-  },
-  getSourceName() {
-    return this.source_name !== undefined ? this.source_name : '';
-  },
   getUserId() {
     return this.user_id !== undefined ? this.user_id : '';
   },
@@ -186,12 +162,6 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
   },
   getEndTime() {
     return this.end_time !== undefined ? this.end_time : 0;
-  },
-  getSourceVersion() {
-    return this.source_version !== undefined ? this.source_version : '';
-  },
-  getEntryPointName() {
-    return this.entry_point_name !== undefined ? this.entry_point_name : '';
   },
   getArtifactUri() {
     return this.artifact_uri !== undefined ? this.artifact_uri : '';
