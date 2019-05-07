@@ -25,7 +25,6 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
-from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 
 
