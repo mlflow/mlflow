@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import json
+import yaml
 import os
 import sys
 import logging
@@ -83,13 +84,18 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
+@click.option("--kube-job-template", metavar="MLFLOW_KUBE_JOB_TEMPLATE",
+              help="Path to a YAML file describing the kubernetes job specification. See "
+                   "https://kubernetes.io/docs/concepts/workloads/controllers/"
+                   "jobs-run-to-completion/ for more info.")
 @click.option("--docker-auth-config", metavar="MLFLOW_DOCKER_AUTH_CONFIG",
               envvar="MLFLOW_DOCKER_AUTH_CONFIG",
               help="Username and Password for Docker authentication.")
 @click.option("--kube-context", metavar="MLFLOW_KUBE_CONTEXT", envvar="MLFLOW_KUBE_CONTEXT",
               help="Name of Kubernetes context where the training will run.")
 def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
-        backend_config, no_conda, storage_dir, run_id,  docker_auth_config, kube_context):
+        backend_config, no_conda, storage_dir, run_id, kube_job_template,
+        docker_auth_config, kube_context):
     """
     Run an MLflow project from the given URI.
 
@@ -129,6 +135,11 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
         if docker_auth_config is None or kube_context is None:
             eprint("Specify 'docker_auth_config' and 'kube_context' when using kubernetes mode.")
             sys.exit(1)
+        if kube_job_template:
+            yaml_obj = {}
+            with open(kube_job_template, 'r') as job_template:
+                yaml_obj = yaml.safe_load(job_template.read())
+            kube_job_template = yaml_obj
 
     try:
         projects.run(
@@ -145,7 +156,8 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             synchronous=backend == "local" or backend is None,
             run_id=run_id,
             docker_auth_config=docker_auth_config,
-            kube_context=kube_context
+            kube_context=kube_context,
+            kube_job_template=kube_job_template
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)

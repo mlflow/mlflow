@@ -1,5 +1,6 @@
 import mock
 import json
+import yaml
 from mlflow.projects import kubernetes as kb
 
 
@@ -21,9 +22,76 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     command = ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5']
     env_vars = {'RUN_ID': '1'}
     job_definition = kb._get_kubernetes_job_definition(image=image, job_namespace=namespace,
-                                                       image_namespace=namespace,
-                                                       command=command, env_vars=env_vars)
+                                                       image_namespace=namespace, command=command,
+                                                       resources=None, env_vars=env_vars)
     container_spec = job_definition['spec']['template']['spec']['containers'][0]
+    assert container_spec['name'].startswith(image)
+    assert container_spec['image'] == namespace + '/' + image
+    assert container_spec['command'] == command
+    assert container_spec['env'][0]['name'] == 'RUN_ID'
+    assert container_spec['env'][0]['value'] == '1'
+
+
+def test_valid_kubernetes_job_resources_spec():  # pylint: disable=unused-argument
+    """
+    Tests job specification for Kubernetes with resources.
+    """
+    image = 'mlflow-docker-example-5e74a5a'
+    namespace = 'default'
+    command = ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5']
+    env_vars = {'RUN_ID': '1'}
+    resources = yaml.safe_load(
+    "    resources:\n"
+    "        limits:\n"
+    "            memory: 512Mi\n"
+    "        requests:\n"
+    "            memory: 256Mi\n")
+    job_definition = kb._get_kubernetes_job_definition(image=image, job_namespace=namespace,
+                                                       image_namespace=namespace, command=command,
+                                                       resources=resources, env_vars=env_vars)
+    container_spec = job_definition['spec']['template']['spec']['containers'][0]
+    assert container_spec['resources'] == resources.get('resources')
+    assert container_spec['name'].startswith(image)
+    assert container_spec['image'] == namespace + '/' + image
+    assert container_spec['command'] == command
+    assert container_spec['env'][0]['name'] == 'RUN_ID'
+    assert container_spec['env'][0]['value'] == '1'
+
+
+def test_valid_kubernetes_job_custom_template():  # pylint: disable=unused-argument
+    """
+    Tests job specification for Kubernetes with resources.
+    """
+    custom_template = yaml.load(
+    "apiVersion: batch/v1\n"
+    "kind: Job\n"
+    "metadata:\n"
+    "  name: pi-with-ttl\n"
+    "spec:\n"
+    "  ttlSecondsAfterFinished: 100\n"
+    "  template:\n"
+    "    spec:\n"
+    "      containers:\n"
+    "      - name: pi\n"
+    "        image: perl\n"
+    "        command: ['perl',  '-Mbignum=bpi', '-wle', 'print bpi(2000)']\n"
+    "      restartPolicy: Never\n")
+    image = 'mlflow-docker-example-5e74a5a'
+    namespace = 'default'
+    command = ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5']
+    env_vars = {'RUN_ID': '1'}
+    resources = yaml.safe_load(
+    "    resources:\n"
+    "        limits:\n"
+    "            memory: 512Mi\n"
+    "        requests:\n"
+    "            memory: 256Mi\n")
+    job_definition = kb._get_kubernetes_job_definition(image=image, job_namespace=namespace,
+                                                       image_namespace=namespace, command=command,
+                                                       resources=resources, env_vars=env_vars,
+                                                       job_template=custom_template)
+    container_spec = job_definition['spec']['template']['spec']['containers'][0]
+    assert container_spec['resources'] == resources.get('resources')
     assert container_spec['name'].startswith(image)
     assert container_spec['image'] == namespace + '/' + image
     assert container_spec['command'] == command

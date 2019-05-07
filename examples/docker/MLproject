@@ -7,6 +7,11 @@ kubernetes_env:
   job_namespace: mlflow
   image_namespace: dockerhub_useraccount
   registry:
+  resources:
+    limits:
+      memory: 512Mi
+    requests:
+      memory: 256Mi
 
 entry_points:
   main:

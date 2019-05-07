@@ -73,7 +73,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
          backend=None, backend_config=None, use_conda=True,
          storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None,
-         kube_context=None):
+         kube_context=None, kube_job_template=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
@@ -168,7 +168,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                              _get_run_env_vars(
                                                   run_id=active_run.info.run_uuid,
                                                   experiment_id=active_run.info.experiment_id),
-                                             kube_context)
+                                             kube_context, kube_job_template)
             return kb.monitor_job_status(job_name,
                                          project.kubernetes_env.get('job_namespace'))
 
@@ -181,7 +181,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
         experiment_name=None, experiment_id=None,
         backend=None, backend_config=None, use_conda=True,
         storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None,
-        kube_context=None):
+        kube_context=None,kube_job_template=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
 
@@ -233,6 +233,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :param kube_context: Name of Kubernetes context where the training will run. The context needs
                          to be configured previously in the machine where mlflow will trigger
                          the run.
+    :param kube_job_template: Path to a YAML file describing the kubernetes job specification.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
     """
@@ -259,7 +260,8 @@ def run(uri, entry_point="main", version=None, parameters=None,
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
         parameters=parameters, backend=backend, backend_config=cluster_spec_dict,
         use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id,
-        docker_auth_config=docker_auth_config, kube_context=kube_context)
+        kube_job_template=kube_job_template, docker_auth_config=docker_auth_config,
+        kube_context=kube_context)
     if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj
