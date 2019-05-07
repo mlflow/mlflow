@@ -36,9 +36,12 @@ def main(argv):
         try:
             saved_estimator_path = regressor.export_savedmodel(temp, receiver_fn).decode("utf-8")
             # Logging the saved model
-            tensorflow.log_saved_model(saved_model_dir=saved_estimator_path, signature_def_key="predict", artifact_path="model")
+            tensorflow.log_model(tf_saved_model_dir=saved_estimator_path,
+                                 tf_meta_graph_tags=[tf.saved_model.tag_constants.SERVING],
+                                 tf_signature_def_key="predict",
+                                 artifact_path="model")
             # Reloading the model
-            pyfunc_model = pyfunc.load_pyfunc(saved_estimator_path)
+            pyfunc_model = pyfunc.load_pyfunc(mlflow.get_artifact_uri("model"))
             df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
             # Predicting on the loaded Python Function
             predict_df = pyfunc_model.predict(df)
