@@ -28,3 +28,4 @@ pytest-localserver==0.5.0
 sqlalchemy==1.3.0
 # test plugin
 tests/resources/mlflow-test-plugin/
+mysqlclient
