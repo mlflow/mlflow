@@ -40,12 +40,11 @@ def test_valid_kubernetes_job_resources_spec():  # pylint: disable=unused-argume
     namespace = 'default'
     command = ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5']
     env_vars = {'RUN_ID': '1'}
-    resources = yaml.safe_load(
-    "    resources:\n"
-    "        limits:\n"
-    "            memory: 512Mi\n"
-    "        requests:\n"
-    "            memory: 256Mi\n")
+    resources = yaml.safe_load("    resources:\n"
+                               "        limits:\n"
+                               "            memory: 512Mi\n"
+                               "        requests:\n"
+                               "            memory: 256Mi\n")
     job_definition = kb._get_kubernetes_job_definition(image=image, job_namespace=namespace,
                                                        image_namespace=namespace, command=command,
                                                        resources=resources, env_vars=env_vars)
@@ -62,30 +61,28 @@ def test_valid_kubernetes_job_custom_template():  # pylint: disable=unused-argum
     """
     Tests job specification for Kubernetes with resources.
     """
-    custom_template = yaml.load(
-    "apiVersion: batch/v1\n"
-    "kind: Job\n"
-    "metadata:\n"
-    "  name: pi-with-ttl\n"
-    "spec:\n"
-    "  ttlSecondsAfterFinished: 100\n"
-    "  template:\n"
-    "    spec:\n"
-    "      containers:\n"
-    "      - name: pi\n"
-    "        image: perl\n"
-    "        command: ['perl',  '-Mbignum=bpi', '-wle', 'print bpi(2000)']\n"
-    "      restartPolicy: Never\n")
+    custom_template = yaml.load("apiVersion: batch/v1\n"
+                                "kind: Job\n"
+                                "metadata:\n"
+                                "  name: pi-with-ttl\n"
+                                "spec:\n"
+                                "  ttlSecondsAfterFinished: 100\n"
+                                "  template:\n"
+                                "    spec:\n"
+                                "      containers:\n"
+                                "      - name: pi\n"
+                                "        image: perl\n"
+                                "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
+                                "      restartPolicy: Never\n")
     image = 'mlflow-docker-example-5e74a5a'
     namespace = 'default'
     command = ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5']
     env_vars = {'RUN_ID': '1'}
-    resources = yaml.safe_load(
-    "    resources:\n"
-    "        limits:\n"
-    "            memory: 512Mi\n"
-    "        requests:\n"
-    "            memory: 256Mi\n")
+    resources = yaml.safe_load("    resources:\n"
+                               "        limits:\n"
+                               "            memory: 512Mi\n"
+                               "        requests:\n"
+                               "            memory: 256Mi\n")
     job_definition = kb._get_kubernetes_job_definition(image=image, job_namespace=namespace,
                                                        image_namespace=namespace, command=command,
                                                        resources=resources, env_vars=env_vars,
