@@ -33,8 +33,6 @@ mlflow_cli <- function(...,
   args <- list(...)
   verbose <- mlflow_is_verbose()
 
-  stderr_callback <- stderr_callback %||% function(...) print(list(...))
-
   python <- dirname(python_bin())
   mlflow_bin <- file.path(python, "mlflow")
   env <- modifyList(list(
