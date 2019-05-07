@@ -387,7 +387,7 @@ def test_pyfunc_model_serving_with_module_scoped_subclassed_model_and_default_co
         code_paths=[__file__])
 
     scoring_response = pyfunc_serve_and_score_model(
-            model_path=model_path,
+            model_uri=model_path,
             data=data[0],
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
@@ -410,7 +410,7 @@ def test_pyfunc_model_serving_with_main_scoped_subclassed_model_and_custom_pickl
         pickle_module=mlflow_pytorch_pickle_module)
 
     scoring_response = pyfunc_serve_and_score_model(
-            model_path=model_path,
+            model_uri=model_path,
             data=data[0],
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
@@ -463,7 +463,7 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
     # Deploy the custom pyfunc model and ensure that it is able to successfully load its
     # constituent PyTorch model via `mlflow.pytorch.load_model`
     scoring_response = pyfunc_serve_and_score_model(
-            model_path=pyfunc_model_path,
+            model_uri=pyfunc_model_path,
             data=data[0],
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             extra_args=["--no-conda"])
