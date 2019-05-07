@@ -7,6 +7,7 @@ from __future__ import print_function
 from distutils import dir_util
 import hashlib
 import json
+import yaml
 import os
 import sys
 import re
@@ -148,29 +149,37 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
     elif mode == "kubernetes":
         from mlflow.projects import kubernetes as kb
-        if project.docker_env:
-            tracking.MlflowClient().set_tag(active_run.info.run_uuid,
-                                            MLFLOW_PROJECT_ENV,
-                                            "kubernetes")
-            _validate_docker_env(project.docker_env)
-            _validate_docker_installation()
-            _validate_kubernetes_env(project.kubernetes_env)
-            image = _build_docker_image(work_dir=work_dir,
-                                        project=project,
-                                        active_run=active_run)
-            kb.push_image_to_registry(image, project.kubernetes_env.get('registry'),
-                                      project.kubernetes_env.get('image_namespace'),
-                                      docker_auth_config)
-            job_name = kb.run_kubernetes_job(image,
-                                             project.kubernetes_env.get('image_namespace'),
-                                             project.kubernetes_env.get('job_namespace'),
-                                             parameters,
-                                             _get_run_env_vars(
-                                                  run_id=active_run.info.run_uuid,
-                                                  experiment_id=active_run.info.experiment_id),
-                                             kube_context, kube_job_template)
-            return kb.monitor_job_status(job_name,
-                                         project.kubernetes_env.get('job_namespace'))
+        tracking.MlflowClient().set_tag(active_run.info.run_uuid,
+                                        MLFLOW_PROJECT_ENV,
+                                        "kubernetes")
+        _validate_docker_env(project.docker_env)
+        _validate_docker_installation()
+        _validate_kubernetes_env(project.kubernetes_env)
+        if kube_job_template:
+            if os.path.exists(os.path.join(work_dir, kube_job_template)):
+                yaml_obj = {}
+                with open(os.path.join(work_dir, kube_job_template), 'r') as job_template:
+                    yaml_obj = yaml.safe_load(job_template.read())
+                kube_job_template = yaml_obj
+            else:
+                raise ExecutionException("Could not find --kube-job-template file:{}".format(
+                    os.path.join(work_dir, kube_job_template)))
+        image = _build_docker_image(work_dir=work_dir,
+                                    project=project,
+                                    active_run=active_run)
+        kb.push_image_to_registry(image, project.kubernetes_env.get('registry'),
+                                  project.kubernetes_env.get('image_namespace'),
+                                  docker_auth_config)
+        job_name = kb.run_kubernetes_job(image,
+                                         project.kubernetes_env.get('image_namespace'),
+                                         project.kubernetes_env.get('job_namespace'),
+                                         parameters,
+                                         _get_run_env_vars(
+                                             run_id=active_run.info.run_uuid,
+                                             experiment_id=active_run.info.experiment_id),
+                                         kube_context, kube_job_template)
+        return kb.monitor_job_status(job_name,
+                                     project.kubernetes_env.get('job_namespace'))
 
     supported_modes = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "

@@ -388,6 +388,11 @@ see :ref:`Docker section <project-docker-container-environments>`. The ``kuberne
     job_namespace: mlflow # kubernetes namespace where jobs will be executed.
     image_namespace: username # docker image namespace where image will be pushed.
     registry: # registry url for the repository where image will be pushed.
+    resources: # resources specification for pods running the training
+      limits:
+        memory: 512Mi
+      requests:
+        memory: 256Mi
 
 Then, run your project using the command:
 
@@ -403,6 +408,9 @@ environment variables.
 
 To see it in action, you can use the `Docker example <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ 
 just changing the values in ``kubernetes_env`` section of MLproject file.
+
+If you need more control over Job specification, you can pass ``--kube-job-template`` parameter in CLI pointing to a file where 
+your job specification can be found.
 
 Iterating Quickly
 -----------------

@@ -1,7 +1,6 @@
 from __future__ import print_function
 
 import json
-import yaml
 import os
 import sys
 import logging
@@ -135,12 +134,6 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
         if docker_auth_config is None or kube_context is None:
             eprint("Specify 'docker_auth_config' and 'kube_context' when using kubernetes mode.")
             sys.exit(1)
-        if kube_job_template:
-            yaml_obj = {}
-            with open(kube_job_template, 'r') as job_template:
-                yaml_obj = yaml.safe_load(job_template.read())
-            kube_job_template = yaml_obj
-
     try:
         projects.run(
             uri,
