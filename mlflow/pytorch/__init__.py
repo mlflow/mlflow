@@ -59,6 +59,9 @@ _logger = logging.getLogger(__name__)
 def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
               pickle_module=mlflow_pytorch_pickle_module, **kwargs):
     """
+    log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,\
+              pickle_module=mlflow.pytorch.pickle_module, **kwargs)
+
     Log a PyTorch model as an MLflow artifact for the current run.
 
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
@@ -146,6 +149,9 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
 def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_paths=None,
                pickle_module=mlflow_pytorch_pickle_module, **kwargs):
     """
+    save_model(pytorch_model, path, conda_env=None, mlflow_model=mlflow.models.Model(),\
+               code_paths=None, pickle_module=mlflow.pytorch.pickle_module, **kwargs)
+
     Save a PyTorch model to a path on the local file system.
 
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as

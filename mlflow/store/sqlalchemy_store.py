@@ -1,6 +1,7 @@
 import sqlalchemy
 import uuid
 from contextlib import contextmanager
+import posixpath
 from six.moves import urllib
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -14,9 +15,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.tracking.utils import _is_local_uri
-from mlflow.utils.file_utils import build_path, mkdir
+from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
-from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
+from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id
 
 
@@ -62,7 +63,7 @@ class SqlAlchemyStore(AbstractStore):
         self.ManagedSessionMaker = self._get_managed_session_maker(SessionMaker)
 
         if _is_local_uri(default_artifact_root):
-            mkdir(default_artifact_root)
+            mkdir(local_file_uri_to_path(default_artifact_root))
 
         if len(self.list_experiments()) == 0:
             with self.ManagedSessionMaker() as session:
@@ -163,7 +164,7 @@ class SqlAlchemyStore(AbstractStore):
         return instance, created
 
     def _get_artifact_location(self, experiment_id):
-        return build_path(self.artifact_root_uri, str(experiment_id))
+        return posixpath.join(self.artifact_root_uri, str(experiment_id))
 
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
@@ -269,8 +270,8 @@ class SqlAlchemyStore(AbstractStore):
                                       INVALID_STATE)
 
             run_id = uuid.uuid4().hex
-            artifact_location = build_path(experiment.artifact_location, run_id,
-                                           SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
+            artifact_location = posixpath.join(experiment.artifact_location, run_id,
+                                               SqlAlchemyStore.ARTIFACTS_FOLDER_NAME)
             run = SqlRun(name=run_name or "", artifact_uri=artifact_location, run_uuid=run_id,
                          experiment_id=experiment_id, source_type=SourceType.to_string(source_type),
                          source_name=source_name, entry_point_name=entry_point_name,

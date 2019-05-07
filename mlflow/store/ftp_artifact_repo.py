@@ -3,10 +3,12 @@ import ftplib
 from ftplib import FTP
 from contextlib import contextmanager
 
+import posixpath
 from six.moves import urllib
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
 class FTPArtifactRepository(ArtifactRepository):
@@ -50,7 +52,7 @@ class FTPArtifactRepository(ArtifactRepository):
             try:
                 ftp.mkd(artifact_dir)
             except ftplib.error_perm:
-                head, _ = self.get_path_module().split(artifact_dir)
+                head, _ = posixpath.split(artifact_dir)
                 self._mkdir(head)
                 self._mkdir(artifact_dir)
 
@@ -61,53 +63,51 @@ class FTPArtifactRepository(ArtifactRepository):
             ftp.voidcmd('TYPE A')
         return size
 
-    def get_path_module(self):
-        return os.path
-
     def log_artifact(self, local_file, artifact_path=None):
         with self.get_ftp_client() as ftp:
-            artifact_dir = self.get_path_module().join(self.path, artifact_path) \
+            artifact_dir = posixpath.join(self.path, artifact_path) \
                 if artifact_path else self.path
             self._mkdir(artifact_dir)
             with open(local_file, 'rb') as f:
                 ftp.cwd(artifact_dir)
-                ftp.storbinary('STOR ' + self.get_path_module().basename(local_file), f)
+                ftp.storbinary('STOR ' + os.path.basename(local_file), f)
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        dest_path = self.get_path_module().join(self.path, artifact_path) \
+        dest_path = posixpath.join(self.path, artifact_path) \
             if artifact_path else self.path
 
-        dest_path = self.get_path_module().join(
-            dest_path, self.get_path_module().split(local_dir)[1])
-        dest_path_re = self.get_path_module().split(local_dir)[1]
+        dest_path = posixpath.join(
+            dest_path, os.path.split(local_dir)[1])
+        dest_path_re = os.path.split(local_dir)[1]
         if artifact_path:
-            dest_path_re = self.get_path_module().join(
-                artifact_path, self.get_path_module().split(local_dir)[1])
+            dest_path_re = posixpath.join(
+                artifact_path, os.path.split(local_dir)[1])
 
-        local_dir = self.get_path_module().abspath(local_dir)
+        local_dir = os.path.abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
             upload_path = dest_path
             if root != local_dir:
-                rel_path = self.get_path_module().relpath(root, local_dir)
-                upload_path = self.get_path_module().join(dest_path_re, rel_path)
+                rel_path = os.path.relpath(root, local_dir)
+                rel_path = relative_path_to_artifact_path(rel_path)
+                upload_path = posixpath.join(dest_path_re, rel_path)
             if not filenames:
-                self._mkdir(self.get_path_module().join(self.path, upload_path))
+                self._mkdir(posixpath.join(self.path, upload_path))
             for f in filenames:
-                if self.get_path_module().isfile(self.get_path_module().join(root, f)):
-                    self.log_artifact(self.get_path_module().join(root, f), upload_path)
+                if os.path.isfile(os.path.join(root, f)):
+                    self.log_artifact(os.path.join(root, f), upload_path)
 
     def list_artifacts(self, path=None):
         with self.get_ftp_client() as ftp:
             artifact_dir = self.path
-            list_dir = self.get_path_module().join(artifact_dir, path) if path else artifact_dir
+            list_dir = posixpath.join(artifact_dir, path) if path else artifact_dir
             if not self._is_dir(list_dir):
                 return []
             artifact_files = ftp.nlst(list_dir)
             infos = []
             for file_name in artifact_files:
                 file_path = (file_name if path is None
-                             else self.get_path_module().join(path, file_name))
-                full_file_path = self.get_path_module().join(list_dir, file_name)
+                             else posixpath.join(path, file_name))
+                full_file_path = posixpath.join(list_dir, file_name)
                 if self._is_dir(full_file_path):
                     infos.append(FileInfo(file_path, True, None))
                 else:
@@ -116,8 +116,8 @@ class FTPArtifactRepository(ArtifactRepository):
         return infos
 
     def _download_file(self, remote_file_path, local_path):
-        remote_full_path = self.get_path_module().join(self.path, remote_file_path) \
-                if remote_file_path else self.path
+        remote_full_path = posixpath.join(self.path, remote_file_path) \
+            if remote_file_path else self.path
         with self.get_ftp_client() as ftp:
             with open(local_path, 'wb') as f:
                 ftp.retrbinary('RETR ' + remote_full_path, f)

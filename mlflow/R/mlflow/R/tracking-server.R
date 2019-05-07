@@ -58,7 +58,7 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
   file_store <- fs::path_abs(file_store)
 
   args <- mlflow_cli_param(list(), "--port", port) %>%
-    mlflow_cli_param("--file-store", file_store) %>%
+    mlflow_cli_param("--backend-store-uri", file_store) %>%
     mlflow_cli_param("--default-artifact-root", default_artifact_root) %>%
     mlflow_cli_param("--host", host) %>%
     mlflow_cli_param("--port", port) %>%

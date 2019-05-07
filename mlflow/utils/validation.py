@@ -2,7 +2,7 @@
 Utilities for validating user inputs such as metric names and parameter names.
 """
 import numbers
-import os.path
+import posixpath
 import re
 
 import numpy as np
@@ -35,11 +35,11 @@ def bad_path_message(name):
     return (
         "Names may be treated as files in certain cases, and must not resolve to other names"
         " when treated as such. This name would resolve to '%s'"
-    ) % os.path.normpath(name)
+    ) % posixpath.normpath(name)
 
 
 def path_not_unique(name):
-    norm = os.path.normpath(name)
+    norm = posixpath.normpath(name)
     return norm != name or norm == '.' or norm.startswith('..') or norm.startswith('/')
 
 

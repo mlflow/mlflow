@@ -8,7 +8,7 @@ from six.moves import urllib
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact_repo import ArtifactRepository
-from mlflow.utils.file_utils import mkdir
+from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
 
 
 class HdfsArtifactRepository(ArtifactRepository):
@@ -23,9 +23,6 @@ class HdfsArtifactRepository(ArtifactRepository):
         self.host, self.port, self.path = _resolve_connection_params(artifact_uri)
         super(HdfsArtifactRepository, self).__init__(artifact_uri)
 
-    def get_path_module(self):
-        return posixpath
-
     def log_artifact(self, local_file, artifact_path=None):
         """
             Log artifact in hdfs.
@@ -35,8 +32,8 @@ class HdfsArtifactRepository(ArtifactRepository):
         hdfs_base_path = _resolve_base_path(self.path, artifact_path)
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
-            _, file_name = posixpath.split(local_file)
-            destination = self._join(hdfs_base_path, file_name)
+            _, file_name = os.path.split(local_file)
+            destination = posixpath.join(hdfs_base_path, file_name)
             with hdfs.open(destination, 'wb') as output:
                 output.write(open(local_file, "rb").read())
 
@@ -56,17 +53,17 @@ class HdfsArtifactRepository(ArtifactRepository):
 
             for subdir_path, _, files in os.walk(local_dir):
 
-                relative_path = _relative_path(local_dir, subdir_path)
+                relative_path = _relative_path_local(local_dir, subdir_path)
 
-                hdfs_subdir_path = self._join(hdfs_base_path, relative_path) \
+                hdfs_subdir_path = posixpath.join(hdfs_base_path, relative_path) \
                     if relative_path else hdfs_base_path
 
                 if not hdfs.exists(hdfs_subdir_path):
                     hdfs.mkdir(hdfs_subdir_path)
 
                 for each_file in files:
-                    source = self._join(subdir_path, each_file)
-                    destination = self._join(hdfs_subdir_path, each_file)
+                    source = os.path.join(subdir_path, each_file)
+                    destination = posixpath.join(hdfs_subdir_path, each_file)
                     with hdfs.open(destination, 'wb') as output_stream:
                         output_stream.write(open(source, "rb").read())
 
@@ -97,7 +94,7 @@ class HdfsArtifactRepository(ArtifactRepository):
                     if subdir != hdfs_path:
                         yield subdir, hdfs.isdir(subdir), hdfs.info(subdir).get("size")
                     for f in files:
-                        file_path = self._join(subdir, f)
+                        file_path = posixpath.join(subdir, f)
                         yield file_path, hdfs.isdir(file_path), hdfs.info(file_path).get("size")
             else:
                 yield hdfs_path, False, hdfs.info(hdfs_path).get("size")
@@ -127,14 +124,14 @@ class HdfsArtifactRepository(ArtifactRepository):
         with hdfs_system(host=self.host, port=self.port) as hdfs:
 
             if not hdfs.isdir(hdfs_base_path):
-                local_path = self._join(local_dir, artifact_path)
+                local_path = os.path.join(local_dir, os.path.normpath(artifact_path))
                 _download_hdfs_file(hdfs, hdfs_base_path, local_path)
                 return local_path
 
             for path, is_dir, _ in self._walk_path(hdfs, hdfs_base_path):
 
-                relative_path = _relative_path(hdfs_base_path, path)
-                local_path = self._join(local_dir, relative_path) \
+                relative_path = _relative_path_remote(hdfs_base_path, path)
+                local_path = os.path.join(local_dir, relative_path) \
                     if relative_path else local_dir
 
                 if is_dir:
@@ -145,9 +142,6 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         raise MlflowException('This is not implemented. Should never be called.')
-
-    def _join(self, base_path, path):
-        return self.get_path_module().join(base_path, path)
 
 
 @contextmanager
@@ -189,9 +183,18 @@ def _resolve_base_path(path, artifact_path):
     return path
 
 
-def _relative_path(base_dir, subdir_path):
-    relative_path = os.path.relpath(subdir_path, base_dir)
+def _relative_path(base_dir, subdir_path, path_module):
+    relative_path = path_module.relpath(subdir_path, base_dir)
     return relative_path if relative_path is not '.' else None
+
+
+def _relative_path_local(base_dir, subdir_path):
+    rel_path = _relative_path(base_dir, subdir_path, os.path)
+    return relative_path_to_artifact_path(rel_path) if rel_path is not None else None
+
+
+def _relative_path_remote(base_dir, subdir_path):
+    return _relative_path(base_dir, subdir_path, posixpath)
 
 
 def _tmp_dir(local_path):
