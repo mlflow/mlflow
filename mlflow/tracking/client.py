@@ -13,10 +13,8 @@ from mlflow.tracking import utils
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
-from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, SourceType
+from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
-    MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
 
 _DEFAULT_USER_ID = "unknown"
 
@@ -63,8 +61,7 @@ class MlflowClient(object):
         """
         return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
-    def create_run(self, experiment_id, user_id=None, run_name=None, start_time=None,
-                   parent_run_id=None, tags=None):
+    def create_run(self, experiment_id, user_id=None, start_time=None, tags=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -74,8 +71,6 @@ class MlflowClient(object):
 
         :param user_id: If not provided, use the current user as a default.
         :param start_time: If not provided, use the current timestamp.
-        :param parent_run_id Optional parent run ID - takes precedence over parent run ID included
-                             in the `tags` argument.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
         :return: :py:class:`mlflow.entities.Run` that was created.
@@ -83,33 +78,11 @@ class MlflowClient(object):
 
         tags = tags if tags else {}
 
-        # Extract run attributes from tags
-        # This logic is temporary; by the 1.0 release, this information will only be stored in tags
-        # and will not be available as attributes of the run
-        final_parent_run_id =\
-            tags.get(MLFLOW_PARENT_RUN_ID) if parent_run_id is None else parent_run_id
-        source_name = tags.get(MLFLOW_SOURCE_NAME, "Python Application")
-        source_version = tags.get(MLFLOW_GIT_COMMIT)
-        entry_point_name = tags.get(MLFLOW_PROJECT_ENTRY_POINT)
-
-        source_type_string = tags.get(MLFLOW_SOURCE_TYPE)
-        if source_type_string is None:
-            source_type = SourceType.LOCAL
-        else:
-            source_type = SourceType.from_string(source_type_string)
-
         return self.store.create_run(
             experiment_id=experiment_id,
             user_id=user_id if user_id is not None else _get_user_id(),
-            run_name=run_name,
             start_time=start_time or int(time.time() * 1000),
-            tags=[RunTag(key, value) for (key, value) in iteritems(tags)],
-            # The below arguments remain set for backwards compatability:
-            parent_run_id=final_parent_run_id,
-            source_type=source_type,
-            source_name=source_name,
-            entry_point_name=entry_point_name,
-            source_version=source_version
+            tags=[RunTag(key, value) for (key, value) in iteritems(tags)]
         )
 
     def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):

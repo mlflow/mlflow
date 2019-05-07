@@ -14,9 +14,8 @@ public class TestUtils {
     return a == b ? true : Math.abs(a - b) < EPSILON;
   }
 
-  static void assertRunInfo(RunInfo runInfo, String experimentId, String sourceName) {
+  static void assertRunInfo(RunInfo runInfo, String experimentId) {
     Assert.assertEquals(runInfo.getExperimentId(), experimentId);
-    Assert.assertEquals(runInfo.getSourceName(), sourceName);
     Assert.assertNotEquals(runInfo.getUserId(), "");
     Assert.assertTrue(runInfo.getStartTime() < runInfo.getEndTime());
   }

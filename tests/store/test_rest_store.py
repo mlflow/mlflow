@@ -98,25 +98,28 @@ class TestRestStore(unittest.TestCase):
         store = RestStore(lambda: creds)
 
         user_name = "mock user"
-        run_name = "rest run"
         source_name = "rest test"
 
+        source_name_patch = mock.patch(
+            "mlflow.tracking.context._get_source_name", return_value=source_name
+        )
+        source_type_patch = mock.patch(
+            "mlflow.tracking.context._get_source_type", return_value=SourceType.LOCAL
+        )
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http, \
                 mock.patch('mlflow.tracking.utils._get_store', return_value=store), \
                 mock.patch('mlflow.tracking.client._get_user_id', return_value=user_name), \
-                mock.patch('time.time', return_value=13579):
-            with mlflow.start_run(experiment_id="43", run_name=run_name, source_name=source_name):
-                cr_body = message_to_json(CreateRun(experiment_id="43", run_name='',
-                                                    user_id=user_name, source_type=SourceType.LOCAL,
-                                                    source_name=source_name, start_time=13579000,
+                mock.patch('time.time', return_value=13579), \
+                source_name_patch, source_type_patch:
+            with mlflow.start_run(experiment_id="43"):
+                cr_body = message_to_json(CreateRun(experiment_id="43",
+                                                    user_id=user_name, start_time=13579000,
                                                     tags=[ProtoRunTag(key='mlflow.source.name',
                                                                       value=source_name),
                                                           ProtoRunTag(key='mlflow.source.type',
                                                                       value='LOCAL')]))
-                st_body = message_to_json(SetTag(
-                    run_uuid='', run_id='', key='mlflow.runName', value=run_name))
-                assert mock_http.call_count == 2
-                exp_calls = [("runs/create", "POST", cr_body), ("runs/set-tag", "POST", st_body)]
+                assert mock_http.call_count == 1
+                exp_calls = [("runs/create", "POST", cr_body)]
                 self._verify_request_has_calls(mock_http, creds, exp_calls)
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:

@@ -712,8 +712,8 @@ export class ExperimentView extends Component {
       const row = [
         runInfo.run_uuid,
         Utils.getRunName(tagsList[index]), // add run name to csv export row
-        runInfo.source_type,
-        runInfo.source_name,
+        Utils.getSourceType(tagsList[index]),
+        Utils.getSourceName(tagsList[index]),
         runInfo.user_id,
         runInfo.status,
       ];

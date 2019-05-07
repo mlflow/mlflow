@@ -161,15 +161,10 @@ class SqlRun(Base):
             run_uuid=self.run_uuid,
             run_id=self.run_uuid,
             experiment_id=str(self.experiment_id),
-            name=self.name,
-            source_type=SourceType.from_string(self.source_type),
-            source_name=self.source_name,
-            entry_point_name=self.entry_point_name,
             user_id=self.user_id,
             status=RunStatus.from_string(self.status),
             start_time=self.start_time,
             end_time=self.end_time,
-            source_version=self.source_version,
             lifecycle_stage=self.lifecycle_stage,
             artifact_uri=self.artifact_uri)
 

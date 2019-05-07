@@ -453,21 +453,6 @@ message RunInfo {
   // The experiment ID.
   optional string experiment_id = 2;
 
-  // Human readable name that identifies this run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-  // instead.
-  optional string name = 3;
-
-  // Source type.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-  // tag instead.
-  optional SourceType source_type = 4;
-
-  // Source identifier: GitHub URL, name of notebook, name of job, etc.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-  // tag instead.
-  optional string source_name = 5;
-
   // User who initiated the run.
   optional string user_id = 6;
 
@@ -479,16 +464,6 @@ message RunInfo {
 
   // Unix timestamp of when the run ended in milliseconds.
   optional int64 end_time = 9;
-
-  // Git commit hash of the code used for the run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the
-  // ``mlflow.source.git.commit`` run tag instead.
-  optional string source_version = 10;
-
-  // Name of the entry point for the run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the
-  // ``mlflow.project.entryPoint`` run tag instead.
-  optional string entry_point_name = 11;
 
   // URI of the directory where artifacts should be uploaded.
   // This can be a local path (starting with "/"), or a distributed file system (DFS)
@@ -608,42 +583,11 @@ message CreateRun {
   // ID of the user executing the run.
   optional string user_id = 2;
 
-  // Human readable name for the run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-  // instead.
-  optional string run_name = 3;
-
-  // Originating source for the run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-  // tag instead.
-  optional SourceType source_type = 4;
-
-  // String descriptor for the run's source. For example, name or description of a notebook, or the
-  // URL or path to a project.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-  // tag instead.
-  optional string source_name = 5;
-
-  // Name of the project entry point associated with the current run, if any.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the
-  // ``mlflow.project.entryPoint`` run tag instead.
-  optional string entry_point_name = 6;
-
   // Unix timestamp of when the run started in milliseconds.
   optional int64 start_time = 7;
 
-  // Git commit hash of the source code used to create run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the
-  // ``mlflow.source.git.commit`` run tag instead.
-  optional string source_version = 8;
-
   // Additional metadata for run.
   repeated RunTag tags = 9;
-
-  // ID of the parent run which started this run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-  // tag instead.
-  optional string parent_run_id = 10;
 
   message Response {
     // The newly created run.
@@ -772,74 +716,11 @@ message GetRun {
   }
 }
 
-message SearchExpression {
-  // A single search filter.
-  oneof expression {
-    // A metric search expression.
-    MetricSearchExpression metric = 1;
-    // A parameter search expression.
-    ParameterSearchExpression parameter = 2;
-  }
-}
-
-message MetricSearchExpression {
-  // :ref:`mlflowMetric` key for search.
-  optional string key = 1;
-
-  oneof clause {
-    // [Deprecated in 0.7.0, to be removed in future version]
-    // Float clause for comparison. Use 'double' instead.
-    FloatClause float = 2;
-
-    // Double clause of comparison
-    DoubleClause double = 3;
-  }
-}
-
-message ParameterSearchExpression {
-  // :ref:`mlflowParam` key for search.
-  optional string key = 1;
-
-  oneof clause {
-      // String clause for comparison.
-      StringClause string = 2;
-  }
-}
-
-message StringClause {
-  // OneOf ("==", "!=", "~")
-  optional string comparator = 1;
-
-  // String value for comparison.
-  optional string value = 2;
-}
-
-message FloatClause {
-  // OneOf (">", ">=", "==", "!=", "<=", "<")
-  optional string comparator = 1;
-
-  // Float value for comparison.
-  optional float value = 2;
-}
-
-message DoubleClause {
-  // OneOf (">", ">=", "==", "!=", "<=", "<")
-  optional string comparator = 1;
-
-  // Float value for comparison.
-  optional double value = 2;
-}
-
 message SearchRuns {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // List of experiment IDs to search over.
   repeated string experiment_ids = 1;
-
-  // This field is deprecated and will be removed in MLflow 1.0.
-  // Expressions describing runs (AND-ed together when filtering runs).
-  // See 'filter' for a simpler on-the-wire representation of these expressions.
-  repeated SearchExpression anded_expressions = 2;
 
   // A filter expression over params, metrics, and tags, allowing returning a subset of
   // runs. The syntax is a subset of SQL which allows only ANDing together binary operations

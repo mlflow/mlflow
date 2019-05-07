@@ -28,6 +28,10 @@ class Utils {
   }
 
   static runNameTag = 'mlflow.runName';
+  static sourceNameTag = 'mlflow.source.name';
+  static sourceTypeTag = 'mlflow.source.type';
+  static gitCommitTag = 'mlflow.source.git.commit';
+  static entryPointTag = 'mlflow.project.entryPoint';
 
   static formatMetric(value) {
     if (Math.abs(value) < 10) {
@@ -122,10 +126,10 @@ class Utils {
     return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
-  static getGitRepoUrl(source_name) {
-    const gitHubMatch = source_name.match(Utils.getGitHubRegex());
-    const gitLabMatch = source_name.match(Utils.getGitLabRegex());
-    const bitbucketMatch = source_name.match(Utils.getBitbucketRegex());
+  static getGitRepoUrl(sourceName) {
+    const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
+    const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
+    const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
@@ -144,20 +148,20 @@ class Utils {
     return url;
   }
 
-  static getGitCommitUrl(source_name, source_version) {
-    const gitHubMatch = source_name.match(Utils.getGitHubRegex());
-    const gitLabMatch = source_name.match(Utils.getGitLabRegex());
-    const bitbucketMatch = source_name.match(Utils.getBitbucketRegex());
+  static getGitCommitUrl(sourceName, sourceVersion) {
+    const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
+    const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
+    const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
       const match = gitHubMatch || gitLabMatch;
       url = (baseUrl + match[1] + "/" + match[2].replace(/.git/, '') +
-            "/tree/" + source_version) + "/" + match[3];
+            "/tree/" + sourceVersion) + "/" + match[3];
     } else if (bitbucketMatch) {
       const baseUrl = "https://bitbucket.org/";
       url = (baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '') +
-            "/src/" + source_version) + "/" + bitbucketMatch[3];
+            "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
     }
     return url;
   }
@@ -176,19 +180,20 @@ class Utils {
 
   /**
    * Renders the source name and entry point into an HTML element. Used for display.
-   * @param run MlflowMessages.RunInfo
    * @param tags Object containing tag key value pairs.
    * @param queryParams Query params to add to certain source type links.
    */
-  static renderSource(run, tags, queryParams) {
-    let res = Utils.formatSource(run);
-    if (run.source_type === "PROJECT") {
-      const url = Utils.getGitRepoUrl(run.source_name);
+  static renderSource(tags, queryParams) {
+    const sourceName = Utils.getSourceName(tags);
+    const sourceType = Utils.getSourceType(tags);
+    let res = Utils.formatSource(tags);
+    if (sourceType === "PROJECT") {
+      const url = Utils.getGitRepoUrl(sourceName);
       if (url) {
         res = <a target="_top" href={url}>{res}</a>;
       }
       return res;
-    } else if (run.source_type === "NOTEBOOK") {
+    } else if (sourceType === "NOTEBOOK") {
       const revisionIdTag = 'mlflow.databricks.notebookRevisionID';
       const notebookIdTag = 'mlflow.databricks.notebookID';
       const revisionId = tags && tags[revisionIdTag] && tags[revisionIdTag].value;
@@ -199,8 +204,8 @@ class Utils {
         if (revisionId) {
           url += `/revision/${revisionId}`;
         }
-        res = (<a title={run.source_name} href={url} target='_top'>
-          {Utils.baseName(run.source_name)}
+        res = (<a title={sourceName} href={url} target='_top'>
+          {Utils.baseName(sourceName)}
         </a>);
       }
       return res;
@@ -233,15 +238,17 @@ class Utils {
    * Renders the source name and entry point into a string. Used for sorting.
    * @param run MlflowMessages.RunInfo
    */
-  static formatSource(run) {
-    if (run.source_type === "PROJECT") {
-      let res = Utils.dropExtension(Utils.baseName(run.source_name));
-      if (run.entry_point_name && run.entry_point_name !== "main") {
-        res += ":" + run.entry_point_name;
+  static formatSource(tags) {
+    const sourceName = Utils.getSourceName(tags);
+    const entryPointName = Utils.getEntryPointName(tags);
+    if (Utils.getSourceType(tags) === "PROJECT") {
+      let res = Utils.dropExtension(Utils.baseName(sourceName));
+      if (entryPointName && entryPointName !== "main") {
+        res += ":" + entryPointName;
       }
       return res;
     } else {
-      return Utils.baseName(run.source_name);
+      return Utils.baseName(sourceName);
     }
   }
 
@@ -261,11 +268,46 @@ class Utils {
     return "";
   }
 
-  static renderVersion(run, shortVersion = true) {
-    if (run.source_version) {
-      const versionString = shortVersion ? run.source_version.substring(0, 6) : run.source_version;
-      if (run.source_type === "PROJECT") {
-        const url = Utils.getGitCommitUrl(run.source_name, run.source_version);
+  static getSourceName(runTags) {
+    const sourceNameTag = runTags[Utils.sourceNameTag];
+    if (sourceNameTag) {
+      return sourceNameTag.value;
+    }
+    return "";
+  }
+
+  static getSourceType(runTags) {
+    const sourceTypeTag = runTags[Utils.sourceTypeTag];
+    if (sourceTypeTag) {
+      return sourceTypeTag.value;
+    }
+    return "";
+  }
+
+  static getSourceVersion(runTags) {
+    const gitCommitTag = runTags[Utils.gitCommitTag];
+    if (gitCommitTag) {
+      return gitCommitTag.value;
+    }
+    return "";
+  }
+
+  static getEntryPointName(runTags) {
+    const entryPointTag = runTags[Utils.entryPointTag];
+    if (entryPointTag) {
+      return entryPointTag.value;
+    }
+    return "";
+  }
+
+  static renderVersion(tags, shortVersion = true) {
+    const sourceVersion = Utils.getSourceVersion(tags);
+    const sourceName = Utils.getSourceName(tags);
+    const sourceType = Utils.getSourceType(tags);
+    if (sourceVersion) {
+      const versionString = shortVersion ? sourceVersion.substring(0, 6) : sourceVersion;
+      if (sourceType === "PROJECT") {
+        const url = Utils.getGitCommitUrl(sourceName, sourceVersion);
         if (url) {
           return <a href={url} target='_top'>{versionString}</a>;
         }

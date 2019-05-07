@@ -53,6 +53,8 @@ matrix:
       after_success:
         - export COVR_RUNNING=true
         - Rscript -e 'covr::codecov()'
+      after_failure:
+        - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
     - language: java
       name: "Java"
       install:

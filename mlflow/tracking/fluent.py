@@ -19,7 +19,7 @@ from mlflow.tracking import artifact_utils, context
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, \
-    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID
+    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -134,12 +134,13 @@ def start_run(run_id=None, experiment_id=None, source_name=None, source_version=
             user_specified_tags[MLFLOW_GIT_COMMIT] = source_version
         if entry_point_name is not None:
             user_specified_tags[MLFLOW_PROJECT_ENTRY_POINT] = entry_point_name
+        if run_name is not None:
+            user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
         tags = context.resolve_tags(user_specified_tags)
 
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
-            run_name=run_name,
             tags=tags
         )
 

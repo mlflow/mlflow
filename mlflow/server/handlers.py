@@ -186,14 +186,8 @@ def _create_run():
     run = _get_store().create_run(
         experiment_id=request_message.experiment_id,
         user_id=request_message.user_id,
-        run_name=request_message.run_name,
-        source_type=request_message.source_type,
-        source_name=request_message.source_name,
-        entry_point_name=request_message.entry_point_name,
         start_time=request_message.start_time,
-        source_version=request_message.source_version,
-        tags=tags,
-        parent_run_id=request_message.parent_run_id)
+        tags=tags)
 
     response_message = CreateRun.Response()
     response_message.run.MergeFrom(run.to_proto())
@@ -289,8 +283,7 @@ def _search_runs():
     run_view_type = ViewType.ACTIVE_ONLY
     if request_message.HasField('run_view_type'):
         run_view_type = ViewType.from_proto(request_message.run_view_type)
-    sf = SearchFilter(anded_expressions=request_message.anded_expressions,
-                      filter_string=request_message.filter)
+    sf = SearchFilter(filter_string=request_message.filter)
     max_results = request_message.max_results
     experiment_ids = request_message.experiment_ids
     run_entities = _get_store().search_runs(experiment_ids, sf, run_view_type, max_results)

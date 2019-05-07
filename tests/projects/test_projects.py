@@ -203,7 +203,6 @@ def test_run_local_git_repo(local_git_repo,
     mlflow_service = mlflow.tracking.MlflowClient()
     run_infos = mlflow_service.list_run_infos(
         experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
-    assert "file:" in run_infos[0].source_name
     assert len(run_infos) == 1
     store_run_id = run_infos[0].run_id
     assert run_id == store_run_id

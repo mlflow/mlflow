@@ -54,7 +54,7 @@ public class QuickStartDriver {
     // Create run
     String sourceFile = "MyFile.java";
 
-    RunInfo runCreated = client.createRun(expId, sourceFile);
+    RunInfo runCreated = client.createRun(expId);
     System.out.println("CreateRun: " + runCreated);
     String runId = runCreated.getRunUuid();
 
