@@ -44,7 +44,7 @@ def main(argv):
                                         tf_signature_def_key="predict",
                                         artifact_path="model")
             # Reloading the model
-            pyfunc_model = pyfunc.load_pyfunc(os.path.join(mlflow.get_artifact_uri(),'model'))
+            pyfunc_model = pyfunc.load_pyfunc(mlflow.get_artifact_uri('model'))
             df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
             # Predicting on the loaded Python Function
             predict_df = pyfunc_model.predict(df)
