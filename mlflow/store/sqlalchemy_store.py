@@ -21,7 +21,6 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
     _validate_run_id, _validate_metric
 from mlflow.store.db.utils import _upgrade_db
