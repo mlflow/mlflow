@@ -4,7 +4,7 @@
 #'
 #' Serves an RFunc MLflow model as a local web API.
 #'
-#' @param model_uri The URI to the MLflow model, as a string.
+#' @template roxlate-model-uri
 #' @param host Address to use to serve model, as a string.
 #' @param port Port to use to serve model, as numeric.
 #' @param daemonized Makes `httpuv` server daemonized so R interactive sessions

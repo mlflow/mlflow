@@ -76,14 +76,7 @@ mlflow_predict_model <- function(model, data) {
 #' Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
 #' can be loaded in R. This method by default searches for a flavor supported by R/MLflow.
 #'
-#' @param model_uri The location, in URI format, of the MLflow model, for example:
-#'                  - ``file:///Users/me/path/to/local/model``
-#'                  - ``file:relative/path/to/local/model``
-#'                  - ``s3://my_bucket/path/to/model``
-#'                  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-#'                  For more information about supported URI schemes, see the
-#'                  `Artifacts Documentation
-#'                  <https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>`_.
+#' @template roxlate-model-uri
 #' @param flavor Optional flavor specification. Can be used to load a particular flavor in case
 #'        there are multiple flavors available.
 #' @export
@@ -131,7 +124,7 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
 #'
 #' Performs prediction using an RFunc MLflow model from a file or data frame.
 #'
-#' @param model_uri The URI to the MLflow model, as a string.
+#' @template roxlate-model-uri
 #' @param input_path Path to 'JSON' or 'CSV' file to be used for prediction.
 #' @param output_path 'JSON' or 'CSV' file where the prediction will be written to.
 #' @param data Data frame to be scored. This can be used for testing purposes and can only
