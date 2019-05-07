@@ -42,14 +42,8 @@ def test_client_create_run(mock_store, mock_user_id, mock_time):
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
         user_id=mock_user_id,
-        run_name=None,
         start_time=int(mock_time * 1000),
-        tags=[],
-        parent_run_id=None,
-        source_type=SourceType.LOCAL,
-        source_name="Python Application",
-        entry_point_name=None,
-        source_version=None
+        tags=[]
     )
 
 
@@ -57,7 +51,6 @@ def test_client_create_run_overrides(mock_store):
 
     experiment_id = mock.Mock()
     user_id = mock.Mock()
-    run_name = mock.Mock()
     start_time = mock.Mock()
     tags = {
         MLFLOW_PARENT_RUN_ID: mock.Mock(),
@@ -68,34 +61,22 @@ def test_client_create_run_overrides(mock_store):
         "other-key": "other-value"
     }
 
-    MlflowClient().create_run(experiment_id, user_id, run_name, start_time, None, tags)
+    MlflowClient().create_run(experiment_id, user_id, start_time, tags)
 
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
         user_id=user_id,
-        run_name=run_name,
         start_time=start_time,
         tags=[RunTag(key, value) for key, value in tags.items()],
-        parent_run_id=tags[MLFLOW_PARENT_RUN_ID],
-        source_type=SourceType.JOB,
-        source_name=tags[MLFLOW_SOURCE_NAME],
-        entry_point_name=tags[MLFLOW_PROJECT_ENTRY_POINT],
-        source_version=tags[MLFLOW_GIT_COMMIT]
     )
     mock_store.reset_mock()
     parent_run_id = "mock-parent-run-id"
-    MlflowClient().create_run(experiment_id, user_id, run_name, start_time, parent_run_id, tags)
+    MlflowClient().create_run(experiment_id, user_id, start_time, tags)
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
         user_id=user_id,
-        run_name=run_name,
         start_time=start_time,
-        tags=[RunTag(key, value) for key, value in tags.items()],
-        parent_run_id=parent_run_id,
-        source_type=SourceType.JOB,
-        source_name=tags[MLFLOW_SOURCE_NAME],
-        entry_point_name=tags[MLFLOW_PROJECT_ENTRY_POINT],
-        source_version=tags[MLFLOW_GIT_COMMIT]
+        tags=[RunTag(key, value) for key, value in tags.items()]
     )
 
 

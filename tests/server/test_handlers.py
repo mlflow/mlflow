@@ -79,7 +79,7 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_store):
     """
     Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
     """
-    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"], anded_expressions=[])
+    mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"])
     _search_runs()
     args, _ = mock_store.search_runs.call_args
     assert args[2] == ViewType.ACTIVE_ONLY
