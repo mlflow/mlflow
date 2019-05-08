@@ -34,6 +34,7 @@ test_that("http(s) clients work as expected", {
       with_mock(.env = "mlflow", mlflow_server = function(...) list(server_url = "local_server"), {
         client3 <- mlflow:::mlflow_client()
         config <- client3$get_host_creds()
+        write(paste("host = ", config$http_host), stderr())
         expect_true(config$host == "local_server")
       })
     })
