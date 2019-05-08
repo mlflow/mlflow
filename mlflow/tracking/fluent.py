@@ -11,15 +11,14 @@ import atexit
 import time
 import logging
 
-from mlflow.entities import Run, SourceType, RunStatus, Param, RunTag, Metric
+from mlflow.entities import Run, RunStatus, Param, RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils, context
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
-from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, \
-    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"

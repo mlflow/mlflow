@@ -11,12 +11,6 @@ from random import random as rand
 
 from mlflow.tracking import MlflowClient
 
-SOURCE_VERSIONS = [
-    'f7581541a524f4879794e724a9653eaca2bef1d7',
-    '53de5661eb457efa3cb996aa592656c41a888c1d',
-    'ccc76efe9ceb633710bbd7acf408bebe0095eb10'
-]
-
 
 def log_metrics(metrics):
     for k, values in metrics.items():
@@ -42,7 +36,7 @@ if __name__ == '__main__':
     client = MlflowClient()
     # Simple run
     for l1, alpha in itertools.product([0, 0.25, 0.5, 0.75, 1], [0, 0.5, 1]):
-        with mlflow.start_run(run_name='ipython', source_version=SOURCE_VERSIONS[0]):
+        with mlflow.start_run(run_name='ipython'):
             parameters = {
                 'l1': str(l1),
                 'alpha': str(alpha),
@@ -56,7 +50,7 @@ if __name__ == '__main__':
             log_metrics(metrics)
 
     # Big parameter values
-    with mlflow.start_run(run_name='ipython', source_version=SOURCE_VERSIONS[1]):
+    with mlflow.start_run(run_name='ipython'):
         parameters = {
             'this is a pretty long parameter name': 'NA10921-test_file_2018-08-10.txt',
         }
