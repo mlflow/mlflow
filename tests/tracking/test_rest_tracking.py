@@ -15,7 +15,7 @@ import time
 import tempfile
 
 import mlflow.experiments
-from mlflow.entities import RunStatus, Metric, Param, RunTag
+from mlflow.entities import RunStatus, Metric, Param, RunTag, ViewType
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
 from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
@@ -186,6 +186,14 @@ def test_create_get_list_experiment(mlflow_client):
 
     experiments = mlflow_client.list_experiments()
     assert set([e.name for e in experiments]) == {'My Experiment', 'Default'}
+    mlflow_client.delete_experiment(experiment_id)
+    assert set([e.name for e in mlflow_client.list_experiments()]) == {'Default'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) ==\
+        {'Default'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) ==\
+        {'My Experiment'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ALL)]) == \
+        {'My Experiment', 'Default'}
 
 
 def test_delete_restore_experiment(mlflow_client):
