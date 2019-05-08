@@ -7,9 +7,7 @@ test_that("mlflow can serve a model function", {
 
   fn <- crate(~ stats::predict(model, .x), model)
   mlflow_save_model(fn)
-
   expect_true(dir.exists("model"))
-
   model_server <- processx::process$new(
     "Rscript",
     c(
@@ -20,13 +18,14 @@ test_that("mlflow can serve a model function", {
     stdout = "|",
     stderr = "|"
   )
-
-  Sys.sleep(5)
-
+  Sys.sleep(10)
   tryCatch({
     status_code <- httr::status_code(httr::GET("http://127.0.0.1:8090"))
   }, error = function(e) {
-    stop(e$message, ": ", paste(model_server$read_all_error_lines(), collapse = "\n"))
+    write("FAILED!", stderr())
+    error_text <- model_server$read_error()
+    model_server$kill()
+    stop(e$message, ": ", error_text)
   })
 
   expect_equal(status_code, 200)
