@@ -11,6 +11,7 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _get_store
 
 
+
 def get_artifact_uri(run_id, artifact_path=None):
     """
     Get the absolute URI of the specified artifact in the specified run. If `path` is not specified,

@@ -3,7 +3,7 @@
 #' @details The URI scheme must be supported by MLflow - i.e. there has to be an MLflow artifact
 #'          repository corresponding to the scheme of the URI. The content is expected to point to a
 #'          directory containing MLmodel. The following are examples of valid model uris:
-#'                  - ``file:///Users/me/path/to/local/model``
+#'                  - ``file:///absolute/path/to/local/model``
 #'                  - ``file:relative/path/to/local/model``
 #'                  - ``s3://my_bucket/path/to/model``
 #'                  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
