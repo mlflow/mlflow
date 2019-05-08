@@ -29,8 +29,6 @@ export class MetricsPlotControls extends React.Component {
         <h2>Plot Settings</h2>
         {chartType === CHART_TYPE_LINE ? (
           <div>
-            <br />
-            {/* TODO(Zangr) replace with CSS */}
             <h3>X-axis:</h3>
             <RadioGroup onChange={this.props.handleXAxisChange} value={this.props.selectedXAxis}>
               <Radio className='x-axis-radio' value={X_AXIS_STEP}>
@@ -43,9 +41,6 @@ export class MetricsPlotControls extends React.Component {
                 Time (Relative)
               </Radio>
             </RadioGroup>
-            <br />
-            <br />
-            {/* TODO(Zangr) replace with CSS */}
             <h3>Points:</h3>
             <Switch
               checkedChildren='On'
@@ -54,8 +49,6 @@ export class MetricsPlotControls extends React.Component {
             />
           </div>
         ) : null}
-        <br />
-        {/* TODO(Zangr) replace with CSS */}
         <h3>Y-axis:</h3>
         <TreeSelect
           className='metrics-select'
