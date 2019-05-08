@@ -89,9 +89,12 @@ class MlflowClient(object):
         """:return: List of :py:class:`mlflow.entities.RunInfo`"""
         return self.store.list_run_infos(experiment_id, run_view_type)
 
-    def list_experiments(self):
-        """:return: List of :py:class:`mlflow.entities.Experiment`"""
-        return self.store.list_experiments()
+    def list_experiments(self, view_type=None):
+        """
+        :return: List of :py:class:`mlflow.entities.Experiment`
+        """
+        final_view_type = ViewType.ACTIVE_ONLY if view_type is None else view_type
+        return self.store.list_experiments(view_type=final_view_type)
 
     def get_experiment(self, experiment_id):
         """
