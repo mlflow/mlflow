@@ -1,6 +1,7 @@
 context("client")
 
 test_that("http(s) clients work as expected", {
+  mlflow_clear_test_dir("mlruns")
   with_mock(.env = "mlflow", mlflow_rest = function(..., client) {
     args <- list(...)
     expect_true(paste(args, collapse = "/") == "experiments/list")
@@ -34,7 +35,6 @@ test_that("http(s) clients work as expected", {
       with_mock(.env = "mlflow", mlflow_server = function(...) list(server_url = "local_server"), {
         client3 <- mlflow:::mlflow_client()
         config <- client3$get_host_creds()
-        write(paste("host = ", config$http_host), stderr())
         expect_true(config$host == "local_server")
       })
     })
@@ -42,6 +42,7 @@ test_that("http(s) clients work as expected", {
 })
 
 test_that("rest call handles errors correctly", {
+  mlflow_clear_test_dir("mlruns")
   mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
      mlflow:::new_mlflow_host_creds(host = "localhost")
   })
