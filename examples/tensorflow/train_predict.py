@@ -3,12 +3,14 @@ from __future__ import division
 from __future__ import print_function
 
 import mlflow
-from mlflow import tensorflow, tracking, pyfunc
+from mlflow import tracking, pyfunc
 import numpy as np
 import pandas as pd
 import shutil
 import tempfile
 import tensorflow as tf
+from tensorflow.python.saved_model import tag_constants
+import mlflow.tensorflow
 
 
 def main(argv):
@@ -36,9 +38,12 @@ def main(argv):
         try:
             saved_estimator_path = regressor.export_savedmodel(temp, receiver_fn).decode("utf-8")
             # Logging the saved model
-            tensorflow.log_saved_model(saved_model_dir=saved_estimator_path, signature_def_key="predict", artifact_path="model")
+            mlflow.tensorflow.log_model(tf_saved_model_dir=saved_estimator_path,
+                                        tf_meta_graph_tags = [tag_constants.SERVING],
+                                        tf_signature_def_key="predict",
+                                        artifact_path="model")
             # Reloading the model
-            pyfunc_model = pyfunc.load_pyfunc(saved_estimator_path)
+            pyfunc_model = pyfunc.load_pyfunc(mlflow.get_artifact_uri('model'))
             df = pd.DataFrame(data=x_test, columns=["features"] * x_train.shape[1])
             # Predicting on the loaded Python Function
             predict_df = pyfunc_model.predict(df)
