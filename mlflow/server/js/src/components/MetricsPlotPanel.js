@@ -146,32 +146,6 @@ class MetricsPlotPanel extends React.Component {
   }
 }
 
-// TODO(Zangr) remove after chart testing is done.
-const tuneHistory = (metricsHistory) => {
-  metricsHistory.forEach((m) => {
-    m.history = m.history.map((entry) => ({
-      key: entry.key,
-      value: entry.value,
-      step: Number.parseInt(entry.step, 10),
-      timestamp: Number.parseFloat(entry.timestamp),
-    }));
-
-    m.history.forEach(
-      (entry, i) => (entry.value = Number(entry.key.substr(-1)) * i * i + 5 * i + 30 * entry.value),
-    );
-  });
-};
-
-// TODO(Zangr) remove after chart testing is done.
-const forceSingleHistory = (metrics) => {
-  metrics.forEach((m) => (m.history = [m.history[0]]));
-};
-
-// TODO(Zangr) remove after chart testing is done.
-const forceSingleHistoryExceptOne = (metrics) => {
-  metrics.forEach((m, i) => (m.history = m.metricKey.includes('4') ? m.history : [m.history[0]]));
-};
-
 const mapStateToProps = (state, ownProps) => {
   const { runUuids } = ownProps;
   const { latestMetricsByRunUuid, metricsByRunUuid } = state.entities;
@@ -190,9 +164,6 @@ const mapStateToProps = (state, ownProps) => {
       })
       : [];
   });
-  tuneHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  // forceSingleHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  // forceSingleHistoryExceptOne(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
   return {
     latestMetricsByRunUuid,
     distinctMetricKeys,
