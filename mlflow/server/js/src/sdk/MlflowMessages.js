@@ -24,6 +24,9 @@ export const Metric = Immutable.Record({
 
   // optional INT64
   timestamp: undefined,
+
+  // optional INT64
+  step : undefined,
 }, 'Metric');
 
 /**
@@ -48,6 +51,9 @@ const extended_Metric = ModelBuilder.extend(Metric, {
   },
   getTimestamp() {
     return this.timestamp !== undefined ? this.timestamp : 0;
+  },
+  getStep() {
+    return this.step !== undefined ? this.step : 0;
   },
 });
 
