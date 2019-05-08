@@ -1,15 +1,17 @@
 import "google/protobuf/descriptor.proto";
 import "scalapb/scalapb.proto";
 
+package mlflow;
+
 option java_package = "com.databricks.api.proto.databricks";
 option (scalapb.options).flat_package = true;
 
 
-// Note: 50000 is the beginning of the range of proto extension values for use by applications.
+// Note: 51310 is the beginning of the range of proto extension values for use by applications.
 extend google.protobuf.FieldOptions {
   // Indicates an overriding visibility for this field. This can only reduce the visibility;
   // a public field in an internal API will not have an effect.
-  optional Visibility visibility = 50000;
+  optional Visibility visibility = 51310;
 
   // This annotation indicates that certain fields must be supplied for the request to be carried
   // out successfully.
@@ -17,7 +19,7 @@ extend google.protobuf.FieldOptions {
   // go from being optional to required, for backwards compatiblity reasons.
   // Request RPCs are validated automatically prior to processing for required fields, but
   // returned values are not validated in any way.
-  optional bool validate_required = 50001;
+  optional bool validate_required = 51311;
 
   // Causes the fields within the tagged Message to be inlined into this Message, for the purposes
   // of our JSON API.
@@ -32,7 +34,7 @@ extend google.protobuf.FieldOptions {
   //     "cluster_name" : "Foo"
   //   }
   // Note that this is only applicable to singular Message fields.
-  optional bool json_inline = 50002;
+  optional bool json_inline = 51312;
 
   // Causes a field which conceptually represents a Map to be serialized as a JSON Map.
   // The given field must be a Message with exactly 2 fields called "key" and "value", where key
@@ -41,14 +43,14 @@ extend google.protobuf.FieldOptions {
   //   [ { "key" : "spark.speculation", "value" : "false" } ]
   // If this field were marked json_map, we would serialize it as
   //   { "spark.speculation" : "false" }
-  optional bool json_map = 50003;
+  optional bool json_map = 51313;
 
   // The documentation meta data for this field. This gets added automatically when the proto is
   // parsed.
   // There are as many doc blocks as visibility levels.
   // This is not meant to be crafted by hand; this will be automatically generated when parsing
   // the proto file.
-  repeated DocumentationMetadata field_doc = 50004;
+  repeated DocumentationMetadata field_doc = 51314;
 }
 
 // Defines the set of options declared for every service RPC which are used to
@@ -71,49 +73,49 @@ message DatabricksRpcOptions {
   optional string rpc_doc_title = 5;
 }
 
-// Note: 50000 is the beginning of the range of proto extension values for use by applications.
+// Note: 51310 is the beginning of the range of proto extension values for use by applications.
 extend google.protobuf.MethodOptions {
-  optional DatabricksRpcOptions rpc = 50000;
+  optional DatabricksRpcOptions rpc = 51310;
 
   // The documentation metadata.
   // This is not meant to be crafted by hand; this will be automatically generated when parsing
   // the proto file.
-  repeated DocumentationMetadata method_doc = 50004; // Same id everywhere
+  repeated DocumentationMetadata method_doc = 51314; // Same id everywhere
 }
 
-// Note: 50000 is the beginning of the range of proto extension values for use by applications.
+// Note: 51310 is the beginning of the range of proto extension values for use by applications.
 extend google.protobuf.MessageOptions {
   // The documentation metadata.
   // This is not meant to be crafted by hand; this will be automatically generated when parsing
   // the proto file.
-  repeated DocumentationMetadata message_doc = 50004; // Same id everywhere
+  repeated DocumentationMetadata message_doc = 51314; // Same id everywhere
 }
 
-// Note: 50000 is the beginning of the range of proto extension values for use by applications.
+// Note: 51310 is the beginning of the range of proto extension values for use by applications.
 extend google.protobuf.ServiceOptions {
   // The documentation metadata.
   // This is not meant to be crafted by hand; this will be automatically generated when parsing
   // the proto file.
-  repeated DocumentationMetadata service_doc = 50004; // Same id everywhere
+  repeated DocumentationMetadata service_doc = 51314; // Same id everywhere
 }
 
-// Note: 50000 is the beginning of the range of proto extension values for use by applications.
+// Note: 51310 is the beginning of the range of proto extension values for use by applications.
 extend google.protobuf.EnumOptions {
   // The documentation metadata.
   // This is not meant to be crafted by hand; this will be automatically generated when parsing
   // the proto file.
-  repeated DocumentationMetadata enum_doc = 50004; // Same id everywhere
+  repeated DocumentationMetadata enum_doc = 51314; // Same id everywhere
 }
 
-// Note: 50000 is the beginning of the range of proto extension values for use by applications.
+// Note: 51310 is the beginning of the range of proto extension values for use by applications.
 extend google.protobuf.EnumValueOptions {
   // Indicates an overriding visibility for this field. This can only reduce the visibility;
   // a public field in an internal API will not have an effect.
-  optional Visibility enum_value_visibility = 50000;
+  optional Visibility enum_value_visibility = 51310;
   // The documentation metadata.
   // This is not meant to be crafted by hand; this will be automatically generated when parsing
   // the proto file.
-  repeated DocumentationMetadata enum_value_doc = 50004; // Same id everywhere
+  repeated DocumentationMetadata enum_value_doc = 51314; // Same id everywhere
 }
 
 message HttpEndpoint {
