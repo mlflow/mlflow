@@ -21,6 +21,25 @@ def test_server_static_prefix_validation():
         run_server_mock.assert_not_called()
 
 
+def test_server_uri_validation():
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        result = CliRunner().invoke(server, ["--backend-store-uri", "sqlite://"])
+        assert result.output.startswith("Option 'default-artifact-root' is required")
+        run_server_mock.assert_not_called()
+
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        # SQLAlchemy expects postgresql:// not postgres://
+        result = CliRunner().invoke(server,
+                                    ["--backend-store-uri", "postgres://user:pwd@host:5432/mydb",
+                                     "--default-artifact-root", "./mlruns"])
+        run_server_mock.assert_not_called()
+    with mock.patch("mlflow.cli._run_server") as run_server_mock:
+        result = CliRunner().invoke(server,
+                                    ["--backend-store-uri", "sqlite://invalid-sqlite-url",
+                                     "--default-artifact-root", "./mlruns"])
+        run_server_mock.assert_not_called()
+
+
 def test_mlflow_run():
     with mock.patch("mlflow.cli.projects") as mock_projects:
         result = CliRunner().invoke(run)

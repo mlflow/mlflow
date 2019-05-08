@@ -19,7 +19,7 @@ import mlflow.runs
 import mlflow.store.db.utils
 import mlflow.db
 
-from mlflow.tracking.utils import _is_local_uri
+from mlflow.tracking.utils import _is_local_uri, _get_store
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
@@ -181,6 +181,15 @@ def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
         else:
             default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
+    try:
+        _get_store(backend_store_uri)
+    except Exception as e:  # pylint: disable=broad-except
+        # We need a broad exception here to catch exceptions in optional
+        # dependencies like SQLAlchemy
+        _logger.error("Error related to option --backend-store-uri")
+        _logger.exception(e)
+        sys.exit(1)
+
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port, 1, None, gunicorn_opts)
@@ -248,6 +257,15 @@ def server(backend_store_uri, default_artifact_root, host, port,
             eprint("Option 'default-artifact-root' is required, when backend store is not "
                    "local file based.")
             sys.exit(1)
+
+    try:
+        _get_store(backend_store_uri)
+    except Exception as e:  # pylint: disable=broad-except
+        # We need a broad exception here to catch exceptions in optional
+        # dependencies like SQLAlchemy
+        _logger.error("Error related to option --backend-store-uri")
+        _logger.exception(e)
+        sys.exit(1)
 
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
