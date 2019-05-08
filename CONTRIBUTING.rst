@@ -58,7 +58,8 @@ and `install <https://maven.apache.org/install.html>`_ Maven. You can then build
   cd mlflow/java
   mvn compile test
 
-If making API changes, please regenerate API documentation as described in `Writing Docs`_.
+If opening a PR that makes API changes, please regenerate API documentation as described in
+`Writing Docs`_ and commit the updated docs to your PR branch.
 
 
 R
@@ -106,8 +107,8 @@ Run linter:
   Rscript -e 'lintr::lint_package()'
 
 
-If making API changes, please regenerate API documentation as described in `Writing Docs`_.
-
+If opening a PR that makes API changes, please regenerate API documentation as described in
+`Writing Docs`_ and commit the updated docs to your PR branch.
 
 When developing, you can make Python changes available in R by running (from mlflow/R/mlflow):
 
@@ -157,6 +158,9 @@ exclude:
   - Tests marked with @pytest.mark.requires_ssh. These tests require that passwordless SSH access to
     localhost be enabled, and can be run via ``pytest --requires-ssh``.
   - Tests marked with @pytest.mark.release. These tests can be run via ``pytest --release``.
+
+If opening a PR that changes or adds new APIs, please update or add Python documentation as
+described in `Writing Docs`_ and commit the docs to your PR branch.
 
 
 Building Protobuf Files
@@ -251,3 +255,12 @@ that R & Java API docs must be regenerated separately after each change and are 
 
    cd docs
    make livehtml
+
+If changing existing Python APIs or adding new APIs under existing modules, ensure that references
+to the modified APIs are updated in existing docs under ``docs/source``. Note that the Python doc
+generation process will automatically produce updated API docs, but you should still audit for
+usages of the modified APIs in guides and examples.
+
+If adding a new public Python module, create a corresponding doc file for the module under
+``docs/source/python_api`` - `see here <https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking>`_
+for an example.
