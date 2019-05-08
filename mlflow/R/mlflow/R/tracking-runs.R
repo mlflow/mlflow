@@ -116,12 +116,12 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
 #'   data may be written.
 #' @template roxlate-client
 #' @template roxlate-run-id
-#' @param metrics A dataframe of metrics to log, containing the following columns: "key", "value", 
+#' @param metrics A dataframe of metrics to log, containing the following columns: "key", "value",
 #'  "step", "timestamp"
 #' @param params A dataframe of params to log, containing the following columns: "key", "value"
 #' @param tags A dataframe of tags to log, containing the following columns: "key", "value"
 #' @export
-mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id = NULL, 
+mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id = NULL,
                              client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
