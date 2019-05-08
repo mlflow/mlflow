@@ -5,7 +5,7 @@ import os
 import subprocess
 import logging
 
-from mlflow.tracking.artifact_utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import cli_args
 
 
@@ -37,31 +37,27 @@ def str_optional(s):
 
 
 @commands.command("serve")
-@cli_args.MODEL_PATH
-@cli_args.RUN_ID
+@cli_args.MODEL_URI
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
-def serve(model_path, run_id, port):
+def serve(model_uri, port):
     """
     Serve an RFunction model saved with MLflow.
 
     If a ``run_id`` is specified, ``model-path`` is treated as an artifact path within that run;
     otherwise it is treated as a local path.
     """
-    if run_id:
-        model_path = _get_model_log_dir(model_path, run_id)
-
+    model_path = _download_artifact_from_uri(model_uri)
     command = "mlflow::mlflow_rfunc_serve('{0}', port = {1})".format(model_path, port)
     execute(command)
 
 
 @commands.command("predict")
-@cli_args.MODEL_PATH
-@cli_args.RUN_ID
+@cli_args.MODEL_URI
 @click.option("--input-path", "-i", help="JSON or CSV containing DataFrame to predict against.",
               required=True)
 @click.option("--output-path", "-o", help="File to output results to as JSON or CSV file." +
                                           " If not provided, output to stdout.")
-def predict(model_path, run_id, input_path, output_path):
+def predict(model_uri, input_path, output_path):
     """
     Serve an RFunction model saved with MLflow.
     Return the prediction results as a JSON DataFrame.
@@ -69,10 +65,7 @@ def predict(model_path, run_id, input_path, output_path):
     If a ``run-id`` is specified, ``model-path`` is treated as an artifact path within that run;
     otherwise it is treated as a local path.
     """
-    if run_id:
-        model_path = _get_model_log_dir(model_path, run_id)
-
+    model_path = _download_artifact_from_uri(model_uri)
     str_cmd = "mlflow::mlflow_rfunc_predict('{0}', '{1}', '{2}')"
     command = str_cmd.format(model_path, input_path, str_optional(output_path))
-
     execute(command)

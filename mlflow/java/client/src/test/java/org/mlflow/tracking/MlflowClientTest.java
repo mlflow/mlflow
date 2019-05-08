@@ -117,17 +117,14 @@ public class MlflowClientTest {
     logger.debug(">> TEST.0");
 
     // Create run
-    String user = System.getenv("USER");
     long startTime = System.currentTimeMillis();
-    String sourceFile = "MyFile.java";
 
-    RunInfo runCreated = client.createRun(expId, sourceFile);
+    RunInfo runCreated = client.createRun(expId);
     runId = runCreated.getRunUuid();
     logger.debug("runId=" + runId);
 
     List<RunInfo> runInfos = client.listRunInfos(expId);
     Assert.assertEquals(runInfos.size(), 1);
-    Assert.assertEquals(runInfos.get(0).getSourceType(), SourceType.LOCAL);
     Assert.assertEquals(runInfos.get(0).getStatus(), RunStatus.RUNNING);
 
     // Log parameters
@@ -163,7 +160,7 @@ public class MlflowClientTest {
     // Assert run from getRun
     Run run = client.getRun(runId);
     RunInfo runInfo = run.getInfo();
-    assertRunInfo(runInfo, expId, sourceFile);
+    assertRunInfo(runInfo, expId);
     // verify run start and end are set in ms
     Assert.assertTrue(runInfo.getStartTime() >= startTime);
     Assert.assertTrue(runInfo.getEndTime() <= endTime);
@@ -185,11 +182,11 @@ public class MlflowClientTest {
     long startTime = System.currentTimeMillis();
     String sourceFile = "MyFile.java";
 
-    RunInfo runCreated_1 = client.createRun(expId, sourceFile);
+    RunInfo runCreated_1 = client.createRun(expId);
     String runId_1 = runCreated_1.getRunUuid();
     logger.debug("runId=" + runId_1);
 
-    RunInfo runCreated_2 = client.createRun(expId, sourceFile);
+    RunInfo runCreated_2 = client.createRun(expId);
     String runId_2 = runCreated_2.getRunUuid();
     logger.debug("runId=" + runId_2);
 
@@ -263,8 +260,8 @@ public class MlflowClientTest {
     String parentRunId = parentRun.getRunUuid();
     RunInfo childRun = client.createRun(CreateRun.newBuilder()
     .setExperimentId(expId)
-    .setParentRunId(parentRunId)
     .build());
+    client.setTag(childRun.getRunUuid(), "mlflow.parentRunId", parentRunId);
     List<RunTag> childTags = client.getRun(childRun.getRunUuid()).getData().getTagsList();
     String parentRunIdTagValue = childTags.stream()
       .filter(t -> t.getKey().equals("mlflow.parentRunId"))
@@ -416,7 +413,7 @@ public class MlflowClientTest {
 
     String sourceFile = "MyFile.java";
 
-    RunInfo runCreated = client.createRun(expId, sourceFile);
+    RunInfo runCreated = client.createRun(expId);
     Assert.assertEquals(runCreated.getLifecycleStage(), "active");
     String deleteRunId = runCreated.getRunId();
     client.deleteRun(deleteRunId);

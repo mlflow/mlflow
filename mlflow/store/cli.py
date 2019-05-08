@@ -3,9 +3,9 @@ import logging
 import click
 
 from mlflow.tracking import _get_store
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.proto_json_utils import message_to_json
-
 
 _logger = logging.getLogger(__name__)
 
@@ -103,3 +103,14 @@ def download_artifacts(run_id, artifact_path):
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path)
     print(artifact_location)
+
+
+@commands.command("download-from-uri")
+@click.option("--artifact-uri", "-a", required=True,
+              help="URI pointing to the artifact file or artifacts directory.")
+def download_artifacts_from_uri(artifact_uri):
+    """
+    Download an artifact file or directory from a given URI to a local directory.
+    The output is the name of the file or directory on the local disk.
+    """
+    print(_download_artifact_from_uri(artifact_uri))

@@ -15,7 +15,7 @@ import time
 import tempfile
 
 import mlflow.experiments
-from mlflow.entities import RunStatus, Metric, Param, RunTag
+from mlflow.entities import RunStatus, Metric, Param, RunTag, ViewType
 from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
 from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
@@ -186,6 +186,14 @@ def test_create_get_list_experiment(mlflow_client):
 
     experiments = mlflow_client.list_experiments()
     assert set([e.name for e in experiments]) == {'My Experiment', 'Default'}
+    mlflow_client.delete_experiment(experiment_id)
+    assert set([e.name for e in mlflow_client.list_experiments()]) == {'Default'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ACTIVE_ONLY)]) ==\
+        {'Default'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.DELETED_ONLY)]) ==\
+        {'My Experiment'}
+    assert set([e.name for e in mlflow_client.list_experiments(ViewType.ALL)]) == \
+        {'My Experiment', 'Default'}
 
 
 def test_delete_restore_experiment(mlflow_client):
@@ -235,7 +243,6 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     source_version = "abc"
     create_run_kwargs = {
         "user_id": "123",
-        "run_name": "My name",
         "start_time": 456,
         "tags": {
             MLFLOW_SOURCE_TYPE: "LOCAL",
@@ -243,10 +250,10 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
             MLFLOW_PROJECT_ENTRY_POINT: entry_point,
             MLFLOW_GIT_COMMIT: source_version,
             MLFLOW_PARENT_RUN_ID: "7",
+            MLFLOW_RUN_NAME: "my name",
             "my": "tag",
             "other": "tag",
-        },
-        "parent_run_id": parent_run_id_kwarg
+        }
     }
     experiment_id = mlflow_client.create_experiment('Run A Lot (parent_run_id=%s)'
                                                     % (parent_run_id_kwarg))
@@ -258,14 +265,10 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     assert run.info.run_uuid == run_id
     assert run.info.experiment_id == experiment_id
     assert run.info.user_id == create_run_kwargs["user_id"]
-    assert run.info.source_type == SOURCE_TYPE_LOCAL
-    assert run.info.source_name == source_name
-    assert run.info.entry_point_name == entry_point
     assert run.info.start_time == create_run_kwargs["start_time"]
-    assert run.info.source_version == source_version
     for tag in create_run_kwargs["tags"]:
         assert tag in run.data.tags
-    assert run.data.tags.get(MLFLOW_RUN_NAME) == create_run_kwargs["run_name"]
+    assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
     assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
     assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 

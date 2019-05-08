@@ -14,12 +14,14 @@ def sftp_mock():
     return MagicMock(autospec=pysftp.Connection)
 
 
+@pytest.mark.large
 def test_artifact_uri_factory():
     from paramiko.ssh_exception import SSHException
     with pytest.raises(SSHException):
         get_artifact_repository("sftp://user:pass@test_sftp:123/some/path")
 
 
+@pytest.mark.large
 def test_list_artifacts_empty(sftp_mock):
     repo = SFTPArtifactRepository("sftp://test_sftp/some/path", sftp_mock)
     sftp_mock.listdir = MagicMock(return_value=[])
@@ -27,6 +29,7 @@ def test_list_artifacts_empty(sftp_mock):
     sftp_mock.listdir.assert_called_once_with("/some/path")
 
 
+@pytest.mark.large
 def test_list_artifacts(sftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
     repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, sftp_mock)
@@ -64,6 +67,7 @@ def test_list_artifacts(sftp_mock):
     assert artifacts[1].file_size is None
 
 
+@pytest.mark.large
 def test_list_artifacts_with_subdir(sftp_mock):
     artifact_root_path = "/experiment_id/run_id/"
     repo = SFTPArtifactRepository("sftp://test_sftp"+artifact_root_path, sftp_mock)
