@@ -26,7 +26,6 @@ def test_file_info_to_json():
     }]
 
 
-
 def test_download_artifacts_from_uri():
     with mlflow.start_run() as run:
         with TempDir() as tmp:

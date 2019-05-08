@@ -100,6 +100,4 @@ class S3ArtifactRepository(ArtifactRepository):
         (bucket, s3_root_path) = data.parse_s3_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
-        print("s3 download; bucket = ", bucket, "s3_full_path", s3_full_path, "local_path",
-              local_path)
         s3_client.download_file(bucket, s3_full_path, local_path)
