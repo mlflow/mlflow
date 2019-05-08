@@ -8,9 +8,11 @@ import signal
 from subprocess import Popen, PIPE, STDOUT
 
 import pandas as pd
+import pytest
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
+from mlflow.utils.file_utils import read_yaml, write_yaml
 
 
 def random_int(lo=1, hi=1e10):
@@ -26,10 +28,10 @@ def random_file(ext):
 
 
 def score_model_in_sagemaker_docker_container(
-        model_path, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME,
+        model_uri, data, content_type, flavor=mlflow.pyfunc.FLAVOR_NAME,
         activity_polling_timeout_seconds=500):
     """
-    :param model_path: Path to the model to be served.
+    :param model_uri: URI to the model to be served.
     :param data: The data to send to the docker container for testing. This is either a
                  Pandas dataframe or string of the format specified by `content_type`.
     :param content_type: The type of the data to send to the docker container for testing. This is
@@ -41,15 +43,15 @@ def score_model_in_sagemaker_docker_container(
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = _start_scoring_proc(
-            cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_path, '-p', "5000", "-f", flavor],
+            cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_uri, '-p', "5000", "-f", flavor],
             env=env)
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
 def pyfunc_serve_and_score_model(
-        model_path, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
+        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
     """
-    :param model_path: Path to the model to be served.
+    :param model_uri: URI to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
                  Pandas dataframe or string of the format specified by `content_type`.
     :param content_type: The type of the data to send to the pyfunc server for testing. This is
@@ -63,7 +65,7 @@ def pyfunc_serve_and_score_model(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_path, "-p", "0"]
+    scoring_cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_uri, "-p", "0"]
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
@@ -137,3 +139,42 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
         print("-------------------------STDOUT------------------------------")
         print(proc.stdout.read())
         print("==============================================================")
+
+
+@pytest.fixture(scope='module', autouse=True)
+def set_boto_credentials():
+    os.environ["AWS_ACCESS_KEY_ID"] = "NotARealAccessKey"
+    os.environ["AWS_SECRET_ACCESS_KEY"] = "NotARealSecretAccessKey"
+    os.environ["AWS_SESSION_TOKEN"] = "NotARealSessionToken"
+
+
+@pytest.fixture
+def mock_s3_bucket():
+    """
+    Creates a mock S3 bucket using moto
+
+    :return: The name of the mock bucket
+    """
+    import boto3
+    import moto
+
+    with moto.mock_s3():
+        bucket_name = "mock-bucket"
+        s3_client = boto3.client("s3")
+        s3_client.create_bucket(Bucket=bucket_name)
+        yield bucket_name
+
+
+class safe_edit_yaml(object):
+    def __init__(self, root, file_name, edit_func):
+        self._root = root
+        self._file_name = file_name
+        self._edit_func = edit_func
+        self._original = read_yaml(root, file_name)
+
+    def __enter__(self):
+        new_dict = self._edit_func(self._original.copy())
+        write_yaml(self._root, self._file_name, new_dict, overwrite=True)
+
+    def __exit__(self, *args):
+        write_yaml(self._root, self._file_name, self._original, overwrite=True)

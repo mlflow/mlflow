@@ -35,30 +35,26 @@ def test_docker_project_execution(
     build_docker_example_base_image()
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
-        TEST_DOCKER_PROJECT_DIR, experiment_id=0, parameters=expected_params,
-        entry_point="test_tracking")
+        TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
+        parameters=expected_params, entry_point="test_tracking")
     # Validate run contents in the FileStore
-    run_uuid = submitted_run.run_id
+    run_id = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
-    run_infos = mlflow_service.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
-    assert "file:" in run_infos[0].source_name
+    run_infos = mlflow_service.list_run_infos(
+        experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
+        run_view_type=ViewType.ACTIVE_ONLY)
     assert len(run_infos) == 1
-    store_run_uuid = run_infos[0].run_uuid
-    assert run_uuid == store_run_uuid
-    run = mlflow_service.get_run(run_uuid)
-    assert len(run.data.params) == len(expected_params)
-    for param in run.data.params:
-        assert param.value == expected_params[param.key]
-    expected_metrics = {"some_key": 3}
-    assert len(run.data.metrics) == len(expected_metrics)
-    for metric in run.data.metrics:
-        assert metric.value == expected_metrics[metric.key]
+    store_run_id = run_infos[0].run_id
+    assert run_id == store_run_id
+    run = mlflow_service.get_run(run_id)
+    assert run.data.params == expected_params
+    assert run.data.metrics == {"some_key": 3}
     exact_expected_tags = {MLFLOW_PROJECT_ENV: "docker"}
     approx_expected_tags = {
         MLFLOW_DOCKER_IMAGE_NAME: "mlflow-docker-example",
         MLFLOW_DOCKER_IMAGE_ID: "sha256:",
     }
-    run_tags = {tag.key: tag.value for tag in run.data.tags}
+    run_tags = run.data.tags
     for k, v in exact_expected_tags.items():
         assert run_tags[k] == v
     for k, v in approx_expected_tags.items():
@@ -88,7 +84,8 @@ def test_docker_project_tracking_uri_propagation(
         mlflow.set_tracking_uri(tracking_uri)
         with mock.patch("mlflow.tracking.utils._get_store") as _get_store_mock:
             _get_store_mock.return_value = file_store.FileStore(local_tracking_dir)
-            mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, experiment_id=0)
+            mlflow.projects.run(
+                TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID)
     finally:
         mlflow.set_tracking_uri(old_uri)
 

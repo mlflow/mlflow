@@ -1,6 +1,7 @@
 from abc import abstractmethod, ABCMeta
 
 from mlflow.entities import ViewType
+from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 
 
 class AbstractStore:
@@ -37,7 +38,7 @@ class AbstractStore:
         :param name: Desired name for an experiment
         :param artifact_location: Base location for artifacts in runs. May be None.
 
-        :return: experiment_id (integer) for the newly created experiment if successful, else None.
+        :return: experiment_id (string) for the newly created experiment if successful, else None.
         """
         pass
 
@@ -46,7 +47,7 @@ class AbstractStore:
         """
         Fetch the experiment by ID from the backend store.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
 
         :return: A single :py:class:`mlflow.entities.Experiment` object if it exists,
             otherwise raises an exception.
@@ -75,7 +76,7 @@ class AbstractStore:
         Delete the experiment from the backend store. Deleted experiments can be restored until
         permanently deleted.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -84,7 +85,7 @@ class AbstractStore:
         """
         Restore deleted experiment unless it is permanently deleted.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
@@ -93,12 +94,12 @@ class AbstractStore:
         """
         Update an experiment's name. The new name must be unique.
 
-        :param experiment_id: Integer id for the experiment
+        :param experiment_id: String id for the experiment
         """
         pass
 
     @abstractmethod
-    def get_run(self, run_uuid):
+    def get_run(self, run_id):
         """
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
         contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
@@ -108,14 +109,15 @@ class AbstractStore:
         the value at the latest timestamp for each metric. If there are multiple values with the
         latest timestamp for a given metric, the maximum of these values is returned.
 
-        :param run_uuid: Unique identifier for the run.
+        :param run_id: Unique identifier for the run.
 
         :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                  raises an exception.
         """
         pass
 
-    def update_run_info(self, run_uuid, run_status, end_time):
+    @abstractmethod
+    def update_run_info(self, run_id, run_status, end_time):
         """
         Update the metadata of the specified run.
 
@@ -123,15 +125,14 @@ class AbstractStore:
         """
         pass
 
-    def create_run(self, experiment_id, user_id, run_name, source_type, source_name,
-                   entry_point_name, start_time, source_version, tags, parent_run_id):
+    @abstractmethod
+    def create_run(self, experiment_id, user_id, start_time, tags):
         """
         Create a run under the specified experiment ID, setting the run's status to "RUNNING"
         and the start time to the current time.
 
-        :param experiment_id: ID of the experiment for this run
+        :param experiment_id: String id of the experiment for this run
         :param user_id: ID of the user launching this run
-        :param source_type: Enum (integer) describing the source of the run
 
         :return: The created Run object
         """
@@ -155,47 +156,48 @@ class AbstractStore:
         """
         pass
 
-    def log_metric(self, run_uuid, metric):
+    def log_metric(self, run_id, metric):
         """
         Log a metric for the specified run
 
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param metric: :py:class:`mlflow.entities.Metric` instance to log
         """
-        pass
+        self.log_batch(run_id, metrics=[metric], params=[], tags=[])
 
-    def log_param(self, run_uuid, param):
+    def log_param(self, run_id, param):
         """
         Log a param for the specified run
 
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param param: :py:class:`mlflow.entities.Param` instance to log
         """
-        pass
+        self.log_batch(run_id, metrics=[], params=[param], tags=[])
 
-    def set_tag(self, run_uuid, tag):
+    def set_tag(self, run_id, tag):
         """
         Set a tag for the specified run
 
-        :param run_uuid: String id for the run
+        :param run_id: String id for the run
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
         """
-        pass
+        self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
     @abstractmethod
-    def get_metric_history(self, run_uuid, metric_key):
+    def get_metric_history(self, run_id, metric_key):
         """
-        Return all logged values for a given metric.
+        Return a list of metric objects corresponding to all values logged for a given metric.
 
-        :param run_uuid: Unique identifier for run
+        :param run_id: Unique identifier for run
         :param metric_key: Metric name within the run
 
-        :return: A list of float values logged for the give metric if logged, else empty list
+        :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
         pass
 
     @abstractmethod
-    def search_runs(self, experiment_ids, search_filter, run_view_type):
+    def search_runs(self, experiment_ids, search_filter, run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT):
         """
         Return runs that match the given list of search expressions within the experiments.
         Given multiple search expressions, all these expressions are ANDed together for search.
@@ -204,6 +206,7 @@ class AbstractStore:
         :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
             search expression or filter string
         :param run_view_type: ACTIVE, DELETED, or ALL runs
+        :param max_results: Maximum number of runs desired.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
@@ -212,7 +215,7 @@ class AbstractStore:
 
     def list_run_infos(self, experiment_id, run_view_type):
         """
-        Return run information for runs which belong to the experiment_id
+        Return run information for runs which belong to the experiment_id.
 
         :param experiment_id: The experiment id which to search
 

@@ -15,9 +15,12 @@ from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
 from mlflow.tracking import MlflowClient
 from mlflow.utils import file_utils
+from mlflow.store.file_store import FileStore
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
     MLFLOW_DATABRICKS_WEBAPP_URL
+from mlflow.utils.rest_utils import _DEFAULT_HEADERS
+
 
 from tests.projects.utils import validate_exit_status, TEST_PROJECT_DIR
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
@@ -128,7 +131,7 @@ def test_upload_project_to_dbfs(
     dbfs_path_exists_mock.return_value = False
     runner = DatabricksJobRunner(databricks_profile="DEFAULT")
     dbfs_uri = runner._upload_project_to_dbfs(
-        project_dir=TEST_PROJECT_DIR, experiment_id=0)
+        project_dir=TEST_PROJECT_DIR, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
     # Get expected tar
     local_tar_path = os.path.join(dbfs_root_mock, dbfs_uri.split("/dbfs/")[1])
     expected_tar_path = str(tmpdir.join("expected.tar.gz"))
@@ -146,7 +149,7 @@ def test_upload_existing_project_to_dbfs(dbfs_path_exists_mock):  # pylint: disa
         dbfs_path_exists_mock.return_value = True
         runner = DatabricksJobRunner(databricks_profile="DEFAULT")
         runner._upload_project_to_dbfs(
-            project_dir=TEST_PROJECT_DIR, experiment_id=0)
+            project_dir=TEST_PROJECT_DIR, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
         assert upload_to_dbfs_mock.call_count == 0
 
 
@@ -166,7 +169,8 @@ def test_run_databricks_validations(
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         mlflow_service = mlflow.tracking.MlflowClient()
-        assert len(mlflow_service.list_run_infos(experiment_id=0)) == 0
+        assert (len(mlflow_service.list_run_infos(experiment_id=FileStore.DEFAULT_EXPERIMENT_ID))
+                == 0)
         tracking_uri_mock.return_value = "http://"
         # Test misspecified parameters
         with pytest.raises(ExecutionException):
@@ -273,12 +277,12 @@ class MockProfileConfigProvider:
 def test_databricks_http_request_integration(get_config, request):
     """Confirms that the databricks http request params can in fact be used as an HTTP request"""
     def confirm_request_params(**kwargs):
+        headers = dict(_DEFAULT_HEADERS)
+        headers['Authorization'] = 'Basic dXNlcjpwYXNz'
         assert kwargs == {
             'method': 'PUT',
             'url': 'host/clusters/list',
-            'headers': {
-                'Authorization': 'Basic dXNlcjpwYXNz'
-            },
+            'headers': headers,
             'verify': True,
             'json': {'a': 'b'}
         }

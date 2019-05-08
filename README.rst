@@ -45,9 +45,9 @@ Start it with::
     mlflow ui
 
 **Note:** Running ``mlflow ui`` from within a clone of MLflow is not recommended - doing so will
-run the dev UI from source. We recommend running the UI from a different working directory, using the
-``--file-store`` option to specify which log directory to run against. Alternatively, see instructions
-for running the dev UI in the `contributor guide <CONTRIBUTING.rst>`_.
+run the dev UI from source. We recommend running the UI from a different working directory,
+specifying a backend store via the ``--backend-store-uri`` option. Alternatively, see
+instructions for running the dev UI in the `contributor guide <CONTRIBUTING.rst>`_.
 
 
 Running a Project from a URI
@@ -72,9 +72,9 @@ MLflow artifacts and then load them again for serving. There is an example train
     Score: 0.666
     Model saved in run <run-id>
 
-    $ mlflow sklearn serve -r <run-id> -m model
+    $ mlflow pyfunc serve -r <run-id> -m model
 
-    $ curl -d '[{"x": 1}, {"x": -1}]' -H 'Content-Type: application/json' -X POST localhost:5000/invocations
+    $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
 
 
 

@@ -10,7 +10,9 @@ import org.mlflow.tracking.creds.*;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.List;
+import java.lang.Iterable;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -18,7 +20,7 @@ import java.util.stream.Collectors;
  * Client to an MLflow Tracking Sever.
  */
 public class MlflowClient {
-  private static final long DEFAULT_EXPERIMENT_ID = 0;
+  private static final String DEFAULT_EXPERIMENT_ID = "0";
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
   private final ArtifactRepositoryFactory artifactRepositoryFactory;
@@ -46,15 +48,24 @@ public class MlflowClient {
   }
 
   /**
-   * Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
-   * same key are logged for the run, returns only the value with the latest timestamp. If there are
-   * multiple values with the latest timestamp, returns the maximum of these values.
+   * Gets metadata, params, tags, and metrics for a run. A single value is returned for each metric
+   * key: the most recently logged metric value at the largest step.
    *
    * @return Run associated with the id.
    */
-  public Run getRun(String runUuid) {
-    URIBuilder builder = newURIBuilder("runs/get").setParameter("run_uuid", runUuid);
+  public Run getRun(String runId) {
+    URIBuilder builder = newURIBuilder("runs/get")
+      .setParameter("run_uuid", runId)
+      .setParameter("run_id", runId);
     return mapper.toGetRunResponse(httpCaller.get(builder.toString())).getRun();
+  }
+
+  public List<Metric> getMetricHistory(String runId, String key) {
+    URIBuilder builder = newURIBuilder("metrics/get-history")
+      .setParameter("run_uuid", runId)
+      .setParameter("run_id", runId)
+      .setParameter("metric_key", key);
+    return mapper.toGetMetricHistoryResponse(httpCaller.get(builder.toString())).getMetricsList();
   }
 
   /**
@@ -66,22 +77,12 @@ public class MlflowClient {
   }
 
   /**
-   * Creates a new run under the given experiment with no application name.
+   * Creates a new run under the given experiment.
    * @return RunInfo created by the server
    */
-  public RunInfo createRun(long experimentId) {
-    return createRun(experimentId, "Java Application");
-  }
-
-  /**
-   * Creates a new run under the given experiment with the given application name.
-   * @return RunInfo created by the server
-   */
-  public RunInfo createRun(long experimentId, String appName) {
+  public RunInfo createRun(String experimentId) {
     CreateRun.Builder request = CreateRun.newBuilder();
     request.setExperimentId(experimentId);
-    request.setSourceName(appName);
-    request.setSourceType(SourceType.LOCAL);
     request.setStartTime(System.currentTimeMillis());
     String username = System.getProperty("user.name");
     if (username != null) {
@@ -110,9 +111,53 @@ public class MlflowClient {
     return mapper.toCreateRunResponse(ojson).getRun().getInfo();
   }
 
-  /** @return  a list of all RunInfos associated with the given experiment. */
-  public List<RunInfo> listRunInfos(long experimentId) {
-    SearchRuns request = SearchRuns.newBuilder().addExperimentIds(experimentId).build();
+  /**
+   * @return a list of all RunInfos associated with the given experiment.
+   */
+  public List<RunInfo> listRunInfos(String experimentId) {
+    List<String> experimentIds = new ArrayList<>();
+    experimentIds.add(experimentId);
+    return searchRuns(experimentIds, null);
+  }
+
+  /**
+   * Returns runs from provided list of experiments, that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
+   *
+   * @return a list of all RunInfos that satisfy search filter.
+   */
+  public List<RunInfo> searchRuns(List<String> experimentIds, String searchFilter) {
+    return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
+  }
+
+  /**
+   * Returns runs from provided list of experiments, that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    Defaults to ACTIVE_ONLY.
+   *
+   * @return a list of all RunInfos that satisfy search filter.
+   */
+  public List<RunInfo> searchRuns(List<String> experimentIds,
+                                  String searchFilter,
+                                  ViewType runViewType) {
+    SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIds);
+
+    if (searchFilter != null) {
+      builder.setFilter(searchFilter);
+    }
+    if (runViewType != null) {
+      builder.setRunViewType(runViewType);
+    }
+    SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
     return mapper.toSearchRunsResponse(ojson).getRunsList().stream().map(Run::getInfo)
@@ -126,9 +171,9 @@ public class MlflowClient {
   }
 
   /** @return  an experiment with the given id. */
-  public GetExperiment.Response getExperiment(long experimentId) {
+  public GetExperiment.Response getExperiment(String experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
-      .setParameter("experiment_id", "" + experimentId);
+      .setParameter("experiment_id", experimentId);
     return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
   }
 
@@ -143,26 +188,26 @@ public class MlflowClient {
    * @param experimentName Name of the experiment. This must be unique across all experiments.
    * @return experiment id of the newly created experiment.
    */
-  public long createExperiment(String experimentName) {
+  public String createExperiment(String experimentName) {
     String ijson = mapper.makeCreateExperimentRequest(experimentName);
     String ojson = httpCaller.post("experiments/create", ijson);
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
   /** Mark an experiment and associated runs, params, metrics, etc for deletion. */
-  public void deleteExperiment(long experimentId) {
+  public void deleteExperiment(String experimentId) {
     String ijson = mapper.makeDeleteExperimentRequest(experimentId);
     httpCaller.post("experiments/delete", ijson);
   }
 
   /** Restore an experiment marked for deletion. */
-  public void restoreExperiment(long experimentId) {
+  public void restoreExperiment(String experimentId) {
     String ijson = mapper.makeRestoreExperimentRequest(experimentId);
     httpCaller.post("experiments/restore", ijson);
   }
 
   /** Update an experiment's name. The new name must be unique. */
-  public void renameExperiment(long experimentId, String newName) {
+  public void renameExperiment(String experimentId, String newName) {
     String ijson = mapper.makeUpdateExperimentRequest(experimentId, newName);
     httpCaller.post("experiments/update", ijson);
   }
@@ -187,42 +232,75 @@ public class MlflowClient {
    * Logs a parameter against the given run, as a key-value pair.
    * This cannot be called against the same parameter key more than once.
    */
-  public void logParam(String runUuid, String key, String value) {
-    sendPost("runs/log-parameter", mapper.makeLogParam(runUuid, key, value));
+  public void logParam(String runId, String key, String value) {
+    sendPost("runs/log-parameter", mapper.makeLogParam(runId, key, value));
   }
 
   /**
-   * Logs a new metric against the given run, as a key-value pair.
-   * New values for the same metric may be recorded over time, and are marked with a timestamp.
-   * */
-  public void logMetric(String runUuid, String key, double value) {
-    sendPost("runs/log-metric", mapper.makeLogMetric(runUuid, key, value,
-      System.currentTimeMillis()));
+   * Logs a new metric against the given run, as a key-value pair. Metrics are recorded
+   * against two axes: timestamp and step. This method uses the number of milliseconds
+   * since the Unix epoch for the timestamp, and it uses the default step of zero.
+   *
+   * @param runId the id of the run in which to record the metric
+   * @param key the key identifying the metric for which to record the specified value
+   * @param value the value of the metric
+   */
+  public void logMetric(String runId, String key, double value) {
+    logMetric(runId, key, value, System.currentTimeMillis(), 0);
+  }
+
+  /**
+   * Logs a new metric against the given run, as a key-value pair. Metrics are recorded
+   * against two axes: timestamp and step.
+   *
+   * @param runId the id of the run in which to record the metric
+   * @param key the key identifying the metric for which to record the specified value
+   * @param value the value of the metric
+   * @param timestamp the timestamp at which to record the metric value
+   * @param step the step at which to record the metric value
+   */
+  public void logMetric(String runId, String key, double value, long timestamp, long step) {
+    sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value, timestamp, step));
   }
 
   /**
    * Logs a new tag against the given run, as a key-value pair.
    */
-  public void setTag(String runUuid, String key, String value) {
-    sendPost("runs/set-tag", mapper.makeSetTag(runUuid, key, value));
-  }
-
-  /** Sets the status of a run to be FINISHED at the current time. */
-  public void setTerminated(String runUuid) {
-    setTerminated(runUuid, RunStatus.FINISHED);
-  }
-
-  /** Sets the status of a run to be completed at the current time. */
-  public void setTerminated(String runUuid, RunStatus status) {
-    setTerminated(runUuid, status, System.currentTimeMillis());
-  }
-
-  /** Sets the status of a run to be completed at the given endTime. */
-  public void setTerminated(String runUuid, RunStatus status, long endTime) {
-    sendPost("runs/update", mapper.makeUpdateRun(runUuid, status, endTime));
+  public void setTag(String runId, String key, String value) {
+    sendPost("runs/set-tag", mapper.makeSetTag(runId, key, value));
   }
 
   /**
+   * Log multiple metrics, params, and/or tags against a given run (argument runId).
+   * Argument metrics, params, and tag iterables can be nulls.
+   */
+  public void logBatch(String runId,
+      Iterable<Metric> metrics,
+      Iterable<Param> params,
+      Iterable<RunTag> tags) {
+    sendPost("runs/log-batch", mapper.makeLogBatch(runId, metrics, params, tags));
+  }
+
+  /** Sets the status of a run to be FINISHED at the current time. */
+  public void setTerminated(String runId) {
+    setTerminated(runId, RunStatus.FINISHED);
+  }
+
+  /** Sets the status of a run to be completed at the current time. */
+  public void setTerminated(String runId, RunStatus status) {
+    setTerminated(runId, status, System.currentTimeMillis());
+  }
+
+  /** Sets the status of a run to be completed at the given endTime. */
+  public void setTerminated(String runId, RunStatus status, long endTime) {
+    sendPost("runs/update", mapper.makeUpdateRun(runId, status, endTime));
+  }
+
+  /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
    * Send a GET to the following path, including query parameters.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server
@@ -232,6 +310,10 @@ public class MlflowClient {
   }
 
   /**
+   * :: Experimental ::
+   *
+   * This API may change or be removed in a future release without warning.
+   *
    * Send a POST to the following path, with a String-encoded JSON body.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
    * @return JSON response from the server

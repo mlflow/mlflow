@@ -9,7 +9,7 @@ version = imp.load_source(
 # Get a list of all files in the JS directory to include in our module
 def package_files(directory):
     paths = []
-    for (path, directories, filenames) in os.walk(directory):
+    for (path, _, filenames) in os.walk(directory):
         for filename in filenames:
             paths.append(os.path.join('..', path, filename))
     return paths
@@ -19,13 +19,15 @@ def package_files(directory):
 # to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
 js_files = package_files('mlflow/server/js/build')
 sagmaker_server_files = package_files("mlflow/sagemaker/container")
+alembic_files = ["../mlflow/alembic.ini"]
 
 setup(
     name='mlflow',
     version=version,
     packages=find_packages(exclude=['tests', 'tests.*']),
-    package_data={"mlflow": js_files + sagmaker_server_files},
+    package_data={"mlflow": js_files + sagmaker_server_files + alembic_files},
     install_requires=[
+        'alembic',
         'click>=7.0',
         'cloudpickle',
         'databricks-cli>=0.8.0',
@@ -48,6 +50,7 @@ setup(
         'docker>=3.6.0',
         'entrypoints',
         'sqlparse',
+        'sqlalchemy',
     ],
     entry_points='''
         [console_scripts]

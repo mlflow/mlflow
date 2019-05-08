@@ -25,13 +25,16 @@ from mlflow import active_run, pyfunc, mleap
 from mlflow import spark as sparkm
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
-from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 
 
 @pytest.fixture
@@ -58,7 +61,11 @@ def spark_context():
              value='ml.combust.mleap:mleap-spark-base_2.11:0.12.0,'
                    'ml.combust.mleap:mleap-spark_2.11:0.12.0')
     conf.set(key="spark_session.python.worker.reuse", value=True)
-    sc = pyspark.SparkContext(master="local-cluster[2, 1, 1024]", conf=conf).getOrCreate()
+    spark = pyspark.sql.SparkSession.builder\
+        .config(conf=conf)\
+        .master("local-cluster[2, 1, 1024]")\
+        .getOrCreate()
+    sc = spark.sparkContext
     return sc
 
 
@@ -90,6 +97,7 @@ def model_path(tmpdir):
     return str(tmpdir.mkdir("model"))
 
 
+@pytest.mark.large
 def test_hadoop_filesystem(tmpdir):
     # copy local dir to and back from HadoopFS and make sure the results match
     from mlflow.spark import _HadoopFileSystem as FS
@@ -129,11 +137,12 @@ def test_hadoop_filesystem(tmpdir):
     assert not os.path.exists(FS._remote_path(remote).toString())  # skip file: prefix
 
 
+@pytest.mark.large
 def test_model_export(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_custom_env)
     # 1. score and compare reloaded sparkml model
-    reloaded_model = sparkm.load_model(path=model_path)
+    reloaded_model = sparkm.load_model(model_uri=model_path)
     preds_df = reloaded_model.transform(spark_model_iris.spark_df)
     preds1 = [x.prediction for x in preds_df.select("prediction").collect()]
     assert spark_model_iris.predictions == preds1
@@ -142,12 +151,15 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     preds2 = m.predict(spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds2
     # 3. score and compare reloaded pyfunc Spark udf
-    preds3 = score_model_as_udf(model_path, run_id=None, pandas_df=spark_model_iris.pandas_df)
+    preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds3
     assert os.path.exists(sparkm.DFS_TMP)
 
 
-@pytest.mark.large
+# TODO(czumar): Remark this test as "large" instead of "release" after SageMaker docker
+# container build issues have been debugged
+# @pytest.mark.large
+@pytest.mark.release
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model_iris.model, path=model_path,
                       conda_env=spark_custom_env,
@@ -156,7 +168,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
 
     # 1. score and compare pyfunc deployed in Sagemaker docker container
     scoring_response_1 = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=spark_model_iris.pandas_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
@@ -166,7 +178,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
             decimal=4)
     # 2. score and compare mleap deployed in Sagemaker docker container
     scoring_response_2 = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=spark_model_iris.pandas_df.to_json(orient="split"),
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             flavor=mlflow.mleap.FLAVOR_NAME)
@@ -181,11 +193,11 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
     sparkm.save_model(spark_model_iris.model, path=model_path, conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-            model_path=model_path,
+            model_uri=model_path,
             data=spark_model_iris.pandas_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
             flavor=mlflow.pyfunc.FLAVOR_NAME)
-    deployed_model_preds = json.loads(scoring_response.content)
+    deployed_model_preds = np.array(json.loads(scoring_response.content))
 
     np.testing.assert_array_almost_equal(
             deployed_model_preds,
@@ -193,6 +205,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(spark_model_iris,
             decimal=4)
 
 
+@pytest.mark.large
 def test_sparkml_model_log(tmpdir, spark_model_iris):
     # Print the coefficients and intercept for multinomial logistic regression
     old_tracking_uri = mlflow.get_tracking_uri()
@@ -210,10 +223,12 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                 cnt += 1
                 sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
                                  dfs_tmpdir=dfs_tmp_dir)
-                run_id = active_run().info.run_uuid
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id,
+                    artifact_path=artifact_path)
+
                 # test reloaded model
-                reloaded_model = sparkm.load_model(artifact_path, run_id=run_id,
-                                                   dfs_tmpdir=dfs_tmp_dir)
+                reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmp_dir)
                 preds_df = reloaded_model.transform(spark_model_iris.spark_df)
                 preds = [x.prediction for x in preds_df.select("prediction").collect()]
                 assert spark_model_iris.predictions == preds
@@ -225,6 +240,23 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
                 shutil.rmtree(tracking_dir)
 
 
+@pytest.mark.large
+def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
+    sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    reloaded_model = sparkm.load_model(model_uri=model_uri)
+    preds_df = reloaded_model.transform(spark_model_iris.spark_df)
+    preds = [x.prediction for x in preds_df.select("prediction").collect()]
+    assert spark_model_iris.predictions == preds
+
+
+@pytest.mark.large
 def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         spark_model_iris, model_path, spark_custom_env):
     sparkm.save_model(spark_model=spark_model_iris.model,
@@ -243,6 +275,7 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
     assert saved_conda_env_parsed == spark_custom_env_parsed
 
 
+@pytest.mark.large
 def test_sparkml_model_log_invalid_args(spark_model_iris, model_path):
     with pytest.raises(MlflowException) as e:
         sparkm.log_model(
@@ -257,6 +290,7 @@ def test_sparkml_model_log_invalid_args(spark_model_iris, model_path):
         assert e.message.contains("JAR dependencies are not implemented")
 
 
+@pytest.mark.large
 def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_path):
     conda_env = dict(mlflow.spark.DEFAULT_CONDA_ENV)
     conda_env["dependencies"].append("pytest")
@@ -273,6 +307,7 @@ def test_sparkml_model_save_accepts_conda_env_as_dict(spark_model_iris, model_pa
     assert saved_conda_env_parsed == conda_env
 
 
+@pytest.mark.large
 def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         spark_model_iris, model_path, spark_custom_env):
     artifact_path = "model"
@@ -281,9 +316,11 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
                 spark_model=spark_model_iris.model,
                 artifact_path=artifact_path,
                 conda_env=spark_custom_env)
-        run_id = mlflow.active_run().info.run_uuid
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
 
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     assert os.path.exists(saved_conda_env_path)
@@ -296,6 +333,7 @@ def test_sparkml_model_log_persists_specified_conda_env_in_mlflow_model_director
     assert saved_conda_env_parsed == spark_custom_env_parsed
 
 
+@pytest.mark.large
 def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         spark_model_iris, model_path):
     sparkm.save_model(spark_model=spark_model_iris.model, path=model_path, conda_env=None)
@@ -308,15 +346,18 @@ def test_sparkml_model_save_without_specified_conda_env_uses_default_env_with_ex
     assert conda_env == sparkm.DEFAULT_CONDA_ENV
 
 
+@pytest.mark.large
 def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         spark_model_iris):
     artifact_path = "model"
     with mlflow.start_run():
         sparkm.log_model(
                 spark_model=spark_model_iris.model, artifact_path=artifact_path, conda_env=None)
-        run_id = mlflow.active_run().info.run_uuid
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
 
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
@@ -325,19 +366,25 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
     assert conda_env == sparkm.DEFAULT_CONDA_ENV
 
 
+@pytest.mark.large
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
-    sparkm.log_model(spark_model=spark_model_iris.model,
-                     sample_input=spark_model_iris.spark_df,
-                     artifact_path=artifact_path)
-    rid = active_run().info.run_uuid
-    model_path = _get_model_log_dir(model_name=artifact_path, run_id=rid)
+    with mlflow.start_run():
+        sparkm.log_model(spark_model=spark_model_iris.model,
+                         sample_input=spark_model_iris.spark_df,
+                         artifact_path=artifact_path)
+        model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=artifact_path)
+
+    model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     config_path = os.path.join(model_path, "MLmodel")
     mlflow_model = Model.load(config_path)
     assert sparkm.FLAVOR_NAME in mlflow_model.flavors
     assert mleap.FLAVOR_NAME in mlflow_model.flavors
 
 
+@pytest.mark.large
 def test_mleap_output_json_format(spark_model_iris, model_path):
     mlflow_model = Model()
     mleap.save_model(spark_model=spark_model_iris.model,
@@ -356,6 +403,7 @@ def test_mleap_output_json_format(spark_model_iris, model_path):
     assert "name" in json_schema["fields"][0]
 
 
+@pytest.mark.large
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
         spark_model_iris, model_path):
     class CustomTransformer(JavaModel):
@@ -371,6 +419,7 @@ def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_e
                           sample_input=spark_model_iris.spark_df)
 
 
+@pytest.mark.large
 def test_spark_module_model_save_with_relative_path_and_valid_sample_input_produces_mleap_flavor(
         spark_model_iris):
     with TempDir(chdr=True) as tmp:
@@ -388,6 +437,7 @@ def test_spark_module_model_save_with_relative_path_and_valid_sample_input_produ
         assert mleap.FLAVOR_NAME in config.flavors
 
 
+@pytest.mark.large
 def test_mleap_module_model_save_with_relative_path_and_valid_sample_input_produces_mleap_flavor(
         spark_model_iris):
     with TempDir(chdr=True) as tmp:
@@ -405,6 +455,7 @@ def test_mleap_module_model_save_with_relative_path_and_valid_sample_input_produ
         assert mleap.FLAVOR_NAME in config.flavors
 
 
+@pytest.mark.large
 def test_mleap_module_model_save_with_absolute_path_and_valid_sample_input_produces_mleap_flavor(
         spark_model_iris, model_path):
     model_path = os.path.abspath(model_path)
@@ -421,6 +472,7 @@ def test_mleap_module_model_save_with_absolute_path_and_valid_sample_input_produ
     assert mleap.FLAVOR_NAME in config.flavors
 
 
+@pytest.mark.large
 def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception(
         spark_model_iris, model_path):
     with pytest.raises(Exception):
@@ -430,6 +482,7 @@ def test_mleap_module_model_save_with_invalid_sample_input_type_raises_exception
                           sample_input=invalid_input)
 
 
+@pytest.mark.large
 def test_mleap_module_model_save_with_unsupported_transformer_raises_serialization_exception(
         spark_model_iris, model_path):
     class CustomTransformer(JavaModel):
@@ -445,6 +498,7 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
                          sample_input=spark_model_iris.spark_df)
 
 
+@pytest.mark.large
 def test_save_with_sample_input_containing_unsupported_data_type_raises_serialization_exception(
         spark_context, model_path):
     sql_context = SQLContext(spark_context)

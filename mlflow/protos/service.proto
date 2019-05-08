@@ -212,9 +212,9 @@ service MlflowService {
     };
   }
 
-  // Get metadata, params, tags, and metrics for a run. Only the last logged value for each metric
-  // is returned.
-  //
+  // Get metadata, params, tags, and metrics for a run. In the case where multiple metrics
+  // with the same key are logged for a run, return only the value with the latest timestamp.
+  // If there are multiple values with the latest timestamp, return the maximum of these values.
   rpc getRun (GetRun) returns (GetRun.Response) {
     option (rpc) = {
       endpoints: [{
@@ -400,6 +400,9 @@ message Metric {
 
   // The timestamp at which this metric was recorded.
   optional int64 timestamp = 3;
+
+  // Step at which to log the metric.
+  optional int64 step = 4 [default = 0];
 }
 
 // Param associated with a run.
@@ -440,26 +443,15 @@ message RunTag {
 
 // Metadata of a single run.
 message RunInfo {
-  // Unique identifier for the run.
+  // [Deprecated, use run_id instead] Unique identifier for the run. This field will
+  // be removed in a future MLflow version.
   optional string run_uuid = 1;
 
+  // Unique identifier for the run.
+  optional string run_id = 15;
+
   // The experiment ID.
-  optional int64 experiment_id = 2;
-
-  // Human readable name that identifies this run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-  // instead.
-  optional string name = 3;
-
-  // Source type.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-  // tag instead.
-  optional SourceType source_type = 4;
-
-  // Source identifier: GitHub URL, name of notebook, name of job, etc.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-  // tag instead.
-  optional string source_name = 5;
+  optional string experiment_id = 2;
 
   // User who initiated the run.
   optional string user_id = 6;
@@ -472,16 +464,6 @@ message RunInfo {
 
   // Unix timestamp of when the run ended in milliseconds.
   optional int64 end_time = 9;
-
-  // Git commit hash of the code used for the run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the
-  // ``mlflow.source.git.commit`` run tag instead.
-  optional string source_version = 10;
-
-  // Name of the entry point for the run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the
-  // ``mlflow.project.entryPoint`` run tag instead.
-  optional string entry_point_name = 11;
 
   // URI of the directory where artifacts should be uploaded.
   // This can be a local path (starting with "/"), or a distributed file system (DFS)
@@ -496,7 +478,7 @@ message RunInfo {
 // Experiment
 message Experiment {
   // Unique identifier for the experiment.
-  optional int64 experiment_id = 1;
+  optional string experiment_id = 1;
 
   // Human readable name that identifies the experiment.
   optional string name = 2;
@@ -527,7 +509,7 @@ message CreateExperiment {
 
   message Response {
     // Unique identifier for the experiment.
-    optional int64 experiment_id = 1;
+    optional string experiment_id = 1;
   }
 }
 
@@ -548,7 +530,7 @@ message GetExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the associated experiment.
-  optional int64 experiment_id = 1 [(validate_required) = true];
+  optional string experiment_id = 1 [(validate_required) = true];
 
   message Response {
     // Returns experiment details.
@@ -563,7 +545,7 @@ message DeleteExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the associated experiment.
-  optional int64 experiment_id = 1 [(validate_required) = true];
+  optional string experiment_id = 1 [(validate_required) = true];
 
   message Response {
   }
@@ -573,7 +555,7 @@ message RestoreExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // Identifier to get an experiment
-  optional int64 experiment_id = 1 [(validate_required) = true];
+  optional string experiment_id = 1 [(validate_required) = true];
 
   message Response {
   }
@@ -583,7 +565,7 @@ message UpdateExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the associated experiment.
-  optional int64 experiment_id = 1 [(validate_required) = true];
+  optional string experiment_id = 1 [(validate_required) = true];
 
   // If provided, the experiment's name will be changed to this. The new name must be unique.
   optional string new_name = 2;
@@ -596,47 +578,16 @@ message CreateRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the associated experiment.
-  optional int64 experiment_id = 1;
+  optional string experiment_id = 1;
 
   // ID of the user executing the run.
   optional string user_id = 2;
 
-  // Human readable name for the run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag
-  // instead.
-  optional string run_name = 3;
-
-  // Originating source for the run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.type`` run
-  // tag instead.
-  optional SourceType source_type = 4;
-
-  // String descriptor for the run's source. For example, name or description of a notebook, or the
-  // URL or path to a project.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.source.name`` run
-  // tag instead.
-  optional string source_name = 5;
-
-  // Name of the project entry point associated with the current run, if any.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the
-  // ``mlflow.project.entryPoint`` run tag instead.
-  optional string entry_point_name = 6;
-
   // Unix timestamp of when the run started in milliseconds.
   optional int64 start_time = 7;
 
-  // Git commit hash of the source code used to create run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the
-  // ``mlflow.source.git.commit`` run tag instead.
-  optional string source_version = 8;
-
   // Additional metadata for run.
   repeated RunTag tags = 9;
-
-  // ID of the parent run which started this run.
-  // This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.parentRunId`` run
-  // tag instead.
-  optional string parent_run_id = 10;
 
   message Response {
     // The newly created run.
@@ -647,8 +598,12 @@ message CreateRun {
 message UpdateRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run to update.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run to update.. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run to update. Must be provided.
+  optional string run_id = 4;
 
   // Updated status of the run.
   optional RunStatus status = 2;
@@ -678,11 +633,16 @@ message RestoreRun {
   message Response {}
 }
 
+
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the metric.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run under which to log the metric. Must be provided.
+  optional string run_id = 6;
 
   // Name of the metric.
   optional string key = 2 [(validate_required) = true];
@@ -693,6 +653,9 @@ message LogMetric {
   // Unix timestamp in milliseconds at the time metric was logged.
   optional int64 timestamp = 4 [(validate_required) = true];
 
+  // Step at which to log the metric
+  optional int64 step = 5 [default = 0];
+
   message Response {
   }
 }
@@ -700,8 +663,12 @@ message LogMetric {
 message LogParam {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the param.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run under which to log the param. Must be provided.
+  optional string run_id = 4;
 
   // Name of the param. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
@@ -716,8 +683,12 @@ message LogParam {
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to set the tag.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run under which to log the tag. Must be provided.
+  optional string run_id = 4;
 
   // Name of the tag. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
@@ -732,8 +703,12 @@ message SetTag {
 message GetRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run to fetch.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run to fetch. This field will
+  // be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of he run to fetch. Must be provided.
+  optional string run_id = 2;
 
   message Response {
     // Run metadata (name, start time, etc) and data (metrics, params, etc).
@@ -741,74 +716,11 @@ message GetRun {
   }
 }
 
-message SearchExpression {
-  // A single search filter.
-  oneof expression {
-    // A metric search expression.
-    MetricSearchExpression metric = 1;
-    // A parameter search expression.
-    ParameterSearchExpression parameter = 2;
-  }
-}
-
-message MetricSearchExpression {
-  // :ref:`mlflowMetric` key for search.
-  optional string key = 1;
-
-  oneof clause {
-    // [Deprecated in 0.7.0, to be removed in future version]
-    // Float clause for comparison. Use 'double' instead.
-    FloatClause float = 2;
-
-    // Double clause of comparison
-    DoubleClause double = 3;
-  }
-}
-
-message ParameterSearchExpression {
-  // :ref:`mlflowParam` key for search.
-  optional string key = 1;
-
-  oneof clause {
-      // String clause for comparison.
-      StringClause string = 2;
-  }
-}
-
-message StringClause {
-  // OneOf ("==", "!=", "~")
-  optional string comparator = 1;
-
-  // String value for comparison.
-  optional string value = 2;
-}
-
-message FloatClause {
-  // OneOf (">", ">=", "==", "!=", "<=", "<")
-  optional string comparator = 1;
-
-  // Float value for comparison.
-  optional float value = 2;
-}
-
-message DoubleClause {
-  // OneOf (">", ">=", "==", "!=", "<=", "<")
-  optional string comparator = 1;
-
-  // Float value for comparison.
-  optional double value = 2;
-}
-
 message SearchRuns {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // List of experiment IDs to search over.
-  repeated int64 experiment_ids = 1;
-
-  // This field is deprecated and will be removed in MLflow 1.0.
-  // Expressions describing runs (AND-ed together when filtering runs).
-  // See 'filter' for a simpler on-the-wire representation of these expressions.
-  repeated SearchExpression anded_expressions = 2;
+  repeated string experiment_ids = 1;
 
   // A filter expression over params, metrics, and tags, allowing returning a subset of
   // runs. The syntax is a subset of SQL which allows only ANDing together binary operations
@@ -832,6 +744,9 @@ message SearchRuns {
   // Defaults to only active runs.
   optional ViewType run_view_type = 3 [default = ACTIVE_ONLY];
 
+  // Maximum number of runs desired. Max threshold is 50000
+  optional int32 max_results = 5 [default = 1000];
+
   message Response {
     // Runs that match the search criteria.
     repeated Run runs = 1;
@@ -841,8 +756,12 @@ message SearchRuns {
 message ListArtifacts {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run whose artifacts to list.
+  // [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
+  // be removed in a future MLflow version.
   optional string run_uuid = 1;
+
+  // ID of the run whose artifacts to list. Must be provided.
+  optional string run_id = 3;
 
   // Filter artifacts matching this path (a relative path from the root artifact directory).
   optional string path = 2;
@@ -868,26 +787,15 @@ message FileInfo {
   optional int64 file_size = 3;
 }
 
-message GetArtifact {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // ID of the run from which to fetch the artifact.
-  optional string run_uuid = 1;
-
-  // Path of the artifact to fetch (relative to the root artifact directory for the run).
-  optional string path = 2;
-
-  message Response {
-    // Empty because the data of the file will be streamed back in the HTTP response.
-    // The response will have an HTTP status code of 404 if the artifact path is not found.
-  }
-}
-
 message GetMetricHistory {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run from which to fetch metric values.
-  optional string run_uuid = 1 [(validate_required) = true];
+  // [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
+  // will be removed in a future MLflow version.
+  optional string run_uuid = 1;
+
+  // ID of the run from which to fetch metric values. Must be provided.
+  optional string run_id = 3;
 
   // Name of the metric.
   optional string metric_key = 2 [(validate_required) = true];

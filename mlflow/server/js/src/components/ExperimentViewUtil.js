@@ -3,6 +3,7 @@ import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
+import { SEARCH_MAX_RESULTS } from '../Actions';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -43,7 +44,8 @@ export default class ExperimentViewUtil {
   static getRunInfoCellsForRow(runInfo, tags, isParent, cellType) {
     const CellComponent = `${cellType}`;
     const user = Utils.formatUser(runInfo.user_id);
-    const sourceType = Utils.renderSource(runInfo, tags);
+    const queryParams = window.location && window.location.search ? window.location.search : "";
+    const sourceType = Utils.renderSource(tags, queryParams);
     const startTime = runInfo.start_time;
     const runName = Utils.getRunName(tags);
     const childLeftMargin = isParent ? {} : {paddingLeft: '16px'};
@@ -71,13 +73,13 @@ export default class ExperimentViewUtil {
       </CellComponent>,
       <CellComponent className="run-table-container" key="meta-source" title={sourceType}>
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
-          {Utils.renderSourceTypeIcon(runInfo.source_type)}
+          {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
           {sourceType}
         </div>
       </CellComponent>,
       <CellComponent className="run-table-container" key="meta-version">
         <div className="truncate-text single-line" style={ExperimentViewUtil.styles.runInfoCell}>
-          {Utils.renderVersion(runInfo)}
+          {Utils.renderVersion(tags)}
         </div>
       </CellComponent>,
     ];
@@ -399,7 +401,7 @@ export default class ExperimentViewUtil {
         }
       }
     });
-    return mergedRows;
+    return mergedRows.slice(0, SEARCH_MAX_RESULTS);
   }
 
   static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {

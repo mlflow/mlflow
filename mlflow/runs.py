@@ -9,7 +9,6 @@ import mlflow.tracking
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
 from tabulate import tabulate
-from mlflow.entities.experiment import Experiment
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.utils.time_utils import conv_longdate_to_str
 
@@ -26,9 +25,8 @@ def commands():
 
 
 @commands.command("list")
-@click.option("--experiment-id", envvar=mlflow.tracking._EXPERIMENT_ID_ENV_VAR, type=click.INT,
-              help="Specify the experiment ID for list of runs Defaults to %s" %
-                   Experiment.DEFAULT_EXPERIMENT_ID, default=Experiment.DEFAULT_EXPERIMENT_ID)
+@click.option("--experiment-id", envvar=mlflow.tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
+              help="Specify the experiment ID for list of runs.")
 @click.option("--view", "-v", default="active_only",
               help="Select view type for list experiments. Valid view types are "
                    "'active_only' (default), 'deleted_only', and 'all'.")
@@ -43,7 +41,7 @@ def list_run(experiment_id, view):
     for run in runs:
         tags = {t.key: t.value for t in run.data.tags}
         run_name = tags.get(MLFLOW_RUN_NAME, "")
-        table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_uuid])
+        table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_id])
     print(tabulate(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
 
 
