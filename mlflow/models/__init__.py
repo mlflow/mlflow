@@ -29,7 +29,6 @@ class Model(object):
     implementing new Model flavors.
     """
 
-    # TODO(sueann): keyword_only?
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:

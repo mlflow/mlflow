@@ -22,7 +22,7 @@ def deprecated(alternative=None):
         notice = ".. Warning:: Deprecated: This method will be deprecated in " + \
                  "a near future release."
         if alternative is not None and alternative.strip():
-            notice += " Use %s instead." % alternative
+            notice += " Use ``%s`` instead." % alternative
         func.__doc__ = notice + "\n" + func.__doc__
         return func
     return deprecated_func
