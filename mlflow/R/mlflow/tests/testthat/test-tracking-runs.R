@@ -133,9 +133,11 @@ test_that("mlflow_log_batch() works", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
   mlflow_log_batch(
-    metrics = list(mse = 21, rmse = 42),
-    params = list(l1 = 0.01, optimizer = "adam"),
-    tags = list(model_type = "regression", data_year = "2015")
+    metrics = data.frame(key = c("mse", "rmse"), value = c(21, 42),
+                         timestamp = c(100, 200)),
+    params = data.frame(key = c("l1", "optimizer"), value = c(0.01, "adam")),
+    tags = data.frame(key = c("model_type", "data_year"),
+                      value = c("regression", "2015"))
   )
 
   run <- mlflow_get_run()
@@ -170,22 +172,5 @@ test_that("mlflow_log_batch() works", {
   expect_setequal(
     tags$value,
     c("regression", "2015")
-  )
-})
-
-test_that("mlflow_log_batch() works with timestamp", {
-  mlflow_clear_test_dir("mlruns")
-  my_time <- mlflow:::current_time()
-
-  mlflow_log_batch(
-    metrics = list(accuracy = 0.98, accuracy = 0.99),
-    timestamps = rep(my_time, 2)
-  )
-
-  metric_history <- mlflow_get_metric_history("accuracy")
-
-  expect_equal(
-    as.double(metric_history$timestamp),
-    rep(my_time, 2) / 1000
   )
 })
