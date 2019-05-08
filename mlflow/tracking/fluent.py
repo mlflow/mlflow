@@ -87,7 +87,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
                           is unspecified, will look for valid experiment in the following order:
                           activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_ID`` env variable,
                           or the default experiment.
-    :param run_name: Name of new run (set a mlflow.runName tag).
+    :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
                      Used only when ``run_id`` is unspecified.
     :param nested: Parameter which must be set to ``True`` to create nested runs.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
