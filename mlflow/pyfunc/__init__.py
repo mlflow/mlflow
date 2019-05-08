@@ -282,7 +282,7 @@ def load_model(model_uri, suppress_warnings=False):
                               loading process will be suppressed. If False, these warning messages
                               will be emitted.
     """
-    return load_pyfunc(path, run_id, suppress_warnings)
+    return load_pyfunc(model_uri, suppress_warnings)
 
 
 @deprecated("pyfunc.load_model")
