@@ -10,6 +10,7 @@ import { getRunTags } from '../reducers/Reducers';
 import { MetricsPlotControls, X_AXIS_RELATIVE, X_AXIS_STEP } from './MetricsPlotControls';
 import qs from 'qs';
 import { withRouter } from 'react-router-dom';
+import Routes from '../Routes';
 
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
@@ -26,8 +27,8 @@ class MetricsPlotPanel extends React.Component {
 
   constructor(props) {
     super(props);
-    const plotMetricKeys = this.getPlotMetricKeysFromUrl();
-    const selectedMetricKeys = plotMetricKeys.length ? plotMetricKeys : [this.props.metricKey];
+    const plotMetricKeys = MetricsPlotPanel.getPlotMetricKeysFromUrl(props.location.search);
+    const selectedMetricKeys = plotMetricKeys.length ? plotMetricKeys : [props.metricKey];
     this.state = {
       selectedXAxis: X_AXIS_RELATIVE,
       selectedMetricKeys,
@@ -45,8 +46,14 @@ class MetricsPlotPanel extends React.Component {
     return CHART_TYPE_LINE;
   }
 
-  getPlotMetricKeysFromUrl = () =>
-    JSON.parse(qs.parse(this.props.location.search)['plot_metric_keys']);
+  static getPlotMetricKeysFromUrl = (search) => JSON.parse(qs.parse(search)['plot_metric_keys']);
+
+  updateUrlWithSelectedMetrics(selectedMetricKeys) {
+    const { runUuids, metricKey, location, history } = this.props;
+    const params = qs.parse(location.search);
+    const experimentId = params['experiment'];
+    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
+  }
 
   loadMetricHistory = (runUuids, metricKeys) => {
     const requestIds = [];
@@ -101,6 +108,7 @@ class MetricsPlotPanel extends React.Component {
       selectedMetricKeys: metricValues,
       historyRequestIds: [...prevState.historyRequestIds, ...requestIds],
     }));
+    this.updateUrlWithSelectedMetrics(metricValues);
   };
 
   handleShowDotChange = (showDot) => {
