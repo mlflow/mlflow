@@ -6,7 +6,6 @@ import mlflow
 from mlflow import tracking, pyfunc
 import numpy as np
 import pandas as pd
-import os.path
 import shutil
 import tempfile
 import tensorflow as tf
