@@ -53,11 +53,12 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
     """
-    artifact_src_dir = posixpath.dirname(artifact_uri)
-    artifact_src_relative_path = posixpath.basename(artifact_uri)
-    artifact_repo = get_artifact_repository(artifact_uri=artifact_src_dir)
-    return artifact_repo.download_artifacts(artifact_path=artifact_src_relative_path,
-                                            dst_path=output_path)
+    parsed_uri = urllib.parse.urlparse(artifact_uri)
+    artifact_path = posixpath.basename(parsed_uri.path)
+    parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
+    root_uri = urllib.parse.urlunparse(parsed_uri)
+    return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
+        artifact_path=artifact_path, dst_path=output_path)
 
 
 def _get_model_log_dir(model_name, run_id):

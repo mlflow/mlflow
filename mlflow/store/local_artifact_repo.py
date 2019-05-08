@@ -55,6 +55,7 @@ class LocalArtifactRepository(ArtifactRepository):
         else:
             return []
 
+
     def _download_file(self, remote_file_path, local_path):
         # NOTE: The remote_file_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
