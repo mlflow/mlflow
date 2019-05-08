@@ -87,6 +87,7 @@ def _get_safe_port():
     sock.close()
     return port
 
+
 # Root directory for all stores (backend or artifact stores) created during this suite
 SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
 # Root directory for all artifact stores created during this suite
