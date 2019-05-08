@@ -133,8 +133,8 @@ test_that("mlflow_log_batch() works", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
   mlflow_log_batch(
-    metrics = data.frame(key = c("mse", "rmse"), value = c(21, 42),
-                         timestamp = c(100, 200)),
+    metrics = data.frame(key = c("mse", "mse", "rmse"), value = c(21, 23, 42),
+                         timestamp = c(100, 200, 300)),
     params = data.frame(key = c("l1", "optimizer"), value = c(0.01, "adam")),
     tags = data.frame(key = c("model_type", "data_year"),
                       value = c("regression", "2015"))
@@ -151,7 +151,20 @@ test_that("mlflow_log_batch() works", {
   )
   expect_setequal(
     metrics$value,
-    c(21, 42)
+    c(23, 42)
+  )
+  expect_setequal(
+    metrics$timestamp,
+    c(200, 300)
+  )
+  metric_history <- mlflow_get_metric_history("mse")
+  expect_setequal(
+    metric_history$value,
+    c(21, 23)
+  )
+  expect_setequal(
+    metric_history$timestamp,
+    c(100, 200)
   )
 
   expect_setequal(
