@@ -26,7 +26,7 @@ export const Metric = Immutable.Record({
   timestamp: undefined,
 
   // optional INT64
-  step : undefined,
+  step: undefined,
 }, 'Metric');
 
 /**
