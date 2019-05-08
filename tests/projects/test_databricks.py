@@ -165,7 +165,7 @@ def test_run_databricks_validations(
         # Test bad tracking URI
         tracking_uri_mock.return_value = tmpdir.strpath
         with pytest.raises(ExecutionException):
-            run_databricks_project(cluster_spec_mock, block=True)
+            run_databricks_project(cluster_spec_mock, synchronous=True)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         mlflow_service = mlflow.tracking.MlflowClient()
@@ -199,7 +199,7 @@ def test_run_databricks(
         # Test that MLflow gets the correct run status when performing a Databricks run
         for run_succeeded, expect_status in [(True, RunStatus.FINISHED), (False, RunStatus.FAILED)]:
             runs_get_mock.return_value = mock_runs_get_result(succeeded=run_succeeded)
-            submitted_run = run_databricks_project(cluster_spec_mock, block=False)
+            submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
             assert submitted_run.wait() == run_succeeded
             assert submitted_run.run_id is not None
             assert runs_submit_mock.call_count == 1
@@ -227,7 +227,7 @@ def test_run_databricks_cluster_spec_json(
             "node_type_id": "i3.xlarge",
         }
         # Run project synchronously, verify that it succeeds (doesn't throw)
-        run_databricks_project(cluster_spec=cluster_spec, block=True)
+        run_databricks_project(cluster_spec=cluster_spec, synchronous=True)
         assert runs_submit_mock.call_count == 1
         runs_submit_args, _ = runs_submit_mock.call_args_list[0]
         req_body = runs_submit_args[0]
@@ -243,14 +243,14 @@ def test_run_databricks_cancel(
     # waiting for run status.
     with mock.patch.dict(os.environ, {'DATABRICKS_HOST': 'test-host', 'DATABRICKS_TOKEN': 'foo'}):
         runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
-        submitted_run = run_databricks_project(cluster_spec_mock, block=False)
+        submitted_run = run_databricks_project(cluster_spec_mock, synchronous=False)
         submitted_run.cancel()
         validate_exit_status(submitted_run.get_status(), RunStatus.FAILED)
         assert runs_cancel_mock.call_count == 1
         # Test that we raise an exception when a blocking Databricks run fails
         runs_get_mock.return_value = mock_runs_get_result(succeeded=False)
         with pytest.raises(mlflow.projects.ExecutionException):
-            run_databricks_project(cluster_spec_mock, block=True)
+            run_databricks_project(cluster_spec_mock, synchronous=True)
 
 
 def test_get_tracking_uri_for_run():

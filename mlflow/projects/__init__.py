@@ -70,7 +70,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
-         backend=None, cluster_spec=None, use_conda=True,
+         backend=None, backend_spec=None, use_conda=True,
          storage_dir=None, synchronous=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -109,7 +109,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         return run_databricks(
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
-            experiment_id=experiment_id, cluster_spec=cluster_spec)
+            experiment_id=experiment_id, cluster_spec=backend_spec)
 
     elif backend == "local" or backend is None:
         command = []
@@ -222,7 +222,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
 
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
-        parameters=parameters, backend=backend, cluster_spec=cluster_spec_dict, use_conda=use_conda,
+        parameters=parameters, backend=backend, backend_spec=cluster_spec_dict, use_conda=use_conda,
         storage_dir=storage_dir, synchronous=synchronous, run_id=run_id)
     if synchronous:
         _wait_for(submitted_run_obj)

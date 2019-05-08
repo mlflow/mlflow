@@ -57,7 +57,7 @@ def cli():
 @click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
               help="ID of the experiment under which to launch the run.")
 # TODO: Add tracking server argument once we have it working.
-@click.option("--backend", "-m", metavar="BACKEND",
+@click.option("--backend", "-b", metavar="BACKEND",
               help="Execution backend to use for run. Supported values: 'local' (runs project "
                    "locally) and 'databricks' (runs project on a Databricks cluster). "
                    "Defaults to 'local'. If running against Databricks, will run against a "
@@ -68,7 +68,7 @@ def cli():
                    "specified by the default Databricks CLI profile. See "
                    "https://github.com/databricks/databricks-cli for more info on configuring a "
                    "Databricks CLI profile.")
-@click.option("--backend-spec", "-c", metavar="FILE",
+@click.option("--backend-spec", "-s", metavar="FILE",
               help="Path to JSON file (must end in '.json') or JSON string describing the cluster "
                    "to use when launching a run on Databricks. See "
                    "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
