@@ -19,21 +19,24 @@ from datetime import datetime
 
 import yaml
 
-
 import mlflow
 from mlflow.utils.file_utils import TempDir
 
 
 class Model(object):
-    """An MLflow Model that can support multiple model flavors."""
+    """
+    An MLflow Model that can support multiple model flavors. It is a useful class to use in
+    implementing new Model flavors.
+    """
 
-    def __init__(self, artifact_path=None, run_id=None, utc_time_created=datetime.utcnow(),
-                 flavors=None):
+    # TODO(sueann): keyword_only?
+    def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
             self.run_id = run_id
             self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created)
+        self.utc_time_created = \
+            str(utc_time_created if utc_time_created is not None else datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
 
     def add_flavor(self, name, **params):

@@ -188,7 +188,7 @@ def load_model(model_uri, tf_sess):
                       `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
                       supported-artifact-stores>`_.
 
-    :param tf_sess: The TensorFlow session in which to the load the model.
+    :param tf_sess: The TensorFlow session in which to load the model.
     :return: A TensorFlow signature definition of type:
              ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines the input and
              output tensors for model inference.
@@ -219,7 +219,7 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags
     from a serialized TensorFlow ``SavedModel`` collection.
 
     :param tf_saved_model_dir: The local filesystem path or run-relative artifact path to the model.
-    :param tf_sess: The TensorFlow session in which to the load the metagraph.
+    :param tf_sess: The TensorFlow session in which to load the metagraph.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
                                serialized ``SavedModel`` object. For more information, see the
                                ``tags`` parameter of the `tf.saved_model.builder.SavedModelBuilder

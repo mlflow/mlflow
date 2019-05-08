@@ -120,7 +120,7 @@ def mock_runs_get_result(succeeded):
 
 def run_databricks_project(cluster_spec, **kwargs):
     return mlflow.projects.run(
-        uri=TEST_PROJECT_DIR, mode="databricks", cluster_spec=cluster_spec,
+        uri=TEST_PROJECT_DIR, backend="databricks", backend_spec=cluster_spec,
         parameters={"alpha": "0.4"}, **kwargs)
 
 
@@ -175,13 +175,14 @@ def test_run_databricks_validations(
         # Test misspecified parameters
         with pytest.raises(ExecutionException):
             mlflow.projects.run(
-                TEST_PROJECT_DIR, mode="databricks", entry_point="greeter",
-                cluster_spec=cluster_spec_mock)
+                TEST_PROJECT_DIR, backend="databricks", entry_point="greeter",
+                backend_spec=cluster_spec_mock)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         # Test bad cluster spec
         with pytest.raises(ExecutionException):
-            mlflow.projects.run(TEST_PROJECT_DIR, mode="databricks", block=True, cluster_spec=None)
+            mlflow.projects.run(TEST_PROJECT_DIR, backend="databricks", synchronous=True,
+                                backend_spec=None)
         assert db_api_req_mock.call_count == 0
         db_api_req_mock.reset_mock()
         # Test that validations pass with good tracking URIs

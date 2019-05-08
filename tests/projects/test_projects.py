@@ -119,22 +119,14 @@ def test_fetch_project_validations(local_git_repo_uri):
     with pytest.raises(ExecutionException):
         mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, force_tempdir=False, version="version")
 
-    # Passing only one of git_username, git_password results in an error
-    for username, password in [(None, "hi"), ("hi", None)]:
-        with pytest.raises(ExecutionException):
-            mlflow.projects._fetch_project(
-                local_git_repo_uri, force_tempdir=False, git_username=username,
-                git_password=password)
-
 
 def test_dont_remove_mlruns(tmpdir):
     # Fetching a directory containing an "mlruns" folder doesn't remove the "mlruns" folder
     src_dir = tmpdir.mkdir("mlruns-src-dir")
     src_dir.mkdir("mlruns").join("some-file.txt").write("hi")
     src_dir.join("MLproject").write("dummy MLproject contents")
-    dst_dir = mlflow.projects._fetch_project(
-        uri=src_dir.strpath, version=None, git_username=None,
-        git_password=None, force_tempdir=False)
+    dst_dir = mlflow.projects._fetch_project(uri=src_dir.strpath, version=None,
+                                             force_tempdir=False)
     assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
 
 
@@ -154,7 +146,7 @@ def test_parse_subdirectory():
 def test_invalid_run_mode(tracking_uri_mock):  # pylint: disable=unused-argument
     """ Verify that we raise an exception given an invalid run mode """
     with pytest.raises(ExecutionException):
-        mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="some unsupported mode")
+        mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
 def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
@@ -308,13 +300,13 @@ def test_run_with_parent(tmpdir, tracking_uri_mock):  # pylint: disable=unused-a
 def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0 = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
-        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, block=False)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, synchronous=False)
     validate_exit_status(submitted_run0.get_status(), RunStatus.RUNNING)
     submitted_run0.wait()
     validate_exit_status(submitted_run0.get_status(), RunStatus.FINISHED)
     submitted_run1 = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": -1, "invalid-param": 30},
-        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, block=False)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, synchronous=False)
     submitted_run1.wait()
     validate_exit_status(submitted_run1.get_status(), RunStatus.FAILED)
 
@@ -338,7 +330,7 @@ def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0, submitted_run1 = [mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
         use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
-        block=False) for _ in range(2)]
+        synchronous=False) for _ in range(2)]
     submitted_run0.cancel()
     validate_exit_status(submitted_run0.get_status(), RunStatus.FAILED)
     # Sanity check: cancelling one run has no effect on the other
