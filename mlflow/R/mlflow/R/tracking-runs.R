@@ -116,29 +116,14 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
 #'   data may be written.
 #' @template roxlate-client
 #' @template roxlate-run-id
-#' @param metrics A named list of metrics to log.
-#' @param params A named list of params to log.
-#' @param tags A named list of tags to log.
-#' @param timestamps (Optional) A list of timestamps of the same length as `metrics`.
+#' @param metrics A dataframe of metrics to log, containing the following columns: "key", "value", 
+#'  "step", "timestamp"
+#' @param params A dataframe of params to log, containing the following columns: "key", "value"
+#' @param tags A dataframe of tags to log, containing the following columns: "key", "value"
 #' @export
-mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, timestamps = NULL,
-                             run_id = NULL, client = NULL) {
+mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id = NULL, 
+                             client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
-
-  metrics <- construct_batch_list(metrics)
-  params <- construct_batch_list(params)
-  tags <- construct_batch_list(tags)
-
-  if (!is.null(metrics)) {
-    metrics <- if (is.null(timestamps)) {
-      purrr::map(metrics, ~ c(.x, timestamp = current_time()))
-    } else {
-      if (length(metrics) != length(timestamps))
-        stop("`metrics` and `timestamps` must be of the same length.", call. = FALSE)
-      timestamps <- purrr::map(timestamps, ~ list(timestamp = .x))
-      purrr::map2(metrics, timestamps, c)
-    }
-  }
 
   mlflow_rest("runs", "log-batch", client = client, verb = "POST", data = list(
     run_id = run_id,
@@ -146,18 +131,7 @@ mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, timesta
     params = params,
     tags = tags
   ))
-
   invisible(NULL)
-}
-
-construct_batch_list <- function(l) {
-  if (is.null(l)) {
-    l
-  } else {
-    l %>%
-      purrr::imap(~ list(key = .y, value = .x)) %>%
-      unname()
-  }
 }
 
 #' Set Tag
