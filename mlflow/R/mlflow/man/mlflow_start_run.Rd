@@ -53,26 +53,3 @@ with(mlflow_start_run(), {
 }
 
 }
-\seealso{
-Other tracking functions: \code{\link{mlflow_create_experiment}},
-  \code{\link{mlflow_delete_experiment}},
-  \code{\link{mlflow_delete_run}},
-  \code{\link{mlflow_download_artifacts}},
-  \code{\link{mlflow_end_run}},
-  \code{\link{mlflow_get_experiment}},
-  \code{\link{mlflow_get_metric_history}},
-  \code{\link{mlflow_get_run}},
-  \code{\link{mlflow_list_artifacts}},
-  \code{\link{mlflow_list_experiments}},
-  \code{\link{mlflow_list_run_infos}},
-  \code{\link{mlflow_log_artifact}},
-  \code{\link{mlflow_log_batch}},
-  \code{\link{mlflow_log_metric}},
-  \code{\link{mlflow_log_param}},
-  \code{\link{mlflow_rename_experiment}},
-  \code{\link{mlflow_restore_experiment}},
-  \code{\link{mlflow_restore_run}},
-  \code{\link{mlflow_search_runs}},
-  \code{\link{mlflow_set_tag}}
-}
-\concept{tracking functions}

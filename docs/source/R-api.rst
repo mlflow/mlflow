@@ -228,31 +228,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-Seealso
--------
-
-Other tracking functions:
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 Delete Experiment
 =================
 
@@ -287,33 +262,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-.. _seealso-1:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 Delete a Run
 ============
 
@@ -343,33 +291,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-2:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Download Artifacts
 ==================
@@ -403,33 +324,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-3:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 End a Run
 =========
@@ -466,33 +360,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-4:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Get Experiment
 ==============
@@ -532,33 +399,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-.. _seealso-5:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 Get Metric History
 ==================
 
@@ -590,33 +430,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-6:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Get Run
 =======
@@ -650,33 +463,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-7:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Get Remote Tracking URI
 =======================
@@ -772,33 +558,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-.. _seealso-8:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 List Experiments
 ================
 
@@ -832,33 +591,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-9:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 List Run Infos
 ==============
@@ -894,33 +626,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-10:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Load MLflow Model Flavor
 ========================
@@ -1021,33 +726,6 @@ Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
 corresponding key and secrets provided by Amazon IAM.
 
-.. _seealso-11:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 Log Batch
 =========
 
@@ -1093,33 +771,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-.. _seealso-12:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 Log Metric
 ==========
 
@@ -1162,33 +813,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-13:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Log Model
 =========
@@ -1251,33 +875,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-14:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Read Command-Line Parameter
 ===========================
@@ -1390,33 +987,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-.. _seealso-15:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 Restore Experiment
 ==================
 
@@ -1455,33 +1025,6 @@ or was permanently deleted.
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-.. _seealso-16:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 Restore a Run
 =============
 
@@ -1511,33 +1054,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-17:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Restore Snapshot
 ================
@@ -1885,33 +1401,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-.. _seealso-18:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
-
 Run MLflow Tracking Server
 ==========================
 
@@ -2019,33 +1508,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-19:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_start_run`` <mlflow_start_run.html>`__
 
 Set Remote Tracking URI
 =======================
@@ -2178,33 +1640,6 @@ Details
 
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
-
-.. _seealso-20:
-
-Seealso
--------
-
-Other tracking functions:
-```mlflow_create_experiment`` <mlflow_create_experiment.html>`__ ,
-```mlflow_delete_experiment`` <mlflow_delete_experiment.html>`__ ,
-```mlflow_delete_run`` <mlflow_delete_run.html>`__ ,
-```mlflow_download_artifacts`` <mlflow_download_artifacts.html>`__ ,
-```mlflow_end_run`` <mlflow_end_run.html>`__ ,
-```mlflow_get_experiment`` <mlflow_get_experiment.html>`__ ,
-```mlflow_get_metric_history`` <mlflow_get_metric_history.html>`__ ,
-```mlflow_get_run`` <mlflow_get_run.html>`__ ,
-```mlflow_list_artifacts`` <mlflow_list_artifacts.html>`__ ,
-```mlflow_list_experiments`` <mlflow_list_experiments.html>`__ ,
-```mlflow_list_run_infos`` <mlflow_list_run_infos.html>`__ ,
-```mlflow_log_artifact`` <mlflow_log_artifact.html>`__ ,
-```mlflow_log_batch`` <mlflow_log_batch.html>`__ ,
-```mlflow_log_metric`` <mlflow_log_metric.html>`__ ,
-```mlflow_log_param`` <mlflow_log_param.html>`__ ,
-```mlflow_rename_experiment`` <mlflow_rename_experiment.html>`__ ,
-```mlflow_restore_experiment`` <mlflow_restore_experiment.html>`__ ,
-```mlflow_restore_run`` <mlflow_restore_run.html>`__ ,
-```mlflow_search_runs`` <mlflow_search_runs.html>`__ ,
-```mlflow_set_tag`` <mlflow_set_tag.html>`__
 
 .. _examples-5:
 
