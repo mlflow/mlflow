@@ -155,7 +155,7 @@ test_that("mlflow_log_batch() works", {
   )
   expect_setequal(
     metrics$timestamp,
-    purrr::map(c(200, 300), milliseconds_to_date)
+    purrr::map(c(200, 300), mlflow:::milliseconds_to_date)
   )
   metric_history <- mlflow_get_metric_history("mse")
   expect_setequal(
@@ -164,7 +164,7 @@ test_that("mlflow_log_batch() works", {
   )
   expect_setequal(
     metric_history$timestamp,
-    purrr::map(c(200, 300), milliseconds_to_date)
+    purrr::map(c(200, 300), mlflow:::milliseconds_to_date)
   )
 
   expect_setequal(
