@@ -443,7 +443,7 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     parameters for the second workflow: ``python_model``, ``artifacts``, cannot be
     specified together.
 
-    :param dst_path: The path to which to save the Python model.
+    :param path: The path to which to save the Python model.
     :param loader_module: The name of the Python module that will be used to load the model
                           from ``data_path``. This module must define a method with the prototype
                           ``_load_pyfunc(data_path)``. If not *None*, this module and its
