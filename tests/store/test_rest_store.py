@@ -114,12 +114,12 @@ class TestRestStore(unittest.TestCase):
             with mlflow.start_run(experiment_id="43"):
                 cr_body = message_to_json(CreateRun(experiment_id="43",
                                                     user_id=user_name, start_time=13579000,
-                                                    tags=[ProtoRunTag(key='mlflow.user',
-                                                                      value=user_name),
-                                                          ProtoRunTag(key='mlflow.source.name',
+                                                    tags=[ProtoRunTag(key='mlflow.source.name',
                                                                       value=source_name),
                                                           ProtoRunTag(key='mlflow.source.type',
-                                                                      value='LOCAL')]))
+                                                                      value='LOCAL'),
+                                                          ProtoRunTag(key='mlflow.user',
+                                                                      value=user_name)]))
                 assert mock_http.call_count == 1
                 exp_calls = [("runs/create", "POST", cr_body)]
                 self._verify_request_has_calls(mock_http, creds, exp_calls)
