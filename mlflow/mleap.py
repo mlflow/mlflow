@@ -16,10 +16,12 @@ from six import reraise
 import mlflow
 from mlflow.models import Model
 from mlflow.exceptions import MlflowException
+from mlflow.utils import keyword_only
 
 FLAVOR_NAME = "mleap"
 
 
+@keyword_only
 def log_model(spark_model, sample_input, artifact_path):
     """
     Log a Spark MLLib model in MLeap format as an MLflow artifact
@@ -64,12 +66,14 @@ def log_model(spark_model, sample_input, artifact_path):
     >>> mlflow.log_param("max_iter", 10)
     >>> mlflow.log_param("reg_param", 0.001)
     >>> #log the Spark MLlib model in MLeap format
-    >>> mlflow.mleap.log_model(model, test_df, "mleap-model")
+    >>> mlflow.mleap.log_model(spark_model=model, sample_input=test_df,
+    >>>                        artifact_path="mleap-model")
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
                      spark_model=spark_model, sample_input=sample_input)
 
 
+@keyword_only
 def save_model(spark_model, sample_input, path, mlflow_model=Model()):
     """
     Save a Spark MLlib PipelineModel in MLeap format at a local path.
@@ -94,7 +98,8 @@ def save_model(spark_model, sample_input, path, mlflow_model=Model()):
     >>> model_save_dir = ...
     >>> sample_input_df = ...
     >>> #save the spark MLlib model in MLeap flavor
-    >>> mlflow.mleap.save_model(spark_model, sample_input_df, model_save_dir)
+    >>> mlflow.mleap.save_model(spark_model=spark_model, sample_input_df=sample_input_df,
+    >>>                         path=model_save_dir)
     """
     add_to_model(mlflow_model, path, spark_model, sample_input)
     mlflow_model.save(os.path.join(path, "MLmodel"))

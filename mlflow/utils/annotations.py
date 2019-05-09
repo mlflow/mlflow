@@ -39,8 +39,8 @@ def keyword_only(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         if len(args) > 0:
-            raise TypeError("Method %s only accepts keyword arguments." % func.__name__)
+            raise TypeError("Method %s only takes keyword arguments." % func.__name__)
         return func(**kwargs)
-    notice = ".. Note:: This method only accepts keyword arguments.\n"
+    notice = ".. Note:: This method requires all argument be specified by keyword.\n"
     wrapper.__doc__ = notice + wrapper.__doc__
     return wrapper
