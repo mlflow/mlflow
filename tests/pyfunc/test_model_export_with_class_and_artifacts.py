@@ -24,7 +24,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import get_artifact_uri as utils_get_artifact_uri, \
-    _get_model_log_dir
+    _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -410,9 +410,9 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
                                 },
                                 python_model=main_scoped_model_class(predict_fn=None),
                                 conda_env=pyfunc_custom_env)
-        pyfunc_run_id = mlflow.active_run().info.run_id
+        pyfunc_model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path))
 
-    pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])
@@ -465,9 +465,9 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
                                         run_id=sklearn_run_id)
                                 },
                                 python_model=main_scoped_model_class(predict_fn=None))
-        pyfunc_run_id = mlflow.active_run().info.run_id
+        pyfunc_model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path))
 
-    pyfunc_model_path = _get_model_log_dir(pyfunc_artifact_path, pyfunc_run_id)
     pyfunc_conf = _get_flavor_configuration(
         model_path=pyfunc_model_path, flavor_name=mlflow.pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(pyfunc_model_path, pyfunc_conf[mlflow.pyfunc.ENV])

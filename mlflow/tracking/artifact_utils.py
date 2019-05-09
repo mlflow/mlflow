@@ -58,12 +58,3 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     artifact_repo = get_artifact_repository(artifact_uri=artifact_src_dir)
     return artifact_repo.download_artifacts(artifact_path=artifact_src_relative_path,
                                             dst_path=output_path)
-
-
-def _get_model_log_dir(model_name, run_id):
-    if not run_id:
-        raise Exception("Must specify a run_id to get logging directory for a model.")
-    store = _get_store()
-    run = store.get_run(run_id)
-    artifact_repo = get_artifact_repository(run.info.artifact_uri)
-    return artifact_repo.download_artifacts(model_name)

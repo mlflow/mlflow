@@ -25,6 +25,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -301,8 +302,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
         mlflow.pytorch.log_model(pytorch_model=sequential_model,
                                  artifact_path=artifact_path,
                                  conda_env=pytorch_custom_env)
-        run_id = mlflow.active_run().info.run_id
-    model_path = tracking.artifact_utils._get_model_log_dir(artifact_path, run_id)
+        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -337,8 +338,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         mlflow.pytorch.log_model(pytorch_model=sequential_model,
                                  artifact_path=artifact_path,
                                  conda_env=None)
-        run_id = mlflow.active_run().info.run_id
-    model_path = tracking.artifact_utils._get_model_log_dir(artifact_path, run_id)
+        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -455,10 +456,8 @@ def test_load_model_succeeds_with_dependencies_specified_via_code_paths(
                          artifacts={
                             "pytorch_model": model_path,
                          })
-        pyfunc_run_id = mlflow.active_run().info.run_id
-
-    pyfunc_model_path = tracking.artifact_utils._get_model_log_dir(pyfunc_artifact_path,
-                                                                   pyfunc_run_id)
+        pyfunc_model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path))
 
     # Deploy the custom pyfunc model and ensure that it is able to successfully load its
     # constituent PyTorch model via `mlflow.pytorch.load_model`
@@ -583,8 +582,8 @@ def test_load_model_succeeds_when_data_is_model_file_instead_of_directory(
             artifact_path=artifact_path,
             pytorch_model=module_scoped_subclassed_model,
             conda_env=None)
-        run_id = mlflow.active_run().info.run_id
-    model_path = tracking.artifact_utils._get_model_log_dir(artifact_path, run_id)
+        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
