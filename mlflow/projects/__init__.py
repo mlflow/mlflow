@@ -70,18 +70,17 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
-         mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-         storage_dir=None, block=True, run_id=None):
+         backend=None, backend_config=None, use_conda=True,
+         storage_dir=None, synchronous=True, run_id=None):
     """
-    Helper that delegates to the project-running method corresponding to the passed-in mode.
+    Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
 
     parameters = parameters or {}
-    work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version,
-                              git_username=git_username, git_password=git_password)
+    work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version)
     project = _project_spec.load_project(work_dir)
-    _validate_execution_environment(project, mode)
+    _validate_execution_environment(project, backend)
     project.get_entry_point(entry_point)._validate_parameters(parameters)
     if run_id:
         active_run = tracking.MlflowClient().get_run(run_id)
@@ -105,14 +104,14 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
             tracking.MlflowClient().set_tag(active_run.info.run_id, tag, version)
 
-    if mode == "databricks":
+    if backend == "databricks":
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
-            experiment_id=experiment_id, cluster_spec=cluster_spec)
+            experiment_id=experiment_id, cluster_spec=backend_config)
 
-    elif mode == "local" or mode is None:
+    elif backend == "local" or backend is None:
         command = []
         command_separator = " "
         # If a docker_env attribute is defined in MLProject then it takes precedence over conda yaml
@@ -132,10 +131,10 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
             command += _get_conda_command(conda_env_name)
-        # In blocking mode, run the entry point command in blocking fashion, sending status updates
-        # to the tracking server when finished. Note that the run state may not be persisted to the
-        # tracking server if interrupted
-        if block:
+        # In synchronous mode, run the entry point command in a blocking fashion, sending status
+        # updates to the tracking server when finished. Note that the run state may not be
+        # persisted to the tracking server if interrupted
+        if synchronous:
             command += _get_entry_point_command(project, entry_point, parameters, storage_dir)
             command = command_separator.join(command)
             return _run_entry_point(command, work_dir, experiment_id,
@@ -145,15 +144,15 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             work_dir=work_dir, entry_point=entry_point, parameters=parameters,
             experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
-    supported_modes = ["local", "databricks"]
+    supported_backends = ["local", "databricks"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
-                             "values: %s" % (mode, supported_modes))
+                             "values: %s" % (backend, supported_backends))
 
 
 def run(uri, entry_point="main", version=None, parameters=None,
         experiment_name=None, experiment_id=None,
-        mode=None, cluster_spec=None, git_username=None, git_password=None, use_conda=True,
-        storage_dir=None, block=True, run_id=None):
+        backend=None, backend_config=None, use_conda=True,
+        storage_dir=None, synchronous=True, run_id=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
 
@@ -174,30 +173,29 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :param version: For Git-based projects, either a commit hash or a branch name.
     :param experiment_name: Name of experiment under which to launch the run.
     :param experiment_id: ID of experiment under which to launch the run.
-    :param mode: Execution mode of the run: "local" or "databricks". If running against Databricks,
-                 will run against a Databricks workspace determined as follows: if a Databricks
-                 tracking URI of the form 'databricks://profile' has been set (e.g. by setting
-                 the MLFLOW_TRACKING_URI environment variable), will run against the workspace
-                 specified by <profile>. Otherwise, runs against the workspace specified by the
-                 default Databricks CLI profile.
-    :param cluster_spec: When ``mode`` is "databricks", dictionary or path to a JSON file
-                         containing a `Databricks cluster specification
-                         <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
-                         to use when launching a run.
-    :param git_username: Username for HTTP(S) authentication with Git.
-    :param git_password: Password for HTTP(S) authentication with Git.
+    :param backend: Execution backend for the run: "local" or "databricks". If running against
+                    Databricks, will run against a Databricks workspace determined as follows: if
+                    a Databricks tracking URI of the form ``databricks://profile`` has been set
+                    (e.g. by setting the MLFLOW_TRACKING_URI environment variable), will run
+                    against the workspace specified by <profile>. Otherwise, runs against the
+                    workspace specified by the default Databricks CLI profile.
+    :param backend_config: A dictionary, or a path to a JSON file (must end in '.json'), which will
+                           be passed as config to the backend. For the Databricks backend, this
+                           should be a cluster spec: see `Databricks Cluster Specs for Jobs
+                           <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+                           for more information.
     :param use_conda: If True (the default), create a new Conda environment for the run and
                       install project dependencies within that environment. Otherwise, run the
                       project in the current environment without installing any project
                       dependencies.
-    :param storage_dir: Used only if ``mode`` is "local". MLflow downloads artifacts from
+    :param storage_dir: Used only if ``backend`` is "local". MLflow downloads artifacts from
                         distributed URIs passed to parameters of type ``path`` to subdirectories of
                         ``storage_dir``.
-    :param block: Whether to block while waiting for a run to complete. Defaults to True.
-                  Note that if ``block`` is False and mode is "local", this method will return, but
-                  the current process will block when exiting until the local run completes.
-                  If the current process is interrupted, any asynchronous runs launched via this
-                  method will be terminated.
+    :param synchronous: Whether to block while waiting for a run to complete. Defaults to True.
+                        Note that if ``synchronous`` is False and ``backend`` is "local", this
+                        method will return, but the current process will block when exiting until
+                        the local run completes. If the current process is interrupted, any
+                        asynchronous runs launched via this method will be terminated.
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
@@ -205,31 +203,29 @@ def run(uri, entry_point="main", version=None, parameters=None,
              about the launched run.
     """
 
-    cluster_spec_dict = cluster_spec
-    if (cluster_spec and type(cluster_spec) != dict
-            and os.path.splitext(cluster_spec)[-1] == ".json"):
-        with open(cluster_spec, 'r') as handle:
+    cluster_spec_dict = backend_config
+    if (backend_config and type(backend_config) != dict
+            and os.path.splitext(backend_config)[-1] == ".json"):
+        with open(backend_config, 'r') as handle:
             try:
                 cluster_spec_dict = json.load(handle)
             except ValueError:
                 _logger.error(
                     "Error when attempting to load and parse JSON cluster spec from file %s",
-                    cluster_spec)
+                    backend_config)
                 raise
 
-    if mode == "databricks":
-        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), cluster_spec)
+    if backend == "databricks":
+        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_config)
 
     experiment_id = _resolve_experiment_id(experiment_name=experiment_name,
                                            experiment_id=experiment_id)
 
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
-        parameters=parameters,
-        mode=mode, cluster_spec=cluster_spec_dict,
-        git_username=git_username, git_password=git_password, use_conda=use_conda,
-        storage_dir=storage_dir, block=block, run_id=run_id)
-    if block:
+        parameters=parameters, backend=backend, backend_config=cluster_spec_dict,
+        use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id)
+    if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj
 
@@ -326,7 +322,7 @@ def _is_valid_branch_name(work_dir, version):
     return False
 
 
-def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_password=None):
+def _fetch_project(uri, force_tempdir, version=None):
     """
     Fetch a project into a local directory, returning the path to the local project directory.
     :param force_tempdir: If True, will fetch the project into a temporary directory. Otherwise,
@@ -354,7 +350,7 @@ def _fetch_project(uri, force_tempdir, version=None, git_username=None, git_pass
             dir_util.copy_tree(src=parsed_uri, dst=dst_dir)
     else:
         assert _GIT_URI_REGEX.match(parsed_uri), "Non-local URI %s should be a Git URI" % parsed_uri
-        _fetch_git_repo(parsed_uri, version, dst_dir, git_username, git_password)
+        _fetch_git_repo(parsed_uri, version, dst_dir)
     res = os.path.abspath(os.path.join(dst_dir, subdirectory))
     if not os.path.exists(res):
         raise ExecutionException("Could not find subdirectory %s of %s" % (subdirectory, dst_dir))
@@ -382,28 +378,18 @@ def _fetch_zip_repo(uri):
     return BytesIO(response.content)
 
 
-def _fetch_git_repo(uri, version, dst_dir, git_username, git_password):
+def _fetch_git_repo(uri, version, dst_dir):
     """
     Clone the git repo at ``uri`` into ``dst_dir``, checking out commit ``version`` (or defaulting
     to the head commit of the repository's master branch if version is unspecified).
-    If ``git_username`` and ``git_password`` are specified, uses them to authenticate while fetching
-    the repo. Otherwise, assumes authentication parameters are specified by the environment,
-    e.g. by a Git credential helper.
+    Assumes authentication parameters are specified by the environment, e.g. by a Git credential
+    helper.
     """
     # We defer importing git until the last moment, because the import requires that the git
     # executable is availble on the PATH, so we only want to fail if we actually need it.
     import git
     repo = git.Repo.init(dst_dir)
     origin = repo.create_remote("origin", uri)
-    git_args = [git_username, git_password]
-    if not (all(arg is not None for arg in git_args) or all(arg is None for arg in git_args)):
-        raise ExecutionException("Either both or neither of git_username and git_password must be "
-                                 "specified.")
-    if git_username:
-        git_credentials = "url=%s\nusername=%s\npassword=%s" % (uri, git_username, git_password)
-        repo.git.config("--local", "credential.helper", "cache")
-        process.exec_cmd(cmd=["git", "credential-cache", "store"], cwd=dst_dir,
-                         cmd_stdin=git_credentials)
     origin.fetch()
     if version is not None:
         try:
@@ -623,8 +609,8 @@ def _get_conda_command(conda_env_name):
         return ["conda %s %s" % (activate_path, conda_env_name)]
 
 
-def _validate_execution_environment(project, mode):
-    if project.docker_env and mode == "databricks":
+def _validate_execution_environment(project, backend):
+    if project.docker_env and backend == "databricks":
         raise ExecutionException(
             "Running docker-based projects on Databricks is not yet supported.")
 

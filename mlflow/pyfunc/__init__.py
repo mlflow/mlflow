@@ -206,7 +206,7 @@ from mlflow.models import Model
 from mlflow.pyfunc.model import PythonModel, PythonModelContext,\
     DEFAULT_CONDA_ENV
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import PYTHON_VERSION, get_major_minor_py_version
+from mlflow.utils import PYTHON_VERSION, deprecated, get_major_minor_py_version
 from mlflow.utils.file_utils import TempDir, _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.exceptions import MlflowException
@@ -264,6 +264,28 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
+def load_model(model_uri, suppress_warnings=False):
+    """
+    Load a model stored in Python function format.
+
+    :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see the
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
+                      supported-artifact-stores>`_.
+    :param suppress_warnings: If True, non-fatal warning messages associated with the model
+                              loading process will be suppressed. If False, these warning messages
+                              will be emitted.
+    """
+    return load_pyfunc(model_uri, suppress_warnings)
+
+
+@deprecated("pyfunc.load_model", 1.0)
 def load_pyfunc(model_uri, suppress_warnings=False):
     """
     Load a model stored in Python function format.
