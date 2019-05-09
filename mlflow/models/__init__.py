@@ -25,8 +25,8 @@ from mlflow.utils.file_utils import TempDir
 
 class Model(object):
     """
-    An MLflow Model that can support multiple model flavors. It is a useful class to use in
-    implementing new Model flavors.
+    An MLflow Model that can support multiple model flavors. Provides APIs for implementing
+    new Model flavors.
     """
 
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None):
@@ -34,8 +34,7 @@ class Model(object):
         if run_id:
             self.run_id = run_id
             self.artifact_path = artifact_path
-        self.utc_time_created = \
-            str(utc_time_created if utc_time_created is not None else datetime.utcnow())
+        self.utc_time_created = str(utc_time_created or datetime.utcnow())
         self.flavors = flavors if flavors is not None else {}
 
     def add_flavor(self, name, **params):

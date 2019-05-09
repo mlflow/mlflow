@@ -6,7 +6,7 @@
 \usage{
 mlflow_run(entry_point = NULL, uri = ".", version = NULL,
   param_list = NULL, experiment_id = NULL, experiment_name = NULL,
-  backend = NULL, backend_spec = NULL, no_conda = FALSE, storage_dir = NULL)
+  backend = NULL, backend_config = NULL, no_conda = FALSE, storage_dir = NULL)
 }
 \arguments{
 \item{entry_point}{Entry point within project, defaults to `main` if not specified.}
@@ -23,7 +23,8 @@ mlflow_run(entry_point = NULL, uri = ".", version = NULL,
 
 \item{backend}{Execution backend to use for run.}
 
-\item{backend_spec}{Path to JSON file describing the cluster to use when launching a run on Databricks.}
+\item{backend_config}{Path to JSON file which will be passed to the backend. For the Databricks backend,
+it should describe the cluster to use when launching a run on Databricks.}
 
 \item{no_conda}{If specified, assume that MLflow is running within a Conda environment with the necessary
 dependencies for the current project instead of attempting to create a new Conda environment. Only

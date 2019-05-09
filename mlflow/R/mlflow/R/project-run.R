@@ -9,7 +9,8 @@
 #' @param experiment_id ID of the experiment under which to launch the run.
 #' @param experiment_name Name of the experiment under which to launch the run.
 #' @param backend Execution backend to use for run.
-#' @param backend_spec Path to JSON file describing the cluster to use when launching a run on Databricks.
+#' @param backend_config Path to JSON file which will be passed to the backend. For the Databricks backend,
+#'   it should describe the cluster to use when launching a run on Databricks.
 #' @param no_conda If specified, assume that MLflow is running within a Conda environment with the necessary
 #'   dependencies for the current project instead of attempting to create a new Conda environment. Only
 #'   valid if running locally.
@@ -20,7 +21,7 @@
 #'
 #' @export
 mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list = NULL,
-                       experiment_id = NULL, experiment_name = NULL, backend = NULL, backend_spec = NULL,
+                       experiment_id = NULL, experiment_name = NULL, backend = NULL, backend_config = NULL,
                        no_conda = FALSE, storage_dir = NULL) {
   if (!is.null(experiment_name) && !is.null(experiment_id)) {
     stop("Specify only one of `experiment_name` or `experiment_id`.")
@@ -41,7 +42,7 @@ mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list
     mlflow_cli_param("--experiment-id", experiment_id) %>%
     mlflow_cli_param("--experiment-name", experiment_name) %>%
     mlflow_cli_param("--backend", backend) %>%
-    mlflow_cli_param("--backend-spec", backend_spec) %>%
+    mlflow_cli_param("--backend-config", backend_config) %>%
     mlflow_cli_param("--storage-dir", storage_dir) %>%
     c(param_list)
 

@@ -70,7 +70,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
-         backend=None, backend_spec=None, use_conda=True,
+         backend=None, backend_config=None, use_conda=True,
          storage_dir=None, synchronous=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -109,7 +109,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         return run_databricks(
             remote_run=active_run,
             uri=uri, entry_point=entry_point, work_dir=work_dir, parameters=parameters,
-            experiment_id=experiment_id, cluster_spec=backend_spec)
+            experiment_id=experiment_id, cluster_spec=backend_config)
 
     elif backend == "local" or backend is None:
         command = []
@@ -151,7 +151,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 
 def run(uri, entry_point="main", version=None, parameters=None,
         experiment_name=None, experiment_id=None,
-        backend=None, backend_spec=None, use_conda=True,
+        backend=None, backend_config=None, use_conda=True,
         storage_dir=None, synchronous=True, run_id=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -179,10 +179,11 @@ def run(uri, entry_point="main", version=None, parameters=None,
                     (e.g. by setting the MLFLOW_TRACKING_URI environment variable), will run
                     against the workspace specified by <profile>. Otherwise, runs against the
                     workspace specified by the default Databricks CLI profile.
-    :param backend_spec: When ``backend`` is "databricks", dictionary or path to a JSON file
-                         containing a `Databricks cluster specification
-                         <https://docs.databricks.com/api/latest/jobs.html#clusterspec>`_
-                         to use when launching a run.
+    :param backend_config: A dictionary, or a path to a JSON file (must end in '.json'), which will
+                           be passed as config to the backend. For the Databricks backend, this
+                           should be a cluster spec: see `Databricks Cluster Specs for Jobs
+                           <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
+                           for more information.
     :param use_conda: If True (the default), create a new Conda environment for the run and
                       install project dependencies within that environment. Otherwise, run the
                       project in the current environment without installing any project
@@ -202,28 +203,28 @@ def run(uri, entry_point="main", version=None, parameters=None,
              about the launched run.
     """
 
-    cluster_spec_dict = backend_spec
-    if (backend_spec and type(backend_spec) != dict
-            and os.path.splitext(backend_spec)[-1] == ".json"):
-        with open(backend_spec, 'r') as handle:
+    cluster_spec_dict = backend_config
+    if (backend_config and type(backend_config) != dict
+            and os.path.splitext(backend_config)[-1] == ".json"):
+        with open(backend_config, 'r') as handle:
             try:
                 cluster_spec_dict = json.load(handle)
             except ValueError:
                 _logger.error(
                     "Error when attempting to load and parse JSON cluster spec from file %s",
-                    backend_spec)
+                    backend_config)
                 raise
 
     if backend == "databricks":
-        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_spec)
+        mlflow.projects.databricks.before_run_validations(mlflow.get_tracking_uri(), backend_config)
 
     experiment_id = _resolve_experiment_id(experiment_name=experiment_name,
                                            experiment_id=experiment_id)
 
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
-        parameters=parameters, backend=backend, backend_spec=cluster_spec_dict, use_conda=use_conda,
-        storage_dir=storage_dir, synchronous=synchronous, run_id=run_id)
+        parameters=parameters, backend=backend, backend_config=cluster_spec_dict,
+        use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id)
     if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj

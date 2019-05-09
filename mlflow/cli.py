@@ -68,11 +68,13 @@ def cli():
                    "specified by the default Databricks CLI profile. See "
                    "https://github.com/databricks/databricks-cli for more info on configuring a "
                    "Databricks CLI profile.")
-@click.option("--backend-spec", "-s", metavar="FILE",
-              help="Path to JSON file (must end in '.json') or JSON string describing the cluster "
-                   "to use when launching a run on Databricks. See "
-                   "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
-                   "more info. Note that MLflow runs are currently launched against a new cluster.")
+@click.option("--backend-config", "-c", metavar="FILE",
+              help="Path to JSON file (must end in '.json') or JSON string which will be passed "
+                   "as config to the backend. For the Databricks backend, this should be a "
+                   "cluster spec: see "
+                   "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster "
+                   "for more information. Note that MLflow runs are currently launched against "
+                   "a new cluster.")
 @cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when ``backend`` is local."
@@ -83,7 +85,7 @@ def cli():
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
 def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
-        backend_spec, no_conda, storage_dir, run_id):
+        backend_config, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -112,10 +114,10 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             eprint("Repeated parameter: '%s'" % name)
             sys.exit(1)
         param_dict[name] = value
-    cluster_spec_arg = backend_spec
-    if backend_spec is not None and os.path.splitext(backend_spec)[-1] != ".json":
+    cluster_spec_arg = backend_config
+    if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
-            cluster_spec_arg = json.loads(backend_spec)
+            cluster_spec_arg = json.loads(backend_config)
         except ValueError as e:
             eprint("Invalid cluster spec JSON. Parse error: %s" % e)
             raise
@@ -128,7 +130,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             experiment_id=experiment_id,
             parameters=param_dict,
             backend=backend,
-            backend_spec=cluster_spec_arg,
+            backend_config=cluster_spec_arg,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
             synchronous=backend == "local" or backend is None,

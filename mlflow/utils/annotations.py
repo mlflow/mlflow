@@ -11,7 +11,7 @@ def experimental(func):
     return func
 
 
-def deprecated(alternative=None):
+def deprecated(alternative=None, since=None):
     """
     Decorator for marking APIs deprecated in the docstring.
 
@@ -19,7 +19,8 @@ def deprecated(alternative=None):
     :returns Decorated function.
     """
     def deprecated_func(func):
-        notice = ".. Warning:: Deprecated: This method will be deprecated in " + \
+        since_str = " since %s" % since if since else ""
+        notice = ".. Warning:: Deprecated%s: This method will be removed in " % since_str + \
                  "a near future release."
         if alternative is not None and alternative.strip():
             notice += " Use ``%s`` instead." % alternative
