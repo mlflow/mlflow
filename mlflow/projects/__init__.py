@@ -180,7 +180,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         return kb.monitor_job_status(job_name,
                                      project.kubernetes_env.get('job_namespace'))
 
-    supported_modes = ["local", "databricks", "kubernetes"]
+    supported_backends = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (backend, supported_backends))
 

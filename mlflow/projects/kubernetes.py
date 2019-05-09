@@ -1,5 +1,4 @@
 import yaml
-import json
 import logging
 import docker
 import os
