@@ -13,16 +13,19 @@ _logger = logging.getLogger(__name__)
 def push_image_to_registry(image, registry, namespace):
     repository = namespace + '/' + image
     if registry:
-        repository = registry + '/'
+        repository = registry + '/' + repository
     client = docker.from_env()
     image = client.images.get(name=image)
     image.tag(repository)
+    _logger.info("=== Pushing docker image %s ===", repository)
     client.images.push(repository=repository)
 
 
 def _get_kubernetes_job_definition(image, image_namespace, job_namespace, command, resources,
                                    env_vars, job_template=None):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
+    job_name = "{}-{}".format(image.replace(':', '-'), timestamp)
+    _logger.info("=== Creating Job %s ===", job_name)
     enviroment_variables = ""
     if os.environ.get('AZURE_STORAGE_ACCESS_KEY'):
         env_vars['AZURE_STORAGE_ACCESS_KEY'] = os.environ['AZURE_STORAGE_ACCESS_KEY']
@@ -50,9 +53,9 @@ def _get_kubernetes_job_definition(image, image_namespace, job_namespace, comman
             "  backoffLimit: 4\n"
         )
         job_template = yaml.load(job_template)
-    job_template['metadata']['name'] = "{}-{}".format(image, timestamp)
+    job_template['metadata']['name'] = job_name
     job_template['metadata']['namespace'] = job_namespace
-    job_template['spec']['template']['spec']['containers'][0]['name'] = image
+    job_template['spec']['template']['spec']['containers'][0]['name'] = image.replace(':', '-')
     job_template['spec']['template']['spec']['containers'][0]['image'] = "{}/{}".format(
                                                                             image_namespace,
                                                                             image)
