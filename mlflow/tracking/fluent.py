@@ -11,15 +11,14 @@ import atexit
 import time
 import logging
 
-from mlflow.entities import Run, SourceType, RunStatus, Param, RunTag, Metric
+from mlflow.entities import Run, RunStatus, Param, RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking import artifact_utils, context
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
-from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT, MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, \
-    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
@@ -69,8 +68,7 @@ class ActiveRun(Run):  # pylint: disable=W0223
         return exc_type is None
 
 
-def start_run(run_id=None, experiment_id=None, source_name=None, source_version=None,
-              entry_point_name=None, source_type=None, run_name=None, nested=False):
+def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
     will be logged. The return value can be used as a context manager within a ``with`` block;
@@ -89,14 +87,8 @@ def start_run(run_id=None, experiment_id=None, source_name=None, source_version=
                           is unspecified, will look for valid experiment in the following order:
                           activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_ID`` env variable,
                           or the default experiment.
-    :param source_name: Name of the source file or URI of the project to be associated with the run.
-                        If none provided defaults to the current file.
-    :param source_version: Optional Git commit hash to associate with the run.
-    :param entry_point_name: Optional name of the entry point for the current run.
-    :param source_type: Integer :py:class:`mlflow.entities.SourceType` describing the type
-                        of the run ("local", "project", etc.). Defaults to
-                        :py:class:`mlflow.entities.SourceType.LOCAL` ("local").
-    :param run_name: Name of new run. Used only when ``run_id`` is unspecified.
+    :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
+                     Used only when ``run_id`` is unspecified.
     :param nested: Parameter which must be set to ``True`` to create nested runs.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
@@ -126,14 +118,6 @@ def start_run(run_id=None, experiment_id=None, source_name=None, source_version=
         user_specified_tags = {}
         if parent_run_id is not None:
             user_specified_tags[MLFLOW_PARENT_RUN_ID] = parent_run_id
-        if source_name is not None:
-            user_specified_tags[MLFLOW_SOURCE_NAME] = source_name
-        if source_type is not None:
-            user_specified_tags[MLFLOW_SOURCE_TYPE] = SourceType.to_string(source_type)
-        if source_version is not None:
-            user_specified_tags[MLFLOW_GIT_COMMIT] = source_version
-        if entry_point_name is not None:
-            user_specified_tags[MLFLOW_PROJECT_ENTRY_POINT] = entry_point_name
         if run_name is not None:
             user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
