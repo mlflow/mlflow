@@ -68,7 +68,7 @@ def model_path(tmpdir):
 @pytest.mark.large
 def test_spark_udf(spark, model_path):
     mlflow.pyfunc.save_model(
-        dst_path=model_path,
+        path=model_path,
         loader_module=__name__,
         code_path=[os.path.dirname(tests.__file__)],
     )
@@ -111,7 +111,7 @@ def test_spark_udf(spark, model_path):
 @pytest.mark.large
 def test_model_cache(spark, model_path):
     mlflow.pyfunc.save_model(
-        dst_path=model_path,
+        path=model_path,
         loader_module=__name__,
         code_path=[os.path.dirname(tests.__file__)],
     )
