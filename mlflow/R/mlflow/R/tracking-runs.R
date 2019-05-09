@@ -117,16 +117,17 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
 #' @template roxlate-client
 #' @template roxlate-run-id
 #' @param metrics A dataframe of metrics to log, containing the following columns: "key", "value",
-#'  "step", "timestamp"
-#' @param params A dataframe of params to log, containing the following columns: "key", "value"
-#' @param tags A dataframe of tags to log, containing the following columns: "key", "value"
+#'  "step", "timestamp". This dataframe cannot contain any missing ('NA') entries.
+#' @param params A dataframe of params to log, containing the following columns: "key", "value".
+#'  This dataframe cannot contain any missing ('NA') entries.
+#' @param tags A dataframe of tags to log, containing the following columns: "key", "value".
+#'  This dataframe cannot contain any missing ('NA') entries.
 #' @export
 mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id = NULL,
                              client = NULL) {
-  validate_batch_input_column_names("metrics", metrics,
-                                    c("key", "value", "step", "timestamp"))
-  validate_batch_input_column_names("params", params, c("key", "value"))
-  validate_batch_input_column_names("tags", tags, c("key", "value"))
+  validate_batch_input("metrics", metrics, c("key", "value", "step", "timestamp"))
+  validate_batch_input("params", params, c("key", "value"))
+  validate_batch_input("tags", tags, c("key", "value"))
 
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
@@ -139,17 +140,23 @@ mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id 
   invisible(NULL)
 }
 
-validate_batch_input_column_names <- function(input_type, input_dataframe, expected_column_names) {
-  if (is.null(input_dataframe) || setequal(names(input_dataframe), expected_column_names)) {
+validate_batch_input <- function(input_type, input_dataframe, expected_column_names) {
+  if (is.null(input_dataframe)) {
     return()
+  } else if (!setequal(names(input_dataframe), expected_column_names)) {
+    msg <- paste(input_type,
+                 " batch input dataframe must contain exactly the following columns: ",
+                 paste(expected_column_names, collapse = ", "),
+                 ". Found: ",
+                 paste(names(input_dataframe), collapse = ", "),
+                 sep = "")
+    stop(msg, call. = FALSE)
+  } else if (any(is.na(input_dataframe))) {
+    msg <- paste(input_type,
+                 " batch input dataframe contains a missing ('NA') entry.",
+                 sep = "")
+    stop(msg, call. = FALSE)
   }
-  msg <- paste(input_type,
-               " batch input must contain exactly the following columns: ",
-               paste(expected_column_names, collapse = ", "),
-               ". Found: ",
-               paste(names(input_dataframe), collapse = ", "),
-               sep = "")
-  stop(msg, call. = FALSE)
 }
 
 #' Set Tag

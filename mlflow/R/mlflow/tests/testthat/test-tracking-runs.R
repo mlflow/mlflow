@@ -133,10 +133,10 @@ test_that("mlflow_log_batch() works", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
   mlflow_log_batch(
-    metrics = data.frame(key = c("mse", "mse", "rmse", "rmse", "na_metric"),
-                         value = c(21, 23, 42, 36, NA),
-                         timestamp = c(100, 200, 300, 300, 400),
-                         step = c(-4, 1, 7, 3, 1)),
+    metrics = data.frame(key = c("mse", "mse", "rmse", "rmse"),
+                         value = c(21, 23, 42, 36),
+                         timestamp = c(100, 200, 300, 300),
+                         step = c(-4, 1, 7, 3)),
     params = data.frame(key = c("l1", "optimizer"), value = c(0.01, "adam")),
     tags = data.frame(key = c("model_type", "data_year"),
                       value = c("regression", "2015"))
@@ -149,19 +149,19 @@ test_that("mlflow_log_batch() works", {
 
   expect_setequal(
     metrics$key,
-    c("mse", "rmse", "na_metric")
+    c("mse", "rmse")
   )
   expect_setequal(
     metrics$value,
-    c(23, 42, 0)
+    c(23, 42)
   )
   expect_setequal(
     metrics$timestamp,
-    purrr::map(c(200, 300, 400), mlflow:::milliseconds_to_date)
+    purrr::map(c(200, 300), mlflow:::milliseconds_to_date)
   )
   expect_setequal(
     metrics$step,
-    c(1, 7, 0)
+    c(1, 7)
   )
 
   metric_history <- mlflow_get_metric_history("mse")
@@ -202,7 +202,7 @@ test_that("mlflow_log_batch() works", {
 test_that("mlflow_log_batch() throws for mismatched input data columns", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
-  error_text_regexp <- "*input must contain exactly the following columns*"
+  error_text_regexp <- "*input dataframe must contain exactly the following columns*"
 
   expect_error(
     mlflow_log_batch(
@@ -231,7 +231,7 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
 
   expect_error(
     mlflow_log_batch(
-      params = data.frame(key = c("mse"))
+      params = data.frame(key = c("alpha"))
     ),
     regexp = error_text_regexp
   )
@@ -244,7 +244,7 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
   expect_error(
     mlflow_log_batch(
       params = data.frame(
-       key = c("mse"),
+       key = c("alpha"),
        value = c(10),
        bad_column = c("bad")
       )
@@ -254,7 +254,7 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
 
   expect_error(
     mlflow_log_batch(
-      tags = data.frame(key = c("mse"))
+      tags = data.frame(key = c("my_tag"))
     ),
     regexp = error_text_regexp
   )
@@ -267,8 +267,8 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
   expect_error(
     mlflow_log_batch(
       tags = data.frame(
-       key = c("mse"),
-       value = c(10),
+       key = c("my_tag"),
+       value = c("some tag info"),
        bad_column = c("bad")
       )
     ),
@@ -286,6 +286,75 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
       tags = data.frame(
        one_more_bad_column = c("bad3")
       )
+    ),
+    regexp = error_text_regexp
+  )
+})
+
+test_that("mlflow_log_batch() throws for missing entries", {
+  mlflow_clear_test_dir("mlruns")
+  mlflow_start_run()
+  error_text_regexp <- "*input dataframe contains a missing \\('NA'\\) entry*"
+
+  expect_error(
+    mlflow_log_batch(
+      metrics = data.frame(key = c("mse", "rmse", "na_metric"),
+                           value = c(21, 42, NA),
+                           timestamp = c(100, 200, 300),
+                           step = c(-4, 1, 3))
+    ),
+    regexp = error_text_regexp
+  )
+
+  expect_error(
+    mlflow_log_batch(
+      metrics = data.frame(key = c("mse", "rmse", "na_metric"),
+                           value = c(21, 42, 9.2),
+                           timestamp = c(NA, 200, 300),
+                           step = c(-4, 1, NA))
+    ),
+    regexp = error_text_regexp
+  )
+
+  expect_error(
+    mlflow_log_batch(
+      params = data.frame(key = c(NA, "alpha"),
+                          value = c("0.5", "2"))
+    ),
+    regexp = error_text_regexp
+  )
+  expect_error(
+    mlflow_log_batch(
+      params = data.frame(key = c("n_layers", "alpha"),
+                          value = c("4", NA))
+    ),
+    regexp = error_text_regexp
+  )
+
+  expect_error(
+    mlflow_log_batch(
+      tags = data.frame(key = c("first_tag", NA),
+                        value = c("some tag info", "more tag info"))
+    ),
+    regexp = error_text_regexp
+  )
+  expect_error(
+    mlflow_log_batch(
+      tags = data.frame(key = c("first_tag", "second_tag"),
+                        value = c(NA, NA))
+    ),
+    regexp = error_text_regexp
+  )
+
+  expect_error(
+    mlflow_log_batch(
+      metrics = data.frame(key = c("mse", "rmse", "na_metric"),
+                           value = c(21, 42, 37),
+                           timestamp = c(100, 200, 300),
+                           step = c(-4, NA, 3)),
+      params = data.frame(key = c("l1", "optimizer"), value = c(NA, "adam")),
+      tags = data.frame(key = c(NA, "data_year"),
+                        value = c("regression", NA))
     ),
     regexp = error_text_regexp
   )
