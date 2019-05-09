@@ -454,6 +454,8 @@ message RunInfo {
   optional string experiment_id = 2;
 
   // User who initiated the run.
+  // This field is deprecated, and will be removed in a future MLflow release.
+  // Use 'mlflow.user' tag instead.
   optional string user_id = 6;
 
   // Current status of the run.
@@ -581,6 +583,8 @@ message CreateRun {
   optional string experiment_id = 1;
 
   // ID of the user executing the run.
+  // This field is deprecated, and will be removed in a future MLflow release.
+  // Use 'mlflow.user' tag instead.
   optional string user_id = 2;
 
   // Unix timestamp of when the run started in milliseconds.
@@ -632,7 +636,6 @@ message RestoreRun {
 
   message Response {}
 }
-
 
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
