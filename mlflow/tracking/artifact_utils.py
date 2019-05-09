@@ -54,7 +54,7 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
                         a local output path will be created.
     """
     parsed_uri = urllib.parse.urlparse(artifact_uri)
-    artifact_path = posixpath.basename(parsed_uri.path)
+    artifact_path = posixpath.basename(parsed_uri.path)    
     parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
     root_uri = urllib.parse.urlunparse(parsed_uri)
     return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
