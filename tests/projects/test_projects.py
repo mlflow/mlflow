@@ -185,7 +185,7 @@ def test_is_valid_branch_name(local_git_repo):
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
-def test_run_local_git_repo(patch_user,
+def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
                             local_git_repo,
                             local_git_repo_uri,
                             tracking_uri_mock,  # pylint: disable=unused-argument
@@ -267,8 +267,8 @@ def test_invalid_version_local_git_repo(local_git_repo_uri,
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-def test_run(tmpdir,
-             patch_user,
+def test_run(tmpdir,  # pylint: disable=unused-argument
+             patch_user,  # pylint: disable=unused-argument
              tracking_uri_mock,  # pylint: disable=unused-argument
              use_start_run):
     submitted_run = mlflow.projects.run(
