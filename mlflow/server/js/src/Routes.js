@@ -15,7 +15,7 @@ class Routes {
 
   static getMetricPageRoute(runUuids, metricKey, experimentId, plotMetricKeys) {
     return `/metric/${metricKey}?runs=${JSON.stringify(runUuids)}&experiment=${experimentId}` +
-      `&plot_metric_keys=${JSON.stringify(plotMetricKeys ? plotMetricKeys : [metricKey])}`;
+      `&plot_metric_keys=${JSON.stringify(plotMetricKeys || [metricKey])}`;
   }
 
   static metricPageRoute = "/metric/:metricKey";

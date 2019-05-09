@@ -63,7 +63,8 @@ export class MetricsPlotView extends React.Component {
     });
 
   getDataForBarChart = () => {
-    const map = this.props.metrics.reduce((map, metric) => {
+    /* eslint-disable no-param-reassign */
+    const metricsMap = this.props.metrics.reduce((map, metric) => {
       const { runUuid, metricKey, history } = metric;
       const value = history[0] && history[0].value;
       if (!map[metricKey]) {
@@ -76,7 +77,7 @@ export class MetricsPlotView extends React.Component {
       }
       return map;
     }, {});
-    return _.sortBy(Object.values(map), 'metricKey');
+    return _.sortBy(Object.values(metricsMap), 'metricKey');
   };
 
   // Returns payload to use in recharts Legend component

@@ -23,6 +23,8 @@ class MetricsPlotPanel extends React.Component {
     distinctMetricKeys: PropTypes.arrayOf(String).isRequired,
     metricsWithRunInfoAndHistory: PropTypes.arrayOf(Object).isRequired,
     getMetricHistoryApi: PropTypes.func.isRequired,
+    location: PropTypes.object.isRequired,
+    history: PropTypes.object.isRequired,
   };
 
   constructor(props) {
