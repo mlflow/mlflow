@@ -44,4 +44,3 @@ def keyword_only(func):
     notice = ".. Note:: This method only accepts keyword arguments.\n"
     wrapper.__doc__ = notice + wrapper.__doc__
     return wrapper
-
