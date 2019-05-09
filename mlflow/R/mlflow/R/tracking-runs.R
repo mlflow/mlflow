@@ -110,29 +110,20 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
 #'   data may be written.
 #' @template roxlate-client
 #' @template roxlate-run-id
-#' @param metrics A named list of metrics to log.
-#' @param params A named list of params to log.
-#' @param tags A named list of tags to log.
-#' @param timestamps (Optional) A list of timestamps of the same length as `metrics`.
+#' @param metrics A dataframe of metrics to log, containing the following columns: "key", "value",
+#'  "step", "timestamp". This dataframe cannot contain any missing ('NA') entries.
+#' @param params A dataframe of params to log, containing the following columns: "key", "value".
+#'  This dataframe cannot contain any missing ('NA') entries.
+#' @param tags A dataframe of tags to log, containing the following columns: "key", "value".
+#'  This dataframe cannot contain any missing ('NA') entries.
 #' @export
-mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, timestamps = NULL,
-                             run_id = NULL, client = NULL) {
+mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id = NULL,
+                             client = NULL) {
+  validate_batch_input("metrics", metrics, c("key", "value", "step", "timestamp"))
+  validate_batch_input("params", params, c("key", "value"))
+  validate_batch_input("tags", tags, c("key", "value"))
+
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
-
-  metrics <- construct_batch_list(metrics)
-  params <- construct_batch_list(params)
-  tags <- construct_batch_list(tags)
-
-  if (!is.null(metrics)) {
-    metrics <- if (is.null(timestamps)) {
-      purrr::map(metrics, ~ c(.x, timestamp = current_time()))
-    } else {
-      if (length(metrics) != length(timestamps))
-        stop("`metrics` and `timestamps` must be of the same length.", call. = FALSE)
-      timestamps <- purrr::map(timestamps, ~ list(timestamp = .x))
-      purrr::map2(metrics, timestamps, c)
-    }
-  }
 
   mlflow_rest("runs", "log-batch", client = client, verb = "POST", data = list(
     run_id = run_id,
@@ -140,17 +131,25 @@ mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, timesta
     params = params,
     tags = tags
   ))
-
   invisible(NULL)
 }
 
-construct_batch_list <- function(l) {
-  if (is.null(l)) {
-    l
-  } else {
-    l %>%
-      purrr::imap(~ list(key = .y, value = .x)) %>%
-      unname()
+validate_batch_input <- function(input_type, input_dataframe, expected_column_names) {
+  if (is.null(input_dataframe)) {
+    return()
+  } else if (!setequal(names(input_dataframe), expected_column_names)) {
+    msg <- paste(input_type,
+                 " batch input dataframe must contain exactly the following columns: ",
+                 paste(expected_column_names, collapse = ", "),
+                 ". Found: ",
+                 paste(names(input_dataframe), collapse = ", "),
+                 sep = "")
+    stop(msg, call. = FALSE)
+  } else if (any(is.na(input_dataframe))) {
+    msg <- paste(input_type,
+                 " batch input dataframe contains a missing ('NA') entry.",
+                 sep = "")
+    stop(msg, call. = FALSE)
   }
 }
 
@@ -233,6 +232,7 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
     purrr::transpose() %>%
     purrr::map(unlist) %>%
     purrr::map_at("timestamp", milliseconds_to_date) %>%
+    purrr::map_at("step", as.double) %>%
     tibble::as_tibble()
 }
 
