@@ -108,13 +108,15 @@ class TestRestStore(unittest.TestCase):
         )
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http, \
                 mock.patch('mlflow.tracking.utils._get_store', return_value=store), \
-                mock.patch('mlflow.tracking.client._get_user_id', return_value=user_name), \
+                mock.patch('mlflow.tracking.context._get_user', return_value=user_name), \
                 mock.patch('time.time', return_value=13579), \
                 source_name_patch, source_type_patch:
             with mlflow.start_run(experiment_id="43"):
                 cr_body = message_to_json(CreateRun(experiment_id="43",
                                                     user_id=user_name, start_time=13579000,
-                                                    tags=[ProtoRunTag(key='mlflow.source.name',
+                                                    tags=[ProtoRunTag(key='mlflow.user',
+                                                                      value=user_name),
+                                                          ProtoRunTag(key='mlflow.source.name',
                                                                       value=source_name),
                                                           ProtoRunTag(key='mlflow.source.type',
                                                                       value='LOCAL')]))
