@@ -11,7 +11,9 @@ tracking, and model APIs.
 Prerequisites
 ~~~~~~~~~~~~~
 
-We recommend installing MLflow in its own conda environment for development, as follows:
+First, install the Python MLflow package from source - this is required for developing & testing
+changes across all languages and APIs. We recommend installing MLflow in its own conda environment
+by running the following from your checkout of MLflow:
 
 .. code-block:: bash
 
@@ -25,6 +27,12 @@ We recommend installing MLflow in its own conda environment for development, as 
 ``npm`` is required to run the Javascript dev server.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
+
+If contributing to MLflow's R APIs or modifying R documentation, install
+`R <https://cloud.r-project.org/>`_. If contributing to MLflow's Java APIs or modifying Java
+documentation, install `Java <https://www.java.com/>`_ and
+`Apache Maven <https://maven.apache.org/download.cgi>`_.
+
 
 Install Node Modules
 ~~~~~~~~~~~~~~~~~~~~
@@ -239,22 +247,37 @@ Build a pip-installable wheel in ``dist/``:
 
 Writing Docs
 ------------
-Install the necessary Python dependencies via ``pip install -r dev-requirements.txt``.
-
-If making changes to R or Java APIs, generate R & Java API rst doc files via:
-
-.. code-block:: bash
-  cd docs
-  make html
-
+First, install dependencies for building docs as described in `Prerequisites`_.
 
 To generate a live preview of Python & other rst documentation, run the following snippet. Note
-that R & Java API docs must be regenerated separately after each change and are not live-updated.
+that R & Java API docs must be regenerated separately after each change and are not live-updated;
+see subsequent sections for instructions on generating R and Java docs.
 
 .. code-block:: bash
 
    cd docs
    make livehtml
+
+
+Generate R API rst doc files via:
+
+.. code-block:: bash
+  cd docs
+  make rdocs
+
+Generate Java API rst doc files via:
+
+.. code-block:: bash
+  cd docs
+  make javadocs
+
+
+Generate API docs for all languages via:
+
+.. code-block:: bash
+  cd docs
+  make html
+
 
 If changing existing Python APIs or adding new APIs under existing modules, ensure that references
 to the modified APIs are updated in existing docs under ``docs/source``. Note that the Python doc
