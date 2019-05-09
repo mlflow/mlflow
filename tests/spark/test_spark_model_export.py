@@ -282,12 +282,6 @@ def test_sparkml_model_log_invalid_args(spark_model_iris, model_path):
             spark_model=spark_model_iris.model.stages[0],
             artifact_path="model0")
         assert e.message.contains("SparkML can only save PipelineModels")
-    with pytest.raises(MlflowException) as e:
-        sparkm.log_model(
-            spark_model=spark_model_iris.model,
-            artifact_path="model1",
-            jars=["something.jar"])
-        assert e.message.contains("JAR dependencies are not implemented")
 
 
 @pytest.mark.large
