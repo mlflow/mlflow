@@ -64,7 +64,7 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
                     "momentum": str(momentum),
                     "seed": str(seed)},
                 experiment_id=experiment_id,
-                block=False)
+                synchronous=False)
             if p.wait():
                 training_run = tracking_client.get_run(p.run_id)
 

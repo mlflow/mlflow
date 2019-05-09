@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from six.moves import urllib
 
+from mlflow.utils.annotations import deprecated, experimental
+
 PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
                                                   minor=version_info.minor,
                                                   micro=version_info.micro)

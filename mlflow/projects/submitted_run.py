@@ -6,7 +6,6 @@ import logging
 
 from mlflow.entities import RunStatus
 
-
 _logger = logging.getLogger(__name__)
 
 

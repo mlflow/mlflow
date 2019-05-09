@@ -8,23 +8,21 @@
 #' @param param_list A list of parameters.
 #' @param experiment_id ID of the experiment under which to launch the run.
 #' @param experiment_name Name of the experiment under which to launch the run.
-#' @param mode Execution mode to use for run.
-#' @param cluster_spec Path to JSON file describing the cluster to use when launching a run on Databricks.
-#' @param git_username Username for HTTP(S) Git authentication.
-#' @param git_password Password for HTTP(S) Git authentication.
+#' @param backend Execution backend to use for run.
+#' @param backend_config Path to JSON file which will be passed to the backend. For the Databricks backend,
+#'   it should describe the cluster to use when launching a run on Databricks.
 #' @param no_conda If specified, assume that MLflow is running within a Conda environment with the necessary
 #'   dependencies for the current project instead of attempting to create a new Conda environment. Only
 #'   valid if running locally.
-#' @param storage_dir Valid only when `mode` is local. MLflow downloads artifacts from distributed URIs passed to
+#' @param storage_dir Valid only when `backend` is local. MLflow downloads artifacts from distributed URIs passed to
 #'  parameters of type `path` to subdirectories of `storage_dir`.
 #'
 #' @return The run associated with this run.
 #'
 #' @export
 mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list = NULL,
-                       experiment_id = NULL, experiment_name = NULL, mode = NULL, cluster_spec = NULL,
-                       git_username = NULL, git_password = NULL, no_conda = FALSE,
-                       storage_dir = NULL) {
+                       experiment_id = NULL, experiment_name = NULL, backend = NULL, backend_config = NULL,
+                       no_conda = FALSE, storage_dir = NULL) {
   if (!is.null(experiment_name) && !is.null(experiment_id)) {
     stop("Specify only one of `experiment_name` or `experiment_id`.")
   }
@@ -43,10 +41,8 @@ mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list
     mlflow_cli_param("--version", version) %>%
     mlflow_cli_param("--experiment-id", experiment_id) %>%
     mlflow_cli_param("--experiment-name", experiment_name) %>%
-    mlflow_cli_param("--mode", mode) %>%
-    mlflow_cli_param("--cluster-spec", cluster_spec) %>%
-    mlflow_cli_param("--git-username", git_username) %>%
-    mlflow_cli_param("--git-password", git_password) %>%
+    mlflow_cli_param("--backend", backend) %>%
+    mlflow_cli_param("--backend-config", backend_config) %>%
     mlflow_cli_param("--storage-dir", storage_dir) %>%
     c(param_list)
 

@@ -35,10 +35,10 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 _logger = logging.getLogger(__name__)
 
 
-def before_run_validations(tracking_uri, cluster_spec):
+def before_run_validations(tracking_uri, backend_config):
     """Validations to perform before running a project on Databricks."""
-    if cluster_spec is None:
-        raise ExecutionException("Cluster spec must be provided when launching MLflow project "
+    if backend_config is None:
+        raise ExecutionException("Backend spec must be provided when launching MLflow project "
                                  "runs on Databricks.")
     if tracking.utils._is_local_uri(tracking_uri):
         raise ExecutionException(

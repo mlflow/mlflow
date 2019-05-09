@@ -27,8 +27,6 @@ For a lower level API, see the :py:mod:`mlflow.tracking` module.
 
 from mlflow.version import VERSION as __version__
 
-import os
-
 # Filter annoying Cython warnings that serve no good purpose, and so before
 # importing other modules.
 # See: https://github.com/numpy/numpy/pull/432/commits/170ed4e33d6196d7
