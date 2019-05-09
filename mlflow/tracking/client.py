@@ -4,7 +4,6 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
-import os
 import time
 from six import iteritems
 
@@ -15,8 +14,7 @@ from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _v
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
-
-_DEFAULT_USER_ID = "unknown"
+from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 
 class MlflowClient(object):
@@ -61,7 +59,7 @@ class MlflowClient(object):
         """
         return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
-    def create_run(self, experiment_id, user_id=None, start_time=None, tags=None):
+    def create_run(self, experiment_id, start_time=None, tags=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -69,7 +67,7 @@ class MlflowClient(object):
         Unlike :py:func:`mlflow.start_run`, does not change the "active run" used by
         :py:func:`mlflow.log_param`.
 
-        :param user_id: If not provided, use the current user as a default.
+        :param experiment_id: The ID of then experiment to create a run in.
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
@@ -78,9 +76,14 @@ class MlflowClient(object):
 
         tags = tags if tags else {}
 
+        # Extract user from tags
+        # This logic is temporary; the user_id attribute of runs is deprecated and will be removed
+        # in a later release.
+        user_id = tags.get(MLFLOW_USER, "unknown")
+
         return self.store.create_run(
             experiment_id=experiment_id,
-            user_id=user_id if user_id is not None else _get_user_id(),
+            user_id=user_id,
             start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)]
         )
@@ -287,12 +290,3 @@ class MlflowClient(object):
                                       search_filter=SearchFilter(filter_string=filter_string),
                                       run_view_type=run_view_type,
                                       max_results=max_results)
-
-
-def _get_user_id():
-    """Get the ID of the user for the current run."""
-    try:
-        import pwd
-        return pwd.getpwuid(os.getuid())[0]
-    except ImportError:
-        return _DEFAULT_USER_ID
