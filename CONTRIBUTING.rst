@@ -28,9 +28,9 @@ by running the following from your checkout of MLflow:
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
 
-If contributing to MLflow's R APIs or modifying R documentation, install
-`R <https://cloud.r-project.org/>`_. If contributing to MLflow's Java APIs or modifying Java
-documentation, install `Java <https://www.java.com/>`_ and
+If contributing to MLflow's R APIs, install `R <https://cloud.r-project.org/>`_. For changes to R
+documentation, also install `pandoc <https://pandoc.org/installing.html/>`_. If contributing
+to MLflow's Java APIs or modifying Java documentation, install `Java <https://www.java.com/>`_ and
 `Apache Maven <https://maven.apache.org/download.cgi>`_.
 
 
