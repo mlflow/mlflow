@@ -152,7 +152,6 @@ validate_batch_input_column_names <- function(input_type, input_dataframe, expec
   stop(msg, call. = FALSE)
 }
 
-
 #' Set Tag
 #'
 #' Sets a tag on a run. Tags are run metadata that can be updated during a run and
@@ -437,6 +436,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 
   mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client)
 }
+
 
 #' Start Run
 #'
