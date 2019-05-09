@@ -2,6 +2,8 @@ import json
 import os
 import posixpath
 
+from mock import mock
+
 import mlflow
 import mlflow.pyfunc
 from mlflow.entities import FileInfo
@@ -55,17 +57,14 @@ def test_download_from_uri():
         ("s3://path/to", ("s3://path/", "to")),
         ("s3://path/to/dir", ("s3://path/to", "dir")),
     ]
-    orig = mlflow.store.artifact_repository_registry._artifact_repository_registry. \
-        get_artifact_repository
-    mlflow.store.artifact_repository_registry._artifact_repository_registry.get_artifact_repository \
-        = test_get_artifact_repository
-    try:
+    with mock.patch("mlflow.tracking.artifact_utils.get_artifact_repository")\
+            as get_artifact_repo_mock:
+        get_artifact_repo_mock.side_effect = test_get_artifact_repository
+
         for uri, expected_result in pairs:
             actual_result = _download_artifact_from_uri(uri)
             assert expected_result == actual_result
-    finally:
-        mlflow.store.artifact_repository_registry._artifact_repository_registry. \
-            get_artifact_repository = orig
+
 
 def test_download_artifacts_from_uri():
     with mlflow.start_run() as run:
