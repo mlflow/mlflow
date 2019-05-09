@@ -35,13 +35,22 @@ Each individual command has a detailed help screen accessible via ``mlflow comma
   :depth: 2
 
 
+.. click:: mlflow.cli:cli
+  :prog: mlflow
+  :show-nested:
+
+
+
+
+## TODO - copy docs over to cli from here.
+
 Azure Machine Learning Models
 -----------------------------
 
 Subcommands to serve models on Azure Machine Learning.
 
-.. click:: azureml:azureml
-  :prog: mlflow
+.. click:: mlflow.azureml.cli:commands
+  :prog: mlflow azureml
   :show-nested:
 
 
@@ -137,18 +146,17 @@ SageMaker Models
 
 Subcommands to serve models on SageMaker.
 
-.. click:: sagemaker:sagemaker
-  :prog: mlflow
+.. click:: mlflow.sagemaker.cli:commands
+  :prog: mlflow sagemaker
   :show-nested:
-
-
-scikit-learn Models
--------------------
-
-Subcommands to serve scikit-learn models and apply them for inference.
 
 
 UI
 --
 
 Run the MLflow tracking UI. The UI is served at http://localhost:5000.
+
+.. click:: mlflow.cli:cli
+  :prog: mlflow
+  :show-nested:
+  :commands: ui
