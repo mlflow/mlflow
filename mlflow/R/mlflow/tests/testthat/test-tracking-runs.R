@@ -202,16 +202,19 @@ test_that("mlflow_log_batch() works", {
 test_that("mlflow_log_batch() throws for mismatched input data columns", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
+  error_text_regexp <- "*input must contain exactly the following columns*"
 
   expect_error(
     mlflow_log_batch(
       metrics = data.frame(key = c("mse"), value = c(10))
-    )
+    ),
+    regexp = error_text_regexp
   )
   expect_error(
     mlflow_log_batch(
       metrics = data.frame(bad_column = c("bad"))
-    )
+    ),
+    regexp = error_text_regexp
   )
   expect_error(
     mlflow_log_batch(
@@ -222,18 +225,21 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
        step = c(1),
        bad_column = c("bad")
       )
-    )
+    ),
+    regexp = error_text_regexp
   )
 
   expect_error(
     mlflow_log_batch(
       params = data.frame(key = c("mse"))
-    )
+    ),
+    regexp = error_text_regexp
   )
   expect_error(
     mlflow_log_batch(
       params = data.frame(bad_column = c("bad"))
-    )
+    ),
+    regexp = error_text_regexp
   )
   expect_error(
     mlflow_log_batch(
@@ -242,18 +248,21 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
        value = c(10),
        bad_column = c("bad")
       )
-    )
+    ),
+    regexp = error_text_regexp
   )
 
   expect_error(
     mlflow_log_batch(
       tags = data.frame(key = c("mse"))
-    )
+    ),
+    regexp = error_text_regexp
   )
   expect_error(
     mlflow_log_batch(
       tags = data.frame(bad_column = c("bad"))
-    )
+    ),
+    regexp = error_text_regexp
   )
   expect_error(
     mlflow_log_batch(
@@ -262,7 +271,8 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
        value = c(10),
        bad_column = c("bad")
       )
-    )
+    ),
+    regexp = error_text_regexp
   )
 
   expect_error(
@@ -276,6 +286,7 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
       tags = data.frame(
        one_more_bad_column = c("bad3")
       )
-    )
+    ),
+    regexp = error_text_regexp
   )
 })
