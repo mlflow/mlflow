@@ -87,14 +87,10 @@ def cli():
               help="Path to a YAML file describing the kubernetes job specification. See "
                    "https://kubernetes.io/docs/concepts/workloads/controllers/"
                    "jobs-run-to-completion/ for more info.")
-@click.option("--docker-auth-config", metavar="MLFLOW_DOCKER_AUTH_CONFIG",
-              envvar="MLFLOW_DOCKER_AUTH_CONFIG",
-              help="Username and Password for Docker authentication.")
 @click.option("--kube-context", metavar="MLFLOW_KUBE_CONTEXT", envvar="MLFLOW_KUBE_CONTEXT",
               help="Name of Kubernetes context where the training will run.")
 def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
-        backend_config, no_conda, storage_dir, run_id, kube_job_template,
-        docker_auth_config, kube_context):
+        backend_config, no_conda, storage_dir, run_id, kube_job_template, kube_context):
     """
     Run an MLflow project from the given URI.
 
@@ -131,8 +127,8 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             eprint("Invalid cluster spec JSON. Parse error: %s" % e)
             raise
     if mode == "kubernetes":
-        if docker_auth_config is None or kube_context is None:
-            eprint("Specify 'docker_auth_config' and 'kube_context' when using kubernetes mode.")
+        if kube_context is None:
+            eprint("Specify 'kube_context' when using kubernetes mode.")
             sys.exit(1)
     try:
         projects.run(
@@ -148,7 +144,6 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             storage_dir=storage_dir,
             synchronous=backend == "local" or backend is None,
             run_id=run_id,
-            docker_auth_config=docker_auth_config,
             kube_context=kube_context,
             kube_job_template=kube_job_template
         )

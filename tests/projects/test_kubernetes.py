@@ -119,29 +119,11 @@ def test_push_image_to_registry():
     image = 'image'
     registry = 'registry'
     namespace = 'namespace'
-    docker_repo_auth_config = '{"username":"me", "password":"pass"}'
     with mock.patch("docker.from_env") as docker_mock:
         client = mock.MagicMock()
         docker_mock.return_value = client
-        kb.push_image_to_registry(image, registry, namespace, docker_repo_auth_config)
+        kb.push_image_to_registry(image, registry, namespace)
         assert client.images.push.call_count == 1
 
         args = client.images.push.call_args_list
         assert args[0][1]['repository'] == registry + '/' + namespace + '/' + image
-        assert args[0][1]['auth_config'] == json.loads(docker_repo_auth_config)
-
-
-def test_push_image_to_dockerhub():
-    image = 'image'
-    registry = None
-    namespace = 'namespace'
-    docker_repo_auth_config = '{"username":"me", "password":"pass"}'
-    with mock.patch("docker.from_env") as docker_mock:
-        client = mock.MagicMock()
-        docker_mock.return_value = client
-        kb.push_image_to_registry(image, registry, namespace, docker_repo_auth_config)
-        assert client.images.push.call_count == 1
-
-        args = client.images.push.call_args_list
-        assert args[0][1]['repository'] == namespace + '/' + image
-        assert args[0][1]['auth_config'] == json.loads(docker_repo_auth_config)

@@ -10,24 +10,14 @@ from datetime import datetime
 _logger = logging.getLogger(__name__)
 
 
-def push_image_to_registry(image, registry, namespace, docker_auth_config):
-    docker_auth_config = json.loads(docker_auth_config)
+def push_image_to_registry(image, registry, namespace):
     repository = namespace + '/' + image
-    client = docker.from_env()
-
     if registry:
-        repository = registry + '/' + repository
-        client.login(username=docker_auth_config['username'],
-                     password=docker_auth_config['password'],
-                     registry=registry)
-    else:
-        client.login(username=docker_auth_config['username'],
-                     password=docker_auth_config['password'])
-
+        repository = registry + '/'
     client = docker.from_env()
     image = client.images.get(name=image)
     image.tag(repository)
-    client.images.push(repository=repository, auth_config=docker_auth_config)
+    client.images.push(repository=repository)
 
 
 def _get_kubernetes_job_definition(image, image_namespace, job_namespace, command, resources,

@@ -73,7 +73,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
          backend=None, backend_config=None, use_conda=True,
-         storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None,
+         storage_dir=None, synchronous=True, run_id=None,
          kube_context=None, kube_job_template=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
@@ -168,8 +168,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                     project=project,
                                     active_run=active_run)
         kb.push_image_to_registry(image, project.kubernetes_env.get('registry'),
-                                  project.kubernetes_env.get('image_namespace'),
-                                  docker_auth_config)
+                                  project.kubernetes_env.get('image_namespace'))
         job_name = kb.run_kubernetes_job(image,
                                          project.kubernetes_env.get('image_namespace'),
                                          project.kubernetes_env.get('job_namespace'),
@@ -189,7 +188,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 def run(uri, entry_point="main", version=None, parameters=None,
         experiment_name=None, experiment_id=None,
         backend=None, backend_config=None, use_conda=True,
-        storage_dir=None, synchronous=True, run_id=None, docker_auth_config=None,
+        storage_dir=None, synchronous=True, run_id=None,
         kube_context=None,kube_job_template=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
@@ -237,8 +236,6 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
-    :param docker_auth_config: Dictionary containing docker username and password for Repository
-                               authentication.
     :param kube_context: Name of Kubernetes context where the training will run. The context needs
                          to be configured previously in the machine where mlflow will trigger
                          the run.
@@ -269,8 +266,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
         parameters=parameters, backend=backend, backend_config=cluster_spec_dict,
         use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id,
-        kube_job_template=kube_job_template, docker_auth_config=docker_auth_config,
-        kube_context=kube_context)
+        kube_job_template=kube_job_template, kube_context=kube_context)
     if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj
