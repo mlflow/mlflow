@@ -12,18 +12,8 @@ from mlflow.tracking.context import DefaultRunContext, GitRunContext, \
     DatabricksNotebookRunContext, RunContextProviderRegistry, resolve_tags
 
 
-MOCK_USER = "janebloggs"
 MOCK_SCRIPT_NAME = "/path/to/script.py"
 MOCK_COMMIT_HASH = "commit-hash"
-
-
-@pytest.fixture
-def patch_user():
-    patch_getuid = mock.patch("os.getuid")
-    patch_pwd = mock.patch("pwd.getpwuid", return_value=(MOCK_USER,))
-    with patch_getuid as mock_getuid, patch_pwd as mock_pwd:
-        yield
-        mock_pwd.assert_called_once_with(mock_getuid.return_value)
 
 
 @pytest.fixture
@@ -46,12 +36,14 @@ def test_default_run_context_in_context():
     assert DefaultRunContext().in_context() is True
 
 
-def test_default_run_context_tags(patch_user, patch_script_name):
-    assert DefaultRunContext().tags() == {
-        MLFLOW_USER: MOCK_USER,
-        MLFLOW_SOURCE_NAME: MOCK_SCRIPT_NAME,
-        MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL)
-    }
+def test_default_run_context_tags(patch_script_name):
+    mock_user = mock.Mock()
+    with mock.patch("getpass.getuser", return_value=mock_user):
+        assert DefaultRunContext().tags() == {
+            MLFLOW_USER: mock_user,
+            MLFLOW_SOURCE_NAME: MOCK_SCRIPT_NAME,
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL)
+        }
 
 
 def test_git_run_context_in_context_true(patch_script_name, patch_git_repo):

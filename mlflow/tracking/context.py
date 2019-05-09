@@ -1,5 +1,6 @@
 import os
 import sys
+import getpass
 import logging
 import warnings
 from abc import ABCMeta, abstractmethod
@@ -28,8 +29,7 @@ _DEFAULT_USER = "unknown"
 def _get_user():
     """Get the current computer username."""
     try:
-        import pwd
-        return pwd.getpwuid(os.getuid())[0]
+        return getpass.getuser()
     except ImportError:
         return _DEFAULT_USER
 
