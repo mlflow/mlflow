@@ -438,7 +438,6 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
   mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client)
 }
 
-
 #' Start Run
 #'
 #' Starts a new run. If `client` is not provided, this function infers contextual information such as
