@@ -147,7 +147,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             work_dir=work_dir, entry_point=entry_point, parameters=parameters,
             experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
-    elif mode == "kubernetes":
+    elif backend == "kubernetes":
         from mlflow.projects import kubernetes as kb
         tracking.MlflowClient().set_tag(active_run.info.run_uuid,
                                         MLFLOW_PROJECT_ENV,

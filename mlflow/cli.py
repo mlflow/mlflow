@@ -126,7 +126,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
         except ValueError as e:
             eprint("Invalid cluster spec JSON. Parse error: %s" % e)
             raise
-    if mode == "kubernetes":
+    if backend == "kubernetes":
         if kube_context is None:
             eprint("Specify 'kube_context' when using kubernetes mode.")
             sys.exit(1)
