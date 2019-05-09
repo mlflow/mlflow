@@ -86,12 +86,7 @@ public class MlflowClient {
     request.setStartTime(System.currentTimeMillis());
     String username = System.getProperty("user.name");
     if (username != null) {
-      RunTag.Builder tag = RunTag.newBuilder();
-      tag.setKey("mlflow.user");
-      tag.setValue(username);
-      request.addTags(tag.build());
-      // userId is deprecated and will be removed in a future MLflow release
-      request.setUserId(username);
+      request.setUserId(System.getProperty("user.name"));
     }
     return createRun(request.build());
   }
@@ -436,6 +431,7 @@ public class MlflowClient {
   public void logArtifacts(String runId, File localDir) {
     getArtifactRepository(runId).logArtifacts(localDir);
   }
+
 
   /**
    * Uploads all files within the given local director an artifactPath within the run's root
