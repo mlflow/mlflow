@@ -4,15 +4,26 @@ import git
 from six.moves import reload_module as reload
 
 from mlflow.entities import SourceType
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, \
-    MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_WEBAPP_URL
+from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
+    MLFLOW_GIT_COMMIT, MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
+    MLFLOW_DATABRICKS_WEBAPP_URL
 import mlflow.tracking.context
 from mlflow.tracking.context import DefaultRunContext, GitRunContext, \
     DatabricksNotebookRunContext, RunContextProviderRegistry, resolve_tags
 
 
+MOCK_USER = "janebloggs"
 MOCK_SCRIPT_NAME = "/path/to/script.py"
 MOCK_COMMIT_HASH = "commit-hash"
+
+
+@pytest.fixture
+def patch_user():
+    patch_getuid = mock.patch("os.getuid")
+    patch_pwd = mock.patch("pwd.getpwuid", return_value=(MOCK_USER,))
+    with patch_getuid as mock_getuid, patch_pwd as mock_pwd:
+        yield
+        mock_pwd.assert_called_once_with(mock_getuid.return_value)
 
 
 @pytest.fixture
@@ -35,8 +46,9 @@ def test_default_run_context_in_context():
     assert DefaultRunContext().in_context() is True
 
 
-def test_default_run_context_tags(patch_script_name):
+def test_default_run_context_tags(patch_user, patch_script_name):
     assert DefaultRunContext().tags() == {
+        MLFLOW_USER: MOCK_USER,
         MLFLOW_SOURCE_NAME: MOCK_SCRIPT_NAME,
         MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL)
     }
