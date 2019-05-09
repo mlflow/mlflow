@@ -99,7 +99,7 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
                     "momentum": str(momentum),
                     "seed": str(seed)},
                 experiment_id=experiment_id,
-                block=False
+                synchronous=False
             )
 
             if p.wait():
