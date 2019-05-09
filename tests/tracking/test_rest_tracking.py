@@ -4,7 +4,7 @@ and ensures we can use the tracking API to communicate with it.
 """
 
 import mock
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen
 import os
 import sys
 import pytest
@@ -16,8 +16,7 @@ import tempfile
 
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag, ViewType
-from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
-from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
     MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
