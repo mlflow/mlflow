@@ -40,6 +40,10 @@ Azure Machine Learning Models
 
 Subcommands to serve models on Azure Machine Learning.
 
+.. click:: azureml:azureml
+  :prog: mlflow
+  :show-nested:
+
 
 Download
 --------
@@ -132,6 +136,10 @@ SageMaker Models
 ----------------
 
 Subcommands to serve models on SageMaker.
+
+.. click:: sagemaker:sagemaker
+  :prog: mlflow
+  :show-nested:
 
 
 scikit-learn Models
