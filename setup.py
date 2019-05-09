@@ -48,6 +48,15 @@ setup(
         'sqlparse',
         'sqlalchemy',
     ],
+    extras_require={
+        'alldeps':[
+            'scikit-learn',
+            'boto3>=1.7.12',
+            'mleap>=0.8.1',
+            'azure-storage',
+            'google-cloud-storage',
+        ],
+    },
     entry_points='''
         [console_scripts]
         mlflow=mlflow.cli:cli
