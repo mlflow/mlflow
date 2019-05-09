@@ -54,11 +54,14 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
                         a local output path will be created.
     """
     parsed_uri = urllib.parse.urlparse(artifact_uri)
-    if parsed_uri.scheme == "file" and not parse_uri.path.startswith("/"):
+    prefix = ""
+    if parsed_uri.scheme == "file" and not parsed_uri.path.startswith("/"):
         # relative path is a special case, urllib does not reconstruct it properly
-        parsed_uri._replace(scheme="")
+        prefix = "file:"
+        parsed_uri = parsed_uri._replace(scheme="")
+
     artifact_path = posixpath.basename(parsed_uri.path)
     parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
-    root_uri = urllib.parse.urlunparse(parsed_uri)
+    root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
     return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
         artifact_path=artifact_path, dst_path=output_path)
