@@ -189,7 +189,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
         experiment_name=None, experiment_id=None,
         backend=None, backend_config=None, use_conda=True,
         storage_dir=None, synchronous=True, run_id=None,
-        kube_context=None,kube_job_template=None):
+        kube_context=None, kube_job_template=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
 
