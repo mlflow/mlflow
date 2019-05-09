@@ -56,7 +56,7 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
         pickle.dump(sklearn_knn_model, f)
 
     model_config = Model(run_id="test", artifact_path="testtest")
-    mlflow.pyfunc.save_model(dst_path=model_path,
+    mlflow.pyfunc.save_model(path=model_path,
                              data_path=sk_model_path,
                              loader_module=os.path.basename(__file__)[:-3],
                              code_path=[__file__],
@@ -97,7 +97,7 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
 @pytest.mark.large
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(MlflowException) as exc_info:
-        mlflow.pyfunc.save_model(dst_path=model_path,
+        mlflow.pyfunc.save_model(path=model_path,
                                  data_path="/path/to/data")
     assert "Either `loader_module` or `python_model` must be specified" in str(exc_info)
 

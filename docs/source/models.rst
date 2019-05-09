@@ -331,7 +331,7 @@ instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads 
     # Construct and save the model
     model_path = "add_n_model"
     add5_model = AddN(n=5)
-    mlflow.pyfunc.save_model(dst_path=model_path, python_model=add5_model)
+    mlflow.pyfunc.save_model(path=model_path, python_model=add5_model)
 
     # Load the model in `python_function` format
     loaded_model = mlflow.pyfunc.load_pyfunc(model_path)
