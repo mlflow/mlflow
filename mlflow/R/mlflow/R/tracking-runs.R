@@ -123,6 +123,11 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
 #' @export
 mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id = NULL,
                              client = NULL) {
+  validate_batch_input_column_names("metrics", metrics,
+                                    c("key", "value", "step", "timestamp"))
+  validate_batch_input_column_names("params", params, c("key", "value"))
+  validate_batch_input_column_names("tags", tags, c("key", "value"))
+
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
 
   mlflow_rest("runs", "log-batch", client = client, verb = "POST", data = list(
@@ -133,6 +138,20 @@ mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id 
   ))
   invisible(NULL)
 }
+
+validate_batch_input_column_names <- function(input_type, input_dataframe, expected_column_names) {
+  if (is.null(input_dataframe) || setequal(names(input_dataframe), expected_column_names)) {
+    return()
+  }
+  msg <- paste(input_type,
+               " batch input must contain exactly the following columns: ",
+               paste(expected_column_names, collapse = ", "),
+               ". Found: ",
+               paste(names(input_dataframe), collapse = ", "),
+               sep = "")
+  stop(msg, call. = FALSE)
+}
+
 
 #' Set Tag
 #'
@@ -213,6 +232,7 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
     purrr::transpose() %>%
     purrr::map(unlist) %>%
     purrr::map_at("timestamp", milliseconds_to_date) %>%
+    purrr::map_at("step", as.double) %>%
     tibble::as_tibble()
 }
 

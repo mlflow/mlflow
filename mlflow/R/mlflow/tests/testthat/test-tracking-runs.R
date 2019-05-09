@@ -133,8 +133,10 @@ test_that("mlflow_log_batch() works", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
   mlflow_log_batch(
-    metrics = data.frame(key = c("mse", "mse", "rmse"), value = c(21, 23, 42),
-                         timestamp = c(100, 200, 300)),
+    metrics = data.frame(key = c("mse", "mse", "rmse", "rmse", "na_metric"),
+                         value = c(21, 23, 42, 36, NA),
+                         timestamp = c(100, 200, 300, 300, 400),
+                         step = c(-4, 1, 7, 3, 1)),
     params = data.frame(key = c("l1", "optimizer"), value = c(0.01, "adam")),
     tags = data.frame(key = c("model_type", "data_year"),
                       value = c("regression", "2015"))
@@ -147,16 +149,21 @@ test_that("mlflow_log_batch() works", {
 
   expect_setequal(
     metrics$key,
-    c("mse", "rmse")
+    c("mse", "rmse", "na_metric")
   )
   expect_setequal(
     metrics$value,
-    c(23, 42)
+    c(23, 42, 0)
   )
   expect_setequal(
     metrics$timestamp,
-    purrr::map(c(200, 300), mlflow:::milliseconds_to_date)
+    purrr::map(c(200, 300, 400), mlflow:::milliseconds_to_date)
   )
+  expect_setequal(
+    metrics$step,
+    c(1, 7, 0)
+  )
+
   metric_history <- mlflow_get_metric_history("mse")
   expect_setequal(
     metric_history$value,
@@ -164,7 +171,11 @@ test_that("mlflow_log_batch() works", {
   )
   expect_setequal(
     metric_history$timestamp,
-    purrr::map(c(200, 300), mlflow:::milliseconds_to_date)
+    purrr::map(c(100, 200), mlflow:::milliseconds_to_date)
+  )
+  expect_setequal(
+    metric_history$step,
+    c(-4, 1)
   )
 
   expect_setequal(
@@ -185,5 +196,86 @@ test_that("mlflow_log_batch() works", {
   expect_setequal(
     tags$value,
     c("regression", "2015")
+  )
+})
+
+test_that("mlflow_log_batch() throws for mismatched input data columns", {
+  mlflow_clear_test_dir("mlruns")
+  mlflow_start_run()
+
+  expect_error(
+    mlflow_log_batch(
+      metrics = data.frame(key = c("mse"), value = c(10))
+    )
+  )
+  expect_error(
+    mlflow_log_batch(
+      metrics = data.frame(bad_column = c("bad"))
+    )
+  )
+  expect_error(
+    mlflow_log_batch(
+      metrics = data.frame(
+       key = c("mse"),
+       value = c(10),
+       timestamp = c(100),
+       step = c(1),
+       bad_column = c("bad")
+      )
+    )
+  )
+
+  expect_error(
+    mlflow_log_batch(
+      params = data.frame(key = c("mse"))
+    )
+  )
+  expect_error(
+    mlflow_log_batch(
+      params = data.frame(bad_column = c("bad"))
+    )
+  )
+  expect_error(
+    mlflow_log_batch(
+      params = data.frame(
+       key = c("mse"),
+       value = c(10),
+       bad_column = c("bad")
+      )
+    )
+  )
+
+  expect_error(
+    mlflow_log_batch(
+      tags = data.frame(key = c("mse"))
+    )
+  )
+  expect_error(
+    mlflow_log_batch(
+      tags = data.frame(bad_column = c("bad"))
+    )
+  )
+  expect_error(
+    mlflow_log_batch(
+      tags = data.frame(
+       key = c("mse"),
+       value = c(10),
+       bad_column = c("bad")
+      )
+    )
+  )
+
+  expect_error(
+    mlflow_log_batch(
+      metrics = data.frame(
+       bad_column = c("bad1")
+      ),
+      params = data.frame(
+       another_bad_column = c("bad2")
+      ),
+      tags = data.frame(
+       one_more_bad_column = c("bad3")
+      )
+    )
   )
 })
