@@ -34,15 +34,13 @@ def deprecated(alternative=None, since=None):
 
 def keyword_only(func):
     """
-    A decorator that forces keyword arguments in the wrapped method
-    and saves actual input keyword arguments in `_input_kwargs`.
+    A decorator that forces keyword arguments in the wrapped method.
     """
     @wraps(func)
     def wrapper(*args, **kwargs):
         if len(args) > 0:
             raise TypeError("Method %s only accepts keyword arguments." % func.__name__)
-        self._input_kwargs = kwargs
-        return func(self, **kwargs)
+        return func(**kwargs)
     notice = ".. Note:: This method only accepts keyword arguments.\n"
     wrapper.__doc__ = notice + wrapper.__doc__
     return wrapper
