@@ -34,10 +34,10 @@ def test_download_from_uri():
         def __init__(self, scheme):
             self.scheme = scheme
 
-        def download_artifacts(self, artifact_path, dst_path=None):
+        def download_artifacts(self, artifact_path, **kwargs):  # pylint: disable=unused-argument
             return (self.scheme, artifact_path)
 
-    def test_get_artifact_repository(artifact_uri, **kwargs):
+    def test_get_artifact_repository(artifact_uri):
         return TestArtifactRepo(artifact_uri)
 
     pairs = [
@@ -65,7 +65,7 @@ def test_download_from_uri():
         ("s3://path/to", ("s3://path/", "to")),
         ("s3://path/to/dir", ("s3://path/to", "dir")),
     ]
-    with mock.patch("mlflow.tracking.artifact_utils.get_artifact_repository")\
+    with mock.patch("mlflow.tracking.artifact_utils.get_artifact_repository") \
             as get_artifact_repo_mock:
         get_artifact_repo_mock.side_effect = test_get_artifact_repository
 

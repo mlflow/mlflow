@@ -55,9 +55,9 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
     parsed_uri = urllib.parse.urlparse(artifact_uri)
     prefix = ""
-    if not parsed_uri.path.startswith("/"):
+    if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
         # relative path is a special case, urllib does not reconstruct it properly
-        prefix = parsed_uri.scheme
+        prefix = parsed_uri.scheme + ":"
         parsed_uri = parsed_uri._replace(scheme="")
     artifact_path = posixpath.basename(parsed_uri.path)
     parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
