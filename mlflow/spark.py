@@ -249,6 +249,8 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
 
 
 def _validate_model(spark_model):
+    from pyspark.ml.pipeline import PipelineModel
+
     if not isinstance(spark_model, PipelineModel):
         raise MlflowException("Not a PipelineModel. SparkML can only save PipelineModels.",
                               INVALID_PARAMETER_VALUE)

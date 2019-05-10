@@ -13,8 +13,6 @@ from __future__ import absolute_import
 import os
 import yaml
 
-import h2o
-
 import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
