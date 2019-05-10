@@ -1,55 +1,8 @@
 import pytest
 
-from mlflow.entities import RunInfo, RunData, Run, SourceType, LifecycleStage, RunStatus
+from mlflow.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus
 from mlflow.exceptions import MlflowException
-from mlflow.protos.service_pb2 import SearchExpression, DoubleClause, \
-    MetricSearchExpression, FloatClause, ParameterSearchExpression, StringClause
 from mlflow.utils.search_utils import SearchFilter
-
-
-def test_search_filter_basics():
-    search_filter = "This is a filter string"
-    anded_expressions = [SearchExpression(), SearchExpression()]
-
-    # only anded_expressions
-    SearchFilter(anded_expressions=anded_expressions)
-
-    # only search filter
-    SearchFilter(filter_string=search_filter)
-
-    # both
-    with pytest.raises(MlflowException) as e:
-        SearchFilter(anded_expressions=anded_expressions, filter_string=search_filter)
-        assert e.message.contains("Can specify only one of 'filter' or 'search_expression'")
-
-
-def test_anded_expression():
-    se = SearchExpression(metric=MetricSearchExpression(key="accuracy",
-                                                        double=DoubleClause(comparator=">=",
-                                                                            value=.94)))
-    sf = SearchFilter(anded_expressions=[se])
-    assert sf._parse() == [{"type": "metric", "key": "accuracy", "comparator": ">=", "value": 0.94}]
-
-
-def test_anded_expression_2():
-    m1 = MetricSearchExpression(key="accuracy", double=DoubleClause(comparator=">=", value=.94))
-    m2 = MetricSearchExpression(key="error", double=DoubleClause(comparator="<", value=.01))
-    m3 = MetricSearchExpression(key="mse", float=FloatClause(comparator=">=", value=5))
-    p1 = ParameterSearchExpression(key="a", string=StringClause(comparator="=", value="0"))
-    p2 = ParameterSearchExpression(key="b", string=StringClause(comparator="!=", value="blah"))
-    sf = SearchFilter(anded_expressions=[SearchExpression(metric=m1),
-                                         SearchExpression(metric=m2),
-                                         SearchExpression(metric=m3),
-                                         SearchExpression(parameter=p1),
-                                         SearchExpression(parameter=p2)])
-
-    assert sf._parse() == [
-        {'comparator': '>=', 'key': 'accuracy', 'type': 'metric', 'value': 0.94},
-        {'comparator': '<', 'key': 'error', 'type': 'metric', 'value': 0.01},
-        {'comparator': '>=', 'key': 'mse', 'type': 'metric', 'value': 5},
-        {'comparator': '=', 'key': 'a', 'type': 'parameter', 'value': '0'},
-        {'comparator': '!=', 'key': 'b', 'type': 'parameter', 'value': 'blah'}
-    ]
 
 
 @pytest.mark.parametrize("filter_string, parsed_filter", [
@@ -193,10 +146,9 @@ def test_invalid_clauses(filter_string, error_message):
 ])
 def test_bad_comparators(entity_type, bad_comparators, entity_value):
     run = Run(run_info=RunInfo(
-        run_uuid="hi", run_id="hi", experiment_id=0, name="name",
-        source_type=SourceType.PROJECT, source_name="source-name",
-        entry_point_name="entry-point-name", user_id="user-id", status=RunStatus.FAILED,
-        start_time=0, end_time=1, source_version="version", lifecycle_stage=LifecycleStage.ACTIVE),
+        run_uuid="hi", run_id="hi", experiment_id=0,
+        user_id="user-id", status=RunStatus.FAILED,
+        start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
         run_data=RunData(metrics=[], params=[], tags=[])
     )
     for bad_comparator in bad_comparators:

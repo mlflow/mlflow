@@ -109,11 +109,11 @@ mlflow_user <- function() {
 }
 
 MLFLOW_SOURCE_TYPE <- list(
-  NOTEBOOK = 1,
-  JOB = 2,
-  PROJECT = 3,
-  LOCAL = 4,
-  UNKNOWN = 5
+  NOTEBOOK = "NOTEBOOK",
+  JOB = "JOB",
+  PROJECT = "PROJECT",
+  LOCAL = "LOCAL",
+  UNKNOWN = "UNKNOWN"
 )
 
 resolve_client_and_run_id <- function(client, run_id) {
@@ -152,6 +152,7 @@ parse_run_data <- function(d) {
     purrr::transpose() %>%
     purrr::map(unlist) %>%
     purrr::map_at("timestamp", milliseconds_to_date) %>%
+    purrr::map_at("step", as.double) %>%
     tibble::as_tibble() %>%
     list()
 }

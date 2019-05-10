@@ -21,6 +21,7 @@ import tensorflow as tf
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
@@ -168,9 +169,11 @@ class _KerasModelWrapper:
         return predicted
 
 
-def _load_pyfunc(model_file):
+def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+
+    :param path: Local filesystem path to the MLflow Model with the ``keras`` flavor.
     """
     if K._BACKEND == 'tensorflow':
         graph = tf.Graph()
@@ -181,29 +184,36 @@ def _load_pyfunc(model_file):
         with graph.as_default():
             with sess.as_default():  # pylint:disable=not-context-manager
                 K.set_learning_phase(0)
-                m = _load_model(model_file)
+                m = _load_model(path)
         return _KerasModelWrapper(m, graph, sess)
     else:
         raise Exception("Unsupported backend '%s'" % K._BACKEND)
 
 
-def load_model(path, run_id=None):
+def load_model(model_uri):
     """
     Load a Keras model from a local file (if ``run_id`` is None) or a run.
 
-    :param path: Local filesystem path or run-relative artifact path to the model saved
-                 by :py:func:`mlflow.keras.log_model`.
-    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see the
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
+                      supported-artifact-stores>`_.
+
+    :return: A Keras model instance.
 
     >>> # Load persisted model as a Keras model or as a PyFunc, call predict() on a Pandas DataFrame
     >>> keras_model = mlflow.keras.load_model("models", run_id="96771d893a5e46159d9f3b49bf9013e2")
     >>> predictions = keras_model.predict(x_test)
     """
-    if run_id is not None:
-        path = mlflow.tracking.artifact_utils._get_model_log_dir(model_name=path, run_id=run_id)
-    path = os.path.abspath(path)
-    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.h5`
-    keras_model_artifacts_path = os.path.join(path, flavor_conf.get("data", "model.h5"))
+    keras_model_artifacts_path = os.path.join(local_model_path, flavor_conf.get("data", "model.h5"))
     return _load_model(model_file=keras_model_artifacts_path)

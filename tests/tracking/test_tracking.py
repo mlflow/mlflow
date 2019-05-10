@@ -104,6 +104,23 @@ def test_set_experiment_with_deleted_experiment_name(tracking_uri_mock):
         mlflow.set_experiment(name)
 
 
+def test_list_experiments(tracking_uri_mock):
+    def _assert_exps(ids_to_lifecycle_stage, view_type_arg):
+        result = set([(exp.experiment_id, exp.lifecycle_stage)
+                      for exp in client.list_experiments(view_type=view_type_arg)])
+        assert result == set([(id, stage) for id, stage in ids_to_lifecycle_stage.items()])
+    experiment_id = mlflow.create_experiment("exp_1")
+    assert experiment_id == '1'
+    client = tracking.MlflowClient()
+    _assert_exps({'0': LifecycleStage.ACTIVE, '1': LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
+    _assert_exps({'0': LifecycleStage.ACTIVE, '1': LifecycleStage.ACTIVE}, ViewType.ALL)
+    _assert_exps({}, ViewType.DELETED_ONLY)
+    client.delete_experiment(experiment_id)
+    _assert_exps({'0': LifecycleStage.ACTIVE}, ViewType.ACTIVE_ONLY)
+    _assert_exps({'0': LifecycleStage.ACTIVE, '1': LifecycleStage.DELETED}, ViewType.ALL)
+    _assert_exps({'1': LifecycleStage.DELETED}, ViewType.DELETED_ONLY)
+
+
 def test_set_experiment_with_zero_id(reset_mock, reset_active_experiment):
     reset_mock(MlflowClient, "get_experiment_by_name",
                mock.Mock(return_value=attrdict.AttrDict(
