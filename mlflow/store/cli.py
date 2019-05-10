@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import logging
 import sys
 
@@ -8,7 +6,6 @@ import click
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.logging_utils import eprint
 from mlflow.utils.proto_json_utils import message_to_json
 
 _logger = logging.getLogger(__name__)
@@ -95,9 +92,11 @@ def _file_infos_to_json(file_infos):
 @click.option("--run-id", "-r",
               help="Run ID from which to download")
 @click.option("--artifact-path", "-a",
-              help="If specified, a path relative to the run's root directory to download")
+              help="For use with Run ID: if specified, a path relative to the run's root "
+                   "directory to download")
 @click.option("--artifact-uri", "-u",
-              help="URI pointing to the artifact file or artifacts directory.")
+              help="URI pointing to the artifact file or artifacts directory; use as an "
+                   "alternative to specifying --run_id and --artifact-path")
 def download_artifacts(run_id, artifact_path, artifact_uri):
     """
     Download an artifact file or directory to a local directory.
@@ -106,8 +105,7 @@ def download_artifacts(run_id, artifact_path, artifact_uri):
     Either ``--run-id`` or ``--artifact-uri`` must be provided.
     """
     if run_id is None and artifact_uri is None:
-        eprint("Option 'default-artifact-root' is required, when backend store is not "
-               "local file based.")
+        _logger.error("Either ``--run-id`` or ``--artifact-uri`` must be provided.")
         sys.exit(1)
 
     if artifact_uri is not None:
