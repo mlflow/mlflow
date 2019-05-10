@@ -110,7 +110,6 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     """
     from py4j.protocol import Py4JJavaError
 
-
     _validate_model(spark_model)
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
