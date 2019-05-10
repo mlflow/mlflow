@@ -207,12 +207,15 @@ def test_delete_restore_experiment(mlflow_client):
 
 def test_delete_restore_experiment_cli(mlflow_client, cli_env):
     experiment_name = "DeleteriousCLI"
-    invoke_cli_runner(mlflow.experiments.commands, ['create', experiment_name], env=cli_env)
+    invoke_cli_runner(mlflow.experiments.commands,
+                      ['create', '--experiment-name', experiment_name], env=cli_env)
     experiment_id = mlflow_client.get_experiment_by_name(experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
-    invoke_cli_runner(mlflow.experiments.commands, ['delete', str(experiment_id)], env=cli_env)
+    invoke_cli_runner(mlflow.experiments.commands, ['delete', '-x', str(experiment_id)],
+                      env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'deleted'
-    invoke_cli_runner(mlflow.experiments.commands, ['restore', str(experiment_id)], env=cli_env)
+    invoke_cli_runner(mlflow.experiments.commands, ['restore', '-x', str(experiment_id)],
+                      env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
 
 
@@ -227,12 +230,14 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     bad_experiment_name = "CLIBadName"
     good_experiment_name = "CLIGoodName"
 
-    invoke_cli_runner(mlflow.experiments.commands, ['create', bad_experiment_name], env=cli_env)
+    invoke_cli_runner(mlflow.experiments.commands, ['create', '-n', bad_experiment_name],
+                      env=cli_env)
     experiment_id = mlflow_client.get_experiment_by_name(bad_experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
     invoke_cli_runner(
         mlflow.experiments.commands,
-        ['rename', str(experiment_id), good_experiment_name], env=cli_env)
+        ['rename', '--experiment-id', str(experiment_id), '--new-name', good_experiment_name],
+        env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
 
 
