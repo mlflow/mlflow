@@ -2,7 +2,7 @@
 #'
 #' Logs a metric for a run. Metrics key-value pair that records a single float measure.
 #'   During a single execution of a run, a particular metric can be logged several times.
-#'   The MLflow Backend will keep track of historical values along two axes: timestamp and step.
+#'   The MLflow Backend keeps track of historical metric values along two axes: timestamp and step.
 #'
 #' @param key Name of the metric.
 #' @param value Float value for the metric being logged.
