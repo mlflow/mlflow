@@ -2,6 +2,7 @@
 sphinx==1.7.9
 sphinx_rtd_theme
 sphinx-autobuild
+sphinx-click
 nose
 codecov
 coverage
