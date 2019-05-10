@@ -21,13 +21,14 @@ import pandas as pd
 import torch
 import torchvision
 
+import mlflow
 import mlflow.pyfunc.utils as pyfunc_utils
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
-import mlflow.tracking
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -291,14 +292,23 @@ def _load_model(path, **kwargs):
     return torch.load(model_path, **kwargs)
 
 
-def load_model(path, run_id=None, **kwargs):
+def load_model(model_uri, **kwargs):
     """
     Load a PyTorch model from a local file (if ``run_id`` is ``None``) or a run.
 
-    :param path: Local filesystem path or run-relative artifact path to the model saved
-                 by :py:func:`mlflow.pytorch.log_model`.
-    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see the
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
+                      supported-artifact-stores>`_.
+
     :param kwargs: kwargs to pass to ``torch.load`` method.
+    :return: A PyTorch model.
 
     >>> import torch
     >>> import mlflow
@@ -309,30 +319,31 @@ def load_model(path, run_id=None, **kwargs):
     >>> pytorch_model = mlflow.pytorch.load_model(model_path_dir, run_id)
     >>> y_pred = pytorch_model(x_new_data)
     """
-    if run_id is not None:
-        path = mlflow.tracking.artifact_utils._get_model_log_dir(model_name=path, run_id=run_id)
-    path = os.path.abspath(path)
-
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     try:
-        pyfunc_conf = _get_flavor_configuration(model_path=path, flavor_name=pyfunc.FLAVOR_NAME)
+        pyfunc_conf = _get_flavor_configuration(
+            model_path=local_model_path, flavor_name=pyfunc.FLAVOR_NAME)
     except MlflowException:
         pyfunc_conf = {}
     code_subpath = pyfunc_conf.get(pyfunc.CODE)
     if code_subpath is not None:
-        pyfunc_utils._add_code_to_system_path(code_path=os.path.join(path, code_subpath))
+        pyfunc_utils._add_code_to_system_path(
+            code_path=os.path.join(local_model_path, code_subpath))
 
-    pytorch_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    pytorch_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     if torch.__version__ != pytorch_conf["pytorch_version"]:
         _logger.warning(
             "Stored model version '%s' does not match installed PyTorch version '%s'",
             pytorch_conf["pytorch_version"], torch.__version__)
-    torch_model_artifacts_path = os.path.join(path, pytorch_conf['model_data'])
+    torch_model_artifacts_path = os.path.join(local_model_path, pytorch_conf['model_data'])
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
 def _load_pyfunc(path, **kwargs):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+
+    :param path: Local filesystem path to the MLflow Model with the ``pytorch`` flavor.
     """
     return _PyTorchWrapper(_load_model(path, **kwargs))
 

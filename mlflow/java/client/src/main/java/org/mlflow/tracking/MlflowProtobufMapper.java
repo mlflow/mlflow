@@ -44,13 +44,14 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeLogMetric(String runId, String key, double value, long timestamp) {
+  String makeLogMetric(String runId, String key, double value, long timestamp, long step) {
     LogMetric.Builder builder = LogMetric.newBuilder();
     builder.setRunUuid(runId);
     builder.setRunId(runId);
     builder.setKey(key);
     builder.setValue(value);
     builder.setTimestamp(timestamp);
+    builder.setStep(step);
     return print(builder);
   }
 

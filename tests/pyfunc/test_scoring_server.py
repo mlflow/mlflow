@@ -40,7 +40,7 @@ def test_scoring_server_responds_to_invalid_json_input_with_stacktrace_and_error
 
     incorrect_json_content = json.dumps({"not": "a serialized dataframe"})
     response = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_uri=os.path.abspath(model_path),
             data=incorrect_json_content,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_json = json.loads(response.content)
@@ -57,7 +57,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_stacktrace_and_err
 
     malformed_json_content = "this is,,,, not valid json"
     response = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_uri=os.path.abspath(model_path),
             data=malformed_json_content,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_json = json.loads(response.content)
@@ -76,7 +76,7 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
     # format; passing a serialized Dataframe in `table` format should yield a readable error
     pandas_table_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="table")
     response = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_uri=os.path.abspath(model_path),
             data=pandas_table_content,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_json = json.loads(response.content)
@@ -93,7 +93,7 @@ def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stackt
     incompatible_df = pd.DataFrame(np.array(range(10)))
 
     response = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_uri=os.path.abspath(model_path),
             data=incompatible_df,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     response_json = json.loads(response.content)
@@ -111,7 +111,7 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
     # Any empty string is not valid pandas CSV
     incorrect_csv_content = ""
     response = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_uri=os.path.abspath(model_path),
             data=incorrect_csv_content,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_CSV)
     response_json = json.loads(response.content)
@@ -128,7 +128,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
 
     pandas_record_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="records")
     response_records_content_type = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_uri=os.path.abspath(model_path),
             data=pandas_record_content,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED)
     assert response_records_content_type.status_code == 200
@@ -141,13 +141,13 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
 
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
     response_default_content_type = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_uri=os.path.abspath(model_path),
             data=pandas_split_content,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON)
     assert response_default_content_type.status_code == 200
 
     response = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_uri=os.path.abspath(model_path),
             data=pandas_split_content,
             content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert response.status_code == 200
@@ -160,7 +160,7 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
 
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
     response = pyfunc_serve_and_score_model(
-            model_path=os.path.abspath(model_path),
+            model_uri=os.path.abspath(model_path),
             data=pandas_split_content,
             content_type="not_a_supported_content_type")
     assert response.status_code == 415

@@ -4,8 +4,7 @@
 #'
 #' Serves an RFunc MLflow model as a local web API.
 #'
-#' @param model_path The path to the MLflow model, as a string.
-#' @param run_id ID of run to grab the model from.
+#' @template roxlate-model-uri
 #' @param host Address to use to serve model, as a string.
 #' @param port Port to use to serve model, as numeric.
 #' @param daemonized Makes `httpuv` server daemonized so R interactive sessions
@@ -33,8 +32,7 @@
 #' @import swagger
 #' @export
 mlflow_rfunc_serve <- function(
-  model_path,
-  run_id = NULL,
+  model_uri,
   host = "127.0.0.1",
   port = 8090,
   daemonized = FALSE,
@@ -42,9 +40,7 @@ mlflow_rfunc_serve <- function(
   restore = FALSE
 ) {
   mlflow_restore_or_warning(restore)
-
-  model_path <- resolve_model_path(model_path, run_id)
-
+  model_path <- mlflow_download_artifacts_from_uri(model_uri)
   httpuv_start <- if (daemonized) httpuv::startDaemonizedServer else httpuv::runServer
   serve_run(model_path, host, port, httpuv_start, browse && interactive())
 }

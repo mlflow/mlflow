@@ -14,9 +14,8 @@ public class TestUtils {
     return a == b ? true : Math.abs(a - b) < EPSILON;
   }
 
-  static void assertRunInfo(RunInfo runInfo, String experimentId, String sourceName) {
+  static void assertRunInfo(RunInfo runInfo, String experimentId) {
     Assert.assertEquals(runInfo.getExperimentId(), experimentId);
-    Assert.assertEquals(runInfo.getSourceName(), sourceName);
     Assert.assertNotEquals(runInfo.getUserId(), "");
     Assert.assertTrue(runInfo.getStartTime() < runInfo.getEndTime());
   }
@@ -29,11 +28,10 @@ public class TestUtils {
     Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
   }
 
-  public static void assertMetric(List<Metric> metrics, String key, double value, long runStart, long runEnd) {
-    Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) &&
-      equals(e.getValue(), value) && e.getTimestamp() >= runStart &&
-      e.getTimestamp() <= runEnd
-    ).findFirst().isPresent());
+  public static void assertMetric(List<Metric> metrics, String key, double value, long timestamp, long step) {
+    Assert.assertTrue(metrics.stream().filter(
+      e -> e.getKey().equals(key) && equals(e.getValue(), value) && equals(e.getTimestamp(), timestamp)
+      && equals(e.getStep(), step)).findFirst().isPresent());
   }
 
   public static void assertMetricHistory(List<Metric> history, String key, List<Double> values, List<Long> steps) {
@@ -44,6 +42,13 @@ public class TestUtils {
       Assert.assertEquals(metric.getKey(), key);
       Assert.assertTrue(equals(metric.getValue(), values.get(i)));
       Assert.assertTrue(equals(metric.getStep(), steps.get(i)));
+    }
+  }
+
+  public static void assertMetricHistory(List<Metric> history, String key, List<Double> values, List<Long> timestamps, List<Long> steps) {
+    assertMetricHistory(history, key, values, steps);
+    for(int i = 0; i < history.size(); ++i) {
+      Assert.assertTrue(equals(history.get(i).getTimestamp(), timestamps.get(i)));
     }
   }
 
@@ -58,9 +63,10 @@ public class TestUtils {
     return "JavaTestExp_" + UUID.randomUUID().toString();
   }
 
-  public static Metric createMetric(String name, double value, long timestamp) {
+  public static Metric createMetric(String name, double value, long timestamp, long step) {
     Metric.Builder builder = Metric.newBuilder();
     builder.setKey(name).setValue(value).setTimestamp(timestamp);
+    builder.setKey(name).setValue(value).setStep(step);
     return builder.build();
   }
 
