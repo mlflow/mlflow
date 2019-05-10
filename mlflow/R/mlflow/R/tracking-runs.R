@@ -2,13 +2,14 @@
 #'
 #' Logs a metric for a run. Metrics key-value pair that records a single float measure.
 #'   During a single execution of a run, a particular metric can be logged several times.
-#'   Backend will keep track of historical values along two axes: timestamp and step.
+#'   The MLflow Backend will keep track of historical values along two axes: timestamp and step.
 #'
 #' @param key Name of the metric.
 #' @param value Float value for the metric being logged.
 #' @param timestamp Timestamp at which to log the metric. Timestamp is rounded to the nearest
 #'  integer. If unspecified, the number of milliseconds since the Unix epoch is used.
-#' @param step Step at which to log the metric. Step is rounded to the nearest integer.
+#' @param step Step at which to log the metric. Step is rounded to the nearest integer. If
+#'  unspecified, the default value of zero is used.
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
@@ -19,14 +20,14 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id 
   value <- cast_scalar_double(value)
   timestamp <- cast_nullable_scalar_double(timestamp)
   timestamp <- round(timestamp %||% current_time())
-  step <- round(cast_nullable_scalar_double(step))
+  step <- round(cast_nullable_scalar_double(step) %||% 0)
   mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
     run_uuid = run_id,
     run_id = run_id,
     key = key,
     value = value,
     timestamp = timestamp,
-    step = step 
+    step = step
   ))
   invisible(value)
 }
