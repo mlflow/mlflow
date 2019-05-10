@@ -111,7 +111,7 @@ def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`mlflow.keras.get_default_conda_env()` environment is added to the 
+                      :func:`mlflow.keras.get_default_conda_env()` environment is added to the
                       model. The following is an *example* dictionary representation of a Conda
                       environment::
 

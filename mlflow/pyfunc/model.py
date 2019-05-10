@@ -31,10 +31,10 @@ CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 def get_default_conda_env():
     """
     :return: The default Conda environment for models produced by calls to
-             :func:`save_model() <mlflow.pyfunc.save_model>` 
-             and :func:`log_model() <mlflow.pyfunc.log_model>` when a user-defined subclass of 
+             :func:`save_model() <mlflow.pyfunc.save_model>`
+             and :func:`log_model() <mlflow.pyfunc.log_model>` when a user-defined subclass of
              :class:`PythonModel` is provided.
- 
+
     """
     return _mlflow_conda_env(
         additional_conda_deps=None,
@@ -119,7 +119,7 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default 
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
                       :func:`get_default_conda_env()` environment is added to the model.
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system

@@ -482,7 +482,7 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. This decribes the environment this model should
                       be run in. If ``python_model`` is not ``None``, the Conda environment must
-                      at least specify the dependencies contained in 
+                      at least specify the dependencies contained in
                       :func:`get_default_conda_env()`. If `None`, the default
                       :func:`get_default_conda_env()` environment are added to the
                       model. The following is an *example* dictionary representation of a Conda
@@ -592,7 +592,7 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. This decribes the environment this model should
                       be run in. If ``python_model`` is not *None*, the Conda environment must
-                      at least specify the dependencies contained in 
+                      at least specify the dependencies contained in
                       :func:`get_default_conda_env()`. If `None`, the default
                       :func:`get_default_conda_env()` environment is added to the
                       model. The following is an *example* dictionary representation of a Conda
