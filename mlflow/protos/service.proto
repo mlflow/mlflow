@@ -23,6 +23,10 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
+        path: "/mlflow/experiments/create"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
         path: "/preview/mlflow/experiments/create"
         since { major: 2, minor: 0 },
       }],
@@ -37,6 +41,10 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
+        path: "/mlflow/experiments/list"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
         path: "/preview/mlflow/experiments/list"
         since { major: 2, minor: 0 },
       }],
@@ -46,10 +54,14 @@ service MlflowService {
   }
 
   // Get metadata for an experiment and a list of runs for the experiment.
-  // This RPC will work on deleted experiments.
+  // This method works on deleted experiments.
   rpc getExperiment (GetExperiment) returns (GetExperiment.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "GET",
+        path: "/mlflow/experiments/get"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/preview/mlflow/experiments/get"
         since { major: 2, minor: 0 },
@@ -59,12 +71,16 @@ service MlflowService {
     };
   }
 
-  // Mark an experiment and associated runs, params, metrics, ... etc for deletion.
+  // Mark an experiment and associated metadata, runs, metrics, params, and tags for deletion.
   // If the experiment uses FileStore, artifacts associated with experiment are also deleted.
   //
   rpc deleteExperiment (DeleteExperiment) returns (DeleteExperiment.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/experiments/delete"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/experiments/delete"
         since { major: 2, minor: 0 },
@@ -75,7 +91,7 @@ service MlflowService {
   }
 
   // Restore an experiment marked for deletion. This also restores
-  // associated metadata, runs, metrics, and params. If experiment uses FileStore, underlying
+  // associated metadata, runs, metrics, params, and tags. If experiment uses FileStore, underlying
   // artifacts associated with experiment are also restored.
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if experiment was never created or was permanently deleted.
@@ -83,6 +99,10 @@ service MlflowService {
   rpc restoreExperiment (RestoreExperiment) returns (RestoreExperiment.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/experiments/restore"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/experiments/restore"
         since { major: 2, minor: 0 },
@@ -92,11 +112,15 @@ service MlflowService {
     };
   }
 
-  // Updates an experiment metadata.
+  // Update experiment metadata.
   //
   rpc updateExperiment (UpdateExperiment) returns (UpdateExperiment.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/experiments/update"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/experiments/update"
         since { major: 2, minor: 0 },
@@ -114,6 +138,10 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
+        path: "/mlflow/runs/create"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
         path: "/preview/mlflow/runs/create"
         since { major: 2, minor: 0 },
       }],
@@ -129,6 +157,10 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
+        path: "/mlflow/runs/update"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
         path: "/preview/mlflow/runs/update"
         since { major: 2, minor: 0 },
       }],
@@ -138,15 +170,20 @@ service MlflowService {
     };
   }
 
-  // This operation will mark the run for deletion.
+  // Mark a run for deletion.
   rpc deleteRun(DeleteRun) returns (DeleteRun.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/delete"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/runs/delete"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
+      rpc_doc_title: "Delete Run",
     };
   }
 
@@ -155,10 +192,15 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
+        path: "/mlflow/runs/restore"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
         path: "/preview/mlflow/runs/restore"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
+      rpc_doc_title: "Restore Run",
     };
   }
 
@@ -169,6 +211,10 @@ service MlflowService {
   rpc logMetric(LogMetric) returns (LogMetric.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/log-metric"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/runs/log-metric"
         since { major: 2, minor: 0 },
@@ -187,6 +233,10 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
+        path: "/mlflow/runs/log-parameter"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
         path: "/preview/mlflow/runs/log-parameter"
         since { major: 2, minor: 0 },
       }],
@@ -203,6 +253,10 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
+        path: "/mlflow/runs/set-tag"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
         path: "/preview/mlflow/runs/set-tag"
         since { major: 2, minor: 0 },
       }],
@@ -212,12 +266,16 @@ service MlflowService {
     };
   }
 
-  // Get metadata, params, tags, and metrics for a run. In the case where multiple metrics
+  // Get metadata, metrics, params, and tags for a run. In the case where multiple metrics
   // with the same key are logged for a run, return only the value with the latest timestamp.
   // If there are multiple values with the latest timestamp, return the maximum of these values.
   rpc getRun (GetRun) returns (GetRun.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "GET",
+        path: "/mlflow/runs/get"
+        since { major: 2, minor: 0 },
+      }, {
         method: "GET",
         path: "/preview/mlflow/runs/get"
         since { major: 2, minor: 0 },
@@ -234,6 +292,10 @@ service MlflowService {
   rpc searchRuns (SearchRuns) returns (SearchRuns.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/search"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/runs/search"
         since { major: 2, minor: 0 },
@@ -254,6 +316,10 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
+        path: "/mlflow/artifacts/list"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
         path: "/preview/mlflow/artifacts/list"
         since { major: 2, minor: 0 },
       }],
@@ -268,6 +334,10 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
+        path: "/mlflow/metrics/get-history"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
         path: "/preview/mlflow/metrics/get-history"
         since { major: 2, minor: 0 },
       }],
@@ -276,42 +346,38 @@ service MlflowService {
     };
   }
 
-  // Log a batch of metrics, params, and/or tags for a run.
-  // The server will respond with an error (non-200 status code) if any data failed to be persisted.
+  // Log a batch of metrics, params, and tags for a run.
+  // If any data failed to be persisted, the server will respond with an error (non-200 status code).
   // In case of error (due to internal server error or an invalid request), partial data may
   // be written.
   //
-  // Metrics, params, and tags may be written in interleaving fashion, but within a given entity
-  // type, are guaranteed to follow the order specified in the request body. That is, for an API
-  // request like:
+  // You can write metrics, params, and tags in interleaving fashion, but within a given entity
+  // type are guaranteed to follow the order specified in the request body. That is, for an API
+  // request like
   //
-  // {
-  //  "run_id": "2a14ed5c6a87499199e0106c3501eab8",
-  //  "metrics": [
-  //    {"key": "mae", "value": 2.5, "timestamp": 1552550804},
-  //    {"key": "rmse", "value": 2.7, "timestamp": 1552550804},
-  //  ],
-  //  "params": [
-  //    {"key": "model_class", "value": "LogisticRegression"},
-  //  ]
-  // }
+  // .. code-block:: json
   //
-  // The server is guaranteed to write metric "rmse" after "mae", though it may write param
+  //   {
+  //      "run_id": "2a14ed5c6a87499199e0106c3501eab8",
+  //      "metrics": [
+  //        {"key": "mae", "value": 2.5, "timestamp": 1552550804},
+  //        {"key": "rmse", "value": 2.7, "timestamp": 1552550804},
+  //      ],
+  //      "params": [
+  //        {"key": "model_class", "value": "LogisticRegression"},
+  //      ]
+  //   }
+  //
+  // the server is guaranteed to write metric "rmse" after "mae", though it may write param
   // "model_class" before both metrics, after "mae", or after both metrics.
   //
   // The overwrite behavior for metrics, params, and tags is as follows:
   //
-  // Metrics: metric values are never overwritten. Logging a metric (key, value, timestamp)
-  // appends to the set of values for the metric with the provided key.
+  // - Metrics: metric values are never overwritten. Logging a metric (key, value, timestamp) appends to the set of values for the metric with the provided key.
   //
-  // Tags: tag values may be overwritten by successive writes to the same tag key. That is, if
-  // multiple tag values with the same key are provided in the same API request, the last-provided
-  // tag value is written. Logging the same tag (key, value) is permitted - that is, logging a tag
-  // is idempotent.
+  // - Tags: tag values can be overwritten by successive writes to the same tag key. That is, if multiple tag values with the same key are provided in the same API request, the last-provided tag value is written. Logging the same tag (key, value) is permitted - that is, logging a tag is idempotent.
   //
-  // Params: once written, param values may not be changed (attempting to overwrite a param value
-  // will result in an error). However, logging the same param (key, value) is permitted - that is,
-  // logging a param is idempotent.
+  // - Params: once written, param values cannot be changed (attempting to overwrite a param value will result in an error). However, logging the same param (key, value) is permitted - that is, logging a param is idempotent.
   //
   // Request Limits
   // --------------
@@ -323,15 +389,19 @@ service MlflowService {
   // - Up to 100 tags
   //
   // For example, a valid request might contain 900 metrics, 50 params, and 50 tags, but logging
-  // 900 metrics, 50 params, and 51 tags would be invalid. The following limits also apply
-  // to metric, param, and tag keys & values:
+  // 900 metrics, 50 params, and 51 tags is invalid. The following limits also apply
+  // to metric, param, and tag keys and values:
   //
-  // - Metric, param, and tag keys may be up to 250 characters in length
-  // - Param and tag values may be up to 250 characters in length
+  // - Metric, param, and tag keys can be up to 250 characters in length
+  // - Param and tag values can be up to 250 characters in length
   //
   rpc logBatch (LogBatch) returns (LogBatch.Response) {
     option (rpc) = {
       endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/log-batch"
+        since { major: 2, minor: 0 },
+      }, {
         method: "POST",
         path: "/preview/mlflow/runs/log-batch"
         since { major: 2, minor: 0 },
@@ -422,7 +492,7 @@ message Run {
   optional RunData data = 2;
 }
 
-// Run data (metrics, params, etc).
+// Run data (metrics, params, and tags).
 message RunData {
   // Run metrics.
   repeated Metric metrics = 1;
@@ -521,7 +591,7 @@ message ListExperiments {
   optional ViewType view_type = 1;
 
   message Response {
-    // All experiments
+    // All experiments.
     repeated Experiment experiments = 1;
   }
 }
@@ -533,7 +603,7 @@ message GetExperiment {
   optional string experiment_id = 1 [(validate_required) = true];
 
   message Response {
-    // Returns experiment details.
+    // Experiment details.
     optional Experiment experiment = 1;
 
     // All (max limit to be imposed) active runs associated with this experiment.
@@ -554,7 +624,7 @@ message DeleteExperiment {
 message RestoreExperiment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Identifier to get an experiment
+  // ID of the associated experiment.
   optional string experiment_id = 1 [(validate_required) = true];
 
   message Response {
@@ -567,7 +637,7 @@ message UpdateExperiment {
   // ID of the associated experiment.
   optional string experiment_id = 1 [(validate_required) = true];
 
-  // If provided, the experiment's name will be changed to this. The new name must be unique.
+  // If provided, the experiment's name is changed to the new name. The new name must be unique.
   optional string new_name = 2;
 
   message Response {
@@ -583,7 +653,7 @@ message CreateRun {
   // ID of the user executing the run.
   optional string user_id = 2;
 
-  // Unix timestamp of when the run started in milliseconds.
+  // Unix timestamp in milliseconds of when the run started.
   optional int64 start_time = 7;
 
   // Additional metadata for run.
@@ -608,7 +678,7 @@ message UpdateRun {
   // Updated status of the run.
   optional RunStatus status = 2;
 
-  //Unix timestamp of when the run ended in milliseconds.
+  //Unix timestamp in milliseconds of when the run ended.
   optional int64 end_time = 3;
 
   message Response {
@@ -620,6 +690,7 @@ message UpdateRun {
 message DeleteRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // ID of the run to delete.
   optional string run_id = 1 [(validate_required) = true];
 
   message Response {}
@@ -628,6 +699,7 @@ message DeleteRun {
 message RestoreRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // ID of the run to restore.
   optional string run_id = 1 [(validate_required) = true];
 
   message Response {}
@@ -711,7 +783,7 @@ message GetRun {
   optional string run_id = 2;
 
   message Response {
-    // Run metadata (name, start time, etc) and data (metrics, params, etc).
+    // Run metadata (name, start time, etc) and data (metrics, params, and tags).
     optional Run run = 1;
   }
 }
@@ -722,22 +794,22 @@ message SearchRuns {
   // List of experiment IDs to search over.
   repeated string experiment_ids = 1;
 
-  // A filter expression over params, metrics, and tags, allowing returning a subset of
-  // runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-  // between a param/metric/tag and a constant.
+  // A filter expression over params, metrics, and tags, that allows returning a subset of
+  // runs. The syntax is a subset of SQL that supports ANDing together binary operations
+  // between a param, metric, or tag and a constant.
   //
   // Example: ``metrics.rmse < 1 and params.model_class = 'LogisticRegression'``
   //
-  // You can also select columns with spaces by using backticks or double quotes:
-  // ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
   //
-  // Supported operators are =, !=, >, >=, <, <=, and LIKE.
-  // LIKE syntax: ``params.model_class LIKE 'Linear%'``
+  // You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+  // ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
   //
-  // 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+  // Supported operators are ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
+  //
+  // You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
   // error will be returned if both are specified.
-  // If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-  // will be returned.
+  // If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+  // 
   optional string filter = 4;
 
   // Whether to display only active, only deleted, or all runs.
