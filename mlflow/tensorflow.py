@@ -33,6 +33,10 @@ _logger = logging.getLogger(__name__)
 
 
 def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+    :func:`save_model()` and :func:`log_model()`.
+    """
     import tensorflow as tf
     return _mlflow_conda_env(
         additional_conda_deps=[

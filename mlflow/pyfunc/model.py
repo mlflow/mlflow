@@ -30,11 +30,10 @@ CONFIG_KEY_CLOUDPICKLE_VERSION = "cloudpickle_version"
 
 def get_default_conda_env():
     """
-    :return: The default Conda environment for models produced by calls to
+    :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model() <mlflow.pyfunc.save_model>`
              and :func:`log_model() <mlflow.pyfunc.log_model>` when a user-defined subclass of
              :class:`PythonModel` is provided.
-
     """
     return _mlflow_conda_env(
         additional_conda_deps=None,
