@@ -92,8 +92,8 @@ test_that("mlflow_log_metric() rounds step and timestamp inputs", {
                       timestamp = 100)
   }
   expect_setequal(
-    round(step_inputs),
-    mlflow_get_metric_history("step_metric")$step
+    mlflow_get_metric_history("step_metric")$step,
+    round(step_inputs)
   )
 
   timestamp_inputs <- runif(10, 1000, 100000)
@@ -104,8 +104,8 @@ test_that("mlflow_log_metric() rounds step and timestamp inputs", {
                       timestamp = timestamp_input)
   }
   expect_setequal(
-    round(timestamp_inputs),
-    mlflow_get_metric_history("timestamp_metric")$timestamp
+    mlflow_get_metric_history("timestamp_metric")$timestamp,
+    purrr::map(round(timestamp_inputs), mlflow:::milliseconds_to_date)
   )
 })
 
