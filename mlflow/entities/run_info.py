@@ -86,7 +86,7 @@ class RunInfo(_MLflowObject):
         """String ID of the user who initiated this run."""
         return self._user_id
 
-    @property
+    @numeric_property
     def status(self):
         """
         One of the values in :py:class:`mlflow.entities.RunStatus`

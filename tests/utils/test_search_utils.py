@@ -95,6 +95,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     ("m.acc >= 0.94", "Invalid search expression type"),
     ("acc >= 0.94", "Invalid filter string"),
     ("p.model >= 'LR'", "Invalid search expression type"),
+    ("attri.x != 1", "Invalid search expression type"),
+    ("a.x != 1", "Invalid search expression type"),
     ("model >= 'LR'", "Invalid filter string"),
     ("metrics.A > 0.1 OR params.B = 'LR'", "Invalid clause(s) in filter string"),
     ("metrics.A > 0.1 NAND params.B = 'LR'", "Invalid clause(s) in filter string"),
@@ -103,6 +105,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     ("param`.A > 0.1", "Invalid clause(s) in filter string"),
     ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
     ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
+    ("attribute.start != 1", "Invalid attribute key"),
+    ("attribute.time != 1", "Invalid attribute key"),
 ])
 def test_error_filter(filter_string, error_message):
     with pytest.raises(MlflowException) as e:

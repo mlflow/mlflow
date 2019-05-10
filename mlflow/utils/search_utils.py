@@ -286,14 +286,14 @@ class SearchFilter(object):
                     raise MlflowException("Invalid comparator '{}' not one of "
                                           "'{}".format(comparator,
                                                        cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS))
-                lhs = run.info.get(key)
+                lhs = getattr(run.info, key)
                 value = float(value)
             elif key in cls.VALID_STRING_ATTRIBUTE_KEYS:
                 if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                     raise MlflowException("Invalid comparator '{}' not one of "
                                           "'{}".format(comparator,
                                                        cls.VALID_STRING_ATTRIBUTE_COMPARATORS))
-                lhs = run.info.get(key)
+                lhs = getattr(run.info, key)
             else:
                 raise MlflowException("Invalid attribute key type '{}'".format(key))
         else:
