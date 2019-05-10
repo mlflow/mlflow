@@ -22,7 +22,6 @@ def commands():
     pass
 
 
-@experimental
 @commands.command("build-image")
 @cli_args.MODEL_URI
 @click.option("--workspace-name", "-w", required=True,
@@ -45,6 +44,7 @@ def commands():
                     " key-value pairs, to associate with the Azure Container Image and the Azure"
                     " Model that are created. These tags will be added to a set of default tags"
                     " that include the model path, the model run id (if specified), and more."))
+@experimental
 def build_image(model_uri, workspace_name, subscription_id, image_name, model_name,
                 mlflow_home, description, tags):
     """
