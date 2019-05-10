@@ -66,8 +66,8 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.spark.get_default_conda_env()``. If `None`, the default
-                      ``mlflow.spark.get_default_conda_env()`` environment is added to the model.
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -266,8 +266,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.spark.get_default_conda_env()``. If `None`, the default
-                      ``mlflow.spark.get_default_conda_env()`` environment is added to the model.
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
