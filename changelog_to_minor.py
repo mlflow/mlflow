@@ -2,6 +2,7 @@ import os
 import argparse, git, requests
 from collections import defaultdict
 
+
 def main():
     parser = argparse.ArgumentParser(description='Generate the small bug fixes and doc paragraph from a list of PRs')
     parser.add_argument("--small-prs-file", nargs='?', required=True, help='File listing small fixes and docs PRs')
