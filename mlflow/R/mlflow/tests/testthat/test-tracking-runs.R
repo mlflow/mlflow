@@ -158,7 +158,7 @@ test_that("mlflow_log_metric() with step produces expected metric data", {
   )
   expect_setequal(
     metric_history_1$timestamp,
-    c(300, 100, 200)
+    purrr::map(c(300, 100, 200), mlflow:::milliseconds_to_date)
   )
   expect_setequal(
     metric_history_1$step,
