@@ -2,10 +2,13 @@ import json
 import os
 import posixpath
 
+from mock import mock
+
 import mlflow
 import mlflow.pyfunc
 from mlflow.entities import FileInfo
 from mlflow.store.cli import _file_infos_to_json
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 from subprocess import Popen, STDOUT, PIPE
 
@@ -24,6 +27,51 @@ def test_file_info_to_json():
         "path": "/my/dir",
         "is_dir": True,
     }]
+
+
+def test_download_from_uri():
+    class TestArtifactRepo:
+        def __init__(self, scheme):
+            self.scheme = scheme
+
+        def download_artifacts(self, artifact_path, **kwargs):  # pylint: disable=unused-argument
+            return (self.scheme, artifact_path)
+
+    def test_get_artifact_repository(artifact_uri):
+        return TestArtifactRepo(artifact_uri)
+
+    pairs = [
+        ("path", ("", "path")),
+        ("path/", ("path", "")),
+        ("/path", ("/", "path")),
+        ("/path/", ("/path", "")),
+        ("path/to/dir", ("path/to", "dir")),
+        ("file:", ("file:", "")),
+        ("file:path", ("file:", "path")),
+        ("file:path/", ("file:path", "")),
+        ("file:path/to/dir", ("file:path/to", "dir")),
+        ("file:/", ("file:///", "")),
+        ("file:/path", ("file:///", "path")),
+        ("file:/path/", ("file:///path", "")),
+        ("file:/path/to/dir", ("file:///path/to", "dir")),
+        ("file:///", ("file:///", "")),
+        ("file:///path", ("file:///", "path")),
+        ("file:///path/", ("file:///path", "")),
+        ("file:///path/to/dir", ("file:///path/to", "dir")),
+        ("s3://", ("s3:", "")),
+        ("s3://path", ("s3://path", "")),  # path is netloc in this case
+        ("s3://path/", ("s3://path/", "")),
+        ("s3://path/to/", ("s3://path/to", "")),
+        ("s3://path/to", ("s3://path/", "to")),
+        ("s3://path/to/dir", ("s3://path/to", "dir")),
+    ]
+    with mock.patch("mlflow.tracking.artifact_utils.get_artifact_repository") \
+            as get_artifact_repo_mock:
+        get_artifact_repo_mock.side_effect = test_get_artifact_repository
+
+        for uri, expected_result in pairs:
+            actual_result = _download_artifact_from_uri(uri)
+            assert expected_result == actual_result
 
 
 def test_download_artifacts_from_uri():
