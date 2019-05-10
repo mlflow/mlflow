@@ -9,7 +9,7 @@ from mlflow.data import is_uri
 from mlflow.entities import ViewType
 from mlflow.tracking import _get_store
 
-EXPERIMENT_ID = click.argument("experiment_id", type=click.STRING)
+EXPERIMENT_ID = click.option("--experiment-id", "-x", type=click.STRING, required=True)
 
 
 @click.group("experiments")
@@ -22,7 +22,7 @@ def commands():
 
 
 @commands.command()
-@click.argument("experiment_name")
+@click.option("--experiment-name", "-n", type=click.STRING, required=True)
 @click.option("--artifact-location", "-l",
               help="Base location for runs to store artifact results. Artifacts will be stored "
                    "at $artifact_location/$run_id/artifacts. See "
@@ -99,7 +99,7 @@ def restore_experiment(experiment_id):
 
 @commands.command("rename")
 @EXPERIMENT_ID
-@click.argument("new_name")
+@click.option("--new-name", type=click.STRING, required=True)
 def rename_experiment(experiment_id, new_name):
     """
     Renames an active experiment.
