@@ -24,6 +24,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import keyword_only
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -42,6 +43,7 @@ DEFAULT_CONDA_ENV = _mlflow_conda_env(
 _logger = logging.getLogger(__name__)
 
 
+@keyword_only
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
               conda_env=None):
     """
@@ -86,6 +88,7 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                      tf_signature_def_key=tf_signature_def_key, conda_env=conda_env)
 
 
+@keyword_only
 def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, path,
                mlflow_model=Model(), conda_env=None):
     """

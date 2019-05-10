@@ -1,3 +1,6 @@
+from functools import wraps
+
+
 def experimental(func):
     """
     Decorator for marking APIs experimental in the docstring.
@@ -27,3 +30,17 @@ def deprecated(alternative=None, since=None):
         func.__doc__ = notice + "\n" + func.__doc__
         return func
     return deprecated_func
+
+
+def keyword_only(func):
+    """
+    A decorator that forces keyword arguments in the wrapped method.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if len(args) > 0:
+            raise TypeError("Method %s only takes keyword arguments." % func.__name__)
+        return func(**kwargs)
+    notice = ".. Note:: This method requires all argument be specified by keyword.\n"
+    wrapper.__doc__ = notice + wrapper.__doc__
+    return wrapper
