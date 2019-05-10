@@ -58,6 +58,22 @@ from mlflow.utils.search_utils import SearchFilter
                              'key': 't.a.g',
                              'type': 'tag',
                              'value': 'a'}]),
+    ("attribute.run_id = '1234'", [{'type': 'attribute',
+                                    'comparator': '=',
+                                    'key': 'run_id',
+                                    'value': '1234'}]),
+    ("attr.experiment_id != '1'", [{'type': 'attribute',
+                                    'comparator': '!=',
+                                    'key': 'experiment_id',
+                                    'value': '1'}]),
+    ("attr.start_time = 789", [{'type': 'attribute',
+                                'comparator': '=',
+                                'key': 'start_time',
+                                'value': '789'}]),
+    ("run.status = 'RUNNING'", [{'type': 'attribute',
+                                 'comparator': '=',
+                                 'key': 'status',
+                                 'value': 'RUNNING'}]),
 ])
 def test_filter(filter_string, parsed_filter):
     assert SearchFilter(filter_string=filter_string)._parse() == parsed_filter
