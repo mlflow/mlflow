@@ -81,7 +81,7 @@ def test_download_artifacts_from_uri():
             with open(local_path, "w") as f:
                 f.write("test")
             mlflow.log_artifact(local_path, "test")
-    command = ["mlflow", "artifacts", "download-from-uri", "-a"]
+    command = ["mlflow", "artifacts", "download", "-u"]
     # Test with run uri
     run_uri = "runs:/{run_id}/test".format(run_id=run.info.run_id)
     actual_uri = posixpath.join(run.info.artifact_uri, "test")

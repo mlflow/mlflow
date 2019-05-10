@@ -253,7 +253,6 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
 
-cli.add_command(mlflow.data.download)
 cli.add_command(mlflow.pyfunc.cli.commands)
 cli.add_command(mlflow.rfunc.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)

@@ -344,7 +344,7 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
 
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
-  result <- mlflow_cli("artifacts", "download-from-uri", "-a", artifact_uri, echo = FALSE,
+  result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE,
                        client = client)
   gsub("\n", "", result$stdout)
 }
