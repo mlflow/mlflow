@@ -49,7 +49,7 @@ setup(
         'sqlalchemy',
     ],
     extras_require={
-        'alldeps':[
+        'extras':[
             "scikit-learn; python_version >= '3.5'",
             # scikit-learn 0.20 is the last version to support Python 2.x  & Python 3.4.
             "scikit-learn==0.20; python_version < '3.5'",
