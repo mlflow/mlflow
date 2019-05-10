@@ -69,6 +69,7 @@ test_that("logging functionality", {
   metric_history <- mlflow_get_metric_history("mse", ended_run$run_uuid)
   expect_identical(metric_history$key, c("mse", "mse"))
   expect_identical(metric_history$value, c(24, 25))
+  expect_identical(metric_history$step, c(0, 0))
   expect_true(all(difftime(metric_history$timestamp, run_start_time) >= 0))
   expect_true(all(difftime(metric_history$timestamp, run_end_time) <= 0))
 
@@ -76,6 +77,102 @@ test_that("logging functionality", {
   expect_error(
     mlflow_get_run(),
     "`run_id` must be specified when there is no active run\\."
+  )
+})
+
+test_that("mlflow_log_metric() rounds step and timestamp inputs", {
+  mlflow_clear_test_dir("mlruns")
+  mlflow_start_run()
+
+  step_inputs <- runif(10, min = -20, max = 100)
+  for (step_input in step_inputs) {
+    mlflow_log_metric(key = "step_metric",
+                      value = runif(1),
+                      step = step_input,
+                      timestamp = 100)
+  }
+  expect_setequal(
+    mlflow_get_metric_history("step_metric")$step,
+    round(step_inputs)
+  )
+
+  timestamp_inputs <- runif(10, 1000, 100000)
+  for (timestamp_input in timestamp_inputs) {
+    mlflow_log_metric(key = "timestamp_metric",
+                      value = runif(1),
+                      step = 0,
+                      timestamp = timestamp_input)
+  }
+  expect_setequal(
+    mlflow_get_metric_history("timestamp_metric")$timestamp,
+    purrr::map(round(timestamp_inputs), mlflow:::milliseconds_to_date)
+  )
+})
+
+test_that("mlflow_log_metric() with step produces expected metric data", {
+  mlflow_clear_test_dir("mlruns")
+  mlflow_start_run()
+
+  metric_key_1 <- "test_metric_1"
+  mlflow_log_metric(key = metric_key_1,
+                    value = 1.2,
+                    step = -2,
+                    timestamp = 300)
+  mlflow_log_metric(key = metric_key_1,
+                    value = 137.4,
+                    timestamp = 100)
+  mlflow_log_metric(key = metric_key_1,
+                    value = -20,
+                    timestamp = 200)
+
+  metric_key_2 <- "test_metric_2"
+  mlflow_log_metric(key = metric_key_2,
+                    value = 14,
+                    step = 120)
+  mlflow_log_metric(key = metric_key_2,
+                    value = 56,
+                    step = 137)
+  mlflow_log_metric(key = metric_key_2,
+                    value = 20,
+                    step = -5)
+
+  run <- mlflow_get_run()
+  metrics <- run$metrics[[1]]
+  expect_setequal(
+    metrics$key,
+    c("test_metric_1", "test_metric_2")
+  )
+  expect_setequal(
+    metrics$value,
+    c(-20, 56)
+  )
+  expect_setequal(
+    metrics$step,
+    c(0, 137)
+  )
+
+  metric_history_1 <- mlflow_get_metric_history("test_metric_1")
+  expect_setequal(
+    metric_history_1$value,
+    c(1.2, 137.4, -20)
+  )
+  expect_setequal(
+    metric_history_1$timestamp,
+    purrr::map(c(300, 100, 200), mlflow:::milliseconds_to_date)
+  )
+  expect_setequal(
+    metric_history_1$step,
+    c(-2, 0, 0)
+  )
+
+  metric_history_2 <- mlflow_get_metric_history("test_metric_2")
+  expect_setequal(
+    metric_history_2$value,
+    c(14, 56, 20)
+  )
+  expect_setequal(
+    metric_history_2$step,
+    c(120, 137, -5)
   )
 })
 
