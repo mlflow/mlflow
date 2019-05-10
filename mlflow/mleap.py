@@ -90,21 +90,13 @@ def save_model(spark_model, sample_input, path, mlflow_model=Model()):
                          required by MLeap for data schema inference.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: :py:mod:`mlflow.models.Model` to which this flavor is being added.
-
-    >>> import mlflow
-    >>> import mlflow.mleap
-    >>> #set values as appropriate
-    >>> spark_model = ...
-    >>> model_save_dir = ...
-    >>> sample_input_df = ...
-    >>> #save the spark MLlib model in MLeap flavor
-    >>> mlflow.mleap.save_model(spark_model=spark_model, sample_input_df=sample_input_df,
-    >>>                         path=model_save_dir)
     """
-    add_to_model(mlflow_model, path, spark_model, sample_input)
+    add_to_model(mlflow_model=mlflow_model, path=path, spark_model=spark_model,
+                 sample_input=sample_input)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
+@keyword_only
 def add_to_model(mlflow_model, path, spark_model, sample_input):
     """
     Add the MLeap flavor to an existing MLflow model.
@@ -115,16 +107,6 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                         cannot contain any custom transformers.
     :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
-
-    >>> import mlflow
-    >>> import mlflow.mleap
-    >>> #set values
-    >>> mlflow_model = ...
-    >>> spark_model = ...
-    >>> model_path_dir = ...
-    >>> sample_input_df =
-    >>> #add MLeap flavor to our MLflow model
-    >>> mlflow.mleap.add_to_model(mlflow_model,model_path_dir, sample_input_df)
     """
     from pyspark.ml.pipeline import PipelineModel
     from pyspark.sql import DataFrame
