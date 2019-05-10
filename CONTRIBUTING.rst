@@ -29,7 +29,7 @@ You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
 
 If contributing to MLflow's R APIs, install `R <https://cloud.r-project.org/>`_. For changes to R
-documentation, also install `pandoc <https://pandoc.org/installing.html/>`_ 2.2.1 or above,
+documentation, also install `pandoc <https://pandoc.org/installing.html>`_ 2.2.1 or above,
 verifying the version of your installation via ``pandoc --version``.
 
 If contributing to MLflow's Java APIs or modifying Java documentation,
