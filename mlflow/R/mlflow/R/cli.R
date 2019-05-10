@@ -1,29 +1,17 @@
-#' MLflow Command
-#'
-#' Runs a generic MLflow command through the command-line interface.
-#'
-#' @param ... The parameters to pass to the command line.
-#' @param background Should this command be triggered as a background task?
-#'   Defaults to \code{FALSE}.
-#' @param echo Print the standard output and error to the screen? Defaults to
-#'   \code{TRUE}, does not apply to background tasks.
-#' @param stderr_callback NULL, or a function to call for every chunk of the standard error.
-#' @param client Mlflow client to provide environment for the cli process.
-#'
-#' @return A \code{processx} task.
-#'
-#' @examples
-#' \dontrun{
-#' library(mlflow)
-#' mlflow_install()
-#'
-#' mlflow_cli("server", "--help")
-#' }
-#'
+# Runs a generic MLflow command through the command-line interface.
+#
+# @param ... The parameters to pass to the command line.
+# @param background Should this command be triggered as a background task?
+#   Defaults to \code{FALSE}.
+# @param echo Print the standard output and error to the screen? Defaults to
+#   \code{TRUE}, does not apply to background tasks.
+# @param stderr_callback NULL, or a function to call for every chunk of the standard error.
+# @param client Mlflow client to provide environment for the cli process.
+#
+# @return A \code{processx} task.
 #' @importFrom processx run
 #' @importFrom processx process
 #' @importFrom withr with_envvar
-#' @export
 mlflow_cli <- function(...,
                        background = FALSE,
                        echo = TRUE,
