@@ -5,16 +5,17 @@
 \title{Log Batch}
 \usage{
 mlflow_log_batch(metrics = NULL, params = NULL, tags = NULL,
-  timestamps = NULL, run_id = NULL, client = NULL)
+  run_id = NULL, client = NULL)
 }
 \arguments{
-\item{metrics}{A named list of metrics to log.}
+\item{metrics}{A dataframe of metrics to log, containing the following columns: "key", "value",
+"step", "timestamp". This dataframe cannot contain any missing ('NA') entries.}
 
-\item{params}{A named list of params to log.}
+\item{params}{A dataframe of params to log, containing the following columns: "key", "value".
+This dataframe cannot contain any missing ('NA') entries.}
 
-\item{tags}{A named list of tags to log.}
-
-\item{timestamps}{(Optional) A list of timestamps of the same length as `metrics`.}
+\item{tags}{A dataframe of tags to log, containing the following columns: "key", "value".
+This dataframe cannot contain any missing ('NA') entries.}
 
 \item{run_id}{Run ID.}
 

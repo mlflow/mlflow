@@ -6,7 +6,8 @@
 \usage{
 mlflow_run(entry_point = NULL, uri = ".", version = NULL,
   param_list = NULL, experiment_id = NULL, experiment_name = NULL,
-  backend = NULL, backend_config = NULL, no_conda = FALSE, storage_dir = NULL)
+  backend = NULL, backend_config = NULL, no_conda = FALSE,
+  storage_dir = NULL)
 }
 \arguments{
 \item{entry_point}{Entry point within project, defaults to `main` if not specified.}

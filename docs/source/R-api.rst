@@ -657,7 +657,7 @@ searches for a flavor supported by R/MLflow.
 
 .. code:: r
 
-   mlflow_load_model(model_path, flavor = NULL, run_id = NULL)
+   mlflow_load_model(model_uri, flavor = NULL, client = mlflow_client())
 
 .. _arguments-17:
 
@@ -667,20 +667,36 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``model_path``                | Path to the MLflow model. The path   |
-|                               | is relative to the run with the      |
-|                               | given run-id or local filesystem     |
-|                               | path without run-id.                 |
+| ``model_uri``                 | The location, in URI format, of the  |
+|                               | MLflow model.                        |
 +-------------------------------+--------------------------------------+
 | ``flavor``                    | Optional flavor specification. Can   |
 |                               | be used to load a particular flavor  |
 |                               | in case there are multiple flavors   |
 |                               | available.                           |
 +-------------------------------+--------------------------------------+
-| ``run_id``                    | Optional MLflow run-id. If supplied  |
-|                               | model will be fetched from MLflow    |
-|                               | tracking server.                     |
-+-------------------------------+--------------------------------------+
+
+.. _details-12:
+
+Details
+-------
+
+The URI scheme must be supported by MLflow - i.e. there has to be an
+MLflow artifact repository corresponding to the scheme of the URI. The
+content is expected to point to a directory containing MLmodel. The
+following are examples of valid model uris: -
+``file:///absolute/path/to/local/model`` -
+``file:relative/path/to/local/model`` - ``s3://my_bucket/path/to/model``
+- ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
+information about supported URI schemes, see the Artifacts Documentation
+``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+
+Seealso
+-------
+
+Other artifact uri:
+```mlflow_rfunc_predict`` <mlflow_rfunc_predict.html>`__ ,
+```mlflow_rfunc_serve`` <mlflow_rfunc_serve.html>`__
 
 Log Artifact
 ============
@@ -709,7 +725,7 @@ Arguments
 | ``client``        | (Optional) An ``mlflow_client`` object.         |
 +-------------------+-------------------------------------------------+
 
-.. _details-12:
+.. _details-13:
 
 Details
 -------
@@ -737,33 +753,41 @@ request), partial data may be written.
 .. code:: r
 
    mlflow_log_batch(metrics = NULL, params = NULL, tags = NULL,
-     timestamps = NULL, run_id = NULL, client = NULL)
+     run_id = NULL, client = NULL)
 
 .. _arguments-19:
 
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``metrics``                       | A named list of metrics to log.   |
-+-----------------------------------+-----------------------------------+
-| ``params``                        | A named list of params to log.    |
-+-----------------------------------+-----------------------------------+
-| ``tags``                          | A named list of tags to log.      |
-+-----------------------------------+-----------------------------------+
-| ``timestamps``                    | (Optional) A list of timestamps   |
-|                                   | of the same length as             |
-|                                   | ``metrics``.                      |
-+-----------------------------------+-----------------------------------+
-| ``run_id``                        | Run ID.                           |
-+-----------------------------------+-----------------------------------+
-| ``client``                        | (Optional) An ``mlflow_client``   |
-|                                   | object.                           |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``metrics``                   | A dataframe of metrics to log,       |
+|                               | containing the following columns:    |
+|                               | “key”, “value”, “step”, “timestamp”. |
+|                               | This dataframe cannot contain any    |
+|                               | missing (‘NA’) entries.              |
++-------------------------------+--------------------------------------+
+| ``params``                    | A dataframe of params to log,        |
+|                               | containing the following columns:    |
+|                               | “key”, “value”. This dataframe       |
+|                               | cannot contain any missing (‘NA’)    |
+|                               | entries.                             |
++-------------------------------+--------------------------------------+
+| ``tags``                      | A dataframe of tags to log,          |
+|                               | containing the following columns:    |
+|                               | “key”, “value”. This dataframe       |
+|                               | cannot contain any missing (‘NA’)    |
+|                               | entries.                             |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 
-.. _details-13:
+.. _details-14:
 
 Details
 -------
@@ -806,7 +830,7 @@ Arguments
 |                                   | object.                           |
 +-----------------------------------+-----------------------------------+
 
-.. _details-14:
+.. _details-15:
 
 Details
 -------
@@ -868,7 +892,7 @@ Arguments
 | ``client`` | (Optional) An ``mlflow_client`` object. |
 +------------+-----------------------------------------+
 
-.. _details-15:
+.. _details-16:
 
 Details
 -------
@@ -979,7 +1003,7 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
-.. _details-16:
+.. _details-17:
 
 Details
 -------
@@ -1014,7 +1038,7 @@ Arguments
 |                                   | object.                           |
 +-----------------------------------+-----------------------------------+
 
-.. _details-17:
+.. _details-18:
 
 Details
 -------
@@ -1047,7 +1071,7 @@ Arguments
 | ``client`` | (Optional) An ``mlflow_client`` object. |
 +------------+-----------------------------------------+
 
-.. _details-18:
+.. _details-19:
 
 Details
 -------
@@ -1073,8 +1097,8 @@ frame.
 
 .. code:: r
 
-   mlflow_rfunc_predict(model_path, run_id = NULL, input_path = NULL,
-     output_path = NULL, data = NULL, restore = FALSE)
+   mlflow_rfunc_predict(model_uri, input_path = NULL, output_path = NULL,
+     data = NULL, restore = FALSE)
 
 .. _arguments-29:
 
@@ -1084,11 +1108,8 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``model_path``                | The path to the MLflow model, as a   |
-|                               | string.                              |
-+-------------------------------+--------------------------------------+
-| ``run_id``                    | Run ID of run to grab the model      |
-|                               | from.                                |
+| ``model_uri``                 | The location, in URI format, of the  |
+|                               | MLflow model.                        |
 +-------------------------------+--------------------------------------+
 | ``input_path``                | Path to ‘JSON’ or ‘CSV’ file to be   |
 |                               | used for prediction.                 |
@@ -1105,6 +1126,29 @@ Arguments
 |                               | be called before serving?            |
 +-------------------------------+--------------------------------------+
 
+.. _details-20:
+
+Details
+-------
+
+The URI scheme must be supported by MLflow - i.e. there has to be an
+MLflow artifact repository corresponding to the scheme of the URI. The
+content is expected to point to a directory containing MLmodel. The
+following are examples of valid model uris: -
+``file:///absolute/path/to/local/model`` -
+``file:relative/path/to/local/model`` - ``s3://my_bucket/path/to/model``
+- ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
+information about supported URI schemes, see the Artifacts Documentation
+``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+
+.. _seealso-1:
+
+Seealso
+-------
+
+Other artifact uri: ```mlflow_load_model`` <mlflow_load_model.html>`__ ,
+```mlflow_rfunc_serve`` <mlflow_rfunc_serve.html>`__
+
 .. _examples-3:
 
 Examples
@@ -1112,7 +1156,7 @@ Examples
 
 .. code:: r
 
-    list("\n", "library(mlflow)\n", "\n", "# save simple model which roundtrips data as prediction\n", "mlflow_save_model(function(df) df, \"mlflow_roundtrip\")\n", "\n", "# save data as json\n", "jsonlite::write_json(iris, \"iris.json\")\n", "\n", "# predict existing model from json data\n", "mlflow_rfunc_predict(\"mlflow_roundtrip\", \"iris.json\")\n") 
+    list("\n", "library(mlflow)\n", "\n", "# save simple model which roundtrips data as prediction\n", "mlflow_save_model(function(df) df, \"mlflow_roundtrip\")\n", "\n", "# save data as json\n", "jsonlite::write_json(iris, \"iris.json\")\n", "\n", "# predict existing model from json data\n", "# load the model from local relative path.\n", "mlflow_rfunc_predict(\"file:mlflow_roundtrip\", \"iris.json\")\n") 
     
 
 Serve an RFunc MLflow Model
@@ -1122,9 +1166,8 @@ Serves an RFunc MLflow model as a local web API.
 
 .. code:: r
 
-   mlflow_rfunc_serve(model_path, run_id = NULL, host = "127.0.0.1",
-     port = 8090, daemonized = FALSE, browse = !daemonized,
-     restore = FALSE)
+   mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
+     daemonized = FALSE, browse = !daemonized, restore = FALSE)
 
 .. _arguments-30:
 
@@ -1134,10 +1177,8 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``model_path``                | The path to the MLflow model, as a   |
-|                               | string.                              |
-+-------------------------------+--------------------------------------+
-| ``run_id``                    | ID of run to grab the model from.    |
+| ``model_uri``                 | The location, in URI format, of the  |
+|                               | MLflow model.                        |
 +-------------------------------+--------------------------------------+
 | ``host``                      | Address to use to serve model, as a  |
 |                               | string.                              |
@@ -1160,6 +1201,29 @@ Arguments
 |                               | be called before serving?            |
 +-------------------------------+--------------------------------------+
 
+.. _details-21:
+
+Details
+-------
+
+The URI scheme must be supported by MLflow - i.e. there has to be an
+MLflow artifact repository corresponding to the scheme of the URI. The
+content is expected to point to a directory containing MLmodel. The
+following are examples of valid model uris: -
+``file:///absolute/path/to/local/model`` -
+``file:relative/path/to/local/model`` - ``s3://my_bucket/path/to/model``
+- ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
+information about supported URI schemes, see the Artifacts Documentation
+``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+
+.. _seealso-2:
+
+Seealso
+-------
+
+Other artifact uri: ```mlflow_load_model`` <mlflow_load_model.html>`__ ,
+```mlflow_rfunc_predict`` <mlflow_rfunc_predict.html>`__
+
 .. _examples-4:
 
 Examples
@@ -1178,8 +1242,8 @@ Wrapper for ``mlflow run``.
 
    mlflow_run(entry_point = NULL, uri = ".", version = NULL,
      param_list = NULL, experiment_id = NULL, experiment_name = NULL,
-     mode = NULL, cluster_spec = NULL, git_username = NULL,
-     git_password = NULL, no_conda = FALSE, storage_dir = NULL)
+     backend = NULL, backend_config = NULL, no_conda = FALSE,
+     storage_dir = NULL)
 
 .. _arguments-31:
 
@@ -1208,17 +1272,13 @@ Arguments
 | ``experiment_name``           | Name of the experiment under which   |
 |                               | to launch the run.                   |
 +-------------------------------+--------------------------------------+
-| ``mode``                      | Execution mode to use for run.       |
+| ``backend``                   | Execution backend to use for run.    |
 +-------------------------------+--------------------------------------+
-| ``cluster_spec``              | Path to JSON file describing the     |
-|                               | cluster to use when launching a run  |
-|                               | on Databricks.                       |
-+-------------------------------+--------------------------------------+
-| ``git_username``              | Username for HTTP(S) Git             |
-|                               | authentication.                      |
-+-------------------------------+--------------------------------------+
-| ``git_password``              | Password for HTTP(S) Git             |
-|                               | authentication.                      |
+| ``backend_config``            | Path to JSON file which will be      |
+|                               | passed to the backend. For the       |
+|                               | Databricks backend, it should        |
+|                               | describe the cluster to use when     |
+|                               | launching a run on Databricks.       |
 +-------------------------------+--------------------------------------+
 | ``no_conda``                  | If specified, assume that MLflow is  |
 |                               | running within a Conda environment   |
@@ -1228,9 +1288,9 @@ Arguments
 |                               | environment. Only valid if running   |
 |                               | locally.                             |
 +-------------------------------+--------------------------------------+
-| ``storage_dir``               | Valid only when ``mode`` is local.   |
-|                               | MLflow downloads artifacts from      |
-|                               | distributed URIs passed to           |
+| ``storage_dir``               | Valid only when ``backend`` is       |
+|                               | local. MLflow downloads artifacts    |
+|                               | from distributed URIs passed to      |
 |                               | parameters of type ``path`` to       |
 |                               | subdirectories of ``storage_dir``.   |
 +-------------------------------+--------------------------------------+
@@ -1393,7 +1453,7 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
-.. _details-19:
+.. _details-22:
 
 Details
 -------
@@ -1501,7 +1561,7 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
-.. _details-20:
+.. _details-23:
 
 Details
 -------
@@ -1572,9 +1632,7 @@ no inference is done, and additional arguments such as ``user_id`` and
 
 .. code:: r
 
-   mlflow_start_run(run_id = NULL, experiment_id = NULL,
-     source_name = NULL, source_version = NULL, entry_point_name = NULL,
-     source_type = NULL, user_id = NULL, run_name = NULL,
+   mlflow_start_run(run_id = NULL, experiment_id = NULL, user_id = NULL,
      start_time = NULL, tags = NULL, client = NULL)
 
 .. _arguments-41:
@@ -1599,6 +1657,21 @@ Arguments
 |                               | created under a new experiment with  |
 |                               | a randomly generated name.           |
 +-------------------------------+--------------------------------------+
+| ``user_id``                   | User ID or LDAP for the user         |
+|                               | executing the run. Only used when    |
+|                               | ``client`` is specified.             |
++-------------------------------+--------------------------------------+
+| ``start_time``                | Unix timestamp of when the run       |
+|                               | started in milliseconds. Only used   |
+|                               | when ``client`` is specified.        |
++-------------------------------+--------------------------------------+
+| ``tags``                      | Additional metadata for run in       |
+|                               | key-value pairs. Only used when      |
+|                               | ``client`` is specified.             |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 | ``source_name``               | Name of the source file or URI of    |
 |                               | the project to be associated with    |
 |                               | the run. Defaults to the current     |
@@ -1614,26 +1687,8 @@ Arguments
 |                               | type of the run (“local”, “project”, |
 |                               | etc.).                               |
 +-------------------------------+--------------------------------------+
-| ``user_id``                   | User ID or LDAP for the user         |
-|                               | executing the run. Only used when    |
-|                               | ``client`` is specified.             |
-+-------------------------------+--------------------------------------+
-| ``run_name``                  | Human readable name for run. Only    |
-|                               | used when ``client`` is specified.   |
-+-------------------------------+--------------------------------------+
-| ``start_time``                | Unix timestamp of when the run       |
-|                               | started in milliseconds. Only used   |
-|                               | when ``client`` is specified.        |
-+-------------------------------+--------------------------------------+
-| ``tags``                      | Additional metadata for run in       |
-|                               | key-value pairs. Only used when      |
-|                               | ``client`` is specified.             |
-+-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
-+-------------------------------+--------------------------------------+
 
-.. _details-21:
+.. _details-24:
 
 Details
 -------
