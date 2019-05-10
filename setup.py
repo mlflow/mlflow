@@ -50,7 +50,8 @@ setup(
     ],
     extras_require={
         'alldeps':[
-            'scikit-learn',
+            "scikit-learn; python_version >= '3.5'",
+            "scikit-learn==0.20; python_version < '3.5'",
             'boto3>=1.7.12',
             'mleap>=0.8.1',
             'azure-storage',
