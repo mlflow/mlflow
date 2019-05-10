@@ -36,6 +36,8 @@ class MetricsPlotPanel extends React.Component {
       selectedMetricKeys,
       showDot: false,
       historyRequestIds: [],
+      yAxisLogScale: false,
+      lineSmoothness: 0,
     };
     this.loadMetricHistory(this.props.runUuids, selectedMetricKeys);
   }
@@ -49,6 +51,12 @@ class MetricsPlotPanel extends React.Component {
   }
 
   static getPlotMetricKeysFromUrl = (search) => JSON.parse(qs.parse(search)['plot_metric_keys']);
+
+  isComparing = () => {
+    const params = qs.parse(this.props.location.search);
+    const runs = params && params['?runs']
+    return runs ? JSON.parse(runs).length > 1 : false;
+  }
 
   updateUrlWithSelectedMetrics(selectedMetricKeys) {
     const { runUuids, metricKey, location, history } = this.props;
@@ -100,6 +108,10 @@ class MetricsPlotPanel extends React.Component {
     return metrics;
   };
 
+  handleYAxisLogScaleChange = (yAxisLogScale) => {
+    this.setState({ yAxisLogScale });
+  }
+
   handleXAxisChange = (e) => {
     this.setState({ selectedXAxis: e.target.value });
   };
@@ -113,13 +125,20 @@ class MetricsPlotPanel extends React.Component {
     this.updateUrlWithSelectedMetrics(metricValues);
   };
 
-  handleShowDotChange = (showDot) => {
-    this.setState({ showDot });
-  };
+  handleShowDotChange = (showDot) => this.setState({ showDot });
+
+  handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
   render() {
     const { runUuids } = this.props;
-    const { historyRequestIds, showDot, selectedXAxis, selectedMetricKeys } = this.state;
+    const {
+      historyRequestIds,
+      showDot,
+      selectedXAxis,
+      selectedMetricKeys,
+      yAxisLogScale,
+      lineSmoothness,
+    } = this.state;
     const metrics = this.getMetrics();
     const chartType = MetricsPlotPanel.predictChartType(metrics);
     return (
@@ -131,6 +150,8 @@ class MetricsPlotPanel extends React.Component {
           handleXAxisChange={this.handleXAxisChange}
           handleMetricsSelectChange={this.handleMetricsSelectChange}
           handleShowDotChange={this.handleShowDotChange}
+          handleYAxisLogScaleChange={this.handleYAxisLogScaleChange}
+          handleLineSmoothChange={this.handleLineSmoothChange}
           chartType={chartType}
         />
         <RequestStateWrapper requestIds={historyRequestIds}>
@@ -141,6 +162,9 @@ class MetricsPlotPanel extends React.Component {
             metricKeys={selectedMetricKeys}
             showDot={showDot}
             chartType={chartType}
+            isComparing={this.isComparing()}
+            yAxisLogScale={yAxisLogScale}
+            lineSmoothness={lineSmoothness}
           />
         </RequestStateWrapper>
       </div>

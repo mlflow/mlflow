@@ -1,7 +1,9 @@
 import React from 'react';
-import { Radio, Switch, TreeSelect } from 'antd';
+import _ from 'lodash';
+import { Radio, Switch, TreeSelect, Slider } from 'antd';
 import PropTypes from 'prop-types';
 import { CHART_TYPE_LINE } from './MetricsPlotPanel';
+import { LineSmoothSlider } from './LineSmoothSlider';
 
 const RadioGroup = Radio.Group;
 export const X_AXIS_WALL = 'wall';
@@ -16,6 +18,8 @@ export class MetricsPlotControls extends React.Component {
     handleXAxisChange: PropTypes.func.isRequired,
     handleShowDotChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
+    handleYAxisLogScaleChange: PropTypes.func.isRequired,
+    handleLineSmoothChange: PropTypes.func.isRequired,
     chartType: PropTypes.string.isRequired,
   };
 
@@ -29,6 +33,18 @@ export class MetricsPlotControls extends React.Component {
         <h2>Plot Settings</h2>
         {chartType === CHART_TYPE_LINE ? (
           <div>
+            <h3>Points:</h3>
+            <Switch
+              checkedChildren='On'
+              unCheckedChildren='Off'
+              onChange={this.props.handleShowDotChange}
+            />
+            <h3>Line Smoothness</h3>
+            <LineSmoothSlider
+              min={0}
+              max={1.3}
+              handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 500)}
+            />
             <h3>X-axis:</h3>
             <RadioGroup onChange={this.props.handleXAxisChange} value={this.props.selectedXAxis}>
               <Radio className='x-axis-radio' value={X_AXIS_STEP}>
@@ -41,12 +57,6 @@ export class MetricsPlotControls extends React.Component {
                 Time (Relative)
               </Radio>
             </RadioGroup>
-            <h3>Points:</h3>
-            <Switch
-              checkedChildren='On'
-              unCheckedChildren='Off'
-              onChange={this.props.handleShowDotChange}
-            />
           </div>
         ) : null}
         <h3>Y-axis:</h3>
@@ -59,6 +69,12 @@ export class MetricsPlotControls extends React.Component {
           treeData={this.props.allMetricKeys}
           onChange={this.props.handleMetricsSelectChange}
           filterTreeNode={this.handleMetricsSelectFilterChange}
+        />
+        <h3>Log Scale:</h3>
+        <Switch
+          checkedChildren='On'
+          unCheckedChildren='Off'
+          onChange={this.props.handleYAxisLogScaleChange}
         />
       </div>
     );

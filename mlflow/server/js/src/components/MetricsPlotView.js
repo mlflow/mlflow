@@ -16,6 +16,7 @@ import _ from 'lodash';
 import PropTypes from 'prop-types';
 import { X_AXIS_STEP, X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
+import Plot from 'react-plotly.js';
 
 const COLORS = [
   '#A3C3D9',
@@ -36,136 +37,102 @@ export class MetricsPlotView extends React.Component {
     metricKeys: PropTypes.arrayOf(String).isRequired,
     showDot: PropTypes.bool.isRequired,
     chartType: PropTypes.string.isRequired,
+    isComparing: PropTypes.bool.isRequired,
+    yAxisLogScale: PropTypes.bool.isRequired,
+    lineSmoothness: PropTypes.number,
   };
 
   static MAX_RUN_NAME_DISPLAY_LENGTH = 36;
 
-  getIdForRunMetricData = (runUuid, metricKey) => `${runUuid}_${metricKey}`;
+  getLegend = (metricKey, runName) =>
+    `${metricKey}, ` + (this.props.isComparing ? runName.slice(0, 8) : '');
 
   parseTimestamp = (timestampStr, baseTimestamp, xAxis) => {
     const timestamp = Number.parseFloat(timestampStr);
-    return xAxis === X_AXIS_RELATIVE ? (timestamp - baseTimestamp) / 1000 : timestamp;
+    if (xAxis === X_AXIS_RELATIVE) {
+      return (timestamp - baseTimestamp) / 1000;
+    }
+    return Utils.formatTimestamp(timestamp, 'HH:MM:ss');
   };
 
-  getDataForLineChart = () =>
-    _.flatMap(this.props.metrics, (metric) => {
-      const { metricKey, runUuid, runName, history } = metric;
+  getPlotPropsForLineChart = () => {
+    const { metrics, xAxis, showDot, yAxisLogScale, lineSmoothness } = this.props;
+    const data = metrics.map((metric) => {
+      const { metricKey, runName, history } = metric;
       const baseTimestamp = Number.parseFloat(history[0] && history[0].timestamp);
-      return history.map((entry) => ({
-        [this.getIdForRunMetricData(runUuid, metricKey)]: entry.value,
-        runUuid,
-        runName,
-        metricKey,
-        value: entry.value,
-        step: Number.parseInt(entry.step, 10),
-        timestamp: this.parseTimestamp(entry.timestamp, baseTimestamp, this.props.xAxis),
-      }));
+      const isSingleHistory = history.length === 0;
+      return {
+        name: this.getLegend(metricKey, runName),
+        x: history.map((entry) =>
+          xAxis === X_AXIS_STEP
+            ? Number.parseInt(entry.step, 10)
+            : this.parseTimestamp(entry.timestamp, baseTimestamp, xAxis)
+        ),
+        y: history.map((entry) => entry.value),
+        type: 'scatter',
+        mode: isSingleHistory ? 'markers' : (showDot ? 'lines+markers' : 'lines'),
+
+        line: { shape: 'spline', smoothing: lineSmoothness },
+      };
     });
+    const props = { data };
+    if (yAxisLogScale) {
+      props.layout = {
+        yaxis: { type: 'log', autorange: true },
+      };
+    }
+    return props;
+  }
 
   getDataForBarChart = () => {
     /* eslint-disable no-param-reassign */
+    const { runUuids, yAxisLogScale } = this.props;
+    const runMap = {};
     const metricsMap = this.props.metrics.reduce((map, metric) => {
-      const { runUuid, metricKey, history } = metric;
+      const { runUuid, runName, metricKey, history } = metric;
+      runMap[runUuid] = runName;
       const value = history[0] && history[0].value;
       if (!map[metricKey]) {
         map[metricKey] = {
           metricKey,
-          [runUuid]: value,
+          [runUuid]: { runName, value },
         };
       } else {
-        map[metricKey][runUuid] = value;
+        map[metricKey][runUuid] = { runName, value };
       }
       return map;
     }, {});
-    return _.sortBy(Object.values(metricsMap), 'metricKey');
-  };
-
-  // Returns payload to use in recharts Legend component
-  // Legend type must be one of the values in
-  // https://github.com/recharts/recharts/blob/1b523c1/src/util/ReactUtils.js#L139
-  getLegendPayload = (legendType) => {
-    const { metrics } = this.props;
-    metrics.map(({ runName, metricKey }, index) => {
-      const truncatedRunName = Utils.truncateString(
-        runName,
-        MetricsPlotView.MAX_RUN_NAME_DISPLAY_LENGTH,
-      );
-      return {
-        value: `${truncatedRunName} - ${metricKey}`,
-        id: index,
-        type: legendType,
-        // Must specify legend item color, see https://github.com/recharts/recharts/issues/818
-        color: COLORS[index % COLORS.length],
-      };
-    });
-  };
-
-  getTickFormatter = () => {
-    let tickFormatter;
-    const { xAxis } = this.props;
-    if (xAxis === X_AXIS_WALL) {
-      tickFormatter = (timestamp) => Utils.formatTimestamp(timestamp, 'HH:MM:ss');
+    // TODO(Zangr) ^^ remove this map
+    const sortedMetrics = _.sortBy(Object.values(metricsMap), 'metricKey');
+    const sortedMetricKeys = sortedMetrics.map((m) => m.metricKey);
+    console.log(sortedMetrics);
+    const data =  runUuids.map((runUuid) => ({
+      name: runMap[runUuid].slice(0, 8),
+      x: sortedMetricKeys,
+      y: sortedMetrics.map((m) => m[runUuid] && m[runUuid].value),
+      type: 'bar',
+    }));
+    const layout = { barmode: 'group' };
+    const props = { data, layout };
+    if (yAxisLogScale) {
+      props.layout.yaxis = { type: 'log', autorange: true };
     }
-    return tickFormatter;
+    return props;
   };
 
   render() {
-    const { metrics, showDot, runUuids, chartType } = this.props;
-    const showBarChart = chartType === CHART_TYPE_BAR;
-    const data = showBarChart ? this.getDataForBarChart() : this.getDataForLineChart();
-    const isStep = this.props.xAxis === X_AXIS_STEP;
+    const plotProps = this.props.chartType === CHART_TYPE_BAR
+      ? this.getDataForBarChart()
+      : this.getPlotPropsForLineChart();
     return (
-      <ResponsiveContainer width='100%' aspect={1.55}>
-        {showBarChart ? (
-          <BarChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-            <Tooltip isAnimationActive={false} labelStyle={{ display: 'none' }} />
-            <XAxis dataKey='metricKey' />
-            <CartesianGrid strokeDasharray='3 3' />
-            <Legend verticalAlign='bottom' payload={this.getLegendPayload('rect')} />
-            <YAxis />
-            {runUuids.map((runUuid, idx) => (
-              <Bar
-                dataKey={runUuid}
-                key={runUuid}
-                name={runUuid}
-                isAnimationActive={false}
-                fill={COLORS[idx % COLORS.length]}
-              />
-            ))}
-          </BarChart>
-        ) : (
-          <LineChart data={data} margin={{ top: 10, right: 10, left: 10, bottom: 10 }}>
-            <XAxis
-              dataKey={isStep ? 'step' : 'timestamp'}
-              type='number'
-              name='Time'
-              domain={['auto', 'auto']}
-              tickFormatter={this.getTickFormatter()}
-            />
-            <YAxis />
-            <Tooltip isAnimationActive={false} labelStyle={{ display: 'none' }} />
-            <CartesianGrid strokeDasharray='3 3' />
-            <Legend verticalAlign='bottom' payload={this.getLegendPayload('line')} />
-            {metrics.map((metric, index) => {
-              const { runUuid, metricKey } = metric;
-              const id = this.getIdForRunMetricData(runUuid, metricKey);
-              return (
-                <Line
-                  dataKey={id}
-                  type='linear'
-                  key={id}
-                  name={id}
-                  isAnimationActive={false}
-                  connectNulls
-                  stroke={COLORS[index % COLORS.length]}
-                  strokeWidth={2}
-                  dot={showDot}
-                />
-              );
-            })}
-          </LineChart>
-        )}
-      </ResponsiveContainer>
+      <div className='metrics-plot-view-container'>
+        <Plot
+          layout={{ autosize: true }}
+          useResizeHandler
+          style={{width: '100%', height: '100%'}}
+          {...plotProps}
+        />
+      </div>
     );
   }
 }
