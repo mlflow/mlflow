@@ -1,5 +1,7 @@
 context("Model")
 
+library("carrier")
+
 test_that("mlflow can save model function", {
   mlflow_clear_test_dir("model")
   model <- lm(Sepal.Width ~ Sepal.Length, iris)

@@ -1,6 +1,6 @@
 #' Create Experiment
 #'
-#' Creates an MLflow experiment.
+#' Creates an MLflow experiment and returns its id.
 #'
 #' @param name The name of the experiment to create.
 #' @param artifact_location Location where all artifacts for this experiment are stored. If
@@ -18,7 +18,7 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
       artifact_location = artifact_location
     )
   )
-  mlflow_get_experiment(client = client, experiment_id = response$experiment_id)
+  response$experiment_id
 }
 
 #' List Experiments
@@ -105,8 +105,9 @@ mlflow_delete_experiment <- function(experiment_id, client = NULL) {
     "experiments", "delete",
     verb = "POST", client = client,
     data = list(experiment_id = experiment_id)
+
   )
-  mlflow_get_experiment(experiment_id = experiment_id)
+  NULL
 }
 
 
@@ -129,7 +130,7 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
     client = client, verb = "POST",
     data = list(experiment_id = experiment_id)
   )
-  mlflow_get_experiment(experiment_id = experiment_id)
+  NULL
 }
 
 #' Rename Experiment
@@ -152,9 +153,7 @@ mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NU
       new_name = new_name
     )
   )
-  experiment <- mlflow_get_experiment(experiment_id)
-
-  experiment
+  NULL
 }
 
 #' Set Experiment
@@ -182,7 +181,7 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
 
   client <- mlflow_client()
 
-  experiment <- if (!is.null(experiment_name)) {
+  final_experiment_id <- if (!is.null(experiment_name)) {
     tryCatch(
       mlflow_get_experiment(client = client, name = experiment_name),
       error = function(e) {
@@ -191,9 +190,9 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
       }
     )
   } else {
-    mlflow_get_experiment(client = client, experiment_id = experiment_id)
+    experiment_id
   }
 
-  mlflow_set_active_experiment_id(mlflow_id(experiment))
-  experiment
+  mlflow_set_active_experiment_id(final_experiment_id)
+  NULL
 }

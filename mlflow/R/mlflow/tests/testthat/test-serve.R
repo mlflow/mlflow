@@ -1,5 +1,7 @@
 context("Serve")
 
+library("carrier")
+
 test_that("mlflow can serve a model function", {
   mlflow_clear_test_dir("model")
 
