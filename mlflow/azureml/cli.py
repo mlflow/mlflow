@@ -8,7 +8,7 @@ import json
 import click
 
 import mlflow.azureml
-from mlflow.utils import cli_args
+from mlflow.utils import cli_args, experimental
 
 
 @click.group("azureml")
@@ -22,6 +22,7 @@ def commands():
     pass
 
 
+@experimental
 @commands.command("build-image")
 @cli_args.MODEL_URI
 @click.option("--workspace-name", "-w", required=True,
