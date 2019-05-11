@@ -647,7 +647,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
         search_filter = SearchFilter(filter_string=filter_string)
         exps = [experiment_id] if isinstance(experiment_id, int) else experiment_id
-        print(self.store.search_runs(exps, search_filter, run_view_type, max_results))
         return [r.info.run_id
                 for r in self.store.search_runs(exps, search_filter, run_view_type, max_results)]
 

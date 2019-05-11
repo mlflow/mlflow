@@ -19,15 +19,17 @@ class SearchFilter(object):
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
-    _ALTERNATE_PARAM_IDENTIFIERS = set(["param", "params"])
+    _ALTERNATE_PARAM_IDENTIFIERS = set(["parameters", "param", "params"])
     _TAG_IDENTIFIER = "tag"
     _ALTERNATE_TAG_IDENTIFIERS = set(["tags"])
     _ATTRIBUTE_IDENTIFIER = "attribute"
-    _ALTERNATE_ATTRIBUTE_IDENTIFIERS = set(["attr", "run"])
-    VALID_KEY_TYPE = set([_METRIC_IDENTIFIER] + list(_ALTERNATE_METRIC_IDENTIFIERS)
-                         + [_PARAM_IDENTIFIER] + list(_ALTERNATE_PARAM_IDENTIFIERS)
-                         + [_TAG_IDENTIFIER] + list(_ALTERNATE_TAG_IDENTIFIERS)
-                         + [_ATTRIBUTE_IDENTIFIER] + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS))
+    _ALTERNATE_ATTRIBUTE_IDENTIFIERS = set(["attr", "attributes", "run"])
+    _IDENTIFIERS = [_METRIC_IDENTIFIER, _PARAM_IDENTIFIER, _TAG_IDENTIFIER, _ATTRIBUTE_IDENTIFIER]
+    _VALID_IDENTIFIERS = set(_IDENTIFIERS
+                             + list(_ALTERNATE_METRIC_IDENTIFIERS)
+                             + list(_ALTERNATE_PARAM_IDENTIFIERS)
+                             + list(_ALTERNATE_TAG_IDENTIFIERS)
+                             + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS))
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
 
@@ -83,9 +85,9 @@ class SearchFilter(object):
     @classmethod
     def _valid_entity_type(cls, entity_type):
         entity_type = cls._trim_backticks(entity_type)
-        if entity_type not in cls.VALID_KEY_TYPE:
+        if entity_type not in cls._VALID_IDENTIFIERS:
             raise MlflowException("Invalid search expression type '%s'. "
-                                  "Valid values are %s" % (entity_type, cls.VALID_KEY_TYPE),
+                                  "Valid values are %s" % (entity_type, cls._IDENTIFIERS),
                                   error_code=INVALID_PARAMETER_VALUE)
 
         if entity_type in cls._ALTERNATE_PARAM_IDENTIFIERS:
