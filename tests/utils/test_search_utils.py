@@ -58,6 +58,22 @@ from mlflow.utils.search_utils import SearchFilter
                              'key': 't.a.g',
                              'type': 'tag',
                              'value': 'a'}]),
+    ("attribute.run_id = '1234'", [{'type': 'attribute',
+                                    'comparator': '=',
+                                    'key': 'run_id',
+                                    'value': '1234'}]),
+    ("attr.experiment_id != '1'", [{'type': 'attribute',
+                                    'comparator': '!=',
+                                    'key': 'experiment_id',
+                                    'value': '1'}]),
+    ("attr.start_time = 789", [{'type': 'attribute',
+                                'comparator': '=',
+                                'key': 'start_time',
+                                'value': '789'}]),
+    ("run.status = 'RUNNING'", [{'type': 'attribute',
+                                 'comparator': '=',
+                                 'key': 'status',
+                                 'value': 'RUNNING'}]),
 ])
 def test_filter(filter_string, parsed_filter):
     assert SearchFilter(filter_string=filter_string)._parse() == parsed_filter
@@ -79,6 +95,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     ("m.acc >= 0.94", "Invalid search expression type"),
     ("acc >= 0.94", "Invalid filter string"),
     ("p.model >= 'LR'", "Invalid search expression type"),
+    ("attri.x != 1", "Invalid search expression type"),
+    ("a.x != 1", "Invalid search expression type"),
     ("model >= 'LR'", "Invalid filter string"),
     ("metrics.A > 0.1 OR params.B = 'LR'", "Invalid clause(s) in filter string"),
     ("metrics.A > 0.1 NAND params.B = 'LR'", "Invalid clause(s) in filter string"),
@@ -87,6 +105,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     ("param`.A > 0.1", "Invalid clause(s) in filter string"),
     ("`dummy.A > 0.1", "Invalid clause(s) in filter string"),
     ("dummy`.A > 0.1", "Invalid clause(s) in filter string"),
+    ("attribute.start != 1", "Invalid attribute key"),
+    ("attribute.time != 1", "Invalid attribute key"),
 ])
 def test_error_filter(filter_string, error_message):
     with pytest.raises(MlflowException) as e:

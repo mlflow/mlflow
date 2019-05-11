@@ -17,6 +17,10 @@ def check_run_is_deleted(run_info):
                               .format(run_info.run_id))
 
 
+class numeric_property(property):
+    is_numeric = True
+
+
 class RunInfo(_MLflowObject):
     """
     Metadata about a run.
@@ -84,7 +88,7 @@ class RunInfo(_MLflowObject):
         """String ID of the user who initiated this run."""
         return self._user_id
 
-    @property
+    @numeric_property
     def status(self):
         """
         One of the values in :py:class:`mlflow.entities.RunStatus`
@@ -92,12 +96,12 @@ class RunInfo(_MLflowObject):
         """
         return self._status
 
-    @property
+    @numeric_property
     def start_time(self):
         """Start time of the run, in number of milliseconds since the UNIX epoch."""
         return self._start_time
 
-    @property
+    @numeric_property
     def end_time(self):
         """End time of the run, in number of milliseconds since the UNIX epoch."""
         return self._end_time
@@ -137,3 +141,11 @@ class RunInfo(_MLflowObject):
                    user_id=proto.user_id, status=proto.status, start_time=proto.start_time,
                    end_time=end_time, lifecycle_stage=proto.lifecycle_stage,
                    artifact_uri=proto.artifact_uri)
+
+    @classmethod
+    def get_attributes(cls):
+        return cls._properties()
+
+    @classmethod
+    def get_numeric_attributes(cls):
+        return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), numeric_property)])
