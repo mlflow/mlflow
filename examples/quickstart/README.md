@@ -11,41 +11,41 @@
 
 ### Set up local storage
 * `git clone` `mlflow` repo to local storage.  Note directory for the local repo, 
-e.g., `/fully-qualified-path-to-local-repo/mlflow`
+e.g., `/fully/qualified/path/to/local/repo/mlflow`
 * Create directory to hold mlflow tracking data and artifacts, e.g., `/fully-qualified-path-to-local-directory/tracking-artifacts`.  
-Within this directory create these subdirectories
+Within this directory create `tracking` and `artifacts` subdirectories
 ```
-/fully-qualified-path-to-local-directory/tracking-artifacts/tracking
-/fully-qualified-path-to-local-directory/tracking-artifacts/artifacts
+/fully/qualified/path/to/local/directory/tracking-artifacts/tracking
+/fully/qualified/path/to/local/directory/tracking-artifacts/artifacts
 ```
 
 ### Setup required environment variables
 * Change working directory to `examples/quickstart`
-* Update contents of `./setup_environment_variables` to specify values for the required environment variables.
+* Update contents of `./setup_environment_variables` to specify values for these environment variables.
 ```
 MLFLOW_VERSION
-MLFLOW_VERSION_TO_INSTALL
 MFLOW_EXAMPLE_DIRECTORY
 MLFLOW_TRACKING_DIRECTORY
-MLFLOW_TRACKER_URI
-MLFLOW_BACKEND_STORE
 ```
  
-Specify version of mlflow package.  See example below.
+Following is an illustrative example.
 ```
 ###
-# Set up environment variables to control building and
-# running demonstration mlflow Docker containers
+# Specify user specific values
 ###
 
 # mlflow version to install
 export MLFLOW_VERSION=0.9.1
 
-# directory containing demonstration source code
-export MLFLOW_EXAMPLE_DIRECTORY=/fully-qualified-path-to-local-repo/mlflow/examples/quickstart/sample_code
+# directory containing machine learning source code
+export MLFLOW_EXAMPLE_DIRECTORY=/fully/qualified/path/to/local/repo/mlflow/examples/quickstart/sample_code
 
 # directory to hold mlflow tracking and artifacts
-export MLFLOW_TRACKING_DIRECTORY=/fully-qualified-path-to-local-directory/tracking-artifacts
+export MLFLOW_TRACKING_DIRECTORY=/fully/qualified/path/to/local/directory/tracking-artifacts
+
+##################################################################
+#  For default setup, no changes are necessary in the following #
+##################################################################
 
 # mflow tracking server URI
 export MLFLOW_TRACKING_URI=http://mlflow_tracker:5000
@@ -108,8 +108,8 @@ Open a browser and enter the following URL for the respective service.
 |mlflow tracking server|`http://0.0.0.0:5000`|
 
 
-## Limittions
+## Limitations
 
 * _Setup described in this section does not consider security requirements and is suitable only 
-for demonstration purposes with non-sensitive data.  Changes are required for any production deployment_.
-* Use of `docker-compose` limits containers to run on a single node only.
+for demonstration purposes with non-sensitive data_.
+* Use of `docker-compose` limit containers to run on a single node.

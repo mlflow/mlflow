@@ -1,16 +1,19 @@
 ###
-# Set up environment variables to control building and
-# running demonstration mlflow Docker containers
+# Specify user specific values
 ###
 
 # mlflow version to install
 export MLFLOW_VERSION=0.9.1
 
-# directory containing demonstration source code
+# directory containing machine learning source code
 export MLFLOW_DEMO_DIRECTORY=/fully-qualified-path-to-local-repo/mlflow/examples/quickstart/sample_code
 
 # directory to hold mlflow tracking and artifacts
 export MLFLOW_TRACKING_DIRECTORY=/fully-qualified-path-to-local-directory/tracking-artifacts
+
+##################################################################
+#  For default setup, no changes are necessary for the following #
+##################################################################
 
 # mflow tracking server URI
 export MLFLOW_TRACKING_URI=http://mlflow_tracker:5000
