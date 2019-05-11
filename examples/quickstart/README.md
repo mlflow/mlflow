@@ -48,9 +48,9 @@ export MLFLOW_EXAMPLE_DIRECTORY=/fully/qualified/path/to/local/repo/mlflow/examp
 # directory to hold mlflow tracking and artifacts
 export MLFLOW_TRACKING_DIRECTORY=/fully/qualified/path/to/local/directory/tracking-artifacts
 
-##################################################################
+#################################################################
 #  For default setup, no changes are necessary in the following #
-##################################################################
+#################################################################
 
 # mflow tracking server URI
 export MLFLOW_TRACKING_URI=http://mlflow_tracker:5000
