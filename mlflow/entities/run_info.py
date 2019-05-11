@@ -16,8 +16,10 @@ def check_run_is_deleted(run_info):
         raise MlflowException("The run {} must be in 'deleted' lifecycle_stage."
                               .format(run_info.run_id))
 
+
 class numeric_property(property):
     is_numeric = True
+
 
 class RunInfo(_MLflowObject):
     """
