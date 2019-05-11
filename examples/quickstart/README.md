@@ -1,5 +1,8 @@
 # mlflow Quickstart
 
+With these Dockerfiles a user can quickly set up a Python or R environment with `mlflow`to support machine learning 
+experimentation, demonstrations or testing. 
+
 ## Quickstart Environment
 ![](images/quickstart_environment.png)
 
