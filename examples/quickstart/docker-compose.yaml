@@ -3,15 +3,17 @@ version: '3'
 services:
 
 # container for python server
-  py:
+  jpynb:
     build: 
       context: .
       dockerfile: mlflow_python/Dockerfile
 
-    image: mlflow_py_demo
+    image: mlflow_jpynb
 
     ports:
       - "8888:8888"
+
+    hostname: jpynb
 
     environment:
       MLFLOW_TRACKING_URI: "${MLFLOW_TRACKING_URI}"
@@ -26,16 +28,18 @@ services:
           --allow-root --password='' --NotebookApp.token=''
           --notebook-dir=/opt/project
 
-# container for R server
-  r:
+# container for Rstudio server
+  rstudio:
     build: 
       context: .
       dockerfile: mlflow_r/Dockerfile
 
-    image: mlflow_r_demo
+    image: mlflow_rstudio
 
     ports:
       - "8787:8787"
+
+    hostname: rstudio
 
     environment:
       DISABLE_AUTH:  'true'
@@ -56,6 +60,8 @@ services:
 
     ports:
       - "5000:5000"
+
+    hostname: mlflow_tracker
 
     volumes:
       - "${MLFLOW_TRACKING_DIRECTORY:-/tmp}/tracking:/tracking"

@@ -64,31 +64,50 @@ export MLFLOW_VERSION_TO_INSTALL="mlflow==${MLFLOW_VERSION}"
 * After updating `setup_environment_variables`, execute following command to set  
 environment variables: `. ./setup_environment_variables`
 
-* Run the following command to initially build the required Docker images.
+* Run the following command to build the required Docker images.
 ```
-bash ./build_images
+bash ./build_images.sh
 ```
 Note:  On a MacbookPro with 16GB RAM, it takes 10 to 13 minutes for the initial 
 build of the images.
 
 
-## Start demonstration containers
-After building the Docker images, navigate to `examples/quickstart`.   Ensure the required
-environment variables are defined by running `. ./setup_environment_variables`.
+## Running the mflow platform containers
+After building the Docker images, navigate to `examples/quickstart`.  Correct execution of the specified commands 
+depend on the `examples/quickstart` is the current working directory.
 
-* To start the Docker containers:
+Ensure the required environment variables are defined by running `. ./setup_environment_variables`.
+
+* Start the Docker containers:
 ```
 docker-compose up --detach
 ```
-* To stop the Docker containers:
+* Confirm that the containers started successfully, run the following command.  
+```
+docker-compose ps
+```
+
+Your output should look similar to this
+```
+           Name                          Command               State           Ports
+---------------------------------------------------------------------------------------------
+quickstart_jpynb_1            /usr/bin/tini -- jupyter n ...   Up      0.0.0.0:8888->8888/tcp
+quickstart_mlflow_tracker_1   /usr/bin/tini -- mlflow se ...   Up      0.0.0.0:5000->5000/tcp
+quickstart_rstudio_1          /init                            Up      0.0.0.0:8787->8787/tcp
+```
+
+* Stop the Docker containers:
 ```
 docker-compose down
 ```
 
 ## Connecting to containers
 Open a browser and enter the following URL for the respective service.
-* Jupyter Notebook Python Container:  `http://0.0.0.0:8888`
-* RStudio Container: `http://0.0.0.0:8787`
-* mlflow tracking server: `http://0.0.0.0:5000`
+
+|Service|URL|
+|-------|---|
+|Python Jupyter Notebook Server (jpynb)| `http://0.0.0.0:8888`|
+|RStudio Server (rstudio)|`http://0.0.0.0:8787`|
+|mlflow tracking server|`http://0.0.0.0:5000`|
 
 
