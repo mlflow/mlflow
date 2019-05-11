@@ -1,0 +1,9 @@
+#
+# get Docker images for Postgres database capability
+#
+
+# pull postgres database image
+docker-compose  pull pgdb
+
+# pull postgres admin utility
+docker-compose  pull pgadmin

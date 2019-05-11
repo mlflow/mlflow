@@ -1,0 +1,71 @@
+version: '3'
+
+services:
+
+# container for python server
+  py:
+    build: 
+      context: .
+      dockerfile: python_image/Dockerfile
+
+    image: mlflow_py_demo
+
+    ports:
+      - "8888:8888"
+
+    environment:
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+
+    volumes:
+      - "${MLFLOW_EXAMPLE_DIRECTORY:-/tmp}:/opt/project"
+      - "${MLFLOW_TRACKING_DIRECTORY:-/tmp}/artifacts:/artifacts"
+
+    # command to start jupyter notebook server
+    command: >
+       jupyter notebook --no-browser --ip 0.0.0.0 
+          --allow-root --password='' --NotebookApp.token=''
+          --notebook-dir=/opt/project
+
+# container for R server
+  r:
+    build: 
+      context: .
+      dockerfile: mlflow_r_image/Dockerfile
+
+    image: mlflow_r_demo
+
+    ports:
+      - "8787:8787"
+
+    environment:
+      DISABLE_AUTH:  'true'
+      MLFLOW_TRACKING_URI: "${MLFLOW_TRACKING_URI}"
+
+    volumes:
+      - "${MLFLOW_EXAMPLE_DIRECTORY:-/tmp}:/home/rstudio/project"
+      - "${MLFLOW_TRACKING_DIRECTORY:-/tmp}/artifacts:/artifacts"
+
+
+# container for mlflow_tracker
+  mlflow_tracker:
+    build:
+      context: .
+      dockerfile: mlflow_server/Dockerfile
+
+    image: mlflow_server
+
+    ports:
+      - "5000:5000"
+
+    volumes:
+      - "${MLFLOW_TRACKING_DIRECTORY:-/tmp}/tracking:/tracking"
+      - "${MLFLOW_TRACKING_DIRECTORY:-/tmp}/artifacts:/artifacts"
+
+    command: >
+      mlflow server
+        --backend-store-uri "${MLFLOW_BACKEND_STORE}"
+        --default-artifact-root /artifacts
+        --host 0.0.0.0
+        --port 5000
+
+
