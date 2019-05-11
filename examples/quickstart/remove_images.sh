@@ -1,3 +1,3 @@
-docker rmi mlflow_r_demo
-docker rmi mlflow_py_demo
-docker rmi mlflow_server
+docker rmi mlflow_rstudio
+docker rmi mlflow_jpynb
+docker rmi mlflow_tracker
