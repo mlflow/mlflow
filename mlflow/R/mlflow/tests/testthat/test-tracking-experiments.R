@@ -76,8 +76,7 @@ test_that("mlflow_get_experiment_by_name() works properly", {
     mlflow_get_experiment(client = client, "exp"),
     "Experiment `exp` not found\\."
   )
-  experiment_id <- mlflow_create_experiment(client = client, "exp", "art") %>%
-    mlflow_id()
+  experiment_id <- mlflow_create_experiment(client = client, "exp", "art")
   experiment <- mlflow_get_experiment(client = client, name = "exp")
   expect_identical(experiment_id, experiment$experiment_id)
   expect_identical(experiment$name, "exp")
@@ -86,7 +85,7 @@ test_that("mlflow_get_experiment_by_name() works properly", {
 
 test_that("infer experiment id works properly", {
   mlflow_clear_test_dir("mlruns")
-  experiment_id <- mlflow_create_experiment("test")$experiment_id
+  experiment_id <- mlflow_create_experiment("test")
   Sys.setenv(MLFLOW_EXPERIMENT_NAME = "test")
   expect_true(experiment_id == mlflow_infer_experiment_id())
   Sys.unsetenv("MLFLOW_EXPERIMENT_NAME")
@@ -104,7 +103,7 @@ test_that("experiment setting works", {
   mlflow_set_experiment(experiment_name = "exp1")
   expect_identical(exp1_id, mlflow_get_active_experiment_id())
   expect_identical(mlflow_get_experiment(exp1_id), mlflow_get_experiment())
-  exp2_set <- mlflow_set_experiment(experiment_id = exp2_id)
+  mlflow_set_experiment(experiment_id = exp2_id)
   expect_identical(exp2_id, mlflow_get_active_experiment_id())
   expect_identical(mlflow_get_experiment(exp2_id), mlflow_get_experiment())
 })
