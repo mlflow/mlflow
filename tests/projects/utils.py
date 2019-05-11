@@ -1,6 +1,7 @@
 import filecmp
 import os
 import docker
+from docker.errors import BuildError, APIError
 
 import pytest
 
@@ -39,9 +40,16 @@ def assert_dirs_equal(expected, actual):
 def build_docker_example_base_image():
     print(os.path.join(TEST_DOCKER_PROJECT_DIR, 'Dockerfile'))
     client = docker.from_env()
-    client.images.build(tag='mlflow-docker-example', forcerm=True,
-                        dockerfile='Dockerfile',
-                        path=TEST_DOCKER_PROJECT_DIR)
+    try:
+        client.images.build(tag='mlflow-docker-example', forcerm=True,
+                            dockerfile='Dockerfile', path=TEST_DOCKER_PROJECT_DIR)
+    except BuildError as build_error:
+        for chunk in build_error.build_log:
+            print(chunk)
+        raise build_error
+    except APIError as api_error:
+        print(api_error.explanation)
+        raise api_error
 
 
 @pytest.fixture()

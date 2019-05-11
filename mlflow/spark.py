@@ -221,7 +221,8 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
     "sparkml").
     """
     if sample_input is not None:
-        mleap.add_to_model(mlflow_model, dst_dir, spark_model, sample_input)
+        mleap.add_to_model(mlflow_model=mlflow_model, path=dst_dir, spark_model=spark_model,
+                           sample_input=sample_input)
 
     pyspark_version = pyspark.version.__version__
 
