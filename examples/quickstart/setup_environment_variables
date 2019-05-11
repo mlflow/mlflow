@@ -7,10 +7,10 @@
 export MLFLOW_VERSION=0.9.0
 
 # directory containing demonstration source code
-export MLFLOW_DEMO_DIRECTORY=/path/to/directory/for/local/repo
+export MLFLOW_DEMO_DIRECTORY=/fully-qualified-path-to-local-repo/examples/quickstart/sample_code
 
 # directory to hold mlflow tracking and artifacts
-export MLFLOW_TRACKING_DIRECTORY=/path/to/directory/for/tracking-artifacts
+export MLFLOW_TRACKING_DIRECTORY=/fully-qualified-path-to-local-tracking-artifacts
 
 # mflow tracking server URI
 export MLFLOW_TRACKING_URI=http://mlflow_tracker:5000

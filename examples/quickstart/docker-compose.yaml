@@ -6,7 +6,7 @@ services:
   py:
     build: 
       context: .
-      dockerfile: python_image/Dockerfile
+      dockerfile: mlflow_python/Dockerfile
 
     image: mlflow_py_demo
 
@@ -14,7 +14,7 @@ services:
       - "8888:8888"
 
     environment:
-      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI}
+      MLFLOW_TRACKING_URI: "${MLFLOW_TRACKING_URI}"
 
     volumes:
       - "${MLFLOW_EXAMPLE_DIRECTORY:-/tmp}:/opt/project"
@@ -30,7 +30,7 @@ services:
   r:
     build: 
       context: .
-      dockerfile: mlflow_r_image/Dockerfile
+      dockerfile: mlflow_r/Dockerfile
 
     image: mlflow_r_demo
 
@@ -50,9 +50,9 @@ services:
   mlflow_tracker:
     build:
       context: .
-      dockerfile: mlflow_server/Dockerfile
+      dockerfile: mlflow_tracker/Dockerfile
 
-    image: mlflow_server
+    image: mlflow_tracker
 
     ports:
       - "5000:5000"
