@@ -5,7 +5,9 @@
 # mlflow version to install
 export MLFLOW_VERSION=0.9.1
 
-# directory containing machine learning source code
+# Directory containing machine learning source code.  Current instructions specify
+# the `examples/quickstart/sample_code`.  The user can specify any valid location containing
+# their source code for ML experiments.
 export MLFLOW_DEMO_DIRECTORY=/fully-qualified-path-to-local-repo/mlflow/examples/quickstart/sample_code
 
 # directory to hold mlflow tracking and artifacts
