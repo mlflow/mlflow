@@ -4,19 +4,25 @@
 \alias{mlflow_start_run}
 \title{Start Run}
 \usage{
-mlflow_start_run(run_uuid = NULL, experiment_id = NULL,
-  source_name = NULL, source_version = NULL, entry_point_name = NULL,
-  source_type = NULL, user_id = NULL, run_name = NULL,
+mlflow_start_run(run_id = NULL, experiment_id = NULL, user_id = NULL,
   start_time = NULL, tags = NULL, client = NULL)
 }
 \arguments{
-\item{run_uuid}{If specified, get the run with the specified UUID and log metrics
+\item{run_id}{If specified, get the run with the specified UUID and log metrics
 and params under that run. The run's end time is unset and its status is set to
 running, but the run's other attributes remain unchanged.}
 
-\item{experiment_id}{Used only when `run_uuid` is unspecified. ID of the experiment under
+\item{experiment_id}{Used only when `run_id` is unspecified. ID of the experiment under
 which to create the current run. If unspecified, the run is created under
 a new experiment with a randomly generated name.}
+
+\item{user_id}{User ID or LDAP for the user executing the run. Only used when `client` is specified.}
+
+\item{start_time}{Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.}
+
+\item{tags}{Additional metadata for run in key-value pairs. Only used when `client` is specified.}
+
+\item{client}{(Optional) An `mlflow_client` object.}
 
 \item{source_name}{Name of the source file or URI of the project to be associated with the run.
 Defaults to the current file if none provided.}
@@ -26,16 +32,6 @@ Defaults to the current file if none provided.}
 \item{entry_point_name}{Optional name of the entry point for to the current run.}
 
 \item{source_type}{Integer enum value describing the type of the run  ("local", "project", etc.).}
-
-\item{user_id}{User ID or LDAP for the user executing the run. Only used when `client` is specified.}
-
-\item{run_name}{Human readable name for run. Only used when `client` is specified.}
-
-\item{start_time}{Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.}
-
-\item{tags}{Additional metadata for run in key-value pairs. Only used when `client` is specified.}
-
-\item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
 Starts a new run. If `client` is not provided, this function infers contextual information such as
@@ -53,26 +49,3 @@ with(mlflow_start_run(), {
 }
 
 }
-\seealso{
-Other tracking functions: \code{\link{mlflow_create_experiment}},
-  \code{\link{mlflow_delete_experiment}},
-  \code{\link{mlflow_delete_run}},
-  \code{\link{mlflow_download_artifacts}},
-  \code{\link{mlflow_end_run}},
-  \code{\link{mlflow_get_experiment}},
-  \code{\link{mlflow_get_metric_history}},
-  \code{\link{mlflow_get_run}},
-  \code{\link{mlflow_list_artifacts}},
-  \code{\link{mlflow_list_experiments}},
-  \code{\link{mlflow_list_run_infos}},
-  \code{\link{mlflow_log_artifact}},
-  \code{\link{mlflow_log_batch}},
-  \code{\link{mlflow_log_metric}},
-  \code{\link{mlflow_log_param}},
-  \code{\link{mlflow_rename_experiment}},
-  \code{\link{mlflow_restore_experiment}},
-  \code{\link{mlflow_restore_run}},
-  \code{\link{mlflow_search_runs}},
-  \code{\link{mlflow_set_tag}}
-}
-\concept{tracking functions}

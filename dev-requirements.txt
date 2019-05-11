@@ -1,8 +1,8 @@
 # Dev/Deployment
 sphinx==1.7.9
-sphinx_rtd_theme
-sphinx-autobuild
-sphinx-click
+sphinx_rtd_theme==0.4.3
+sphinx-autobuild==0.7.1
+sphinx-click==2.1.0
 nose
 codecov
 coverage

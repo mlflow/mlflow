@@ -4,13 +4,11 @@
 \alias{mlflow_rfunc_predict}
 \title{Predict using RFunc MLflow Model}
 \usage{
-mlflow_rfunc_predict(model_path, run_uuid = NULL, input_path = NULL,
-  output_path = NULL, data = NULL, restore = FALSE)
+mlflow_rfunc_predict(model_uri, input_path = NULL, output_path = NULL,
+  data = NULL, restore = FALSE)
 }
 \arguments{
-\item{model_path}{The path to the MLflow model, as a string.}
-
-\item{run_uuid}{Run ID of run to grab the model from.}
+\item{model_uri}{The location, in URI format, of the MLflow model.}
 
 \item{input_path}{Path to 'JSON' or 'CSV' file to be used for prediction.}
 
@@ -24,6 +22,17 @@ be specified when `input_path` is not specified.}
 \description{
 Performs prediction using an RFunc MLflow model from a file or data frame.
 }
+\details{
+The URI scheme must be supported by MLflow - i.e. there has to be an MLflow artifact
+         repository corresponding to the scheme of the URI. The content is expected to point to a
+         directory containing MLmodel. The following are examples of valid model uris:
+                 - ``file:///absolute/path/to/local/model``
+                 - ``file:relative/path/to/local/model``
+                 - ``s3://my_bucket/path/to/model``
+                 - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+         For more information about supported URI schemes, see the Artifacts Documentation
+                 `<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>`_.
+}
 \examples{
 \dontrun{
 library(mlflow)
@@ -35,7 +44,13 @@ mlflow_save_model(function(df) df, "mlflow_roundtrip")
 jsonlite::write_json(iris, "iris.json")
 
 # predict existing model from json data
-mlflow_rfunc_predict("mlflow_roundtrip", "iris.json")
+# load the model from local relative path.
+mlflow_rfunc_predict("file:mlflow_roundtrip", "iris.json")
 }
 
 }
+\seealso{
+Other artifact uri: \code{\link{mlflow_load_model}},
+  \code{\link{mlflow_rfunc_serve}}
+}
+\concept{artifact uri}
