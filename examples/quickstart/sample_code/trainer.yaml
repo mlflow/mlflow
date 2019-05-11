@@ -1,0 +1,37 @@
+###
+#
+#  THIS IS NOT PART OF MLFLOW FUNCTIONALITY
+#  REQUIRED FOR mlflow_demo2.ipynb
+#
+###
+
+global-run-time:
+  scorer: 'r2'
+  n_jobs: -1
+  verbose: 1
+  n_iter: 10
+
+models:
+  - model1:
+      estimator: from sklearn.linear_model import ElasticNet
+      hyper-parameters:
+        alpha: scipy.stats.uniform(0,1)
+        l1_ratio: scipy.stats.uniform(0,1)
+        random_state: '[13]'
+  - model2:
+      estimator: from sklearn.ensemble import RandomForestRegressor
+      hyper-parameters:
+        n_estimators: scipy.stats.randint(50,1000)
+        max_depth: scipy.stats.randint(1,10)
+        random_state: '[13]'
+        max_features: scipy.stats.randint(5,11)
+  - model3:
+      estimator: from xgboost import XGBRegressor
+      hyper-parameters:
+        n_estimators: scipy.stats.randint(50,1000)
+        max_depth: scipy.stats.randint(1,10)
+        learning_rate: scipy.stats.uniform(0,1)
+        random_state: '[13]'
+
+
+
