@@ -1,16 +1,13 @@
 # mlflow Quickstart
 
 ## Quickstart Environment
-![](images/demo_environment_with_db_architecture.png)
+![](images/quickstart_environment.png)
 
 ## System Requirements
 * [Docker](https://docs.docker.com/develop/)
 * [Docker Compose](https://docs.docker.com/compose/overview/)
 
 ## Environment Setup
-
-_Setup described in this section does not consider security requirements and is suitable only 
-for demonstration purposes with non-sensitive data.  Changes are required for any production deployment_.
 
 ### Set up local storage
 * `git clone` `mlflow` repo to local storage.  Note directory for the local repo, 
@@ -111,3 +108,8 @@ Open a browser and enter the following URL for the respective service.
 |mlflow tracking server|`http://0.0.0.0:5000`|
 
 
+## Limittions
+
+* _Setup described in this section does not consider security requirements and is suitable only 
+for demonstration purposes with non-sensitive data.  Changes are required for any production deployment_.
+* Use of `docker-compose` limits containers to run on a single node only.
