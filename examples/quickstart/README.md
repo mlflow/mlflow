@@ -13,13 +13,13 @@ _Setup described in this section does not consider security requirements and is 
 for demonstration purposes with non-sensitive data.  Changes are required for any production deployment_.
 
 ### Set up local storage
-* Assumes the `mlflow` repo has been cloned to local storage. Note directory for the local repo, 
-e.g., `/path/to/local_repo/mlflow`
-* Create directory to hold mlflow server tracking data and artifacts, e.g., `/path/to/directory/for/tracking-artifacts`.  
+* `git clone` `mlflow` repo to local storage.  Note directory for the local repo, 
+e.g., `/fully-qualified-path-to-local-repo/mlflow`
+* Create directory to hold mlflow tracking data and artifacts, e.g., `/fully-qualified-path-to-local-directory/tracking-artifacts`.  
 Within this directory create these subdirectories
 ```
-/path/to/directory/for/tracking-artifacts/tracking
-/path/to/directory/for/tracking-artifacts/artifacts
+/fully-qualified-path-to-local-directory/tracking-artifacts/tracking
+/fully-qualified-path-to-local-directory/tracking-artifacts/artifacts
 ```
 
 ### Setup required environment variables
@@ -30,7 +30,8 @@ MLFLOW_VERSION
 MLFLOW_VERSION_TO_INSTALL
 MFLOW_EXAMPLE_DIRECTORY
 MLFLOW_TRACKING_DIRECTORY
-MLFLOW_TRACKER_URL
+MLFLOW_TRACKER_URI
+MLFLOW_BACKEND_STORE
 ```
  
 Specify version of mlflow package.  See example below.
@@ -41,22 +42,22 @@ Specify version of mlflow package.  See example below.
 ###
 
 # mlflow version to install
-export MLFLOW_VERSION=0.9.0
+export MLFLOW_VERSION=0.9.1
 
-# mlflow example directory
-export MLFLOW_EXAMPLE_DIRECTORY=/path/to/local_repo/mlflow/example
+# directory containing demonstration source code
+export MLFLOW_EXAMPLE_DIRECTORY=/fully-qualified-path-to-local-repo/mlflow/examples/quickstart/sample_code
 
 # directory to hold mlflow tracking and artifacts
-export MLFLOW_TRACKING_DIRECTORY=/path/to/directory/for/tracking-artifacts
+export MLFLOW_TRACKING_DIRECTORY=/fully-qualified-path-to-local-directory/tracking-artifacts
 
-# mflow tracking server URL: file_tracker or db_tracker
-# use MLFLOW_TRACKER_URL=http://file_tracker:5000 for file-based tracker server
-# use MLFLOW_TRACKER_URL=http://db_tracker:5001 for Postgres SQL database tracker server
-export MLFLOW_TRACKER_URL=http://db_tracker:5001
+# mflow tracking server URI
+export MLFLOW_TRACKING_URI=http://mlflow_tracker:5000
 
-# install mlflow from pypi
+# backend store for mlflow tracking server within the container
+export MLFLOW_BACKEND_STORE=/tracking
+
+# pip install specification for mlflow
 export MLFLOW_VERSION_TO_INSTALL="mlflow==${MLFLOW_VERSION}"
-
 ```
 
 ### Build the required mlflow Docker images
@@ -71,75 +72,11 @@ Note:  On a MacbookPro with 16GB RAM, it takes 10 to 13 minutes for the initial
 build of the images.
 
 
-## Optional:  Database for tracking data
-
-### Local storage for database server
-
-Create local directories for Postgres database storage
-```
-//path/to/directory/for/tracking-artifacts/postgres/postgres/data
-//path/to/directory/for/tracking-artifacts/postgres/postgres/admin
-```
-
-### Postgres SQL database tracker components
-
-Database Docker components:
-
-[Postgres SQL Image](https://hub.docker.com/_/postgres)
-
-[Web-based Postgres Administration Tool](https://hub.docker.com/r/dpage/pgadmin4) 
-
-Perform only one of the following two tasks.
-
-* To make use of the database tracker components, run the following command to pull 
-PostgresSQL database related images from dockerhub.com
-```
-bash ./pull_images
-```
-Note:  This will take about one to two minutes to pull down the PostgresSQL images.
-
-Add these lines to the end of `docker-compose.yml`
-```
-# container for postgres database server
-  pgdb:
-
-    image: postgres:10
-
-    ports:
-      - "5432:5432"
-
-    environment:
-      POSTGRES_PASSWORD: mlflow_pw
-      POSTGRES_USER: mlflow_user
-      POSTGRES_DB: mlflow_db
-
-    volumes:
-      - "${MLFLOW_TRACKING_DIRECTORY:-/tmp}/postgres/data:/var/lib/postgresql/data"
-
-
-# container for postgres admin server
-  pgadmin:
-
-    image: dpage/pgadmin4
-
-    ports:
-      - "80:80"
-
-    environment:
-      PGADMIN_DEFAULT_EMAIL: "mlflow@gmail.com"
-      PGADMIN_DEFAULT_PASSWORD: pgadmin4
-
-    volumes:
-      - "${MLFLOW_TRACKING_DIRECTORY:-/tmp}/postgres/pgadmin:/var/lib/pgadmin"
-
-
-```
-
 ## Start demonstration containers
-After building the Docker images, navigate to `./run_demo`.   Ensure the required
+After building the Docker images, navigate to `examples/quickstart`.   Ensure the required
 environment variables are defined by running `. ./setup_environment_variables`.
 
-* To start the Docker containers for the demonstration environment:
+* To start the Docker containers:
 ```
 docker-compose up --detach
 ```
@@ -152,8 +89,6 @@ docker-compose down
 Open a browser and enter the following URL for the respective service.
 * Jupyter Notebook Python Container:  `http://0.0.0.0:8888`
 * RStudio Container: `http://0.0.0.0:8787`
-* mlflow file-based tracking server: `http://0.0.0.0:5000`
-* mfllow PostgresSQL-based tracking server: `http://0.0.0.0:5001`
-* Postgres SQL pgAdmin Server: `http://0.0.0.0:80`, login id: `mlflow@gmail.com`, password `pgadmin4`
+* mlflow tracking server: `http://0.0.0.0:5000`
 
 
