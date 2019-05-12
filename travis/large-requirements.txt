@@ -1,4 +1,4 @@
-# Large test requirements
+# Large test reqs
 azure-storage==0.36.0
 google-cloud-storage==1.14.0
 botocore==1.12.84
