@@ -21,7 +21,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static createExperiment({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/experiments/create', {
+    return $.ajax('/ajax-api/2.0/mlflow/experiments/create', {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),
@@ -38,7 +38,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static listExperiments({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/experiments/list', {
+    return $.ajax('/ajax-api/2.0/mlflow/experiments/list', {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -58,7 +58,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static getExperiment({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/experiments/get', {
+    return $.ajax('/ajax-api/2.0/mlflow/experiments/get', {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -78,7 +78,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static createRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/create', {
+    return $.ajax('/ajax-api/2.0/mlflow/runs/create', {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),
@@ -95,7 +95,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static deleteRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/delete', {
+    return $.ajax('/ajax-api/2.0/mlflow/runs/delete', {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),
@@ -112,7 +112,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static restoreRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/restore', {
+    return $.ajax('/ajax-api/2.0/mlflow/runs/restore', {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),
@@ -129,7 +129,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static updateRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/update', {
+    return $.ajax('/ajax-api/2.0/mlflow/runs/update', {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),
@@ -146,7 +146,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static logMetric({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/log-metric', {
+    return $.ajax('/ajax-api/2.0/mlflow/runs/log-metric', {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),
@@ -163,7 +163,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static logParam({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/log-parameter', {
+    return $.ajax('/ajax-api/2.0/mlflow/runs/log-parameter', {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),
@@ -180,7 +180,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static getRun({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/get', {
+    return $.ajax('/ajax-api/2.0/mlflow/runs/get', {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -200,7 +200,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static searchRuns({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/search', {
+    return $.ajax('/ajax-api/2.0/mlflow/runs/search', {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),
@@ -217,7 +217,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static listArtifacts({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/artifacts/list', {
+    return $.ajax('/ajax-api/2.0/mlflow/artifacts/list', {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -237,7 +237,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static getMetricHistory({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/metrics/get-history', {
+    return $.ajax('/ajax-api/2.0/mlflow/metrics/get-history', {
       type: 'GET',
       dataType: 'json',
       converters: {
@@ -257,7 +257,7 @@ export class MlflowService {
    * @return {Promise}
    */
   static setTag({ data, success, error }) {
-    return $.ajax('/ajax-api/2.0/preview/mlflow/runs/set-tag', {
+    return $.ajax('/ajax-api/2.0/mlflow/runs/set-tag', {
       type: 'POST',
       dataType: 'json',
       data: JSON.stringify(data),
