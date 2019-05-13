@@ -28,6 +28,11 @@ mlflow_cli <- function(...,
     MLFLOW_CONDA_HOME = python_conda_home(),
     MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
   ), env)
+  if (is.null(stderr_callback)) {
+    stderr_callback = function(x, p) {
+      cat(x)
+    }
+  }
 
   with_envvar(env, {
     if (background) {

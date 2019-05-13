@@ -48,15 +48,15 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 
 #' Get Experiment
 #'
-#' Gets metadata for an experiment and a list of runs for the experiment.
+#' Gets metadata for an experiment and a list of runs for the experiment. Attempts to obtain the
+#' active experiment if both `experiment_id` and `name` are unspecified.
 #'
 #'
-#' @param name The experiment name, either this or `experiment_id` should be specified.
-#' @param experiment_id Identifer to get an experiment. Attempts to obtain the active experiment
-#'   if not provided.
+#' @param experiment_id Identifer to get an experiment.
+#' @param name The experiment name. Only one of `name` or `experiment_id` should be specified.
 #' @template roxlate-client
 #' @export
-mlflow_get_experiment <- function(name = NULL, experiment_id = NULL, client = NULL) {
+mlflow_get_experiment <- function(experiment_id = NULL, name = NULL, client = NULL) {
   if (!is.null(name) && !is.null(experiment_id)) {
     stop("Only one of `name` or `experiment_id` should be specified.", call. = FALSE)
   }
