@@ -6,6 +6,7 @@
 # @param echo Print the standard output and error to the screen? Defaults to
 #   \code{TRUE}, does not apply to background tasks.
 # @param stderr_callback NULL, or a function to call for every chunk of the standard error.
+#   Defaults to a function that prints chunks to standard error.
 # @param client Mlflow client to provide environment for the cli process.
 #
 # @return A \code{processx} task.
@@ -30,7 +31,7 @@ mlflow_cli <- function(...,
   ), env)
   if (is.null(stderr_callback)) {
     stderr_callback = function(x, p) {
-      cat(x)
+      cat(x, stderr())
     }
   }
 
