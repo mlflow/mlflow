@@ -18,7 +18,8 @@ from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import start_run, end_run
 from mlflow.utils.file_utils import local_file_uri_to_path
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
+    MLFLOW_SOURCE_TYPE
 
 from tests.projects.utils import tracking_uri_mock
 
@@ -185,7 +186,7 @@ def test_log_batch(tracking_uri_mock, tmpdir):
     expected_metrics = {"metric-key0": 1.0, "metric-key1": 4.0}
     expected_params = {"param-key0": "param-val0", "param-key1": "param-val1"}
     exact_expected_tags = {"tag-key0": "tag-val0", "tag-key1": "tag-val1"}
-    approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
+    approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
 
     t = int(time.time())
     sorted_expected_metrics = sorted(expected_metrics.items(), key=lambda kv: kv[0])
@@ -278,7 +279,7 @@ def get_store_mock(tmpdir):
 
 def test_set_tags(tracking_uri_mock):
     exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
-    approx_expected_tags = set([MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
+    approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
     with start_run() as active_run:
         run_id = active_run.info.run_id
         mlflow.set_tags(exact_expected_tags)

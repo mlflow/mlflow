@@ -4,7 +4,7 @@ and ensures we can use the tracking API to communicate with it.
 """
 
 import mock
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen
 import os
 import sys
 import pytest
@@ -16,11 +16,10 @@ import tempfile
 
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag, ViewType
-from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
-from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
-    MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
+from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, \
+    MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
 from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
 from tests.integration.utils import invoke_cli_runner
 
@@ -243,13 +242,14 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
 
 @pytest.mark.parametrize("parent_run_id_kwarg", [None, "my-parent-id"])
 def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
+    user = "username"
     source_name = "Hello"
     entry_point = "entry"
     source_version = "abc"
     create_run_kwargs = {
-        "user_id": "123",
         "start_time": 456,
         "tags": {
+            MLFLOW_USER: user,
             MLFLOW_SOURCE_TYPE: "LOCAL",
             MLFLOW_SOURCE_NAME: source_name,
             MLFLOW_PROJECT_ENTRY_POINT: entry_point,
@@ -269,10 +269,11 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     assert run.info.run_id == run_id
     assert run.info.run_uuid == run_id
     assert run.info.experiment_id == experiment_id
-    assert run.info.user_id == create_run_kwargs["user_id"]
+    assert run.info.user_id == user
     assert run.info.start_time == create_run_kwargs["start_time"]
     for tag in create_run_kwargs["tags"]:
         assert tag in run.data.tags
+    assert run.data.tags.get(MLFLOW_USER) == user
     assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
     assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
     assert mlflow_client.list_run_infos(experiment_id) == [run.info]
@@ -285,7 +286,7 @@ def test_create_run_defaults(mlflow_client):
     run = mlflow_client.get_run(run_id)
     assert run.info.run_id == run_id
     assert run.info.experiment_id == experiment_id
-    assert run.info.user_id is not None  # we should pick some default
+    assert run.info.user_id == "unknown"
 
 
 def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
