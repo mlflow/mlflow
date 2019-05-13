@@ -160,6 +160,10 @@ def test_start_run_defaults(empty_active_run_stack):
     databricks_notebook_patch = mock.patch(
         "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
     )
+    mock_user = mock.Mock()
+    user_patch = mock.patch(
+        "mlflow.tracking.context._get_user", return_value=mock_user
+    )
     mock_source_name = mock.Mock()
     source_name_patch = mock.patch(
         "mlflow.tracking.context._get_source_name", return_value=mock_source_name
@@ -173,6 +177,7 @@ def test_start_run_defaults(empty_active_run_stack):
     )
 
     expected_tags = {
+        mlflow_tags.MLFLOW_USER: mock_user,
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version
@@ -180,8 +185,8 @@ def test_start_run_defaults(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, source_name_patch, source_type_patch, \
-            source_version_patch, create_run_patch:
+    with experiment_id_patch, databricks_notebook_patch, user_patch, source_name_patch, \
+            source_type_patch, source_version_patch, create_run_patch:
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
             experiment_id=mock_experiment_id,
@@ -198,6 +203,10 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
     )
     databricks_notebook_patch = mock.patch(
         "mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=True
+    )
+    mock_user = mock.Mock()
+    user_patch = mock.patch(
+        "mlflow.tracking.context._get_user", return_value=mock_user
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
@@ -217,6 +226,7 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
     )
 
     expected_tags = {
+        mlflow_tags.MLFLOW_USER: mock_user,
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_notebook_path,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.NOTEBOOK),
         mlflow_tags.MLFLOW_GIT_COMMIT: mock_source_version,
@@ -227,7 +237,7 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with experiment_id_patch, databricks_notebook_patch, source_version_patch, \
+    with experiment_id_patch, databricks_notebook_patch, user_patch, source_version_patch, \
             notebook_id_patch, notebook_path_patch, webapp_url_patch, create_run_patch:
         active_run = start_run()
         MlflowClient.create_run.assert_called_once_with(
@@ -249,11 +259,16 @@ def test_start_run_with_parent():
     databricks_notebook_patch = mock.patch(
         "mlflow.tracking.fluent.is_in_databricks_notebook", return_value=False
     )
+    mock_user = mock.Mock()
+    user_patch = mock.patch(
+        "mlflow.tracking.context._get_user", return_value=mock_user
+    )
     source_name_patch = mock.patch(
         "mlflow.tracking.context._get_source_name", return_value=mock_source_name
     )
 
     expected_tags = {
+        mlflow_tags.MLFLOW_USER: mock_user,
         mlflow_tags.MLFLOW_SOURCE_NAME: mock_source_name,
         mlflow_tags.MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL),
         mlflow_tags.MLFLOW_PARENT_RUN_ID: parent_run.info.run_id
@@ -261,7 +276,8 @@ def test_start_run_with_parent():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with databricks_notebook_patch, active_run_stack_patch, create_run_patch, source_name_patch:
+    with databricks_notebook_patch, active_run_stack_patch, create_run_patch, user_patch, \
+            source_name_patch:
         active_run = start_run(
             experiment_id=mock_experiment_id, nested=True
         )

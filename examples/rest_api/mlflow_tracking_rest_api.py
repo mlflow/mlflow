@@ -26,6 +26,7 @@ class MLFlowTrackingRestApi:
 	def create_run(self):
 		"""Create a new run for tracking."""
 		url = self.base_url + '/runs/create'
+		# user_id is deprecated and will be removed from the API in a future release  
 		payload = {'experiment_id': self.experiment_id, 'start_time': int(time.time() * 1000), 'user_id': _get_user_id()}
 		r = requests.post(url, json=payload)
 		run_id = None

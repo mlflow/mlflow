@@ -84,6 +84,8 @@ public class MlflowClient {
     CreateRun.Builder request = CreateRun.newBuilder();
     request.setExperimentId(experimentId);
     request.setStartTime(System.currentTimeMillis());
+    // userId is deprecated and will be removed in a future release.
+    // It should be set as the `mlflow.user` tag instead.
     String username = System.getProperty("user.name");
     if (username != null) {
       request.setUserId(System.getProperty("user.name"));
@@ -431,7 +433,6 @@ public class MlflowClient {
   public void logArtifacts(String runId, File localDir) {
     getArtifactRepository(runId).logArtifacts(localDir);
   }
-
 
   /**
    * Uploads all files within the given local director an artifactPath within the run's root

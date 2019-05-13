@@ -4,20 +4,14 @@ import mock
 from mlflow.entities import RunTag, SourceType, ViewType
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import MlflowClient
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_PARENT_RUN_ID, \
-    MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
+from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
+    MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
 
 
 @pytest.fixture
 def mock_store():
     with mock.patch("mlflow.tracking.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
-
-
-@pytest.fixture
-def mock_user_id():
-    with mock.patch("mlflow.tracking.client._get_user_id") as mock_get_user_id:
-        yield mock_get_user_id.return_value
 
 
 @pytest.fixture
@@ -33,7 +27,7 @@ def mock_search_filter():
         yield mock_search_filter.return_value
 
 
-def test_client_create_run(mock_store, mock_user_id, mock_time):
+def test_client_create_run(mock_store, mock_time):
 
     experiment_id = mock.Mock()
 
@@ -41,7 +35,7 @@ def test_client_create_run(mock_store, mock_user_id, mock_time):
 
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
-        user_id=mock_user_id,
+        user_id="unknown",
         start_time=int(mock_time * 1000),
         tags=[]
     )
@@ -50,9 +44,10 @@ def test_client_create_run(mock_store, mock_user_id, mock_time):
 def test_client_create_run_overrides(mock_store):
 
     experiment_id = mock.Mock()
-    user_id = mock.Mock()
+    user = mock.Mock()
     start_time = mock.Mock()
     tags = {
+        MLFLOW_USER: user,
         MLFLOW_PARENT_RUN_ID: mock.Mock(),
         MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.JOB),
         MLFLOW_SOURCE_NAME: mock.Mock(),
@@ -61,20 +56,20 @@ def test_client_create_run_overrides(mock_store):
         "other-key": "other-value"
     }
 
-    MlflowClient().create_run(experiment_id, user_id, start_time, tags)
+    MlflowClient().create_run(experiment_id, start_time, tags)
 
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
-        user_id=user_id,
+        user_id=user,
         start_time=start_time,
         tags=[RunTag(key, value) for key, value in tags.items()],
     )
     mock_store.reset_mock()
     parent_run_id = "mock-parent-run-id"
-    MlflowClient().create_run(experiment_id, user_id, start_time, tags)
+    MlflowClient().create_run(experiment_id, start_time, tags)
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
-        user_id=user_id,
+        user_id=user,
         start_time=start_time,
         tags=[RunTag(key, value) for key, value in tags.items()]
     )

@@ -13,13 +13,22 @@ from mlflow.entities import RunStatus, ViewType, Experiment, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
-    MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
+    MLFLOW_SOURCE_TYPE, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
     LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+
+
+MOCK_USER = "janebloggs"
+
+
+@pytest.fixture
+def patch_user():
+    with mock.patch("mlflow.tracking.context._get_user", return_value=MOCK_USER):
+        yield
 
 
 def _build_uri(base_uri, subdirectory):
@@ -168,7 +177,8 @@ def test_is_valid_branch_name(local_git_repo):
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
-def test_run_local_git_repo(local_git_repo,
+def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
+                            local_git_repo,
                             local_git_repo_uri,
                             tracking_uri_mock,  # pylint: disable=unused-argument
                             use_start_run,
@@ -205,6 +215,7 @@ def test_run_local_git_repo(local_git_repo,
     assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
+    assert tags[MLFLOW_USER] == MOCK_USER
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
     assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
@@ -248,7 +259,10 @@ def test_invalid_version_local_git_repo(local_git_repo_uri,
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unused-argument
+def test_run(tmpdir,  # pylint: disable=unused-argument
+             patch_user,  # pylint: disable=unused-argument
+             tracking_uri_mock,  # pylint: disable=unused-argument
+             use_start_run):
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="test_tracking",
         parameters={"use_start_run": use_start_run},
@@ -277,6 +291,7 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     assert run.data.metrics == {"some_key": 3}
 
     tags = run.data.tags
+    assert tags[MLFLOW_USER] == MOCK_USER
     assert "file:" in tags[MLFLOW_SOURCE_NAME]
     assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
     assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"

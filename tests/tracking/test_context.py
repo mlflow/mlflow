@@ -4,8 +4,9 @@ import git
 from six.moves import reload_module as reload
 
 from mlflow.entities import SourceType
-from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, \
-    MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_WEBAPP_URL
+from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
+    MLFLOW_GIT_COMMIT, MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_DATABRICKS_NOTEBOOK_PATH, \
+    MLFLOW_DATABRICKS_WEBAPP_URL
 import mlflow.tracking.context
 from mlflow.tracking.context import DefaultRunContext, GitRunContext, \
     DatabricksNotebookRunContext, RunContextProviderRegistry, resolve_tags
@@ -36,10 +37,13 @@ def test_default_run_context_in_context():
 
 
 def test_default_run_context_tags(patch_script_name):
-    assert DefaultRunContext().tags() == {
-        MLFLOW_SOURCE_NAME: MOCK_SCRIPT_NAME,
-        MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL)
-    }
+    mock_user = mock.Mock()
+    with mock.patch("getpass.getuser", return_value=mock_user):
+        assert DefaultRunContext().tags() == {
+            MLFLOW_USER: mock_user,
+            MLFLOW_SOURCE_NAME: MOCK_SCRIPT_NAME,
+            MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.LOCAL)
+        }
 
 
 def test_git_run_context_in_context_true(patch_script_name, patch_git_repo):
