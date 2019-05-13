@@ -34,6 +34,7 @@ matrix:
         - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --ignore tests/projects tests
     - language: r
       name: "R"
+      warnings_are_errors: true
       cache: packages
       before_install:
         - export NOT_CRAN=true
