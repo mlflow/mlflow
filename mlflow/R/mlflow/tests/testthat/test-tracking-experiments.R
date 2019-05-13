@@ -9,7 +9,7 @@ test_that("mlflow_create/get_experiment() basic functionality (fluent)", {
 
   expect_identical(experiment_1a, experiment_1b)
   expect_identical(experiment_1a$artifact_location, "art_loc")
-  expect_identical(experiment_1a$experiment_name, "exp_name")
+  expect_identical(experiment_1a$name, "exp_name")
 })
 
 test_that("mlflow_create/get_experiment() basic functionality (client)", {
@@ -23,7 +23,7 @@ test_that("mlflow_create/get_experiment() basic functionality (client)", {
 
   expect_identical(experiment_1a, experiment_1b)
   expect_identical(experiment_1a$artifact_location, "art_loc")
-  expect_identical(experiment_1a$experiment_name, "exp_name")
+  expect_identical(experiment_1a$name, "exp_name")
 })
 
 test_that("mlflow_get_experiment() not found error", {
@@ -46,6 +46,8 @@ test_that("mlflow_list_experiments() works properly", {
   expect_setequal(experiments_list$experiment_id, c("0", "1", "2"))
   expect_setequal(experiments_list$name, c("Default", "foo1", "foo2"))
   default_artifact_loc <- file.path("file:/", getwd(), "mlruns", "0", fsep = "/")
+  print(experiments_list$artifact_location)
+  print(default_artifact_loc)
   expect_setequal(experiments_list$artifact_location, c(default_artifact_loc,
                                                         "art_loc1",
                                                         "art_loc2"))

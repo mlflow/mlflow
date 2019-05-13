@@ -183,7 +183,7 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
 
   final_experiment_id <- if (!is.null(experiment_name)) {
     tryCatch(
-      mlflow_get_experiment(client = client, name = experiment_name),
+      mlflow_id(mlflow_get_experiment(client = client, name = experiment_name)),
       error = function(e) {
         message("Experiment `", experiment_name, "` does not exist. Creating a new experiment.")
         mlflow_create_experiment(client = client, name = experiment_name, artifact_location = artifact_location)
