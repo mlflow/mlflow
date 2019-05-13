@@ -91,9 +91,8 @@ mlflow_restore_run <- function(run_id, client = NULL) {
 
 #' Get Run
 #'
-#' Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
-#' same key are logged for the run, returns only the value with the latest timestamp. If there are
-#' multiple values with the latest timestamp, returns the maximum of these values.
+#' Gets metadata, params, tags, and metrics for a run. Returns a single value for each metric
+#' key: the most recently logged metric value at the largest step.
 #'
 #' @template roxlate-run-id
 #' @template roxlate-client
