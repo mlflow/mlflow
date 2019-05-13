@@ -49,7 +49,8 @@ def get_default_conda_env():
             "scikit-learn={}".format(sklearn.__version__),
         ],
         additional_pip_deps=None,
-        additional_conda_channels=None)
+        additional_conda_channels=None
+    )
 
 
 def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
@@ -104,7 +105,6 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     >>>                           serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
     """
     import sklearn
-
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
                 message=(

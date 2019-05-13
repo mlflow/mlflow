@@ -1,10 +1,11 @@
 import logging
+import sys
 
 import click
 
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.proto_json_utils import message_to_json
 
 _logger = logging.getLogger(__name__)
@@ -88,29 +89,32 @@ def _file_infos_to_json(file_infos):
 
 
 @commands.command("download")
-@click.option("--run-id", "-r", required=True,
+@click.option("--run-id", "-r",
               help="Run ID from which to download")
 @click.option("--artifact-path", "-a",
-              help="If specified, a path relative to the run's root directory to download")
-def download_artifacts(run_id, artifact_path):
+              help="For use with Run ID: if specified, a path relative to the run's root "
+                   "directory to download")
+@click.option("--artifact-uri", "-u",
+              help="URI pointing to the artifact file or artifacts directory; use as an "
+                   "alternative to specifying --run_id and --artifact-path")
+def download_artifacts(run_id, artifact_path, artifact_uri):
     """
     Download an artifact file or directory to a local directory.
     The output is the name of the file or directory on the local disk.
+
+    Either ``--run-id`` or ``--artifact-uri`` must be provided.
     """
+    if run_id is None and artifact_uri is None:
+        _logger.error("Either ``--run-id`` or ``--artifact-uri`` must be provided.")
+        sys.exit(1)
+
+    if artifact_uri is not None:
+        print(_download_artifact_from_uri(artifact_uri))
+        return
+
     artifact_path = artifact_path if artifact_path is not None else ""
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path)
     print(artifact_location)
-
-
-@commands.command("download-from-uri")
-@click.option("--artifact-uri", "-a", required=True,
-              help="URI pointing to the artifact file or artifacts directory.")
-def download_artifacts_from_uri(artifact_uri):
-    """
-    Download an artifact file or directory from a given URI to a local directory.
-    The output is the name of the file or directory on the local disk.
-    """
-    print(_download_artifact_from_uri(artifact_uri))

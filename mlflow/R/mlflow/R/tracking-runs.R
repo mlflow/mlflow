@@ -2,26 +2,32 @@
 #'
 #' Logs a metric for a run. Metrics key-value pair that records a single float measure.
 #'   During a single execution of a run, a particular metric can be logged several times.
-#'   Backend will keep track of historical values along with timestamps.
+#'   The MLflow Backend keeps track of historical metric values along two axes: timestamp and step.
 #'
 #' @param key Name of the metric.
 #' @param value Float value for the metric being logged.
-#' @param timestamp Unix timestamp in milliseconds at the time metric was logged.
+#' @param timestamp Timestamp at which to log the metric. Timestamp is rounded to the nearest
+#'  integer. If unspecified, the number of milliseconds since the Unix epoch is used.
+#' @param step Step at which to log the metric. Step is rounded to the nearest integer. If
+#'  unspecified, the default value of zero is used.
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
-mlflow_log_metric <- function(key, value, timestamp = NULL, run_id = NULL, client = NULL) {
+mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id = NULL,
+                              client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   key <- cast_string(key)
   value <- cast_scalar_double(value)
   timestamp <- cast_nullable_scalar_double(timestamp)
-  timestamp <- timestamp %||% current_time()
+  timestamp <- round(timestamp %||% current_time())
+  step <- round(cast_nullable_scalar_double(step) %||% 0)
   mlflow_rest("runs", "log-metric", client = client, verb = "POST", data = list(
     run_uuid = run_id,
     run_id = run_id,
     key = key,
     value = value,
-    timestamp = timestamp
+    timestamp = timestamp,
+    step = step
   ))
   invisible(value)
 }
@@ -344,7 +350,7 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
 
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
-  result <- mlflow_cli("artifacts", "download-from-uri", "-a", artifact_uri, echo = FALSE,
+  result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE,
                        client = client)
   gsub("\n", "", result$stdout)
 }

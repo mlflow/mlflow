@@ -324,6 +324,16 @@ def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris
         signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
 
 
+def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
+    artifact_path = "model"
+    with mlflow.start_run():
+        with pytest.raises(TypeError):
+            mlflow.tensorflow.log_model(saved_tf_iris_model.path,
+                                        saved_tf_iris_model.meta_graph_tags,
+                                        saved_tf_iris_model.signature_def_key,
+                                        artifact_path)
+
+
 @pytest.mark.large
 def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_iris_model):
     artifact_path = "model"
