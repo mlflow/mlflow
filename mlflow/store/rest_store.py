@@ -65,7 +65,7 @@ class RestStore(AbstractStore):
         else:
             response = http_request(
                 host_creds=host_creds, endpoint=endpoint, method=method, json=json_body)
-        
+
         response = self._validate_response(response, endpoint)
 
         js_dict = json.loads(response.text)
