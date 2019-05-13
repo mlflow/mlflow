@@ -57,8 +57,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If ``None``, the default
+                      ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -147,8 +147,8 @@ def log_model(sk_model, artifact_path, conda_env=None,
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If ``None``, the default
+                      ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -191,7 +191,7 @@ def log_model(sk_model, artifact_path, conda_env=None,
 
 def _load_model_from_local_file(path):
     """Load a scikit-learn model saved as an MLflow artifact on the local file system."""
-    # TODO: we could validate the SciKit-Learn version here
+    # TODO: we could validate the scikit-learn version here
     with open(path, "rb") as f:
         # Models serialized with Cloudpickle can be deserialized using Pickle; in fact,
         # Cloudpickle.load() is just a redefinition of pickle.load(). Therefore, we do
@@ -210,11 +210,11 @@ def _load_pyfunc(path):
 
 def _save_model(sk_model, output_path, serialization_format):
     """
-    :param sk_model: The Scikit-learn model to serialize.
+    :param sk_model: The scikit-learn model to serialize.
     :param output_path: The file path to which to write the serialized model.
     :param serialization_format: The format in which to serialize the model. This should be one of
-                                 the following: `mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`,
-                                 `mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE`.
+                                 the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
+                                 ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
     """
     with open(output_path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
@@ -231,7 +231,7 @@ def _save_model(sk_model, output_path, serialization_format):
 
 def load_model(model_uri):
     """
-    Load a scikit-learn model from a local file (if ``run_id`` is None) or a run.
+    Load a scikit-learn model from a local file or a run.
 
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
@@ -240,14 +240,14 @@ def load_model(model_uri):
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Artifact Stores <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-store-locations>`_.
 
     :return: A scikit-learn model.
 
     >>> import mlflow.sklearn
-    >>> sk_model = mlflow.sklearn.load_model("sk_models", run_id="96771d893a5e46159d9f3b49bf9013e2")
+    >>> sk_model = mlflow.sklearn.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2/"sk_models")
     >>> #use Pandas DataFrame to make predictions
     >>> pandas_df = ...
     >>> predictions = sk_model.predict(pandas_df)

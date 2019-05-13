@@ -70,7 +70,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.spark.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.spark.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      ``mlflow.spark.DEFAULT_CONDA_ENV`` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -263,7 +263,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in ``mlflow.spark.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.spark.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      ``mlflow.spark.DEFAULT_CONDA_ENV`` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -328,9 +328,9 @@ def load_model(model_uri, dfs_tmpdir=None):
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Artifact Stores <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-store-locations>`_.
     :param dfs_tmpdir: Temporary directory path on Distributed (Hadoop) File System (DFS) or local
                        filesystem if running in local mode. The model will be loaded from this
                        destination. Defaults to ``/tmp/mlflow``.
