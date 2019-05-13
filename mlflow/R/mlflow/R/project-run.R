@@ -5,7 +5,7 @@
 #' @param entry_point Entry point within project, defaults to `main` if not specified.
 #' @param uri A directory containing modeling scripts, defaults to the current directory.
 #' @param version Version of the project to run, as a Git commit reference for Git projects.
-#' @param param_list A list of parameters.
+#' @param parameters A list of parameters.
 #' @param experiment_id ID of the experiment under which to launch the run.
 #' @param experiment_name Name of the experiment under which to launch the run.
 #' @param backend Execution backend to use for run.
@@ -20,7 +20,7 @@
 #' @return The run associated with this run.
 #'
 #' @export
-mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list = NULL,
+mlflow_run <- function(uri = ".", entry_point = NULL, version = NULL, parameters = NULL,
                        experiment_id = NULL, experiment_name = NULL, backend = NULL, backend_config = NULL,
                        no_conda = FALSE, storage_dir = NULL) {
   if (!is.null(experiment_name) && !is.null(experiment_id)) {
@@ -32,7 +32,7 @@ mlflow_run <- function(entry_point = NULL, uri = ".", version = NULL, param_list
   if (file.exists(uri))
     uri <- fs::path_expand(uri)
 
-  param_list <- if (!is.null(param_list)) param_list %>%
+  param_list <- if (!is.null(parameters)) parameters %>%
     purrr::imap_chr(~ paste0(.y, "=", .x)) %>%
     purrr::reduce(~ mlflow_cli_param(.x, "--param-list", .y), .init = list())
 

@@ -1,3 +1,13 @@
+# Returns the current MLflow R package version
+mlflow_version <- function() {
+  packageVersion("mlflow")
+}
+
+# Returns the name of a conda environment in which to install the Python MLflow package
+mlflow_conda_env_name <- function() {
+  paste("r-mlflow", mlflow_version(), sep="-")
+}
+
 #' Install MLflow
 #'
 #' Installs MLflow for individual use.
@@ -21,7 +31,7 @@ mlflow_install <- function() {
   conda <- mlflow_conda_bin()
   if (!"r-mlflow" %in% conda_list(conda = conda)$name) {
     conda_create("r-mlflow", conda = conda)
-    conda_install(packages, envname = "r-mlflow", pip = TRUE, conda = conda)
+    conda_install(packages, envname = mlflow_conda_env_name(), pip = TRUE, conda = conda)
   }
 }
 
@@ -39,7 +49,7 @@ mlflow_install <- function() {
 #' @importFrom reticulate conda_install conda_create conda_list
 #' @export
 mlflow_uninstall <- function() {
-  reticulate::conda_remove(envname = "r-mlflow", conda = mlflow_conda_bin())
+  reticulate::conda_remove(envname = mlflow_conda_env_name(), conda = mlflow_conda_bin())
 }
 
 
