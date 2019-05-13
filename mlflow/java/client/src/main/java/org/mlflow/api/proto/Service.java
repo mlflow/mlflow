@@ -3398,7 +3398,7 @@ public final class Service {
   }
   /**
    * <pre>
-   * Run data (metrics, params, etc).
+   * Run data (metrics, params, and tags).
    * </pre>
    *
    * Protobuf type {@code mlflow.RunData}
@@ -3861,7 +3861,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Run data (metrics, params, etc).
+     * Run data (metrics, params, and tags).
      * </pre>
      *
      * Protobuf type {@code mlflow.RunData}
@@ -6060,6 +6060,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6068,6 +6070,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6076,6 +6080,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6508,6 +6514,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6518,6 +6526,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6539,6 +6549,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -7581,6 +7593,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7591,6 +7605,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7612,6 +7628,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7632,6 +7650,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7649,6 +7669,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7662,6 +7684,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -11226,7 +11250,7 @@ public final class Service {
 
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11235,7 +11259,7 @@ public final class Service {
           getExperimentsList();
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11243,7 +11267,7 @@ public final class Service {
       org.mlflow.api.proto.Service.Experiment getExperiments(int index);
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11251,7 +11275,7 @@ public final class Service {
       int getExperimentsCount();
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11260,7 +11284,7 @@ public final class Service {
           getExperimentsOrBuilderList();
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11356,7 +11380,7 @@ public final class Service {
       private java.util.List<org.mlflow.api.proto.Service.Experiment> experiments_;
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11366,7 +11390,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11377,7 +11401,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11387,7 +11411,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11397,7 +11421,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * All experiments
+       * All experiments.
        * </pre>
        *
        * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11764,7 +11788,7 @@ public final class Service {
 
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11778,7 +11802,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11792,7 +11816,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11806,7 +11830,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11827,7 +11851,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11845,7 +11869,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11865,7 +11889,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11886,7 +11910,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11904,7 +11928,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11922,7 +11946,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11941,7 +11965,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11958,7 +11982,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11975,7 +11999,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -11986,7 +12010,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12000,7 +12024,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12015,7 +12039,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12026,7 +12050,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12038,7 +12062,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * All experiments
+         * All experiments.
          * </pre>
          *
          * <code>repeated .mlflow.Experiment experiments = 1;</code>
@@ -12679,7 +12703,7 @@ public final class Service {
 
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -12687,7 +12711,7 @@ public final class Service {
       boolean hasExperiment();
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -12695,7 +12719,7 @@ public final class Service {
       org.mlflow.api.proto.Service.Experiment getExperiment();
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -12848,7 +12872,7 @@ public final class Service {
       private org.mlflow.api.proto.Service.Experiment experiment_;
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -12858,7 +12882,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -12868,7 +12892,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Returns experiment details.
+       * Experiment details.
        * </pre>
        *
        * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13316,7 +13340,7 @@ public final class Service {
             org.mlflow.api.proto.Service.Experiment, org.mlflow.api.proto.Service.Experiment.Builder, org.mlflow.api.proto.Service.ExperimentOrBuilder> experimentBuilder_;
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13326,7 +13350,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13340,7 +13364,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13360,7 +13384,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13378,7 +13402,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13402,7 +13426,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13419,7 +13443,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13431,7 +13455,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -13446,7 +13470,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Returns experiment details.
+         * Experiment details.
          * </pre>
          *
          * <code>optional .mlflow.Experiment experiment = 1;</code>
@@ -15401,7 +15425,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
      * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -15409,7 +15433,7 @@ public final class Service {
     boolean hasExperimentId();
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
      * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -15417,7 +15441,7 @@ public final class Service {
     java.lang.String getExperimentId();
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
      * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -15920,7 +15944,7 @@ public final class Service {
     private volatile java.lang.Object experimentId_;
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
      * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -15930,7 +15954,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
      * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -15951,7 +15975,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Identifier to get an experiment
+     * ID of the associated experiment.
      * </pre>
      *
      * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -16289,7 +16313,7 @@ public final class Service {
       private java.lang.Object experimentId_ = "";
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
        * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -16299,7 +16323,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
        * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -16320,7 +16344,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
        * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -16340,7 +16364,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
        * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -16357,7 +16381,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
        * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -16370,7 +16394,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Identifier to get an experiment
+       * ID of the associated experiment.
        * </pre>
        *
        * <code>optional string experiment_id = 1 [(.mlflow.validate_required) = true];</code>
@@ -16470,7 +16494,7 @@ public final class Service {
 
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -16478,7 +16502,7 @@ public final class Service {
     boolean hasNewName();
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -16486,7 +16510,7 @@ public final class Service {
     java.lang.String getNewName();
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -17050,7 +17074,7 @@ public final class Service {
     private volatile java.lang.Object newName_;
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -17060,7 +17084,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -17081,7 +17105,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * If provided, the experiment's name will be changed to this. The new name must be unique.
+     * If provided, the experiment's name is changed to the new name. The new name must be unique.
      * </pre>
      *
      * <code>optional string new_name = 2;</code>
@@ -17545,7 +17569,7 @@ public final class Service {
       private java.lang.Object newName_ = "";
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -17555,7 +17579,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -17576,7 +17600,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -17596,7 +17620,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -17613,7 +17637,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -17626,7 +17650,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * If provided, the experiment's name will be changed to this. The new name must be unique.
+       * If provided, the experiment's name is changed to the new name. The new name must be unique.
        * </pre>
        *
        * <code>optional string new_name = 2;</code>
@@ -17727,6 +17751,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -17735,6 +17761,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -17743,6 +17771,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -17752,7 +17782,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Unix timestamp of when the run started in milliseconds.
+     * Unix timestamp in milliseconds of when the run started.
      * </pre>
      *
      * <code>optional int64 start_time = 7;</code>
@@ -17760,7 +17790,7 @@ public final class Service {
     boolean hasStartTime();
     /**
      * <pre>
-     * Unix timestamp of when the run started in milliseconds.
+     * Unix timestamp in milliseconds of when the run started.
      * </pre>
      *
      * <code>optional int64 start_time = 7;</code>
@@ -18652,6 +18682,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -18662,6 +18694,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -18683,6 +18717,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -18705,7 +18741,7 @@ public final class Service {
     private long startTime_;
     /**
      * <pre>
-     * Unix timestamp of when the run started in milliseconds.
+     * Unix timestamp in milliseconds of when the run started.
      * </pre>
      *
      * <code>optional int64 start_time = 7;</code>
@@ -18715,7 +18751,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Unix timestamp of when the run started in milliseconds.
+     * Unix timestamp in milliseconds of when the run started.
      * </pre>
      *
      * <code>optional int64 start_time = 7;</code>
@@ -19306,6 +19342,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19316,6 +19354,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19337,6 +19377,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19357,6 +19399,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19374,6 +19418,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19387,6 +19433,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19405,7 +19453,7 @@ public final class Service {
       private long startTime_ ;
       /**
        * <pre>
-       * Unix timestamp of when the run started in milliseconds.
+       * Unix timestamp in milliseconds of when the run started.
        * </pre>
        *
        * <code>optional int64 start_time = 7;</code>
@@ -19415,7 +19463,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Unix timestamp of when the run started in milliseconds.
+       * Unix timestamp in milliseconds of when the run started.
        * </pre>
        *
        * <code>optional int64 start_time = 7;</code>
@@ -19425,7 +19473,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Unix timestamp of when the run started in milliseconds.
+       * Unix timestamp in milliseconds of when the run started.
        * </pre>
        *
        * <code>optional int64 start_time = 7;</code>
@@ -19438,7 +19486,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Unix timestamp of when the run started in milliseconds.
+       * Unix timestamp in milliseconds of when the run started.
        * </pre>
        *
        * <code>optional int64 start_time = 7;</code>
@@ -19892,7 +19940,7 @@ public final class Service {
 
     /**
      * <pre>
-     *Unix timestamp of when the run ended in milliseconds.
+     *Unix timestamp in milliseconds of when the run ended.
      * </pre>
      *
      * <code>optional int64 end_time = 3;</code>
@@ -19900,7 +19948,7 @@ public final class Service {
     boolean hasEndTime();
     /**
      * <pre>
-     *Unix timestamp of when the run ended in milliseconds.
+     *Unix timestamp in milliseconds of when the run ended.
      * </pre>
      *
      * <code>optional int64 end_time = 3;</code>
@@ -20829,7 +20877,7 @@ public final class Service {
     private long endTime_;
     /**
      * <pre>
-     *Unix timestamp of when the run ended in milliseconds.
+     *Unix timestamp in milliseconds of when the run ended.
      * </pre>
      *
      * <code>optional int64 end_time = 3;</code>
@@ -20839,7 +20887,7 @@ public final class Service {
     }
     /**
      * <pre>
-     *Unix timestamp of when the run ended in milliseconds.
+     *Unix timestamp in milliseconds of when the run ended.
      * </pre>
      *
      * <code>optional int64 end_time = 3;</code>
@@ -21502,7 +21550,7 @@ public final class Service {
       private long endTime_ ;
       /**
        * <pre>
-       *Unix timestamp of when the run ended in milliseconds.
+       *Unix timestamp in milliseconds of when the run ended.
        * </pre>
        *
        * <code>optional int64 end_time = 3;</code>
@@ -21512,7 +21560,7 @@ public final class Service {
       }
       /**
        * <pre>
-       *Unix timestamp of when the run ended in milliseconds.
+       *Unix timestamp in milliseconds of when the run ended.
        * </pre>
        *
        * <code>optional int64 end_time = 3;</code>
@@ -21522,7 +21570,7 @@ public final class Service {
       }
       /**
        * <pre>
-       *Unix timestamp of when the run ended in milliseconds.
+       *Unix timestamp in milliseconds of when the run ended.
        * </pre>
        *
        * <code>optional int64 end_time = 3;</code>
@@ -21535,7 +21583,7 @@ public final class Service {
       }
       /**
        * <pre>
-       *Unix timestamp of when the run ended in milliseconds.
+       *Unix timestamp in milliseconds of when the run ended.
        * </pre>
        *
        * <code>optional int64 end_time = 3;</code>
@@ -21604,14 +21652,26 @@ public final class Service {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasRunId();
     /**
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getRunId();
     /**
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
@@ -22111,12 +22171,20 @@ public final class Service {
     public static final int RUN_ID_FIELD_NUMBER = 1;
     private volatile java.lang.Object runId_;
     /**
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getRunId() {
@@ -22134,6 +22202,10 @@ public final class Service {
       }
     }
     /**
+     * <pre>
+     * ID of the run to delete.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
@@ -22468,12 +22540,20 @@ public final class Service {
 
       private java.lang.Object runId_ = "";
       /**
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getRunId() {
@@ -22491,6 +22571,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
@@ -22507,6 +22591,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunId(
@@ -22520,6 +22608,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearRunId() {
@@ -22529,6 +22621,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * ID of the run to delete.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunIdBytes(
@@ -22599,14 +22695,26 @@ public final class Service {
       com.google.protobuf.MessageOrBuilder {
 
     /**
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasRunId();
     /**
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getRunId();
     /**
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
@@ -23106,12 +23214,20 @@ public final class Service {
     public static final int RUN_ID_FIELD_NUMBER = 1;
     private volatile java.lang.Object runId_;
     /**
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
     }
     /**
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getRunId() {
@@ -23129,6 +23245,10 @@ public final class Service {
       }
     }
     /**
+     * <pre>
+     * ID of the run to restore.
+     * </pre>
+     *
      * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
@@ -23463,12 +23583,20 @@ public final class Service {
 
       private java.lang.Object runId_ = "";
       /**
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
       }
       /**
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getRunId() {
@@ -23486,6 +23614,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
@@ -23502,6 +23634,10 @@ public final class Service {
         }
       }
       /**
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunId(
@@ -23515,6 +23651,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearRunId() {
@@ -23524,6 +23664,10 @@ public final class Service {
         return this;
       }
       /**
+       * <pre>
+       * ID of the run to restore.
+       * </pre>
+       *
        * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunIdBytes(
@@ -28970,7 +29114,7 @@ public final class Service {
 
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -28978,7 +29122,7 @@ public final class Service {
       boolean hasRun();
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -28986,7 +29130,7 @@ public final class Service {
       org.mlflow.api.proto.Service.Run getRun();
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -29082,7 +29226,7 @@ public final class Service {
       private org.mlflow.api.proto.Service.Run run_;
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -29092,7 +29236,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -29102,7 +29246,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Run metadata (name, start time, etc) and data (metrics, params, etc).
+       * Run metadata (name, start time, etc) and data (metrics, params, and tags).
        * </pre>
        *
        * <code>optional .mlflow.Run run = 1;</code>
@@ -29440,7 +29584,7 @@ public final class Service {
             org.mlflow.api.proto.Service.Run, org.mlflow.api.proto.Service.Run.Builder, org.mlflow.api.proto.Service.RunOrBuilder> runBuilder_;
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -29450,7 +29594,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -29464,7 +29608,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -29484,7 +29628,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -29502,7 +29646,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -29526,7 +29670,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -29543,7 +29687,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -29555,7 +29699,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -29570,7 +29714,7 @@ public final class Service {
         }
         /**
          * <pre>
-         * Run metadata (name, start time, etc) and data (metrics, params, etc).
+         * Run metadata (name, start time, etc) and data (metrics, params, and tags).
          * </pre>
          *
          * <code>optional .mlflow.Run run = 1;</code>
@@ -30394,18 +30538,17 @@ public final class Service {
 
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
      * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -30413,18 +30556,17 @@ public final class Service {
     boolean hasFilter();
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
      * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -30432,18 +30574,17 @@ public final class Service {
     java.lang.String getFilter();
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
      * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -31541,18 +31682,17 @@ public final class Service {
     private volatile java.lang.Object filter_;
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
      * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -31562,18 +31702,17 @@ public final class Service {
     }
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
      * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -31594,18 +31733,17 @@ public final class Service {
     }
     /**
      * <pre>
-     * A filter expression over params, metrics, and tags, allowing returning a subset of
-     * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-     * between a param/metric/tag and a constant.
+     * A filter expression over params, metrics, and tags, that allows returning a subset of
+     * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+     * between a param, metric, or tag and a constant.
      * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-     * You can also select columns with spaces by using backticks or double quotes:
-     * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-     * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-     * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-     * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+     * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+     * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+     * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
      * error will be returned if both are specified.
-     * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-     * will be returned.
+     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -32205,18 +32343,17 @@ public final class Service {
       private java.lang.Object filter_ = "";
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
        * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32226,18 +32363,17 @@ public final class Service {
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
        * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32258,18 +32394,17 @@ public final class Service {
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
        * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32289,18 +32424,17 @@ public final class Service {
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
        * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32317,18 +32451,17 @@ public final class Service {
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
        * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32341,18 +32474,17 @@ public final class Service {
       }
       /**
        * <pre>
-       * A filter expression over params, metrics, and tags, allowing returning a subset of
-       * runs. The syntax is a subset of SQL which allows only ANDing together binary operations
-       * between a param/metric/tag and a constant.
+       * A filter expression over params, metrics, and tags, that allows returning a subset of
+       * runs. The syntax is a subset of SQL that supports ANDing together binary operations
+       * between a param, metric, or tag and a constant.
        * Example: ``metrics.rmse &lt; 1 and params.model_class = 'LogisticRegression'``
-       * You can also select columns with spaces by using backticks or double quotes:
-       * ``metrics.`model class` = 'LinearRegression' and tags."user name" = 'Tomas'``
-       * Supported operators are =, !=, &gt;, &gt;=, &lt;, &lt;=, and LIKE.
-       * LIKE syntax: ``params.model_class LIKE 'Linear%'``
-       * 'filter' may not be provided when anded_expressions is present; an INVALID_PARAMETER_VALUE
+       * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
+       * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
+       * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
+       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
        * error will be returned if both are specified.
-       * If both 'filter' and 'anded_expressions' are absent, all runs part of the given experiments
-       * will be returned.
+       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
+       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -40432,70 +40564,88 @@ public final class Service {
       "pe\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t" +
       "\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007" +
       "RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n" +
-      "\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\271\023\n\rMlflowService" +
-      "\022\234\001\n\020createExperiment\022\030.mlflow.CreateExp" +
+      "\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\214\031\n\rMlflowService" +
+      "\022\306\001\n\020createExperiment\022\030.mlflow.CreateExp" +
       "eriment\032!.mlflow.CreateExperiment.Respon" +
-      "se\"K\362\206\031G\n0\n\004POST\022\"/preview/mlflow/experi" +
-      "ments/create\032\004\010\002\020\000\020\001*\021Create Experiment\022" +
-      "\225\001\n\017listExperiments\022\027.mlflow.ListExperim" +
-      "ents\032 .mlflow.ListExperiments.Response\"G" +
-      "\362\206\031C\n-\n\003GET\022 /preview/mlflow/experiments" +
-      "/list\032\004\010\002\020\000\020\001*\020List Experiments\022\214\001\n\rgetE" +
-      "xperiment\022\025.mlflow.GetExperiment\032\036.mlflo" +
-      "w.GetExperiment.Response\"D\362\206\031@\n,\n\003GET\022\037/" +
-      "preview/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016" +
-      "Get Experiment\022\234\001\n\020deleteExperiment\022\030.ml" +
-      "flow.DeleteExperiment\032!.mlflow.DeleteExp" +
-      "eriment.Response\"K\362\206\031G\n0\n\004POST\022\"/preview" +
-      "/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021Dele" +
-      "te Experiment\022\241\001\n\021restoreExperiment\022\031.ml" +
-      "flow.RestoreExperiment\032\".mlflow.RestoreE" +
-      "xperiment.Response\"M\362\206\031I\n1\n\004POST\022#/previ" +
-      "ew/mlflow/experiments/restore\032\004\010\002\020\000\020\001*\022R" +
-      "estore Experiment\022\234\001\n\020updateExperiment\022\030" +
-      ".mlflow.UpdateExperiment\032!.mlflow.Update" +
-      "Experiment.Response\"K\362\206\031G\n0\n\004POST\022\"/prev" +
-      "iew/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021U" +
-      "pdate Experiment\022y\n\tcreateRun\022\021.mlflow.C" +
-      "reateRun\032\032.mlflow.CreateRun.Response\"=\362\206" +
-      "\0319\n)\n\004POST\022\033/preview/mlflow/runs/create\032" +
-      "\004\010\002\020\000\020\001*\nCreate Run\022y\n\tupdateRun\022\021.mlflo" +
-      "w.UpdateRun\032\032.mlflow.UpdateRun.Response\"" +
-      "=\362\206\0319\n)\n\004POST\022\033/preview/mlflow/runs/upda" +
-      "te\032\004\010\002\020\000\020\001*\nUpdate Run\022m\n\tdeleteRun\022\021.ml" +
-      "flow.DeleteRun\032\032.mlflow.DeleteRun.Respon" +
-      "se\"1\362\206\031-\n)\n\004POST\022\033/preview/mlflow/runs/d" +
-      "elete\032\004\010\002\020\000\020\001\022q\n\nrestoreRun\022\022.mlflow.Res" +
-      "toreRun\032\033.mlflow.RestoreRun.Response\"2\362\206" +
-      "\031.\n*\n\004POST\022\034/preview/mlflow/runs/restore" +
-      "\032\004\010\002\020\000\020\001\022}\n\tlogMetric\022\021.mlflow.LogMetric" +
-      "\032\032.mlflow.LogMetric.Response\"A\362\206\031=\n-\n\004PO" +
-      "ST\022\037/preview/mlflow/runs/log-metric\032\004\010\002\020" +
-      "\000\020\001*\nLog Metric\022|\n\010logParam\022\020.mlflow.Log" +
-      "Param\032\031.mlflow.LogParam.Response\"C\362\206\031?\n0" +
-      "\n\004POST\022\"/preview/mlflow/runs/log-paramet" +
-      "er\032\004\010\002\020\000\020\001*\tLog Param\022n\n\006setTag\022\016.mlflow" +
-      ".SetTag\032\027.mlflow.SetTag.Response\";\362\206\0317\n*" +
-      "\n\004POST\022\034/preview/mlflow/runs/set-tag\032\004\010\002" +
-      "\020\000\020\001*\007Set Tag\022i\n\006getRun\022\016.mlflow.GetRun\032" +
-      "\027.mlflow.GetRun.Response\"6\362\206\0312\n%\n\003GET\022\030/" +
-      "preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run" +
-      "\022\247\001\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033.ml" +
-      "flow.SearchRuns.Response\"h\362\206\031d\n)\n\004POST\022\033" +
-      "/preview/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET" +
-      "\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\020\001*\013S" +
-      "earch Runs\022\213\001\n\rlistArtifacts\022\025.mlflow.Li" +
-      "stArtifacts\032\036.mlflow.ListArtifacts.Respo" +
-      "nse\"C\362\206\031?\n+\n\003GET\022\036/preview/mlflow/artifa" +
-      "cts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\235\001\n\020get" +
-      "MetricHistory\022\030.mlflow.GetMetricHistory\032" +
-      "!.mlflow.GetMetricHistory.Response\"L\362\206\031H" +
-      "\n0\n\003GET\022#/preview/mlflow/metrics/get-his" +
-      "tory\032\004\010\002\020\000\020\001*\022Get Metric History\022x\n\010logB" +
-      "atch\022\020.mlflow.LogBatch\032\031.mlflow.LogBatch" +
-      ".Response\"?\362\206\031;\n,\n\004POST\022\036/preview/mlflow" +
-      "/runs/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036\n\024or" +
-      "g.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "se\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/cr" +
+      "eate\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/expe" +
+      "riments/create\032\004\010\002\020\000\020\001*\021Create Experimen" +
+      "t\022\274\001\n\017listExperiments\022\027.mlflow.ListExper" +
+      "iments\032 .mlflow.ListExperiments.Response" +
+      "\"n\362\206\031j\n%\n\003GET\022\030/mlflow/experiments/list\032" +
+      "\004\010\002\020\000\n-\n\003GET\022 /preview/mlflow/experiment" +
+      "s/list\032\004\010\002\020\000\020\001*\020List Experiments\022\262\001\n\rget" +
+      "Experiment\022\025.mlflow.GetExperiment\032\036.mlfl" +
+      "ow.GetExperiment.Response\"j\362\206\031f\n$\n\003GET\022\027" +
+      "/mlflow/experiments/get\032\004\010\002\020\000\n,\n\003GET\022\037/p" +
+      "review/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016G" +
+      "et Experiment\022\306\001\n\020deleteExperiment\022\030.mlf" +
+      "low.DeleteExperiment\032!.mlflow.DeleteExpe" +
+      "riment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/e" +
+      "xperiments/delete\032\004\010\002\020\000\n0\n\004POST\022\"/previe" +
+      "w/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021Del" +
+      "ete Experiment\022\314\001\n\021restoreExperiment\022\031.m" +
+      "lflow.RestoreExperiment\032\".mlflow.Restore" +
+      "Experiment.Response\"x\362\206\031t\n)\n\004POST\022\033/mlfl" +
+      "ow/experiments/restore\032\004\010\002\020\000\n1\n\004POST\022#/p" +
+      "review/mlflow/experiments/restore\032\004\010\002\020\000\020" +
+      "\001*\022Restore Experiment\022\306\001\n\020updateExperime" +
+      "nt\022\030.mlflow.UpdateExperiment\032!.mlflow.Up" +
+      "dateExperiment.Response\"u\362\206\031q\n(\n\004POST\022\032/" +
+      "mlflow/experiments/update\032\004\010\002\020\000\n0\n\004POST\022" +
+      "\"/preview/mlflow/experiments/update\032\004\010\002\020" +
+      "\000\020\001*\021Update Experiment\022\234\001\n\tcreateRun\022\021.m" +
+      "lflow.CreateRun\032\032.mlflow.CreateRun.Respo" +
+      "nse\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/create\032\004" +
+      "\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs/creat" +
+      "e\032\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\tupdateRun\022\021.ml" +
+      "flow.UpdateRun\032\032.mlflow.UpdateRun.Respon" +
+      "se\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/update\032\004\010" +
+      "\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs/update" +
+      "\032\004\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\tdeleteRun\022\021.mlf" +
+      "low.DeleteRun\032\032.mlflow.DeleteRun.Respons" +
+      "e\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002" +
+      "\020\000\n)\n\004POST\022\033/preview/mlflow/runs/delete\032" +
+      "\004\010\002\020\000\020\001*\nDelete Run\022\242\001\n\nrestoreRun\022\022.mlf" +
+      "low.RestoreRun\032\033.mlflow.RestoreRun.Respo" +
+      "nse\"c\362\206\031_\n\"\n\004POST\022\024/mlflow/runs/restore\032" +
+      "\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/runs/rest" +
+      "ore\032\004\010\002\020\000\020\001*\013Restore Run\022\244\001\n\tlogMetric\022\021" +
+      ".mlflow.LogMetric\032\032.mlflow.LogMetric.Res" +
+      "ponse\"h\362\206\031d\n%\n\004POST\022\027/mlflow/runs/log-me" +
+      "tric\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlflow/runs" +
+      "/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logP" +
+      "aram\022\020.mlflow.LogParam\032\031.mlflow.LogParam" +
+      ".Response\"m\362\206\031i\n(\n\004POST\022\032/mlflow/runs/lo" +
+      "g-parameter\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlfl" +
+      "ow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param" +
+      "\022\222\001\n\006setTag\022\016.mlflow.SetTag\032\027.mlflow.Set" +
+      "Tag.Response\"_\362\206\031[\n\"\n\004POST\022\024/mlflow/runs" +
+      "/set-tag\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/" +
+      "runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\210\001\n\006getRun" +
+      "\022\016.mlflow.GetRun\032\027.mlflow.GetRun.Respons" +
+      "e\"U\362\206\031Q\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\n%" +
+      "\n\003GET\022\030/preview/mlflow/runs/get\032\004\010\002\020\000\020\001*" +
+      "\007Get Run\022\314\001\n\nsearchRuns\022\022.mlflow.SearchR" +
+      "uns\032\033.mlflow.SearchRuns.Response\"\214\001\362\206\031\207\001" +
+      "\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\n)\n\004P" +
+      "OST\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\n(" +
+      "\n\003GET\022\033/preview/mlflow/runs/search\032\004\010\002\020\000" +
+      "\020\001*\013Search Runs\022\260\001\n\rlistArtifacts\022\025.mlfl" +
+      "ow.ListArtifacts\032\036.mlflow.ListArtifacts." +
+      "Response\"h\362\206\031d\n#\n\003GET\022\026/mlflow/artifacts" +
+      "/list\032\004\010\002\020\000\n+\n\003GET\022\036/preview/mlflow/arti" +
+      "facts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\307\001\n\020g" +
+      "etMetricHistory\022\030.mlflow.GetMetricHistor" +
+      "y\032!.mlflow.GetMetricHistory.Response\"v\362\206" +
+      "\031r\n(\n\003GET\022\033/mlflow/metrics/get-history\032\004" +
+      "\010\002\020\000\n0\n\003GET\022#/preview/mlflow/metrics/get" +
+      "-history\032\004\010\002\020\000\020\001*\022Get Metric History\022\236\001\n" +
+      "\010logBatch\022\020.mlflow.LogBatch\032\031.mlflow.Log" +
+      "Batch.Response\"e\362\206\031a\n$\n\004POST\022\026/mlflow/ru" +
+      "ns/log-batch\032\004\010\002\020\000\n,\n\004POST\022\036/preview/mlf" +
+      "low/runs/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036\n" +
+      "\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {

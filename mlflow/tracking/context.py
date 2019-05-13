@@ -1,5 +1,6 @@
 import os
 import sys
+import getpass
 import logging
 import warnings
 from abc import ABCMeta, abstractmethod
@@ -9,6 +10,7 @@ import entrypoints
 from mlflow.entities import SourceType
 from mlflow.utils import databricks_utils
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_USER,
     MLFLOW_SOURCE_TYPE,
     MLFLOW_SOURCE_NAME,
     MLFLOW_GIT_COMMIT,
@@ -19,6 +21,17 @@ from mlflow.utils.mlflow_tags import (
 
 
 _logger = logging.getLogger(__name__)
+
+
+_DEFAULT_USER = "unknown"
+
+
+def _get_user():
+    """Get the current computer username."""
+    try:
+        return getpass.getuser()
+    except ImportError:
+        return _DEFAULT_USER
 
 
 def _get_main_file():
@@ -92,6 +105,7 @@ class DefaultRunContext(RunContextProvider):
 
     def tags(self):
         return {
+            MLFLOW_USER: _get_user(),
             MLFLOW_SOURCE_NAME: _get_source_name(),
             MLFLOW_SOURCE_TYPE: SourceType.to_string(_get_source_type())
         }

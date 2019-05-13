@@ -119,15 +119,6 @@ Arguments
 | ``x``    | An object to test. |
 +----------+--------------------+
 
-Active Run
-==========
-
-Retrieves the active run.
-
-.. code:: r
-
-   mlflow_active_run()
-
 MLflow Command
 ==============
 
@@ -136,7 +127,7 @@ Runs a generic MLflow command through the command-line interface.
 .. code:: r
 
    mlflow_cli(..., background = FALSE, echo = TRUE,
-     stderr_callback = NULL)
+     stderr_callback = NULL, client = mlflow_client())
 
 .. _arguments-2:
 
@@ -161,6 +152,9 @@ Arguments
 | ``stderr_callback``           | NULL, or a function to call for      |
 |                               | every chunk of the standard error.   |
 +-------------------------------+--------------------------------------+
+| ``client``                    | Mlflow client to provide environment |
+|                               | for the cli process.                 |
++-------------------------------+--------------------------------------+
 
 Value
 -----
@@ -177,659 +171,16 @@ Examples
     list("\n", "library(mlflow)\n", "mlflow_install()\n", "\n", "mlflow_cli(\"server\", \"--help\")\n") 
     
 
-Create Experiment - Tracking Client
-===================================
-
-Creates an MLflow experiment.
-
-.. code:: r
-
-   mlflow_client_create_experiment(client, name, artifact_location = NULL)
-
-.. _arguments-3:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``client``                    | An ``mlflow_client`` object.         |
-+-------------------------------+--------------------------------------+
-| ``name``                      | The name of the experiment to        |
-|                               | create.                              |
-+-------------------------------+--------------------------------------+
-| ``artifact_location``         | Location where all artifacts for     |
-|                               | this experiment are stored. If not   |
-|                               | provided, the remote server will     |
-|                               | select an appropriate default.       |
-+-------------------------------+--------------------------------------+
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Create Run
-==========
-
-Create a new run within an experiment. A run is usually a single
-execution of a machine learning or data ETL pipeline.
-
-.. code:: r
-
-   mlflow_client_create_run(client, experiment_id, user_id = NULL,
-     run_name = NULL, source_type = NULL, source_name = NULL,
-     entry_point_name = NULL, start_time = NULL, source_version = NULL,
-     tags = NULL)
-
-.. _arguments-4:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``client``                    | An ``mlflow_client`` object.         |
-+-------------------------------+--------------------------------------+
-| ``experiment_id``             | Unique identifier for the associated |
-|                               | experiment.                          |
-+-------------------------------+--------------------------------------+
-| ``user_id``                   | User ID or LDAP for the user         |
-|                               | executing the run.                   |
-+-------------------------------+--------------------------------------+
-| ``run_name``                  | Human readable name for run.         |
-+-------------------------------+--------------------------------------+
-| ``source_type``               | Originating source for this run. One |
-|                               | of Notebook, Job, Project, Local, or |
-|                               | Unknown.                             |
-+-------------------------------+--------------------------------------+
-| ``source_name``               | String descriptor for source. For    |
-|                               | example, name or description of the  |
-|                               | notebook, or job name.               |
-+-------------------------------+--------------------------------------+
-| ``entry_point_name``          | Name of the entry point for the run. |
-+-------------------------------+--------------------------------------+
-| ``start_time``                | Unix timestamp of when the run       |
-|                               | started in milliseconds.             |
-+-------------------------------+--------------------------------------+
-| ``source_version``            | Git version of the source code used  |
-|                               | to create run.                       |
-+-------------------------------+--------------------------------------+
-| ``tags``                      | Additional metadata for run in       |
-|                               | key-value pairs.                     |
-+-------------------------------+--------------------------------------+
-
-.. _details-1:
-
-Details
--------
-
-MLflow uses runs to track Param, Metric, and RunTag, associated with a
-single execution.
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Delete Experiment
-=================
-
-Marks an experiment and associated runs, params, metrics, etc. for
-deletion. If the experiment uses FileStore, artifacts associated with
-experiment are also deleted.
-
-.. code:: r
-
-   mlflow_client_delete_experiment(client, experiment_id)
-
-.. _arguments-5:
-
-Arguments
----------
-
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``client``                        | An ``mlflow_client`` object.      |
-+-----------------------------------+-----------------------------------+
-| ``experiment_id``                 | ID of the associated experiment.  |
-|                                   | This field is required.           |
-+-----------------------------------+-----------------------------------+
-
-.. _details-2:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Delete a Run
-============
-
-Delete a Run
-
-.. code:: r
-
-   mlflow_client_delete_run(client, run_id)
-
-.. _arguments-6:
-
-Arguments
----------
-
-+------------+------------------------------+
-| Argument   | Description                  |
-+============+==============================+
-| ``client`` | An ``mlflow_client`` object. |
-+------------+------------------------------+
-| ``run_id`` | Run ID.                      |
-+------------+------------------------------+
-
-.. _details-3:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Download Artifacts
-==================
-
-Download an artifact file or directory from a run to a local directory
-if applicable, and return a local path for it.
-
-.. code:: r
-
-   mlflow_client_download_artifacts(client, run_id, path)
-
-.. _arguments-7:
-
-Arguments
----------
-
-+------------+-----------------------------------------------+
-| Argument   | Description                                   |
-+============+===============================================+
-| ``client`` | An ``mlflow_client`` object.                  |
-+------------+-----------------------------------------------+
-| ``run_id`` | Run ID.                                       |
-+------------+-----------------------------------------------+
-| ``path``   | Relative source path to the desired artifact. |
-+------------+-----------------------------------------------+
-
-.. _details-4:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Get Experiment by Name
-======================
-
-Gets metadata for an experiment by name.
-
-.. code:: r
-
-   mlflow_client_get_experiment_by_name(client, name)
-
-.. _arguments-8:
-
-Arguments
----------
-
-+------------+------------------------------+
-| Argument   | Description                  |
-+============+==============================+
-| ``client`` | An ``mlflow_client`` object. |
-+------------+------------------------------+
-| ``name``   | The experiment name.         |
-+------------+------------------------------+
-
-.. _details-5:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Get Experiment
-==============
-
-Gets metadata for an experiment and a list of runs for the experiment.
-
-.. code:: r
-
-   mlflow_client_get_experiment(client, experiment_id)
-
-.. _arguments-9:
-
-Arguments
----------
-
-+-------------------+---------------------------------+
-| Argument          | Description                     |
-+===================+=================================+
-| ``client``        | An ``mlflow_client`` object.    |
-+-------------------+---------------------------------+
-| ``experiment_id`` | Identifer to get an experiment. |
-+-------------------+---------------------------------+
-
-.. _details-6:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Get Run
-=======
-
-Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the same
-key are logged for the run, returns only the value with the latest timestamp. If there are multiple
-values with the latest timestamp, returns the maximum of these values.
-
-.. code:: r
-
-   mlflow_client_get_run(client, run_id)
-
-.. _arguments-10:
-
-Arguments
----------
-
-+------------+------------------------------+
-| Argument   | Description                  |
-+============+==============================+
-| ``client`` | An ``mlflow_client`` object. |
-+------------+------------------------------+
-| ``run_id`` | Run ID.                      |
-+------------+------------------------------+
-
-.. _details-7:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-List Artifacts
-==============
-
-Gets a list of artifacts.
-
-.. code:: r
-
-   mlflow_client_list_artifacts(client, run_id, path = NULL)
-
-.. _arguments-11:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``client``                    | An ``mlflow_client`` object.         |
-+-------------------------------+--------------------------------------+
-| ``run_id``                    | Run ID.                              |
-+-------------------------------+--------------------------------------+
-| ``path``                      | The run's relative artifact path to  |
-|                               | list from. If not specified, it is   |
-|                               | set to the root artifact path        |
-+-------------------------------+--------------------------------------+
-
-.. _details-8:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-List Experiments
-================
-
-Gets a list of all experiments.
-
-.. code:: r
-
-   mlflow_client_list_experiments(client, view_type = c("ACTIVE_ONLY",
-     "DELETED_ONLY", "ALL"))
-
-.. _arguments-12:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``client``                    | An ``mlflow_client`` object.         |
-+-------------------------------+--------------------------------------+
-| ``view_type``                 | Qualifier for type of experiments to |
-|                               | be returned. Defaults to             |
-|                               | ``ACTIVE_ONLY``.                     |
-+-------------------------------+--------------------------------------+
-
-.. _details-9:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Log Artifact
-============
-
-Logs a specific file or directory as an artifact for a run.
-
-.. code:: r
-
-   mlflow_client_log_artifact(client, run_id, path, artifact_path = NULL)
-
-.. _arguments-13:
-
-Arguments
----------
-
-+-------------------+-------------------------------------------------+
-| Argument          | Description                                     |
-+===================+=================================================+
-| ``client``        | An ``mlflow_client`` object.                    |
-+-------------------+-------------------------------------------------+
-| ``run_id``        | Run ID.                                         |
-+-------------------+-------------------------------------------------+
-| ``path``          | The file or directory to log as an artifact.    |
-+-------------------+-------------------------------------------------+
-| ``artifact_path`` | Destination path within the run's artifact URI. |
-+-------------------+-------------------------------------------------+
-
-.. _details-10:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-When logging to Amazon S3, ensure that the user has a proper policy
-attach to it.
-
-Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
-``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
-corresponding key and secrets provided by Amazon IAM.
-
-Log Metric
-==========
-
-Logs a metric for a run. Metrics key-value pair that records a
-single float measure. During a single execution of a run, a particular
-metric can be logged several times. Backend will keep track of
-historical values along with timestamps.
-
-.. code:: r
-
-   mlflow_client_log_metric(client, run_id, key, value, timestamp = NULL)
-
-.. _arguments-14:
-
-Arguments
----------
-
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``client``                        | An ``mlflow_client`` object.      |
-+-----------------------------------+-----------------------------------+
-| ``run_id``                        | Run ID.                           |
-+-----------------------------------+-----------------------------------+
-| ``key``                           | Name of the metric.               |
-+-----------------------------------+-----------------------------------+
-| ``value``                         | Float value for the metric being  |
-|                                   | logged.                           |
-+-----------------------------------+-----------------------------------+
-| ``timestamp``                     | Unix timestamp in milliseconds at |
-|                                   | the time metric was logged.       |
-+-----------------------------------+-----------------------------------+
-
-.. _details-11:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Log Parameter
-=============
-
-Logs a parameter for a run. Examples are params and
-hyperparams used for ML training, or constant dates and values used in
-an ETL pipeline. A param is a STRING key-value pair. For a run, a
-single parameter is allowed to be logged only once.
-
-.. code:: r
-
-   mlflow_client_log_param(client, run_id, key, value)
-
-.. _arguments-15:
-
-Arguments
----------
-
-+------------+--------------------------------+
-| Argument   | Description                    |
-+============+================================+
-| ``client`` | An ``mlflow_client`` object.   |
-+------------+--------------------------------+
-| ``run_id`` | Run ID.                        |
-+------------+--------------------------------+
-| ``key``    | Name of the parameter.         |
-+------------+--------------------------------+
-| ``value``  | String value of the parameter. |
-+------------+--------------------------------+
-
-.. _details-12:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Restore Experiment
-==================
-
-Restores an experiment marked for deletion. This also restores associated
-metadata, runs, metrics, and params. If experiment uses FileStore,
-underlying artifacts associated with experiment are also restored.
-
-.. code:: r
-
-   mlflow_client_restore_experiment(client, experiment_id)
-
-.. _arguments-16:
-
-Arguments
----------
-
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``client``                        | An ``mlflow_client`` object.      |
-+-----------------------------------+-----------------------------------+
-| ``experiment_id``                 | ID of the associated experiment.  |
-|                                   | This field is required.           |
-+-----------------------------------+-----------------------------------+
-
-.. _details-13:
-
-Details
--------
-
-Throws ``RESOURCE_DOES_NOT_EXIST`` if the experiment was never created or was
-permanently deleted.
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Restore a Run
-=============
-
-Restore a Run
-
-.. code:: r
-
-   mlflow_client_restore_run(client, run_id)
-
-.. _arguments-17:
-
-Arguments
----------
-
-+------------+------------------------------+
-| Argument   | Description                  |
-+============+==============================+
-| ``client`` | An ``mlflow_client`` object. |
-+------------+------------------------------+
-| ``run_id`` | Run ID.                      |
-+------------+------------------------------+
-
-.. _details-14:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Set Tag
-=======
-
-Sets a tag on a run. Tags are run metadata that can be updated during a run and
-after a run completes.
-
-.. code:: r
-
-   mlflow_client_set_tag(client, run_id, key, value)
-
-.. _arguments-18:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``client``                    | An ``mlflow_client`` object.         |
-+-------------------------------+--------------------------------------+
-| ``run_id``                    | Run ID.                              |
-+-------------------------------+--------------------------------------+
-| ``key``                       | Name of the tag. Maximum size is 255 |
-|                               | bytes. This field is required.       |
-+-------------------------------+--------------------------------------+
-| ``value``                     | String value of the tag being        |
-|                               | logged. Maximum size is 500 bytes.   |
-|                               | This field is required.              |
-+-------------------------------+--------------------------------------+
-
-.. _details-15:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
-Terminate a Run
-===============
-
-Terminates a run.
-
-.. code:: r
-
-   mlflow_client_set_terminated(client, run_id, status = c("FINISHED",
-     "SCHEDULED", "FAILED", "KILLED"), end_time = NULL)
-
-.. _arguments-19:
-
-Arguments
----------
-
-+--------------+-------------------------------------------------------+
-| Argument     | Description                                           |
-+==============+=======================================================+
-| ``client``   | An ``mlflow_client`` object.                          |
-+--------------+-------------------------------------------------------+
-| ``run_id``   | Unique identifier for the run.                        |
-+--------------+-------------------------------------------------------+
-| ``status``   | Updated status of the run. Defaults to ``FINISHED``.  |
-+--------------+-------------------------------------------------------+
-| ``end_time`` | Unix timestamp of when the run ended in milliseconds. |
-+--------------+-------------------------------------------------------+
-
-.. _details-16:
-
-Details
--------
-
-The Tracking Client family of functions require an MLflow client to be
-specified explicitly. These functions allow for greater control of where
-the operations take place in terms of services and runs, but are more
-verbose compared to the Fluent API.
-
 Initialize an MLflow Client
 ===========================
 
-Initializes an MLflow client.
+Initialize an MLflow Client
 
 .. code:: r
 
    mlflow_client(tracking_uri = NULL)
 
-.. _arguments-20:
+.. _arguments-3:
 
 Arguments
 ---------
@@ -849,9 +200,9 @@ Creates an MLflow experiment.
 
 .. code:: r
 
-   mlflow_create_experiment(name, artifact_location = NULL)
+   mlflow_create_experiment(name, artifact_location = NULL, client = NULL)
 
-.. _arguments-21:
+.. _arguments-4:
 
 Arguments
 ---------
@@ -867,46 +218,251 @@ Arguments
 |                               | provided, the remote server will     |
 |                               | select an appropriate default.       |
 +-------------------------------+--------------------------------------+
-
-.. _details-17:
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 
 Details
 -------
 
-The fluent API family of functions operate with an implied MLflow client
-determined by the service set by ``mlflow_set_tracking_uri()``. For
-operations involving a run it adopts the current active run, or, if one
-does not exist, starts one through the implied service.
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
-End a Run
-=========
+Delete Experiment
+=================
 
-Ends an active MLflow run (if there is one).
+Marks an experiment and associated runs, params, metrics, etc. for
+deletion. If the experiment uses FileStore, artifacts associated with
+experiment are also deleted.
 
 .. code:: r
 
-   mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"))
+   mlflow_delete_experiment(experiment_id, client = NULL)
 
-.. _arguments-22:
+.. _arguments-5:
 
 Arguments
 ---------
 
-+------------+------------------------------------------------------+
-| Argument   | Description                                          |
-+============+======================================================+
-| ``status`` | Updated status of the run. Defaults to ``FINISHED``. |
-+------------+------------------------------------------------------+
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``experiment_id``                 | ID of the associated experiment.  |
+|                                   | This field is required.           |
++-----------------------------------+-----------------------------------+
+| ``client``                        | (Optional) An ``mlflow_client``   |
+|                                   | object.                           |
++-----------------------------------+-----------------------------------+
 
-.. _details-18:
+.. _details-1:
 
 Details
 -------
 
-The fluent API family of functions operate with an implied MLflow client
-determined by the service set by ``mlflow_set_tracking_uri()``. For
-operations involving a run it adopts the current active run, or, if one
-does not exist, starts one through the implied service.
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+Delete a Run
+============
+
+Delete a Run
+
+.. code:: r
+
+   mlflow_delete_run(run_id, client = NULL)
+
+.. _arguments-6:
+
+Arguments
+---------
+
++------------+-----------------------------------------+
+| Argument   | Description                             |
++============+=========================================+
+| ``run_id`` | Run ID.                                 |
++------------+-----------------------------------------+
+| ``client`` | (Optional) An ``mlflow_client`` object. |
++------------+-----------------------------------------+
+
+.. _details-2:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+Download Artifacts
+==================
+
+Download an artifact file or directory from a run to a local directory
+if applicable, and return a local path for it.
+
+.. code:: r
+
+   mlflow_download_artifacts(path, run_id = NULL, client = NULL)
+
+.. _arguments-7:
+
+Arguments
+---------
+
++------------+-----------------------------------------------+
+| Argument   | Description                                   |
++============+===============================================+
+| ``path``   | Relative source path to the desired artifact. |
++------------+-----------------------------------------------+
+| ``run_id`` | Run ID.                                       |
++------------+-----------------------------------------------+
+| ``client`` | (Optional) An ``mlflow_client`` object.       |
++------------+-----------------------------------------------+
+
+.. _details-3:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+End a Run
+=========
+
+Terminates a run. Attempts to end the current active run if ``run_id``
+is not specified.
+
+.. code:: r
+
+   mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+     end_time = NULL, run_id = NULL, client = NULL)
+
+.. _arguments-8:
+
+Arguments
+---------
+
++--------------+-------------------------------------------------------+
+| Argument     | Description                                           |
++==============+=======================================================+
+| ``status``   | Updated status of the run. Defaults to ``FINISHED``.  |
++--------------+-------------------------------------------------------+
+| ``end_time`` | Unix timestamp of when the run ended in milliseconds. |
++--------------+-------------------------------------------------------+
+| ``run_id``   | Run ID.                                               |
++--------------+-------------------------------------------------------+
+| ``client``   | (Optional) An ``mlflow_client`` object.               |
++--------------+-------------------------------------------------------+
+
+.. _details-4:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+Get Experiment
+==============
+
+Gets metadata for an experiment and a list of runs for the experiment.
+
+.. code:: r
+
+   mlflow_get_experiment(name = NULL, experiment_id = NULL,
+     client = NULL)
+
+.. _arguments-9:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``name``                      | The experiment name, either this or  |
+|                               | ``experiment_id`` should be          |
+|                               | specified.                           |
++-------------------------------+--------------------------------------+
+| ``experiment_id``             | Identifer to get an experiment.      |
+|                               | Attempts to obtain the active        |
+|                               | experiment if not provided.          |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
+
+.. _details-5:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+Get Metric History
+==================
+
+Get a list of all values for the specified metric for a given run.
+
+.. code:: r
+
+   mlflow_get_metric_history(metric_key, run_id = NULL, client = NULL)
+
+.. _arguments-10:
+
+Arguments
+---------
+
++----------------+-----------------------------------------+
+| Argument       | Description                             |
++================+=========================================+
+| ``metric_key`` | Name of the metric.                     |
++----------------+-----------------------------------------+
+| ``run_id``     | Run ID.                                 |
++----------------+-----------------------------------------+
+| ``client``     | (Optional) An ``mlflow_client`` object. |
++----------------+-----------------------------------------+
+
+.. _details-6:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+Get Run
+=======
+
+Gets metadata, params, tags, and metrics for a run. In the case where
+multiple metrics with the same key are logged for the run, returns only
+the value with the latest timestamp. If there are multiple values with
+the latest timestamp, returns the maximum of these values.
+
+.. code:: r
+
+   mlflow_get_run(run_id = NULL, client = NULL)
+
+.. _arguments-11:
+
+Arguments
+---------
+
++------------+-----------------------------------------+
+| Argument   | Description                             |
++============+=========================================+
+| ``run_id`` | Run ID.                                 |
++------------+-----------------------------------------+
+| ``client`` | (Optional) An ``mlflow_client`` object. |
++------------+-----------------------------------------+
+
+.. _details-7:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 Get Remote Tracking URI
 =======================
@@ -917,6 +473,28 @@ Gets the remote tracking URI.
 
    mlflow_get_tracking_uri()
 
+Extracts the Object ID
+======================
+
+Extracts the ID of the run or experiment.
+
+.. code:: r
+
+   mlflow_id(object)
+   list(list("mlflow_id"), list("mlflow_run"))(object)
+   list(list("mlflow_id"), list("mlflow_experiment"))(object)
+
+.. _arguments-12:
+
+Arguments
+---------
+
++------------+----------------------------------------------------+
+| Argument   | Description                                        |
++============+====================================================+
+| ``object`` | An ``mlflow_run`` or ``mlflow_experiment`` object. |
++------------+----------------------------------------------------+
+
 Install MLflow
 ==============
 
@@ -926,14 +504,14 @@ Installs MLflow for individual use.
 
    mlflow_install()
 
-.. _details-19:
+.. _details-8:
 
 Details
 -------
 
 MLflow requires Python and Conda to be installed. See
 https://www.python.org/getit/ and
-https://docs.conda.io/projects/conda/en/latest/user-guide/install/.
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
 
 .. _examples-2:
 
@@ -945,6 +523,110 @@ Examples
     list("\n", "library(mlflow)\n", "mlflow_install()\n") 
     
 
+List Artifacts
+==============
+
+Gets a list of artifacts.
+
+.. code:: r
+
+   mlflow_list_artifacts(path = NULL, run_id = NULL, client = NULL)
+
+.. _arguments-13:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``path``                      | The run’s relative artifact path to  |
+|                               | list from. If not specified, it is   |
+|                               | set to the root artifact path        |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
+
+.. _details-9:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+List Experiments
+================
+
+Gets a list of all experiments.
+
+.. code:: r
+
+   mlflow_list_experiments(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
+     "ALL"), client = NULL)
+
+.. _arguments-14:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``view_type``                 | Qualifier for type of experiments to |
+|                               | be returned. Defaults to             |
+|                               | ``ACTIVE_ONLY``.                     |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
+
+.. _details-10:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+List Run Infos
+==============
+
+List run infos.
+
+.. code:: r
+
+   mlflow_list_run_infos(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
+     "ALL"), experiment_id = NULL, client = NULL)
+
+.. _arguments-15:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``run_view_type``             | Run view type.                       |
++-------------------------------+--------------------------------------+
+| ``experiment_id``             | Experiment ID. Attempts to use the   |
+|                               | active experiment if not specified.  |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
+
+.. _details-11:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
 Load MLflow Model Flavor
 ========================
 
@@ -955,7 +637,7 @@ the supported MLflow models.
 
    mlflow_load_flavor(model_path)
 
-.. _arguments-23:
+.. _arguments-16:
 
 Arguments
 ---------
@@ -969,14 +651,15 @@ Arguments
 Load MLflow Model
 =================
 
-Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
-can be loaded in R. This method by default searches for a flavor supported by R/MLflow.
+Loads an MLflow model. MLflow models can have multiple model flavors.
+Not all flavors / models can be loaded in R. This method by default
+searches for a flavor supported by R/MLflow.
 
 .. code:: r
 
-   mlflow_load_model(model_path, flavor = NULL, run_id = NULL)
+   mlflow_load_model(model_uri, flavor = NULL, client = mlflow_client())
 
-.. _arguments-24:
+.. _arguments-17:
 
 Arguments
 ---------
@@ -984,33 +667,48 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``model_path``                | Path to the MLflow model. The path   |
-|                               | is relative to the run with the      |
-|                               | given run-id or local filesystem     |
-|                               | path without run-id.                 |
+| ``model_uri``                 | The location, in URI format, of the  |
+|                               | MLflow model.                        |
 +-------------------------------+--------------------------------------+
 | ``flavor``                    | Optional flavor specification. Can   |
 |                               | be used to load a particular flavor  |
 |                               | in case there are multiple flavors   |
 |                               | available.                           |
 +-------------------------------+--------------------------------------+
-| ``run_id``                    | Optional MLflow run-id. If supplied  |
-|                               | model will be fetched from MLflow    |
-|                               | tracking server.                     |
-+-------------------------------+--------------------------------------+
 
-.. _log-artifact-1:
+.. _details-12:
+
+Details
+-------
+
+The URI scheme must be supported by MLflow - i.e. there has to be an
+MLflow artifact repository corresponding to the scheme of the URI. The
+content is expected to point to a directory containing MLmodel. The
+following are examples of valid model uris: -
+``file:///absolute/path/to/local/model`` -
+``file:relative/path/to/local/model`` - ``s3://my_bucket/path/to/model``
+- ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
+information about supported URI schemes, see the Artifacts Documentation
+``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+
+Seealso
+-------
+
+Other artifact uri:
+```mlflow_rfunc_predict`` <mlflow_rfunc_predict.html>`__ ,
+```mlflow_rfunc_serve`` <mlflow_rfunc_serve.html>`__
 
 Log Artifact
 ============
 
-Logs a specific file or directory as an artifact for this run.
+Logs a specific file or directory as an artifact for a run.
 
 .. code:: r
 
-   mlflow_log_artifact(path, artifact_path = NULL)
+   mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL,
+     client = NULL)
 
-.. _arguments-25:
+.. _arguments-18:
 
 Arguments
 ---------
@@ -1020,41 +718,97 @@ Arguments
 +===================+=================================================+
 | ``path``          | The file or directory to log as an artifact.    |
 +-------------------+-------------------------------------------------+
-| ``artifact_path`` | Destination path within the run's artifact URI. |
+| ``artifact_path`` | Destination path within the run’s artifact URI. |
++-------------------+-------------------------------------------------+
+| ``run_id``        | Run ID.                                         |
++-------------------+-------------------------------------------------+
+| ``client``        | (Optional) An ``mlflow_client`` object.         |
 +-------------------+-------------------------------------------------+
 
-.. _details-20:
+.. _details-13:
 
 Details
 -------
 
-The fluent API family of functions operate with an implied MLflow client
-determined by the service set by ``mlflow_set_tracking_uri()``. For
-operations involving a run it adopts the current active run, or, if one
-does not exist, starts one through the implied service.
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 When logging to Amazon S3, ensure that the user has a proper policy
-attach to it.
+attached to it, for instance:
+
+\`\`
 
 Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
 corresponding key and secrets provided by Amazon IAM.
 
-.. _log-metric-1:
+Log Batch
+=========
+
+Log a batch of metrics, params, and/or tags for a run. The server will
+respond with an error (non-200 status code) if any data failed to be
+persisted. In case of error (due to internal server error or an invalid
+request), partial data may be written.
+
+.. code:: r
+
+   mlflow_log_batch(metrics = NULL, params = NULL, tags = NULL,
+     run_id = NULL, client = NULL)
+
+.. _arguments-19:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``metrics``                   | A dataframe of metrics to log,       |
+|                               | containing the following columns:    |
+|                               | “key”, “value”, “step”, “timestamp”. |
+|                               | This dataframe cannot contain any    |
+|                               | missing (‘NA’) entries.              |
++-------------------------------+--------------------------------------+
+| ``params``                    | A dataframe of params to log,        |
+|                               | containing the following columns:    |
+|                               | “key”, “value”. This dataframe       |
+|                               | cannot contain any missing (‘NA’)    |
+|                               | entries.                             |
++-------------------------------+--------------------------------------+
+| ``tags``                      | A dataframe of tags to log,          |
+|                               | containing the following columns:    |
+|                               | “key”, “value”. This dataframe       |
+|                               | cannot contain any missing (‘NA’)    |
+|                               | entries.                             |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
+
+.. _details-14:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 Log Metric
 ==========
 
-Logs a metric for this run. Metrics key-value pair that records a
-single float measure. During a single execution of a run, a particular
-metric can be logged several times. Backend will keep track of
-historical values along with timestamps.
+Logs a metric for a run. Metrics key-value pair that records a single
+float measure. During a single execution of a run, a particular metric
+can be logged several times. Backend will keep track of historical
+values along with timestamps.
 
 .. code:: r
 
-   mlflow_log_metric(key, value, timestamp = NULL)
+   mlflow_log_metric(key, value, timestamp = NULL, run_id = NULL,
+     client = NULL)
 
-.. _arguments-26:
+.. _arguments-20:
 
 Arguments
 ---------
@@ -1070,28 +824,31 @@ Arguments
 | ``timestamp``                     | Unix timestamp in milliseconds at |
 |                                   | the time metric was logged.       |
 +-----------------------------------+-----------------------------------+
+| ``run_id``                        | Run ID.                           |
++-----------------------------------+-----------------------------------+
+| ``client``                        | (Optional) An ``mlflow_client``   |
+|                                   | object.                           |
++-----------------------------------+-----------------------------------+
 
-.. _details-21:
+.. _details-15:
 
 Details
 -------
 
-The fluent API family of functions operate with an implied MLflow client
-determined by the service set by ``mlflow_set_tracking_uri()``. For
-operations involving a run it adopts the current active run, or, if one
-does not exist, starts one through the implied service.
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 Log Model
 =========
 
-Logs a model for this run. Similar to ``mlflow_save_model()`` but
-stores model as an artifact within the active run.
+Logs a model for this run. Similar to ``mlflow_save_model()`` but stores
+model as an artifact within the active run.
 
 .. code:: r
 
    mlflow_log_model(fn, artifact_path)
 
-.. _arguments-27:
+.. _arguments-21:
 
 Arguments
 ---------
@@ -1106,42 +863,42 @@ Arguments
 |                               | compatible model will be saved.      |
 +-------------------------------+--------------------------------------+
 
-.. _log-parameter-1:
-
 Log Parameter
 =============
 
-Logs a parameter for this run. Examples are params and
-hyperparams used for ML training, or constant dates and values used in
-an ETL pipeline. A params is a STRING key-value pair. For a run, a
-single parameter is allowed to be logged only once.
+Logs a parameter for a run. Examples are params and hyperparams used for
+ML training, or constant dates and values used in an ETL pipeline. A
+param is a STRING key-value pair. For a run, a single parameter is
+allowed to be logged only once.
 
 .. code:: r
 
-   mlflow_log_param(key, value)
+   mlflow_log_param(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-28:
+.. _arguments-22:
 
 Arguments
 ---------
 
-+-----------+--------------------------------+
-| Argument  | Description                    |
-+===========+================================+
-| ``key``   | Name of the parameter.         |
-+-----------+--------------------------------+
-| ``value`` | String value of the parameter. |
-+-----------+--------------------------------+
++------------+-----------------------------------------+
+| Argument   | Description                             |
++============+=========================================+
+| ``key``    | Name of the parameter.                  |
++------------+-----------------------------------------+
+| ``value``  | String value of the parameter.          |
++------------+-----------------------------------------+
+| ``run_id`` | Run ID.                                 |
++------------+-----------------------------------------+
+| ``client`` | (Optional) An ``mlflow_client`` object. |
++------------+-----------------------------------------+
 
-.. _details-22:
+.. _details-16:
 
 Details
 -------
 
-The fluent API family of functions operate with an implied MLflow client
-determined by the service set by ``mlflow_set_tracking_uri()``. For
-operations involving a run it adopts the current active run, or, if one
-does not exist, starts one through the implied service.
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 Read Command-Line Parameter
 ===========================
@@ -1152,7 +909,7 @@ Reads a command-line parameter.
 
    mlflow_param(name, default = NULL, type = NULL, description = NULL)
 
-.. _arguments-29:
+.. _arguments-23:
 
 Arguments
 ---------
@@ -1162,10 +919,9 @@ Arguments
 +===============================+======================================+
 | ``name``                      | The name of the parameter.           |
 +-------------------------------+--------------------------------------+
-| ``default``                   | The default value of the             |
-|                               | parameter.                           |
+| ``default``                   | The default value of the parameter.  |
 +-------------------------------+--------------------------------------+
-| ``type``                      | Type of the parameter. Required if   |
+| ``type``                      | Type of this parameter. Required if  |
 |                               | ``default`` is not set. If           |
 |                               | specified, must be one of “numeric”, |
 |                               | “integer”, or “string”.              |
@@ -1184,7 +940,7 @@ to be used by package authors to extend the supported MLflow models.
 
    mlflow_predict_flavor(model, data)
 
-.. _arguments-30:
+.. _arguments-24:
 
 Arguments
 ---------
@@ -1206,7 +962,7 @@ Generates a prediction with an MLflow model.
 
    mlflow_predict_model(model, data)
 
-.. _arguments-31:
+.. _arguments-25:
 
 Arguments
 ---------
@@ -1218,6 +974,110 @@ Arguments
 +-----------+-------------------------+
 | ``data``  | Dataframe to be scored. |
 +-----------+-------------------------+
+
+Rename Experiment
+=================
+
+Renames an experiment.
+
+.. code:: r
+
+   mlflow_rename_experiment(new_name, experiment_id = NULL, client = NULL)
+
+.. _arguments-26:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``new_name``                  | The experiment’s name will be        |
+|                               | changed to this. The new name must   |
+|                               | be unique.                           |
++-------------------------------+--------------------------------------+
+| ``experiment_id``             | ID of the associated experiment.     |
+|                               | This field is required.              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
+
+.. _details-17:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+Restore Experiment
+==================
+
+Restores an experiment marked for deletion. This also restores
+associated metadata, runs, metrics, and params. If experiment uses
+FileStore, underlying artifacts associated with experiment are also
+restored.
+
+.. code:: r
+
+   mlflow_restore_experiment(experiment_id, client = NULL)
+
+.. _arguments-27:
+
+Arguments
+---------
+
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``experiment_id``                 | ID of the associated experiment.  |
+|                                   | This field is required.           |
++-----------------------------------+-----------------------------------+
+| ``client``                        | (Optional) An ``mlflow_client``   |
+|                                   | object.                           |
++-----------------------------------+-----------------------------------+
+
+.. _details-18:
+
+Details
+-------
+
+Throws ``RESOURCE_DOES_NOT_EXIST`` if the experiment was never created
+or was permanently deleted.
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
+Restore a Run
+=============
+
+Restore a Run
+
+.. code:: r
+
+   mlflow_restore_run(run_id, client = NULL)
+
+.. _arguments-28:
+
+Arguments
+---------
+
++------------+-----------------------------------------+
+| Argument   | Description                             |
++============+=========================================+
+| ``run_id`` | Run ID.                                 |
++------------+-----------------------------------------+
+| ``client`` | (Optional) An ``mlflow_client`` object. |
++------------+-----------------------------------------+
+
+.. _details-19:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 Restore Snapshot
 ================
@@ -1232,14 +1092,15 @@ current directory.
 Predict using RFunc MLflow Model
 ================================
 
-Performs prediction using an RFunc MLflow model from a file or data frame.
+Performs prediction using an RFunc MLflow model from a file or data
+frame.
 
 .. code:: r
 
-   mlflow_rfunc_predict(model_path, run_id = NULL, input_path = NULL,
-     output_path = NULL, data = NULL, restore = FALSE)
+   mlflow_rfunc_predict(model_uri, input_path = NULL, output_path = NULL,
+     data = NULL, restore = FALSE)
 
-.. _arguments-32:
+.. _arguments-29:
 
 Arguments
 ---------
@@ -1247,26 +1108,46 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``model_path``                | The path to the MLflow model, as a   |
-|                               | string.                              |
+| ``model_uri``                 | The location, in URI format, of the  |
+|                               | MLflow model.                        |
 +-------------------------------+--------------------------------------+
-| ``run_id``                  | Run ID of run to grab the model        |
-|                               | from.                                |
-+-------------------------------+--------------------------------------+
-| ``input_path``                | Path to JSON or CSV file to be       |
+| ``input_path``                | Path to ‘JSON’ or ‘CSV’ file to be   |
 |                               | used for prediction.                 |
 +-------------------------------+--------------------------------------+
-| ``output_path``               | JSON or CSV file where the           |
+| ``output_path``               | ‘JSON’ or ‘CSV’ file where the       |
 |                               | prediction will be written to.       |
 +-------------------------------+--------------------------------------+
 | ``data``                      | Data frame to be scored. This can be |
-|                               | used for testing purposes and        |
-|                               | can only be specified when           |
+|                               | used for testing purposes and can    |
+|                               | only be specified when               |
 |                               | ``input_path`` is not specified.     |
 +-------------------------------+--------------------------------------+
 | ``restore``                   | Should ``mlflow_restore_snapshot()`` |
 |                               | be called before serving?            |
 +-------------------------------+--------------------------------------+
+
+.. _details-20:
+
+Details
+-------
+
+The URI scheme must be supported by MLflow - i.e. there has to be an
+MLflow artifact repository corresponding to the scheme of the URI. The
+content is expected to point to a directory containing MLmodel. The
+following are examples of valid model uris: -
+``file:///absolute/path/to/local/model`` -
+``file:relative/path/to/local/model`` - ``s3://my_bucket/path/to/model``
+- ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
+information about supported URI schemes, see the Artifacts Documentation
+``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+
+.. _seealso-1:
+
+Seealso
+-------
+
+Other artifact uri: ```mlflow_load_model`` <mlflow_load_model.html>`__ ,
+```mlflow_rfunc_serve`` <mlflow_rfunc_serve.html>`__
 
 .. _examples-3:
 
@@ -1275,7 +1156,7 @@ Examples
 
 .. code:: r
 
-    list("\n", "library(mlflow)\n", "\n", "# save simple model which roundtrips data as prediction\n", "mlflow_save_model(function(df) df, \"mlflow_roundtrip\")\n", "\n", "# save data as json\n", "jsonlite::write_json(iris, \"iris.json\")\n", "\n", "# predict existing model from json data\n", "mlflow_rfunc_predict(\"mlflow_roundtrip\", \"iris.json\")\n") 
+    list("\n", "library(mlflow)\n", "\n", "# save simple model which roundtrips data as prediction\n", "mlflow_save_model(function(df) df, \"mlflow_roundtrip\")\n", "\n", "# save data as json\n", "jsonlite::write_json(iris, \"iris.json\")\n", "\n", "# predict existing model from json data\n", "# load the model from local relative path.\n", "mlflow_rfunc_predict(\"file:mlflow_roundtrip\", \"iris.json\")\n") 
     
 
 Serve an RFunc MLflow Model
@@ -1285,11 +1166,10 @@ Serves an RFunc MLflow model as a local web API.
 
 .. code:: r
 
-   mlflow_rfunc_serve(model_path, run_id = NULL, host = "127.0.0.1",
-     port = 8090, daemonized = FALSE, browse = !daemonized,
-     restore = FALSE)
+   mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
+     daemonized = FALSE, browse = !daemonized, restore = FALSE)
 
-.. _arguments-33:
+.. _arguments-30:
 
 Arguments
 ---------
@@ -1297,10 +1177,8 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``model_path``                | The path to the MLflow model, as a   |
-|                               | string.                              |
-+-------------------------------+--------------------------------------+
-| ``run_id``                  | ID of run to grab the model from.      |
+| ``model_uri``                 | The location, in URI format, of the  |
+|                               | MLflow model.                        |
 +-------------------------------+--------------------------------------+
 | ``host``                      | Address to use to serve model, as a  |
 |                               | string.                              |
@@ -1308,8 +1186,8 @@ Arguments
 | ``port``                      | Port to use to serve model, as       |
 |                               | numeric.                             |
 +-------------------------------+--------------------------------------+
-| ``daemonized``                | Makes ``httpuv`` server daemonized so|
-|                               | R interactive sessions are not       |
+| ``daemonized``                | Makes ``httpuv`` server daemonized   |
+|                               | so R interactive sessions are not    |
 |                               | blocked to handle requests. To       |
 |                               | terminate a daemonized server, call  |
 |                               | ``httpuv::stopDaemonizedServer()``   |
@@ -1322,6 +1200,29 @@ Arguments
 | ``restore``                   | Should ``mlflow_restore_snapshot()`` |
 |                               | be called before serving?            |
 +-------------------------------+--------------------------------------+
+
+.. _details-21:
+
+Details
+-------
+
+The URI scheme must be supported by MLflow - i.e. there has to be an
+MLflow artifact repository corresponding to the scheme of the URI. The
+content is expected to point to a directory containing MLmodel. The
+following are examples of valid model uris: -
+``file:///absolute/path/to/local/model`` -
+``file:relative/path/to/local/model`` - ``s3://my_bucket/path/to/model``
+- ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
+information about supported URI schemes, see the Artifacts Documentation
+``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+
+.. _seealso-2:
+
+Seealso
+-------
+
+Other artifact uri: ```mlflow_load_model`` <mlflow_load_model.html>`__ ,
+```mlflow_rfunc_predict`` <mlflow_rfunc_predict.html>`__
 
 .. _examples-4:
 
@@ -1340,11 +1241,11 @@ Wrapper for ``mlflow run``.
 .. code:: r
 
    mlflow_run(entry_point = NULL, uri = ".", version = NULL,
-     param_list = NULL, experiment_id = NULL, mode = NULL,
-     cluster_spec = NULL, git_username = NULL, git_password = NULL,
-     no_conda = FALSE, storage_dir = NULL)
+     param_list = NULL, experiment_id = NULL, experiment_name = NULL,
+     backend = NULL, backend_config = NULL, no_conda = FALSE,
+     storage_dir = NULL)
 
-.. _arguments-34:
+.. _arguments-31:
 
 Arguments
 ---------
@@ -1368,17 +1269,16 @@ Arguments
 | ``experiment_id``             | ID of the experiment under which to  |
 |                               | launch the run.                      |
 +-------------------------------+--------------------------------------+
-| ``mode``                      | Execution mode to use for run.       |
+| ``experiment_name``           | Name of the experiment under which   |
+|                               | to launch the run.                   |
 +-------------------------------+--------------------------------------+
-| ``cluster_spec``              | Path to JSON file describing the     |
-|                               | cluster to use when launching a run  |
-|                               | on Databricks.                       |
+| ``backend``                   | Execution backend to use for run.    |
 +-------------------------------+--------------------------------------+
-| ``git_username``              | Username for HTTP(S) Git             |
-|                               | authentication.                      |
-+-------------------------------+--------------------------------------+
-| ``git_password``              | Password for HTTP(S) Git             |
-|                               | authentication.                      |
+| ``backend_config``            | Path to JSON file which will be      |
+|                               | passed to the backend. For the       |
+|                               | Databricks backend, it should        |
+|                               | describe the cluster to use when     |
+|                               | launching a run on Databricks.       |
 +-------------------------------+--------------------------------------+
 | ``no_conda``                  | If specified, assume that MLflow is  |
 |                               | running within a Conda environment   |
@@ -1388,9 +1288,9 @@ Arguments
 |                               | environment. Only valid if running   |
 |                               | locally.                             |
 +-------------------------------+--------------------------------------+
-| ``storage_dir``               | Valid only when ``mode`` is local.   |
-|                               | MLflow downloads artifacts from      |
-|                               | distributed URIs passed to           |
+| ``storage_dir``               | Valid only when ``backend`` is       |
+|                               | local. MLflow downloads artifacts    |
+|                               | from distributed URIs passed to      |
 |                               | parameters of type ``path`` to       |
 |                               | subdirectories of ``storage_dir``.   |
 +-------------------------------+--------------------------------------+
@@ -1412,7 +1312,7 @@ Saves model in MLflow Keras flavor.
    list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(x,
      path = "model", r_dependencies = NULL, conda_env = NULL)
 
-.. _arguments-35:
+.. _arguments-32:
 
 Arguments
 ---------
@@ -1453,7 +1353,7 @@ the supported MLflow models.
    mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
      conda_env = NULL)
 
-.. _arguments-36:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1494,7 +1394,7 @@ serving.
    mlflow_save_model(x, path = "model", r_dependencies = NULL,
      conda_env = NULL)
 
-.. _arguments-37:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1516,6 +1416,51 @@ Arguments
 | ``conda_env``                 | Path to Conda dependencies file.     |
 +-------------------------------+--------------------------------------+
 
+Search Runs
+===========
+
+Search for runs that satisfy expressions. Search expressions can use
+Metric and Param keys.
+
+.. code:: r
+
+   mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
+     "DELETED_ONLY", "ALL"), experiment_ids = NULL, client = NULL)
+
+.. _arguments-35:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``filter``                    | A filter expression over params,     |
+|                               | metrics, and tags, allowing          |
+|                               | returning a subset of runs. The      |
+|                               | syntax is a subset of SQL which      |
+|                               | allows only ANDing together binary   |
+|                               | operations between a                 |
+|                               | param/metric/tag and a constant.     |
++-------------------------------+--------------------------------------+
+| ``run_view_type``             | Run view type.                       |
++-------------------------------+--------------------------------------+
+| ``experiment_ids``            | List of experiment IDs to search     |
+|                               | over. Attempts to use active         |
+|                               | experiment if not specified.         |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
+
+.. _details-22:
+
+Details
+-------
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
+
 Run MLflow Tracking Server
 ==========================
 
@@ -1527,7 +1472,7 @@ Wrapper for ``mlflow server``.
      host = "127.0.0.1", port = 5000, workers = 4,
      static_prefix = NULL)
 
-.. _arguments-38:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1557,47 +1502,45 @@ Arguments
 Set Experiment
 ==============
 
-Sets an experiment as the active experiment. If the experiment does not exist,
-creates an experiment with provided name.
+Sets an experiment as the active experiment. Either the name or ID of
+the experiment can be provided. If the a name is provided but the
+experiment does not exist, this function creates an experiment with
+provided name.
 
 .. code:: r
 
-   mlflow_set_experiment(experiment_name)
+   mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
+     artifact_location = NULL)
 
-.. _arguments-39:
+.. _arguments-37:
 
 Arguments
 ---------
 
-+---------------------+-------------------------------------+
-| Argument            | Description                         |
-+=====================+=====================================+
-| ``experiment_name`` | Name of experiment to be activated. |
-+---------------------+-------------------------------------+
-
-.. _details-23:
-
-Details
--------
-
-The fluent API family of functions operate with an implied MLflow client
-determined by the service set by ``mlflow_set_tracking_uri()``. For
-operations involving a run it adopts the current active run, or, if one
-does not exist, starts one through the implied service.
-
-.. _set-tag-1:
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``experiment_name``           | Name of experiment to be activated.  |
++-------------------------------+--------------------------------------+
+| ``experiment_id``             | ID of experiment to be activated.    |
++-------------------------------+--------------------------------------+
+| ``artifact_location``         | Location where all artifacts for     |
+|                               | this experiment are stored. If not   |
+|                               | provided, the remote server will     |
+|                               | select an appropriate default.       |
++-------------------------------+--------------------------------------+
 
 Set Tag
 =======
 
-Sets a tag on a run. Tags are run metadata that can be updated during and
-after a run completes.
+Sets a tag on a run. Tags are run metadata that can be updated during a
+run and after a run completes.
 
 .. code:: r
 
-   mlflow_set_tag(key, value)
+   mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-40:
+.. _arguments-38:
 
 Arguments
 ---------
@@ -1612,16 +1555,19 @@ Arguments
 |                               | logged. Maximum size is 500 bytes.   |
 |                               | This field is required.              |
 +-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 
-.. _details-24:
+.. _details-23:
 
 Details
 -------
 
-The fluent API family of functions operate with an implied MLflow client
-determined by the service set by ``mlflow_set_tracking_uri()``. For
-operations involving a run it adopts the current active run, or, if one
-does not exist, starts one through the implied service.
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 Set Remote Tracking URI
 =======================
@@ -1633,7 +1579,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-41:
+.. _arguments-39:
 
 Arguments
 ---------
@@ -1664,7 +1610,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-42:
+.. _arguments-40:
 
 Arguments
 ---------
@@ -1678,16 +1624,18 @@ Arguments
 Start Run
 =========
 
-Starts a new run within an experiment, should be used within a ``with``
-block.
+Starts a new run. If ``client`` is not provided, this function infers
+contextual information such as source name and version, and also
+registers the created run as the active run. If ``client`` is provided,
+no inference is done, and additional arguments such as ``user_id`` and
+``start_time`` can be provided.
 
 .. code:: r
 
-   mlflow_start_run(run_id = NULL, experiment_id = NULL,
-     source_name = NULL, source_version = NULL, entry_point_name = NULL,
-     source_type = "LOCAL")
+   mlflow_start_run(run_id = NULL, experiment_id = NULL, user_id = NULL,
+     start_time = NULL, tags = NULL, client = NULL)
 
-.. _arguments-43:
+.. _arguments-41:
 
 Arguments
 ---------
@@ -1695,11 +1643,11 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``run_id``                  | If specified, get the run with the     |
+| ``run_id``                    | If specified, get the run with the   |
 |                               | specified UUID and log metrics and   |
-|                               | params under that run. The run's end |
+|                               | params under that run. The run’s end |
 |                               | time is unset and its status is set  |
-|                               | to running, but the run's other      |
+|                               | to running, but the run’s other      |
 |                               | attributes remain unchanged.         |
 +-------------------------------+--------------------------------------+
 | ``experiment_id``             | Used only when ``run_id`` is         |
@@ -1708,6 +1656,21 @@ Arguments
 |                               | run. If unspecified, the run is      |
 |                               | created under a new experiment with  |
 |                               | a randomly generated name.           |
++-------------------------------+--------------------------------------+
+| ``user_id``                   | User ID or LDAP for the user         |
+|                               | executing the run. Only used when    |
+|                               | ``client`` is specified.             |
++-------------------------------+--------------------------------------+
+| ``start_time``                | Unix timestamp of when the run       |
+|                               | started in milliseconds. Only used   |
+|                               | when ``client`` is specified.        |
++-------------------------------+--------------------------------------+
+| ``tags``                      | Additional metadata for run in       |
+|                               | key-value pairs. Only used when      |
+|                               | ``client`` is specified.             |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
 +-------------------------------+--------------------------------------+
 | ``source_name``               | Name of the source file or URI of    |
 |                               | the project to be associated with    |
@@ -1725,15 +1688,13 @@ Arguments
 |                               | etc.).                               |
 +-------------------------------+--------------------------------------+
 
-.. _details-25:
+.. _details-24:
 
 Details
 -------
 
-The fluent API family of functions operate with an implied MLflow client
-determined by the service set by ``mlflow_set_tracking_uri()``. For
-operations involving a run it adopts the current active run, or, if one
-does not exist, starts one through the implied service.
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 .. _examples-5:
 
@@ -1754,7 +1715,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(x, ...)
 
-.. _arguments-44:
+.. _arguments-42:
 
 Arguments
 ---------

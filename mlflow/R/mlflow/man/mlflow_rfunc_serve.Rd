@@ -4,14 +4,11 @@
 \alias{mlflow_rfunc_serve}
 \title{Serve an RFunc MLflow Model}
 \usage{
-mlflow_rfunc_serve(model_path, run_uuid = NULL, host = "127.0.0.1",
-  port = 8090, daemonized = FALSE, browse = !daemonized,
-  restore = FALSE)
+mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
+  daemonized = FALSE, browse = !daemonized, restore = FALSE)
 }
 \arguments{
-\item{model_path}{The path to the MLflow model, as a string.}
-
-\item{run_uuid}{ID of run to grab the model from.}
+\item{model_uri}{The location, in URI format, of the MLflow model.}
 
 \item{host}{Address to use to serve model, as a string.}
 
@@ -28,6 +25,17 @@ are not blocked to handle requests. To terminate a daemonized server, call
 \description{
 Serves an RFunc MLflow model as a local web API.
 }
+\details{
+The URI scheme must be supported by MLflow - i.e. there has to be an MLflow artifact
+         repository corresponding to the scheme of the URI. The content is expected to point to a
+         directory containing MLmodel. The following are examples of valid model uris:
+                 - ``file:///absolute/path/to/local/model``
+                 - ``file:relative/path/to/local/model``
+                 - ``s3://my_bucket/path/to/model``
+                 - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+         For more information about supported URI schemes, see the Artifacts Documentation
+                 `<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>`_.
+}
 \examples{
 \dontrun{
 library(mlflow)
@@ -42,3 +50,8 @@ mlflow_rfunc_serve("mlflow_constant")
 httr::POST("http://127.0.0.1:8090/predict/")
 }
 }
+\seealso{
+Other artifact uri: \code{\link{mlflow_load_model}},
+  \code{\link{mlflow_rfunc_predict}}
+}
+\concept{artifact uri}
