@@ -14,7 +14,6 @@ import logging
 import time
 
 import base64
-import boto3
 import yaml
 import mlflow
 import mlflow.version
@@ -175,6 +174,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
     :param image: Docker image name.
     """
+    import boto3
     _logger.info("Pushing image to ECR")
     client = boto3.client("sts")
     caller_id = client.get_caller_identity()
@@ -314,6 +314,7 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                             native SageMaker APIs or the AWS console. If `synchronous` is False,
                             this parameter is ignored.
     """
+    import boto3
     if (not archive) and (not synchronous):
         raise MlflowException(
             message=(
@@ -476,6 +477,7 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
                             APIs or the AWS console. If `synchronous` is False, this parameter
                             is ignored.
     """
+    import boto3
     if (not archive) and (not synchronous):
         raise MlflowException(
             message=(
@@ -586,6 +588,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
 
 
 def _get_default_image_url(region_name):
+    import boto3
     env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
     if env_img:
         return env_img
@@ -597,6 +600,7 @@ def _get_default_image_url(region_name):
 
 
 def _get_account_id():
+    import boto3
     sess = boto3.Session()
     sts_client = sess.client("sts")
     identity_info = sts_client.get_caller_identity()
@@ -608,6 +612,7 @@ def _get_assumed_role_arn():
     """
     :return: ARN of the user's current IAM role.
     """
+    import boto3
     sess = boto3.Session()
     sts_client = sess.client("sts")
     identity_info = sts_client.get_caller_identity()
@@ -619,6 +624,7 @@ def _get_assumed_role_arn():
 
 
 def _get_default_s3_bucket(region_name):
+    import boto3
     # create bucket if it does not exist
     sess = boto3.Session()
     account_id = _get_account_id()
@@ -668,6 +674,7 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
     :param s3_client: A boto3 client for S3.
     :return: S3 path of the uploaded artifact.
     """
+    import boto3
     sess = boto3.Session(region_name=region_name)
     with TempDir() as tmp:
         model_data_file = tmp.path("model.tar.gz")

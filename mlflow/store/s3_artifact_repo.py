@@ -1,6 +1,5 @@
 import os
 
-import boto3
 import posixpath
 from six.moves import urllib
 
@@ -13,7 +12,6 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 class S3ArtifactRepository(ArtifactRepository):
     """Stores artifacts on Amazon S3."""
-
     @staticmethod
     def parse_s3_uri(uri):
         """Parse an S3 URI, returning (bucket, path)"""
@@ -26,6 +24,7 @@ class S3ArtifactRepository(ArtifactRepository):
         return parsed.netloc, path
 
     def _get_s3_client(self):
+        import boto3
         s3_endpoint_url = os.environ.get('MLFLOW_S3_ENDPOINT_URL')
         return boto3.client('s3', endpoint_url=s3_endpoint_url)
 

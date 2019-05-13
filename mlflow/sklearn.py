@@ -16,8 +16,6 @@ import pickle
 import yaml
 import copy
 
-import sklearn
-
 import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
@@ -30,13 +28,16 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "sklearn"
 
-DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=[
-        "scikit-learn={}".format(sklearn.__version__),
-    ],
-    additional_pip_deps=None,
-    additional_conda_channels=None,
-)
+
+def get_default_conda_env():
+    import sklearn
+    return _mlflow_conda_env(
+        additional_conda_deps=[
+            "scikit-learn={}".format(sklearn.__version__),
+        ],
+        additional_pip_deps=None,
+        additional_conda_channels=None,
+    )
 
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
@@ -57,8 +58,9 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in ``mlflow.sklearn.get_default_conda_env()``. If `None`, the
+                      default ``mlflow.sklearn.get_default_conda_env()`` environment will be added
+                      to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -98,6 +100,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     >>> mlflow.sklearn.save_model(sk_model, sk_path_dir_2,
     >>>                           serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
     """
+    import sklearn
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
                 message=(
@@ -117,7 +120,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = copy.deepcopy(DEFAULT_CONDA_ENV)
+        conda_env = copy.deepcopy(get_default_conda_env())
         if serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
             conda_env["dependencies"].append(
@@ -147,8 +150,9 @@ def log_model(sk_model, artifact_path, conda_env=None,
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in ``mlflow.sklearn.get_default_conda_env()``. If `None`,
+                      the default ``mlflow.sklearn.get_default_conda_env()`` environment will be
+                      added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
