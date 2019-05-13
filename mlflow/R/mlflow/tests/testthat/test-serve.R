@@ -6,8 +6,7 @@ test_that("mlflow can serve a model function", {
   mlflow_clear_test_dir("model")
 
   model <- lm(Sepal.Width ~ Sepal.Length + Petal.Width, iris)
-
-  fn <- crate(~ stats::predict(model, .x), model)
+  fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn)
   expect_true(dir.exists("model"))
   model_server <- processx::process$new(
