@@ -1,6 +1,6 @@
 import React from 'react';
 import _ from 'lodash';
-import { Radio, Switch, TreeSelect, Slider } from 'antd';
+import { Radio, Switch, TreeSelect } from 'antd';
 import PropTypes from 'prop-types';
 import { CHART_TYPE_LINE } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';

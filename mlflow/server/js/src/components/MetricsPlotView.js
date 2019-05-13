@@ -1,33 +1,10 @@
 import React from 'react';
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-  ResponsiveContainer,
-} from 'recharts';
 import Utils from '../utils/Utils';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
 import { X_AXIS_STEP, X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
 import Plot from 'react-plotly.js';
-
-const COLORS = [
-  '#A3C3D9',
-  '#82ca9d',
-  '#8884d8',
-  '#FF82A9',
-  '#FFC0BE',
-  '#AE76A6',
-  '#993955',
-  '#364958',
-];
 
 export class MetricsPlotView extends React.Component {
   static propTypes = {
