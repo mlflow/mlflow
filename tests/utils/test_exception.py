@@ -16,3 +16,14 @@ def test_rest_exception_error_code_is_not_none():
     exc = RestException({"message": error_string})
     assert "None" not in error_string
     assert "None" not in str(exc)
+
+
+def test_rest_exception_without_message():
+    exc = RestException({"my_property": "something important."})
+    assert "something important." in str(exc)
+
+
+def test_rest_exception_error_code_and_no_message():
+    exc = RestException({"error_code": 2, "messages": "something important."})
+    assert "something important." in str(exc)
+    assert "2" in str(exc)
