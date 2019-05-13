@@ -12,8 +12,8 @@ import mlflow.azureml.cli
 import mlflow.projects as projects
 import mlflow.data
 import mlflow.experiments
-import mlflow.pyfunc.cli
-import mlflow.rfunc.cli
+import mlflow.models.cli
+
 import mlflow.sagemaker.cli
 import mlflow.runs
 import mlflow.store.db.utils
@@ -254,8 +254,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 
 
 cli.add_command(mlflow.data.download)
-cli.add_command(mlflow.pyfunc.cli.commands)
-cli.add_command(mlflow.rfunc.cli.commands)
+cli.add_command(mlflow.models.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)

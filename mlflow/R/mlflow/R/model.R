@@ -153,46 +153,43 @@ mlflow_rfunc_predict <- function(
   model_uri,
   input_path = NULL,
   output_path = NULL,
-  data = NULL,
+  content_type="json",
   restore = FALSE
 ) {
-  mlflow_restore_or_warning(restore)
-
   model_path <- mlflow_download_artifacts_from_uri(model_uri)
-
-  if (!xor(is.null(input_path), is.null(data)))
-    stop("One and only one of `input_path` or `data` must be specified.")
-
-  data <- if (!is.null(input_path)) {
-    switch(
-      fs::path_ext(input_path),
-      json = jsonlite::read_json(input_path),
-      csv = read.csv(input_path)
-    )
-  } else {
-    data
-  }
-
   model <- mlflow_load_model(model_path)
-
+  input_path <- input_path %||% "stdin"
+  output_path <- output_path %||% stdout()
+  data <- switch(
+    content_type,
+    json = parse_json(input_path),
+    csv = read.csv(input_path),
+    stop("Unsupported input file format.")
+  )
+  model <- mlflow_load_model(model_path)
   prediction <- mlflow_predict_flavor(model, data)
-
-  if (is.null(output_path)) {
-    if (!interactive()) message(prediction)
-
-    prediction
-  } else {
-    switch(
-      fs::path_ext(output_path),
-      json = jsonlite::write_json(prediction, output_path),
-      csv = write.csv(prediction, output_path, row.names = FALSE),
-      stop("Unsupported output file format.")
-    )
-  }
+  jsonlite::write_json(prediction, output_path)
+  switch(
+    content_type,
+    json = jsonlite::write_json(prediction, output_path),
+    csv = write.csv(prediction, output_path, row.names = FALSE),
+    stop("Unsupported output file format.")
+  )
 }
-
-
 
 supported_model_flavors <- function() {
   purrr::map(utils::methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
+}
+
+
+parse_json <- function(input_path) {
+  json = jsonlite::read_json(input_path, simplifyVector = TRUE)
+  elms = names(json)
+  if (length(setdiff(elms, c("columns", "index", "data"))) != 0
+      || length(setdiff(c("columns", "data"), elms) != 0)) {
+      stop("Invalid input. Make sure the input json data is in 'split' format.")
+  }
+  df <- data.frame(json$data, row.names = json$index)
+  names(df) <- json$columns
+  df
 }

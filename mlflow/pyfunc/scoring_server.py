@@ -13,24 +13,31 @@ Defines two endpoints:
 from __future__ import print_function
 
 import json
-import traceback
 import logging
+import subprocess
+import sys
+import traceback
 
 import pandas as pd
 import flask
 from six import reraise
 
+# NB: We need to be careful what we import form mlflow here. Scoring server is used from within
+# model's conda environment. The version of mlflow doing the serving (outside) and the verison of
+# mlflow int the model's conda environment (inside) can differ. We should therefore keep mlflow
+# dependencies to the minimum here.
 from mlflow.exceptions import MlflowException
+import mlflow.pyfunc
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.utils.rest_utils import NumpyEncoder
 from mlflow.server.handlers import catch_mlflow_exception
+from mlflow.utils import get_jsonable_obj
+from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
-
-from mlflow.utils import get_jsonable_obj
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
@@ -43,7 +50,6 @@ CONTENT_TYPES = [
     CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_ORIENTED
 ]
-
 
 _logger = logging.getLogger(__name__)
 
@@ -60,12 +66,12 @@ def parse_json_input(json_input, orient="split"):
         return pd.read_json(json_input, orient=orient, dtype=False)
     except Exception:
         _handle_serving_error(
-                error_message=(
-                    "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                    " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
-                    " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
-                    " method.".format(orient=orient)),
-                error_code=MALFORMED_REQUEST)
+            error_message=(
+                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
+                " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
+                " method.".format(orient=orient)),
+            error_code=MALFORMED_REQUEST)
 
 
 def parse_csv_input(csv_input):
@@ -78,11 +84,16 @@ def parse_csv_input(csv_input):
         return pd.read_csv(csv_input)
     except Exception:
         _handle_serving_error(
-                error_message=(
-                    "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                    " a valid CSV-formatted Pandas DataFrame produced using the"
-                    " `pandas.DataFrame.to_csv()` method."),
-                error_code=MALFORMED_REQUEST)
+            error_message=(
+                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                " a valid CSV-formatted Pandas DataFrame produced using the"
+                " `pandas.DataFrame.to_csv()` method."),
+            error_code=MALFORMED_REQUEST)
+
+
+def predictions_to_json(raw_predictions, output):
+    predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
+    json.dump(predictions, output, cls=NumpyEncoder)
 
 
 def _handle_serving_error(error_message, error_code):
@@ -141,12 +152,12 @@ def init(model):
                                     orient="records")
         else:
             return flask.Response(
-                    response=("This predictor only supports the following content types,"
-                              " {supported_content_types}. Got '{received_content_type}'.".format(
-                                  supported_content_types=CONTENT_TYPES,
-                                  received_content_type=flask.request.content_type)),
-                    status=415,
-                    mimetype='text/plain')
+                response=("This predictor only supports the following content types,"
+                          " {supported_content_types}. Got '{received_content_type}'.".format(
+                    supported_content_types=CONTENT_TYPES,
+                    received_content_type=flask.request.content_type)),
+                status=415,
+                mimetype='text/plain')
 
         # Do the prediction
         # pylint: disable=broad-except
@@ -154,14 +165,53 @@ def init(model):
             raw_predictions = model.predict(data)
         except Exception:
             _handle_serving_error(
-                    error_message=(
-                        "Encountered an unexpected error while evaluating the model. Verify"
-                        " that the serialized input Dataframe is compatible with the model for"
-                        " inference."),
-                    error_code=BAD_REQUEST)
-
-        predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
-        result = json.dumps(predictions, cls=NumpyEncoder)
-        return flask.Response(response=result, status=200, mimetype='application/json')
+                error_message=(
+                    "Encountered an unexpected error while evaluating the model. Verify"
+                    " that the serialized input Dataframe is compatible with the model for"
+                    " inference."),
+                error_code=BAD_REQUEST)
+        result = StringIO()
+        predictions_to_json(raw_predictions, result)
+        return flask.Response(response=result.getvalue(), status=200, mimetype='application/json')
 
     return app
+
+
+def _predict(local_path, input_path, output_path, content_type):
+    pyfunc_model = mlflow.pyfunc.load_pyfunc(local_path)
+    if content_type == "json":
+        df = parse_json_input(input_path, orient="split")
+    elif content_type == "csv":
+        df = parse_csv_input(input_path)
+    else:
+        raise Exception("Unknown content type '{}'".format(content_type))
+    with open(output_path, "w") as fout:
+        predictions_to_json(pyfunc_model.predict(df), fout)
+
+
+def _serve(local_path, port, host):
+    init(mlflow.pyfunc.load_pyfunc(local_path)).run(port=port, host=host)
+
+
+def _execute_in_conda_env(conda_env_path, command):
+    conda_env_name = _get_or_create_conda_env(conda_env_path)
+    activate_path = _get_conda_bin_executable("activate")
+    command = " && ".join(
+        ["source {} {}".format(activate_path, conda_env_name), "pip install mlflow", command]
+    )
+    _logger.info("=== Running command '%s'", command)
+    child = subprocess.Popen(["bash", "-c", command], close_fds=True)
+    rc = child.wait()
+    if rc != 0:
+        raise Exception("Command '{0}' returned non zero return code. Return code = {1}".format(
+            command, rc
+        ))
+
+
+if __name__ == '__main__':
+    if sys.argv[1] == "predict":
+        _predict(*sys.argv[2:])
+    elif sys.argv[1] == "serve":
+        _serve(*sys.argv[2:])
+    else:
+        raise Exception("Unknown command '{}'".format(sys.argv[1]))

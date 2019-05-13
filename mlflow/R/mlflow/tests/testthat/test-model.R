@@ -9,7 +9,7 @@ test_that("mlflow can save model function", {
   temp_in <- tempfile(fileext = ".csv")
   temp_out <- tempfile(fileext = ".csv")
   write.csv(iris, temp_in, row.names = FALSE)
-  mlflow_rfunc_predict("model", input_path = temp_in, output_path = temp_out)
+  mlflow_cli("models", "predict", "-i", temp_in, "-o", temp_out, "-t", "csv")
   prediction <- read.csv(temp_out)[[1]]
 
   expect_true(!is.null(prediction))
