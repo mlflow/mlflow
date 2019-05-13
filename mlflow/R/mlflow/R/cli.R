@@ -30,7 +30,7 @@ mlflow_cli <- function(...,
     MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
   ), env)
   if (is.null(stderr_callback)) {
-    stderr_callback = function(x, p) {
+    stderr_callback <- function(x, p) {
       cat(x, stderr())
     }
   }

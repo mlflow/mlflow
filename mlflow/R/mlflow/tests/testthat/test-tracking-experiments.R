@@ -46,8 +46,6 @@ test_that("mlflow_list_experiments() works properly", {
   expect_setequal(experiments_list$experiment_id, c("0", "1", "2"))
   expect_setequal(experiments_list$name, c("Default", "foo1", "foo2"))
   default_artifact_loc <- file.path("file:/", getwd(), "mlruns", "0", fsep = "/")
-  print(experiments_list$artifact_location)
-  print(default_artifact_loc)
   expect_setequal(experiments_list$artifact_location, c(default_artifact_loc,
                                                         "art_loc1",
                                                         "art_loc2"))
@@ -75,7 +73,7 @@ test_that("mlflow_get_experiment_by_name() works properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
   expect_error(
-    mlflow_get_experiment(client = client, "exp"),
+    mlflow_get_experiment(client = client, name = "exp"),
     "Experiment `exp` not found\\."
   )
   experiment_id <- mlflow_create_experiment(client = client, "exp", "art")
