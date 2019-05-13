@@ -95,3 +95,7 @@ example/tutorial/R/*.nb.html
 
 # travis_wait command logs
 travis_wait*.log
+
+# Intermediate R API doc files
+mlflow/R/mlflow/man/
+mlflow/R/mlflow/Reference_Manual_mlflow.md
