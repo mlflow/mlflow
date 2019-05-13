@@ -204,10 +204,12 @@ Get Experiment
 ==============
 
 Gets metadata for an experiment and a list of runs for the experiment.
+Attempts to obtain the active experiment if both ``experiment_id`` and
+``name`` are unspecified.
 
 .. code:: r
 
-   mlflow_get_experiment(name = NULL, experiment_id = NULL,
+   mlflow_get_experiment(experiment_id = NULL, name = NULL,
      client = NULL)
 
 .. _arguments-6:
@@ -218,13 +220,11 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``name``                      | The experiment name, either this or  |
-|                               | ``experiment_id`` should be          |
-|                               | specified.                           |
-+-------------------------------+--------------------------------------+
 | ``experiment_id``             | Identifer to get an experiment.      |
-|                               | Attempts to obtain the active        |
-|                               | experiment if not provided.          |
++-------------------------------+--------------------------------------+
+| ``name``                      | The experiment name. Only one of     |
+|                               | ``name`` or ``experiment_id`` should |
+|                               | be specified.                        |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
 |                               | object.                              |
