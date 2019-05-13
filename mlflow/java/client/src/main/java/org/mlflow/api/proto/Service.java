@@ -6060,6 +6060,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6068,6 +6070,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6076,6 +6080,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6508,6 +6514,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6518,6 +6526,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -6539,6 +6549,8 @@ public final class Service {
     /**
      * <pre>
      * User who initiated the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 6;</code>
@@ -7581,6 +7593,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7591,6 +7605,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7612,6 +7628,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7632,6 +7650,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7649,6 +7669,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -7662,6 +7684,8 @@ public final class Service {
       /**
        * <pre>
        * User who initiated the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 6;</code>
@@ -17727,6 +17751,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -17735,6 +17761,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -17743,6 +17771,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -18652,6 +18682,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -18662,6 +18694,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -18683,6 +18717,8 @@ public final class Service {
     /**
      * <pre>
      * ID of the user executing the run.
+     * This field is deprecated as of MLflow 1.0, and will be removed in a future
+     * MLflow release. Use 'mlflow.user' tag instead.
      * </pre>
      *
      * <code>optional string user_id = 2;</code>
@@ -19306,6 +19342,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19316,6 +19354,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19337,6 +19377,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19357,6 +19399,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19374,6 +19418,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>
@@ -19387,6 +19433,8 @@ public final class Service {
       /**
        * <pre>
        * ID of the user executing the run.
+       * This field is deprecated as of MLflow 1.0, and will be removed in a future
+       * MLflow release. Use 'mlflow.user' tag instead.
        * </pre>
        *
        * <code>optional string user_id = 2;</code>

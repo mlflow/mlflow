@@ -81,12 +81,6 @@ class TestRestStore(unittest.TestCase):
     def _verify_requests(self, http_request, host_creds, endpoint, method, json_body):
         http_request.assert_called_with(**(self._args(host_creds, endpoint, method, json_body)))
 
-    def _verify_request_has_calls(self, http_request, host_creds, call_args):
-        http_request.assert_has_calls(calls=[mock.call(**(self._args(host_creds, endpoint, method,
-                                                                     json_body)))
-                                             for endpoint, method, json_body in call_args],
-                                      any_order=True)
-
     @mock.patch('requests.request')
     def test_requestor(self, request):
         response = mock.MagicMock
@@ -108,7 +102,7 @@ class TestRestStore(unittest.TestCase):
         )
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http, \
                 mock.patch('mlflow.tracking.utils._get_store', return_value=store), \
-                mock.patch('mlflow.tracking.client._get_user_id', return_value=user_name), \
+                mock.patch('mlflow.tracking.context._get_user', return_value=user_name), \
                 mock.patch('time.time', return_value=13579), \
                 source_name_patch, source_type_patch:
             with mlflow.start_run(experiment_id="43"):
@@ -117,10 +111,23 @@ class TestRestStore(unittest.TestCase):
                                                     tags=[ProtoRunTag(key='mlflow.source.name',
                                                                       value=source_name),
                                                           ProtoRunTag(key='mlflow.source.type',
-                                                                      value='LOCAL')]))
+                                                                      value='LOCAL'),
+                                                          ProtoRunTag(key='mlflow.user',
+                                                                      value=user_name)]))
+                expected_kwargs = self._args(creds, "runs/create", "POST", cr_body)
+
                 assert mock_http.call_count == 1
-                exp_calls = [("runs/create", "POST", cr_body)]
-                self._verify_request_has_calls(mock_http, creds, exp_calls)
+                actual_kwargs = mock_http.call_args[1]
+
+                # Test the passed tag values separately from the rest of the request
+                # Tag order is inconsistent on Python 2 and 3, but the order does not matter
+                expected_tags = expected_kwargs['json'].pop('tags')
+                actual_tags = actual_kwargs['json'].pop('tags')
+                assert (
+                    sorted(expected_tags, key=lambda t: t['key']) ==
+                    sorted(actual_tags, key=lambda t: t['key'])
+                )
+                assert expected_kwargs == actual_kwargs
 
         with mock.patch('mlflow.store.rest_store.http_request_safe') as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
