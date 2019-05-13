@@ -800,35 +800,43 @@ Log Metric
 
 Logs a metric for a run. Metrics key-value pair that records a single
 float measure. During a single execution of a run, a particular metric
-can be logged several times. Backend will keep track of historical
-values along with timestamps.
+can be logged several times. The MLflow Backend keeps track of
+historical metric values along two axes: timestamp and step.
 
 .. code:: r
 
-   mlflow_log_metric(key, value, timestamp = NULL, run_id = NULL,
-     client = NULL)
+   mlflow_log_metric(key, value, timestamp = NULL, step = NULL,
+     run_id = NULL, client = NULL)
 
 .. _arguments-20:
 
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``key``                           | Name of the metric.               |
-+-----------------------------------+-----------------------------------+
-| ``value``                         | Float value for the metric being  |
-|                                   | logged.                           |
-+-----------------------------------+-----------------------------------+
-| ``timestamp``                     | Unix timestamp in milliseconds at |
-|                                   | the time metric was logged.       |
-+-----------------------------------+-----------------------------------+
-| ``run_id``                        | Run ID.                           |
-+-----------------------------------+-----------------------------------+
-| ``client``                        | (Optional) An ``mlflow_client``   |
-|                                   | object.                           |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``key``                       | Name of the metric.                  |
++-------------------------------+--------------------------------------+
+| ``value``                     | Float value for the metric being     |
+|                               | logged.                              |
++-------------------------------+--------------------------------------+
+| ``timestamp``                 | Timestamp at which to log the        |
+|                               | metric. Timestamp is rounded to the  |
+|                               | nearest integer. If unspecified, the |
+|                               | number of milliseconds since the     |
+|                               | Unix epoch is used.                  |
++-------------------------------+--------------------------------------+
+| ``step``                      | Step at which to log the metric.     |
+|                               | Step is rounded to the nearest       |
+|                               | integer. If unspecified, the default |
+|                               | value of zero is used.               |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 
 .. _details-15:
 
