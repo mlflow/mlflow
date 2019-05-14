@@ -77,7 +77,7 @@ export class MetricsPlotControls extends React.Component {
           value={this.props.selectedMetricKeys}
           showCheckedStrategy={TreeSelect.SHOW_PARENT}
           treeCheckable
-          treeData={this.props.getAllMetricKeys()}
+          treeData={this.getAllMetricKeys()}
           onChange={this.props.handleMetricsSelectChange}
           filterTreeNode={this.handleMetricsSelectFilterChange}
         />
