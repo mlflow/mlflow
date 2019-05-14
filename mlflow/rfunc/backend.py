@@ -11,16 +11,17 @@ _logger = logging.getLogger(__name__)
 
 
 class RFuncBackend(FlavorBackend):
+    """
+    Flavor backend implementation for the generic R models.
+    Predict and serve locally models with 'crate' flavor.
+    """
     version_pattern = re.compile("version ([0-9]+[.][0-9]+[.][0-9]+)")
 
     def predict(self, model_uri, input_path, output_path, **kwargs):
         """
-           Serve an RFunction model saved with MLflow.
-           Return the prediction results as a JSON DataFrame.
-
-           If a ``run-id`` is specified, ``model-path`` is treated as an artifact path within that run;
-           otherwise it is treated as a local path.
-           """
+        Generate predictions using R model saved with MLflow.
+        Return the prediction results as a JSON.
+        """
         with TempDir() as tmp:
             model_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
             str_cmd = "mlflow:::mlflow_rfunc_predict('{0}', {1}, {2})"
@@ -29,6 +30,9 @@ class RFuncBackend(FlavorBackend):
             _execute(command)
 
     def serve(self, model_uri, port, **kwargs):
+        """
+        Generate R model locally.
+        """
         with TempDir() as tmp:
             model_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
             command = "mlflow::mlflow_rfunc_serve('{0}', port = {1})".format(model_path, port)
@@ -42,7 +46,6 @@ class RFuncBackend(FlavorBackend):
         if process.wait() != 0:
             return False
 
-        output = stdout  # process.stdout.read().decode("utf-8")
         version = self.version_pattern.search(stderr.decode("utf-8"))
         if not version:
             return False
