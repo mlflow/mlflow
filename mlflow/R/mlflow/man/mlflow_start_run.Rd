@@ -21,15 +21,6 @@ a new experiment with a randomly generated name.}
 \item{tags}{Additional metadata for run in key-value pairs. Only used when `client` is specified.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
-
-\item{source_name}{Name of the source file or URI of the project to be associated with the run.
-Defaults to the current file if none provided.}
-
-\item{source_version}{Optional Git commit hash to associate with the run.}
-
-\item{entry_point_name}{Optional name of the entry point for to the current run.}
-
-\item{source_type}{Integer enum value describing the type of the run  ("local", "project", etc.).}
 }
 \description{
 Starts a new run. If `client` is not provided, this function infers contextual information such as
