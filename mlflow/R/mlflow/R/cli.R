@@ -31,7 +31,7 @@ mlflow_cli <- function(...,
   ), env)
   if (is.null(stderr_callback)) {
     stderr_callback <- function(x, p) {
-      cat(x, stderr())
+      cat(x, file = stderr())
     }
   }
 

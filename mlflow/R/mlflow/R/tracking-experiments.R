@@ -107,7 +107,7 @@ mlflow_delete_experiment <- function(experiment_id, client = NULL) {
     data = list(experiment_id = experiment_id)
 
   )
-  NULL
+  invisible(NULL)
 }
 
 
@@ -130,7 +130,7 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
     client = client, verb = "POST",
     data = list(experiment_id = experiment_id)
   )
-  NULL
+  invisible(NULL)
 }
 
 #' Rename Experiment
@@ -153,7 +153,7 @@ mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NU
       new_name = new_name
     )
   )
-  NULL
+  invisible(NULL)
 }
 
 #' Set Experiment
@@ -193,6 +193,5 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
     experiment_id
   }
 
-  mlflow_set_active_experiment_id(final_experiment_id)
-  NULL
+  invisible(mlflow_set_active_experiment_id(final_experiment_id))
 }
