@@ -23,9 +23,9 @@ export class MetricsPlotView extends React.Component {
   };
 
   getLineLegend = (metricKey, runDisplayName) =>
-    `${metricKey}, ` +
+    `${metricKey}` +
     (this.props.isComparing
-      ? Utils.truncateString(runDisplayName, MAX_RUN_NAME_DISPLAY_LENGTH)
+      ? `, ${Utils.truncateString(runDisplayName, MAX_RUN_NAME_DISPLAY_LENGTH)}`
       : '');
 
   parseTimestamp = (timestamp, history, xAxis) => {
