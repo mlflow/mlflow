@@ -15,9 +15,9 @@ _logger = logging.getLogger(__name__)
 @click.group("models")
 def commands():
     """
-    Serve MLflow models locally.
+    Deploy MLflow models locally.
 
-    To serve a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
+    To deploy a model associated with a run on a tracking server, set the MLFLOW_TRACKING_URI
     environment variable to the URL of the desired server.
     """
     pass
@@ -30,11 +30,9 @@ def commands():
 @cli_args.NO_CONDA
 def serve(model_uri, port, host, no_conda=False):
     """
-    Serve a model saved with MLflow by launching a webserver on the specified
-    host and port. For information about the input data formats accepted by the webserver,
-    see the following documentation:
-    TODO: fix the link below
-    https://www.mlflow.org/docs/latest/models.html#pyfunc-deployment.
+    Serve a model saved with MLflow by launching a webserver on the specified host and port. For
+    information about the input data formats accepted by the webserver, see the following
+    documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
     """
     return _get_flavor_backend(model_uri, no_conda).serve(model_uri=model_uri, port=port, host=host,
                                                 no_conda=no_conda)
@@ -49,7 +47,7 @@ def serve(model_uri, port, host, no_conda=False):
 @click.option("--content-type", "-t", default="json",
               help="Content type of the input file. Can be one of {'json', 'csv'}.")
 @click.option("--json-format", "-j", default="split",
-              help="Only applies if the conten type is 'json'. Specify the how the data is "
+              help="Only applies if the content type is 'json'. Specify the how the data is "
                    "encoded.  Can be one of {'split', 'records'} mirroring the behavior of Pandas "
                    "orient attribute. The default is 'split' which expects dict like data: "
                    "{‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values]}, where index "
@@ -59,8 +57,9 @@ def serve(model_uri, port, host, no_conda=False):
 @cli_args.NO_CONDA
 def predict(model_uri, input_path, output_path, content_type, json_format, no_conda):
     """
-    Load a pandas DataFrame and runs a python_function model saved with MLflow against it.
-    Return the prediction results as a CSV-formatted pandas DataFrame.
+    Generate predictions in json format using a saved MLflow model. For information about the input
+    data formats accepted by this function, see the following documentation:
+    https://www.mlflow.org/docs/latest/models.html#model-deployment.
     """
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
