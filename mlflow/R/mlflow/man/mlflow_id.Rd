@@ -4,7 +4,7 @@
 \alias{mlflow_id}
 \alias{mlflow_id.mlflow_run}
 \alias{mlflow_id.mlflow_experiment}
-\title{Extracts the Object ID}
+\title{Get Run or Experiment ID}
 \usage{
 mlflow_id(object)
 
