@@ -46,7 +46,8 @@ matrix:
       script:
         - cd mlflow/R/mlflow
         - export LINTR_COMMENT_BOT=false
-        - Rscript .travis.R
+        - cd tests
+        - Rscript ../.travis.R
       after_success:
         - export COVR_RUNNING=true
         - Rscript -e 'covr::codecov()'
