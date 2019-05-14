@@ -32,18 +32,18 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id 
   invisible(value)
 }
 
-
-
-
-mlflow_create_run <- function(user_id = NULL, start_time = NULL, tags = NULL,
-                              experiment_id = NULL, client) {
+mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NULL, client) {
   experiment_id <- resolve_experiment_id(experiment_id)
+
+  # Read user_id from tags
+  # user_id is deprecated and will be removed from a future release
+  user_id <- tags[[MLFLOW_TAGS$MLFLOW_USER]] %||% "unknown"
+
   tags <- if (!is.null(tags)) tags %>%
     purrr::imap(~ list(key = .y, value = .x)) %>%
     unname()
 
   start_time <- start_time %||% current_time()
-  user_id <- user_id %||% mlflow_user()
 
   response <- mlflow_rest(
     "runs", "create",
@@ -91,9 +91,8 @@ mlflow_restore_run <- function(run_id, client = NULL) {
 
 #' Get Run
 #'
-#' Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
-#' same key are logged for the run, returns only the value with the latest timestamp. If there are
-#' multiple values with the latest timestamp, returns the maximum of these values.
+#' Gets metadata, params, tags, and metrics for a run. Returns a single value for each metric
+#' key: the most recently logged metric value at the largest step.
 #'
 #' @template roxlate-run-id
 #' @template roxlate-client
@@ -316,7 +315,6 @@ mlflow_set_terminated <- function(status, end_time, run_id, client) {
   mlflow_get_run(client = client, run_id = response$run_info$run_uuid)
 }
 
-
 #' Download Artifacts
 #'
 #' Download an artifact file or directory from a run to a local directory if applicable,
@@ -347,11 +345,9 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
   gsub("\n", "", result$stdout)
 }
 
-
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
-  result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE,
-                       client = client)
+  result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE, client = client)
   gsub("\n", "", result$stdout)
 }
 
@@ -450,12 +446,11 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
   mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client)
 }
 
-
 #' Start Run
 #'
 #' Starts a new run. If `client` is not provided, this function infers contextual information such as
 #'   source name and version, and also registers the created run as the active run. If `client` is provided,
-#'   no inference is done, and additional arguments such as `user_id` and `start_time` can be provided.
+#'   no inference is done, and additional arguments such as `start_time` can be provided.
 #'
 #' @param run_id If specified, get the run with the specified UUID and log metrics
 #'   and params under that run. The run's end time is unset and its status is set to
@@ -468,7 +463,6 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' @param source_version Optional Git commit hash to associate with the run.
 #' @param entry_point_name Optional name of the entry point for to the current run.
 #' @param source_type Integer enum value describing the type of the run  ("local", "project", etc.).
-#' @param user_id User ID or LDAP for the user executing the run. Only used when `client` is specified.
 #' @param start_time Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.
 #' @param tags Additional metadata for run in key-value pairs. Only used when `client` is specified.
 #' @template roxlate-client
@@ -481,21 +475,19 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' }
 #'
 #' @export
-mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, user_id = NULL,
-                             start_time = NULL, tags = NULL, client = NULL) {
+mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, start_time = NULL, tags = NULL, client = NULL) {
 
   # When `client` is provided, this function acts as a wrapper for `runs/create` and does not register
   #  an active run.
   if (!is.null(client)) {
     if (!is.null(run_id)) stop("`run_id` should not be specified when `client` is specified.", call. = FALSE)
-    run <- mlflow_create_run(client = client, user_id = user_id, start_time = start_time,
+    run <- mlflow_create_run(client = client, start_time = start_time,
                              tags = tags, experiment_id = experiment_id)
     return(run)
   }
 
   # Fluent mode, check to see if extraneous params passed.
 
-  if (!is.null(user_id)) stop("`user_id` should only be specified when `client` is specified.", call. = FALSE)
   if (!is.null(start_time)) stop("`start_time` should only be specified when `client` is specified.", call. = FALSE)
   if (!is.null(tags)) stop("`tags` should only be specified when `client` is specified.", call. = FALSE)
 
@@ -530,13 +522,13 @@ mlflow_start_run <- function(run_id = NULL, experiment_id = NULL, user_id = NULL
   run
 }
 
-
 mlflow_get_run_context <- function(client, ...) {
   UseMethod("mlflow_get_run_context")
 }
 
 mlflow_get_run_context.default <- function(client, experiment_id, ...) {
   tags <- list()
+  tags[[MLFLOW_TAGS$MLFLOW_USER]] <- mlflow_user()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]] <- get_source_name()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_VERSION]] <- get_source_version()
   tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] <- MLFLOW_SOURCE_TYPE$LOCAL
@@ -586,6 +578,7 @@ mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED
 }
 
 MLFLOW_TAGS <- list(
+  MLFLOW_USER = "mlflow.user",
   MLFLOW_SOURCE_NAME = "mlflow.source.name",
   MLFLOW_SOURCE_VERSION = "mlflow.source.version",
   MLFLOW_SOURCE_TYPE = "mlflow.source.type"

@@ -353,6 +353,8 @@ Request Structure
 | experiment_id    | ``INT64``                       | ID of the associated experiment.                                                               |
 +------------------+---------------------------------+------------------------------------------------------------------------------------------------+
 | user_id          | ``STRING``                      | ID of the user executing the run.                                                              |
+|                  |                                 | This field is deprecated and will be removed in a later MLflow version. Use the                |
+|                  |                                 | ``mlflow.user`` run tag instead.                                                               |
 +------------------+---------------------------------+------------------------------------------------------------------------------------------------+
 | run_name         | ``STRING``                      | Human readable name for the run.                                                               |
 |                  |                                 | This field is deprecated and will be removed in MLflow 1.0. Use the ``mlflow.runName`` run tag |
@@ -1279,6 +1281,8 @@ Metadata of a single run.
 |                  |                         | tag instead.                                                                                   |
 +------------------+-------------------------+------------------------------------------------------------------------------------------------+
 | user_id          | ``STRING``              | User who initiated the run.                                                                    |
+|                  |                         | This field is deprecated and will be removed in a later MLflow version. Use the                |
+|                  |                         | ``mlflow.user`` run tag instead.                                                               |
 +------------------+-------------------------+------------------------------------------------------------------------------------------------+
 | status           | :ref:`mlflowrunstatus`  | Current status of the run.                                                                     |
 +------------------+-------------------------+------------------------------------------------------------------------------------------------+
