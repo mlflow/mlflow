@@ -38,7 +38,7 @@ class MetricsPlotPanel extends React.Component {
     this.state = {
       selectedXAxis: X_AXIS_RELATIVE,
       selectedMetricKeys,
-      showDot: false,
+      showPoint: false,
       historyRequestIds: [],
       yAxisLogScale: false,
       lineSmoothness: 0,
@@ -123,7 +123,7 @@ class MetricsPlotPanel extends React.Component {
     this.updateUrlWithSelectedMetrics(metricValues);
   };
 
-  handleShowDotChange = (showDot) => this.setState({ showDot });
+  handleShowPointChange = (showPoint) => this.setState({ showPoint });
 
   handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
@@ -131,7 +131,7 @@ class MetricsPlotPanel extends React.Component {
     const { runUuids, runDisplayNames, distinctMetricKeys } = this.props;
     const {
       historyRequestIds,
-      showDot,
+      showPoint,
       selectedXAxis,
       selectedMetricKeys,
       yAxisLogScale,
@@ -147,7 +147,7 @@ class MetricsPlotPanel extends React.Component {
           selectedMetricKeys={selectedMetricKeys}
           handleXAxisChange={this.handleXAxisChange}
           handleMetricsSelectChange={this.handleMetricsSelectChange}
-          handleShowDotChange={this.handleShowDotChange}
+          handleShowPointChange={this.handleShowPointChange}
           handleYAxisLogScaleChange={this.handleYAxisLogScaleChange}
           handleLineSmoothChange={this.handleLineSmoothChange}
           chartType={chartType}
@@ -159,7 +159,7 @@ class MetricsPlotPanel extends React.Component {
             xAxis={selectedXAxis}
             metrics={this.getMetrics()}
             metricKeys={selectedMetricKeys}
-            showDot={showDot}
+            showPoint={showPoint}
             chartType={chartType}
             isComparing={this.isComparing()}
             yAxisLogScale={yAxisLogScale}

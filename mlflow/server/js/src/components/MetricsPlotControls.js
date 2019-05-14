@@ -18,7 +18,7 @@ export class MetricsPlotControls extends React.Component {
     selectedMetricKeys: PropTypes.arrayOf(String).isRequired,
     selectedXAxis: PropTypes.string.isRequired,
     handleXAxisChange: PropTypes.func.isRequired,
-    handleShowDotChange: PropTypes.func.isRequired,
+    handleShowPointChange: PropTypes.func.isRequired,
     handleMetricsSelectChange: PropTypes.func.isRequired,
     handleYAxisLogScaleChange: PropTypes.func.isRequired,
     handleLineSmoothChange: PropTypes.func.isRequired,
@@ -48,7 +48,7 @@ export class MetricsPlotControls extends React.Component {
             <Switch
               checkedChildren='On'
               unCheckedChildren='Off'
-              onChange={this.props.handleShowDotChange}
+              onChange={this.props.handleShowPointChange}
             />
             <h3>Line Smoothness</h3>
             <LineSmoothSlider

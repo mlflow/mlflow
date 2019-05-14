@@ -16,7 +16,7 @@ export class MetricsPlotView extends React.Component {
     xAxis: PropTypes.string.isRequired,
     metricKeys: PropTypes.arrayOf(String).isRequired,
     // Whether or not to show point markers on the line chart
-    showDot: PropTypes.bool.isRequired,
+    showPoint: PropTypes.bool.isRequired,
     chartType: PropTypes.string.isRequired,
     isComparing: PropTypes.bool.isRequired,
     yAxisLogScale: PropTypes.bool.isRequired,
@@ -40,7 +40,7 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showDot, yAxisLogScale, lineSmoothness } = this.props;
+    const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness } = this.props;
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history } = metric;
       const isSingleHistory = history.length === 0;
@@ -54,7 +54,7 @@ export class MetricsPlotView extends React.Component {
         }),
         y: history.map((entry) => entry.value),
         type: 'scatter',
-        mode: isSingleHistory ? 'markers' : showDot ? 'lines+markers' : 'lines',
+        mode: isSingleHistory ? 'markers' : showPoint ? 'lines+markers' : 'lines',
         line: { shape: 'spline', smoothing: lineSmoothness },
       };
     });
