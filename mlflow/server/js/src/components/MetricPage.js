@@ -25,9 +25,8 @@ class MetricPage extends Component {
     this.props.runUuids.forEach((runUuid) => {
       const getMetricHistoryReqId = getUUID();
       this.requestIds.push(getMetricHistoryReqId);
-      this.props.dispatch(
-        getMetricHistoryApi(runUuid, this.props.metricKey, getMetricHistoryReqId),
-      );
+      this.props.dispatch(getMetricHistoryApi(runUuid, this.props.metricKey,
+        getMetricHistoryReqId));
       // Fetch tags for each run. TODO: it'd be nice if we could just fetch the tags directly
       const getRunRequestId = getUUID();
       this.requestIds.push(getRunRequestId);
@@ -38,19 +37,17 @@ class MetricPage extends Component {
   render() {
     let view;
     if (this.props.runUuids.length >= 1) {
-      view = (
-        <MetricView
-          runUuids={this.props.runUuids}
-          metricKey={this.props.metricKey}
-          experimentId={this.props.experimentId}
-        />
-      );
+      view = <MetricView runUuids={this.props.runUuids}
+                         metricKey={this.props.metricKey}
+                         experimentId={this.props.experimentId}/>;
     } else {
-      view = <NotFoundPage />;
+      view = <NotFoundPage/>;
     }
     return (
       <div className='App-content'>
-        <RequestStateWrapper requestIds={this.requestIds}>{view}</RequestStateWrapper>
+        <RequestStateWrapper requestIds={this.requestIds}>
+          {view}
+        </RequestStateWrapper>
       </div>
     );
   }
@@ -59,10 +56,10 @@ class MetricPage extends Component {
 const mapStateToProps = (state, ownProps) => {
   const { match, location } = ownProps;
   const searchValues = qs.parse(location.search);
-  const runUuids = JSON.parse(searchValues['?runs']);
+  const runUuids = JSON.parse(searchValues["?runs"]);
   let experimentId = null;
-  if (searchValues.hasOwnProperty('experiment')) {
-    experimentId = parseInt(searchValues['experiment'], 10);
+  if (searchValues.hasOwnProperty("experiment")) {
+    experimentId = parseInt(searchValues["experiment"], 10);
   }
   const { metricKey } = match.params;
   return {
