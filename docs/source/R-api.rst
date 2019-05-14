@@ -1348,7 +1348,7 @@ Set Experiment
 Sets an experiment as the active experiment. Either the name or ID of
 the experiment can be provided. If the a name is provided but the
 experiment does not exist, this function creates an experiment with
-provided name.
+provided name. Returns the ID of the active experiment.
 
 .. code:: r
 
