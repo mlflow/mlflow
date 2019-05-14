@@ -24,31 +24,29 @@ export class MetricsPlotView extends React.Component {
   getLegend = (metricKey, runName) =>
     `${metricKey}, ` + (this.props.isComparing ? runName.slice(0, 8) : '');
 
-  parseTimestamp = (timestampStr, baseTimestamp, xAxis) => {
-    const timestamp = Number.parseFloat(timestampStr);
+  parseTimestamp = (timestamp, history, xAxis) => {
     if (xAxis === X_AXIS_RELATIVE) {
-      return (timestamp - baseTimestamp) / 1000;
+      const minTimestamp = _.minBy(history, 'timestamp').timestamp;
+      return (timestamp - minTimestamp) / 1000;
     }
-    return Utils.formatTimestamp(timestamp, 'HH:MM:ss');
+    return Utils.formatTimestamp(timestamp);
   };
 
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showDot, yAxisLogScale, lineSmoothness } = this.props;
     const data = metrics.map((metric) => {
       const { metricKey, runName, history } = metric;
-      const baseTimestamp = Number.parseFloat(history[0] && history[0].timestamp);
       const isSingleHistory = history.length === 0;
       return {
         name: this.getLegend(metricKey, runName),
         x: history.map((entry) =>
           xAxis === X_AXIS_STEP
-            ? Number.parseInt(entry.step, 10)
-            : this.parseTimestamp(entry.timestamp, baseTimestamp, xAxis)
+            ? entry.step
+            : this.parseTimestamp(entry.timestamp, history, xAxis)
         ),
         y: history.map((entry) => entry.value),
         type: 'scatter',
         mode: isSingleHistory ? 'markers' : (showDot ? 'lines+markers' : 'lines'),
-
         line: { shape: 'spline', smoothing: lineSmoothness },
       };
     });

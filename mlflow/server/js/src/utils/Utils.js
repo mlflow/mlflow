@@ -330,6 +330,43 @@ class Utils {
   static getRequestWithId(requests, requestId) {
     return requests.find((r) => r.id === requestId);
   }
+
+  // TODO(Zangr) remove after chart testing is done.
+  static tuneHistory = (metrics) => {
+    metrics.forEach((m) => {
+      m.history.sort((h1, h2) => h1.timestamp - h2.timestamp);
+      m.history.forEach((entry, i) => {
+        entry.value = Number(entry.key.substr(-1)) * i * i + 5 * i + 30 * entry.value;
+      });
+    });
+  };
+
+  // TODO(Zangr) remove after chart testing is done.
+  static tuneHistoryWall = (metrics) => {
+    metrics.forEach((m, ii) => {
+      m.history.sort((h1, h2) => h1.timestamp - h2.timestamp);
+      m.history.forEach((entry, i) => {
+        entry.value = Number(entry.key.substr(-1)) * i * i + 5 * i + 30 * entry.value;
+        entry.timestamp += ii * 100 * 1500;
+      });
+    });
+  };
+
+  // TODO(Zangr) remove after chart testing is done.
+  static forceSingleHistory = (metrics) => {
+    metrics.forEach((m) => {
+      m.history.sort((h1, h2) => h1.timestamp - h2.timestamp);
+      m.history = [m.history[0]];
+    });
+  };
+
+  // TODO(Zangr) remove after chart testing is done.
+  static forceSingleHistoryExceptOne = (metrics) => {
+    metrics.forEach((m) => {
+      m.history.sort((h1, h2) => h1.timestamp - h2.timestamp);
+      m.history = m.metricKey.includes('4') ? m.history : [m.history[0]];
+    });
+  };
 }
 
 export default Utils;

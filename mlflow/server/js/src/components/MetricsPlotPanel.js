@@ -93,18 +93,18 @@ class MetricsPlotPanel extends React.Component {
     const selectedMetricsSet = new Set(this.state.selectedMetricKeys);
     const { selectedXAxis } = this.state;
     const { metricsWithRunInfoAndHistory } = this.props;
-    // Handle selected metrics
+
+    // Take only selected metrics
     const metrics = metricsWithRunInfoAndHistory.filter((m) => selectedMetricsSet.has(m.metricKey));
-    // Handle selected chart type
-    metrics.forEach((m) =>
-      _.sortBy(
+
+    // Sort metric history based on selected x-axis
+    metrics.forEach((m) => {
+      const isStep = selectedXAxis === X_AXIS_STEP && m.history[0] && _.isNumber(m.history[0].step);
+      m.history = _.sortBy(
         m.history,
-        // TODO(Zangr) handle empty step metrics
-        selectedXAxis === X_AXIS_STEP && m.history[0] && _.isNumber(m.history[0].step)
-          ? ['step', 'timestamp']
-          : 'timestamp',
-      ),
-    );
+        isStep ? ['step', 'timestamp'] : 'timestamp',
+      );
+    });
     return metrics;
   };
 
@@ -172,71 +172,39 @@ class MetricsPlotPanel extends React.Component {
   }
 }
 
-// TODO(Zangr) remove after chart testing is done.
-const tuneHistory = (metricsHistory) => {
-  metricsHistory.forEach((m, ii) => {
-    m.history = m.history.map((entry) => ({
-      key: entry.key,
-      value: entry.value,
-      step: Number.parseInt(entry.step, 10),
-      timestamp: Number.parseFloat(entry.timestamp),
-    }));
-
-    m.history.forEach((entry, i) => {
-      entry.value = Number(entry.key.substr(-1)) * i * i + 5 * i + 30 * entry.value;
-    });
-  });
-};
-
-// TODO(Zangr) remove after chart testing is done.
-const tuneHistoryWall = (metricsHistory) => {
-  metricsHistory.forEach((m, ii) => {
-    m.history = m.history.map((entry) => ({
-      key: entry.key,
-      value: entry.value,
-      step: Number.parseInt(entry.step, 10),
-      timestamp: Number.parseFloat(entry.timestamp),
-    }));
-
-    m.history.forEach((entry, i) => {
-      entry.value = Number(entry.key.substr(-1)) * i * i + 5 * i + 30 * entry.value;
-      entry.timestamp += ii * 100 * 1500;
-    });
-  });
-};
-
-// TODO(Zangr) remove after chart testing is done.
-const forceSingleHistory = (metrics) => {
-  metrics.forEach((m) => (m.history = [m.history[0]]));
-};
-
-// TODO(Zangr) remove after chart testing is done.
-const forceSingleHistoryExceptOne = (metrics) => {
-  metrics.forEach((m, i) => (m.history = m.metricKey.includes('4') ? m.history : [m.history[0]]));
-};
-
 const mapStateToProps = (state, ownProps) => {
   const { runUuids } = ownProps;
   const { latestMetricsByRunUuid, metricsByRunUuid } = state.entities;
+
+  // All metric keys from all runUuids, non-distinct
   const metricKeys = _.flatMap(runUuids, (runUuid) => {
     const latestMetrics = latestMetricsByRunUuid[runUuid];
     return latestMetrics ? Object.keys(latestMetrics) : [];
   });
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
+
+  // Flat array of all metrics, with history and information of the run it belongs to
+  // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
   const metricsWithRunInfoAndHistory = _.flatMap(runUuids, (runUuid) => {
     const runName = Utils.getRunDisplayName(getRunTags(runUuid, state), runUuid);
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory
       ? Object.keys(metricsHistory).map((metricKey, index) => {
-        const history = _.sortBy(metricsHistory[metricKey], 'timestamp');
+        const history = metricsHistory[metricKey].map((entry) => ({
+          key: entry.key,
+          value: entry.value,
+          step: Number.parseInt(entry.step, 10) || 0, // default step to 0
+          timestamp: Number.parseFloat(entry.timestamp),
+        }));
         return { metricKey, history, runUuid, runName, index };
       })
       : [];
   });
-  // tuneHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  tuneHistoryWall(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  // forceSingleHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  // forceSingleHistoryExceptOne(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tunining
+
+  // Utils.tuneHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
+  Utils.tuneHistoryWall(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
+  // Utils.forceSingleHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
+  // Utils.forceSingleHistoryExceptOne(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tunining
 
   return {
     latestMetricsByRunUuid,
