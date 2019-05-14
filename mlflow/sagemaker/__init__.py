@@ -26,7 +26,8 @@ from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.utils.logging_utils import eprint
 from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
+from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME,\
+    DEPRECATED_DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
@@ -40,7 +41,7 @@ DEPLOYMENT_MODES = [
     DEPLOYMENT_MODE_REPLACE
 ]
 
-IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
+IMAGE_NAME_ENV_VAR = "MLFLOW_SAGEMAKER_DEPLOY_IMAGE_URL"
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
