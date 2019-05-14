@@ -84,7 +84,7 @@ mlflow_predict_model <- function(model, data) {
 mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()) {
   model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
-  available_flavors <- spec$flavors
+  available_flavors <- names(spec$flavors)
 
   if (length(available_flavors) == 0) {
     stop(
