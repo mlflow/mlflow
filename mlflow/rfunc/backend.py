@@ -23,7 +23,7 @@ class RFuncBackend(FlavorBackend):
            """
         with TempDir() as tmp:
             model_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
-            str_cmd = "mlflow::mlflow_rfunc_predict('{0}', {1}, {2})"
+            str_cmd = "mlflow:::mlflow_rfunc_predict('{0}', {1}, {2})"
             command = str_cmd.format(model_path, _str_optional(input_path),
                                      _str_optional(output_path))
             _execute(command)
