@@ -1,7 +1,7 @@
 context("Installing Python MLflow Package")
 
 expected_conda_env_name <- function() {
-  paste("r-mlflow", packageVersion("mlflow"), sep="-")
+  paste("r-mlflow", packageVersion("mlflow"), sep = "-")
 }
 
 test_that("MLflow installs into a conda environment with the same name as current Mlflow version", {

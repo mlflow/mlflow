@@ -5,7 +5,7 @@ mlflow_version <- function() {
 
 # Returns the name of a conda environment in which to install the Python MLflow package
 mlflow_conda_env_name <- function() {
-  paste("r-mlflow", mlflow_version(), sep="-")
+  paste("r-mlflow", mlflow_version(), sep = "-")
 }
 
 #' Install MLflow

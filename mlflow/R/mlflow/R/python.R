@@ -10,12 +10,13 @@ get_python_bin <- function() {
   mlflow_env$python
 }
 
-# Returns path to Python executable within conda environment created for the MLflow R package,
+# Returns path to Python executable within conda environment created for the MLflow R package
 python_bin <- function() {
   if (is.null(.globals$python_bin)) {
     python <- get_python_bin()
     .globals$python_bin <- path.expand(python)
   }
+
   .globals$python_bin
 }
 
@@ -26,7 +27,7 @@ python_mlflow_bin <- function() {
   file.path(python_bin_dir, "mlflow")
 }
 
-# Return path to conda home directory, such that conda executables can be found
+# Return path to conda home directory, such that the `conda` executable can be found
 # under conda_home/bin/
 #' @importFrom reticulate conda_binary
 python_conda_home <- function() {
