@@ -15,7 +15,7 @@ not provided, the remote server will select an appropriate default.}
 \item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
-Creates an MLflow experiment.
+Creates an MLflow experiment and returns its id.
 }
 \details{
 When `client` is not specified, these functions attempt to infer the current active client.
