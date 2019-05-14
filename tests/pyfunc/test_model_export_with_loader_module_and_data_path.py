@@ -40,7 +40,7 @@ def iris_data():
 def sklearn_knn_model(iris_data):
     x, y = iris_data
     knn_model = sklearn.neighbors.KNeighborsClassifier()
-    knn_model.fit(x, y)
+    knn_model.fit(x, y
     return knn_model
 
 

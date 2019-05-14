@@ -163,7 +163,6 @@ mlflow_rfunc_predict <- function(
   model <- mlflow_load_model(model_path)
   prediction <- mlflow_predict_flavor(model, data)
   jsonlite::write_json(prediction, output_path)
-  json = jsonlite::write_json(prediction, output_path)
 }
 
 supported_model_flavors <- function() {
