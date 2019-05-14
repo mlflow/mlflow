@@ -123,7 +123,7 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
 # Predict using RFunc MLflow Model
 #
 # Performs prediction using a saved R MLflow model.
-# Input and output are read from and writtent to a file or sfrom stdin / stdout.
+# Input and output are read from and written to a file or stdin / stdout.
 #
 # @param input_path Path to 'JSON' or 'CSV' file to be used for prediction. If not specified data is
 #                   read from the stdin.

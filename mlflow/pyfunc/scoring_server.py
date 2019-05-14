@@ -177,10 +177,10 @@ def init(model):
     return app
 
 
-def _predict(local_path, input_path, output_path, content_type):
+def _predict(local_path, input_path, output_path, content_type, json_format):
     pyfunc_model = mlflow.pyfunc.load_pyfunc(local_path)
     if content_type == "json":
-        df = parse_json_input(input_path, orient="split")
+        df = parse_json_input(input_path, orient=json_format)
     elif content_type == "csv":
         df = parse_csv_input(input_path)
     else:

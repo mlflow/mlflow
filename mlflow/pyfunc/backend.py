@@ -10,19 +10,31 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.projects import _get_conda_bin_executable
 
+
 class PyFuncBackend(FlavorBackend):
 
-    def predict(self, model_uri, input_path, output_path, content_type, no_conda, **kwargs):
+    def predict(self, model_uri, input_path, output_path, content_type, no_conda, json_format,
+                **kwargs):
         with TempDir() as tmp:
             local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
             if not no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
-                command = "python {0} predict {1} {2} {3} {4}".format(scoring_server.__file__,
-                                                                      local_path, input_path,
-                                                                      output_path, content_type)
+                # NOTE: We're calling main in the pyfunc scoring server belonging to the current
+                # conda environment. The model environment may contain mlflow with different version
+                # that the one in the current active environment. This is the intended behavior.
+                # We need to make sure the scoring server is consistent with the outside mlflow
+                # while the model that is being loaded may depend on a different version of mlflow.
+                # The hope is that the scoring server is self contained enough and does not have
+                # external mlflow dependencies.
+                command = "python {0} predict {1} {2} {3} {4} {5}".format(scoring_server.__file__,
+                                                                          local_path, input_path,
+                                                                          output_path,
+                                                                          content_type,
+                                                                          json_format)
                 return scoring_server._execute_in_conda_env(conda_env_path, command)
             else:
-                scoring_server._predict(local_path, input_path, output_path, content_type)
+                scoring_server._predict(local_path, input_path, output_path, content_type,
+                                        json_format)
 
     def serve(self, model_uri, port, host, no_conda, **kwargs):
         with TempDir() as tmp:
@@ -30,7 +42,7 @@ class PyFuncBackend(FlavorBackend):
             if not no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
                 command = "python {0} serve {1} {2} {3}".format(scoring_server.__file__,
-                                                               local_path, port, host)
+                                                                local_path, port, host)
                 return scoring_server._execute_in_conda_env(conda_env_path, command)
             else:
                 scoring_server._serve(local_path, port, host)

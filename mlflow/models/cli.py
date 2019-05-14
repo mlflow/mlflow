@@ -48,16 +48,27 @@ def serve(model_uri, port, host, no_conda=False):
               help="File to output results to as CSV file. If not provided, output to stdout.")
 @click.option("--content-type", "-t", default="json",
               help="Content type of the input file. Can be one of {'json', 'csv'}.")
+@click.option("--json-format", "-j", default="split",
+              help="Only applies if the conten type is 'json'. Specify the how the data is "
+                   "encoded.  Can be one of {'split', 'records'} mirroring the behavior of Pandas "
+                   "orient attribute. The default is 'split' which expects dict like data: "
+                   "{‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values]}, where index "
+                   "is optional. For more information see "
+                   "https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json"
+                   ".html")
 @cli_args.NO_CONDA
-def predict(model_uri, input_path, output_path, content_type, no_conda):
+def predict(model_uri, input_path, output_path, content_type, json_format, no_conda):
     """
     Load a pandas DataFrame and runs a python_function model saved with MLflow against it.
     Return the prediction results as a CSV-formatted pandas DataFrame.
     """
+    if content_type == "json" and json_format not in ("split", "records"):
+        raise Exception("Unsupported json format '{}'.".format(json_format))
     return _get_flavor_backend(model_uri, no_conda).predict(model_uri=model_uri,
                                                             input_path=input_path,
                                                             output_path=output_path,
                                                             content_type=content_type,
+                                                            json_format=json_format,
                                                             no_conda=no_conda)
 
 

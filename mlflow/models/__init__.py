@@ -22,8 +22,6 @@ import yaml
 
 import mlflow
 from mlflow.utils.file_utils import TempDir
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-import posixpath
 
 
 class Model(object):
@@ -93,13 +91,39 @@ class FlavorBackend(object):
         self._config = config
 
     @abstractmethod
-    def predict(self, model_uri, input_path, output_path, **kwargs):
+    def predict(self, model_uri, input_path, output_path, json_format, **kwargs):
+        """
+        Generate predictions using a saved MLflow model referenced by the given URI.
+        Input and output are read from and written to a file or stdin / stdout.
+
+        :param model_uri: URI pointing to the MLflow model to be used for scoring.
+        :param input_path: Path to the file with input data. If not specified, data is read from
+                           stdin.
+        :param output_path: Path to the file with output predictions. If not specified, data is
+                            written to stdin.
+        :param json_format:
+        :param kwargs:
+        :return:
+        """
         pass
 
     @abstractmethod
     def serve(self, model_uri, port, host, **kwargs):
+        """
+        Serve saved MLflow model locally.
+        :param model_uri: URI pointing to the MLflow model to be used for scoring.
+        :param port: Port to deploy the model to.
+        :param host: Host to use for the model deployment. Defaults to 'localhost'.
+        :param kwargs: Any additional arguments for the flavor backend.
+        """
         pass
 
     @abstractmethod
     def can_score_model(self, **kwargs):
+        """
+        Check whether this flavor backend can be deployed in the current environment.
+
+        :param kwargs: Any extra arguments the flavors might need.
+        :return: True if this flavor backend can be applied int he current environment.
+        """
         pass
