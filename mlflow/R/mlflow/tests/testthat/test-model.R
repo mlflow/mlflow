@@ -1,9 +1,11 @@
 context("Model")
 
+library("carrier")
+
 test_that("mlflow can save model function", {
   mlflow_clear_test_dir("model")
   model <- lm(Sepal.Width ~ Sepal.Length, iris)
-  fn <- crate(~ stats::predict(model, .x), model)
+  fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn, "model")
   expect_true(dir.exists("model"))
   temp_in <- tempfile(fileext = ".csv")
@@ -23,7 +25,7 @@ test_that("mlflow can save model function", {
 test_that("mlflow can write model with dependencies", {
   mlflow_clear_test_dir("model")
   model <- lm(Sepal.Width ~ Sepal.Length, iris)
-  fn <- crate(~ stats::predict(model, .x), model)
+  fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn, "model", conda_env = "conda.yaml")
   mlmodel <- yaml::read_yaml("model/MLmodel")
   expect_equal(

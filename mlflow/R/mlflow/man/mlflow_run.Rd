@@ -2,7 +2,7 @@
 % Please edit documentation in R/project-run.R
 \name{mlflow_run}
 \alias{mlflow_run}
-\title{Run in MLflow}
+\title{Run an MLflow Project}
 \usage{
 mlflow_run(entry_point = NULL, uri = ".", version = NULL,
   param_list = NULL, experiment_id = NULL, experiment_name = NULL,

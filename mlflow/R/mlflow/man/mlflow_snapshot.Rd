@@ -2,7 +2,7 @@
 % Please edit documentation in R/project-snapshot.R
 \name{mlflow_snapshot}
 \alias{mlflow_snapshot}
-\title{Dependencies Snapshot}
+\title{Create Dependency Snapshot}
 \usage{
 mlflow_snapshot()
 }

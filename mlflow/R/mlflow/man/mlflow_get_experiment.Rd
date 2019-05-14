@@ -4,19 +4,19 @@
 \alias{mlflow_get_experiment}
 \title{Get Experiment}
 \usage{
-mlflow_get_experiment(name = NULL, experiment_id = NULL,
+mlflow_get_experiment(experiment_id = NULL, name = NULL,
   client = NULL)
 }
 \arguments{
-\item{name}{The experiment name, either this or `experiment_id` should be specified.}
+\item{experiment_id}{Identifer to get an experiment.}
 
-\item{experiment_id}{Identifer to get an experiment. Attempts to obtain the active experiment
-if not provided.}
+\item{name}{The experiment name. Only one of `name` or `experiment_id` should be specified.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
-Gets metadata for an experiment and a list of runs for the experiment.
+Gets metadata for an experiment and a list of runs for the experiment. Attempts to obtain the
+active experiment if both `experiment_id` and `name` are unspecified.
 }
 \details{
 When `client` is not specified, these functions attempt to infer the current active client.

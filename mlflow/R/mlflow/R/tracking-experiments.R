@@ -1,6 +1,6 @@
 #' Create Experiment
 #'
-#' Creates an MLflow experiment.
+#' Creates an MLflow experiment and returns its id.
 #'
 #' @param name The name of the experiment to create.
 #' @param artifact_location Location where all artifacts for this experiment are stored. If
@@ -18,7 +18,7 @@ mlflow_create_experiment <- function(name, artifact_location = NULL, client = NU
       artifact_location = artifact_location
     )
   )
-  mlflow_get_experiment(client = client, experiment_id = response$experiment_id)
+  response$experiment_id
 }
 
 #' List Experiments
@@ -48,15 +48,15 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 
 #' Get Experiment
 #'
-#' Gets metadata for an experiment and a list of runs for the experiment.
+#' Gets metadata for an experiment and a list of runs for the experiment. Attempts to obtain the
+#' active experiment if both `experiment_id` and `name` are unspecified.
 #'
 #'
-#' @param name The experiment name, either this or `experiment_id` should be specified.
-#' @param experiment_id Identifer to get an experiment. Attempts to obtain the active experiment
-#'   if not provided.
+#' @param experiment_id Identifer to get an experiment.
+#' @param name The experiment name. Only one of `name` or `experiment_id` should be specified.
 #' @template roxlate-client
 #' @export
-mlflow_get_experiment <- function(name = NULL, experiment_id = NULL, client = NULL) {
+mlflow_get_experiment <- function(experiment_id = NULL, name = NULL, client = NULL) {
   if (!is.null(name) && !is.null(experiment_id)) {
     stop("Only one of `name` or `experiment_id` should be specified.", call. = FALSE)
   }
@@ -105,8 +105,9 @@ mlflow_delete_experiment <- function(experiment_id, client = NULL) {
     "experiments", "delete",
     verb = "POST", client = client,
     data = list(experiment_id = experiment_id)
+
   )
-  mlflow_get_experiment(experiment_id = experiment_id)
+  invisible(NULL)
 }
 
 
@@ -129,7 +130,7 @@ mlflow_restore_experiment <- function(experiment_id, client = NULL) {
     client = client, verb = "POST",
     data = list(experiment_id = experiment_id)
   )
-  mlflow_get_experiment(experiment_id = experiment_id)
+  invisible(NULL)
 }
 
 #' Rename Experiment
@@ -152,16 +153,14 @@ mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NU
       new_name = new_name
     )
   )
-  experiment <- mlflow_get_experiment(experiment_id)
-
-  experiment
+  invisible(NULL)
 }
 
 #' Set Experiment
 #'
 #' Sets an experiment as the active experiment. Either the name or ID of the experiment can be provided.
 #'   If the a name is provided but the experiment does not exist, this function creates an experiment
-#'   with provided name.
+#'   with provided name. Returns the ID of the active experiment.
 #'
 #' @param experiment_name Name of experiment to be activated.
 #' @param experiment_id ID of experiment to be activated.
@@ -182,18 +181,17 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
 
   client <- mlflow_client()
 
-  experiment <- if (!is.null(experiment_name)) {
+  final_experiment_id <- if (!is.null(experiment_name)) {
     tryCatch(
-      mlflow_get_experiment(client = client, name = experiment_name),
+      mlflow_id(mlflow_get_experiment(client = client, name = experiment_name)),
       error = function(e) {
         message("Experiment `", experiment_name, "` does not exist. Creating a new experiment.")
         mlflow_create_experiment(client = client, name = experiment_name, artifact_location = artifact_location)
       }
     )
   } else {
-    mlflow_get_experiment(client = client, experiment_id = experiment_id)
+    experiment_id
   }
 
-  mlflow_set_active_experiment_id(mlflow_id(experiment))
-  experiment
+  invisible(mlflow_set_active_experiment_id(final_experiment_id))
 }
