@@ -67,7 +67,7 @@ export class MetricsPlotView extends React.Component {
     return props;
   };
 
-  getDataForBarChart = () => {
+  getPlotPropsForBarChart = () => {
     /* eslint-disable no-param-reassign */
     const { runUuids, runDisplayNames, yAxisLogScale } = this.props;
 
@@ -108,7 +108,7 @@ export class MetricsPlotView extends React.Component {
   render() {
     const plotProps =
       this.props.chartType === CHART_TYPE_BAR
-        ? this.getDataForBarChart()
+        ? this.getPlotPropsForBarChart()
         : this.getPlotPropsForLineChart();
     return (
       <div className='metrics-plot-view-container'>
