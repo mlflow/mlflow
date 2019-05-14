@@ -22,11 +22,13 @@ export class MetricsPlotView extends React.Component {
     lineSmoothness: PropTypes.number,
   };
 
-  getLineLegend = (metricKey, runDisplayName) =>
-    `${metricKey}` +
-    (this.props.isComparing
-      ? `, ${Utils.truncateString(runDisplayName, MAX_RUN_NAME_DISPLAY_LENGTH)}`
-      : '');
+  getLineLegend = (metricKey, runDisplayName) => {
+    let legend = metricKey;
+    if (this.props.isComparing) {
+      legend += Utils.truncateString(runDisplayName, MAX_RUN_NAME_DISPLAY_LENGTH);
+    }
+    return legend;
+  };
 
   parseTimestamp = (timestamp, history, xAxis) => {
     if (xAxis === X_AXIS_RELATIVE) {
@@ -68,7 +70,7 @@ export class MetricsPlotView extends React.Component {
     /* eslint-disable no-param-reassign */
     const { runUuids, runDisplayNames, yAxisLogScale } = this.props;
 
-    // create reverse lookup of metricKey: { runUuid: value, metricKey } for chart coords-gen below
+    // A reverse lookup of `metricKey: { runUuid: value, metricKey }`
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
       const { runUuid, metricKey, history } = metric;
       const value = history[0] && history[0].value;
@@ -79,19 +81,23 @@ export class MetricsPlotView extends React.Component {
       }
       return map;
     }, {});
+
     const arrayOfHistorySortedByMetricKey = _.sortBy(
       Object.values(historyByMetricKey),
       'metricKey',
     );
+
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map(
       (history) => history.metricKey,
     );
+
     const data = runUuids.map((runUuid, i) => ({
       name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
       x: sortedMetricKeys,
       y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
       type: 'bar',
     }));
+
     const layout = { barmode: 'group' };
     const props = { data, layout };
     if (yAxisLogScale) {
