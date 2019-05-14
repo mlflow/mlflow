@@ -53,13 +53,6 @@ class Model(object):
         with open(path, 'w') as out:
             self.to_yaml(out)
 
-    def get_flavor_backend(self):
-        for flavor_name, flavor_config in self.flavors:
-            backend = get_flavor_backend(flavor_name, flavor_config)
-            if backend:
-                return backend
-        return None
-
     @classmethod
     def load(cls, path):
         """Load a model from its YAML representation."""
@@ -86,13 +79,6 @@ class Model(object):
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
-
-
-def _load_model_spec_from_uri(model_uri):
-    with TempDir as tmp:
-        local_path = _download_artifact_from_uri(artifact_uri=posixpath.join(model_uri, "MLmodel"),
-                                                 output_path=tmp.path())
-        return Model.load(local_path)
 
 
 class FlavorBackend(object):
