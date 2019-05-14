@@ -923,16 +923,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-Restore Snapshot
-================
-
-Restores a snapshot of all dependencies required to run the files in the
-current directory.
-
-.. code:: r
-
-   mlflow_restore_snapshot()
-
 Predict using RFunc MLflow Model
 ================================
 
@@ -1411,16 +1401,6 @@ Arguments
 +==========+======================================+
 | ``uri``  | The URI to the remote MLflow server. |
 +----------+--------------------------------------+
-
-Create Dependency Snapshot
-==========================
-
-Creates a snapshot of all dependencies required to run the files in the
-current directory.
-
-.. code:: r
-
-   mlflow_snapshot()
 
 Source a Script with MLflow Params
 ==================================
