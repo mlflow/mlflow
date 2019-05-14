@@ -26,7 +26,8 @@ mlflow_conda_env_name <- function() {
 mlflow_install <- function() {
   packages <- c(
     "pandas",
-    "mlflow"
+    # Install the latest Python MLflow package with version <= the current R package version
+    paste("mlflow", "<=", mlflow_version(), sep = "")
   )
   conda <- mlflow_conda_bin()
   conda_env_name <- mlflow_conda_env_name()
