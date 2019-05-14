@@ -155,7 +155,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
                    "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
-def ui(backend_store_uri, default_artifact_root, host, port):
+def ui(backend_store_uri, default_artifact_root, port):
     """
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
