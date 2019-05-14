@@ -43,11 +43,12 @@ export class MetricsPlotView extends React.Component {
       const isSingleHistory = history.length === 0;
       return {
         name: this.getLineLegend(metricKey, runDisplayName),
-        x: history.map((entry) =>
-          xAxis === X_AXIS_STEP
-            ? entry.step
-            : this.parseTimestamp(entry.timestamp, history, xAxis),
-        ),
+        x: history.map((entry) => {
+          if (xAxis === X_AXIS_STEP) {
+            return entry.step;
+          }
+          return this.parseTimestamp(entry.timestamp, history, xAxis);
+        }),
         y: history.map((entry) => entry.value),
         type: 'scatter',
         mode: isSingleHistory ? 'markers' : showDot ? 'lines+markers' : 'lines',
@@ -62,6 +63,7 @@ export class MetricsPlotView extends React.Component {
     }
     return props;
   };
+
 
   getDataForBarChart = () => {
     /* eslint-disable no-param-reassign */

@@ -98,6 +98,7 @@ class MetricsPlotPanel extends React.Component {
   };
 
   getMetrics = () => {
+    /* eslint-disable no-param-reassign */
     const selectedMetricsSet = new Set(this.state.selectedMetricKeys);
     const { selectedXAxis } = this.state;
     const { metricsWithRunInfoAndHistory } = this.props;
