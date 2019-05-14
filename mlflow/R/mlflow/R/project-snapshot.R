@@ -1,4 +1,4 @@
-#' Dependencies Snapshot
+#' Create Dependency Snapshot
 #'
 #' Creates a snapshot of all dependencies required to run the files in the
 #' current directory.
