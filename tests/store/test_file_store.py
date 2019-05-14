@@ -311,7 +311,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info.pop("tags")
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
                 dict_run_info['status'] = RunStatus.to_string(dict_run_info['status'])
-            self.assertEqual(dict_run_info, dict(run_info))
+                self.assertEqual(dict_run_info, dict(run_info))
 
     def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):
         fs = FileStore(self.test_root)
