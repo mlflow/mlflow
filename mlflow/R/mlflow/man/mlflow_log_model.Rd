@@ -4,10 +4,10 @@
 \alias{mlflow_log_model}
 \title{Log Model}
 \usage{
-mlflow_log_model(fn, artifact_path)
+mlflow_log_model(model, artifact_path)
 }
 \arguments{
-\item{fn}{The serving function that will perform a prediction.}
+\item{model}{The model that will perform a prediction.}
 
 \item{artifact_path}{Destination path where this MLflow compatible model
 will be saved.}
