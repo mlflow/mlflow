@@ -61,7 +61,7 @@ model with the ``sklearn`` flavor:
 
 .. code-block:: bash
 
-    mlflow sklearn serve my_model
+    mlflow models serve my_model
 
 In addition, the ``mlflow sagemaker`` command-line tool can package and deploy models to AWS
 SageMaker as long as they support the ``python_function`` flavor:

@@ -179,14 +179,22 @@ def init(model):
 
 def _predict(local_path, input_path, output_path, content_type, json_format):
     pyfunc_model = mlflow.pyfunc.load_pyfunc(local_path)
+    if input_path is None:
+        input_path = sys.stdin
+
     if content_type == "json":
         df = parse_json_input(input_path, orient=json_format)
+        print(df)
     elif content_type == "csv":
         df = parse_csv_input(input_path)
     else:
         raise Exception("Unknown content type '{}'".format(content_type))
-    with open(output_path, "w") as fout:
-        predictions_to_json(pyfunc_model.predict(df), fout)
+
+    if output_path is None:
+        predictions_to_json(pyfunc_model.predict(df), sys.stdout)
+    else:
+        with open(output_path, "w") as fout:
+            predictions_to_json(pyfunc_model.predict(df), fout)
 
 
 def _serve(local_path, port, host):
