@@ -82,24 +82,15 @@ mlflow_predict_model <- function(model, data) {
 #' @export
 mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()) {
   model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)
-  supported_flavors <- supported_model_flavors()
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
-  available_flavors <- intersect(names(spec$flavors), supported_flavors)
+  available_flavors <- spec$flavors
 
   if (length(available_flavors) == 0) {
     stop(
-      "Model does not contain any flavor supported by mlflow/R. ",
-      "Model flavors: ",
-      paste(names(spec$flavors), collapse = ", "),
-      ". Supported flavors: ",
-      paste(supported_flavors, collapse = ", "))
+      "Model is malformed; could not find any flavors")
   }
 
   if (!is.null(flavor)) {
-    if (!flavor %in% supported_flavors) {
-      stop("Invalid flavor.", paste("Supported flavors:",
-                              paste(supported_flavors, collapse = ", ")))
-    }
     if (!flavor %in% available_flavors) {
       stop("Model does not contain requested flavor. ",
            paste("Available flavors:", paste(available_flavors, collapse = ", ")))
@@ -189,10 +180,4 @@ mlflow_rfunc_predict <- function(
       stop("Unsupported output file format.")
     )
   }
-}
-
-
-
-supported_model_flavors <- function() {
-  purrr::map(utils::methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
 }

@@ -800,35 +800,43 @@ Log Metric
 
 Logs a metric for a run. Metrics key-value pair that records a single
 float measure. During a single execution of a run, a particular metric
-can be logged several times. Backend will keep track of historical
-values along with timestamps.
+can be logged several times. The MLflow Backend keeps track of
+historical metric values along two axes: timestamp and step.
 
 .. code:: r
 
-   mlflow_log_metric(key, value, timestamp = NULL, run_id = NULL,
-     client = NULL)
+   mlflow_log_metric(key, value, timestamp = NULL, step = NULL,
+     run_id = NULL, client = NULL)
 
 .. _arguments-20:
 
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``key``                           | Name of the metric.               |
-+-----------------------------------+-----------------------------------+
-| ``value``                         | Float value for the metric being  |
-|                                   | logged.                           |
-+-----------------------------------+-----------------------------------+
-| ``timestamp``                     | Unix timestamp in milliseconds at |
-|                                   | the time metric was logged.       |
-+-----------------------------------+-----------------------------------+
-| ``run_id``                        | Run ID.                           |
-+-----------------------------------+-----------------------------------+
-| ``client``                        | (Optional) An ``mlflow_client``   |
-|                                   | object.                           |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``key``                       | Name of the metric.                  |
++-------------------------------+--------------------------------------+
+| ``value``                     | Float value for the metric being     |
+|                               | logged.                              |
++-------------------------------+--------------------------------------+
+| ``timestamp``                 | Timestamp at which to log the        |
+|                               | metric. Timestamp is rounded to the  |
+|                               | nearest integer. If unspecified, the |
+|                               | number of milliseconds since the     |
+|                               | Unix epoch is used.                  |
++-------------------------------+--------------------------------------+
+| ``step``                      | Step at which to log the metric.     |
+|                               | Step is rounded to the nearest       |
+|                               | integer. If unspecified, the default |
+|                               | value of zero is used.               |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 
 .. _details-15:
 
@@ -1302,15 +1310,16 @@ Value
 
 The run associated with this run.
 
-Save MLflow Keras Model Flavor
-==============================
+Save MLflow Model Flavor
+========================
 
-Saves model in MLflow Keras flavor.
+Saves model in MLflow flavor, to be used by package authors to extend
+the supported MLflow models.
 
 .. code:: r
 
-   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(x,
-     path = "model", r_dependencies = NULL, conda_env = NULL)
+   mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
+     conda_env = NULL)
 
 .. _arguments-32:
 
@@ -1342,47 +1351,6 @@ Value
 This function must return a list of flavors that conform to the MLmodel
 specification.
 
-Save MLflow Model Flavor
-========================
-
-Saves model in MLflow flavor, to be used by package authors to extend
-the supported MLflow models.
-
-.. code:: r
-
-   mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
-     conda_env = NULL)
-
-.. _arguments-33:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``x``                         | The serving function or model that   |
-|                               | will perform a prediction.           |
-+-------------------------------+--------------------------------------+
-| ``path``                      | Destination path where this MLflow   |
-|                               | compatible model will be saved.      |
-+-------------------------------+--------------------------------------+
-| ``r_dependencies``            | Optional vector of paths to          |
-|                               | dependency files to include in the   |
-|                               | model, as in ``r-dependencies.txt``  |
-|                               | or ``conda.yaml`` .                  |
-+-------------------------------+--------------------------------------+
-| ``conda_env``                 | Path to Conda dependencies file.     |
-+-------------------------------+--------------------------------------+
-
-.. _value-3:
-
-Value
------
-
-This function must return a list of flavors that conform to the MLmodel
-specification.
-
 Save Model for MLflow
 =====================
 
@@ -1394,7 +1362,7 @@ serving.
    mlflow_save_model(x, path = "model", r_dependencies = NULL,
      conda_env = NULL)
 
-.. _arguments-34:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1427,7 +1395,7 @@ Metric and Param keys.
    mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
      "DELETED_ONLY", "ALL"), experiment_ids = NULL, client = NULL)
 
-.. _arguments-35:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1472,7 +1440,7 @@ Wrapper for ``mlflow server``.
      host = "127.0.0.1", port = 5000, workers = 4,
      static_prefix = NULL)
 
-.. _arguments-36:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1512,7 +1480,7 @@ provided name.
    mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
      artifact_location = NULL)
 
-.. _arguments-37:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1540,7 +1508,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-38:
+.. _arguments-37:
 
 Arguments
 ---------
@@ -1579,7 +1547,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-39:
+.. _arguments-38:
 
 Arguments
 ---------
@@ -1610,7 +1578,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-40:
+.. _arguments-39:
 
 Arguments
 ---------
@@ -1635,7 +1603,7 @@ no inference is done, and additional arguments such as ``user_id`` and
    mlflow_start_run(run_id = NULL, experiment_id = NULL, user_id = NULL,
      start_time = NULL, tags = NULL, client = NULL)
 
-.. _arguments-41:
+.. _arguments-40:
 
 Arguments
 ---------
@@ -1715,7 +1683,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(x, ...)
 
-.. _arguments-42:
+.. _arguments-41:
 
 Arguments
 ---------
