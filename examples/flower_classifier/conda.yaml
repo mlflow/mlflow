@@ -7,8 +7,10 @@ dependencies:
   - numpy==1.14.2
   - keras==2.2.4
   - pandas
+  - tensorflow
   - pip:
-    - tensorflow-gpu==1.10.0
+    # - tensorflow-gpu==1.10.0
+    # - tensorflow-gpu==1.10.0
     - mlflow
     - click==6.7
     - scikit-learn

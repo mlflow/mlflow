@@ -149,7 +149,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(h2o_iris_model, model_path):
-    conda_env = dict(mlflow.h2o.DEFAULT_CONDA_ENV)
+    conda_env = dict(mlflow.h2o.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=conda_env)
 
@@ -195,7 +195,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.h2o.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.h2o.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -212,7 +212,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.h2o.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.h2o.get_default_conda_env()
 
 
 @pytest.mark.release

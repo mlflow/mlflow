@@ -16,7 +16,6 @@ import yaml
 import logging
 
 import pandas
-import tensorflow as tf
 
 import mlflow
 from mlflow import pyfunc
@@ -31,16 +30,21 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "tensorflow"
 
-DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=[
-        "tensorflow={}".format(tf.__version__),
-    ],
-    additional_pip_deps=None,
-    additional_conda_channels=None,
-)
-
-
 _logger = logging.getLogger(__name__)
+
+
+def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+    :func:`save_model()` and :func:`log_model()`.
+    """
+    import tensorflow as tf
+    return _mlflow_conda_env(
+        additional_conda_deps=[
+            "tensorflow={}".format(tf.__version__),
+        ],
+        additional_pip_deps=None,
+        additional_conda_channels=None)
 
 
 @keyword_only
@@ -68,10 +72,9 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If ``None``, the default
-                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`get_default_conda_env()` environment is added to the model. The
+                      following is an *example* dictionary representation of a Conda environment::
 
                         {
                             'name': 'mlflow-env',
@@ -110,14 +113,13 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.savedmodelbuilder`` method.
     :param path: Local path where the MLflow model is to be saved.
-    :param mlflow_model: MLflow model configuration to which this flavor will be added.
+    :param mlflow_model: MLflow model configuration to which to add the ``tensorflow`` flavor.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.tensorflow.DEFAULT_CONDA_ENV``. If ``None``, the default
-                      ``mlflow.tensorflow.DEFAULT_CONDA_ENV`` environment will be added to the
-                      model. The following is an *example* dictionary representation of a Conda
-                      environment::
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`get_default_conda_env()` environment is added to the model. The
+                      following is an *example* dictionary representation of a Conda environment::
 
                         {
                             'name': 'mlflow-env',
@@ -146,7 +148,7 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = DEFAULT_CONDA_ENV
+        conda_env = get_default_conda_env()
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -163,8 +165,10 @@ def save_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, pat
 def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key):
     """
     Validate the TensorFlow SavedModel by attempting to load it in a new TensorFlow graph.
-    If the loading process fails, any exceptions thrown by TensorFlow will be propagated.
+    If the loading process fails, any exceptions thrown by TensorFlow are propagated.
     """
+    import tensorflow as tf
+
     validation_tf_graph = tf.Graph()
     validation_tf_sess = tf.Session(graph=validation_tf_graph)
     with validation_tf_graph.as_default():
@@ -237,6 +241,8 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags
              ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines input and
              output tensors within the specified metagraph for inference.
     """
+    import tensorflow as tf
+
     meta_graph_def = tf.saved_model.loader.load(
             sess=tf_sess,
             tags=tf_meta_graph_tags,
@@ -274,6 +280,8 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     """
+    import tensorflow as tf
+
     tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key =\
         _get_and_parse_flavor_configuration(model_path=path)
 

@@ -382,7 +382,7 @@ def test_save_model_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_save_model_accepts_conda_env_as_dict(saved_tf_iris_model, model_path):
-    conda_env = dict(mlflow.tensorflow.DEFAULT_CONDA_ENV)
+    conda_env = dict(mlflow.tensorflow.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
@@ -440,7 +440,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.tensorflow.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.tensorflow.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -463,7 +463,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.tensorflow.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.tensorflow.get_default_conda_env()
 
 
 @pytest.mark.large

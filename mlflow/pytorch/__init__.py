@@ -18,8 +18,6 @@ import yaml
 import cloudpickle
 import numpy as np
 import pandas as pd
-import torch
-import torchvision
 
 import mlflow
 import mlflow.pyfunc.utils as pyfunc_utils
@@ -35,26 +33,34 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "pytorch"
 
-DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=[
-        "pytorch={}".format(torch.__version__),
-        "torchvision={}".format(torchvision.__version__),
-    ],
-    additional_pip_deps=[
-        # We include CloudPickle in the default environment because
-        # it's required by the default pickle module used by `save_model()`
-        # and `log_model()`: `mlflow.pytorch.pickle_module`.
-        "cloudpickle=={}".format(cloudpickle.__version__)
-    ],
-    additional_conda_channels=[
-        "pytorch",
-    ],
-)
-
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
 _PICKLE_MODULE_INFO_FILE_NAME = "pickle_module_info.txt"
 
 _logger = logging.getLogger(__name__)
+
+
+def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+    :func:`save_model()` and :func:`log_model()`.
+    """
+    import torch
+    import torchvision
+
+    return _mlflow_conda_env(
+        additional_conda_deps=[
+            "pytorch={}".format(torch.__version__),
+            "torchvision={}".format(torchvision.__version__),
+        ],
+        additional_pip_deps=[
+            # We include CloudPickle in the default environment because
+            # it's required by the default pickle module used by `save_model()`
+            # and `log_model()`: `mlflow.pytorch.pickle_module`.
+            "cloudpickle=={}".format(cloudpickle.__version__)
+        ],
+        additional_conda_channels=[
+            "pytorch",
+        ])
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
@@ -77,10 +83,9 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.pytorch.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.pytorch.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model. The
+                      following is an *example* dictionary representation of a Conda environment::
 
                         {
                             'name': 'mlflow-env',
@@ -93,11 +98,11 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
                         }
 
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files will be *prepended* to the system
+                       containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
     :param pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
-                          ``pytorch_model``. This will be passed as the ``pickle_module`` parameter
-                          to ``torch.save()``. By default, this module will also be used to
+                          ``pytorch_model``. This is passed as the ``pickle_module`` parameter
+                          to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -168,10 +173,9 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.pytorch.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.pytorch.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda
-                      environment::
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model. The
+                      following is an *example* dictionary representation of a Conda environment::
 
                         {
                             'name': 'mlflow-env',
@@ -185,11 +189,11 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
 
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
-                       containing file dependencies). These files will be *prepended* to the system
+                       containing file dependencies). These files are *prepended* to the system
                        path when the model is loaded.
     :param pickle_module: The module that PyTorch should use to serialize ("pickle") the specified
-                          ``pytorch_model``. This will be passed as the ``pickle_module`` parameter
-                          to ``torch.save()``. By default, this module will also be used to
+                          ``pytorch_model``. This is passed as the ``pickle_module`` parameter
+                          to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
@@ -208,6 +212,8 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     >>>   mlflow.log_param("epochs", 500)
     >>>   mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
     """
+    import torch
+
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
 
@@ -235,7 +241,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = DEFAULT_CONDA_ENV
+        conda_env = get_default_conda_env()
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -262,6 +268,8 @@ def _load_model(path, **kwargs):
     :param path: The path to a serialized PyTorch model.
     :param kwargs: Additional kwargs to pass to the PyTorch ``torch.load`` function.
     """
+    import torch
+
     if os.path.isdir(path):
         # `path` is a directory containing a serialized PyTorch model and a text file containing
         # information about the pickle module that should be used by PyTorch to load it
@@ -319,6 +327,8 @@ def load_model(model_uri, **kwargs):
     >>> pytorch_model = mlflow.pytorch.load_model(model_path_dir, run_id)
     >>> y_pred = pytorch_model(x_new_data)
     """
+    import torch
+
     local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     try:
         pyfunc_conf = _get_flavor_configuration(
@@ -357,6 +367,8 @@ class _PyTorchWrapper(object):
         self.pytorch_model = pytorch_model
 
     def predict(self, data, device='cpu'):
+        import torch
+
         if not isinstance(data, pd.DataFrame):
             raise TypeError("Input data should be pandas.DataFrame")
         self.pytorch_model.to(device)

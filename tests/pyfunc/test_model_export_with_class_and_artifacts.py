@@ -445,7 +445,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.pyfunc.model.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.pyfunc.model.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -474,7 +474,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.pyfunc.model.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.pyfunc.model.get_default_conda_env()
 
 
 @pytest.mark.large
