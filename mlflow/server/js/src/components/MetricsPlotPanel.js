@@ -19,8 +19,11 @@ class MetricsPlotPanel extends React.Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricKey: PropTypes.string.isRequired,
+    // A map of { runUuid : { metricKey: value } }
     latestMetricsByRunUuid: PropTypes.object.isRequired,
+    // An array of distinct metric keys across all runUuids
     distinctMetricKeys: PropTypes.arrayOf(String).isRequired,
+    // An array of { metricKey, history, runUuid, runDisplayName, index }
     metricsWithRunInfoAndHistory: PropTypes.arrayOf(Object).isRequired,
     getMetricHistoryApi: PropTypes.func.isRequired,
     location: PropTypes.object.isRequired,
@@ -85,15 +88,6 @@ class MetricsPlotPanel extends React.Component {
     return requestIds;
   };
 
-  getAllMetricKeys = () => {
-    const { distinctMetricKeys } = this.props;
-    return distinctMetricKeys.map((metricKey) => ({
-      title: metricKey,
-      value: metricKey,
-      key: metricKey,
-    }));
-  };
-
   getMetrics = () => {
     /* eslint-disable no-param-reassign */
     const selectedMetricsSet = new Set(this.state.selectedMetricKeys);
@@ -134,7 +128,7 @@ class MetricsPlotPanel extends React.Component {
   handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
   render() {
-    const { runUuids, runDisplayNames } = this.props;
+    const { runUuids, runDisplayNames, distinctMetricKeys } = this.props;
     const {
       historyRequestIds,
       showDot,
@@ -148,7 +142,7 @@ class MetricsPlotPanel extends React.Component {
     return (
       <div className='metrics-plot-container'>
         <MetricsPlotControls
-          allMetricKeys={this.getAllMetricKeys()}
+          distinctMetricKeys={distinctMetricKeys}
           selectedXAxis={selectedXAxis}
           selectedMetricKeys={selectedMetricKeys}
           handleXAxisChange={this.handleXAxisChange}

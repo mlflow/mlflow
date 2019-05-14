@@ -15,6 +15,7 @@ export class MetricsPlotView extends React.Component {
     metrics: PropTypes.arrayOf(Object).isRequired,
     xAxis: PropTypes.string.isRequired,
     metricKeys: PropTypes.arrayOf(String).isRequired,
+    // Whether or not to show point markers on the line chart
     showDot: PropTypes.bool.isRequired,
     chartType: PropTypes.string.isRequired,
     isComparing: PropTypes.bool.isRequired,

@@ -12,7 +12,9 @@ export const X_AXIS_RELATIVE = 'relative';
 
 export class MetricsPlotControls extends React.Component {
   static propTypes = {
-    allMetricKeys: PropTypes.arrayOf(String).isRequired,
+    // An array of distinct metric keys to be shown as options
+    distinctMetricKeys: PropTypes.arrayOf(String).isRequired,
+    // An array of metric keys selected by user or indicated by URL
     selectedMetricKeys: PropTypes.arrayOf(String).isRequired,
     selectedXAxis: PropTypes.string.isRequired,
     handleXAxisChange: PropTypes.func.isRequired,
@@ -25,6 +27,15 @@ export class MetricsPlotControls extends React.Component {
 
   handleMetricsSelectFilterChange = (text, option) =>
     option.props.title.toUpperCase().includes(text.toUpperCase());
+
+  getAllMetricKeys = () => {
+    const { distinctMetricKeys } = this.props;
+    return distinctMetricKeys.map((metricKey) => ({
+      title: metricKey,
+      value: metricKey,
+      key: metricKey,
+    }));
+  };
 
   render() {
     const { chartType } = this.props;
@@ -66,7 +77,7 @@ export class MetricsPlotControls extends React.Component {
           value={this.props.selectedMetricKeys}
           showCheckedStrategy={TreeSelect.SHOW_PARENT}
           treeCheckable
-          treeData={this.props.allMetricKeys}
+          treeData={this.props.getAllMetricKeys()}
           onChange={this.props.handleMetricsSelectChange}
           filterTreeNode={this.handleMetricsSelectFilterChange}
         />
