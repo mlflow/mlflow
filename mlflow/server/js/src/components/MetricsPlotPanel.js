@@ -205,11 +205,6 @@ const mapStateToProps = (state, ownProps) => {
       : [];
   });
 
-  // Utils.tuneHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  // Utils.tuneHistoryWall(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  // Utils.forceSingleHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  Utils.forceSingleHistoryExceptOne(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tunining
-
   return {
     runDisplayNames,
     latestMetricsByRunUuid,
