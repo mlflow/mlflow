@@ -55,8 +55,7 @@ class MetricsPlotPanel extends React.Component {
     return CHART_TYPE_LINE;
   }
 
-  static getPlotMetricKeysFromUrl = (search) =>
-    JSON.parse(qs.parse(search)['plot_metric_keys']);
+  static getPlotMetricKeysFromUrl = (search) => JSON.parse(qs.parse(search)['plot_metric_keys']);
 
   isComparing = () => {
     const params = qs.parse(this.props.location.search);
@@ -68,9 +67,7 @@ class MetricsPlotPanel extends React.Component {
     const { runUuids, metricKey, location, history } = this.props;
     const params = qs.parse(location.search);
     const experimentId = params['experiment'];
-    history.push(
-      Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys),
-    );
+    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
   }
 
   loadMetricHistory = (runUuids, metricKeys) => {
@@ -104,16 +101,12 @@ class MetricsPlotPanel extends React.Component {
     const { metricsWithRunInfoAndHistory } = this.props;
 
     // Take only selected metrics
-    const metrics = metricsWithRunInfoAndHistory.filter((m) =>
-      selectedMetricsSet.has(m.metricKey),
-    );
+    const metrics = metricsWithRunInfoAndHistory.filter((m) => selectedMetricsSet.has(m.metricKey));
 
     // Sort metric history based on selected x-axis
     metrics.forEach((metric) => {
       const isStep =
-        selectedXAxis === X_AXIS_STEP &&
-        metric.history[0] &&
-        _.isNumber(metric.history[0].step);
+        selectedXAxis === X_AXIS_STEP && metric.history[0] && _.isNumber(metric.history[0].step);
       metric.history = _.sortBy(metric.history, isStep ? ['step', 'timestamp'] : 'timestamp');
     });
     return metrics;

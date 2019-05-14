@@ -46,10 +46,7 @@ export class MetricsPlotControls extends React.Component {
               handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 500)}
             />
             <h3>X-axis:</h3>
-            <RadioGroup
-              onChange={this.props.handleXAxisChange}
-              value={this.props.selectedXAxis}
-            >
+            <RadioGroup onChange={this.props.handleXAxisChange} value={this.props.selectedXAxis}>
               <Radio className='x-axis-radio' value={X_AXIS_STEP}>
                 Step
               </Radio>

@@ -87,9 +87,7 @@ export class MetricsPlotView extends React.Component {
       'metricKey',
     );
 
-    const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map(
-      (history) => history.metricKey,
-    );
+    const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => history.metricKey);
 
     const data = runUuids.map((runUuid, i) => ({
       name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
