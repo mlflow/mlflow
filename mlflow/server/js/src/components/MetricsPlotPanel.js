@@ -58,7 +58,11 @@ class MetricsPlotPanel extends React.Component {
     return CHART_TYPE_LINE;
   }
 
-  static getPlotMetricKeysFromUrl = (search) => JSON.parse(qs.parse(search)['plot_metric_keys']);
+  static getPlotMetricKeysFromUrl = (search) => {
+    const params = qs.parse(search);
+    const plotMetricKeysStr = params && params['plot_metric_keys'];
+    return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
+  };
 
   isComparing = () => {
     const params = qs.parse(this.props.location.search);
