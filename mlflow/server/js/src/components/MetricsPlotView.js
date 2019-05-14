@@ -64,12 +64,11 @@ export class MetricsPlotView extends React.Component {
     return props;
   };
 
-
   getDataForBarChart = () => {
     /* eslint-disable no-param-reassign */
     const { runUuids, runDisplayNames, yAxisLogScale } = this.props;
 
-    // create a map of metricKey: { metricKey, runUuid: value }
+    // create reverse lookup of metricKey: { runUuid: value, metricKey } for chart coords-gen below
     const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
       const { runUuid, metricKey, history } = metric;
       const value = history[0] && history[0].value;
@@ -80,17 +79,17 @@ export class MetricsPlotView extends React.Component {
       }
       return map;
     }, {});
-    const arrayOfHistorySortedByMetricsKey = _.sortBy(
+    const arrayOfHistorySortedByMetricKey = _.sortBy(
       Object.values(historyByMetricKey),
       'metricKey',
     );
-    const sortedMetricKeys = arrayOfHistorySortedByMetricsKey.map(
+    const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map(
       (history) => history.metricKey,
     );
     const data = runUuids.map((runUuid, i) => ({
       name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
       x: sortedMetricKeys,
-      y: arrayOfHistorySortedByMetricsKey.map((history) => history[runUuid]),
+      y: arrayOfHistorySortedByMetricKey.map((history) => history[runUuid]),
       type: 'bar',
     }));
     const layout = { barmode: 'group' };
