@@ -2,7 +2,7 @@ import React from 'react';
 import Utils from '../utils/Utils';
 import _ from 'lodash';
 import PropTypes from 'prop-types';
-import { X_AXIS_STEP, X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
+import { X_AXIS_STEP, X_AXIS_RELATIVE } from './MetricsPlotControls';
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
 import Plot from 'react-plotly.js';
 
@@ -46,11 +46,11 @@ export class MetricsPlotView extends React.Component {
         x: history.map((entry) =>
           xAxis === X_AXIS_STEP
             ? entry.step
-            : this.parseTimestamp(entry.timestamp, history, xAxis)
+            : this.parseTimestamp(entry.timestamp, history, xAxis),
         ),
         y: history.map((entry) => entry.value),
         type: 'scatter',
-        mode: isSingleHistory ? 'markers' : (showDot ? 'lines+markers' : 'lines'),
+        mode: isSingleHistory ? 'markers' : showDot ? 'lines+markers' : 'lines',
         line: { shape: 'spline', smoothing: lineSmoothness },
       };
     });
@@ -61,7 +61,7 @@ export class MetricsPlotView extends React.Component {
       };
     }
     return props;
-  }
+  };
 
   getDataForBarChart = () => {
     /* eslint-disable no-param-reassign */
@@ -88,9 +88,7 @@ export class MetricsPlotView extends React.Component {
     const data = runUuids.map((runUuid, i) => ({
       name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
       x: sortedMetricKeys,
-      y: arrayOfHistorySortedByMetricsKey.map(
-        (history) => history[runUuid],
-      ),
+      y: arrayOfHistorySortedByMetricsKey.map((history) => history[runUuid]),
       type: 'bar',
     }));
     const layout = { barmode: 'group' };
@@ -101,19 +99,18 @@ export class MetricsPlotView extends React.Component {
     return props;
   };
 
-
-
   render() {
-    const plotProps = this.props.chartType === CHART_TYPE_BAR
-      ? this.getDataForBarChart()
-      : this.getPlotPropsForLineChart();
+    const plotProps =
+      this.props.chartType === CHART_TYPE_BAR
+        ? this.getDataForBarChart()
+        : this.getPlotPropsForLineChart();
     return (
       <div className='metrics-plot-view-container'>
         <Plot
           {...plotProps}
           useResizeHandler
-          style={{width: '100%', height: '100%'}}
-          layout={{...plotProps.layout, ...{ autosize: true }}}
+          style={{ width: '100%', height: '100%' }}
+          layout={{ ...plotProps.layout, ...{ autosize: true } }}
         />
       </div>
     );

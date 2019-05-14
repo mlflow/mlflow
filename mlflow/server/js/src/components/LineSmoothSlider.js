@@ -7,11 +7,11 @@ export class LineSmoothSlider extends React.Component {
     min: PropTypes.number.isRequired,
     max: PropTypes.number.isRequired,
     handleLineSmoothChange: PropTypes.func.isRequired,
-  }
+  };
 
   state = {
     inputValue: 0,
-  }
+  };
 
   onChange = (value) => {
     if (Number.isNaN(value)) {
@@ -21,7 +21,7 @@ export class LineSmoothSlider extends React.Component {
       inputValue: value,
     });
     this.props.handleLineSmoothChange(value);
-  }
+  };
 
   render() {
     const { min, max } = this.props;

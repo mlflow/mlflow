@@ -28,7 +28,7 @@ class MetricView extends Component {
             title={<span>{metricKey}</span>}
           />
         </div>
-        <MetricsPlotPanel {...{ runUuids, metricKey }}/>
+        <MetricsPlotPanel {...{ runUuids, metricKey }} />
       </div>
     );
   }
@@ -41,7 +41,6 @@ const mapStateToProps = (state, ownProps) => {
     const tags = getRunTags(runUuid, state);
     return Utils.getRunDisplayName(tags, runUuid);
   });
-
   return { experiment, runNames };
 };
 

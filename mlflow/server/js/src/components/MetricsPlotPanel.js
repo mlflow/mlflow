@@ -45,25 +45,32 @@ class MetricsPlotPanel extends React.Component {
 
   static predictChartType(metrics) {
     // Show bar chart when every metric has exactly 1 metric history
-    if (metrics && metrics.length && _.every(metrics, (m) => m.history && m.history.length === 1)) {
+    if (
+      metrics &&
+      metrics.length &&
+      _.every(metrics, (metric) => metric.history && metric.history.length === 1)
+    ) {
       return CHART_TYPE_BAR;
     }
     return CHART_TYPE_LINE;
   }
 
-  static getPlotMetricKeysFromUrl = (search) => JSON.parse(qs.parse(search)['plot_metric_keys']);
+  static getPlotMetricKeysFromUrl = (search) =>
+    JSON.parse(qs.parse(search)['plot_metric_keys']);
 
   isComparing = () => {
     const params = qs.parse(this.props.location.search);
-    const runs = params && params['?runs']
+    const runs = params && params['?runs'];
     return runs ? JSON.parse(runs).length > 1 : false;
-  }
+  };
 
   updateUrlWithSelectedMetrics(selectedMetricKeys) {
     const { runUuids, metricKey, location, history } = this.props;
     const params = qs.parse(location.search);
     const experimentId = params['experiment'];
-    history.push(Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys));
+    history.push(
+      Routes.getMetricPageRoute(runUuids, metricKey, experimentId, selectedMetricKeys),
+    );
   }
 
   loadMetricHistory = (runUuids, metricKeys) => {
@@ -96,22 +103,24 @@ class MetricsPlotPanel extends React.Component {
     const { metricsWithRunInfoAndHistory } = this.props;
 
     // Take only selected metrics
-    const metrics = metricsWithRunInfoAndHistory.filter((m) => selectedMetricsSet.has(m.metricKey));
+    const metrics = metricsWithRunInfoAndHistory.filter((m) =>
+      selectedMetricsSet.has(m.metricKey),
+    );
 
     // Sort metric history based on selected x-axis
-    metrics.forEach((m) => {
-      const isStep = selectedXAxis === X_AXIS_STEP && m.history[0] && _.isNumber(m.history[0].step);
-      m.history = _.sortBy(
-        m.history,
-        isStep ? ['step', 'timestamp'] : 'timestamp',
-      );
+    metrics.forEach((metric) => {
+      const isStep =
+        selectedXAxis === X_AXIS_STEP &&
+        metric.history[0] &&
+        _.isNumber(metric.history[0].step);
+      metric.history = _.sortBy(metric.history, isStep ? ['step', 'timestamp'] : 'timestamp');
     });
     return metrics;
   };
 
   handleYAxisLogScaleChange = (yAxisLogScale) => {
     this.setState({ yAxisLogScale });
-  }
+  };
 
   handleXAxisChange = (e) => {
     this.setState({ selectedXAxis: e.target.value });
@@ -186,6 +195,7 @@ const mapStateToProps = (state, ownProps) => {
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
 
   const runDisplayNames = [];
+
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
   const metricsWithRunInfoAndHistory = _.flatMap(runUuids, (runUuid) => {
