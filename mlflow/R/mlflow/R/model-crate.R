@@ -1,4 +1,3 @@
-#' @export
 mlflow_save_flavor.crate <- function(model, path = "model", conda_env=NULL) {
   serialized <- serialize(model, NULL)
 
@@ -23,12 +22,10 @@ mlflow_save_flavor.crate <- function(model, path = "model", conda_env=NULL) {
   res
 }
 
-#' @export
 mlflow_load_flavor.crate <- function(model_path) {
   unserialize(readRDS(file.path(model_path, "crate.bin")))
 }
 
-#' @export
 mlflow_predict_flavor.crate <- function(model, data) {
   model(data)
 }

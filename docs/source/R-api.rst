@@ -1294,42 +1294,6 @@ Value
 
 The run associated with this run.
 
-Save MLflow Keras Model Flavor
-==============================
-
-Saves model in MLflow Keras flavor.
-
-.. code:: r
-
-   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(model,
-     path = "model", conda_env = NULL)
-
-.. _arguments-32:
-
-Arguments
----------
-
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``path``                          | Destination path where this       |
-|                                   | MLflow compatible model will be   |
-|                                   | saved.                            |
-+-----------------------------------+-----------------------------------+
-| ``conda_env``                     | Path to Conda dependencies file.  |
-+-----------------------------------+-----------------------------------+
-| ``x``                             | The serving function or model     |
-|                                   | that will perform a prediction.   |
-+-----------------------------------+-----------------------------------+
-
-.. _value-2:
-
-Value
------
-
-This function must return a list of flavors that conform to the MLmodel
-specification.
-
 Save MLflow Model Flavor
 ========================
 
@@ -1340,7 +1304,7 @@ the supported MLflow models.
 
    mlflow_save_flavor(model, path = "model", conda_env = NULL)
 
-.. _arguments-33:
+.. _arguments-32:
 
 Arguments
 ---------
@@ -1358,7 +1322,7 @@ Arguments
 | ``conda_env``                     | Path to Conda dependencies file.  |
 +-----------------------------------+-----------------------------------+
 
-.. _value-3:
+.. _value-2:
 
 Value
 -----
@@ -1376,7 +1340,7 @@ serving.
 
    mlflow_save_model(model, path = "model", conda_env = NULL)
 
-.. _arguments-34:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1405,7 +1369,7 @@ Metric and Param keys.
    mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
      "DELETED_ONLY", "ALL"), experiment_ids = NULL, client = NULL)
 
-.. _arguments-35:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1450,7 +1414,7 @@ Wrapper for ``mlflow server``.
      host = "127.0.0.1", port = 5000, workers = 4,
      static_prefix = NULL)
 
-.. _arguments-36:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1490,7 +1454,7 @@ provided name.
    mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
      artifact_location = NULL)
 
-.. _arguments-37:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1518,7 +1482,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-38:
+.. _arguments-37:
 
 Arguments
 ---------
@@ -1557,7 +1521,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-39:
+.. _arguments-38:
 
 Arguments
 ---------
@@ -1578,7 +1542,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-40:
+.. _arguments-39:
 
 Arguments
 ---------
@@ -1603,7 +1567,7 @@ no inference is done, and additional arguments such as ``user_id`` and
    mlflow_start_run(run_id = NULL, experiment_id = NULL, user_id = NULL,
      start_time = NULL, tags = NULL, client = NULL)
 
-.. _arguments-41:
+.. _arguments-40:
 
 Arguments
 ---------
@@ -1683,7 +1647,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(x, ...)
 
-.. _arguments-42:
+.. _arguments-41:
 
 Arguments
 ---------

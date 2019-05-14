@@ -1,16 +1,15 @@
-#' Save MLflow Keras Model Flavor
-#'
-#' Saves model in MLflow Keras flavor.
-#'
-#' @param x The serving function or model that will perform a prediction.
-#' @param path Destination path where this MLflow compatible model
-#'   will be saved.
-#' @param conda_env Path to Conda dependencies file.
-#'
-#' @return This function must return a list of flavors that conform to
-#'   the MLmodel specification.
-#'
-#' @export
+# Save MLflow Keras Model Flavor
+#
+# Saves model in MLflow Keras flavor.
+#
+# @param x The serving function or model that will perform a prediction.
+# @param path Destination path where this MLflow compatible model
+#   will be saved.
+# @param conda_env Path to Conda dependencies file.
+#
+# @return This function must return a list of flavors that conform to
+#   the MLmodel specification.
+#
 mlflow_save_flavor.keras.engine.training.Model <- function(model,
                                                            path = "model",
                                                            conda_env=NULL) {
@@ -49,7 +48,6 @@ mlflow_save_flavor.keras.engine.training.Model <- function(model,
   append(keras_conf, pyfunc_conf)
 }
 
-#' @export
 mlflow_load_flavor.keras <- function(model_path) {
   if (!requireNamespace("keras", quietly = TRUE)) {
     stop("The 'keras' package must be installed.")
@@ -58,7 +56,6 @@ mlflow_load_flavor.keras <- function(model_path) {
   keras::load_model_hdf5(file.path(model_path, "model.h5"))
 }
 
-#' @export
 mlflow_predict_flavor.keras.engine.training.Model <- function(model, data) {
   if (!requireNamespace("keras", quietly = TRUE)) {
     stop("The 'keras' package must be installed.")
