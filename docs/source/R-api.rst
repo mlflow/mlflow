@@ -511,6 +511,9 @@ Arguments
 |                               | in case there are multiple flavors   |
 |                               | available.                           |
 +-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 
 .. _details-12:
 
@@ -526,6 +529,9 @@ following are examples of valid model uris: -
 - ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
 information about supported URI schemes, see the Artifacts Documentation
 ``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 Seealso
 -------
@@ -1146,14 +1152,14 @@ Arguments
 +-----------------------------------+-----------------------------------+
 | Argument                          | Description                       |
 +===================================+===================================+
+| ``model``                         | The model that will perform a     |
+|                                   | prediction.                       |
++-----------------------------------+-----------------------------------+
 | ``path``                          | Destination path where this       |
 |                                   | MLflow compatible model will be   |
 |                                   | saved.                            |
 +-----------------------------------+-----------------------------------+
 | ``conda_env``                     | Path to Conda dependencies file.  |
-+-----------------------------------+-----------------------------------+
-| ``x``                             | The serving function or model     |
-|                                   | that will perform a prediction.   |
 +-----------------------------------+-----------------------------------+
 
 .. _value-1:
@@ -1469,21 +1475,6 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
 |                               | object.                              |
-+-------------------------------+--------------------------------------+
-| ``source_name``               | Name of the source file or URI of    |
-|                               | the project to be associated with    |
-|                               | the run. Defaults to the current     |
-|                               | file if none provided.               |
-+-------------------------------+--------------------------------------+
-| ``source_version``            | Optional Git commit hash to          |
-|                               | associate with the run.              |
-+-------------------------------+--------------------------------------+
-| ``entry_point_name``          | Optional name of the entry point for |
-|                               | to the current run.                  |
-+-------------------------------+--------------------------------------+
-| ``source_type``               | Integer enum value describing the    |
-|                               | type of the run (“local”, “project”, |
-|                               | etc.).                               |
 +-------------------------------+--------------------------------------+
 
 .. _details-24:

@@ -2,7 +2,7 @@
 #'
 #' Saves model in MLflow Keras flavor.
 #'
-#' @param x The serving function or model that will perform a prediction.
+#' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
 #' @param conda_env Path to Conda dependencies file.

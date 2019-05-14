@@ -20,6 +20,7 @@ try_parse_response_as_text <- function(response) {
 }
 
 #' @importFrom base64enc base64encode
+#' @importFrom utils packageVersion
 get_rest_config <- function(host_creds) {
   headers <- list()
   auth_header <- if (!is.na(host_creds$username) && !is.na(host_creds$password)) {

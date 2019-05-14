@@ -8,12 +8,12 @@
   path = "model", conda_env = NULL)
 }
 \arguments{
+\item{model}{The model that will perform a prediction.}
+
 \item{path}{Destination path where this MLflow compatible model
 will be saved.}
 
 \item{conda_env}{Path to Conda dependencies file.}
-
-\item{x}{The serving function or model that will perform a prediction.}
 }
 \value{
 This function must return a list of flavors that conform to
