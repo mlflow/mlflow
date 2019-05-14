@@ -13,10 +13,7 @@ from __future__ import absolute_import
 import os
 import yaml
 
-import keras
-import keras.backend as K
 import pandas as pd
-import tensorflow as tf
 
 from mlflow import pyfunc
 from mlflow.models import Model
@@ -27,17 +24,25 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "keras"
 
-DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=[
-        "keras={}".format(keras.__version__),
-        # The Keras pyfunc representation requires the TensorFlow
-        # backend for Keras. Therefore, the conda environment must
-        # include TensorFlow
-        "tensorflow=={}".format(tf.__version__),
-    ],
-    additional_pip_deps=None,
-    additional_conda_channels=None,
-)
+
+def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+    :func:`save_model()` and :func:`log_model()`.
+    """
+    import keras
+    import tensorflow as tf
+
+    return _mlflow_conda_env(
+        additional_conda_deps=[
+            "keras={}".format(keras.__version__),
+            # The Keras pyfunc representation requires the TensorFlow
+            # backend for Keras. Therefore, the conda environment must
+            # include TensorFlow
+            "tensorflow=={}".format(tf.__version__),
+        ],
+        additional_pip_deps=None,
+        additional_conda_channels=None)
 
 
 def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
@@ -49,8 +54,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.keras.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.keras.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -76,6 +81,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     ... # Save the model as an MLflow Model
     >>> mlflow.keras.save_model(keras_model, keras_model_path)
     """
+    import keras
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
@@ -85,7 +92,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = DEFAULT_CONDA_ENV
+        conda_env = get_default_conda_env()
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -107,9 +114,9 @@ def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.keras.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.keras.DEFAULT_CONDA_ENV`` environment will be added to the model.
-                      The following is an *example* dictionary representation of a Conda
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`mlflow.keras.get_default_conda_env()` environment is added to the
+                      model. The following is an *example* dictionary representation of a Conda
                       environment::
 
                         {
@@ -140,6 +147,7 @@ def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
 
 
 def _load_model(model_file):
+    import keras
     import keras.models
     import h5py
 
@@ -175,6 +183,9 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``keras`` flavor.
     """
+    import keras.backend as K
+    import tensorflow as tf
+
     if K._BACKEND == 'tensorflow':
         graph = tf.Graph()
         sess = tf.Session(graph=graph)
