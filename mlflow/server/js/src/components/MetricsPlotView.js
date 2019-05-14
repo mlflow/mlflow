@@ -6,9 +6,12 @@ import { X_AXIS_STEP, X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls
 import { CHART_TYPE_BAR } from './MetricsPlotPanel';
 import Plot from 'react-plotly.js';
 
+const MAX_RUN_NAME_DISPLAY_LENGTH = 36;
+
 export class MetricsPlotView extends React.Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(String).isRequired,
+    runDisplayNames: PropTypes.arrayOf(String).isRequired,
     metrics: PropTypes.arrayOf(Object).isRequired,
     xAxis: PropTypes.string.isRequired,
     metricKeys: PropTypes.arrayOf(String).isRequired,
@@ -19,10 +22,11 @@ export class MetricsPlotView extends React.Component {
     lineSmoothness: PropTypes.number,
   };
 
-  static MAX_RUN_NAME_DISPLAY_LENGTH = 36;
-
-  getLegend = (metricKey, runName) =>
-    `${metricKey}, ` + (this.props.isComparing ? runName.slice(0, 8) : '');
+  getLineLegend = (metricKey, runDisplayName) =>
+    `${metricKey}, ` +
+    (this.props.isComparing
+      ? Utils.truncateString(runDisplayName, MAX_RUN_NAME_DISPLAY_LENGTH)
+      : '');
 
   parseTimestamp = (timestamp, history, xAxis) => {
     if (xAxis === X_AXIS_RELATIVE) {
@@ -35,10 +39,10 @@ export class MetricsPlotView extends React.Component {
   getPlotPropsForLineChart = () => {
     const { metrics, xAxis, showDot, yAxisLogScale, lineSmoothness } = this.props;
     const data = metrics.map((metric) => {
-      const { metricKey, runName, history } = metric;
+      const { metricKey, runDisplayName, history } = metric;
       const isSingleHistory = history.length === 0;
       return {
-        name: this.getLegend(metricKey, runName),
+        name: this.getLineLegend(metricKey, runDisplayName),
         x: history.map((entry) =>
           xAxis === X_AXIS_STEP
             ? entry.step
@@ -61,30 +65,32 @@ export class MetricsPlotView extends React.Component {
 
   getDataForBarChart = () => {
     /* eslint-disable no-param-reassign */
-    const { runUuids, yAxisLogScale } = this.props;
-    const runMap = {};
-    const metricsMap = this.props.metrics.reduce((map, metric) => {
-      const { runUuid, runName, metricKey, history } = metric;
-      runMap[runUuid] = runName;
+    const { runUuids, runDisplayNames, yAxisLogScale } = this.props;
+
+    // create a map of metricKey: { metricKey, runUuid: value }
+    const historyByMetricKey = this.props.metrics.reduce((map, metric) => {
+      const { runUuid, metricKey, history } = metric;
       const value = history[0] && history[0].value;
       if (!map[metricKey]) {
-        map[metricKey] = {
-          metricKey,
-          [runUuid]: { runName, value },
-        };
+        map[metricKey] = { metricKey, [runUuid]: value };
       } else {
-        map[metricKey][runUuid] = { runName, value };
+        map[metricKey][runUuid] = value;
       }
       return map;
     }, {});
-    // TODO(Zangr) ^^ remove this map
-    const sortedMetrics = _.sortBy(Object.values(metricsMap), 'metricKey');
-    const sortedMetricKeys = sortedMetrics.map((m) => m.metricKey);
-    console.log(sortedMetrics);
-    const data =  runUuids.map((runUuid) => ({
-      name: runMap[runUuid].slice(0, 8),
+    const arrayOfHistorySortedByMetricsKey = _.sortBy(
+      Object.values(historyByMetricKey),
+      'metricKey',
+    );
+    const sortedMetricKeys = arrayOfHistorySortedByMetricsKey.map(
+      (history) => history.metricKey,
+    );
+    const data = runUuids.map((runUuid, i) => ({
+      name: Utils.truncateString(runDisplayNames[i], MAX_RUN_NAME_DISPLAY_LENGTH),
       x: sortedMetricKeys,
-      y: sortedMetrics.map((m) => m[runUuid] && m[runUuid].value),
+      y: arrayOfHistorySortedByMetricsKey.map(
+        (history) => history[runUuid],
+      ),
       type: 'bar',
     }));
     const layout = { barmode: 'group' };
@@ -95,6 +101,8 @@ export class MetricsPlotView extends React.Component {
     return props;
   };
 
+
+
   render() {
     const plotProps = this.props.chartType === CHART_TYPE_BAR
       ? this.getDataForBarChart()
@@ -102,10 +110,10 @@ export class MetricsPlotView extends React.Component {
     return (
       <div className='metrics-plot-view-container'>
         <Plot
-          layout={{ autosize: true }}
+          {...plotProps}
           useResizeHandler
           style={{width: '100%', height: '100%'}}
-          {...plotProps}
+          layout={{...plotProps.layout, ...{ autosize: true }}}
         />
       </div>
     );

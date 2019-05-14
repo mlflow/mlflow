@@ -45,5 +45,6 @@ div.MetricView .recharts-tooltip-item-value, .recharts-tooltip-item-separator {
 }
 
 .metrics-plot-container .metrics-plot-view-container {
+  min-height: 500px;
   flex: 1;
 }

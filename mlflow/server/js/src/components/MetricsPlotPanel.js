@@ -25,6 +25,7 @@ class MetricsPlotPanel extends React.Component {
     getMetricHistoryApi: PropTypes.func.isRequired,
     location: PropTypes.object.isRequired,
     history: PropTypes.object.isRequired,
+    runDisplayNames: PropTypes.arrayOf(String).isRequired,
   };
 
   constructor(props) {
@@ -130,7 +131,7 @@ class MetricsPlotPanel extends React.Component {
   handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
   render() {
-    const { runUuids } = this.props;
+    const { runUuids, runDisplayNames } = this.props;
     const {
       historyRequestIds,
       showDot,
@@ -157,6 +158,7 @@ class MetricsPlotPanel extends React.Component {
         <RequestStateWrapper requestIds={historyRequestIds}>
           <MetricsPlotView
             runUuids={runUuids}
+            runDisplayNames={runDisplayNames}
             xAxis={selectedXAxis}
             metrics={this.getMetrics()}
             metricKeys={selectedMetricKeys}
@@ -183,10 +185,12 @@ const mapStateToProps = (state, ownProps) => {
   });
   const distinctMetricKeys = [...new Set(metricKeys)].sort();
 
+  const runDisplayNames = [];
   // Flat array of all metrics, with history and information of the run it belongs to
   // This is used for underlying MetricsPlotView & predicting chartType for MetricsPlotControls
   const metricsWithRunInfoAndHistory = _.flatMap(runUuids, (runUuid) => {
-    const runName = Utils.getRunDisplayName(getRunTags(runUuid, state), runUuid);
+    const runDisplayName = Utils.getRunDisplayName(getRunTags(runUuid, state), runUuid);
+    runDisplayNames.push(runDisplayName);
     const metricsHistory = metricsByRunUuid[runUuid];
     return metricsHistory
       ? Object.keys(metricsHistory).map((metricKey, index) => {
@@ -196,17 +200,18 @@ const mapStateToProps = (state, ownProps) => {
           step: Number.parseInt(entry.step, 10) || 0, // default step to 0
           timestamp: Number.parseFloat(entry.timestamp),
         }));
-        return { metricKey, history, runUuid, runName, index };
+        return { metricKey, history, runUuid, runDisplayName, index };
       })
       : [];
   });
 
   // Utils.tuneHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  Utils.tuneHistoryWall(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
+  // Utils.tuneHistoryWall(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
   // Utils.forceSingleHistory(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tuning
-  // Utils.forceSingleHistoryExceptOne(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tunining
+  Utils.forceSingleHistoryExceptOne(metricsWithRunInfoAndHistory); // TODO(Zangr) remove tunining
 
   return {
+    runDisplayNames,
     latestMetricsByRunUuid,
     distinctMetricKeys,
     metricsWithRunInfoAndHistory,
