@@ -651,8 +651,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
-        runs = [self._run_factory(self._get_run_configs(exp)).info.run_id
-                for r in range(3)]
+        runs = [self._run_factory(self._get_run_configs(exp)).info.run_id for _ in range(3)]
 
         six.assertCountEqual(self, runs, self._search([exp], run_view_type=ViewType.ALL))
         six.assertCountEqual(self, runs, self._search([exp], run_view_type=ViewType.ACTIVE_ONLY))
