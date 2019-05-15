@@ -49,6 +49,8 @@ def _make_persisted_run_info_dict(run_info):
     run_info_dict['tags'] = []
     run_info_dict['name'] = ''
     if 'status' in run_info_dict:
+        # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
+        # Convert from string to enum/int before storing.
         run_info_dict['status'] = RunStatus.from_string(run_info.status)
     else:
         run_info_dict['status'] = RunStatus.RUNNING
@@ -63,6 +65,9 @@ def _read_persisted_run_info_dict(run_info_dict):
     dict_copy = run_info_dict.copy()
     if 'lifecycle_stage' not in dict_copy:
         dict_copy['lifecycle_stage'] = LifecycleStage.ACTIVE
+    # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
+    # converting to string before hydrating RunInfo.
+    # If 'status' value not recorded in files, mark it as 'RUNNING' (default)
     dict_copy['status'] = RunStatus.to_string(run_info_dict.get('status', RunStatus.RUNNING))
 
     # 'experiment_id' was changed from int to string, so we must cast to string
