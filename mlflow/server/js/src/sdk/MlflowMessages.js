@@ -157,9 +157,6 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
   getExperimentId() {
     return this.experiment_id !== undefined ? this.experiment_id : 0;
   },
-  getUserId() {
-    return this.user_id !== undefined ? this.user_id : '';
-  },
   getStatus() {
     return this.status !== undefined ? this.status : 'RUNNING';
   },
