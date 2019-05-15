@@ -28,11 +28,11 @@ class PyFuncBackend(FlavorBackend):
                 conda_env_path = os.path.join(local_path, self._config[ENV])
                 # NOTE: We're calling main in the pyfunc scoring server belonging to the current
                 # conda environment. The model environment may contain mlflow with different version
-                # that the one in the current active environment. This is the intended behavior.
+                # than the one in the current active environment. This is the intended behavior.
                 # We need to make sure the scoring server is consistent with the outside mlflow
                 # while the model that is being loaded may depend on a different version of mlflow.
                 # The hope is that the scoring server is self contained enough and does not have
-                # external mlflow dependencies.
+                # external mlflow dependencies that would be incompatible between mlflow versions.
                 if input_path is None:
                     input_path = "__stdin__"
                 if output_path is None:

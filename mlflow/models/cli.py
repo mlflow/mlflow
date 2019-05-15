@@ -1,4 +1,3 @@
-
 import logging
 import click
 import posixpath
@@ -35,7 +34,7 @@ def serve(model_uri, port, host, no_conda=False):
     documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
     """
     return _get_flavor_backend(model_uri, no_conda).serve(model_uri=model_uri, port=port, host=host,
-                                                no_conda=no_conda)
+                                                          no_conda=no_conda)
 
 
 @commands.command("predict")
@@ -80,4 +79,3 @@ def _get_flavor_backend(model_uri, no_conda):
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
     return flavor_backend
-

@@ -158,8 +158,8 @@ def init(model):
             return flask.Response(
                 response=("This predictor only supports the following content types,"
                           " {supported_content_types}. Got '{received_content_type}'.".format(
-                    supported_content_types=CONTENT_TYPES,
-                    received_content_type=flask.request.content_type)),
+                            supported_content_types=CONTENT_TYPES,
+                            received_content_type=flask.request.content_type)),
                 status=415,
                 mimetype='text/plain')
 
