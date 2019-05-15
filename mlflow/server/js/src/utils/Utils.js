@@ -301,6 +301,7 @@ class Utils {
     return "";
   }
 
+  // TODO(aaron) Remove runInfo when user_id deprecation is complete.
   static getUser(runInfo, runTags) {
     const userTag = runTags[Utils.userTag];
     if (userTag) {
