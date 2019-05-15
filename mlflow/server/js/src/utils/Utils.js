@@ -32,6 +32,7 @@ class Utils {
   static sourceTypeTag = 'mlflow.source.type';
   static gitCommitTag = 'mlflow.source.git.commit';
   static entryPointTag = 'mlflow.project.entryPoint';
+  static userTag = 'mlflow.user';
 
   static formatMetric(value) {
     if (Math.abs(value) < 10) {
@@ -298,6 +299,15 @@ class Utils {
       return entryPointTag.value;
     }
     return "";
+  }
+
+  // TODO(aaron) Remove runInfo when user_id deprecation is complete.
+  static getUser(runInfo, runTags) {
+    const userTag = runTags[Utils.userTag];
+    if (userTag) {
+      return userTag.value;
+    }
+    return runInfo.user_id;
   }
 
   static renderVersion(tags, shortVersion = true) {

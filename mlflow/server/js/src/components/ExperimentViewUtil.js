@@ -43,7 +43,7 @@ export default class ExperimentViewUtil {
    */
   static getRunInfoCellsForRow(runInfo, tags, isParent, cellType) {
     const CellComponent = `${cellType}`;
-    const user = Utils.formatUser(runInfo.user_id);
+    const user = Utils.formatUser(Utils.getUser(runInfo, tags));
     const queryParams = window.location && window.location.search ? window.location.search : "";
     const sourceType = Utils.renderSource(tags, queryParams);
     const startTime = runInfo.start_time;
@@ -280,7 +280,7 @@ export default class ExperimentViewUtil {
       const sortValue = (sortState.isMetric ? metricsMap : paramsMap)[sortState.key];
       return (sortValue === undefined ? undefined : sortValue.value);
     } else if (sortState.key === 'user_id') {
-      return Utils.formatUser(runInfo.user_id);
+      return Utils.formatUser(runInfo, tags);
     } else if (sortState.key === 'source') {
       return Utils.formatSource(runInfo, tags);
     } else if (sortState.key === 'run_name') {
