@@ -40,7 +40,9 @@ DEPLOYMENT_MODES = [
     DEPLOYMENT_MODE_REPLACE
 ]
 
-IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
+IMAGE_NAME_ENV_VAR = "MLFLOW_SAGEMAKER_DEPLOY_IMG_URL"
+# Deprecated as of MLflow 1.0.
+DEPRECATED_IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
@@ -591,6 +593,12 @@ def _get_default_image_url(region_name):
     import boto3
     env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
     if env_img:
+        return env_img
+
+    env_img = os.environ.get(DEPRECATED_IMAGE_NAME_ENV_VAR)
+    if env_img:
+        _logger.warning("Environment variable '%s' is deprecated, please use '%s' instead",
+                        DEPRECATED_IMAGE_NAME_ENV_VAR, IMAGE_NAME_ENV_VAR)
         return env_img
 
     ecr_client = boto3.client("ecr", region_name=region_name)
