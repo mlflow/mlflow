@@ -25,8 +25,8 @@ public class ScoringServer {
   private static final String REQUEST_CONTENT_TYPE_JSON = "application/json";
   private static final String REQUEST_CONTENT_TYPE_CSV = "text/csv";
 
-  static final String ENV_VAR_MINIMUM_SERVER_THREADS = "SCORING_SERVER_MIN_THREADS";
-  static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "SCORING_SERVER_MAX_THREADS";
+  static final String ENV_VAR_MINIMUM_SERVER_THREADS = "MLFLOW_SCORING_SERVER_MIN_THREADS";
+  static final String ENV_VAR_MAXIMUM_SERVER_THREADS = "MLFLOW_SCORING_SERVER_MAX_THREADS";
 
   static final int DEFAULT_MINIMUM_SERVER_THREADS = 1;
   // Assuming an 8 core machine with hyperthreading

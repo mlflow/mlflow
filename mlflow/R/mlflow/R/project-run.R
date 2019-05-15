@@ -1,4 +1,4 @@
-#' Run in MLflow
+#' Run an MLflow Project
 #'
 #' Wrapper for `mlflow run`.
 #'
