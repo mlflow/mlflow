@@ -20,7 +20,6 @@ try_parse_response_as_text <- function(response) {
 }
 
 #' @importFrom base64enc base64encode
-#' @importFrom utils packageVersion
 get_rest_config <- function(host_creds) {
   headers <- list()
   auth_header <- if (!is.na(host_creds$username) && !is.na(host_creds$password)) {
@@ -35,7 +34,7 @@ get_rest_config <- function(host_creds) {
     headers$Authorization <- auth_header
   }
 
-  headers$`User-Agent` <- paste("mlflow-r-client", packageVersion("mlflow"), sep = "/")
+  headers$`User-Agent` <- paste("mlflow-r-client", utils::packageVersion("mlflow"), sep = "/")
 
   is_insecure <- list(true = TRUE, false = FALSE)[[tolower(host_creds$insecure)]]
   list(
