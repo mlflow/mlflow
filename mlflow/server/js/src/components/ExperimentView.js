@@ -714,7 +714,7 @@ export class ExperimentView extends Component {
         Utils.getRunName(tagsList[index]), // add run name to csv export row
         Utils.getSourceType(tagsList[index]),
         Utils.getSourceName(tagsList[index]),
-        runInfo.user_id,
+        Utils.getUser(runInfo, tagsList[index]),
         runInfo.status,
       ];
 
