@@ -675,6 +675,9 @@ Arguments
 |                               | in case there are multiple flavors   |
 |                               | available.                           |
 +-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 
 .. _details-12:
 
@@ -690,6 +693,9 @@ following are examples of valid model uris: -
 - ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
 information about supported URI schemes, see the Artifacts Documentation
 ``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 Seealso
 -------
@@ -800,35 +806,43 @@ Log Metric
 
 Logs a metric for a run. Metrics key-value pair that records a single
 float measure. During a single execution of a run, a particular metric
-can be logged several times. Backend will keep track of historical
-values along with timestamps.
+can be logged several times. The MLflow Backend keeps track of
+historical metric values along two axes: timestamp and step.
 
 .. code:: r
 
-   mlflow_log_metric(key, value, timestamp = NULL, run_id = NULL,
-     client = NULL)
+   mlflow_log_metric(key, value, timestamp = NULL, step = NULL,
+     run_id = NULL, client = NULL)
 
 .. _arguments-20:
 
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``key``                           | Name of the metric.               |
-+-----------------------------------+-----------------------------------+
-| ``value``                         | Float value for the metric being  |
-|                                   | logged.                           |
-+-----------------------------------+-----------------------------------+
-| ``timestamp``                     | Unix timestamp in milliseconds at |
-|                                   | the time metric was logged.       |
-+-----------------------------------+-----------------------------------+
-| ``run_id``                        | Run ID.                           |
-+-----------------------------------+-----------------------------------+
-| ``client``                        | (Optional) An ``mlflow_client``   |
-|                                   | object.                           |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``key``                       | Name of the metric.                  |
++-------------------------------+--------------------------------------+
+| ``value``                     | Float value for the metric being     |
+|                               | logged.                              |
++-------------------------------+--------------------------------------+
+| ``timestamp``                 | Timestamp at which to log the        |
+|                               | metric. Timestamp is rounded to the  |
+|                               | nearest integer. If unspecified, the |
+|                               | number of milliseconds since the     |
+|                               | Unix epoch is used.                  |
++-------------------------------+--------------------------------------+
+| ``step``                      | Step at which to log the metric.     |
+|                               | Step is rounded to the nearest       |
+|                               | integer. If unspecified, the default |
+|                               | value of zero is used.               |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 
 .. _details-15:
 
@@ -1240,8 +1254,8 @@ Wrapper for ``mlflow run``.
 
 .. code:: r
 
-   mlflow_run(entry_point = NULL, uri = ".", version = NULL,
-     param_list = NULL, experiment_id = NULL, experiment_name = NULL,
+   mlflow_run(uri = ".", entry_point = NULL, version = NULL,
+     parameters = NULL, experiment_id = NULL, experiment_name = NULL,
      backend = NULL, backend_config = NULL, no_conda = FALSE,
      storage_dir = NULL)
 
@@ -1253,18 +1267,18 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``entry_point``               | Entry point within project, defaults |
-|                               | to ``main`` if not specified.        |
-+-------------------------------+--------------------------------------+
 | ``uri``                       | A directory containing modeling      |
 |                               | scripts, defaults to the current     |
 |                               | directory.                           |
++-------------------------------+--------------------------------------+
+| ``entry_point``               | Entry point within project, defaults |
+|                               | to ``main`` if not specified.        |
 +-------------------------------+--------------------------------------+
 | ``version``                   | Version of the project to run, as a  |
 |                               | Git commit reference for Git         |
 |                               | projects.                            |
 +-------------------------------+--------------------------------------+
-| ``param_list``                | A list of parameters.                |
+| ``parameters``                | A list of parameters.                |
 +-------------------------------+--------------------------------------+
 | ``experiment_id``             | ID of the experiment under which to  |
 |                               | launch the run.                      |
@@ -1671,21 +1685,6 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
 |                               | object.                              |
-+-------------------------------+--------------------------------------+
-| ``source_name``               | Name of the source file or URI of    |
-|                               | the project to be associated with    |
-|                               | the run. Defaults to the current     |
-|                               | file if none provided.               |
-+-------------------------------+--------------------------------------+
-| ``source_version``            | Optional Git commit hash to          |
-|                               | associate with the run.              |
-+-------------------------------+--------------------------------------+
-| ``entry_point_name``          | Optional name of the entry point for |
-|                               | to the current run.                  |
-+-------------------------------+--------------------------------------+
-| ``source_type``               | Integer enum value describing the    |
-|                               | type of the run (“local”, “project”, |
-|                               | etc.).                               |
 +-------------------------------+--------------------------------------+
 
 .. _details-24:

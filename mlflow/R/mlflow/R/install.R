@@ -1,6 +1,6 @@
 # Returns the current MLflow R package version
 mlflow_version <- function() {
-  packageVersion("mlflow")
+  utils::packageVersion("mlflow")
 }
 
 # Returns the name of a conda environment in which to install the Python MLflow package
