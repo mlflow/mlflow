@@ -45,8 +45,10 @@ matrix:
         - source ./travis/install-common-deps.sh
       script:
         - cd mlflow/R/mlflow
-        - export LINTR_COMMENT_BOT=false
+        - R CMD build .
+        - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
         - cd tests
+        - export LINTR_COMMENT_BOT=false
         - Rscript ../.travis.R
       after_success:
         - export COVR_RUNNING=true
