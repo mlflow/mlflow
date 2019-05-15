@@ -1,7 +1,7 @@
 MLFLOW_VERSION = "0.8.0"  # we expect this model to be bound to this mlflwo version.
 
 
-class TestModel:
+class PyFuncTestModel:
     def __init__(self, check_version=True):
         self._check_version = check_version
 
@@ -14,4 +14,4 @@ class TestModel:
 
 
 def _load_pyfunc(_):
-    return TestModel()
+    return PyFuncTestModel()

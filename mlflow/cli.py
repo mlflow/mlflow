@@ -28,7 +28,6 @@ from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow import tracking
 import mlflow.store.cli
 
-
 _logger = logging.getLogger(__name__)
 
 
@@ -251,7 +250,6 @@ def server(backend_store_uri, default_artifact_root, host, port,
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
-
 
 
 cli.add_command(mlflow.models.cli.commands)

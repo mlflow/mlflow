@@ -95,7 +95,6 @@ class MlflowHostCreds(object):
         certificate. This is useful for certain testing situations, but should never be
         true in production.
     """
-
     def __init__(self, host, username=None, password=None, token=None,
                  ignore_tls_verification=False):
         if not host:

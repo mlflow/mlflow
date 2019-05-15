@@ -57,7 +57,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
-        expected = test_pyfunc.TestModel(check_version=False).predict(df=pd.DataFrame(x))
+        expected = test_pyfunc.PyFuncTestModel(check_version=False).predict(df=pd.DataFrame(x))
         assert all(expected == actual)
 
 
