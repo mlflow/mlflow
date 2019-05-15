@@ -864,13 +864,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # change status for one of the runs
         self.store.update_run_info(r2, RunStatus.FAILED, 300)
 
-        filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
+        filter_string = "attribute.status = 'RUNNING'"
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.FAILED))
+        filter_string = "attribute.status = 'FAILED'"
         six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.status != '{}'".format(RunStatus.to_string(RunStatus.SCHEDULED))
+        filter_string = "attribute.status != 'SCHEDULED'"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attr.start_time > 0 AND attribute.end_time > 200"
