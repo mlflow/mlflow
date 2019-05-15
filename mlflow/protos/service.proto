@@ -23,11 +23,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/experiments/create"
+        path: "/preview/mlflow/experiments/create"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/experiments/create"
+        path: "/mlflow/experiments/create"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -41,11 +41,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/experiments/list"
+        path: "/preview/mlflow/experiments/list"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/experiments/list"
+        path: "/mlflow/experiments/list"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -59,11 +59,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/experiments/get"
+        path: "/preview/mlflow/experiments/get"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/experiments/get"
+        path: "/mlflow/experiments/get"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -78,11 +78,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/experiments/delete"
+        path: "/preview/mlflow/experiments/delete"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/experiments/delete"
+        path: "/mlflow/experiments/delete"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -100,11 +100,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/experiments/restore"
+        path: "/preview/mlflow/experiments/restore"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/experiments/restore"
+        path: "/mlflow/experiments/restore"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -118,11 +118,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/experiments/update"
+        path: "/preview/mlflow/experiments/update"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/experiments/update"
+        path: "/mlflow/experiments/update"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -138,11 +138,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/create"
+        path: "/preview/mlflow/runs/create"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/create"
+        path: "/mlflow/runs/create"
         since { major: 2, minor: 0 },
       }],
 
@@ -157,11 +157,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/update"
+        path: "/preview/mlflow/runs/update"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/update"
+        path: "/mlflow/runs/update"
         since { major: 2, minor: 0 },
       }],
 
@@ -175,11 +175,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/delete"
+        path: "/preview/mlflow/runs/delete"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/delete"
+        path: "/mlflow/runs/delete"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -192,11 +192,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/restore"
+        path: "/preview/mlflow/runs/restore"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/restore"
+        path: "/mlflow/runs/restore"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -212,11 +212,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/log-metric"
+        path: "/preview/mlflow/runs/log-metric"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/log-metric"
+        path: "/mlflow/runs/log-metric"
         since { major: 2, minor: 0 },
       }],
 
@@ -233,11 +233,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/log-parameter"
+        path: "/preview/mlflow/runs/log-parameter"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/log-parameter"
+        path: "/mlflow/runs/log-parameter"
         since { major: 2, minor: 0 },
       }],
 
@@ -253,11 +253,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/set-tag"
+        path: "/preview/mlflow/runs/set-tag"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/set-tag"
+        path: "/mlflow/runs/set-tag"
         since { major: 2, minor: 0 },
       }],
 
@@ -273,11 +273,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/runs/get"
+        path: "/preview/mlflow/runs/get"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/runs/get"
+        path: "/mlflow/runs/get"
         since { major: 2, minor: 0 },
       }],
 
@@ -293,11 +293,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/search"
+        path: "/preview/mlflow/runs/search"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/search"
+        path: "/mlflow/runs/search"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
@@ -316,11 +316,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/artifacts/list"
+        path: "/preview/mlflow/artifacts/list"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/artifacts/list"
+        path: "/mlflow/artifacts/list"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -334,11 +334,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/metrics/get-history"
+        path: "/preview/mlflow/metrics/get-history"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/preview/mlflow/metrics/get-history"
+        path: "/mlflow/metrics/get-history"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -399,11 +399,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/log-batch"
+        path: "/preview/mlflow/runs/log-batch"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/log-batch"
+        path: "/mlflow/runs/log-batch"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,

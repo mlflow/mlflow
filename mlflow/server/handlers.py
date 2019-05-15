@@ -356,9 +356,9 @@ def _log_batch():
 
 def _get_paths(base_path):
     """
-    A service endpoints base path is typically something like /mlflow/experiment.
-    We should register paths like /api/2.0/mlflow/experiment and
-    /ajax-api/2.0/mlflow/experiment in the Flask router.
+    A service endpoints base path is typically something like /preview/mlflow/experiment.
+    We should register paths like /api/2.0/preview/mlflow/experiment and
+    /ajax-api/2.0/preview/mlflow/experiment in the Flask router.
     """
     return ['/api/2.0{}'.format(base_path), '/ajax-api/2.0{}'.format(base_path)]
 
