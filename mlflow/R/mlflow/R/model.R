@@ -111,23 +111,19 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
       warning(paste("Multiple model flavors available (", paste(available_flavors, collapse = ", "),
                     " ).  loading flavor '", available_flavors[[1]], "'", ""))
     }
-
     flavor <- available_flavors[[1]]
   }
-
   flavor_path <- model_path
   class(flavor_path) <- c(flavor, class(flavor_path))
   mlflow_load_flavor(flavor_path)
 }
 
-# Predict using RFunc MLflow Model
-#
-# Performs prediction using a saved R MLflow model.
-# Input and output are read from and written to a file or stdin / stdout.
+# Generate predictions using a saved R MLflow model.
+# Input and output are read from and written to a specified input / output file or stdin / stdout.
 #
 # @param input_path Path to 'JSON' or 'CSV' file to be used for prediction. If not specified data is
 #                   read from the stdin.
-# @param output_path 'JSON' or 'CSV' file where the prediction will be written to. If not specified,
+# @param output_path 'JSON' file where the prediction will be written to. If not specified,
 #                     data is written out to stdout.
 #
 # @examples
@@ -142,27 +138,32 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
 #
 # # predict existing model from json data, json output printed to stdout.
 # # load the model from local relative path.
-# mlflow_rfunc_predict(model_path = "mlflow_roundtrip", input_file = "iris.json")
+# mlflow_rfunc_predict(model_path = "mlflow_roundtrip", input_file = "iris.json",
+#                      json_format = "records")
 #
 # @importFrom utils read.csv
 mlflow_rfunc_predict <- function(
   model_path,
   input_path = NULL,
   output_path = NULL,
-  content_type = "json",
-  json_format = "split") {
+  content_type = NULL,
+  json_format = NULL) {
   model <- mlflow_load_model(model_path)
   input_path <- input_path %||% "stdin"
+
+
   output_path <- output_path %||% stdout()
+
   data <- switch(
-    content_type,
-    json = parse_json(input_path, json_format),
+    content_type %||% "json",
+    json = parse_json(input_path, json_format %||% "split"),
     csv = read.csv(input_path),
     stop("Unsupported input file format.")
   )
   model <- mlflow_load_model(model_path)
   prediction <- mlflow_predict_flavor(model, data)
-  jsonlite::write_json(prediction, output_path)
+  jsonlite::write_json(prediction, output_path, digits=NA)
+  invisible(NULL)
 }
 
 supported_model_flavors <- function() {

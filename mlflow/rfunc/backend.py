@@ -17,16 +17,17 @@ class RFuncBackend(FlavorBackend):
     """
     version_pattern = re.compile("version ([0-9]+[.][0-9]+[.][0-9]+)")
 
-    def predict(self, model_uri, input_path, output_path, **kwargs):
+    def predict(self, model_uri, input_path, output_path, content_type, **kwargs):
         """
         Generate predictions using R model saved with MLflow.
         Return the prediction results as a JSON.
         """
         with TempDir() as tmp:
             model_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
-            str_cmd = "mlflow:::mlflow_rfunc_predict('{0}', {1}, {2})"
+            str_cmd = "mlflow:::mlflow_rfunc_predict('{0}', {1}, {2}, {3})"
             command = str_cmd.format(model_path, _str_optional(input_path),
-                                     _str_optional(output_path))
+                                     _str_optional(output_path),
+                                     _str_optional(content_type))
             _execute(command)
 
     def serve(self, model_uri, port, **kwargs):

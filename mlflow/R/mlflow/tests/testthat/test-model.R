@@ -11,11 +11,9 @@ test_that("mlflow can save model function", {
   temp_in <- tempfile(fileext = ".csv")
   temp_out <- tempfile(fileext = ".csv")
   write.csv(iris, temp_in, row.names = FALSE)
-  mlflow_cli("models", "predict", "-i", temp_in, "-o", temp_out, "-t", "csv")
-  prediction <- read.csv(temp_out)[[1]]
-
+  mlflow_cli("models", "predict", "-m", "model", "-i", temp_in, "-o", temp_out, "-t", "csv")
+  prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
-
   expect_equal(
     prediction,
     unname(predict(model, iris))
