@@ -147,4 +147,5 @@ class RunInfo(_MLflowObject):
 
     @classmethod
     def get_searchable_attributes(cls):
-        return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), searchable_attribute)])
+        return sorted([p for p in cls.__dict__
+                       if isinstance(getattr(cls, p), searchable_attribute)])
