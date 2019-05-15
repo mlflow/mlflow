@@ -38,3 +38,10 @@ class TestRunStatus(unittest.TestCase):
         with self.assertRaises(Exception) as e:
             RunStatus.from_string("the IMPOSSIBLE status string")
         self.assertIn("Could not get run status corresponding to string the IMPO", str(e.exception))
+
+    def test_is_terminated(self):
+        self.assertTrue(RunStatus.is_terminated(RunStatus.FAILED))
+        self.assertTrue(RunStatus.is_terminated(RunStatus.FINISHED))
+        self.assertTrue(RunStatus.is_terminated(RunStatus.KILLED))
+        self.assertFalse(RunStatus.is_terminated(RunStatus.SCHEDULED))
+        self.assertFalse(RunStatus.is_terminated(RunStatus.RUNNING))
