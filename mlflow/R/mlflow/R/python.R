@@ -20,20 +20,6 @@ python_bin <- function() {
   .globals$python_bin
 }
 
-# Return python package dependencies of the MLflow R API.
-# @param mlflow_package If provided, pip-installable string referencing the MLflow python package.
-#   Defaults to 'mlflow==<version>', where <version> is the current R package version
-python_mlflow_deps <- function(mlflow_package = NULL) {
-  if (is.null(mlflow_package)) {
-    # By default install the Python MLflow package with version == the current R package version
-    mlflow_package <- paste("mlflow", "==", mlflow_version(), sep = "")
-  }
-  c(
-    "pandas",
-    mlflow_package
-  )
-}
-
 # Returns path to MLflow CLI, assumed to be in the same bin/ directory as the
 # Python executable
 python_mlflow_bin <- function() {
