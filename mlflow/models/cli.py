@@ -63,10 +63,10 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
     return _get_flavor_backend(model_uri, no_conda=no_conda).predict(model_uri=model_uri,
-                                                            input_path=input_path,
-                                                            output_path=output_path,
-                                                            content_type=content_type,
-                                                            json_format=json_format)
+                                                                     input_path=input_path,
+                                                                     output_path=output_path,
+                                                                     content_type=content_type,
+                                                                     json_format=json_format)
 
 
 def _get_flavor_backend(model_uri, no_conda):
