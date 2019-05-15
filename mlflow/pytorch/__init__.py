@@ -64,11 +64,8 @@ def get_default_conda_env():
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
-              pickle_module=mlflow_pytorch_pickle_module, **kwargs):
+              pickle_module=None, **kwargs):
     """
-    log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,\
-              pickle_module=mlflow.pytorch.pickle_module, **kwargs)
-
     Log a PyTorch model as an MLflow artifact for the current run.
 
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
@@ -148,16 +145,14 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     >>>   mlflow.log_param("epochs", 500)
     >>>   mlflow.pytorch.log_model(model, "models")
     """
+    pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
               conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module, **kwargs)
 
 
 def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_paths=None,
-               pickle_module=mlflow_pytorch_pickle_module, **kwargs):
+               pickle_module=None, **kwargs):
     """
-    save_model(pytorch_model, path, conda_env=None, mlflow_model=mlflow.models.Model(),\
-               code_paths=None, pickle_module=mlflow.pytorch.pickle_module, **kwargs)
-
     Save a PyTorch model to a path on the local file system.
 
     :param pytorch_model: PyTorch model to be saved. Must accept a single ``torch.FloatTensor`` as
@@ -213,6 +208,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     >>>   mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
     """
     import torch
+    pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
