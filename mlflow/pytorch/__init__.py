@@ -31,7 +31,6 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
 
-
 FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
@@ -215,6 +214,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     >>>   mlflow.pytorch.save_model(pytorch_model, pytorch_model_path)
     """
     import torch
+    pickle_module = pickle_module or mlflow_pytorch_pickle_module
 
     if not isinstance(pytorch_model, torch.nn.Module):
         raise TypeError("Argument 'pytorch_model' should be a torch.nn.Module")
@@ -234,7 +234,6 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     #
     # TODO: Stop persisting this information to the filesystem once we have a mechanism for
     # supplying the MLmodel configuration to `mlflow.pytorch._load_pyfunc`
-    pickle_module = pickle_module or mlflow_pytorch_pickle_module
     pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
     with open(pickle_module_path, "w") as f:
         f.write(pickle_module.__name__)
