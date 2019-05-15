@@ -16,7 +16,6 @@ class RunsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        print("RunArtifact Repo with root uri = ", artifact_uri)
         from mlflow.tracking.artifact_utils import get_artifact_uri
         from mlflow.store.artifact_repository_registry import get_artifact_repository
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(artifact_uri)

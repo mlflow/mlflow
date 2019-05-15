@@ -12,26 +12,30 @@ Defines two endpoints:
 """
 from __future__ import print_function
 
+import flask
 import json
+from json import JSONEncoder
 import logging
+import numpy
+import pandas as pd
+from six import reraise
 import subprocess
 import sys
 import traceback
-
-import pandas as pd
-import flask
-from six import reraise
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
 # model's conda environment. The version of mlflow doing the serving (outside) and the verison of
 # mlflow int the model's conda environment (inside) can differ. We should therefore keep mlflow
 # dependencies to the minimum here.
+# ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
-import mlflow.pyfunc
+
+try:
+    from mlflow.pyfunc import load_model
+except ImportError:
+    from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
-from mlflow.utils.rest_utils import NumpyEncoder
 from mlflow.server.handlers import catch_mlflow_exception
-from mlflow.utils import get_jsonable_obj
 from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
 
 try:
@@ -92,7 +96,7 @@ def parse_csv_input(csv_input):
 
 
 def predictions_to_json(raw_predictions, output):
-    predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
+    predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
     json.dump(predictions, output, cls=NumpyEncoder)
 
 
@@ -178,7 +182,7 @@ def init(model):
 
 
 def _predict(local_path, input_path, output_path, content_type, json_format):
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(local_path)
+    pyfunc_model = load_model(local_path)
     if input_path is None:
         input_path = sys.stdin
 
@@ -198,7 +202,7 @@ def _predict(local_path, input_path, output_path, content_type, json_format):
 
 
 def _serve(local_path, port, host):
-    init(mlflow.pyfunc.load_pyfunc(local_path)).run(port=port, host=host)
+    init(load_model(local_path)).run(port=port, host=host)
 
 
 def _execute_in_conda_env(conda_env_path, command):
@@ -214,6 +218,38 @@ def _execute_in_conda_env(conda_env_path, command):
         raise Exception("Command '{0}' returned non zero return code. Return code = {1}".format(
             command, rc
         ))
+
+
+class NumpyEncoder(JSONEncoder):
+    """ Special json encoder for numpy types.
+    Note that some numpy types doesn't have native python equivalence,
+    hence json.dumps will raise TypeError.
+    In this case, you'll need to convert your numpy types into its closest python equivalence.
+    """
+
+    def default(self, o):  # pylint: disable=E0202
+        if isinstance(o, numpy.generic):
+            return numpy.asscalar(o)
+        return JSONEncoder.default(self, o)
+
+
+def _get_jsonable_obj(data, pandas_orient="records"):
+    """Attempt to make the data json-able via standard library.
+    Look for some commonly used types that are not jsonable and convert them into json-able ones.
+    Unknown data types are returned as is.
+
+    :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
+    :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
+                          dictionary using this Pandas serialization orientation.
+    """
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    if isinstance(data, pd.DataFrame):
+        return data.to_dict(orient=pandas_orient)
+    if isinstance(data, pd.Series):
+        return pd.DataFrame(data).to_dict(orient=pandas_orient)
+    else:  # by default just return whatever this is and hope for the best
+        return data
 
 
 if __name__ == '__main__':
