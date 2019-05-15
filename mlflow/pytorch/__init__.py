@@ -31,6 +31,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
 
+
 FLAVOR_NAME = "pytorch"
 
 _SERIALIZED_TORCH_MODEL_FILE_NAME = "model.pth"
@@ -64,10 +65,10 @@ def get_default_conda_env():
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
-              pickle_module=mlflow_pytorch_pickle_module, **kwargs):
+              pickle_module=None, **kwargs):
     """
     log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,\
-              pickle_module=mlflow.pytorch.pickle_module, **kwargs)
+              pickle_module=None, **kwargs)
 
     Log a PyTorch model as an MLflow artifact for the current run.
 
@@ -148,15 +149,16 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     >>>   mlflow.log_param("epochs", 500)
     >>>   mlflow.pytorch.log_model(model, "models")
     """
+    pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
               conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module, **kwargs)
 
 
 def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_paths=None,
-               pickle_module=mlflow_pytorch_pickle_module, **kwargs):
+               pickle_module=None, **kwargs):
     """
     save_model(pytorch_model, path, conda_env=None, mlflow_model=mlflow.models.Model(),\
-               code_paths=None, pickle_module=mlflow.pytorch.pickle_module, **kwargs)
+               code_paths=None, pickle_module=None, **kwargs)
 
     Save a PyTorch model to a path on the local file system.
 
@@ -232,6 +234,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     #
     # TODO: Stop persisting this information to the filesystem once we have a mechanism for
     # supplying the MLmodel configuration to `mlflow.pytorch._load_pyfunc`
+    pickle_module = pickle_module or mlflow_pytorch_pickle_module
     pickle_module_path = os.path.join(model_data_path, _PICKLE_MODULE_INFO_FILE_NAME)
     with open(pickle_module_path, "w") as f:
         f.write(pickle_module.__name__)
