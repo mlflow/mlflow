@@ -244,7 +244,7 @@ class RunView extends Component {
           }
           <div className="run-info">
             <span className="metadata-header">User: </span>
-            <span className="metadata-info">{run.getUserId()}</span>
+            <span className="metadata-info">{Utils.getUser(run, tags)}</span>
           </div>
           {duration !== null ?
             <div className="run-info">
