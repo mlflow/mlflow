@@ -343,10 +343,10 @@ def test_set_terminated_defaults(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Terminator 1')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'RUNNING'
+    assert mlflow_client.get_run(run_id).info.status == 'RUNNING'
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id)
-    assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'FINISHED'
+    assert mlflow_client.get_run(run_id).info.status == 'FINISHED'
     assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 
@@ -354,10 +354,10 @@ def test_set_terminated_status(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Terminator 2')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'RUNNING'
+    assert mlflow_client.get_run(run_id).info.status == 'RUNNING'
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id, 'FAILED')
-    assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'FAILED'
+    assert mlflow_client.get_run(run_id).info.status == 'FAILED'
     assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 

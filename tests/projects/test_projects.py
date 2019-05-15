@@ -210,7 +210,7 @@ def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
     assert run_id == store_run_id
     run = mlflow_service.get_run(run_id)
 
-    assert run.info.status == RunStatus.FINISHED
+    assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
     assert run.data.params == {"use_start_run": use_start_run}
     assert run.data.metrics == {"some_key": 3}
 
@@ -285,7 +285,7 @@ def test_run(tmpdir,  # pylint: disable=unused-argument
     assert run_id == store_run_id
     run = mlflow_service.get_run(run_id)
 
-    assert run.info.status == RunStatus.FINISHED
+    assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
 
     assert run.data.params == {"use_start_run": use_start_run}
     assert run.data.metrics == {"some_key": 3}

@@ -143,7 +143,7 @@ def test_start_run_context_manager(tracking_uri_mock):
         assert persisted_run is not None
         assert persisted_run.info == first_run.info
     finished_run = tracking.MlflowClient().get_run(first_uuid)
-    assert finished_run.info.status == RunStatus.FINISHED
+    assert finished_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
     # Launch a separate run that fails, verify the run status is FAILED and the run UUID is
     # different
     with pytest.raises(Exception):
@@ -152,7 +152,7 @@ def test_start_run_context_manager(tracking_uri_mock):
             raise Exception("Failing run!")
     assert second_run_id != first_uuid
     finished_run2 = tracking.MlflowClient().get_run(second_run_id)
-    assert finished_run2.info.status == RunStatus.FAILED
+    assert finished_run2.info.status == RunStatus.to_string(RunStatus.FAILED)
 
 
 def test_start_and_end_run(tracking_uri_mock):
@@ -419,7 +419,7 @@ def test_with_startrun():
         run_id = active_run.info.run_id
     t1 = int(time.time() * 1000)
     run_info = mlflow.tracking._get_store().get_run(run_id).info
-    assert run_info.status == RunStatus.from_string("FINISHED")
+    assert run_info.status == "FINISHED"
     assert t0 <= run_info.end_time and run_info.end_time <= t1
     assert mlflow.active_run() is None
 

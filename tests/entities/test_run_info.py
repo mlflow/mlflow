@@ -1,7 +1,8 @@
+import random
 import unittest
 import uuid
 
-from mlflow.entities import RunInfo, LifecycleStage
+from mlflow.entities import RunInfo, LifecycleStage, RunStatus
 from tests.helper_functions import random_str, random_int
 
 
@@ -24,7 +25,7 @@ class TestRunInfo(unittest.TestCase):
         run_id = str(uuid.uuid4())
         experiment_id = str(random_int(10, 2000))
         user_id = random_str(random_int(10, 25))
-        status = random_int(1, 5)
+        status = RunStatus.to_string(random.choice(RunStatus.all_status()))
         start_time = random_int(1, 10)
         end_time = start_time + random_int(1, 10)
         lifecycle_stage = LifecycleStage.ACTIVE

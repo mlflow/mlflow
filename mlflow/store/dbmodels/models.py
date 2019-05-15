@@ -162,7 +162,7 @@ class SqlRun(Base):
             run_id=self.run_uuid,
             experiment_id=str(self.experiment_id),
             user_id=self.user_id,
-            status=RunStatus.from_string(self.status),
+            status=self.status,
             start_time=self.start_time,
             end_time=self.end_time,
             lifecycle_stage=self.lifecycle_stage,

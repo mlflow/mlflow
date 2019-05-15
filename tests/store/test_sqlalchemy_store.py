@@ -294,8 +294,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             v2 = getattr(run.info, k)
             if k == 'source_type':
                 self.assertEqual(v, SourceType.to_string(v2))
-            elif k == 'status':
-                self.assertEqual(v, RunStatus.to_string(v2))
             else:
                 self.assertEqual(v, v2)
 
@@ -558,7 +556,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         actual = self.store.update_run_info(run.info.run_id, new_status, endtime)
 
-        self.assertEqual(actual.status, new_status)
+        self.assertEqual(actual.status, RunStatus.to_string(new_status))
         self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):
@@ -860,19 +858,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         filter_string = "attribute.status != -1"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.status = {}".format(RunStatus.RUNNING)
+        filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
         # change status for one of the runs
         self.store.update_run_info(r2, RunStatus.FAILED, 300)
 
-        filter_string = "attribute.status = {}".format(RunStatus.RUNNING)
+        filter_string = "attribute.status = 'RUNNING'"
         six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.status = {}".format(RunStatus.FAILED)
+        filter_string = "attribute.status = 'FAILED'"
         six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.status != {}".format(RunStatus.SCHEDULED)
+        filter_string = "attribute.status != 'SCHEDULED'"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attr.start_time > 0 AND attribute.end_time > 200"
