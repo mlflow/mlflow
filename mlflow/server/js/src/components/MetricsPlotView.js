@@ -23,15 +23,15 @@ export class MetricsPlotView extends React.Component {
     lineSmoothness: PropTypes.number,
   };
 
-  getLineLegend = (metricKey, runDisplayName) => {
+  static getLineLegend = (metricKey, runDisplayName, isComparing) => {
     let legend = metricKey;
-    if (this.props.isComparing) {
-      legend += Utils.truncateString(runDisplayName, MAX_RUN_NAME_DISPLAY_LENGTH);
+    if (isComparing) {
+      legend += `, ${Utils.truncateString(runDisplayName, MAX_RUN_NAME_DISPLAY_LENGTH)}`;
     }
     return legend;
   };
 
-  parseTimestamp = (timestamp, history, xAxis) => {
+  static parseTimestamp = (timestamp, history, xAxis) => {
     if (xAxis === X_AXIS_RELATIVE) {
       const minTimestamp = _.minBy(history, 'timestamp').timestamp;
       return (timestamp - minTimestamp) / 1000;
@@ -40,17 +40,17 @@ export class MetricsPlotView extends React.Component {
   };
 
   getPlotPropsForLineChart = () => {
-    const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness } = this.props;
+    const { metrics, xAxis, showPoint, yAxisLogScale, lineSmoothness, isComparing } = this.props;
     const data = metrics.map((metric) => {
       const { metricKey, runDisplayName, history } = metric;
       const isSingleHistory = history.length === 0;
       return {
-        name: this.getLineLegend(metricKey, runDisplayName),
+        name: MetricsPlotView.getLineLegend(metricKey, runDisplayName, isComparing),
         x: history.map((entry) => {
           if (xAxis === X_AXIS_STEP) {
             return entry.step;
           }
-          return this.parseTimestamp(entry.timestamp, history, xAxis);
+          return MetricsPlotView.parseTimestamp(entry.timestamp, history, xAxis);
         }),
         y: history.map((entry) => entry.value),
         type: 'scatter',
