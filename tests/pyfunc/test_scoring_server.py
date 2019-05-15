@@ -216,7 +216,6 @@ def test_split_oriented_json_to_df():
 
 
 def test_get_jsonnable_obj():
-    import json
     from mlflow.pyfunc.scoring_server import _get_jsonable_obj
     from mlflow.pyfunc.scoring_server import NumpyEncoder
     py_ary = [["a", "b", "c"], ["e", "f", "g"]]

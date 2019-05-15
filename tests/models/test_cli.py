@@ -35,7 +35,7 @@ def sk_model(iris_data):
 
 
 def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
-    x, y = iris_data
+    x, _ = iris_data
     with TempDir() as tmp:
         input_records_path = tmp.path("input_records.json")
         pd.DataFrame(x).to_json(input_records_path, orient="records")
@@ -70,7 +70,7 @@ def test_predict(iris_data, sk_model):
         input_json_path = tmp.path("input.json")
         input_csv_path = tmp.path("input.csv")
         output_json_path = tmp.path("output.json")
-        x, y = iris_data
+        x, _ = iris_data
         pd.DataFrame(x).to_json(input_json_path, orient="split")
         pd.DataFrame(x).to_csv(input_csv_path, index=False)
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
