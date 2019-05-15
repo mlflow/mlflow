@@ -7,6 +7,7 @@ import { Experiment } from '../sdk/MlflowMessages';
 import { getExperiment, getRunTags } from '../reducers/Reducers';
 import BreadcrumbTitle from './BreadcrumbTitle';
 import MetricsPlotPanel from './MetricsPlotPanel';
+import { withRouter } from 'react-router-dom';
 
 class MetricView extends Component {
   static propTypes = {
@@ -14,10 +15,12 @@ class MetricView extends Component {
     runUuids: PropTypes.arrayOf(String).isRequired,
     runNames: PropTypes.arrayOf(String).isRequired,
     metricKey: PropTypes.string.isRequired,
+    location: PropTypes.object.isRequired,
   };
 
   render() {
-    const { experiment, runUuids, runNames, metricKey } = this.props;
+    const { experiment, runUuids, runNames, metricKey, location } = this.props;
+    const plotMetricKeys = Utils.getPlotMetricKeysFromUrl(location.search);
     return (
       <div className='MetricView'>
         <div className='header-container'>
@@ -25,7 +28,7 @@ class MetricView extends Component {
             experiment={experiment}
             runNames={runNames}
             runUuids={runUuids}
-            title={<span>{metricKey}</span>}
+            title={<span>{plotMetricKeys.length > 1 ? 'Metrics' : plotMetricKeys[0]}</span>}
           />
         </div>
         <MetricsPlotPanel {...{ runUuids, metricKey }} />
@@ -44,4 +47,4 @@ const mapStateToProps = (state, ownProps) => {
   return { experiment, runNames };
 };
 
-export default connect(mapStateToProps)(MetricView);
+export default withRouter(connect(mapStateToProps)(MetricView));

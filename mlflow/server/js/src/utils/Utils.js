@@ -4,6 +4,7 @@ import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
+import qs from 'qs';
 
 class Utils {
   /**
@@ -329,6 +330,12 @@ class Utils {
 
   static getRequestWithId(requests, requestId) {
     return requests.find((r) => r.id === requestId);
+  }
+
+  static getPlotMetricKeysFromUrl(search) {
+    const params = qs.parse(search);
+    const plotMetricKeysStr = params && params['plot_metric_keys'];
+    return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
   }
 }
 

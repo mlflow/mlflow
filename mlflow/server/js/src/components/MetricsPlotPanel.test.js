@@ -137,15 +137,6 @@ describe('unit tests', () => {
     expect(MetricsPlotPanel.isComparing(s2)).toBe(false);
   });
 
-  test('getPlotMetricKeysFromUrl()', () => {
-    const url0 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=[]';
-    const url1 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1"]';
-    const url2 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1","metric_2"]';
-    expect(MetricsPlotPanel.getPlotMetricKeysFromUrl(url0)).toEqual([]);
-    expect(MetricsPlotPanel.getPlotMetricKeysFromUrl(url1)).toEqual(['metric_1']);
-    expect(MetricsPlotPanel.getPlotMetricKeysFromUrl(url2)).toEqual(['metric_1', 'metric_2']);
-  });
-
   test('getMetrics() should sort the history by timestamp for `Time (Relative)` x-axis', () => {
     wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
     instance = wrapper.instance();

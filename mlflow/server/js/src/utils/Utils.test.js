@@ -1,6 +1,7 @@
 import Utils from './Utils';
 import React from 'react';
 import { shallow } from 'enzyme';
+import { MetricsPlotPanel } from '../components/MetricsPlotPanel';
 
 
 test("formatMetric", () => {
@@ -202,4 +203,13 @@ test("getGitHubRegex", () => {
     }
     expect([].concat(match)).toEqual(lst[1]);
   });
+});
+
+test('getPlotMetricKeysFromUrl', () => {
+  const url0 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=[]';
+  const url1 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1"]';
+  const url2 = '?runs=["runUuid1","runUuid2"]&plot_metric_keys=["metric_1","metric_2"]';
+  expect(Utils.getPlotMetricKeysFromUrl(url0)).toEqual([]);
+  expect(Utils.getPlotMetricKeysFromUrl(url1)).toEqual(['metric_1']);
+  expect(Utils.getPlotMetricKeysFromUrl(url2)).toEqual(['metric_1', 'metric_2']);
 });

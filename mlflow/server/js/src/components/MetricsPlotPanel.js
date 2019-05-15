@@ -33,7 +33,7 @@ export class MetricsPlotPanel extends React.Component {
 
   constructor(props) {
     super(props);
-    const plotMetricKeys = MetricsPlotPanel.getPlotMetricKeysFromUrl(props.location.search);
+    const plotMetricKeys = Utils.getPlotMetricKeysFromUrl(props.location.search);
     const selectedMetricKeys = plotMetricKeys.length ? plotMetricKeys : [props.metricKey];
     this.state = {
       selectedXAxis: X_AXIS_RELATIVE,
@@ -57,12 +57,6 @@ export class MetricsPlotPanel extends React.Component {
     }
     return CHART_TYPE_LINE;
   }
-
-  static getPlotMetricKeysFromUrl = (search) => {
-    const params = qs.parse(search);
-    const plotMetricKeysStr = params && params['plot_metric_keys'];
-    return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
-  };
 
   static isComparing = (search) => {
     const params = qs.parse(search);
