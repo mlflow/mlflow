@@ -15,7 +15,7 @@ import Routes from '../Routes';
 export const CHART_TYPE_LINE = 'line';
 export const CHART_TYPE_BAR = 'bar';
 
-class MetricsPlotPanel extends React.Component {
+export class MetricsPlotPanel extends React.Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(String).isRequired,
     metricKey: PropTypes.string.isRequired,
@@ -64,8 +64,8 @@ class MetricsPlotPanel extends React.Component {
     return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
   };
 
-  isComparing = () => {
-    const params = qs.parse(this.props.location.search);
+  static isComparing = (search) => {
+    const params = qs.parse(search);
     const runs = params && params['?runs'];
     return runs ? JSON.parse(runs).length > 1 : false;
   };
@@ -132,7 +132,7 @@ class MetricsPlotPanel extends React.Component {
   handleLineSmoothChange = (lineSmoothness) => this.setState({ lineSmoothness });
 
   render() {
-    const { runUuids, runDisplayNames, distinctMetricKeys } = this.props;
+    const { runUuids, runDisplayNames, distinctMetricKeys, location } = this.props;
     const {
       historyRequestIds,
       showPoint,
@@ -165,7 +165,7 @@ class MetricsPlotPanel extends React.Component {
             metricKeys={selectedMetricKeys}
             showPoint={showPoint}
             chartType={chartType}
-            isComparing={this.isComparing()}
+            isComparing={MetricsPlotPanel.isComparing(location.search)}
             yAxisLogScale={yAxisLogScale}
             lineSmoothness={lineSmoothness}
           />
