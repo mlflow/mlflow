@@ -1,6 +1,7 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { MetricsPlotPanel, CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
+import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
 
 describe('unit tests', () => {
   let wrapper;
@@ -22,9 +23,9 @@ describe('unit tests', () => {
         {
           metricKey: 'metric_1',
           history: [
-            /* Intentionally reversed timestamp here */
-            { key: 'metric_1', value: 100, step: 1, timestamp: 1556662044000 },
-            { key: 'metric_1', value: 50, step: 2, timestamp: 1556662043000 },
+            /* Intentionally reversed timestamp and step here for testing */
+            { key: 'metric_1', value: 100, step: 2, timestamp: 1556662044000 },
+            { key: 'metric_1', value: 50, step: 1, timestamp: 1556662043000 },
           ],
           runUuid: 'runUuid1',
           runDisplayName: 'runDisplayName1',
@@ -39,10 +40,10 @@ describe('unit tests', () => {
           runDisplayName: 'runDisplayName1',
         },
         {
-          metricKey: 'metric_2',
+          metricKey: 'metric_1',
           history: [
-            { key: 'metric_2', value: 150, step: 3, timestamp: 1556662043000 },
-            { key: 'metric_2', value: 200, step: 4, timestamp: 1556662044000 },
+            { key: 'metric_1', value: 150, step: 3, timestamp: 1556662043000 },
+            { key: 'metric_1', value: 200, step: 4, timestamp: 1556662044000 },
           ],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
@@ -90,8 +91,8 @@ describe('unit tests', () => {
           runDisplayName: 'runDisplayName1',
         },
         {
-          metricKey: 'metric_2',
-          history: [{ key: 'metric_2', value: 150, step: 0, timestamp: 1556662043000 }],
+          metricKey: 'metric_1',
+          history: [{ key: 'metric_1', value: 150, step: 0, timestamp: 1556662043000 }],
           runUuid: 'runUuid2',
           runDisplayName: 'runDisplayName2',
         },
@@ -145,12 +146,33 @@ describe('unit tests', () => {
     expect(MetricsPlotPanel.getPlotMetricKeysFromUrl(url2)).toEqual(['metric_1', 'metric_2']);
   });
 
-  test('getMetrics()', () => {
+  test('getMetrics() should sort the history by timestamp for `Time (Relative)` x-axis', () => {
     wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
     instance = wrapper.instance();
-    // sort reversed history in mock
+
+    instance.setState({ selectedXAxis: X_AXIS_RELATIVE });
     const metrics = minimalPropsForLineChart.metricsWithRunInfoAndHistory;
-    metrics[0].history.sort();
+    metrics[0].history.sort(); // sort in place before comparison
+    expect(instance.getMetrics()).toEqual(metrics);
+  });
+
+  test('getMetrics() should sort the history by timestamp for `Time (Wall)` x-axis', () => {
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+    instance = wrapper.instance();
+
+    instance.setState({ selectedXAxis: X_AXIS_WALL });
+    const metrics = minimalPropsForLineChart.metricsWithRunInfoAndHistory;
+    metrics[0].history.sort(); // sort in place before comparison
+    expect(instance.getMetrics()).toEqual(metrics);
+  });
+
+  test('getMetrics() should sort the history by step&timestamp for `Step` x-axis', () => {
+    wrapper = shallow(<MetricsPlotPanel {...minimalPropsForLineChart} />);
+    instance = wrapper.instance();
+
+    instance.setState({ selectedXAxis: X_AXIS_STEP });
+    const metrics = minimalPropsForLineChart.metricsWithRunInfoAndHistory;
+    metrics[0].history.sort((h1, h2) => h1.step - h2.step); // sort in place before comparison
     expect(instance.getMetrics()).toEqual(metrics);
   });
 });
