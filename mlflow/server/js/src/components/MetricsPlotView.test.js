@@ -1,72 +1,78 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { MetricsPlotView } from './MetricsPlotView';
-import { X_AXIS_RELATIVE, X_AXIS_WALL } from "./MetricsPlotControls";
+import { X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 
-const metricsForLine = [{
-  metricKey: 'metric_0',
-  history: [
-    {
-      key: 'metric_0',
-      value: 100,
-      step: 0,
-      timestamp: 1556662043000,
-    },
-    {
-      key: 'metric_0',
-      value: 200,
-      step: 1,
-      timestamp: 1556662044000,
-    },
-  ],
-  runUuid: 'runUuid1',
-  runDisplayName: 'RunDisplayName1',
-}, {
-  metricKey: 'metric_1',
-  history: [
-    {
-      key: 'metric_1',
-      value: 300,
-      step: 0,
-      timestamp: 1556662043000,
-    },
-    {
-      key: 'metric_0',
-      value: 400,
-      step: 1,
-      timestamp: 1556662044000,
-    },
-  ],
-  runUuid: 'runUuid2',
-  runDisplayName: 'RunDisplayName2',
-}];
+const metricsForLine = [
+  {
+    metricKey: 'metric_0',
+    history: [
+      {
+        key: 'metric_0',
+        value: 100,
+        step: 0,
+        timestamp: 1556662043000,
+      },
+      {
+        key: 'metric_0',
+        value: 200,
+        step: 1,
+        timestamp: 1556662044000,
+      },
+    ],
+    runUuid: 'runUuid1',
+    runDisplayName: 'RunDisplayName1',
+  },
+  {
+    metricKey: 'metric_1',
+    history: [
+      {
+        key: 'metric_1',
+        value: 300,
+        step: 0,
+        timestamp: 1556662043000,
+      },
+      {
+        key: 'metric_0',
+        value: 400,
+        step: 1,
+        timestamp: 1556662044000,
+      },
+    ],
+    runUuid: 'runUuid2',
+    runDisplayName: 'RunDisplayName2',
+  },
+];
 
-const metricsForBar = [{
-  metricKey: 'metric_0',
-  history: [
-    {
-      key: 'metric_0',
-      value: 100,
-      step: 0,
-      timestamp: 1556662043000,
-    }
-  ],
-  runUuid: 'runUuid1',
-  runDisplayName: 'RunDisplayName1',
-}, {
-  metricKey: 'metric_0',
-  history: [
-    {
-      key: 'metric_0',
-      value: 300,
-      step: 0,
-      timestamp: 1556662043000,
-    }
-  ],
-  runUuid: 'runUuid2',
-  runDisplayName: 'RunDisplayName2',
-}];
+const metricsForBar = [
+  {
+    metricKey: 'metric_0',
+    history: [
+      {
+        key: 'metric_0',
+        value: 100,
+        step: 0,
+        timestamp: 1556662043000,
+      },
+    ],
+    runUuid: 'runUuid1',
+    runDisplayName: 'RunDisplayName1',
+  },
+  {
+    metricKey: 'metric_0',
+    history: [
+      {
+        key: 'metric_0',
+        value: 300,
+        step: 0,
+        timestamp: 1556662043000,
+      },
+    ],
+    runUuid: 'runUuid2',
+    runDisplayName: 'RunDisplayName2',
+  },
+];
 
 describe('unit tests', () => {
   let wrapper;
@@ -95,16 +101,13 @@ describe('unit tests', () => {
     };
   });
 
-
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(
-      <MetricsPlotView {...minimalPropsForLineChart}/>
-    );
+    wrapper = shallow(<MetricsPlotView {...minimalPropsForLineChart} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('getPlotPropsForLineChart()', () => {
-    wrapper = shallow(<MetricsPlotView {...minimalPropsForLineChart}/>);
+    wrapper = shallow(<MetricsPlotView {...minimalPropsForLineChart} />);
     instance = wrapper.instance();
     expect(instance.getPlotPropsForLineChart()).toEqual({
       data: [
@@ -135,7 +138,7 @@ describe('unit tests', () => {
   });
 
   test('getPlotPropsForBarChart()', () => {
-    wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart}/>);
+    wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart} />);
     instance = wrapper.instance();
     expect(instance.getPlotPropsForBarChart()).toEqual({
       data: [

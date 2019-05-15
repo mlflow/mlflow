@@ -20,21 +20,21 @@ describe('unit tests', () => {
   const minimalPropsForBarChart = { ...minimalPropsForLineChart, chartType: CHART_TYPE_BAR };
 
   test('should render with minimal props without exploding', () => {
-    wrapper = shallow(<MetricsPlotControls {...minimalPropsForLineChart}/>);
+    wrapper = shallow(<MetricsPlotControls {...minimalPropsForLineChart} />);
     expect(wrapper.length).toBe(1);
-    wrapper = shallow(<MetricsPlotControls {...minimalPropsForBarChart}/>);
+    wrapper = shallow(<MetricsPlotControls {...minimalPropsForBarChart} />);
     expect(wrapper.length).toBe(1);
   });
 
   test('should show x-axis controls for line chart', () => {
-    wrapper = shallow(<MetricsPlotControls {...minimalPropsForLineChart}/>);
+    wrapper = shallow(<MetricsPlotControls {...minimalPropsForLineChart} />);
     expect(wrapper.find('.show-point-toggle')).toHaveLength(1);
     expect(wrapper.find('.smoothness-toggle')).toHaveLength(1);
     expect(wrapper.find('.x-axis-radio')).toHaveLength(3);
   });
 
   test('should not show x-axis controls for bar chart', () => {
-    wrapper = shallow(<MetricsPlotControls {...minimalPropsForBarChart}/>);
+    wrapper = shallow(<MetricsPlotControls {...minimalPropsForBarChart} />);
     expect(wrapper.find('.show-point-toggle')).toHaveLength(0);
     expect(wrapper.find('.smoothness-toggle')).toHaveLength(0);
     expect(wrapper.find('.x-axis-radio')).toHaveLength(0);
