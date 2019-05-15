@@ -597,8 +597,8 @@ def _get_default_image_url(region_name):
 
     env_img = os.environ.get(DEPRECATED_IMAGE_NAME_ENV_VAR)
     if env_img:
-        _logger.warn("Environment variable '%s' is deprecated, please use '%s' instead",
-                     DEPRECATED_IMAGE_NAME_ENV_VAR, IMAGE_NAME_ENV_VAR)
+        _logger.warning("Environment variable '%s' is deprecated, please use '%s' instead",
+                        DEPRECATED_IMAGE_NAME_ENV_VAR, IMAGE_NAME_ENV_VAR)
         return env_img
 
     ecr_client = boto3.client("ecr", region_name=region_name)
