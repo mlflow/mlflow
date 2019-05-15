@@ -33,8 +33,8 @@ def serve(model_uri, port, host, no_conda=False):
     information about the input data formats accepted by the webserver, see the following
     documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
     """
-    return _get_flavor_backend(model_uri, no_conda).serve(model_uri=model_uri, port=port, host=host,
-                                                          no_conda=no_conda)
+    return _get_flavor_backend(model_uri, no_conda=no_conda).serve(model_uri=model_uri, port=port,
+                                                                   host=host)
 
 
 @commands.command("predict")
@@ -49,7 +49,7 @@ def serve(model_uri, port, host, no_conda=False):
               help="Only applies if the content type is 'json'. Specify the how the data is "
                    "encoded.  Can be one of {'split', 'records'} mirroring the behavior of Pandas "
                    "orient attribute. The default is 'split' which expects dict like data: "
-                   "{‘index’ -> [index], ‘columns’ -> [columns], ‘data’ -> [values]}, where index "
+                   "{'index' -> [index], 'columns' -> [columns], 'data' -> [values]}, where index "
                    "is optional. For more information see "
                    "https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json"
                    ".html")
@@ -62,12 +62,11 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
     """
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
-    return _get_flavor_backend(model_uri, no_conda).predict(model_uri=model_uri,
+    return _get_flavor_backend(model_uri, no_conda=no_conda).predict(model_uri=model_uri,
                                                             input_path=input_path,
                                                             output_path=output_path,
                                                             content_type=content_type,
-                                                            json_format=json_format,
-                                                            no_conda=no_conda)
+                                                            json_format=json_format)
 
 
 def _get_flavor_backend(model_uri, no_conda):

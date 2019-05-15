@@ -29,7 +29,6 @@ class Model(object):
     An MLflow Model that can support multiple model flavors. Provides APIs for implementing
     new Model flavors.
     """
-
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
@@ -91,7 +90,7 @@ class FlavorBackend(object):
         self._config = config
 
     @abstractmethod
-    def predict(self, model_uri, input_path, output_path, json_format, **kwargs):
+    def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
         Generate predictions using a saved MLflow model referenced by the given URI.
         Input and output are read from and written to a file or stdin / stdout.
@@ -101,25 +100,24 @@ class FlavorBackend(object):
                            stdin.
         :param output_path: Path to the file with output predictions. If not specified, data is
                             written to stdin.
-        :param json_format:
-        :param kwargs:
-        :return:
+        :param content_type: Specifies the input format. Can be one of {'json', 'csv'}
+        :param json_format: Only applies if content_type == 'json'. Specifies how is the input data
+                            encoded in json. Can be one of {'split', 'records'}.
         """
         pass
 
     @abstractmethod
-    def serve(self, model_uri, port, host, **kwargs):
+    def serve(self, model_uri, port, host):
         """
         Serve saved MLflow model locally.
         :param model_uri: URI pointing to the MLflow model to be used for scoring.
         :param port: Port to deploy the model to.
         :param host: Host to use for the model deployment. Defaults to 'localhost'.
-        :param kwargs: Any additional arguments for the flavor backend.
         """
         pass
 
     @abstractmethod
-    def can_score_model(self, **kwargs):
+    def can_score_model(self):
         """
         Check whether this flavor backend can be deployed in the current environment.
 

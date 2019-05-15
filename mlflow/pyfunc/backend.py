@@ -12,19 +12,22 @@ from mlflow.projects import _get_conda_bin_executable
 
 
 class PyFuncBackend(FlavorBackend):
+
+    def __init__(self, config, no_conda=False, **kwargs):
+        super(PyFuncBackend, self).__init__(config=config)
+        self._no_conda = no_conda
+
     """
     Flavor backend implementation for the generic python models.
-    Predict and serve locally models with pyfunc flavor.
     """
-    def predict(self, model_uri, input_path, output_path, content_type, no_conda, json_format,
-                **kwargs):
+    def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
         Generate predictions using generic python model saved with MLflow.
         Return the prediction results as a JSON.
         """
         with TempDir() as tmp:
             local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
-            if not no_conda and ENV in self._config:
+            if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
                 # NOTE: We're calling main in the pyfunc scoring server belonging to the current
                 # conda environment. The model environment may contain mlflow with different version
@@ -48,7 +51,7 @@ class PyFuncBackend(FlavorBackend):
                 scoring_server._predict(local_path, input_path, output_path, content_type,
                                         json_format)
 
-    def serve(self, model_uri, port, host, no_conda, **kwargs):
+    def serve(self, model_uri, port, host):
         """
         Serve pyfunc model locally.
         """
@@ -62,8 +65,8 @@ class PyFuncBackend(FlavorBackend):
             else:
                 scoring_server._serve(local_path, port, host)
 
-    def can_score_model(self, no_conda, **kwargs):
-        if no_conda:
+    def can_score_model(self):
+        if self._no_conda:
             return True  # already in python; dependencies are assumed to be installed (no_conda)
         conda_path = _get_conda_bin_executable("conda")
         p = subprocess.Popen([conda_path, "--version"], stdout=subprocess.PIPE,

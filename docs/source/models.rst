@@ -478,7 +478,7 @@ The local REST API server accepts the following data formats as inputs:
 For more information about serializing pandas DataFrames, see
 `pandas.DataFrame.to_json <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html>`_.
 
-The predict command accepts same input formats. The format is specified as command line arguments.
+The predict command accepts the same input formats. The format is specified as command line arguments.
 
 Commands
 ~~~~~~~~~

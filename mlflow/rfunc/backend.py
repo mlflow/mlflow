@@ -17,7 +17,7 @@ class RFuncBackend(FlavorBackend):
     """
     version_pattern = re.compile("version ([0-9]+[.][0-9]+[.][0-9]+)")
 
-    def predict(self, model_uri, input_path, output_path, content_type, **kwargs):
+    def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
         Generate predictions using R model saved with MLflow.
         Return the prediction results as a JSON.
