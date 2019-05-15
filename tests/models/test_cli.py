@@ -1,15 +1,22 @@
-import os
 import pandas as pd
 import pytest
 import sklearn
 import sklearn.datasets
 import sklearn.neighbors
 import subprocess
+import sys
+
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
 
 import mlflow
+import mlflow.pyfunc as pyfunc
 import mlflow.sklearn
 from mlflow.utils.file_utils import TempDir
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.models import test_pyfunc
+
 
 @pytest.fixture(scope="module")
 def iris_data():
@@ -27,9 +34,37 @@ def sk_model(iris_data):
     return knn_model
 
 
+def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
+    x, y = iris_data
+    with TempDir() as tmp:
+        input_records_path = tmp.path("input_records.json")
+        pd.DataFrame(x).to_json(input_records_path, orient="records")
+        output_json_path = tmp.path("output.json")
+        test_model_path = tmp.path("test_model")
+        from mlflow.utils.environment import _mlflow_conda_env
+        test_model_conda_path = tmp.path("conda.yml")
+        # create env with odl mlflow!
+        _mlflow_conda_env(path=test_model_conda_path,
+                          additional_pip_deps=["mlflow=={}".format(test_pyfunc.MLFLOW_VERSION)])
+        pyfunc.save_model(path=test_model_path,
+                          loader_module=test_pyfunc.__name__.split(".")[-1],
+                          code_path=[test_pyfunc.__file__],
+                          conda_env=test_model_conda_path)
+        # explicit json format with orient records
+        p = subprocess.Popen(["mlflow", "models", "predict", "-m", test_model_path, "-i",
+                              input_records_path,
+                              "-o", output_json_path, "-t", "json", "--json-format", "records"])
+        assert 0 == p.wait()
+        actual = pd.read_json(output_json_path, orient="records")
+        actual = actual[actual.columns[0]].values
+        expected = test_pyfunc.TestModel(check_version=False).predict(df=pd.DataFrame(x))
+        assert all(expected == actual)
+
+
 def test_predict(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
+
     model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     with TempDir() as tmp:
         input_json_path = tmp.path("input.json")
@@ -40,7 +75,7 @@ def test_predict(iris_data, sk_model):
         pd.DataFrame(x).to_csv(input_csv_path, index=False)
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
                               "-o", output_json_path, "--no-conda"])
-        p.wait()
+        assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
@@ -66,12 +101,31 @@ def test_predict(iris_data, sk_model):
 
         # explicit json format with orient==split
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
-                              "-o", output_json_path, "-t", "json,split"])
+                              "-o", output_json_path, "-t", "json", "--json-format", "split"])
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
+
+        # read from stdin, write to stdout.
+        p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-t", "json",
+                              "--json-format", "split"],
+                             universal_newlines=True,
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=sys.stderr)
+        with open(input_json_path, "r") as f:
+            stdout, _ = p.communicate(f.read())
+        assert 0 == p.wait()
+        actual = pd.read_json(StringIO(stdout), orient="records")
+        actual = actual[actual.columns[0]].values
+        expected = sk_model.predict(x)
+        assert all(expected == actual)
+
+        # NB: We do not test orient=records here because records may loose column ordering.
+        # orient == records is tested in other test with simpler model.
+
         # csv
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_csv_path,
                               "-o", output_json_path, "-t", "csv"])
@@ -80,11 +134,3 @@ def test_predict(iris_data, sk_model):
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
-
-
-
-
-
-
-
-

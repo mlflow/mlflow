@@ -16,7 +16,7 @@ import flask
 import json
 from json import JSONEncoder
 import logging
-import numpy
+import numpy as np
 import pandas as pd
 from six import reraise
 import subprocess
@@ -183,18 +183,17 @@ def init(model):
 
 def _predict(local_path, input_path, output_path, content_type, json_format):
     pyfunc_model = load_model(local_path)
-    if input_path is None:
+    if input_path is None or input_path == "__stdin__":
         input_path = sys.stdin
 
     if content_type == "json":
         df = parse_json_input(input_path, orient=json_format)
-        print(df)
     elif content_type == "csv":
         df = parse_csv_input(input_path)
     else:
         raise Exception("Unknown content type '{}'".format(content_type))
 
-    if output_path is None:
+    if output_path is None or output_path == "__stdout__":
         predictions_to_json(pyfunc_model.predict(df), sys.stdout)
     else:
         with open(output_path, "w") as fout:
@@ -209,7 +208,7 @@ def _execute_in_conda_env(conda_env_path, command):
     conda_env_name = _get_or_create_conda_env(conda_env_path)
     activate_path = _get_conda_bin_executable("activate")
     command = " && ".join(
-        ["source {} {}".format(activate_path, conda_env_name), "pip install mlflow", command]
+        ["source {} {}".format(activate_path, conda_env_name), "pip install mlflow 1>&2", command]
     )
     _logger.info("=== Running command '%s'", command)
     child = subprocess.Popen(["bash", "-c", command], close_fds=True)
@@ -228,8 +227,8 @@ class NumpyEncoder(JSONEncoder):
     """
 
     def default(self, o):  # pylint: disable=E0202
-        if isinstance(o, numpy.generic):
-            return numpy.asscalar(o)
+        if isinstance(o, np.generic):
+            return np.asscalar(o)
         return JSONEncoder.default(self, o)
 
 

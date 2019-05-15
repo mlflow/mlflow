@@ -33,8 +33,13 @@ class PyFuncBackend(FlavorBackend):
                 # while the model that is being loaded may depend on a different version of mlflow.
                 # The hope is that the scoring server is self contained enough and does not have
                 # external mlflow dependencies.
+                if input_path is None:
+                    input_path = "__stdin__"
+                if output_path is None:
+                    output_path = "__stdout__"
                 command = "python {0} predict {1} {2} {3} {4} {5}".format(scoring_server.__file__,
-                                                                          local_path, input_path,
+                                                                          local_path,
+                                                                          input_path,
                                                                           output_path,
                                                                           content_type,
                                                                           json_format)
@@ -61,5 +66,7 @@ class PyFuncBackend(FlavorBackend):
         if no_conda:
             return True  # already in python; dependencies are assumed to be installed (no_conda)
         conda_path = _get_conda_bin_executable("conda")
-        p = subprocess.Popen([conda_path, "--version"])
+        p = subprocess.Popen([conda_path, "--version"], stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE)
+        _, _ = p.communicate()
         return p.wait() == 0
