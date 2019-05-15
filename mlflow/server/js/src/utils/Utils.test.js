@@ -1,8 +1,6 @@
 import Utils from './Utils';
 import React from 'react';
 import { shallow } from 'enzyme';
-import { MetricsPlotPanel } from '../components/MetricsPlotPanel';
-
 
 test("formatMetric", () => {
   expect(Utils.formatMetric(0)).toEqual("0");
