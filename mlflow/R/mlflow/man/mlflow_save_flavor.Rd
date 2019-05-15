@@ -4,13 +4,18 @@
 \alias{mlflow_save_flavor}
 \title{Save MLflow Model Flavor}
 \usage{
-mlflow_save_flavor(model, path = "model", conda_env = NULL)
+mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
+  conda_env = NULL)
 }
 \arguments{
-\item{model}{The model that will perform a prediction.}
+\item{x}{The serving function or model that will perform a prediction.}
 
 \item{path}{Destination path where this MLflow compatible model
 will be saved.}
+
+\item{r_dependencies}{Optional vector of paths to dependency files
+to include in the model, as in \code{r-dependencies.txt}
+or \code{conda.yaml}.}
 
 \item{conda_env}{Path to Conda dependencies file.}
 }
