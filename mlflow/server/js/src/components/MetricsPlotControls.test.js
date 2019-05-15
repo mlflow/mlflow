@@ -1,8 +1,7 @@
 import React from 'react';
 import { shallow } from 'enzyme';
-import { X_AXIS_RELATIVE } from './MetricsPlotControls';
+import { MetricsPlotControls, X_AXIS_RELATIVE } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
-import { MetricsPlotControls } from './MetricsPlotControls';
 
 describe('unit tests', () => {
   let wrapper;
