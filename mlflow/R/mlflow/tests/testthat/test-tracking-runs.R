@@ -6,8 +6,7 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   run <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    user_id = "user1",
-    tags = list(foo = "bar", foz = "baz")
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
   )
 
   run <- mlflow_get_run(client = client, run$run_uuid)
@@ -16,7 +15,11 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
 
   expect_true(
     all(purrr::transpose(run$tags[[1]]) %in%
-          list(list(key = "foz", value = "baz"), list(key = "foo", value = "bar"))
+      list(
+        list(key = "foz", value = "baz"),
+        list(key = "foo", value = "bar"),
+        list(key = "mlflow.user", value = "user1")
+      )
     )
   )
 })
@@ -72,7 +75,6 @@ test_that("logging functionality", {
   expect_identical(metric_history$step, c(0, 0))
   expect_true(all(difftime(metric_history$timestamp, run_start_time) >= 0))
   expect_true(all(difftime(metric_history$timestamp, run_end_time) <= 0))
-
 
   expect_error(
     mlflow_get_run(),
