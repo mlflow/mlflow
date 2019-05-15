@@ -167,7 +167,7 @@ def test_invalid_clauses(filter_string, error_message):
 def test_bad_comparators(entity_type, bad_comparators, entity_value):
     run = Run(run_info=RunInfo(
         run_uuid="hi", run_id="hi", experiment_id=0,
-        user_id="user-id", status=RunStatus.FAILED,
+        user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
         start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
         run_data=RunData(metrics=[], params=[], tags=[])
     )
