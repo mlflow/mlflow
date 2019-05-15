@@ -177,7 +177,7 @@ new_mlflow_run <- function(x) {
 }
 
 
-#' Extracts the Object ID
+#' Get Run or Experiment ID
 #'
 #' Extracts the ID of the run or experiment.
 #'

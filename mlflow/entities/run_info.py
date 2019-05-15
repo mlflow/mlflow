@@ -1,3 +1,4 @@
+from mlflow.entities.run_status import RunStatus
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
@@ -21,7 +22,6 @@ class attribute(property):
     # Wrapper class over property to designate some of the properties as searchable
     # run attributes
     pass
-
 
 
 class RunInfo(_MLflowObject):
@@ -124,7 +124,7 @@ class RunInfo(_MLflowObject):
         proto.run_id = self.run_id
         proto.experiment_id = self.experiment_id
         proto.user_id = self.user_id
-        proto.status = self.status
+        proto.status = RunStatus.from_string(self.status)
         proto.start_time = self.start_time
         if self.end_time:
             proto.end_time = self.end_time
@@ -141,9 +141,9 @@ class RunInfo(_MLflowObject):
         if end_time == 0:
             end_time = None
         return cls(run_uuid=proto.run_uuid, run_id=proto.run_id, experiment_id=proto.experiment_id,
-                   user_id=proto.user_id, status=proto.status, start_time=proto.start_time,
-                   end_time=end_time, lifecycle_stage=proto.lifecycle_stage,
-                   artifact_uri=proto.artifact_uri)
+                   user_id=proto.user_id, status=RunStatus.to_string(proto.status),
+                   start_time=proto.start_time, end_time=end_time,
+                   lifecycle_stage=proto.lifecycle_stage, artifact_uri=proto.artifact_uri)
 
     @classmethod
     def get_attributes(cls):

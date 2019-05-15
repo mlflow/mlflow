@@ -48,6 +48,12 @@ def _make_persisted_run_info_dict(run_info):
     run_info_dict = dict(run_info)
     run_info_dict['tags'] = []
     run_info_dict['name'] = ''
+    if 'status' in run_info_dict:
+        # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
+        # Convert from string to enum/int before storing.
+        run_info_dict['status'] = RunStatus.from_string(run_info.status)
+    else:
+        run_info_dict['status'] = RunStatus.RUNNING
     run_info_dict['source_type'] = SourceType.LOCAL
     run_info_dict['source_name'] = ''
     run_info_dict['entry_point_name'] = ''
@@ -59,6 +65,10 @@ def _read_persisted_run_info_dict(run_info_dict):
     dict_copy = run_info_dict.copy()
     if 'lifecycle_stage' not in dict_copy:
         dict_copy['lifecycle_stage'] = LifecycleStage.ACTIVE
+    # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
+    # converting to string before hydrating RunInfo.
+    # If 'status' value not recorded in files, mark it as 'RUNNING' (default)
+    dict_copy['status'] = RunStatus.to_string(run_info_dict.get('status', RunStatus.RUNNING))
 
     # 'experiment_id' was changed from int to string, so we must cast to string
     # when reading legacy run_infos
@@ -348,7 +358,8 @@ class FileStore(AbstractStore):
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(run_uuid=run_uuid, run_id=run_uuid, experiment_id=experiment_id,
                            artifact_uri=artifact_uri, user_id=user_id,
-                           status=RunStatus.RUNNING, start_time=start_time, end_time=None,
+                           status=RunStatus.to_string(RunStatus.RUNNING),
+                           start_time=start_time, end_time=None,
                            lifecycle_stage=LifecycleStage.ACTIVE)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
