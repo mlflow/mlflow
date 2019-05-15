@@ -125,22 +125,7 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
 #                   read from the stdin.
 # @param output_path 'JSON' file where the prediction will be written to. If not specified,
 #                     data is written out to stdout.
-#
-# @examples
-# \dontrun{
-# library(mlflow)
-#
-# # save simple model which roundtrips data as prediction
-# mlflow_save_model(function(df) df, "mlflow_roundtrip")
-#
-# # save data as json
-# jsonlite::write_json(iris, "iris.json")
-#
-# # predict existing model from json data, json output printed to stdout.
-# # load the model from local relative path.
-# mlflow_rfunc_predict(model_path = "mlflow_roundtrip", input_file = "iris.json",
-#                      json_format = "records")
-#
+
 # @importFrom utils read.csv
 mlflow_rfunc_predict <- function(
   model_path,
@@ -162,7 +147,7 @@ mlflow_rfunc_predict <- function(
   )
   model <- mlflow_load_model(model_path)
   prediction <- mlflow_predict_flavor(model, data)
-  jsonlite::write_json(prediction, output_path, digits=NA)
+  jsonlite::write_json(prediction, output_path, digits = NA)
   invisible(NULL)
 }
 
@@ -175,8 +160,8 @@ supported_model_flavors <- function() {
 parse_json <- function(input_path, json_format="split") {
   switch(json_format,
     split = {
-      json = jsonlite::read_json(input_path, simplifyVector = TRUE)
-      elms = names(json)
+      json <- jsonlite::read_json(input_path, simplifyVector = TRUE)
+      elms <- names(json)
       if (length(setdiff(elms, c("columns", "index", "data"))) != 0
       || length(setdiff(c("columns", "data"), elms) != 0)) {
         stop("Invalid input. Make sure the input json data is in 'split' format.")

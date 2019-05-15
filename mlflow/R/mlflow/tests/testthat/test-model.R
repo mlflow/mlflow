@@ -8,7 +8,7 @@ test_that("mlflow can save model function", {
   fn <- crate(~ stats::predict(model, .x), model = model)
   mlflow_save_model(fn, "model")
   expect_true(dir.exists("model"))
-  temp_in <- tempfile(fileext = ".csv")
+  temp_in  < - tempfile(fileext = ".csv")
   temp_out <- tempfile(fileext = ".csv")
   write.csv(iris, temp_in, row.names = FALSE)
   mlflow_cli("models", "predict", "-m", "model", "-i", temp_in, "-o", temp_out, "-t", "csv")
@@ -49,6 +49,17 @@ test_that("mlflow can log model and load it back with a uri", {
   actual_uri <- paste(run$artifact_uri, "model", sep = "/")
   loaded_model_2 <- mlflow_load_model(actual_uri)
   expect_true(5 == mlflow_predict_flavor(loaded_model_2, 0:10))
-  expect_true(5 == mlflow:::mlflow_rfunc_predict(runs_uri, data = 0:10))
-  expect_true(5 == mlflow:::mlflow_rfunc_predict(actual_uri, data = 0:10))
+  temp_in  <- tempfile(fileext = ".json")
+  temp_out  <- tempfile(fileext = ".json")
+  jsonlite::write_json(temp_in, 0:10)
+  mlflow:::mlflow_cli("models", "predict", "-m", runs_uri, "-i", temp_in, "-o", temp_out,
+                      "--content-type", "json", "--json-format", "records")
+  prediction <- unlist(jsonlite::read_json(temp_out))
+  expect_true(5 == prediction)
+
+  expect_true(5 == mlflow:::mlflow_cli("models", "predict", "-m", actual_uri, "-i", temp_in,
+                                       "-o", temp_out, "--content-type", "json",
+                                       "--json-format", "records"))
+  prediction <- unlist(jsonlite::read_json(temp_out))
+  expect_true(5 == prediction)
 })
