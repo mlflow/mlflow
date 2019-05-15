@@ -3,6 +3,7 @@ import { shallow } from 'enzyme';
 import { MetricsPlotView } from './MetricsPlotView';
 import { X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
+import Utils from '../utils/Utils';
 
 const metricsForLine = [
   {
@@ -170,7 +171,7 @@ describe('unit tests', () => {
 
   test('parseTimestamp()', () => {
     const timestamp = 1556662044000;
-    const timestampStr = '2019-04-30 15:07:24';
+    const timestampStr = Utils.formatTimestamp(timestamp);
     const history = [{ timestamp: 1556662043000 }];
     // convert to step when axis is Time (Relative)
     expect(MetricsPlotView.parseTimestamp(timestamp, history, X_AXIS_RELATIVE)).toBe(1);
