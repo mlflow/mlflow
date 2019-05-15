@@ -12,10 +12,7 @@ class SearchFilter(object):
     VALID_PARAM_COMPARATORS = set(['!=', '='])
     VALID_TAG_COMPARATORS = set(['!=', '='])
     VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '='])
-    VALID_NUMERIC_ATTRIBUTE_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
-    VALID_ATTRIBUTE_KEYS = set(RunInfo.get_attributes())
-    VALID_NUMERIC_ATTRIBUTE_KEYS = set(RunInfo.get_numeric_attributes())
-    VALID_STRING_ATTRIBUTE_KEYS = VALID_ATTRIBUTE_KEYS - VALID_NUMERIC_ATTRIBUTE_KEYS
+    VALID_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
@@ -137,13 +134,11 @@ class SearchFilter(object):
                                                    value=token.value),
                                   error_code=INVALID_PARAMETER_VALUE)
         elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
-            if token.ttype in cls.NUMERIC_VALUE_TYPES:
-                return token.value
-            elif token.ttype in cls.STRING_VALUE_TYPES:
+            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
-                raise MlflowException("Expected numeric or string value type for attribute. "
-                                      "Found {}".format(token.value),
+                raise MlflowException("Expected a quoted string value for attributes. "
+                                      "Got value {value}".format(value=token.value),
                                       error_code=INVALID_PARAMETER_VALUE)
         else:
             # Expected to be either "param" or "metric".
@@ -283,21 +278,11 @@ class SearchFilter(object):
                                       "not one of '%s" % (comparator, cls.VALID_TAG_COMPARATORS))
             lhs = run.data.tags.get(key, None)
         elif key_type == cls._ATTRIBUTE_IDENTIFIER:
-            if key in cls.VALID_NUMERIC_ATTRIBUTE_KEYS:
-                if comparator not in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS:
-                    raise MlflowException("Invalid comparator '{}' not one of "
-                                          "'{}".format(comparator,
-                                                       cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS))
-                lhs = getattr(run.info, key)
-                value = float(value)
-            elif key in cls.VALID_STRING_ATTRIBUTE_KEYS:
-                if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
-                    raise MlflowException("Invalid comparator '{}' not one of "
-                                          "'{}".format(comparator,
-                                                       cls.VALID_STRING_ATTRIBUTE_COMPARATORS))
-                lhs = getattr(run.info, key)
-            else:
-                raise MlflowException("Invalid attribute key type '{}'".format(key))
+            if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
+                raise MlflowException("Invalid comparator '{}' not one of "
+                                      "'{}".format(comparator,
+                                                   cls.VALID_STRING_ATTRIBUTE_COMPARATORS))
+            lhs = getattr(run.info, key)
         else:
             raise MlflowException("Invalid search expression type '%s'" % key_type,
                                   error_code=INVALID_PARAMETER_VALUE)

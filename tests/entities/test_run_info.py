@@ -67,3 +67,7 @@ class TestRunInfo(unittest.TestCase):
         ri4 = RunInfo.from_dictionary(dict_copy_0)
         self._check(ri4, run_id, experiment_id, user_id, status, start_time, end_time,
                     lifecycle_stage, artifact_uri)
+
+    def test_searchable_attributes(self):
+        self.assertSequenceEqual(set(["lifecycle_stage", "status", "artifact_uri"]),
+                                 set(RunInfo.get_searchable_attributes()))

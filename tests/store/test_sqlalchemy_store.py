@@ -832,30 +832,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_search_attrs(self):
         e1 = self._experiment_factory('search_attributes_1')
-        r1 = self._run_factory(self._get_run_configs(experiment_id=e1, start_time=1)).info.run_id
+        r1 = self._run_factory(self._get_run_configs(experiment_id=e1)).info.run_id
 
         e2 = self._experiment_factory('search_attrs_2')
-        r2 = self._run_factory(self._get_run_configs(experiment_id=e2, start_time=200)).info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id=e2)).info.run_id
 
         filter_string = ""
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.start_time > 0"
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
-
-        filter_string = "attribute.start_time > 10 AND attribute.start_time < 1000"
-        six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
-
-        filter_string = "attribute.experiment_id = {}".format(e1)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
-
-        filter_string = "attribute.experiment_id = {}".format(e2)
-        six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
-
-        filter_string = "attribute.experiment_id != {}".format(e2)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
-
-        filter_string = "attribute.status != -1"
+        filter_string = "attribute.status != 'blah'"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
@@ -873,8 +858,23 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         filter_string = "attribute.status != 'SCHEDULED'"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
-        filter_string = "attr.start_time > 0 AND attribute.end_time > 200"
-        six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
+        filter_string = "attribute.status = 'SCHEDULED'"
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.status = 'KILLED'"
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri = 'random_artifact_path'"
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri != 'random_artifact_path'"
+        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
         filter_string = "attribute.lifecycle_stage = '{}'".format(entities.LifecycleStage.ACTIVE)
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
