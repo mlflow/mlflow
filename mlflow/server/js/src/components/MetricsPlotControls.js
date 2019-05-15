@@ -46,12 +46,14 @@ export class MetricsPlotControls extends React.Component {
           <div>
             <h3>Points:</h3>
             <Switch
+              className='show-point-toggle'
               checkedChildren='On'
               unCheckedChildren='Off'
               onChange={this.props.handleShowPointChange}
             />
             <h3>Line Smoothness</h3>
             <LineSmoothSlider
+              className='smoothness-toggle'
               min={0}
               max={1.3}
               handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 500)}

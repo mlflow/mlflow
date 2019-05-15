@@ -68,7 +68,7 @@ const metricsForBar = [{
   runDisplayName: 'RunDisplayName2',
 }];
 
-describe('test rendering', () => {
+describe('unit tests', () => {
   let wrapper;
   let instance;
   let minimalPropsForLineChart;
@@ -159,7 +159,9 @@ describe('test rendering', () => {
   });
 
   test('getLineLegend()', () => {
+    // how both metric and run name when comparing multiple runs
     expect(MetricsPlotView.getLineLegend('metric_1', 'Run abc', true)).toBe('metric_1, Run abc');
+    // only show metric name when there
     expect(MetricsPlotView.getLineLegend('metric_1', 'Run abc', false)).toBe('metric_1');
   });
 
@@ -167,7 +169,9 @@ describe('test rendering', () => {
     const timestamp = 1556662044000;
     const timestampStr = '2019-04-30 15:07:24';
     const history = [{ timestamp: 1556662043000 }];
+    // convert to step when axis is Time (Relative)
     expect(MetricsPlotView.parseTimestamp(timestamp, history, X_AXIS_RELATIVE)).toBe(1);
+    // convert to date time string when axis is Time (Wall)
     expect(MetricsPlotView.parseTimestamp(timestamp, history, X_AXIS_WALL)).toBe(timestampStr);
   });
 });
