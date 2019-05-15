@@ -12,7 +12,7 @@ class SearchFilter(object):
     VALID_PARAM_COMPARATORS = set(['!=', '='])
     VALID_TAG_COMPARATORS = set(['!=', '='])
     VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '='])
-    VALID_ATTRIBUTE_KEYS = set(RunInfo.get_attributes())
+    VALID_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"

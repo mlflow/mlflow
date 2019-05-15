@@ -18,7 +18,7 @@ def check_run_is_deleted(run_info):
                               .format(run_info.run_id))
 
 
-class attribute(property):
+class searchable_attribute(property):
     # Wrapper class over property to designate some of the properties as searchable
     # run attributes
     pass
@@ -91,7 +91,7 @@ class RunInfo(_MLflowObject):
         """String ID of the user who initiated this run."""
         return self._user_id
 
-    @attribute
+    @searchable_attribute
     def status(self):
         """
         One of the values in :py:class:`mlflow.entities.RunStatus`
@@ -109,12 +109,12 @@ class RunInfo(_MLflowObject):
         """End time of the run, in number of milliseconds since the UNIX epoch."""
         return self._end_time
 
-    @attribute
+    @searchable_attribute
     def artifact_uri(self):
         """String root artifact URI of the run."""
         return self._artifact_uri
 
-    @attribute
+    @searchable_attribute
     def lifecycle_stage(self):
         return self._lifecycle_stage
 
@@ -146,5 +146,5 @@ class RunInfo(_MLflowObject):
                    lifecycle_stage=proto.lifecycle_stage, artifact_uri=proto.artifact_uri)
 
     @classmethod
-    def get_attributes(cls):
-        return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), attribute)])
+    def get_searchable_attributes(cls):
+        return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), searchable_attribute)])

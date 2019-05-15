@@ -858,6 +858,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         filter_string = "attribute.status != 'SCHEDULED'"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
+        filter_string = "attribute.status = 'SCHEDULED'"
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.status = 'KILLED'"
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri = 'random_artifact_path'"
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri != 'random_artifact_path'"
+        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+
         filter_string = "attribute.lifecycle_stage = '{}'".format(entities.LifecycleStage.ACTIVE)
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
