@@ -16,7 +16,7 @@ mlflow_save_model <- function(model, path = "model", conda_env=NULL) {
   dir.create(path)
 
   flavor_spec <- list (
-    flavors = mlflow_save_flavor(model, path, conda_env)
+    flavors = mlflow_save_flavor(model, path, conda_env = conda_env)
   )
   mlflow_write_model_spec(path, flavor_spec)
 }
