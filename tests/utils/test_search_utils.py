@@ -109,6 +109,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
     ("attribute.experiment_id != 1", "Invalid attribute key"),
     ("attribute.name != 1", "Invalid attribute key"),
     ("attribute.time != 1", "Invalid attribute key"),
+    ("attribute._status != 'RUNNING'", "Invalid attribute key"),
+    ("attribute.status = true", "Invalid clause(s) in filter string"),
 ])
 def test_error_filter(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
@@ -123,6 +125,7 @@ def test_error_filter(filter_string, error_message):
     ("tags.acc = 5", "Expected a quoted string value for tag"),
     ("metrics.acc != metrics.acc", "Expected numeric value type for metric"),
     ("1.0 > metrics.acc", "Expected 'Identifier' found"),
+    ("attribute.status = 1", "Expected a quoted string value for attributes"),
 ])
 def test_error_comparison_clauses(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
@@ -139,6 +142,7 @@ def test_error_comparison_clauses(filter_string, error_message):
     ("params.acc = \"LR'", "Invalid clause(s) in filter string"),
     ("tags.acc = \"LR'", "Invalid clause(s) in filter string"),
     ("tags.acc = = 'LR'", "Invalid clause(s) in filter string"),
+    ("attribute.status IS 'RUNNING'", "Invalid clause(s) in filter string"),
 ])
 def test_bad_quotes(filter_string, error_message):
     with pytest.raises(MlflowException) as e:
@@ -161,12 +165,13 @@ def test_invalid_clauses(filter_string, error_message):
     assert error_message in e.value.message
 
 
-@pytest.mark.parametrize("entity_type, bad_comparators, entity_value", [
-    ("metrics", ["~", "~="], 1.0),
-    ("params", [">", "<", ">=", "<=", "~"], "'my-param-value'"),
-    ("tags", [">", "<", ">=", "<=", "~"], "'my-tag-value'"),
+@pytest.mark.parametrize("entity_type, bad_comparators, key, entity_value", [
+    ("metrics", ["~", "~="], "abc", 1.0),
+    ("params", [">", "<", ">=", "<=", "~"], "abc", "'my-param-value'"),
+    ("tags", [">", "<", ">=", "<=", "~"], "abc", "'my-tag-value'"),
+    ("attributes", [">", "<", ">=", "<=", "~"], "status", "'my-tag-value'"),
 ])
-def test_bad_comparators(entity_type, bad_comparators, entity_value):
+def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
     run = Run(run_info=RunInfo(
         run_uuid="hi", run_id="hi", experiment_id=0,
         user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
@@ -174,8 +179,8 @@ def test_bad_comparators(entity_type, bad_comparators, entity_value):
         run_data=RunData(metrics=[], params=[], tags=[])
     )
     for bad_comparator in bad_comparators:
-        bad_filter = "{entity_type}.abc {comparator} {value}".format(
-            entity_type=entity_type, comparator=bad_comparator, value=entity_value)
+        bad_filter = "{entity_type}.{key} {comparator} {value}".format(
+            entity_type=entity_type, key=key, comparator=bad_comparator, value=entity_value)
         sf = SearchFilter(filter_string=bad_filter)
         with pytest.raises(MlflowException) as e:
             sf.filter(run)

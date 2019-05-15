@@ -138,8 +138,7 @@ class SearchFilter(object):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
                 raise MlflowException("Expected a quoted string value for attributes. "
-                                      "Got value {value}".format(identifier_type=identifier_type,
-                                                                 value=token.value),
+                                      "Got value {value}".format(value=token.value),
                                       error_code=INVALID_PARAMETER_VALUE)
         else:
             # Expected to be either "param" or "metric".
