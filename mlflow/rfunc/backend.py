@@ -30,16 +30,17 @@ class RFuncBackend(FlavorBackend):
                                      _str_optional(content_type))
             _execute(command)
 
-    def serve(self, model_uri, port):
+    def serve(self, model_uri, port, host):
         """
         Generate R model locally.
         """
         with TempDir() as tmp:
             model_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
-            command = "mlflow::mlflow_rfunc_serve('{0}', port = {1})".format(model_path, port)
+            command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
+                model_path, port, host)
             _execute(command)
 
-    def can_score_model(self, **kwargs):
+    def can_score_model(self):
         process = subprocess.Popen(["Rscript", "--version"], close_fds=True,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
