@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import pytest
 import sklearn
@@ -18,6 +19,10 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.utils import path_to_local_file_uri
 from tests.models import test_pyfunc
 
+
+in_travis = 'TRAVIS' in os.environ
+# NB: for now, windows tests on Travis do not have conda available.
+no_conda = ["--no-conda"] if in_travis and sys.platform == "win32" else []
 
 @pytest.fixture(scope="module")
 def iris_data():
@@ -54,7 +59,8 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         # explicit json format with orient records
         p = subprocess.Popen(["mlflow", "models", "predict", "-m",
                               path_to_local_file_uri(test_model_path), "-i", input_records_path,
-                              "-o", output_json_path, "-t", "json", "--json-format", "records"])
+                              "-o", output_json_path, "-t", "json", "--json-format", "records"]
+                             + no_conda)
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
@@ -84,7 +90,7 @@ def test_predict(iris_data, sk_model):
 
         # with conda this time
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
-                              "-o", output_json_path])
+                              "-o", output_json_path] + no_conda)
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
@@ -93,7 +99,7 @@ def test_predict(iris_data, sk_model):
 
         # explicit json format with default orient (should be split)
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
-                              "-o", output_json_path, "-t", "json"])
+                              "-o", output_json_path, "-t", "json"] + no_conda)
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
@@ -102,7 +108,8 @@ def test_predict(iris_data, sk_model):
 
         # explicit json format with orient==split
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
-                              "-o", output_json_path, "-t", "json", "--json-format", "split"])
+                              "-o", output_json_path, "-t", "json", "--json-format", "split"]
+                             + no_conda)
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
@@ -111,7 +118,7 @@ def test_predict(iris_data, sk_model):
 
         # read from stdin, write to stdout.
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-t", "json",
-                              "--json-format", "split"],
+                              "--json-format", "split"] + no_conda,
                              universal_newlines=True,
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
@@ -129,7 +136,7 @@ def test_predict(iris_data, sk_model):
 
         # csv
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_csv_path,
-                              "-o", output_json_path, "-t", "csv"])
+                              "-o", output_json_path, "-t", "csv"] + no_conda)
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
