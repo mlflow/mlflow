@@ -30,11 +30,14 @@ mlflow_save_model <- function(model, path = "model", ...) {
 #' @param model The model that will perform a prediction.
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
+#'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
+#'   dependencies file for flavors (e.g. keras) that support conda environments.
 #'
 #' @export
-mlflow_log_model <- function(model, artifact_path) {
+mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  mlflow_save_model(model, path = temp_path)
+  mlflow_save_model(model, path = temp_path, ...)
   mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
 }
 
