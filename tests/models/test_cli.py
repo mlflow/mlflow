@@ -15,6 +15,7 @@ import mlflow
 import mlflow.pyfunc as pyfunc
 import mlflow.sklearn
 from mlflow.utils.file_utils import TempDir
+from mlflow.tracking.utils import path_to_local_file_uri
 from tests.models import test_pyfunc
 
 
@@ -51,8 +52,8 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
                           code_path=[test_pyfunc.__file__],
                           conda_env=test_model_conda_path)
         # explicit json format with orient records
-        p = subprocess.Popen(["mlflow", "models", "predict", "-m", test_model_path, "-i",
-                              input_records_path,
+        p = subprocess.Popen(["mlflow", "models", "predict", "-m",
+                              path_to_local_file_uri(test_model_path), "-i", input_records_path,
                               "-o", output_json_path, "-t", "json", "--json-format", "records"])
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
