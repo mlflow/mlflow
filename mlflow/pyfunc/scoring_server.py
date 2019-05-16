@@ -37,7 +37,7 @@ except ImportError:
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
 from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
-from mlflow.tracking.utils import path_to_local_file_uri
+
 
 try:
     from StringIO import StringIO
@@ -184,7 +184,8 @@ def init(model):
 
 def _predict(local_path, input_path, output_path, content_type, json_format):
     # wrap the local file as uri for windows compatibility
-    pyfunc_model = load_model(path_to_local_file_uri(local_path))
+    file_uri =
+    pyfunc_model = load_model("file:" + local_path)
     if input_path is None or input_path == "__stdin__":
         input_path = sys.stdin
 
@@ -204,7 +205,7 @@ def _predict(local_path, input_path, output_path, content_type, json_format):
 
 def _serve(local_path, port, host):
     # wrap the local file as uri for windows compatibility
-    pyfunc_model = load_model(path_to_local_file_uri(local_path))
+    pyfunc_model = load_model("file:" + local_path)
     init(pyfunc_model).run(port=port, host=host)
 
 

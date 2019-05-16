@@ -19,10 +19,10 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.utils import path_to_local_file_uri
 from tests.models import test_pyfunc
 
-
 in_travis = 'TRAVIS' in os.environ
 # NB: for now, windows tests on Travis do not have conda available.
 no_conda = ["--no-conda"] if in_travis and sys.platform == "win32" else []
+
 
 @pytest.fixture(scope="module")
 def iris_data():
