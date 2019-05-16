@@ -1,23 +1,50 @@
 div.MetricView {
-    display: block;
-    max-width: 1200px;
-    max-height: 10%;
+  display: block;
+  max-height: 10%;
 }
 
 div.MetricView h1 {
-    margin-bottom: 24px;
+  margin-bottom: 24px;
 }
 
 
 div.MetricView .recharts-tooltip-item-name {
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: inline-block;
-    vertical-align: bottom;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: bottom;
 }
 
 div.MetricView .recharts-tooltip-item-value, .recharts-tooltip-item-separator {
-    display: inline-block;
-    margin-left: 4px;
+  display: inline-block;
+  margin-left: 4px;
+}
+
+.metrics-plot-container {
+  display: flex;
+  width: 100%;
+}
+
+.metrics-plot-container .plot-controls .x-axis-radio {
+  display: block;
+  height: 30px;
+  line-height: 30px;
+}
+
+.metrics-plot-container .plot-controls .metrics-select {
+  width: 300px;
+}
+
+.metrics-plot-container .plot-controls .metrics-select input[type=text] {
+  padding: 0;
+}
+
+.metrics-plot-container .plot-controls h3 {
+  margin-top: 25px;
+}
+
+.metrics-plot-container .metrics-plot-view-container {
+  min-height: 500px;
+  flex: 1;
 }
