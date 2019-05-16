@@ -16,6 +16,7 @@ MLFLOW_PROJECT_ENV = "mlflow.project.env"
 MLFLOW_PROJECT_ENTRY_POINT = "mlflow.project.entryPoint"
 MLFLOW_DOCKER_IMAGE_NAME = "mlflow.docker.image.name"
 MLFLOW_DOCKER_IMAGE_ID = "mlflow.docker.image.id"
+MLFLOW_CONDA_ENV_NAME = "mlflow.conda.envName"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
