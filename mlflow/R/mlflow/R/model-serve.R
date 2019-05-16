@@ -156,7 +156,7 @@ serve_handlers <- function(host, port) {
           "Content-Type" = paste0(serve_content_type("json"), "; charset=UTF-8")
         ),
         body = charToRaw(enc2utf8(
-          jsonlite::toJSON(results, auto_unbox = TRUE)
+          jsonlite::toJSON(results, auto_unbox = TRUE, digits = NA)
         ))
       )
     },

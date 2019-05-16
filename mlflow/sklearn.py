@@ -28,17 +28,6 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "sklearn"
 
-
-def get_default_conda_env():
-    import sklearn
-    return _mlflow_conda_env(
-        additional_conda_deps=[
-            "scikit-learn={}".format(sklearn.__version__),
-        ],
-        additional_pip_deps=None,
-        additional_conda_channels=None,
-    )
-
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
 
@@ -46,6 +35,22 @@ SUPPORTED_SERIALIZATION_FORMATS = [
     SERIALIZATION_FORMAT_PICKLE,
     SERIALIZATION_FORMAT_CLOUDPICKLE
 ]
+
+
+def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+    :func:`save_model()` and :func:`log_model()`.
+    """
+    import sklearn
+
+    return _mlflow_conda_env(
+        additional_conda_deps=[
+            "scikit-learn={}".format(sklearn.__version__),
+        ],
+        additional_pip_deps=None,
+        additional_conda_channels=None
+    )
 
 
 def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
@@ -58,9 +63,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.sklearn.get_default_conda_env()``. If `None`, the
-                      default ``mlflow.sklearn.get_default_conda_env()`` environment will be added
-                      to the model.
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()`` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -150,9 +154,8 @@ def log_model(sk_model, artifact_path, conda_env=None,
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.sklearn.get_default_conda_env()``. If `None`,
-                      the default ``mlflow.sklearn.get_default_conda_env()`` environment will be
-                      added to the model.
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
