@@ -4,6 +4,7 @@ import notebookSvg from '../static/notebook.svg';
 import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
+import qs from 'qs';
 
 class Utils {
   /**
@@ -74,13 +75,13 @@ class Utils {
   /**
    * Format timestamps from millisecond epoch time.
    */
-  static formatTimestamp(timestamp) {
+  static formatTimestamp(timestamp, format = 'yyyy-mm-dd HH:MM:ss') {
     if (timestamp === undefined) {
       return '(unknown)';
     }
     const d = new Date(0);
     d.setUTCMilliseconds(timestamp);
-    return dateFormat(d, "yyyy-mm-dd HH:MM:ss");
+    return dateFormat(d, format);
   }
 
   /**
@@ -339,6 +340,21 @@ class Utils {
 
   static getRequestWithId(requests, requestId) {
     return requests.find((r) => r.id === requestId);
+  }
+
+  static getPlotMetricKeysFromUrl(search) {
+    const params = qs.parse(search);
+    const plotMetricKeysStr = params && params['plot_metric_keys'];
+    return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
+  }
+
+  static compareByTimestamp(history1, history2) {
+    return history1.timestamp - history2.timestamp;
+  }
+
+  static compareByStepAndTimestamp(history1, history2) {
+    const stepResult = history1.step - history2.step;
+    return stepResult === 0 ? (history1.timestamp - history2.timestamp) : stepResult;
   }
 }
 
