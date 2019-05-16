@@ -39,7 +39,8 @@ test_that("mlflow can save model function", {
     unname(predict(model, iris))
   )
   # json split
-  iris_split <- list(columns = names(iris), index = row.names(iris), data = as.matrix(iris))
+  iris_split <- list(columns = names(iris)[1:4], index = row.names(iris),
+                     data = as.matrix(iris[,1:4]))
   jsonlite::write_json(iris_split, temp_in_json_split, row.names = FALSE)
   mlflow_cli("models", "predict", "-m", "model", "-i", temp_in_json_split, "-o", temp_out, "-t", "json",
              "--json-format", "split")
@@ -87,10 +88,8 @@ test_that("mlflow can log model and load it back with a uri", {
                       "--content-type", "json", "--json-format", "records")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
-
-  expect_true(5 == mlflow:::mlflow_cli("models", "predict", "-m", actual_uri, "-i", temp_in,
-                                       "-o", temp_out, "--content-type", "json",
-                                       "--json-format", "records"))
+  mlflow:::mlflow_cli("models", "predict", "-m", actual_uri, "-i", temp_in, "-o", temp_out,
+                      "--content-type", "json", "--json-format", "records")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
 })
