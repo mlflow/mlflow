@@ -188,7 +188,10 @@ def _safe_local_path(local_path):
     # version dynamically and a prepend "file:" prefix if we're in mlflow >= 1.0.
     from mlflow.version import VERSION
     is_recent_version = VERSION.endswith("dev0") or int(VERSION.split(".")[0]) >= 1
-    return "file:" + local_path if is_recent_version else local_path
+    if is_recent_version:
+        from mlflow.tracking.utils import path_to_local_file_uri
+        return path_to_local_file_uri(local_path)
+    return local_path
 
 
 def _predict(local_path, input_path, output_path, content_type, json_format):
