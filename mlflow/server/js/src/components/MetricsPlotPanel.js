@@ -62,7 +62,7 @@ export class MetricsPlotPanel extends React.Component {
     const params = qs.parse(search);
     const runs = params && params['?runs'];
     return runs ? JSON.parse(runs).length > 1 : false;
-  };
+  }
 
   updateUrlWithSelectedMetrics(selectedMetricKeys) {
     const { runUuids, metricKey, location, history } = this.props;
@@ -91,7 +91,7 @@ export class MetricsPlotPanel extends React.Component {
     const selectedMetricsSet = new Set(this.state.selectedMetricKeys);
     const { selectedXAxis } = this.state;
     const { metricsWithRunInfoAndHistory } = this.props;
-    const { compareByTimestamp, com} = Utils;
+
     // Take only selected metrics
     const metrics = metricsWithRunInfoAndHistory.filter((m) => selectedMetricsSet.has(m.metricKey));
 
