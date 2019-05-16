@@ -58,7 +58,7 @@ export class MetricsPlotPanel extends React.Component {
     return CHART_TYPE_LINE;
   }
 
-  static isComparing = (search) => {
+  static isComparing(search) {
     const params = qs.parse(search);
     const runs = params && params['?runs'];
     return runs ? JSON.parse(runs).length > 1 : false;
@@ -91,7 +91,7 @@ export class MetricsPlotPanel extends React.Component {
     const selectedMetricsSet = new Set(this.state.selectedMetricKeys);
     const { selectedXAxis } = this.state;
     const { metricsWithRunInfoAndHistory } = this.props;
-
+    const { compareByTimestamp, com} = Utils;
     // Take only selected metrics
     const metrics = metricsWithRunInfoAndHistory.filter((m) => selectedMetricsSet.has(m.metricKey));
 
@@ -99,7 +99,8 @@ export class MetricsPlotPanel extends React.Component {
     metrics.forEach((metric) => {
       const isStep =
         selectedXAxis === X_AXIS_STEP && metric.history[0] && _.isNumber(metric.history[0].step);
-      metric.history = _.sortBy(metric.history, isStep ? ['step', 'timestamp'] : 'timestamp');
+      // Metric history can be large. Doing an in-place here to save memory
+      metric.history.sort(isStep ? Utils.compareByStepAndTimestamp : Utils.compareByTimestamp);
     });
     return metrics;
   };

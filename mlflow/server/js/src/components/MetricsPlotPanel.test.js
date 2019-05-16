@@ -2,6 +2,7 @@ import React from 'react';
 import { shallow } from 'enzyme';
 import { MetricsPlotPanel, CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 import { X_AXIS_RELATIVE, X_AXIS_STEP, X_AXIS_WALL } from './MetricsPlotControls';
+import Utils from '../utils/Utils';
 
 describe('unit tests', () => {
   let wrapper;
@@ -163,7 +164,7 @@ describe('unit tests', () => {
 
     instance.setState({ selectedXAxis: X_AXIS_STEP });
     const metrics = minimalPropsForLineChart.metricsWithRunInfoAndHistory;
-    metrics[0].history.sort((h1, h2) => h1.step - h2.step); // sort in place before comparison
+    metrics[0].history.sort(Utils.compareByStepAndTimestamp); // sort in place before comparison
     expect(instance.getMetrics()).toEqual(metrics);
   });
 });

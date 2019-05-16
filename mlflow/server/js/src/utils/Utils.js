@@ -337,6 +337,15 @@ class Utils {
     const plotMetricKeysStr = params && params['plot_metric_keys'];
     return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
   }
+
+  static compareByTimestamp(history1, history2) {
+    return history1.timestamp - history2.timestamp;
+  }
+
+  static compareByStepAndTimestamp(history1, history2) {
+    const stepResult = history1.step - history2.step;
+    return stepResult === 0 ? (history1.timestamp - history2.timestamp) : stepResult;
+  }
 }
 
 export default Utils;
