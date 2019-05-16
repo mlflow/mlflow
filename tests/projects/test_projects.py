@@ -15,7 +15,7 @@ from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
-    LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT
+    LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_CONDA_ENV_NAME
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
@@ -168,6 +168,36 @@ def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
     finally:
         os.environ["PATH"] = old_path
+
+
+def test_use_conda_tags(tmpdir,  # pylint: disable=unused-argument
+             patch_user,  # pylint: disable=unused-argument
+             tracking_uri_mock):  # pylint: disable=unused-argument
+    submitted_run = mlflow.projects.run(
+        TEST_PROJECT_DIR,
+        use_conda=True, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
+    assert submitted_run.run_id is not None
+    # Blocking runs should be finished when they return
+    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+    # Test that we can call wait() on a synchronous run & that the run has the correct
+    # status after calling wait().
+    submitted_run.wait()
+    validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
+    # Validate run contents in the FileStore
+    run_id = submitted_run.run_id
+    mlflow_service = mlflow.tracking.MlflowClient()
+
+    run_infos = mlflow_service.list_run_infos(
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
+    assert len(run_infos) == 1
+    store_run_id = run_infos[0].run_id
+    assert run_id == store_run_id
+    run = mlflow_service.get_run(run_id)
+
+    assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
+
+    tags = run.data.tags
+    assert MLFLOW_CONDA_ENV_NAME in tags
 
 
 def test_is_valid_branch_name(local_git_repo):
