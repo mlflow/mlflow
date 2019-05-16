@@ -73,8 +73,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
          backend=None, backend_config=None, use_conda=True,
-         storage_dir=None, synchronous=True, run_id=None,
-         kube_context=None, kube_job_template=None):
+         storage_dir=None, synchronous=True, run_id=None):
     """
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
@@ -121,10 +120,11 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
-            _validate_docker_env(project.docker_env)
+            _validate_docker_env(project)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
-                                        project=project,
+                                        image_uri=project.name,
+                                        base_image=project.docker_env.get('image'),
                                         active_run=active_run)
             command += _get_docker_command(image=image, active_run=active_run)
         # Synchronously create a conda environment (even though this may take some time)
@@ -152,31 +152,23 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         tracking.MlflowClient().set_tag(active_run.info.run_uuid,
                                         MLFLOW_PROJECT_ENV,
                                         "kubernetes")
-        _validate_docker_env(project.docker_env)
         _validate_docker_installation()
-        _validate_kubernetes_env(project.kubernetes_env)
-        if kube_job_template:
-            if os.path.exists(os.path.join(work_dir, kube_job_template)):
-                yaml_obj = {}
-                with open(os.path.join(work_dir, kube_job_template), 'r') as job_template:
-                    yaml_obj = yaml.safe_load(job_template.read())
-                kube_job_template = yaml_obj
-            else:
-                raise ExecutionException("Could not find --kube-job-template file:{}".format(
-                    os.path.join(work_dir, kube_job_template)))
+        if not project.docker_env.get('image'):
+            raise ExecutionException("Project with docker environment must specify the docker "
+                "image to use via an 'image' field under the 'docker_env' field")
+        kube_config = _parse_kubernetes_config(backend_config, work_dir)
         image = _build_docker_image(work_dir=work_dir,
-                                    project=project,
+                                    image_uri=kube_config["image-uri"],
+                                    base_image=project.docker_env.get('image'),
                                     active_run=active_run)
-        kb.push_image_to_registry(image, project.kubernetes_env.get('registry'),
-                                  project.kubernetes_env.get('image_namespace'))
+        kb.push_image_to_registry(image)
         job_name = kb.run_kubernetes_job(image,
-                                         project.kubernetes_env.get('image_namespace'),
-                                         project.kubernetes_env.get('job_namespace'),
                                          parameters,
                                          _get_run_env_vars(
                                              run_id=active_run.info.run_uuid,
                                              experiment_id=active_run.info.experiment_id),
-                                         kube_context, kube_job_template)
+                                         kube_config['kube-context'],
+                                         kube_config['kube-job-template'])
         return kb.monitor_job_status(job_name,
                                      project.kubernetes_env.get('job_namespace'))
 
@@ -188,8 +180,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
 def run(uri, entry_point="main", version=None, parameters=None,
         experiment_name=None, experiment_id=None,
         backend=None, backend_config=None, use_conda=True,
-        storage_dir=None, synchronous=True, run_id=None,
-        kube_context=None, kube_job_template=None):
+        storage_dir=None, synchronous=True, run_id=None):
     """
     Run an MLflow project. The project can be local or stored at a Git URI.
 
@@ -236,10 +227,6 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :param run_id: Note: this argument is used internally by the MLflow project APIs and should
                    not be specified. If specified, the run ID will be used instead of
                    creating a new run.
-    :param kube_context: Name of Kubernetes context where the training will run. The context needs
-                         to be configured previously in the machine where mlflow will trigger
-                         the run.
-    :param kube_job_template: Path to a YAML file describing the kubernetes job specification.
     :return: :py:class:`mlflow.projects.SubmittedRun` exposing information (e.g. run ID)
              about the launched run.
     """
@@ -265,8 +252,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
     submitted_run_obj = _run(
         uri=uri, experiment_id=experiment_id, entry_point=entry_point, version=version,
         parameters=parameters, backend=backend, backend_config=cluster_spec_dict,
-        use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id,
-        kube_job_template=kube_job_template, kube_context=kube_context)
+        use_conda=use_conda, storage_dir=storage_dir, synchronous=synchronous, run_id=run_id)
     if synchronous:
         _wait_for(submitted_run_obj)
     return submitted_run_obj
@@ -712,19 +698,41 @@ def _validate_docker_installation():
                                  "at https://docs.docker.com/install/overview/.")
 
 
-def _validate_docker_env(docker_env):
-    if not docker_env.get('image'):
+def _validate_docker_env(project):
+    if not project.name:
+        raise ExecutionException("Project name in MLProject must be specified when using docker "
+                                 "for image tagging.")
+    if not project.docker_env.get('image'):
         raise ExecutionException("Project with docker environment must specify the docker image "
-                                 "to use via an 'image' field under the 'docker_env' field")
+                                 "to use via an 'image' field under the 'docker_env' field.")
 
 
-def _validate_kubernetes_env(kubernetes_env):
-    if not kubernetes_env.get('job_namespace'):
-        raise ExecutionException("To run projects on kubernetes mode you must specify "
-                                 "'job_namespace' field under the 'kubernetes_env' field")
-    if not kubernetes_env.get('image_namespace'):
-        raise ExecutionException("To run projects on kubernetes mode you must specify "
-                                 "'image_namespace' field under the 'kubernetes_env' field")
+def _parse_kubernetes_config(backend_config, work_dir):
+    """
+    Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
+    """
+    kube_config = backend_config.copy()
+    if not backend_config:
+        raise ExecutionException("Backend_config file not found.")
+    if 'kube-job-template-path' in backend_config.keys():
+        kube_job_template = backend_config['kube-job-template-path']
+        if os.path.exists(os.path.join(work_dir, kube_job_template)):
+            yaml_obj = {}
+            with open(os.path.join(work_dir, kube_job_template), 'r') as job_template:
+                yaml_obj = yaml.safe_load(job_template.read())
+            kube_job_template = yaml_obj
+            kube_config['kube-job-template'] = kube_job_template
+        else:
+            raise ExecutionException("Could not find 'kube-job-template-path' file:{}".format(
+                os.path.join(work_dir, kube_job_template)))
+    else:
+        raise ExecutionException("Please specify 'kube-job-template-path' attribute in "
+                                 " backend_config.")
+    if 'kube-context' not in backend_config.keys():
+        raise ExecutionException("Could not find kube-context in backend_config.")
+    if 'image-uri' not in backend_config.keys():
+        raise ExecutionException("Could not find 'image-uri' in backend_config.")
+    return kube_config
 
 
 def _create_docker_build_ctx(work_dir, dockerfile_contents):
@@ -746,10 +754,9 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     return result_path
 
 
-def _build_docker_image(work_dir, project, active_run):
+def _build_docker_image(work_dir, image_uri, base_image, active_run):
     """
-    Build a docker image containing the project in `work_dir`, using the base image and tagging the
-    built image with the project name specified by `project`.
+    Build a docker image containing the project in `work_dir`, using the base image.
     """
     if not project.name:
         raise ExecutionException("Project name in MLproject must be specified when using docker "
@@ -760,7 +767,7 @@ def _build_docker_image(work_dir, project, active_run):
         "LABEL Name={tag_name}\n"
         "COPY {build_context_path}/* /mlflow/projects/code/\n"
         "WORKDIR /mlflow/projects/code/\n"
-    ).format(imagename=project.docker_env.get('image'), tag_name=tag_name,
+    ).format(imagename=base_image, tag_name=tag_name,
              build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
     with open(build_ctx_path, 'rb') as docker_build_ctx:

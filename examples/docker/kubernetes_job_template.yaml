@@ -1,15 +1,16 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: pi-with-ttl
+  name: ""
+  namespace: mlflow
 spec:
   ttlSecondsAfterFinished: 100
   template:
     spec:
       containers:
-      - name: 
-        image: 
-        command: 
+      - name: "name"
+        image: "image"
+        command: ["cmd"]
       resources:
         limits:
           memory: 512Mi

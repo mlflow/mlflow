@@ -1,29 +1,25 @@
 import yaml
+import json
 import logging
 import docker
 import os
 import time
 import kubernetes
 from datetime import datetime
+from mlflow.exceptions import ExecutionException
 
 _logger = logging.getLogger(__name__)
 
 
-def push_image_to_registry(image, registry, namespace):
-    repository = namespace + '/' + image
-    if registry:
-        repository = registry + '/' + repository
+def push_image_to_registry(image_uri):
     client = docker.from_env()
-    image = client.images.get(name=image)
-    image.tag(repository)
-    _logger.info("=== Pushing docker image %s ===", repository)
-    client.images.push(repository=repository)
+    _logger.info("=== Pushing docker image %s ===", image_uri)
+    client.images.push(repository=image_uri)
 
 
-def _get_kubernetes_job_definition(image, image_namespace, job_namespace, command, resources,
-                                   env_vars, job_template=None):
+def _get_kubernetes_job_definition(image, command, env_vars, job_template):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
-    job_name = "{}-{}".format(image.replace(':', '-'), timestamp)
+    job_name = "{}-{}".format(image.split('/')[-1].replace(':', '-'), timestamp)
     _logger.info("=== Creating Job %s ===", job_name)
     enviroment_variables = ""
     if os.environ.get('AZURE_STORAGE_ACCESS_KEY'):
@@ -34,36 +30,13 @@ def _get_kubernetes_job_definition(image, image_namespace, job_namespace, comman
         enviroment_variables += "   - name: {name}\n".format(name=key)
         enviroment_variables += "     value: \"{value}\"\n".format(value=env_vars[key])
     enviroment_variables = yaml.load("env:\n" + enviroment_variables)
-    if not job_template:
-        job_template = (
-            "apiVersion: batch/v1\n"
-            "kind: Job\n"
-            "metadata:\n"
-            "  name: 'job_name-timestamp'\n"
-            "  namespace: 'job_namespace'\n"
-            "spec:\n"
-            "  template:\n"
-            "    spec:\n"
-            "      containers:\n"
-            "      - name: 'container_name'\n"
-            "        image: 'image_namespace/image_name'\n"
-            "        command: 'command'\n"
-            "      restartPolicy: Never\n"
-            "  backoffLimit: 4\n"
-        )
-        job_template = yaml.load(job_template)
     job_template['metadata']['name'] = job_name
-    job_template['metadata']['namespace'] = job_namespace
-    job_template['spec']['template']['spec']['containers'][0]['name'] = image.replace(':', '-')
-    job_template['spec']['template']['spec']['containers'][0]['image'] = "{}/{}".format(
-                                                                            image_namespace,
-                                                                            image)
+    job_template['spec']['template']['spec']['containers'][0]['name'] = image.split('/')[-1] \
+                                                                             .replace(':', '-')
+    job_template['spec']['template']['spec']['containers'][0]['image'] = image
     job_template['spec']['template']['spec']['containers'][0]['command'] = command
     job_template['spec']['template']['spec']['containers'][0]['env'] = enviroment_variables.get(
                                                                                             'env')
-    if resources:
-        job_template['spec']['template']['spec']['containers'][0]['resources'] = resources.get(
-                                                                                    'resources')
     return job_template
 
 
@@ -74,14 +47,13 @@ def _get_run_command(parameters):
     return command
 
 
-def run_kubernetes_job(image, image_namespace, job_namespace, parameters, env_vars,
+def run_kubernetes_job(image, parameters, env_vars,
                        kube_context, job_template=None):
     command = _get_run_command(parameters)
-    job_definition = _get_kubernetes_job_definition(image=image, image_namespace=image_namespace,
-                                                    job_namespace=job_namespace, command=command,
-                                                    resources=None, env_vars=env_vars,
-                                                    job_template=job_template)
+    job_definition = _get_kubernetes_job_definition(image=image, command=command,
+                                                    env_vars=env_vars, job_template=job_template)
     job_name = job_definition['metadata']['name']
+    job_namespace = job_definition['metadata']['namespace']
     kubernetes.config.load_kube_config(context=kube_context)
     api_instance = kubernetes.client.BatchV1Api()
     api_response = api_instance.create_namespaced_job(namespace=job_namespace,

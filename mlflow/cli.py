@@ -83,14 +83,8 @@ def cli():
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
-@click.option("--kube-job-template", metavar="MLFLOW_KUBE_JOB_TEMPLATE",
-              help="Path to a YAML file describing the kubernetes job specification. See "
-                   "https://kubernetes.io/docs/concepts/workloads/controllers/"
-                   "jobs-run-to-completion/ for more info.")
-@click.option("--kube-context", metavar="MLFLOW_KUBE_CONTEXT", envvar="MLFLOW_KUBE_CONTEXT",
-              help="Name of Kubernetes context where the training will run.")
 def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
-        backend_config, no_conda, storage_dir, run_id, kube_job_template, kube_context):
+        backend_config, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -127,8 +121,8 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             eprint("Invalid cluster spec JSON. Parse error: %s" % e)
             raise
     if backend == "kubernetes":
-        if kube_context is None:
-            eprint("Specify 'kube_context' when using kubernetes mode.")
+        if cluster_spec_arg is None:
+            eprint("Specify 'backend_config' when using kubernetes mode.")
             sys.exit(1)
     try:
         projects.run(
@@ -143,9 +137,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             use_conda=(not no_conda),
             storage_dir=storage_dir,
             synchronous=backend == "local" or backend is None,
-            run_id=run_id,
-            kube_context=kube_context,
-            kube_job_template=kube_job_template
+            run_id=run_id
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
