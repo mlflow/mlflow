@@ -13,7 +13,7 @@ test_that("mlflow can save model function", {
   prediction <- mlflow_predict_model(loaded_back_model, iris)
   expect_equal(
     prediction,
-    unname(predict(model, iris))
+    predict(model, iris)
   )
   # Test that we can score this model with RFunc backend
   temp_in_csv <- tempfile(fileext = ".csv")
@@ -49,8 +49,6 @@ test_that("mlflow can save model function", {
     prediction,
     unname(predict(model, iris))
   )
-  # stdin / stdout
-
 })
 
 test_that("mlflow can write model with dependencies", {

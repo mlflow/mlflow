@@ -27,7 +27,8 @@ class RFuncBackend(FlavorBackend):
             str_cmd = "mlflow:::mlflow_rfunc_predict('{0}', {1}, {2}, {3})"
             command = str_cmd.format(model_path, _str_optional(input_path),
                                      _str_optional(output_path),
-                                     _str_optional(content_type))
+                                     _str_optional(content_type),
+                                     _str_optional(json_format))
             _execute(command)
 
     def serve(self, model_uri, port, host):
