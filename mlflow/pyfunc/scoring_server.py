@@ -38,7 +38,6 @@ from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
 from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
 
-
 try:
     from StringIO import StringIO
 except ImportError:
@@ -159,8 +158,8 @@ def init(model):
             return flask.Response(
                 response=("This predictor only supports the following content types,"
                           " {supported_content_types}. Got '{received_content_type}'.".format(
-                            supported_content_types=CONTENT_TYPES,
-                            received_content_type=flask.request.content_type)),
+                    supported_content_types=CONTENT_TYPES,
+                    received_content_type=flask.request.content_type)),
                 status=415,
                 mimetype='text/plain')
 
@@ -182,9 +181,18 @@ def init(model):
     return app
 
 
+def _safe_local_path(local_path):
+    # Since mlflow 1.0, mlflow.pyfunc.load_model expects uri instead of local path. Local paths
+    # should still work, however absolute windows path don't because the drive is parsed as scheme.
+    # Since we can not control the verions of load_model we're runnign against, we check the mlflow
+    # version dynamically and a prepend "file:" prefix if we're in mlflow >= 1.0.
+    from mlflow.version import VERSION
+    return "file:" + local_path if int(VERSION.split(".")[0]) >= 1 else local_path
+
+
 def _predict(local_path, input_path, output_path, content_type, json_format):
     # wrap the local file as uri for windows compatibility
-    pyfunc_model = load_model("file:" + local_path)
+    pyfunc_model = load_model(_safe_local_path(local_path))
     if input_path is None or input_path == "__stdin__":
         input_path = sys.stdin
 
@@ -204,7 +212,7 @@ def _predict(local_path, input_path, output_path, content_type, json_format):
 
 def _serve(local_path, port, host):
     # wrap the local file as uri for windows compatibility
-    pyfunc_model = load_model("file:" + local_path)
+    pyfunc_model = load_model(_safe_local_path(local_path))
     init(pyfunc_model).run(port=port, host=host)
 
 
