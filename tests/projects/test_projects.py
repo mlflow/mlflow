@@ -171,8 +171,8 @@ def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
 
 
 def test_use_conda_tags(tmpdir,  # pylint: disable=unused-argument
-             patch_user,  # pylint: disable=unused-argument
-             tracking_uri_mock):  # pylint: disable=unused-argument
+                        patch_user,  # pylint: disable=unused-argument
+                        tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR,
         use_conda=True, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
