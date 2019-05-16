@@ -99,7 +99,7 @@ class FlavorBackend(object):
         :param input_path: Path to the file with input data. If not specified, data is read from
                            stdin.
         :param output_path: Path to the file with output predictions. If not specified, data is
-                            written to stdin.
+                            written to stdout.
         :param content_type: Specifies the input format. Can be one of {'json', 'csv'}
         :param json_format: Only applies if content_type == 'json'. Specifies how is the input data
                             encoded in json. Can be one of {'split', 'records'}.

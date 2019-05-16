@@ -12,14 +12,14 @@ from mlflow.projects import _get_conda_bin_executable
 
 
 class PyFuncBackend(FlavorBackend):
+    """
+        Flavor backend implementation for the generic python models.
+    """
 
-    def __init__(self, config, no_conda=False, **kwargs):
+    def __init__(self, config, no_conda=False, **kwargs):  # pylint: disable=unused-argument
         super(PyFuncBackend, self).__init__(config=config)
         self._no_conda = no_conda
 
-    """
-    Flavor backend implementation for the generic python models.
-    """
     def predict(self, model_uri, input_path, output_path, content_type, json_format):
         """
         Generate predictions using generic python model saved with MLflow.
@@ -57,7 +57,7 @@ class PyFuncBackend(FlavorBackend):
         """
         with TempDir() as tmp:
             local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
-            if not no_conda and ENV in self._config:
+            if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
                 command = "python {0} serve {1} {2} {3}".format(scoring_server.__file__,
                                                                 local_path, port, host)

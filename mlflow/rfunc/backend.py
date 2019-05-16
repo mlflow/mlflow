@@ -30,7 +30,7 @@ class RFuncBackend(FlavorBackend):
                                      _str_optional(content_type))
             _execute(command)
 
-    def serve(self, model_uri, port, **kwargs):
+    def serve(self, model_uri, port):
         """
         Generate R model locally.
         """
@@ -43,7 +43,7 @@ class RFuncBackend(FlavorBackend):
         process = subprocess.Popen(["Rscript", "--version"], close_fds=True,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
-        stdout, stderr = process.communicate()
+        _, stderr = process.communicate()
         if process.wait() != 0:
             return False
 

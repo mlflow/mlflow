@@ -253,10 +253,9 @@ def _get_jsonable_obj(data, pandas_orient="records"):
 
 if __name__ == '__main__':
     if sys.argv[1] == "predict":
-        local_path, input_path, output_path, content_type, json_format = sys.argv[2:]
-        _predict(local_path, input_path, output_path, content_type, json_format)
+        _predict(local_path=sys.argv[2], input_path=sys.argv[3], output_path=sys.argv[4],
+                 content_type=sys.argv[5], json_format=sys.argv[6])
     elif sys.argv[1] == "serve":
-        local_path, port, host = sys.argv[2:]
-        _serve(local_path, port, host)
+        _serve(local_path=sys.argv[2], port=sys.argv[3], host=sys.argv[4])
     else:
         raise Exception("Unknown command '{}'".format(sys.argv[1]))

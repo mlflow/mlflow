@@ -48,6 +48,8 @@ test_that("mlflow can save model function", {
     prediction,
     unname(predict(model, iris))
   )
+  # stdin / stdout
+
 })
 
 test_that("mlflow can write model with dependencies", {

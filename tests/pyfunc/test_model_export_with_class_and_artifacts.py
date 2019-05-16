@@ -16,7 +16,6 @@ import yaml
 
 import mlflow
 import mlflow.pyfunc
-import mlflow.pyfunc.cli
 import mlflow.pyfunc.model
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
