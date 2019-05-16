@@ -184,7 +184,6 @@ def init(model):
 
 def _predict(local_path, input_path, output_path, content_type, json_format):
     # wrap the local file as uri for windows compatibility
-    file_uri =
     pyfunc_model = load_model("file:" + local_path)
     if input_path is None or input_path == "__stdin__":
         input_path = sys.stdin
