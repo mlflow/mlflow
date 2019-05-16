@@ -68,7 +68,11 @@ class PyFuncBackend(FlavorBackend):
         if self._no_conda:
             return True  # already in python; dependencies are assumed to be installed (no_conda)
         conda_path = _get_conda_bin_executable("conda")
-        p = subprocess.Popen([conda_path, "--version"], stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE)
-        _, _ = p.communicate()
-        return p.wait() == 0
+        try:
+            p = subprocess.Popen([conda_path, "--version"], stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE)
+            _, _ = p.communicate()
+            return p.wait() == 0
+        except FileNotFoundError:
+            # Can not find conda
+            return False
