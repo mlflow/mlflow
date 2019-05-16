@@ -187,7 +187,8 @@ def _safe_local_path(local_path):
     # Since we can not control the verions of load_model we're runnign against, we check the mlflow
     # version dynamically and a prepend "file:" prefix if we're in mlflow >= 1.0.
     from mlflow.version import VERSION
-    return "file:" + local_path if int(VERSION.split(".")[0]) >= 1 else local_path
+    is_recent_version = VERSION.endswith("dev") or int(VERSION.split(".")[0]) >= 1
+    return "file:" + local_path if is_recent_version else local_path
 
 
 def _predict(local_path, input_path, output_path, content_type, json_format):

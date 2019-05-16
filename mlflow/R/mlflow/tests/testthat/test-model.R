@@ -40,10 +40,10 @@ test_that("mlflow can save model function", {
   )
   # json split
   iris_split <- list(columns = names(iris)[1:4], index = row.names(iris),
-                     data = as.matrix(iris[,1:4]))
+                     data = as.matrix(iris[, 1:4]))
   jsonlite::write_json(iris_split, temp_in_json_split, row.names = FALSE)
-  mlflow_cli("models", "predict", "-m", "model", "-i", temp_in_json_split, "-o", temp_out, "-t", "json",
-             "--json-format", "split")
+  mlflow_cli("models", "predict", "-m", "model", "-i", temp_in_json_split, "-o", temp_out, "-t",
+             "json", "--json-format", "split")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
   expect_equal(
