@@ -132,7 +132,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
-            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_CONDA_ENV_NAME, conda_env_name)
+            tracking.MlflowClient().set_tag(active_run.info.run_id,
+                                            MLFLOW_CONDA_ENV_NAME, conda_env_name)
             command += _get_conda_command(conda_env_name)
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be
