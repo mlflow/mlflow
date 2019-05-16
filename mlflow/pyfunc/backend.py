@@ -15,9 +15,8 @@ class PyFuncBackend(FlavorBackend):
     """
         Flavor backend implementation for the generic python models.
     """
-
-    def __init__(self, config, no_conda=False, **kwargs):  # pylint: disable=unused-argument
-        super(PyFuncBackend, self).__init__(config=config)
+    def __init__(self, config, no_conda=False, **kwargs):
+        super(PyFuncBackend, self).__init__(config=config, **kwargs)
         self._no_conda = no_conda
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format):

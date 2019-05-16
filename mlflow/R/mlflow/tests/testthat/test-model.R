@@ -9,7 +9,7 @@ test_that("mlflow can save model function", {
   mlflow_save_model(fn, "model")
   expect_true(dir.exists("model"))
   # Test that we can load the model back and score it.
-  loaded_back_model <- mflow_loaded_model("model")
+  loaded_back_model <- mflow_load_model("model")
   prediction <- mlflow_predict_model(loaded_back_model, iris)
   expect_equal(
     prediction,
