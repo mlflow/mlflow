@@ -12,6 +12,30 @@ You can use the R API to `install MLflow`_, start the `user interface <Run MLflo
     :local:
     :depth: 1
 
+Install MLflow
+==============
+
+Installs MLflow for individual use.
+
+.. code:: r
+
+   install_mlflow()
+
+Details
+-------
+
+MLflow requires Python and Conda to be installed. See
+https://www.python.org/getit/ and
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
+
+Examples
+--------
+
+.. code:: r
+
+    list("\n", "library(mlflow)\n", "install_mlflow()\n") 
+    
+
 Initialize an MLflow Client
 ===========================
 
@@ -61,6 +85,8 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
+.. _details-1:
+
 Details
 -------
 
@@ -93,7 +119,7 @@ Arguments
 |                                   | object.                           |
 +-----------------------------------+-----------------------------------+
 
-.. _details-1:
+.. _details-2:
 
 Details
 -------
@@ -123,7 +149,7 @@ Arguments
 | ``client`` | (Optional) An ``mlflow_client`` object. |
 +------------+-----------------------------------------+
 
-.. _details-2:
+.. _details-3:
 
 Details
 -------
@@ -156,7 +182,7 @@ Arguments
 | ``client`` | (Optional) An ``mlflow_client`` object.       |
 +------------+-----------------------------------------------+
 
-.. _details-3:
+.. _details-4:
 
 Details
 -------
@@ -192,7 +218,7 @@ Arguments
 | ``client``   | (Optional) An ``mlflow_client`` object.               |
 +--------------+-------------------------------------------------------+
 
-.. _details-4:
+.. _details-5:
 
 Details
 -------
@@ -230,7 +256,7 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
-.. _details-5:
+.. _details-6:
 
 Details
 -------
@@ -262,7 +288,7 @@ Arguments
 | ``client``     | (Optional) An ``mlflow_client`` object. |
 +----------------+-----------------------------------------+
 
-.. _details-6:
+.. _details-7:
 
 Details
 -------
@@ -273,10 +299,9 @@ current active client.
 Get Run
 =======
 
-Gets metadata, params, tags, and metrics for a run. In the case where
-multiple metrics with the same key are logged for the run, returns only
-the value with the latest timestamp. If there are multiple values with
-the latest timestamp, returns the maximum of these values.
+Gets metadata, params, tags, and metrics for a run. Returns a single
+value for each metric key: the most recently logged metric value at the
+largest step.
 
 .. code:: r
 
@@ -295,7 +320,7 @@ Arguments
 | ``client`` | (Optional) An ``mlflow_client`` object. |
 +------------+-----------------------------------------+
 
-.. _details-7:
+.. _details-8:
 
 Details
 -------
@@ -333,32 +358,6 @@ Arguments
 +============+====================================================+
 | ``object`` | An ``mlflow_run`` or ``mlflow_experiment`` object. |
 +------------+----------------------------------------------------+
-
-Install MLflow
-==============
-
-Installs MLflow for individual use.
-
-.. code:: r
-
-   mlflow_install()
-
-.. _details-8:
-
-Details
--------
-
-MLflow requires Python and Conda to be installed. See
-https://www.python.org/getit/ and
-https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
-
-Examples
---------
-
-.. code:: r
-
-    list("\n", "library(mlflow)\n", "mlflow_install()\n") 
-    
 
 List Artifacts
 ==============
@@ -1476,12 +1475,12 @@ Start Run
 Starts a new run. If ``client`` is not provided, this function infers
 contextual information such as source name and version, and also
 registers the created run as the active run. If ``client`` is provided,
-no inference is done, and additional arguments such as ``user_id`` and
-``start_time`` can be provided.
+no inference is done, and additional arguments such as ``start_time``
+can be provided.
 
 .. code:: r
 
-   mlflow_start_run(run_id = NULL, experiment_id = NULL, user_id = NULL,
+   mlflow_start_run(run_id = NULL, experiment_id = NULL,
      start_time = NULL, tags = NULL, client = NULL)
 
 .. _arguments-38:
@@ -1506,10 +1505,6 @@ Arguments
 |                               | created under a new experiment with  |
 |                               | a randomly generated name.           |
 +-------------------------------+--------------------------------------+
-| ``user_id``                   | User ID or LDAP for the user         |
-|                               | executing the run. Only used when    |
-|                               | ``client`` is specified.             |
-+-------------------------------+--------------------------------------+
 | ``start_time``                | Unix timestamp of when the run       |
 |                               | started in milliseconds. Only used   |
 |                               | when ``client`` is specified.        |
@@ -1520,6 +1515,10 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
 |                               | object.                              |
++-------------------------------+--------------------------------------+
+| ``user_id``                   | User ID or LDAP for the user         |
+|                               | executing the run. Only used when    |
+|                               | ``client`` is specified.             |
 +-------------------------------+--------------------------------------+
 
 .. _details-24:
@@ -1571,24 +1570,5 @@ Examples
 
 .. code:: r
 
-    list("\n", "library(mlflow)\n", "mlflow_install()\n", "\n", "# launch mlflow ui locally\n", "mlflow_ui()\n", "\n", "# launch mlflow ui for existing mlflow server\n", "mlflow_set_tracking_uri(\"http://tracking-server:5000\")\n", "mlflow_ui()\n") 
-    
-
-Uninstall MLflow
-================
-
-Uninstalls MLflow by removing the Conda environment.
-
-.. code:: r
-
-   mlflow_uninstall()
-
-.. _examples-5:
-
-Examples
---------
-
-.. code:: r
-
-    list("\n", "library(mlflow)\n", "mlflow_install()\n", "mlflow_uninstall()\n") 
+    list("\n", "library(mlflow)\n", "install_mlflow()\n", "\n", "# launch mlflow ui locally\n", "mlflow_ui()\n", "\n", "# launch mlflow ui for existing mlflow server\n", "mlflow_set_tracking_uri(\"http://tracking-server:5000\")\n", "mlflow_ui()\n") 
     

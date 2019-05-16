@@ -28,12 +28,12 @@ mlflow_maybe_create_conda_env <- function() {
 #' @examples
 #' \dontrun{
 #' library(mlflow)
-#' mlflow_install()
+#' install_mlflow()
 #' }
 #'
 #' @importFrom reticulate conda_install conda_create conda_list
 #' @export
-mlflow_install <- function() {
+install_mlflow <- function() {
   mlflow_maybe_create_conda_env()
   # Install the Python MLflow package with version == the current R package version
   packages <- c(paste("mlflow", "==", mlflow_version(), sep = ""))
@@ -48,13 +48,13 @@ mlflow_install <- function() {
 #' @examples
 #' \dontrun{
 #' library(mlflow)
-#' mlflow_install()
-#' mlflow_uninstall()
+#' install_mlflow()
+#' uninstall_mlflow()
 #' }
 #'
 #' @importFrom reticulate conda_install conda_create conda_list
 #' @export
-mlflow_uninstall <- function() {
+uninstall_mlflow <- function() {
   reticulate::conda_remove(envname = mlflow_conda_env_name(), conda = mlflow_conda_bin())
 }
 
