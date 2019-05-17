@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import subprocess
+from six.moves import shlex_quote
 
 from mlflow.models import FlavorBackend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -26,7 +27,7 @@ class RFuncBackend(FlavorBackend):
             model_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
             str_cmd = "mlflow:::mlflow_rfunc_predict(model_path = '{0}', input_path = {1}, " \
                       "output_path = {2}, content_type = {3}, json_format = {4})"
-            command = str_cmd.format(model_path,
+            command = str_cmd.format(shlex_quote(model_path),
                                      _str_optional(input_path),
                                      _str_optional(output_path),
                                      _str_optional(content_type),
@@ -40,7 +41,7 @@ class RFuncBackend(FlavorBackend):
         with TempDir() as tmp:
             model_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
             command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
-                model_path, port, host)
+                shlex_quote(model_path), port, host)
             _execute(command)
 
     def can_score_model(self):
@@ -70,4 +71,4 @@ def _execute(command):
 
 
 def _str_optional(s):
-    return "NULL" if s is None else "'{}'".format(str(s))
+    return "NULL" if s is None else "'{}'".format(shlex_quote(str(s)))

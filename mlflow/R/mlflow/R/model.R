@@ -12,7 +12,6 @@
 #' @importFrom yaml write_yaml
 #' @export
 mlflow_save_model <- function(model, path = "model", ...) {
-
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
