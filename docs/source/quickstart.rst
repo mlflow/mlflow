@@ -17,7 +17,7 @@ You install MLflow by running:
     .. code-block:: R
 
         install.packages("mlflow")
-        mlflow::mlflow_install()
+        mlflow::install_mlflow()
 
 .. note::
 

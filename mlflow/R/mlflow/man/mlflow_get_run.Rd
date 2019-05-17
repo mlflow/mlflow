@@ -12,9 +12,8 @@ mlflow_get_run(run_id = NULL, client = NULL)
 \item{client}{(Optional) An `mlflow_client` object.}
 }
 \description{
-Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
-same key are logged for the run, returns only the value with the latest timestamp. If there are
-multiple values with the latest timestamp, returns the maximum of these values.
+Gets metadata, params, tags, and metrics for a run. Returns a single value for each metric
+key: the most recently logged metric value at the largest step.
 }
 \details{
 When `client` is not specified, these functions attempt to infer the current active client.
