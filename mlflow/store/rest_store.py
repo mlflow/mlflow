@@ -6,7 +6,7 @@ from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
 
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.rest_utils import http_request_safe
+from mlflow.utils.rest_utils import http_request, verify_rest_response
 
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
@@ -48,6 +48,9 @@ class RestStore(AbstractStore):
         super(RestStore, self).__init__()
         self.get_host_creds = get_host_creds
 
+    def _verify_rest_response(self, response, endpoint):
+        return verify_rest_response(response, endpoint)
+
     def _call_endpoint(self, api, json_body):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
@@ -57,11 +60,13 @@ class RestStore(AbstractStore):
         host_creds = self.get_host_creds()
 
         if method == 'GET':
-            response = http_request_safe(
+            response = http_request(
                 host_creds=host_creds, endpoint=endpoint, method=method, params=json_body)
         else:
-            response = http_request_safe(
+            response = http_request(
                 host_creds=host_creds, endpoint=endpoint, method=method, json=json_body)
+
+        response = self._verify_rest_response(response, endpoint)
 
         js_dict = json.loads(response.text)
         parse_dict(js_dict=js_dict, message=response_proto)

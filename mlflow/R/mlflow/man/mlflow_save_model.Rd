@@ -4,7 +4,7 @@
 \alias{mlflow_save_model}
 \title{Save Model for MLflow}
 \usage{
-mlflow_save_model(model, path = "model", conda_env = NULL)
+mlflow_save_model(model, path = "model", ...)
 }
 \arguments{
 \item{model}{The model that will perform a prediction.}
@@ -12,7 +12,9 @@ mlflow_save_model(model, path = "model", conda_env = NULL)
 \item{path}{Destination path where this MLflow compatible model
 will be saved.}
 
-\item{conda_env}{Path to Conda dependencies file.}
+\item{...}{Optional additional arguments passed to `mlflow_save_flavor()` - for example,
+`conda_env = /path/to/conda.yaml` may be passed to specify a conda dependencies file
+for flavors (e.g. keras) that support conda environments.}
 }
 \description{
 Saves model in MLflow format that can later be used
