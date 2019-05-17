@@ -19,11 +19,12 @@ import mlflow.runs
 import mlflow.store.db.utils
 import mlflow.db
 
-from mlflow.tracking.utils import _is_local_uri, _get_store
+from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
+from mlflow.server.handlers import _get_store
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow import tracking
 import mlflow.store.cli
