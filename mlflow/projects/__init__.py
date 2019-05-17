@@ -162,15 +162,15 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                     base_image=project.docker_env.get('image'),
                                     active_run=active_run)
         kb.push_image_to_registry(image)
-        job_name = kb.run_kubernetes_job(image,
+        job_info = kb.run_kubernetes_job(image,
                                          parameters,
                                          _get_run_env_vars(
                                              run_id=active_run.info.run_uuid,
                                              experiment_id=active_run.info.experiment_id),
                                          kube_config['kube-context'],
                                          kube_config['kube-job-template'])
-        return kb.monitor_job_status(job_name,
-                                     project.kubernetes_env.get('job_namespace'))
+        return kb.monitor_job_status(job_info["job_name"],
+                                     job_info["job_namespace"])
 
     supported_backends = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "

@@ -67,7 +67,7 @@ def run_kubernetes_job(image, parameters, env_vars,
                                                                pretty=True)
         job_status = api_response.status
     _logger.info("Job started at %s", job_status.start_time)
-    return job_name
+    return {"job_name": job_name, "job_namespace": job_namespace}
 
 
 def monitor_job_status(job_name, job_namespace):
