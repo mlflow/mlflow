@@ -37,7 +37,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
                                                        env_vars=env_vars,
                                                        job_template=custom_template)
     container_spec = job_definition['spec']['template']['spec']['containers'][0]
-    assert container_spec['name'].startswith(image.replace(':','-'))
+    assert container_spec['name'].startswith(image.replace(':', '-'))
     assert container_spec['image'] == image
     assert container_spec['command'] == command
     assert container_spec['env'][0]['name'] == 'RUN_ID'
@@ -49,20 +49,20 @@ def test_run_kubernetes_job():
     parameters = {'alpha': '0.5'}
     env_vars = {'RUN_ID': '1'}
     kube_context = "docker-for-desktop"
-    job_template = yaml.load(   "apiVersion: batch/v1\n"
-                                "kind: Job\n"
-                                "metadata:\n"
-                                "  name: pi-with-ttl\n"
-                                "  namespace: mlflow\n"
-                                "spec:\n"
-                                "  ttlSecondsAfterFinished: 100\n"
-                                "  template:\n"
-                                "    spec:\n"
-                                "      containers:\n"
-                                "      - name: pi\n"
-                                "        image: perl\n"
-                                "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
-                                "      restartPolicy: Never\n")
+    job_template = yaml.load("apiVersion: batch/v1\n"
+                             "kind: Job\n"
+                             "metadata:\n"
+                             "  name: pi-with-ttl\n"
+                             "  namespace: mlflow\n"
+                             "spec:\n"
+                             "  ttlSecondsAfterFinished: 100\n"
+                             "  template:\n"
+                             "    spec:\n"
+                             "      containers:\n"
+                             "      - name: pi\n"
+                             "        image: perl\n"
+                             "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
+                             "      restartPolicy: Never\n")
     with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
         with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
             job_info = kb.run_kubernetes_job(image=image, parameters=parameters, env_vars=env_vars,

@@ -153,13 +153,10 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                         MLFLOW_PROJECT_ENV,
                                         "kubernetes")
         _validate_docker_installation()
-        if not project.docker_env.get('image'):
-            raise ExecutionException("Project with docker environment must specify the docker "
-                "image to use via an 'image' field under the 'docker_env' field")
         kube_config = _parse_kubernetes_config(backend_config, work_dir)
         image = _build_docker_image(work_dir=work_dir,
                                     image_uri=kube_config["image-uri"],
-                                    base_image=project.docker_env.get('image'),
+                                    base_image=kube_config['base-image'],
                                     active_run=active_run)
         kb.push_image_to_registry(image)
         job_info = kb.run_kubernetes_job(image,
@@ -732,6 +729,8 @@ def _parse_kubernetes_config(backend_config, work_dir):
         raise ExecutionException("Could not find kube-context in backend_config.")
     if 'image-uri' not in backend_config.keys():
         raise ExecutionException("Could not find 'image-uri' in backend_config.")
+    if 'base-image' not in backend_config.keys():
+        raise ExecutionException("Could not find 'base-image' in backend_config.")
     return kube_config
 
 
