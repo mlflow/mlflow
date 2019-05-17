@@ -77,6 +77,11 @@ def http_request_safe(host_creds, endpoint, **kwargs):
     Wrapper around ``http_request`` that also verifies that the request succeeds with code 200.
     """
     response = http_request(host_creds=host_creds, endpoint=endpoint, **kwargs)
+    return verify_rest_response(response, endpoint)
+
+
+def verify_rest_response(response, endpoint):
+    """Verify the return code and raise exception if the request was not successful."""
     if response.status_code != 200:
         base_msg = "API request to endpoint %s failed with error code " \
                    "%s != 200" % (endpoint, response.status_code)
