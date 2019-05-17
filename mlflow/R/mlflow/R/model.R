@@ -3,23 +3,21 @@
 #' Saves model in MLflow format that can later be used
 #' for prediction and serving.
 #'
-#' @param x The serving function or model that will perform a prediction.
+#' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param r_dependencies Optional vector of paths to dependency files
-#'   to include in the model, as in \code{r-dependencies.txt}
-#'   or \code{conda.yaml}.
-#' @param conda_env Path to Conda dependencies file.
-#'
+#' @param ... Optional additional arguments passed to `mlflow_save_flavor()` - for example,
+#'   `conda_env = /path/to/conda.yaml` may be passed to specify a conda dependencies file
+#'   for flavors (e.g. keras) that support conda environments.
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(x, path = "model", r_dependencies=NULL, conda_env=NULL) {
+mlflow_save_model <- function(model, path = "model", ...) {
 
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
   flavor_spec <- list (
-    flavors = mlflow_save_flavor(x, path, r_dependencies, conda_env)
+    flavors = mlflow_save_flavor(model, path, ...)
   )
   mlflow_write_model_spec(path, flavor_spec)
 }
@@ -29,14 +27,17 @@ mlflow_save_model <- function(x, path = "model", r_dependencies=NULL, conda_env=
 #' Logs a model for this run. Similar to `mlflow_save_model()`
 #' but stores model as an artifact within the active run.
 #'
-#' @param fn The serving function that will perform a prediction.
+#' @param model The model that will perform a prediction.
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
+#'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
+#'   dependencies file for flavors (e.g. keras) that support conda environments.
 #'
 #' @export
-mlflow_log_model <- function(fn, artifact_path) {
+mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  mlflow_save_model(fn, path = temp_path)
+  mlflow_save_model(model, path = temp_path, ...)
   mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
 }
 
@@ -77,6 +78,7 @@ mlflow_predict_model <- function(model, data) {
 #' can be loaded in R. This method by default searches for a flavor supported by R/MLflow.
 #'
 #' @template roxlate-model-uri
+#' @template roxlate-client
 #' @param flavor Optional flavor specification. Can be used to load a particular flavor in case
 #'        there are multiple flavors available.
 #' @export
@@ -118,6 +120,7 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
   mlflow_load_flavor(flavor_path)
 }
 
+
 # Generate predictions using a saved R MLflow model.
 # Input and output are read from and written to a specified input / output file or stdin / stdout.
 #
@@ -126,17 +129,10 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
 # @param output_path 'JSON' file where the prediction will be written to. If not specified,
 #                     data is written out to stdout.
 
-# @importFrom utils read.csv
-mlflow_rfunc_predict <- function(
-  model_path,
-  input_path = NULL,
-  output_path = NULL,
-  content_type = NULL,
-  json_format = NULL) {
+mlflow_rfunc_predict <- function(model_path, input_path = NULL, output_path = NULL,
+                                 content_type = NULL, json_format = NULL) {
   model <- mlflow_load_model(model_path)
   input_path <- input_path %||% "stdin"
-
-
   output_path <- output_path %||% stdout()
 
   data <- switch(

@@ -12,6 +12,30 @@ You can use the R API to `install MLflow`_, start the `user interface <Run MLflo
     :local:
     :depth: 1
 
+Install MLflow
+==============
+
+Installs MLflow for individual use.
+
+.. code:: r
+
+   install_mlflow()
+
+Details
+-------
+
+MLflow requires Python and Conda to be installed. See
+https://www.python.org/getit/ and
+https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
+
+Examples
+--------
+
+.. code:: r
+
+    list("\n", "library(mlflow)\n", "install_mlflow()\n") 
+    
+
 Initialize an MLflow Client
 ===========================
 
@@ -61,6 +85,8 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
+.. _details-1:
+
 Details
 -------
 
@@ -93,7 +119,7 @@ Arguments
 |                                   | object.                           |
 +-----------------------------------+-----------------------------------+
 
-.. _details-1:
+.. _details-2:
 
 Details
 -------
@@ -123,7 +149,7 @@ Arguments
 | ``client`` | (Optional) An ``mlflow_client`` object. |
 +------------+-----------------------------------------+
 
-.. _details-2:
+.. _details-3:
 
 Details
 -------
@@ -156,7 +182,7 @@ Arguments
 | ``client`` | (Optional) An ``mlflow_client`` object.       |
 +------------+-----------------------------------------------+
 
-.. _details-3:
+.. _details-4:
 
 Details
 -------
@@ -192,7 +218,7 @@ Arguments
 | ``client``   | (Optional) An ``mlflow_client`` object.               |
 +--------------+-------------------------------------------------------+
 
-.. _details-4:
+.. _details-5:
 
 Details
 -------
@@ -230,7 +256,7 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
-.. _details-5:
+.. _details-6:
 
 Details
 -------
@@ -262,7 +288,7 @@ Arguments
 | ``client``     | (Optional) An ``mlflow_client`` object. |
 +----------------+-----------------------------------------+
 
-.. _details-6:
+.. _details-7:
 
 Details
 -------
@@ -273,10 +299,9 @@ current active client.
 Get Run
 =======
 
-Gets metadata, params, tags, and metrics for a run. In the case where
-multiple metrics with the same key are logged for the run, returns only
-the value with the latest timestamp. If there are multiple values with
-the latest timestamp, returns the maximum of these values.
+Gets metadata, params, tags, and metrics for a run. Returns a single
+value for each metric key: the most recently logged metric value at the
+largest step.
 
 .. code:: r
 
@@ -295,7 +320,7 @@ Arguments
 | ``client`` | (Optional) An ``mlflow_client`` object. |
 +------------+-----------------------------------------+
 
-.. _details-7:
+.. _details-8:
 
 Details
 -------
@@ -333,32 +358,6 @@ Arguments
 +============+====================================================+
 | ``object`` | An ``mlflow_run`` or ``mlflow_experiment`` object. |
 +------------+----------------------------------------------------+
-
-Install MLflow
-==============
-
-Installs MLflow for individual use.
-
-.. code:: r
-
-   mlflow_install()
-
-.. _details-8:
-
-Details
--------
-
-MLflow requires Python and Conda to be installed. See
-https://www.python.org/getit/ and
-https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
-
-Examples
---------
-
-.. code:: r
-
-    list("\n", "library(mlflow)\n", "mlflow_install()\n") 
-    
 
 List Artifacts
 ==============
@@ -512,6 +511,9 @@ Arguments
 |                               | in case there are multiple flavors   |
 |                               | available.                           |
 +-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object.                              |
++-------------------------------+--------------------------------------+
 
 .. _details-12:
 
@@ -527,6 +529,9 @@ following are examples of valid model uris: -
 - ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
 information about supported URI schemes, see the Artifacts Documentation
 ``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+
+When ``client`` is not specified, these functions attempt to infer the
+current active client.
 
 Seealso
 -------
@@ -691,7 +696,7 @@ model as an artifact within the active run.
 
 .. code:: r
 
-   mlflow_log_model(fn, artifact_path)
+   mlflow_log_model(model, artifact_path, ...)
 
 .. _arguments-18:
 
@@ -701,11 +706,20 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``fn``                        | The serving function that will       |
-|                               | perform a prediction.                |
+| ``model``                     | The model that will perform a        |
+|                               | prediction.                          |
 +-------------------------------+--------------------------------------+
 | ``artifact_path``             | Destination path where this MLflow   |
 |                               | compatible model will be saved.      |
++-------------------------------+--------------------------------------+
+| ``...``                       | Optional additional arguments passed |
+|                               | to ``mlflow_save_model()`` when      |
+|                               | persisting the model. For example,   |
+|                               | ``conda_env = /path/to/conda.yaml``  |
+|                               | may be passed to specify a conda     |
+|                               | dependencies file for flavors        |
+|                               | (e.g. keras) that support conda      |
+|                               | environments.                        |
 +-------------------------------+--------------------------------------+
 
 Log Parameter
@@ -924,16 +938,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-Restore Snapshot
-================
-
-Restores a snapshot of all dependencies required to run the files in the
-current directory.
-
-.. code:: r
-
-   mlflow_restore_snapshot()
-
 Predict using RFunc MLflow Model
 ================================
 
@@ -943,7 +947,7 @@ frame.
 .. code:: r
 
    mlflow_rfunc_predict(model_uri, input_path = NULL, output_path = NULL,
-     data = NULL, restore = FALSE)
+     data = NULL)
 
 .. _arguments-26:
 
@@ -966,9 +970,6 @@ Arguments
 |                               | used for testing purposes and can    |
 |                               | only be specified when               |
 |                               | ``input_path`` is not specified.     |
-+-------------------------------+--------------------------------------+
-| ``restore``                   | Should ``mlflow_restore_snapshot()`` |
-|                               | be called before serving?            |
 +-------------------------------+--------------------------------------+
 
 .. _details-20:
@@ -1012,7 +1013,7 @@ Serves an RFunc MLflow model as a local web API.
 .. code:: r
 
    mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
-     daemonized = FALSE, browse = !daemonized, restore = FALSE)
+     daemonized = FALSE, browse = !daemonized)
 
 .. _arguments-27:
 
@@ -1041,9 +1042,6 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``browse``                    | Launch browser with serving landing  |
 |                               | page?                                |
-+-------------------------------+--------------------------------------+
-| ``restore``                   | Should ``mlflow_restore_snapshot()`` |
-|                               | be called before serving?            |
 +-------------------------------+--------------------------------------+
 
 .. _details-21:
@@ -1085,8 +1083,8 @@ Wrapper for ``mlflow run``.
 
 .. code:: r
 
-   mlflow_run(entry_point = NULL, uri = ".", version = NULL,
-     param_list = NULL, experiment_id = NULL, experiment_name = NULL,
+   mlflow_run(uri = ".", entry_point = NULL, version = NULL,
+     parameters = NULL, experiment_id = NULL, experiment_name = NULL,
      backend = NULL, backend_config = NULL, no_conda = FALSE,
      storage_dir = NULL)
 
@@ -1098,18 +1096,18 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``entry_point``               | Entry point within project, defaults |
-|                               | to ``main`` if not specified.        |
-+-------------------------------+--------------------------------------+
 | ``uri``                       | A directory containing modeling      |
 |                               | scripts, defaults to the current     |
 |                               | directory.                           |
++-------------------------------+--------------------------------------+
+| ``entry_point``               | Entry point within project, defaults |
+|                               | to ``main`` if not specified.        |
 +-------------------------------+--------------------------------------+
 | ``version``                   | Version of the project to run, as a  |
 |                               | Git commit reference for Git         |
 |                               | projects.                            |
 +-------------------------------+--------------------------------------+
-| ``param_list``                | A list of parameters.                |
+| ``parameters``                | A list of parameters.                |
 +-------------------------------+--------------------------------------+
 | ``experiment_id``             | ID of the experiment under which to  |
 |                               | launch the run.                      |
@@ -1152,30 +1150,26 @@ Saves model in MLflow Keras flavor.
 
 .. code:: r
 
-   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(x,
-     path = "model", r_dependencies = NULL, conda_env = NULL)
+   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(model,
+     path = "model", conda_env = NULL)
 
 .. _arguments-29:
 
 Arguments
 ---------
 
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``x``                         | The serving function or model that   |
-|                               | will perform a prediction.           |
-+-------------------------------+--------------------------------------+
-| ``path``                      | Destination path where this MLflow   |
-|                               | compatible model will be saved.      |
-+-------------------------------+--------------------------------------+
-| ``r_dependencies``            | Optional vector of paths to          |
-|                               | dependency files to include in the   |
-|                               | model, as in ``r-dependencies.txt``  |
-|                               | or ``conda.yaml`` .                  |
-+-------------------------------+--------------------------------------+
-| ``conda_env``                 | Path to Conda dependencies file.     |
-+-------------------------------+--------------------------------------+
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``model``                         | The model that will perform a     |
+|                                   | prediction.                       |
++-----------------------------------+-----------------------------------+
+| ``path``                          | Destination path where this       |
+|                                   | MLflow compatible model will be   |
+|                                   | saved.                            |
++-----------------------------------+-----------------------------------+
+| ``conda_env``                     | Path to Conda dependencies file.  |
++-----------------------------------+-----------------------------------+
 
 .. _value-1:
 
@@ -1193,8 +1187,7 @@ the supported MLflow models.
 
 .. code:: r
 
-   mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
-     conda_env = NULL)
+   mlflow_save_flavor(model, path = "model", ...)
 
 .. _arguments-30:
 
@@ -1204,18 +1197,20 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``x``                         | The serving function or model that   |
-|                               | will perform a prediction.           |
+| ``model``                     | The model that will perform a        |
+|                               | prediction.                          |
 +-------------------------------+--------------------------------------+
 | ``path``                      | Destination path where this MLflow   |
 |                               | compatible model will be saved.      |
 +-------------------------------+--------------------------------------+
-| ``r_dependencies``            | Optional vector of paths to          |
-|                               | dependency files to include in the   |
-|                               | model, as in ``r-dependencies.txt``  |
-|                               | or ``conda.yaml`` .                  |
-+-------------------------------+--------------------------------------+
-| ``conda_env``                 | Path to Conda dependencies file.     |
+| ``...``                       | Optional additional arguments passed |
+|                               | to ``mlflow_save_flavor()`` - for    |
+|                               | example,                             |
+|                               | ``conda_env = /path/to/conda.yaml``  |
+|                               | may be passed to specify a conda     |
+|                               | dependencies file for flavors        |
+|                               | (e.g. keras) that support conda      |
+|                               | environments.                        |
 +-------------------------------+--------------------------------------+
 
 .. _value-2:
@@ -1234,8 +1229,7 @@ serving.
 
 .. code:: r
 
-   mlflow_save_model(x, path = "model", r_dependencies = NULL,
-     conda_env = NULL)
+   mlflow_save_model(model, path = "model", ...)
 
 .. _arguments-31:
 
@@ -1245,18 +1239,20 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``x``                         | The serving function or model that   |
-|                               | will perform a prediction.           |
+| ``model``                     | The model that will perform a        |
+|                               | prediction.                          |
 +-------------------------------+--------------------------------------+
 | ``path``                      | Destination path where this MLflow   |
 |                               | compatible model will be saved.      |
 +-------------------------------+--------------------------------------+
-| ``r_dependencies``            | Optional vector of paths to          |
-|                               | dependency files to include in the   |
-|                               | model, as in ``r-dependencies.txt``  |
-|                               | or ``conda.yaml`` .                  |
-+-------------------------------+--------------------------------------+
-| ``conda_env``                 | Path to Conda dependencies file.     |
+| ``...``                       | Optional additional arguments passed |
+|                               | to ``mlflow_save_flavor()`` - for    |
+|                               | example,                             |
+|                               | ``conda_env = /path/to/conda.yaml``  |
+|                               | may be passed to specify a conda     |
+|                               | dependencies file for flavors        |
+|                               | (e.g. keras) that support conda      |
+|                               | environments.                        |
 +-------------------------------+--------------------------------------+
 
 Search Runs
@@ -1433,16 +1429,6 @@ Arguments
 | ``uri``  | The URI to the remote MLflow server. |
 +----------+--------------------------------------+
 
-Create Dependency Snapshot
-==========================
-
-Creates a snapshot of all dependencies required to run the files in the
-current directory.
-
-.. code:: r
-
-   mlflow_snapshot()
-
 Source a Script with MLflow Params
 ==================================
 
@@ -1470,12 +1456,12 @@ Start Run
 Starts a new run. If ``client`` is not provided, this function infers
 contextual information such as source name and version, and also
 registers the created run as the active run. If ``client`` is provided,
-no inference is done, and additional arguments such as ``user_id`` and
-``start_time`` can be provided.
+no inference is done, and additional arguments such as ``start_time``
+can be provided.
 
 .. code:: r
 
-   mlflow_start_run(run_id = NULL, experiment_id = NULL, user_id = NULL,
+   mlflow_start_run(run_id = NULL, experiment_id = NULL,
      start_time = NULL, tags = NULL, client = NULL)
 
 .. _arguments-38:
@@ -1500,10 +1486,6 @@ Arguments
 |                               | created under a new experiment with  |
 |                               | a randomly generated name.           |
 +-------------------------------+--------------------------------------+
-| ``user_id``                   | User ID or LDAP for the user         |
-|                               | executing the run. Only used when    |
-|                               | ``client`` is specified.             |
-+-------------------------------+--------------------------------------+
 | ``start_time``                | Unix timestamp of when the run       |
 |                               | started in milliseconds. Only used   |
 |                               | when ``client`` is specified.        |
@@ -1514,21 +1496,6 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
 |                               | object.                              |
-+-------------------------------+--------------------------------------+
-| ``source_name``               | Name of the source file or URI of    |
-|                               | the project to be associated with    |
-|                               | the run. Defaults to the current     |
-|                               | file if none provided.               |
-+-------------------------------+--------------------------------------+
-| ``source_version``            | Optional Git commit hash to          |
-|                               | associate with the run.              |
-+-------------------------------+--------------------------------------+
-| ``entry_point_name``          | Optional name of the entry point for |
-|                               | to the current run.                  |
-+-------------------------------+--------------------------------------+
-| ``source_type``               | Integer enum value describing the    |
-|                               | type of the run (“local”, “project”, |
-|                               | etc.).                               |
 +-------------------------------+--------------------------------------+
 
 .. _details-24:
@@ -1580,24 +1547,5 @@ Examples
 
 .. code:: r
 
-    list("\n", "library(mlflow)\n", "mlflow_install()\n", "\n", "# launch mlflow ui locally\n", "mlflow_ui()\n", "\n", "# launch mlflow ui for existing mlflow server\n", "mlflow_set_tracking_uri(\"http://tracking-server:5000\")\n", "mlflow_ui()\n") 
-    
-
-Uninstall MLflow
-================
-
-Uninstalls MLflow by removing the Conda environment.
-
-.. code:: r
-
-   mlflow_uninstall()
-
-.. _examples-5:
-
-Examples
---------
-
-.. code:: r
-
-    list("\n", "library(mlflow)\n", "mlflow_install()\n", "mlflow_uninstall()\n") 
+    list("\n", "library(mlflow)\n", "install_mlflow()\n", "\n", "# launch mlflow ui locally\n", "mlflow_ui()\n", "\n", "# launch mlflow ui for existing mlflow server\n", "mlflow_set_tracking_uri(\"http://tracking-server:5000\")\n", "mlflow_ui()\n") 
     
