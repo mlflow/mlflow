@@ -5,7 +5,7 @@
 \title{Serve an RFunc MLflow Model}
 \usage{
 mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
-  daemonized = FALSE, browse = !daemonized, restore = FALSE)
+  daemonized = FALSE, browse = !daemonized)
 }
 \arguments{
 \item{model_uri}{The location, in URI format, of the MLflow model.}
@@ -19,8 +19,6 @@ are not blocked to handle requests. To terminate a daemonized server, call
 `httpuv::stopDaemonizedServer()` with the handle returned from this call.}
 
 \item{browse}{Launch browser with serving landing page?}
-
-\item{restore}{Should \code{mlflow_restore_snapshot()} be called before serving?}
 }
 \description{
 Serves an RFunc MLflow model as a local web API.
