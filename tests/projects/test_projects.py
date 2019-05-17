@@ -406,6 +406,7 @@ def test_parse_kubernetes_config_without_image_uri():
     with pytest.raises(ExecutionException):
         mlflow.projects._parse_kubernetes_config(kubernetes_config, work_dir)
 
+
 def test_parse_kubernetes_config_without_base_image():
     kubernetes_config = {
         "kube-context": "docker-for-desktop",
