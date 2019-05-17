@@ -458,11 +458,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' @param experiment_id Used only when `run_id` is unspecified. ID of the experiment under
 #'   which to create the current run. If unspecified, the run is created under
 #'   a new experiment with a randomly generated name.
-#' @param source_name Name of the source file or URI of the project to be associated with the run.
-#'   Defaults to the current file if none provided.
-#' @param source_version Optional Git commit hash to associate with the run.
-#' @param entry_point_name Optional name of the entry point for to the current run.
-#' @param source_type Integer enum value describing the type of the run  ("local", "project", etc.).
+#' @param user_id User ID or LDAP for the user executing the run. Only used when `client` is specified.
 #' @param start_time Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.
 #' @param tags Additional metadata for run in key-value pairs. Only used when `client` is specified.
 #' @template roxlate-client

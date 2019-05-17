@@ -39,7 +39,7 @@ To run this tutorial, you'll need to:
 
        - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Install the MLflow package (via ``install.packages("mlflow")``)
-       - Install MLflow (via ``mlflow::mlflow_install()``)
+       - Install MLflow (via ``mlflow::install_mlflow()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``example`` directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing

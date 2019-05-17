@@ -77,6 +77,7 @@ mlflow_predict_model <- function(model, data) {
 #' can be loaded in R. This method by default searches for a flavor supported by R/MLflow.
 #'
 #' @template roxlate-model-uri
+#' @template roxlate-client
 #' @param flavor Optional flavor specification. Can be used to load a particular flavor in case
 #'        there are multiple flavors available.
 #' @export

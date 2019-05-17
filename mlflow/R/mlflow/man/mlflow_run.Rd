@@ -4,19 +4,19 @@
 \alias{mlflow_run}
 \title{Run an MLflow Project}
 \usage{
-mlflow_run(entry_point = NULL, uri = ".", version = NULL,
-  param_list = NULL, experiment_id = NULL, experiment_name = NULL,
+mlflow_run(uri = ".", entry_point = NULL, version = NULL,
+  parameters = NULL, experiment_id = NULL, experiment_name = NULL,
   backend = NULL, backend_config = NULL, no_conda = FALSE,
   storage_dir = NULL)
 }
 \arguments{
-\item{entry_point}{Entry point within project, defaults to `main` if not specified.}
-
 \item{uri}{A directory containing modeling scripts, defaults to the current directory.}
+
+\item{entry_point}{Entry point within project, defaults to `main` if not specified.}
 
 \item{version}{Version of the project to run, as a Git commit reference for Git projects.}
 
-\item{param_list}{A list of parameters.}
+\item{parameters}{A list of parameters.}
 
 \item{experiment_id}{ID of the experiment under which to launch the run.}
 

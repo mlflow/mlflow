@@ -4,7 +4,7 @@
 \alias{mlflow_start_run}
 \title{Start Run}
 \usage{
-mlflow_start_run(run_id = NULL, experiment_id = NULL, user_id = NULL,
+mlflow_start_run(run_id = NULL, experiment_id = NULL,
   start_time = NULL, tags = NULL, client = NULL)
 }
 \arguments{
@@ -16,27 +16,18 @@ running, but the run's other attributes remain unchanged.}
 which to create the current run. If unspecified, the run is created under
 a new experiment with a randomly generated name.}
 
-\item{user_id}{User ID or LDAP for the user executing the run. Only used when `client` is specified.}
-
 \item{start_time}{Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.}
 
 \item{tags}{Additional metadata for run in key-value pairs. Only used when `client` is specified.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 
-\item{source_name}{Name of the source file or URI of the project to be associated with the run.
-Defaults to the current file if none provided.}
-
-\item{source_version}{Optional Git commit hash to associate with the run.}
-
-\item{entry_point_name}{Optional name of the entry point for to the current run.}
-
-\item{source_type}{Integer enum value describing the type of the run  ("local", "project", etc.).}
+\item{user_id}{User ID or LDAP for the user executing the run. Only used when `client` is specified.}
 }
 \description{
 Starts a new run. If `client` is not provided, this function infers contextual information such as
   source name and version, and also registers the created run as the active run. If `client` is provided,
-  no inference is done, and additional arguments such as `user_id` and `start_time` can be provided.
+  no inference is done, and additional arguments such as `start_time` can be provided.
 }
 \details{
 When `client` is not specified, these functions attempt to infer the current active client.
