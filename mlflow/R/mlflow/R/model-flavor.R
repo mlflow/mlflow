@@ -3,12 +3,9 @@
 #' Saves model in MLflow flavor, to be used by package authors
 #' to extend the supported MLflow models.
 #'
-#' @param x The serving function or model that will perform a prediction.
+#' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param r_dependencies Optional vector of paths to dependency files
-#'   to include in the model, as in \code{r-dependencies.txt}
-#'   or \code{conda.yaml}.
 #' @param ... Optional additional arguments passed to `mlflow_save_flavor()` - for example,
 #'   `conda_env = /path/to/conda.yaml` may be passed to specify a conda dependencies file
 #'   for flavors (e.g. keras) that support conda environments.
@@ -16,7 +13,7 @@
 #'   the MLmodel specification.
 #'
 #' @export
-mlflow_save_flavor <- function(x, path = "model", r_dependencies=NULL, ...) {
+mlflow_save_flavor <- function(model, path = "model", ...) {
   UseMethod("mlflow_save_flavor")
 }
 

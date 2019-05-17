@@ -1150,30 +1150,26 @@ Saves model in MLflow Keras flavor.
 
 .. code:: r
 
-   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(x,
-     path = "model", r_dependencies = NULL, conda_env = NULL)
+   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(model,
+     path = "model", conda_env = NULL)
 
 .. _arguments-29:
 
 Arguments
 ---------
 
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``x``                         | The serving function or model that   |
-|                               | will perform a prediction.           |
-+-------------------------------+--------------------------------------+
-| ``path``                      | Destination path where this MLflow   |
-|                               | compatible model will be saved.      |
-+-------------------------------+--------------------------------------+
-| ``r_dependencies``            | Optional vector of paths to          |
-|                               | dependency files to include in the   |
-|                               | model, as in ``r-dependencies.txt``  |
-|                               | or ``conda.yaml`` .                  |
-+-------------------------------+--------------------------------------+
-| ``conda_env``                 | Path to Conda dependencies file.     |
-+-------------------------------+--------------------------------------+
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``model``                         | The model that will perform a     |
+|                                   | prediction.                       |
++-----------------------------------+-----------------------------------+
+| ``path``                          | Destination path where this       |
+|                                   | MLflow compatible model will be   |
+|                                   | saved.                            |
++-----------------------------------+-----------------------------------+
+| ``conda_env``                     | Path to Conda dependencies file.  |
++-----------------------------------+-----------------------------------+
 
 .. _value-1:
 
@@ -1191,7 +1187,7 @@ the supported MLflow models.
 
 .. code:: r
 
-   mlflow_save_flavor(x, path = "model", r_dependencies = NULL, ...)
+   mlflow_save_flavor(model, path = "model", ...)
 
 .. _arguments-30:
 
@@ -1201,16 +1197,11 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``x``                         | The serving function or model that   |
-|                               | will perform a prediction.           |
+| ``model``                     | The model that will perform a        |
+|                               | prediction.                          |
 +-------------------------------+--------------------------------------+
 | ``path``                      | Destination path where this MLflow   |
 |                               | compatible model will be saved.      |
-+-------------------------------+--------------------------------------+
-| ``r_dependencies``            | Optional vector of paths to          |
-|                               | dependency files to include in the   |
-|                               | model, as in ``r-dependencies.txt``  |
-|                               | or ``conda.yaml`` .                  |
 +-------------------------------+--------------------------------------+
 | ``...``                       | Optional additional arguments passed |
 |                               | to ``mlflow_save_flavor()`` - for    |

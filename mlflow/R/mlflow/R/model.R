@@ -86,7 +86,7 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
   model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)
   supported_flavors <- supported_model_flavors()
   spec <- yaml::read_yaml(fs::path(model_path, "MLmodel"))
-  available_flavors <- names(spec$flavors)
+  available_flavors <- intersect(names(spec$flavors), supported_flavors)
 
   if (length(available_flavors) == 0) {
     stop(
