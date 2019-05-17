@@ -76,7 +76,7 @@ def _get_flavor_backend(model_uri, no_conda):
         model = Model.load(local_path)
     flavor_name, flavor_backend = get_flavor_backend(model, no_conda=no_conda)
 
-    _logger.info("Selected backend for flavor '%s'" % flavor_name)
+    _logger.info("Selected backend for flavor '%s'", flavor_name)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
     return flavor_backend
