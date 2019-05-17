@@ -41,6 +41,8 @@ def sk_model(iris_data):
 
 
 def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
+    if no_conda:
+        pytest.skip("This test needs conda.")
     x, _ = iris_data
     with TempDir() as tmp:
         input_records_path = tmp.path("input_records.json")
