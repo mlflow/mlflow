@@ -5,7 +5,7 @@
 \title{Predict using RFunc MLflow Model}
 \usage{
 mlflow_rfunc_predict(model_uri, input_path = NULL, output_path = NULL,
-  data = NULL, restore = FALSE)
+  data = NULL)
 }
 \arguments{
 \item{model_uri}{The location, in URI format, of the MLflow model.}
@@ -16,8 +16,6 @@ mlflow_rfunc_predict(model_uri, input_path = NULL, output_path = NULL,
 
 \item{data}{Data frame to be scored. This can be used for testing purposes and can only
 be specified when `input_path` is not specified.}
-
-\item{restore}{Should \code{mlflow_restore_snapshot()} be called before serving?}
 }
 \description{
 Performs prediction using an RFunc MLflow model from a file or data frame.

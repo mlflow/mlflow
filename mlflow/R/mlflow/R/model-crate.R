@@ -1,6 +1,6 @@
 #' @export
-mlflow_save_flavor.crate <- function(x, path = "model", r_dependencies=NULL, conda_env=NULL) {
-  serialized <- serialize(x, NULL)
+mlflow_save_flavor.crate <- function(model, path = "model", conda_env=NULL) {
+  serialized <- serialize(model, NULL)
 
   saveRDS(
     serialized,
@@ -13,18 +13,6 @@ mlflow_save_flavor.crate <- function(x, path = "model", r_dependencies=NULL, con
       model = "crate.bin"
     )
   )
-  if (!is.null(r_dependencies)) {
-    dep_file <- basename(r_dependencies)
-    if (dep_file != "r-dependencies.txt") {
-      stop("Dependency", dep_file,
-           "is unsupported by cran flavor. R-dependencies must be named 'r-dependencies.txt'")
-    }
-    dst <- file.path(path, basename(conda_env))
-    if (r_dependencies != dst) {
-      file.copy(from = r_dependencies, to = dst)
-      res$crate$r_dependencies <- basename(r_dependencies)
-    }
-  }
   if (!is.null(conda_env)){
     dst <- file.path(path, basename(conda_env))
     if (conda_env != dst) {

@@ -21,8 +21,6 @@ a new experiment with a randomly generated name.}
 \item{tags}{Additional metadata for run in key-value pairs. Only used when `client` is specified.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
-
-\item{user_id}{User ID or LDAP for the user executing the run. Only used when `client` is specified.}
 }
 \description{
 Starts a new run. If `client` is not provided, this function infers contextual information such as

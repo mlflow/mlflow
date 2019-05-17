@@ -696,7 +696,7 @@ model as an artifact within the active run.
 
 .. code:: r
 
-   mlflow_log_model(fn, artifact_path)
+   mlflow_log_model(model, artifact_path, ...)
 
 .. _arguments-18:
 
@@ -706,11 +706,20 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``fn``                        | The serving function that will       |
-|                               | perform a prediction.                |
+| ``model``                     | The model that will perform a        |
+|                               | prediction.                          |
 +-------------------------------+--------------------------------------+
 | ``artifact_path``             | Destination path where this MLflow   |
 |                               | compatible model will be saved.      |
++-------------------------------+--------------------------------------+
+| ``...``                       | Optional additional arguments passed |
+|                               | to ``mlflow_save_model()`` when      |
+|                               | persisting the model. For example,   |
+|                               | ``conda_env = /path/to/conda.yaml``  |
+|                               | may be passed to specify a conda     |
+|                               | dependencies file for flavors        |
+|                               | (e.g. keras) that support conda      |
+|                               | environments.                        |
 +-------------------------------+--------------------------------------+
 
 Log Parameter
@@ -929,16 +938,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-Restore Snapshot
-================
-
-Restores a snapshot of all dependencies required to run the files in the
-current directory.
-
-.. code:: r
-
-   mlflow_restore_snapshot()
-
 Predict using RFunc MLflow Model
 ================================
 
@@ -948,7 +947,7 @@ frame.
 .. code:: r
 
    mlflow_rfunc_predict(model_uri, input_path = NULL, output_path = NULL,
-     data = NULL, restore = FALSE)
+     data = NULL)
 
 .. _arguments-26:
 
@@ -971,9 +970,6 @@ Arguments
 |                               | used for testing purposes and can    |
 |                               | only be specified when               |
 |                               | ``input_path`` is not specified.     |
-+-------------------------------+--------------------------------------+
-| ``restore``                   | Should ``mlflow_restore_snapshot()`` |
-|                               | be called before serving?            |
 +-------------------------------+--------------------------------------+
 
 .. _details-20:
@@ -1017,7 +1013,7 @@ Serves an RFunc MLflow model as a local web API.
 .. code:: r
 
    mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
-     daemonized = FALSE, browse = !daemonized, restore = FALSE)
+     daemonized = FALSE, browse = !daemonized)
 
 .. _arguments-27:
 
@@ -1046,9 +1042,6 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``browse``                    | Launch browser with serving landing  |
 |                               | page?                                |
-+-------------------------------+--------------------------------------+
-| ``restore``                   | Should ``mlflow_restore_snapshot()`` |
-|                               | be called before serving?            |
 +-------------------------------+--------------------------------------+
 
 .. _details-21:
@@ -1157,30 +1150,26 @@ Saves model in MLflow Keras flavor.
 
 .. code:: r
 
-   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(x,
-     path = "model", r_dependencies = NULL, conda_env = NULL)
+   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(model,
+     path = "model", conda_env = NULL)
 
 .. _arguments-29:
 
 Arguments
 ---------
 
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``x``                         | The serving function or model that   |
-|                               | will perform a prediction.           |
-+-------------------------------+--------------------------------------+
-| ``path``                      | Destination path where this MLflow   |
-|                               | compatible model will be saved.      |
-+-------------------------------+--------------------------------------+
-| ``r_dependencies``            | Optional vector of paths to          |
-|                               | dependency files to include in the   |
-|                               | model, as in ``r-dependencies.txt``  |
-|                               | or ``conda.yaml`` .                  |
-+-------------------------------+--------------------------------------+
-| ``conda_env``                 | Path to Conda dependencies file.     |
-+-------------------------------+--------------------------------------+
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``model``                         | The model that will perform a     |
+|                                   | prediction.                       |
++-----------------------------------+-----------------------------------+
+| ``path``                          | Destination path where this       |
+|                                   | MLflow compatible model will be   |
+|                                   | saved.                            |
++-----------------------------------+-----------------------------------+
+| ``conda_env``                     | Path to Conda dependencies file.  |
++-----------------------------------+-----------------------------------+
 
 .. _value-1:
 
@@ -1198,8 +1187,7 @@ the supported MLflow models.
 
 .. code:: r
 
-   mlflow_save_flavor(x, path = "model", r_dependencies = NULL,
-     conda_env = NULL)
+   mlflow_save_flavor(model, path = "model", ...)
 
 .. _arguments-30:
 
@@ -1209,18 +1197,20 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``x``                         | The serving function or model that   |
-|                               | will perform a prediction.           |
+| ``model``                     | The model that will perform a        |
+|                               | prediction.                          |
 +-------------------------------+--------------------------------------+
 | ``path``                      | Destination path where this MLflow   |
 |                               | compatible model will be saved.      |
 +-------------------------------+--------------------------------------+
-| ``r_dependencies``            | Optional vector of paths to          |
-|                               | dependency files to include in the   |
-|                               | model, as in ``r-dependencies.txt``  |
-|                               | or ``conda.yaml`` .                  |
-+-------------------------------+--------------------------------------+
-| ``conda_env``                 | Path to Conda dependencies file.     |
+| ``...``                       | Optional additional arguments passed |
+|                               | to ``mlflow_save_flavor()`` - for    |
+|                               | example,                             |
+|                               | ``conda_env = /path/to/conda.yaml``  |
+|                               | may be passed to specify a conda     |
+|                               | dependencies file for flavors        |
+|                               | (e.g. keras) that support conda      |
+|                               | environments.                        |
 +-------------------------------+--------------------------------------+
 
 .. _value-2:
@@ -1239,8 +1229,7 @@ serving.
 
 .. code:: r
 
-   mlflow_save_model(x, path = "model", r_dependencies = NULL,
-     conda_env = NULL)
+   mlflow_save_model(model, path = "model", ...)
 
 .. _arguments-31:
 
@@ -1250,18 +1239,20 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``x``                         | The serving function or model that   |
-|                               | will perform a prediction.           |
+| ``model``                     | The model that will perform a        |
+|                               | prediction.                          |
 +-------------------------------+--------------------------------------+
 | ``path``                      | Destination path where this MLflow   |
 |                               | compatible model will be saved.      |
 +-------------------------------+--------------------------------------+
-| ``r_dependencies``            | Optional vector of paths to          |
-|                               | dependency files to include in the   |
-|                               | model, as in ``r-dependencies.txt``  |
-|                               | or ``conda.yaml`` .                  |
-+-------------------------------+--------------------------------------+
-| ``conda_env``                 | Path to Conda dependencies file.     |
+| ``...``                       | Optional additional arguments passed |
+|                               | to ``mlflow_save_flavor()`` - for    |
+|                               | example,                             |
+|                               | ``conda_env = /path/to/conda.yaml``  |
+|                               | may be passed to specify a conda     |
+|                               | dependencies file for flavors        |
+|                               | (e.g. keras) that support conda      |
+|                               | environments.                        |
 +-------------------------------+--------------------------------------+
 
 Search Runs
@@ -1438,16 +1429,6 @@ Arguments
 | ``uri``  | The URI to the remote MLflow server. |
 +----------+--------------------------------------+
 
-Create Dependency Snapshot
-==========================
-
-Creates a snapshot of all dependencies required to run the files in the
-current directory.
-
-.. code:: r
-
-   mlflow_snapshot()
-
 Source a Script with MLflow Params
 ==================================
 
@@ -1515,10 +1496,6 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
 |                               | object.                              |
-+-------------------------------+--------------------------------------+
-| ``user_id``                   | User ID or LDAP for the user         |
-|                               | executing the run. Only used when    |
-|                               | ``client`` is specified.             |
 +-------------------------------+--------------------------------------+
 
 .. _details-24:

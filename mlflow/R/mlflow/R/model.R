@@ -3,23 +3,21 @@
 #' Saves model in MLflow format that can later be used
 #' for prediction and serving.
 #'
-#' @param x The serving function or model that will perform a prediction.
+#' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param r_dependencies Optional vector of paths to dependency files
-#'   to include in the model, as in \code{r-dependencies.txt}
-#'   or \code{conda.yaml}.
-#' @param conda_env Path to Conda dependencies file.
-#'
+#' @param ... Optional additional arguments passed to `mlflow_save_flavor()` - for example,
+#'   `conda_env = /path/to/conda.yaml` may be passed to specify a conda dependencies file
+#'   for flavors (e.g. keras) that support conda environments.
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(x, path = "model", r_dependencies=NULL, conda_env=NULL) {
+mlflow_save_model <- function(model, path = "model", ...) {
 
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
   flavor_spec <- list (
-    flavors = mlflow_save_flavor(x, path, r_dependencies, conda_env)
+    flavors = mlflow_save_flavor(model, path, ...)
   )
   mlflow_write_model_spec(path, flavor_spec)
 }
@@ -29,14 +27,17 @@ mlflow_save_model <- function(x, path = "model", r_dependencies=NULL, conda_env=
 #' Logs a model for this run. Similar to `mlflow_save_model()`
 #' but stores model as an artifact within the active run.
 #'
-#' @param fn The serving function that will perform a prediction.
+#' @param model The model that will perform a prediction.
 #' @param artifact_path Destination path where this MLflow compatible model
 #'   will be saved.
+#' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
+#'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
+#'   dependencies file for flavors (e.g. keras) that support conda environments.
 #'
 #' @export
-mlflow_log_model <- function(fn, artifact_path) {
+mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
-  mlflow_save_model(fn, path = temp_path)
+  mlflow_save_model(model, path = temp_path, ...)
   mlflow_log_artifact(path = temp_path, artifact_path = artifact_path)
 }
 
@@ -130,7 +131,6 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
 #' @param output_path 'JSON' or 'CSV' file where the prediction will be written to.
 #' @param data Data frame to be scored. This can be used for testing purposes and can only
 #'   be specified when `input_path` is not specified.
-#' @param restore Should \code{mlflow_restore_snapshot()} be called before serving?
 #'
 #' @examples
 #' \dontrun{
@@ -154,10 +154,8 @@ mlflow_rfunc_predict <- function(
   model_uri,
   input_path = NULL,
   output_path = NULL,
-  data = NULL,
-  restore = FALSE
+  data = NULL
 ) {
-  mlflow_restore_or_warning(restore)
 
   model_path <- mlflow_download_artifacts_from_uri(model_uri)
 

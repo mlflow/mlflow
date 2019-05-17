@@ -2,27 +2,23 @@
 #'
 #' Saves model in MLflow Keras flavor.
 #'
-#' @param x The serving function or model that will perform a prediction.
+#' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param r_dependencies Optional vector of paths to dependency files
-#'   to include in the model, as in \code{r-dependencies.txt}
-#'   or \code{conda.yaml}.
 #' @param conda_env Path to Conda dependencies file.
 #'
 #' @return This function must return a list of flavors that conform to
 #'   the MLmodel specification.
 #'
 #' @export
-mlflow_save_flavor.keras.engine.training.Model <- function(x,
+mlflow_save_flavor.keras.engine.training.Model <- function(model,
                                                            path = "model",
-                                                           r_dependencies=NULL,
                                                            conda_env=NULL) {
   if (!requireNamespace("keras", quietly = TRUE)) {
     stop("The 'keras' package must be installed.")
   }
 
-  keras::save_model_hdf5(x, filepath = file.path(path, "model.h5"), include_optimizer = TRUE)
+  keras::save_model_hdf5(model, filepath = file.path(path, "model.h5"), include_optimizer = TRUE)
   version <- as.character(utils::packageVersion("keras"))
   conda_env <- if (!is.null(conda_env)) {
     dst <- file.path(path, basename(conda_env))

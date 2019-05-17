@@ -22,7 +22,7 @@ test_that("mlflow can save model function", {
   )
 })
 
-test_that("mlflow can write model with dependencies", {
+test_that("mlflow can save/log model with dependencies", {
   mlflow_clear_test_dir("model")
   model <- lm(Sepal.Width ~ Sepal.Length, iris)
   fn <- crate(~ stats::predict(model, .x), model = model)
@@ -32,6 +32,15 @@ test_that("mlflow can write model with dependencies", {
     mlmodel$flavors$crate$conda_env,
     "conda.yaml"
   )
+  with(run <- mlflow_start_run(), {
+    mlflow_log_model(fn, "logged-model", conda_env = "conda.yaml")
+    model_path <- mlflow_download_artifacts("logged-model", mlflow_id(mlflow_get_run()))
+    mlmodel_logged <- yaml::read_yaml(file.path(model_path, "MLmodel"))
+    expect_equal(
+      mlmodel_logged$flavors$crate$conda_env,
+      "conda.yaml"
+    )
+  })
 })
 
 test_that("mlflow can log model and load it back with a uri", {

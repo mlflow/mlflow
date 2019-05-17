@@ -4,18 +4,14 @@
 \alias{mlflow_save_flavor.keras.engine.training.Model}
 \title{Save MLflow Keras Model Flavor}
 \usage{
-\method{mlflow_save_flavor}{keras.engine.training.Model}(x,
-  path = "model", r_dependencies = NULL, conda_env = NULL)
+\method{mlflow_save_flavor}{keras.engine.training.Model}(model,
+  path = "model", conda_env = NULL)
 }
 \arguments{
-\item{x}{The serving function or model that will perform a prediction.}
+\item{model}{The model that will perform a prediction.}
 
 \item{path}{Destination path where this MLflow compatible model
 will be saved.}
-
-\item{r_dependencies}{Optional vector of paths to dependency files
-to include in the model, as in \code{r-dependencies.txt}
-or \code{conda.yaml}.}
 
 \item{conda_env}{Path to Conda dependencies file.}
 }
