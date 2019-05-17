@@ -12,7 +12,6 @@
 #' @importFrom yaml write_yaml
 #' @export
 mlflow_save_model <- function(model, path = "model", ...) {
-
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
@@ -113,85 +112,61 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
       warning(paste("Multiple model flavors available (", paste(available_flavors, collapse = ", "),
                     " ).  loading flavor '", available_flavors[[1]], "'", ""))
     }
-
     flavor <- available_flavors[[1]]
   }
-
   flavor_path <- model_path
   class(flavor_path) <- c(flavor, class(flavor_path))
   mlflow_load_flavor(flavor_path)
 }
 
-#' Predict using RFunc MLflow Model
-#'
-#' Performs prediction using an RFunc MLflow model from a file or data frame.
-#'
-#' @template roxlate-model-uri
-#' @param input_path Path to 'JSON' or 'CSV' file to be used for prediction.
-#' @param output_path 'JSON' or 'CSV' file where the prediction will be written to.
-#' @param data Data frame to be scored. This can be used for testing purposes and can only
-#'   be specified when `input_path` is not specified.
-#'
-#' @examples
-#' \dontrun{
-#' library(mlflow)
-#'
-#' # save simple model which roundtrips data as prediction
-#' mlflow_save_model(function(df) df, "mlflow_roundtrip")
-#'
-#' # save data as json
-#' jsonlite::write_json(iris, "iris.json")
-#'
-#' # predict existing model from json data
-#' # load the model from local relative path.
-#' mlflow_rfunc_predict("file:mlflow_roundtrip", "iris.json")
-#' }
-#'
-#' @importFrom utils read.csv
-#' @importFrom utils write.csv
-#' @export
-mlflow_rfunc_predict <- function(
-  model_uri,
-  input_path = NULL,
-  output_path = NULL,
-  data = NULL
-) {
 
-  model_path <- mlflow_download_artifacts_from_uri(model_uri)
+# Generate predictions using a saved R MLflow model.
+# Input and output are read from and written to a specified input / output file or stdin / stdout.
+#
+# @param input_path Path to 'JSON' or 'CSV' file to be used for prediction. If not specified data is
+#                   read from the stdin.
+# @param output_path 'JSON' file where the prediction will be written to. If not specified,
+#                     data is written out to stdout.
 
-  if (!xor(is.null(input_path), is.null(data)))
-    stop("One and only one of `input_path` or `data` must be specified.")
-
-  data <- if (!is.null(input_path)) {
-    switch(
-      fs::path_ext(input_path),
-      json = jsonlite::read_json(input_path),
-      csv = read.csv(input_path)
-    )
-  } else {
-    data
-  }
-
+mlflow_rfunc_predict <- function(model_path, input_path = NULL, output_path = NULL,
+                                 content_type = NULL, json_format = NULL) {
   model <- mlflow_load_model(model_path)
+  input_path <- input_path %||% "stdin"
+  output_path <- output_path %||% stdout()
 
+  data <- switch(
+    content_type %||% "json",
+    json = parse_json(input_path, json_format %||% "split"),
+    csv = read.csv(input_path),
+    stop("Unsupported input file format.")
+  )
+  model <- mlflow_load_model(model_path)
   prediction <- mlflow_predict_flavor(model, data)
-
-  if (is.null(output_path)) {
-    if (!interactive()) message(prediction)
-
-    prediction
-  } else {
-    switch(
-      fs::path_ext(output_path),
-      json = jsonlite::write_json(prediction, output_path),
-      csv = write.csv(prediction, output_path, row.names = FALSE),
-      stop("Unsupported output file format.")
-    )
-  }
+  jsonlite::write_json(prediction, output_path, digits = NA)
+  invisible(NULL)
 }
-
-
 
 supported_model_flavors <- function() {
   purrr::map(utils::methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
+}
+
+# Helper function to parse data frame from json based on given the json_fomat.
+# The default behavior is to parse the data in the Pandas "split" orient.
+parse_json <- function(input_path, json_format="split") {
+  switch(json_format,
+    split = {
+      json <- jsonlite::read_json(input_path, simplifyVector = TRUE)
+      elms <- names(json)
+      if (length(setdiff(elms, c("columns", "index", "data"))) != 0
+      || length(setdiff(c("columns", "data"), elms) != 0)) {
+        stop(paste("Invalid input. Make sure the input json data is in 'split' format.", elms))
+      }
+      df <- data.frame(json$data, row.names = json$index)
+      names(df) <- json$columns
+      df
+    },
+    records = jsonlite::read_json(input_path, simplifyVector = TRUE),
+    stop(paste("Unsupported JSON format", json_format,
+               ". Supported formats are 'split' or 'records'"))
+  )
 }

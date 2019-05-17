@@ -15,6 +15,7 @@ The built-in flavors are:
 For details, see `MLflow Models <../models.html>`_.
 """
 
+from abc import abstractmethod, ABCMeta
 from datetime import datetime
 
 import yaml
@@ -28,7 +29,6 @@ class Model(object):
     An MLflow Model that can support multiple model flavors. Provides APIs for implementing
     new Model flavors.
     """
-
     def __init__(self, artifact_path=None, run_id=None, utc_time_created=None, flavors=None):
         # store model id instead of run_id and path to avoid confusion when model gets exported
         if run_id:
@@ -53,6 +53,9 @@ class Model(object):
     @classmethod
     def load(cls, path):
         """Load a model from its YAML representation."""
+        import os
+        if os.path.isdir(path):
+            path = os.path.join(path, "MLmodel")
         with open(path) as f:
             return cls(**yaml.safe_load(f.read()))
 
@@ -73,3 +76,57 @@ class Model(object):
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
+
+
+class FlavorBackend(object):
+    """
+        Abstract class for Flavor Backend.
+        This class defines the API interface for local model deployment of MLflow model flavors.
+    """
+
+    __metaclass__ = ABCMeta
+
+    def __init__(self, config, **kwargs):  # pylint: disable=unused-argument
+        self._config = config
+
+    @abstractmethod
+    def predict(self, model_uri, input_path, output_path, content_type, json_format):
+        """
+        Generate predictions using a saved MLflow model referenced by the given URI.
+        Input and output are read from and written to a file or stdin / stdout.
+
+        :param model_uri: URI pointing to the MLflow model to be used for scoring.
+        :param input_path: Path to the file with input data. If not specified, data is read from
+                           stdin.
+        :param output_path: Path to the file with output predictions. If not specified, data is
+                            written to stdout.
+        :param content_type: Specifies the input format. Can be one of {'json', 'csv'}
+        :param json_format: Only applies if content_type == 'json'. Specifies how is the input data
+                            encoded in json. Can be one of {'split', 'records'} mirroring the
+                            behavior of Pandas orient attribute. The default is 'split' which
+                            expects dict like data: {'index' -> [index],
+                                                     'columns' -> [columns],
+                                                     'data' -> [values]}, where index is optional.
+                            For more information see "https://pandas.pydata.org/
+                            pandas-docs/stable/reference/api/pandas.read_json.html"
+        """
+        pass
+
+    @abstractmethod
+    def serve(self, model_uri, port, host):
+        """
+        Serve saved MLflow model locally.
+        :param model_uri: URI pointing to the MLflow model to be used for scoring.
+        :param port: Port to deploy the model to.
+        :param host: Host to use for the model deployment. Defaults to 'localhost'.
+        """
+        pass
+
+    @abstractmethod
+    def can_score_model(self):
+        """
+        Check whether this flavor backend can be deployed in the current environment.
+
+        :return: True if this flavor backend can be applied int he current environment.
+        """
+        pass
