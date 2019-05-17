@@ -65,7 +65,7 @@ def pyfunc_serve_and_score_model(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ['mlflow', 'pyfunc', 'serve', '-m', model_uri, "-p", "0"]
+    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", "0"]
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env)

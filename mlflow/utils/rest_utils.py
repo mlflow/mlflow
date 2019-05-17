@@ -2,21 +2,16 @@ import base64
 import time
 import logging
 import json
-from json import JSONEncoder
 
-import numpy
 import requests
 
 from mlflow import __version__
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
 
-
 RESOURCE_DOES_NOT_EXIST = 'RESOURCE_DOES_NOT_EXIST'
 
-
 _logger = logging.getLogger(__name__)
-
 
 _DEFAULT_HEADERS = {
     'User-Agent': 'mlflow-python-client/%s' % __version__
@@ -89,19 +84,6 @@ def verify_rest_response(response, endpoint):
             raise RestException(json.loads(response.text))
         raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
     return response
-
-
-class NumpyEncoder(JSONEncoder):
-    """ Special json encoder for numpy types.
-    Note that some numpy types doesn't have native python equivalence,
-    hence json.dumps will raise TypeError.
-    In this case, you'll need to convert your numpy types into its closest python equivalence.
-    """
-
-    def default(self, o):  # pylint: disable=E0202
-        if isinstance(o, numpy.generic):
-            return numpy.asscalar(o)
-        return JSONEncoder.default(self, o)
 
 
 class MlflowHostCreds(object):
