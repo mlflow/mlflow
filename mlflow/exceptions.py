@@ -39,7 +39,7 @@ class RestException(MlflowException):
     def __init__(self, json):
         error_code = json.get('error_code', INTERNAL_ERROR)
         message = "%s: %s" % (error_code, json['message']) if 'message' in json else \
-                  "%s: Response: %s" % (error_code, json)
+                  "%s: %s" % (error_code, json)
 
         super(RestException, self).__init__(message, error_code=error_code)
         self.json = json

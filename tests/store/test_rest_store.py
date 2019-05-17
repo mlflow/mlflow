@@ -20,7 +20,7 @@ class MyCoolException(Exception):
 
 
 class CustomErrorHandlingRestStore(RestStore):
-    def _validate_response(self, response, endpoint):
+    def _verify_rest_response(self, response, endpoint):
         if response.status_code != 200:
             raise MyCoolException()
 
