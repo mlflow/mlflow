@@ -264,12 +264,14 @@ see subsequent sections for instructions on generating R and Java docs.
 Generate R API rst doc files via:
 
 .. code-block:: bash
+
   cd docs
   make rdocs
 
 Generate Java API rst doc files via:
 
 .. code-block:: bash
+
   cd docs
   make javadocs
 
@@ -277,6 +279,7 @@ Generate Java API rst doc files via:
 Generate API docs for all languages via:
 
 .. code-block:: bash
+
   cd docs
   make html
 
