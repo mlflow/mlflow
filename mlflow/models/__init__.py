@@ -102,7 +102,13 @@ class FlavorBackend(object):
                             written to stdout.
         :param content_type: Specifies the input format. Can be one of {'json', 'csv'}
         :param json_format: Only applies if content_type == 'json'. Specifies how is the input data
-                            encoded in json. Can be one of {'split', 'records'}.
+                            encoded in json. Can be one of {'split', 'records'} mirroring the
+                            behavior of Pandas orient attribute. The default is 'split' which
+                            expects dict like data: {'index' -> [index],
+                                                     'columns' -> [columns],
+                                                     'data' -> [values]}, where index is optional.
+                            For more information see "https://pandas.pydata.org/
+                            pandas-docs/stable/reference/api/pandas.read_json.html"
         """
         pass
 
@@ -121,7 +127,6 @@ class FlavorBackend(object):
         """
         Check whether this flavor backend can be deployed in the current environment.
 
-        :param kwargs: Any extra arguments the flavors might need.
         :return: True if this flavor backend can be applied int he current environment.
         """
         pass

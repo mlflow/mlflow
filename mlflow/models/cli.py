@@ -46,11 +46,11 @@ def serve(model_uri, port, host, no_conda=False):
 @click.option("--content-type", "-t", default="json",
               help="Content type of the input file. Can be one of {'json', 'csv'}.")
 @click.option("--json-format", "-j", default="split",
-              help="Only applies if the content type is 'json'. Specify the how the data is "
-                   "encoded.  Can be one of {'split', 'records'} mirroring the behavior of Pandas "
-                   "orient attribute. The default is 'split' which expects dict like data: "
-                   "{'index' -> [index], 'columns' -> [columns], 'data' -> [values]}, where index "
-                   "is optional. For more information see "
+              help="Only applies if the content type is 'json'. Specify how the data is encoded.  "
+                   "Can be one of {'split', 'records'} mirroring the behavior of Pandas orient "
+                   "attribute. The default is 'split' which expects dict like data: "
+                   "{'index' -> [index], 'columns' -> [columns], 'data' -> [values]}, "
+                   "where index  is optional. For more information see "
                    "https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json"
                    ".html")
 @cli_args.NO_CONDA
@@ -74,7 +74,9 @@ def _get_flavor_backend(model_uri, no_conda):
         local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
                                                  output_path=tmp.path())
         model = Model.load(local_path)
-    flavor_backend = get_flavor_backend(model, no_conda=no_conda)
+    flavor_name, flavor_backend = get_flavor_backend(model, no_conda=no_conda)
+
+    _logger.info("Selected backend for flavor '{}'".format(flavor_name))
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
     return flavor_backend

@@ -171,6 +171,7 @@ parse_json <- function(input_path, json_format="split") {
       df
     },
     records = jsonlite::read_json(input_path, simplifyVector = TRUE),
-    stop("Unsupported input file format.")
+    stop(paste("Unsupported JSON format", json_format,
+               ". Supported formats are 'split' or 'records'"))
   )
 }

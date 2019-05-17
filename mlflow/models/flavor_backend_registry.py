@@ -21,5 +21,5 @@ def get_flavor_backend(model, **kwargs):
         if flavor_name in _flavor_backends:
             backend = _flavor_backends[flavor_name](flavor_config, **kwargs)
             if backend.can_score_model():
-                return backend
+                return flavor_name, backend
     return None

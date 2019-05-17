@@ -313,8 +313,7 @@ import pandas as pd
 
 from azureml.core.model import Model
 from mlflow.pyfunc import load_pyfunc
-from mlflow.pyfunc.scoring_server import parse_json_input
-from mlflow.utils import get_jsonable_obj
+from mlflow.pyfunc.scoring_server import parse_json_input, _get_jsonable_obj
 
 
 def init():
