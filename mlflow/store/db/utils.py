@@ -34,6 +34,7 @@ def _upgrade_db(url):
     config = _get_alembic_config(url)
     command.upgrade(config, 'heads')
 
+
 def _stamp_initial_db(url):
     """
     Stamps initial database with version of migration used to eliminate duplicate constraint
@@ -42,5 +43,4 @@ def _stamp_initial_db(url):
     # alembic adds significant import time, so we import it lazily
     from alembic import command
     config = _get_alembic_config(url)
-    ELIM_DUPLICATE_CONSTRAINT_MIGRATION_REV = "ff01da956556"
-    command.stamp(config, ELIM_DUPLICATE_CONSTRAINT_MIGRATION_REV)
+    command.stamp(config, "ff01da956556")

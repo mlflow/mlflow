@@ -1,12 +1,10 @@
 import logging
-import pprint
 import uuid
 from contextlib import contextmanager
 
 import posixpath
 from six.moves import urllib
 from alembic.migration import MigrationContext  # pylint: disable=import-error
-from alembic.autogenerate import compare_metadata
 from alembic.script import ScriptDirectory
 import sqlalchemy
 

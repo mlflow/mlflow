@@ -1,6 +1,7 @@
 """Tests verifying that the SQLAlchemyStore generates the expected database schema"""
 import difflib
 import os
+import sys
 
 import pytest
 from alembic import command
@@ -49,12 +50,20 @@ def db_url(tmpdir):
     return "sqlite:///%s" % tmpdir.join("db_file").strpath
 
 
+@pytest.mark.skipif(
+    (sys.version_info < (3, 0)),
+    reason="We only run tests on Python 3; Python 2 produces a functionally equivalent "
+           "schema with statements reordered, causing this test to spuriously fail.")
 def test_sqlalchemystore_generates_up_to_date_schema(tmpdir, expected_schema_file):
     generated_schema_file = tmpdir.join("generated-schema.sql").strpath
     dump_sqlalchemy_store_schema(dst_file=generated_schema_file)
     _assert_schema_files_equal(generated_schema_file, expected_schema_file)
 
 
+@pytest.mark.skipif(
+    (sys.version_info < (3, 0)),
+    reason="We only run tests on Python 3; Python 2 produces a functionally equivalent "
+           "schema with statements reordered, causing this test to spuriously fail.")
 def test_running_migrations_generates_expected_schema(tmpdir, expected_schema_file, db_url):
     """Test that migrating an existing database generates the desired schema."""
     engine = sqlalchemy.create_engine(db_url)
