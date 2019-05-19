@@ -42,12 +42,11 @@ class PyFuncBackend(FlavorBackend):
                 command = ('python -c "import sys; from mlflow.pyfunc import scoring_server;'
                            'scoring_server._predict({local_path}, {input_path}, {output_path}, '
                            '{content_type}, {json_format})"').format(
-                    local_path=repr(shlex_quote(local_path)),
-                    input_path="None" if input_path is None else repr(shlex_quote(input_path)),
-                    output_path="None" if output_path is None else repr(
-                        shlex_quote(output_path)),
-                    content_type=repr(shlex_quote(content_type)),
-                    json_format=repr(shlex_quote(json_format)))
+                    local_path=repr(local_path),
+                    input_path="None" if input_path is None else repr(input_path),
+                    output_path="None" if output_path is None else repr(output_path),
+                    content_type=repr(content_type),
+                    json_format=repr(json_format))
                 command = _execute_in_conda_env(conda_env_path, command)
                 _logger.info("=== Running command '%s'", command)
                 p = subprocess.Popen(command,
@@ -69,14 +68,15 @@ class PyFuncBackend(FlavorBackend):
             local_path = shlex_quote(_download_artifact_from_uri(model_uri, output_path=tmp.path()))
             env_map = {scoring_server.MLFLOW_MODEL_PATH: local_path}
             opts = shlex.split(self._gunicorn_opts) if self._gunicorn_opts else []
-            opts = " ".join(opts)
-            serve_command = ("gunicorn {opts} -b {bind_address} "
+            opts = " " + " ".join(opts) if opts else ""
+            serve_command = ("gunicorn{opts} -b {bind_address} "
                              "-w {workers} mlflow.pyfunc.scoring_server.wsgi:app").format(
                 opts=opts, bind_address="%s:%s" % (host, port), workers=self._workers)
             if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
                 serve_command = _execute_in_conda_env(conda_env_path, serve_command)
-
+            else:
+                serve_command = serve_command.split(" ")
             _logger.info("=== Running command '%s'", serve_command)
             exec_cmd(serve_command, env=env_map, stream_output=True)
 
