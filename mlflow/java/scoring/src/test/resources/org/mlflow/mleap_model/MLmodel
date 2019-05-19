@@ -1,6 +1,5 @@
 flavors:
   mleap:
-    input_schema: mleap/schema.json
     mleap_version: 0.8.1
     model_data: mleap/model
 utc_time_created: '2018-08-10 18:34:28.720095'
