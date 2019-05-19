@@ -1,6 +1,7 @@
 import os
 import pandas as pd
 import pytest
+import re
 import sklearn
 import sklearn.datasets
 import sklearn.neighbors
@@ -14,6 +15,7 @@ except ImportError:
 
 import mlflow
 import mlflow.pyfunc as pyfunc
+from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
 import mlflow.sklearn
 from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.utils import path_to_local_file_uri
@@ -40,6 +42,7 @@ def sk_model(iris_data):
     return knn_model
 
 
+@pytest.mark.large
 def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
     if no_conda:
         pytest.skip("This test needs conda.")
@@ -70,6 +73,36 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         assert all(expected == actual)
 
 
+@pytest.mark.large
+def test_serve_gunicorn_opts(iris_data, sk_model):
+    with mlflow.start_run() as active_run:
+        mlflow.sklearn.log_model(sk_model, "model")
+        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+    from tests.helper_functions import pyfunc_serve_and_score_model
+
+    output = StringIO()
+    x, _ = iris_data
+    scoring_response = pyfunc_serve_and_score_model(model_uri, pd.DataFrame(x),
+                                                    content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                                                    stdout=output,
+                                                    extra_args=["-w", "3",
+                                                                "--gunicorn-opts",
+                                                                "-k gevent --timeout 60"]
+                                                    )
+    actual = pd.read_json(scoring_response.content, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = sk_model.predict(x)
+    assert all(expected == actual)
+    expected_command_pattern = re.compile((
+        "=== Running command "
+        "'\\['bash', '-c', 'source activate mlflow.*"
+        "pip install gunicorn\\[gevent\\] 1\\>\\&2  \\&\\& gunicorn -k gevent --timeout 60 "
+        "-b 127.0.0.1\\:0 -w 3 mlflow.pyfunc.scoring_server.wsgi:app'\\]'"))
+    x = output.getvalue()
+    assert expected_command_pattern.search(x) is not None
+
+
+@pytest.mark.large
 def test_predict(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")

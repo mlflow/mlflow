@@ -26,6 +26,7 @@ pytest --verbose tests/h2o --large
 # - pytest --verbose tests/keras --large
 pytest --verbose tests/pytorch --large
 pytest --verbose tests/pyfunc --large
+pytest --verbose tests/models --large
 pytest --verbose tests/sagemaker --large
 pytest --verbose tests/sagemaker/mock --large
 pytest --verbose tests/sklearn --large

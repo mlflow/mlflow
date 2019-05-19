@@ -39,7 +39,7 @@ class PyFuncBackend(FlavorBackend):
             if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
 
-                command = ('python -c "import sys; from mlflow.pyfunc import scoring_server;'
+                command = ('python -c "from mlflow.pyfunc import scoring_server;'
                            'scoring_server._predict({local_path}, {input_path}, {output_path}, '
                            '{content_type}, {json_format})"').format(
                     local_path=repr(local_path),
@@ -96,7 +96,7 @@ class PyFuncBackend(FlavorBackend):
 
 # gunicorn requires extra deps for the following worker classes
 _worker_class_pattern = re.compile(
-    "gunicorn .* (-k|--worker-class)[ ]+(eventlet|gevent|tornado|gthread)")
+    "gunicorn.* (-k|--worker-class)[ ]+(eventlet|gevent|tornado|gthread)")
 
 
 def _execute_in_conda_env(conda_env_path, command):

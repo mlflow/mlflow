@@ -5,6 +5,7 @@ import requests
 import string
 import time
 import signal
+import sys
 from subprocess import Popen, PIPE, STDOUT
 
 import pandas as pd
@@ -39,6 +40,7 @@ def score_model_in_sagemaker_docker_container(
     :param flavor: Model flavor to be deployed.
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
+    :param stdout: Optional file-like object to consume stdout and stderr from the scoring process.
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
@@ -49,7 +51,8 @@ def score_model_in_sagemaker_docker_container(
 
 
 def pyfunc_serve_and_score_model(
-        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
+        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None,
+        stdout=sys.stdout):
     """
     :param model_uri: URI to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
@@ -69,14 +72,16 @@ def pyfunc_serve_and_score_model(
     if extra_args is not None:
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
+    buf = []
     for x in iter(proc.stdout.readline, ""):
-        print(x)
+        print(x, file=stdout)
+        buf.append(x)
         m = re.search(pattern=" Listening at: http://127.0.0.1:(\\d+).*", string=x)
         if m:
             return _evaluate_scoring_proc(
                     proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds)
 
-    raise Exception("Failed to start server")
+    raise Exception("Failed to start server: \n]n{}\n]n".format("".join(buf)))
 
 
 def _start_scoring_proc(cmd, env):
@@ -92,7 +97,8 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
+def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250,
+                           stdout=sys.stdout):
     """
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
@@ -135,10 +141,10 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
             # This will terminate all child processes of the scoring process
             pgrp = os.getpgid(proc.pid)
             os.killpg(pgrp, signal.SIGTERM)
-        print("captured output of the scoring process")
-        print("-------------------------STDOUT------------------------------")
-        print(proc.stdout.read())
-        print("==============================================================")
+        print("captured output of the scoring process", file=stdout)
+        print("-------------------------STDOUT------------------------------", file=stdout)
+        print(proc.stdout.read(), file=stdout)
+        print("==============================================================", file=stdout)
 
 
 @pytest.fixture(scope='module', autouse=True)
