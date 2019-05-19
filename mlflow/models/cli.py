@@ -24,17 +24,19 @@ def commands():
 
 @commands.command("serve")
 @cli_args.MODEL_URI
-@click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
-@click.option("--host", "-h", default="127.0.0.1", help="Server host. [default: 127.0.0.1]")
+@cli_args.PORT
+@cli_args.HOST
+@cli_args.GUNICORN_OPTS
+@cli_args.WORKERS
 @cli_args.NO_CONDA
-def serve(model_uri, port, host, no_conda=False):
+def serve(model_uri, port, host, gunicorn_opts, workers, no_conda):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port. For
     information about the input data formats accepted by the webserver, see the following
     documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
     """
-    return _get_flavor_backend(model_uri, no_conda=no_conda).serve(model_uri=model_uri, port=port,
-                                                                   host=host)
+    return _get_flavor_backend(model_uri, workers=workers, gunicorn_opts=gunicorn_opts,
+                               no_conda=no_conda).serve(model_uri=model_uri, port=port, host=host)
 
 
 @commands.command("predict")
@@ -69,12 +71,12 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
                                                                      json_format=json_format)
 
 
-def _get_flavor_backend(model_uri, no_conda):
+def _get_flavor_backend(model_uri, **kwargs):
     with TempDir() as tmp:
         local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
                                                  output_path=tmp.path())
         model = Model.load(local_path)
-    flavor_name, flavor_backend = get_flavor_backend(model, no_conda=no_conda)
+    flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
 
     _logger.info("Selected backend for flavor '%s'", flavor_name)
     if flavor_backend is None:

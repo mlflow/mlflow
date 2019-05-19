@@ -71,7 +71,7 @@ def pyfunc_serve_and_score_model(
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
     for x in iter(proc.stdout.readline, ""):
         print(x)
-        m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
+        m = re.search(pattern=" Listening at: http://127.0.0.1:(\\d+).*", string=x)
         if m:
             return _evaluate_scoring_proc(
                     proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds)
