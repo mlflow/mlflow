@@ -1,17 +1,16 @@
 """add metric step
 
 Revision ID: 451aebb31d03
-Revises: 
+Revises:
 Create Date: 2019-04-22 15:29:24.921354
 
 """
 from alembic import op
 import sqlalchemy as sa
 
-
 # revision identifiers, used by Alembic.
 revision = '451aebb31d03'
-down_revision = None
+down_revision = 'ff01da956556'
 branch_labels = None
 depends_on = None
 

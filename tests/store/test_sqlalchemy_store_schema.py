@@ -76,6 +76,7 @@ def test_sqlalchemy_store_detects_schema_mismatch(
             assert ex.message.contains("Detected out-of-date database schema.")
 
     # Initialize an empty database & verify that we detect a schema mismatch
+    # db_url = "sqlite:////tmp/blag"
     engine = sqlalchemy.create_engine(db_url)
     _assert_invalid_schema(engine)
     # Create legacy tables, verify schema is still out of date

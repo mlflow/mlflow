@@ -7,6 +7,7 @@ import posixpath
 from six.moves import urllib
 from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.autogenerate import compare_metadata
+from alembic.script import ScriptDirectory
 import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -23,8 +24,8 @@ from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
     _validate_run_id, _validate_metric
-from mlflow.store.db.utils import _upgrade_db
-from mlflow.store.dbmodels.initial_models import Base as InitialBase
+from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _stamp_initial_db
+from mlflow.store.dbmodels.initial_valid_models import Base as InitialBase
 
 
 _logger = logging.getLogger(__name__)
@@ -95,22 +96,30 @@ class SqlAlchemyStore(AbstractStore):
     def _initialize_tables(engine):
         _logger.info("Creating initial MLflow database tables...")
         InitialBase.metadata.create_all(engine)
-        _upgrade_db(str(engine.url))
+        engine_url = str(engine.url)
+        _stamp_initial_db(engine_url)
+        _upgrade_db(engine_url)
 
     @staticmethod
     def _verify_schema(engine):
+        engine_url = str(engine.url)
+        config = _get_alembic_config(engine_url)
+        script = ScriptDirectory.from_config(config)
+        heads = script.get_heads()
+        if len(heads) != 1:
+            raise MlflowException("Unexpected database state, got %s head database versions but "
+                                  "expected only 1. Found versions: %s" % (len(heads), heads))
+        head_revision = heads[0]
         with engine.connect() as connection:
             mc = MigrationContext.configure(connection)
-            diff = compare_metadata(mc, Base.metadata)
-            if len(diff) > 0:
-                _logger.error("Detected one or more differences between current database schema "
-                              "and desired schema, exiting. Diff:\n %s",
-                              pprint.pformat(diff, indent=2, width=20))
+            current_rev = mc.get_current_revision()
+            if current_rev != head_revision:
                 raise MlflowException(
-                    "Detected out-of-date database schema. Take a backup of your database, then "
-                    "run 'mlflow db upgrade %s' to migrate your database to the latest schema. "
-                    "NOTE: schema migration may result in database downtime "
-                    "- please consult your database's documentation for more detail." % engine.url)
+                    "Detected out-of-date database schema (found version %s, but expected %s)."
+                    "Take a backup of your database, then run 'mlflow db upgrade %s' to migrate "
+                    "your database to the latest schema. NOTE: schema migration may result in "
+                    "database downtime - please consult your database's documentation for more "
+                    "detail." % (current_rev, head_revision, engine_url))
 
     @staticmethod
     def _get_managed_session_maker(SessionMaker):
