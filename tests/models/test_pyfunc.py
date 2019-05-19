@@ -1,6 +1,4 @@
 
-
-
 class PyFuncTestModel:
     def __init__(self, check_version=True):
         self._check_version = check_version

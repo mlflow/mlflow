@@ -37,4 +37,4 @@ WORKERS = click.option("--workers", "-w", default=4,
 
 GUNICORN_OPTS = click.option("--gunicorn-opts", default=None,
                              help="Additional command line options forwarded to gunicorn processes."
-)
+                             )

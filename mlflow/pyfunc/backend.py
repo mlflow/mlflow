@@ -106,7 +106,8 @@ def _execute_in_conda_env(conda_env_path, command):
     install_mlflow = "pip install -U mlflow>={} 1>&2".format(VERSION)
 
     if VERSION.endswith("dev0"):
-        install_mlflow = "pip install -e {} 1>&2".format(os.path.dirname(mlflow.__path__[0]))
+        mlflow_home = os.environ.get( "MLFLOW_HOME", os.path.dirname(mlflow.__path__[0]))
+        install_mlflow = "pip install -e {} 1>&2".format(mlflow_home)
 
     worker_class = re.search(_worker_class_pattern, command)
     if worker_class:
