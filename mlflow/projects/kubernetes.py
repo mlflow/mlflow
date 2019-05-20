@@ -1,13 +1,11 @@
 from __future__ import absolute_import
 import yaml
-import json
 import logging
 import docker
 import os
 import time
 import kubernetes
 from datetime import datetime
-from mlflow.exceptions import ExecutionException
 
 _logger = logging.getLogger(__name__)
 

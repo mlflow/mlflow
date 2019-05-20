@@ -1,5 +1,4 @@
 import mock
-import json
 import yaml
 from mlflow.projects import kubernetes as kb
 
