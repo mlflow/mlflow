@@ -155,6 +155,7 @@ run tests annotated with @pytest.mark.large. For example, to run all pyfunc test
 (including large tests), you can run:
 
 .. code-block:: bash
+
     pytest tests/pyfunc --large
 
 Note: Certain model tests are not well-isolated (can result in OOMs when run in the same Python
@@ -185,19 +186,19 @@ MLflow's Tracking component supports storing experiment and run data in a SQL ba
 make changes to the tracking database schema, run the following from your
 checkout of MLflow:
 
-```
-# starting at the root of the project
-$ pwd
-~/mlflow
-$ cd mlflow
-# MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
-$ alembic revision -m "add new field to db"
-  Generating ~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py
+.. code-block:: bash
 
-```
+    # starting at the root of the project
+    $ pwd
+    ~/mlflow
+    $ cd mlflow
+    # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
+    $ alembic revision -m "add new field to db"
+      Generating ~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py
+
 
 These commands generate a new migration script (e.g. at
-~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py) that you should then edit to add
+``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``) that you should then edit to add
 migration logic.
 
 
