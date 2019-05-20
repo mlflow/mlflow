@@ -22,7 +22,7 @@ mlflow_save_model.crate <- function(model, path, ...) {
 }
 
 #' @export
-mlflow_load_flavor.crate <- function(model_path) {
+mlflow_load_flavor.mlflow_flavor_crate <- function(flavor, model_path) {
   unserialize(readRDS(file.path(model_path, "crate.bin")))
 }
 

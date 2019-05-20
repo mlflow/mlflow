@@ -95,11 +95,31 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
     }
     flavor <- available_flavors[[1]]
   }
-  flavor_path <- model_path
-  class(flavor_path) <- c(flavor, class(flavor_path))
-  mlflow_load_flavor(flavor_path)
+
+  flavor <- mlflow_flavor(flavor)
+  mlflow_load_flavor(flavor, model_path)
 }
 
+new_mlflow_flavor <- function(flavor, class = character(0)) {
+  structure(character(0), class = c(class, "mlflow_flavor"))
+}
+
+#' Create an MLflow Flavor Object
+#'
+#' This function creates an `mlflow_flavor` object that can be used to dispatch
+#'   the `mlflow_load_flavor()` method.
+#'
+#' @param flavor The name of the flavor.
+#' @export
+#' @keywords internal
+mlflow_flavor <- function(flavor) {
+  new_mlflow_flavor(flavor, paste0("mlflow_flavor_", flavor))
+}
+
+#' @export
+print.mlflow_flavor <- function(x, ...) {
+  cat("MLflow flavor:", gsub("mlflow_flavor_", "", class(x)[[1]]))
+}
 
 # Generate predictions using a saved R MLflow model.
 # Input and output are read from and written to a specified input / output file or stdin / stdout.
@@ -128,7 +148,8 @@ mlflow_rfunc_predict <- function(model_path, input_path = NULL, output_path = NU
 }
 
 supported_model_flavors <- function() {
-  purrr::map(utils::methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
+  purrr::map(utils::methods(generic.function = mlflow_load_flavor),
+             ~ gsub("mlflow_load_flavor\\.mlflow_flavor_", "", .x))
 }
 
 # Helper function to parse data frame from json based on given the json_fomat.

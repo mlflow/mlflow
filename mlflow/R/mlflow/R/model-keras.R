@@ -46,7 +46,7 @@ mlflow_save_model.keras.engine.training.Model <- function(model,
 }
 
 #' @export
-mlflow_load_flavor.keras <- function(model_path) {
+mlflow_load_flavor.mlflow_flavor_keras <- function(flavor, model_path) {
   if (!requireNamespace("keras", quietly = TRUE)) {
     stop("The 'keras' package must be installed.")
   }
