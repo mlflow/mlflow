@@ -49,7 +49,6 @@ httr::POST("http://127.0.0.1:8090/predict/")
 }
 }
 \seealso{
-Other artifact uri: \code{\link{mlflow_load_model}},
-  \code{\link{mlflow_rfunc_predict}}
+Other artifact uri: \code{\link{mlflow_load_model}}
 }
 \concept{artifact uri}
