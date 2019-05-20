@@ -6,10 +6,10 @@
 \alias{mlflow_save_model}
 \title{Save Model for MLflow}
 \usage{
-\method{mlflow_save_model}{crate}(model, path)
+\method{mlflow_save_model}{crate}(model, path, ...)
 
 \method{mlflow_save_model}{keras.engine.training.Model}(model, path,
-  conda_env = NULL)
+  conda_env = NULL, ...)
 
 mlflow_save_model(model, path, ...)
 }
@@ -19,9 +19,9 @@ mlflow_save_model(model, path, ...)
 \item{path}{Destination path where this MLflow compatible model
 will be saved.}
 
-\item{conda_env}{Path to Conda dependencies file.}
-
 \item{...}{Optional additional arguments.}
+
+\item{conda_env}{Path to Conda dependencies file.}
 }
 \description{
 Saves model in MLflow format that can later be used

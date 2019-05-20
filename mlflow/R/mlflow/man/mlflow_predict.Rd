@@ -4,12 +4,15 @@
 \alias{mlflow_predict}
 \title{Generate Prediction with MLflow Model}
 \usage{
-mlflow_predict(model, data)
+mlflow_predict(model, data, ...)
 }
 \arguments{
 \item{model}{The loaded MLflow model flavor.}
 
 \item{data}{A data frame to perform scoring.}
+
+\item{...}{Optional additional arguments passed to underlying predict
+methods.}
 }
 \description{
 Performs prediction over a model loaded using
