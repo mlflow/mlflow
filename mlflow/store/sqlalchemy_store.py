@@ -55,15 +55,15 @@ class SqlAlchemyStore(AbstractStore):
 
         :param db_uri: SQL connection string used by SQLAlchemy Engine to connect to the database.
                        Argument is expected to be in the format:
-                       ``db_type://<user_name>:<password>@<host>:<port>/<database_name>`
+                       ``db_type+driver://<user_name>:<password>@<host>:<port>/<database_name>`
                        Supported database types are ``mysql``, ``mssql``, ``sqlite``,
-                       and ``postgresql``.
+                       and ``postgresql``. The driver element is optional.
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri
-        self.db_type = urllib.parse.urlparse(db_uri).scheme
+        self.db_type = urllib.parse.urlparse(db_uri).scheme.split('+')[0]
         self.artifact_root_uri = default_artifact_root
         self.engine = sqlalchemy.create_engine(db_uri)
         insp = sqlalchemy.inspect(self.engine)
