@@ -104,21 +104,15 @@ new_mlflow_flavor <- function(flavor, class = character(0)) {
   structure(character(0), class = c(class, "mlflow_flavor"))
 }
 
-#' Create an MLflow Flavor Object
-#'
-#' This function creates an `mlflow_flavor` object that can be used to dispatch
-#'   the `mlflow_load_flavor()` method.
-#'
-#' @param flavor The name of the flavor.
-#' @export
-#' @keywords internal
+# Create an MLflow Flavor Object
+#
+# This function creates an `mlflow_flavor` object that can be used to dispatch
+#   the `mlflow_load_flavor()` method.
+#
+# @param flavor The name of the flavor.
+# @keywords internal
 mlflow_flavor <- function(flavor) {
   new_mlflow_flavor(flavor, paste0("mlflow_flavor_", flavor))
-}
-
-#' @export
-print.mlflow_flavor <- function(x, ...) {
-  cat("MLflow flavor:", gsub("mlflow_flavor_", "", class(x)[[1]]))
 }
 
 # Generate predictions using a saved R MLflow model.
