@@ -374,43 +374,81 @@ Run a project on Kubernetes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 MLflow projects can be executed in kubernetes clusters. Basically it uses the image created to run 
-projects in :ref:`Docker environment <project-docker-container-environments>`  and pushes it to an 
-image repository. After that it creates a Kubernetes Job that uses this image published and runs 
+projects just like in :ref:`Docker environment <project-docker-container-environments>`  and pushes it to an 
+image repository. After that it creates a Kubernetes Job that uses this published image and runs 
 the MLflow project on kubernetes.
 A brief overview of how to configure and use this feature is as follows:
 
-In MLproject file you need to setup the ``docker_env`` and ``kubernetes_env``. For ``docker_env`` please 
-see :ref:`Docker section <project-docker-container-environments>`. The ``kubernetes_env`` section in MLproject should be as:
+In project folder you need to create a ``backend_config.json`` with the follwing attributes:
 
-.. code-block:: yaml
+.. code-block:: json
 
-  kubernetes_env:
-    job_namespace: mlflow # kubernetes namespace where jobs will be executed.
-    image_namespace: username # docker image namespace where image will be pushed.
-    registry: # registry url for the repository where image will be pushed.
-    resources: # resources specification for pods running the training
-      limits:
-        memory: 512Mi
-      requests:
-        memory: 256Mi
+{
+  "kube-context": "docker-for-desktop",
+  
+  "image-uri": "username/mlflow-kubernetes-example",
+  
+  "base-image": "mlflow-docker-example",
 
-Then, run your project using the command:
+  "kube-job-template-path": "kubernetes_job_template.yaml"
+}
+
+The ``kube-context`` attribute is the kubernetes context where mlflow will run the Job. ``image-uri`` points to the 
+registry/repository/image where the image will be pushed so kubernetes can download it and run. Remeber that mlflow 
+expects that login credentials are already stored for both kubernetes context and docker repository to push images.
+
+``base-image`` is the base image to use in the ``FROM`` clause when mlflow builds project's image. 
+
+The ``kube-job-template-path`` points to a yaml file with the kubernetes Job/Batch specification to run the traning on 
+kubernetes. 
+See below the example available in the Docker example project. For more information about specification options please see 
+Kubernetes docs:
+`Jobs - Run to Completion <https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/>`_
+
+Have in mind that mlflow overwrites the folowing attributes in the job yaml file so it can handle jobs creation and monitor its status:
+
+- ``metadata.name``;
+
+- ``spec.template.spec.container.name``;
+
+- ``spec.template.spec.container.image``;
+
+- ``spec.template.spec.container.command``;
+
+
+.. code-block:: json
+
+  apiVersion: batch/v1
+  kind: Job
+  metadata:
+    name: ""
+    namespace: mlflow
+  spec:
+    ttlSecondsAfterFinished: 100
+    template:
+      spec:
+        containers:
+        - name: "name"
+          image: "image"
+          command: ["cmd"]
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            memory: 256Mi
+        restartPolicy: Never
+
+To run your project just use the command:
 
 .. code-block:: bash
 
-  mlflow run <uri> -m kubernetes --docker-auth-config "{\"username\":\"username\", \"password\":\"pass\"}" --kube-context <context-name>
+  mlflow run <uri> --backend kubernetes --backend-config examples/docker/kubernetes_config.json
 
-Where ``<uri>`` is a Git repository URI or a folder. You can pass Docker repository credentials to publish 
-the image with the ``docker-auth-config`` argument. Other argument needed is the ``kube-context`` that 
-tells which kubernetes context to uses. Remember that it needs to be pre configured before run projects.
-Both arguments can be passed in command line or using the ``MLFLOW_DOCKER_AUTH_CONFIG`` and ``MLFLOW_KUBE_CONTEXT``
-environment variables.
+Where ``<uri>`` is a Git repository URI or a folder.
 
 To see it in action, you can use the `Docker example <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ 
-just changing the values in ``kubernetes_env`` section of MLproject file.
+with the ``kubernetes_backend.json`` and ``kubernetes_job_template.yaml`` files.
 
-If you need more control over Job specification, you can pass ``--kube-job-template`` parameter in CLI pointing to a file where 
-your job specification can be found.
 
 Iterating Quickly
 -----------------
