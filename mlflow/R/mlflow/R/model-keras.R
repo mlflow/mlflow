@@ -55,10 +55,10 @@ mlflow_load_flavor.keras <- function(model_path) {
 }
 
 #' @export
-mlflow_predict.keras.engine.training.Model <- function(model, data) {
+mlflow_predict.keras.engine.training.Model <- function(model, data, ...) {
   if (!requireNamespace("keras", quietly = TRUE)) {
     stop("The 'keras' package must be installed.")
   }
 
-  stats::predict(model, as.matrix(data))
+  stats::predict(model, as.matrix(data), ...)
 }

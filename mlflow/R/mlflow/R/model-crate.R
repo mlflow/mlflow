@@ -27,6 +27,6 @@ mlflow_load_flavor.crate <- function(model_path) {
 }
 
 #' @export
-mlflow_predict.crate <- function(model, data) {
-  model(data)
+mlflow_predict.crate <- function(model, data, ...) {
+  do.call(model, list(data, ...))
 }

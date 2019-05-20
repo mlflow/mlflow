@@ -19,8 +19,10 @@ mlflow_load_flavor <- function(model_path) {
 #'
 #' @param model The loaded MLflow model flavor.
 #' @param data A data frame to perform scoring.
+#' @param ... Optional additional arguments passed to underlying predict
+#'   methods.
 #'
 #' @export
-mlflow_predict <- function(model, data) {
+mlflow_predict <- function(model, data, ...) {
   UseMethod("mlflow_predict")
 }
