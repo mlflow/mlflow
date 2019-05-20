@@ -11,7 +11,7 @@ mlflow_load_flavor <- function(model_path) {
   UseMethod("mlflow_load_flavor")
 }
 
-#' Predict over MLflow Model Flavor
+#' Generate Prediction with MLflow Model
 #'
 #' Performs prediction over a model loaded using
 #' \code{mlflow_load_model()}, to be used by package authors
@@ -21,6 +21,6 @@ mlflow_load_flavor <- function(model_path) {
 #' @param data A data frame to perform scoring.
 #'
 #' @export
-mlflow_predict_flavor <- function(model, data) {
-  UseMethod("mlflow_predict_flavor")
+mlflow_predict <- function(model, data) {
+  UseMethod("mlflow_predict")
 }

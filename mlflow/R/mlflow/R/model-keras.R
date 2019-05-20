@@ -2,8 +2,9 @@
 #' @param conda_env Path to Conda dependencies file.
 #' @export
 mlflow_save_model.keras.engine.training.Model <- function(model,
-                                                           path,
-                                                           conda_env = NULL) {
+                                                          path,
+                                                          conda_env = NULL,
+                                                          ...) {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
@@ -54,7 +55,7 @@ mlflow_load_flavor.keras <- function(model_path) {
 }
 
 #' @export
-mlflow_predict_flavor.keras.engine.training.Model <- function(model, data) {
+mlflow_predict.keras.engine.training.Model <- function(model, data) {
   if (!requireNamespace("keras", quietly = TRUE)) {
     stop("The 'keras' package must be installed.")
   }

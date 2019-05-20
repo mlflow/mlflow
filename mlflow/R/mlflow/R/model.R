@@ -52,17 +52,6 @@ mlflow_write_model_spec <- function(path, content) {
   )
 }
 
-#' Generate Prediction with MLflow Model
-#'
-#' Generates a prediction with an MLflow model.
-#'
-#' @param model MLflow model.
-#' @param data Dataframe to be scored.
-#' @export
-mlflow_predict_model <- function(model, data) {
-   model %>% mlflow_predict_flavor(data)
-}
-
 #' Load MLflow Model
 #'
 #' Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
@@ -129,11 +118,11 @@ mlflow_rfunc_predict <- function(model_path, input_path = NULL, output_path = NU
   data <- switch(
     content_type %||% "json",
     json = parse_json(input_path, json_format %||% "split"),
-    csv = read.csv(input_path),
+    csv = utils::read.csv(input_path),
     stop("Unsupported input file format.")
   )
   model <- mlflow_load_model(model_path)
-  prediction <- mlflow_predict_flavor(model, data)
+  prediction <- mlflow_predict(model, data)
   jsonlite::write_json(prediction, output_path, digits = NA)
   invisible(NULL)
 }

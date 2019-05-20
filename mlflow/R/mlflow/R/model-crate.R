@@ -1,6 +1,6 @@
 #' @rdname mlflow_save_model
 #' @export
-mlflow_save_model.crate <- function(model, path) {
+mlflow_save_model.crate <- function(model, path, ...) {
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
@@ -27,6 +27,6 @@ mlflow_load_flavor.crate <- function(model_path) {
 }
 
 #' @export
-mlflow_predict_flavor.crate <- function(model, data) {
+mlflow_predict.crate <- function(model, data) {
   model(data)
 }
