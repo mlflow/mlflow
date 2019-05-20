@@ -1,5 +1,9 @@
+#' @rdname mlflow_save_model
 #' @export
-mlflow_save_flavor.crate <- function(model, path = "model", conda_env=NULL) {
+mlflow_save_model.crate <- function(model, path) {
+  if (dir.exists(path)) unlink(path, recursive = TRUE)
+  dir.create(path)
+
   serialized <- serialize(model, NULL)
 
   saveRDS(
@@ -13,14 +17,8 @@ mlflow_save_flavor.crate <- function(model, path = "model", conda_env=NULL) {
       model = "crate.bin"
     )
   )
-  if (!is.null(conda_env)){
-    dst <- file.path(path, basename(conda_env))
-    if (conda_env != dst) {
-      file.copy(from = conda_env, to = dst)
-      res$crate$conda_env <- basename(conda_env)
-    }
-  }
-  res
+
+  mlflow_write_model_spec(path, list(flavors = res))
 }
 
 #' @export

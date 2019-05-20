@@ -6,19 +6,11 @@
 #' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param ... Optional additional arguments passed to `mlflow_save_flavor()` - for example,
-#'   `conda_env = /path/to/conda.yaml` may be passed to specify a conda dependencies file
-#'   for flavors (e.g. keras) that support conda environments.
+#' @param ... Optional additional arguments.
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(model, path = "model", ...) {
-  if (dir.exists(path)) unlink(path, recursive = TRUE)
-  dir.create(path)
-
-  flavor_spec <- list (
-    flavors = mlflow_save_flavor(model, path, ...)
-  )
-  mlflow_write_model_spec(path, flavor_spec)
+mlflow_save_model <- function(model, path, ...) {
+  UseMethod("mlflow_save_model")
 }
 
 #' Log Model
