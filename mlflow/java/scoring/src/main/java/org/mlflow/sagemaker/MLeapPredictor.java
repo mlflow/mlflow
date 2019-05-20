@@ -105,7 +105,6 @@ public class MLeapPredictor extends Predictor {
             .transform(leapFrame)
             .get(), Collections.singletonList(PREDICTION_COLUMN_NAME));
 
-    this.leapFrameSupport.collect(predictionsFrame);
     List<Object> predictions = this.leapFrameSupport.collect(predictionsFrame)
             .stream()
             .map(row -> row.getRaw(0))
