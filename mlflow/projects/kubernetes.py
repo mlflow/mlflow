@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import yaml
 import json
 import logging
