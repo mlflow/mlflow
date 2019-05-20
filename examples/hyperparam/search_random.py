@@ -9,8 +9,6 @@ results.
 Several runs can be run in parallel.
 """
 
-import math
-
 import os
 import shutil
 import tempfile
@@ -25,6 +23,7 @@ import mlflow.sklearn
 import mlflow.tracking
 import mlflow.projects
 
+_inf = np.finfo(np.float64).max
 
 @click.command(help="Perform grid search over train (main entry point).")
 @click.option("--max-runs", type=click.INT, default=32,
@@ -37,8 +36,8 @@ import mlflow.projects
               help="Metric to optimize on.")
 @click.option("--seed", type=click.INT, default=97531,
               help="Seed for the random generator")
-@click.option("--training-experiment-id", type=click.INT, default=-1,
-              help="Maximum number of runs to evaluate. Inherit parent;s experiment if == -1.")
+@click.option("--training-experiment-id", type=click.STRING, default="",
+              help="Maximum number of runs to evaluate. Inherit parent;s experiment if == ''.")
 @click.argument("training_data")
 def run(training_data, max_runs, max_p, epochs, metric, seed, training_experiment_id):
     train_metric = "train_{}".format(metric)
@@ -49,9 +48,9 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
 
     def new_eval(nepochs,
                  experiment_id,
-                 null_train_loss=math.inf,
-                 null_val_loss=math.inf,
-                 null_test_loss=math.inf):
+                 null_train_loss=_inf,
+                 null_val_loss=_inf,
+                 null_test_loss=_inf):
         def eval(parms):
             lr, momentum = parms
             p = mlflow.projects.run(
@@ -67,14 +66,11 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
                 synchronous=False)
             if p.wait():
                 training_run = tracking_client.get_run(p.run_id)
-
-                def get_metric(metric_name):
-                    return training_run.data.metrics[metric_name].value
-
+                metrics = training_run.data.metrics
                 # cap the loss at the loss of the null model
-                train_loss = min(null_train_loss, get_metric(train_metric))
-                val_loss = min(null_val_loss, get_metric(val_metric))
-                test_loss = min(null_test_loss, get_metric(test_metric))
+                train_loss = min(null_train_loss, metrics[train_metric])
+                val_loss = min(null_val_loss, metrics[val_metric])
+                test_loss = min(null_test_loss, metrics[test_metric])
             else:
                 # run failed => return null loss
                 tracking_client.set_terminated(p.run_id, "FAILED")
@@ -89,13 +85,13 @@ def run(training_data, max_runs, max_p, epochs, metric, seed, training_experimen
         return eval
 
     with mlflow.start_run() as run:
-        experiment_id = run.info.experiment_id if training_experiment_id == -1 \
+        experiment_id = run.info.experiment_id if not training_experiment_id \
             else training_experiment_id
         _, null_train_loss, null_val_loss, null_test_loss = new_eval(0, experiment_id)((0, 0))
         runs = [(np.random.uniform(1e-5, 1e-1), np.random.uniform(0, 1.0)) for _ in range(max_runs)]
-        best_train_loss = math.inf
-        best_val_loss = math.inf
-        best_test_loss = math.inf
+        best_train_loss = _inf
+        best_val_loss = _inf
+        best_test_loss = _inf
         best_run = None
         with ThreadPoolExecutor(max_workers=max_p) as executor:
             result = executor.map(new_eval(epochs,

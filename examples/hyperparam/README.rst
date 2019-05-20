@@ -37,13 +37,13 @@ You can run any of the targets as a standard MLflow run.
 
 .. code-block:: bash
 
-    mlflow experiments create individual_runs
+    mlflow experiments create -n individual_runs
 
 Creates experiment for individual runs and return its experiment ID.
 
 .. code-block:: bash
 
-    mlflow experiments create hyper_param_runs
+    mlflow experiments create -n hyper_param_runs
 
 Creates an experiment for hyperparam runs and return its experiment ID.
 

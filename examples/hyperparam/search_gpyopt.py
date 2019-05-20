@@ -9,7 +9,6 @@ results.
 
 Several runs can be run in parallel.
 """
-import math
 
 import os
 import shutil
@@ -17,11 +16,14 @@ import tempfile
 
 import click
 import GPyOpt
+import numpy as np
 
 import mlflow
 import mlflow.sklearn
 import mlflow.tracking
 import mlflow.projects
+
+_inf = np.finfo(np.float64).max
 
 
 @click.command(help="Perform hyperparameter search with GPyOpt library."
@@ -44,8 +46,8 @@ import mlflow.projects
               help="Optimizer algorhitm.")
 @click.option("--seed", type=click.INT, default=97531,
               help="Seed for the random generator")
-@click.option("--training-experiment-id", type=click.INT, default=-1,
-              help="Maximum number of runs to evaluate. Inherit parent;s experiment if == -1.")
+@click.option("--training-experiment-id", type=click.STRING, default="",
+              help="Maximum number of runs to evaluate. Inherit parent;s experiment if == ''.")
 @click.argument("training_data")
 def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, gpy_acquisition,
         initial_design, seed, training_experiment_id):
@@ -104,17 +106,15 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
 
             if p.wait():
                 training_run = tracking_client.get_run(p.run_id)
-
-                def get_metric(metric_name):
-                    return training_run.data.metrics[metric_name].value
+                metrics = training_run.data.metrics
 
                 # cap the loss at the loss of the null model
                 train_loss = min(null_valid_loss,
-                                 get_metric("train_{}".format(metric)))
+                                 metrics["train_{}".format(metric)])
                 valid_loss = min(null_valid_loss,
-                                 get_metric("val_{}".format(metric)))
+                                 metrics["val_{}".format(metric)])
                 test_loss = min(null_test_loss,
-                                get_metric("test_{}".format(metric)))
+                                metrics["test_{}".format(metric)])
 
             else:
                 # run failed => return null loss
@@ -139,7 +139,7 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
         return eval
 
     with mlflow.start_run() as run:
-        experiment_id = run.info.experiment_id if training_experiment_id == -1 \
+        experiment_id = run.info.experiment_id if not training_experiment_id \
             else training_experiment_id
         # Evaluate null model first.
         # We use null model (predict everything to the mean) as a reasonable upper bound on loss.
@@ -148,9 +148,9 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
         # Allways including a null model in our results is also a good ML practice.
         train_null_loss, valid_null_loss, test_null_loss = new_eval(0,
                                                                     experiment_id,
-                                                                    math.inf,
-                                                                    math.inf,
-                                                                    math.inf,
+                                                                    _inf,
+                                                                    _inf,
+                                                                    _inf,
                                                                     True)(params=[[0, 0]])
         myProblem = GPyOpt.methods.BayesianOptimization(new_eval(epochs,
                                                                  experiment_id,
@@ -182,9 +182,9 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
             mlflow.log_artifact(convergence_plot, "converegence_plot")
         if os.path.exists(acquisition_plot):
             mlflow.log_artifact(acquisition_plot, "acquisition_plot")
-        best_val_train = math.inf
-        best_val_valid = math.inf
-        best_val_test = math.inf
+        best_val_train = _inf
+        best_val_valid = _inf
+        best_val_test = _inf
         best_run = None
         # we do not have tags yet, for now store the list of executed runs as an artifact
         mlflow.log_artifact(results_path, "training_runs")

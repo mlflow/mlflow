@@ -27,7 +27,7 @@ entry_points:
       epochs: {type: int, default: 32}
       metric: {type: string, default: "rmse"}
       seed: {type: int, default: 97531}
-      training_experiment_id: {type: int, default: "-1"}
+      training_experiment_id: {type: string, default: ""}
     command: "python search_random.py  {training_data}
                                              --max-runs {max_runs}
                                              --max-p {max_p}
@@ -50,7 +50,7 @@ entry_points:
       gpy_acquisition: {type: string, default: "EI"}
       initial_design: {type: string, default: "random"}
       seed: {type: int, default: 97531}
-      training_experiment_id: {type: int, default: "-1"}
+      training_experiment_id: {type: string, default: ""}
 
     command: "python search_gpyopt.py  {training_data}
                                              --max-runs {max_runs}
@@ -73,7 +73,7 @@ entry_points:
       metric: {type: string, default: "rmse"}
       algo: {type: string, default: "tpe.suggest"}
       seed: {type: int, default: 97531}
-      training_experiment_id: {type: int, default: "-1"}
+      training_experiment_id: {type: string, default: ""}
     command: "python -O search_hyperopt.py {training_data}
                                                  --max-runs {max_runs}
                                                  --epochs {epochs}
