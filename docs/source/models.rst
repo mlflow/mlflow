@@ -56,15 +56,18 @@ And its ``MLmodel`` file describes two flavors:
         loader_module: mlflow.sklearn
 
 This model can then be used with any tool that supports *either* the ``sklearn`` or
-``python_function`` model flavor. For example, the ``mlflow sklearn`` command can serve a
-model with the ``sklearn`` flavor:
+``python_function`` model flavor. In many situations, users just want to apply the model without
+knowing which flavor is the best one to use. To that end MLflow command line interface provides
+generic APIs for model deployment which will automatically select appropriate model flavor. For
+example, in order to serve a model locally, user can simply invoke the following command:
 
 .. code-block:: bash
 
     mlflow models serve my_model
 
 In addition, the ``mlflow sagemaker`` command-line tool can package and deploy models to AWS
-SageMaker as long as they support the ``python_function`` flavor:
+SageMaker as long as the model contains at least one of the supported flavors. The following command
+can be used to deploy a model to Sagemaker:
 
 .. code-block:: bash
 

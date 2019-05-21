@@ -8,4 +8,4 @@ dependencies:
   - requests
   - click
   - pip:
-    - mlflow
+    - -e /Users/tomas/dev/mlflow-prototype

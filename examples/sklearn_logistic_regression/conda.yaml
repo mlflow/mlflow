@@ -1,7 +1,9 @@
-name: tutorial
+name: sklearn-example
 channels:
   - defaults
+  - anaconda
 dependencies:
-  - python=3.6
+  - python==3.6
   - pip:
     - mlflow
+

@@ -77,7 +77,6 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     Helper that delegates to the project-running method corresponding to the passed-in backend.
     Returns a ``SubmittedRun`` corresponding to the project run.
     """
-
     parameters = parameters or {}
     work_dir = _fetch_project(uri=uri, force_tempdir=False, version=version)
     project = _project_spec.load_project(work_dir)

@@ -1,0 +1,2 @@
+name: h2o-example
+conda_env: conda.yaml
