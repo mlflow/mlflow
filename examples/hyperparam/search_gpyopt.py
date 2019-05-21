@@ -122,9 +122,11 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
                 valid_loss = null_valid_loss
                 test_loss = null_test_loss
 
-            mlflow.log_metric("train_{}".format(metric), valid_loss)
-            mlflow.log_metric("val_{}".format(metric), valid_loss)
-            mlflow.log_metric("test_{}".format(metric), test_loss)
+            mlflow.log_metrics({
+                "train_{}".format(metric): train_loss,
+                "val_{}".format(metric): valid_loss,
+                "test_{}".format(metric): test_loss
+            })
 
             if return_all:
                 return train_loss, valid_loss, test_loss
@@ -192,9 +194,11 @@ def run(training_data, max_runs, batch_size, max_p, epochs, metric, gpy_model, g
                 best_val_valid = r.data.metrics["val_rmse"]
                 best_val_test = r.data.metrics["test_rmse"]
         mlflow.set_tag("best_run", best_run.info.run_id)
-        mlflow.log_metric("train_{}".format(metric), best_val_train)
-        mlflow.log_metric("val_{}".format(metric), best_val_valid)
-        mlflow.log_metric("test_{}".format(metric), best_val_test)
+        mlflow.log_metrics({
+            "train_{}".format(metric): best_val_train,
+            "val_{}".format(metric): best_val_valid,
+            "test_{}".format(metric): best_val_test
+        })
 
 
 if __name__ == '__main__':

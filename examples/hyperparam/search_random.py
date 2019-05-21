@@ -23,6 +23,7 @@ from mlflow.tracking.client import MlflowClient
 
 _inf = np.finfo(np.float64).max
 
+
 @click.command(help="Perform grid search over train (main entry point).")
 @click.option("--max-runs", type=click.INT, default=32,
               help="Maximum number of runs to evaluate.")
@@ -76,9 +77,11 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
                 train_loss = null_train_loss
                 val_loss = null_val_loss
                 test_loss = null_test_loss
-            mlflow.log_metric(train_metric, train_loss)
-            mlflow.log_metric(val_metric, val_loss)
-            mlflow.log_metric(test_metric, test_loss)
+            mlflow.log_metrics({
+                "train_{}".format(metric): train_loss,
+                "val_{}".format(metric): val_loss,
+                "test_{}".format(metric): test_loss
+            })
             return p.run_id, train_loss, val_loss, test_loss
 
         return eval
@@ -89,11 +92,11 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
         runs = [(np.random.uniform(1e-5, 1e-1), np.random.uniform(0, 1.0)) for _ in range(max_runs)]
         with ThreadPoolExecutor(max_workers=max_p) as executor:
             _ = executor.map(new_eval(epochs,
-                                           experiment_id,
-                                           null_train_loss,
-                                           null_val_loss,
-                                           null_test_loss),
-                                  runs)
+                                      experiment_id,
+                                      null_train_loss,
+                                      null_val_loss,
+                                      null_test_loss),
+                             runs)
 
         # find the best run, log its metrics as the final metrics of this run.
         client = MlflowClient()
@@ -112,9 +115,11 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
                 best_val_valid = r.data.metrics["val_rmse"]
                 best_val_test = r.data.metrics["test_rmse"]
         mlflow.set_tag("best_run", best_run.info.run_id)
-        mlflow.log_metric("train_{}".format(metric), best_val_train)
-        mlflow.log_metric("val_{}".format(metric), best_val_valid)
-        mlflow.log_metric("test_{}".format(metric), best_val_test)
+        mlflow.log_metrics({
+            "train_{}".format(metric): best_val_train,
+            "val_{}".format(metric): best_val_valid,
+            "test_{}".format(metric): best_val_test
+        })
 
 
 if __name__ == '__main__':

@@ -86,8 +86,10 @@ class MLflowCheckpoint(Callback):
         self._next_step = epoch + 1
         train_loss = logs["loss"]
         val_loss = logs["val_loss"]
-        mlflow.log_metric(self.train_loss, train_loss, step=epoch)
-        mlflow.log_metric(self.val_loss, val_loss, step=epoch)
+        mlflow.log_metrics({
+            self.train_loss: train_loss,
+            self.val_loss: val_loss
+        }, step=epoch)
 
         if val_loss < self._best_val_loss:
             # The result improved in the validation set.
@@ -96,7 +98,7 @@ class MLflowCheckpoint(Callback):
             self._best_val_loss = val_loss
             self._best_model = keras.models.clone_model(self.model)
             self._best_model.set_weights([x.copy() for x in self.model.get_weights()])
-            preds = self._best_model.predict((self._test_x))
+            preds = self._best_model.predict(self._test_x)
             eval_and_log_metrics("test", self._test_y, preds, epoch)
 
 
