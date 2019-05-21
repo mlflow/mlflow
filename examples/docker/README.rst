@@ -14,7 +14,7 @@ MLflow Tracking APIs to log the model and its metadata (e.g., hyperparameters an
 for later use and reference. ``train.py`` operates on the Wine Quality Dataset, which is included
 in ``wine-quality.csv``.
 
-Most importantly, the project also includes an ``MLProject`` file, which specifies the Docker 
+Most importantly, the project also includes an ``MLproject`` file, which specifies the Docker 
 container environment in which to run the project using the ``docker_env`` field:
 
 .. code-block:: yaml
