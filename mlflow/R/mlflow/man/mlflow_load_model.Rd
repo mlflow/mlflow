@@ -32,7 +32,6 @@ The URI scheme must be supported by MLflow - i.e. there has to be an MLflow arti
 When `client` is not specified, these functions attempt to infer the current active client.
 }
 \seealso{
-Other artifact uri: \code{\link{mlflow_rfunc_predict}},
-  \code{\link{mlflow_rfunc_serve}}
+Other artifact uri: \code{\link{mlflow_rfunc_serve}}
 }
 \concept{artifact uri}

@@ -23,6 +23,6 @@ test_that("mlflow can save keras model ", {
   expect_equal(
     predict(model, train_x),
     predict(model_reloaded, train_x),
-    mlflow_predict_flavor(model_reloaded, iris[, 1:4]))
+    mlflow_predict(model_reloaded, iris[, 1:4]))
   Sys.setenv(PATH = PATH)
 })
