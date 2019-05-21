@@ -2,9 +2,6 @@
 MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
-.. image:: https://travis-ci.org/mlflow/mlflow.svg?branch=master
-    :target: https://travis-ci.org/mlflow/mlflow
-
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
 into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs in that can
 used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
@@ -18,10 +15,24 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 
-**Note:** The current version of MLflow is a beta release. This means that APIs and data formats
+**Note:** The current version of MLflow is a beta. This means that APIs and data formats
 are subject to change! However, the next release, MLflow 1.0, will stabilize these.
+The current release also does not support Windows, although 1.0 will.
 
-**Note 2:** The released versions of MLflow currently do not run on Windows, although the master branch can.
+|docs| |travis| |pypi| |conda-forge|
+
+.. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
+    :target: https://mlflow.org/docs/latest/index.html
+    :alt: Latest Docs
+.. |travis| image:: https://img.shields.io/travis/mlflow/mlflow.svg
+    :target: https://travis-ci.org/mlflow/mlflow
+    :alt: Build Status
+.. |pypi| image:: https://img.shields.io/pypi/v/mlflow.svg
+    :target: https://pypi.org/project/mlflow/
+    :alt: Latest Python Release
+.. |conda-forge| image:: https://img.shields.io/conda/vn/conda-forge/mlflow.svg
+    :target: https://anaconda.org/conda-forge/mlflow
+    :alt: Latest Conda Release
 
 Installing
 ----------
