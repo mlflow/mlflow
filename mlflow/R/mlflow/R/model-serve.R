@@ -10,6 +10,7 @@
 #' @param daemonized Makes `httpuv` server daemonized so R interactive sessions
 #'   are not blocked to handle requests. To terminate a daemonized server, call
 #'   `httpuv::stopDaemonizedServer()` with the handle returned from this call.
+#' @param ... Optional arguments passed to `mlflow_predict()`.
 #' @param browse Launch browser with serving landing page?
 #'
 #' @examples
@@ -30,27 +31,26 @@
 #' @importFrom jsonlite fromJSON
 #' @import swagger
 #' @export
-mlflow_rfunc_serve <- function(
-  model_uri,
-  host = "127.0.0.1",
-  port = 8090,
-  daemonized = FALSE,
-  browse = !daemonized
-) {
+mlflow_rfunc_serve <- function(model_uri,
+                               host = "127.0.0.1",
+                               port = 8090,
+                               daemonized = FALSE,
+                               browse = !daemonized,
+                               ...) {
   model_path <- mlflow_download_artifacts_from_uri(model_uri)
   httpuv_start <- if (daemonized) httpuv::startDaemonizedServer else httpuv::runServer
-  serve_run(model_path, host, port, httpuv_start, browse && interactive())
+  serve_run(model_path, host, port, httpuv_start, browse && interactive(), ...)
 }
 
 serve_content_type <- function(file_path) {
   file_split <- strsplit(file_path, split = "\\.")[[1]]
   switch(file_split[[length(file_split)]],
-         "css" = "text/css",
-         "html" = "text/html",
-         "js" = "application/javascript",
-         "json" = "application/json",
-         "map" = "text/plain",
-         "png" = "image/png"
+    "css" = "text/css",
+    "html" = "text/html",
+    "js" = "application/javascript",
+    "json" = "application/json",
+    "map" = "text/plain",
+    "png" = "image/png"
   )
 }
 
@@ -92,7 +92,7 @@ serve_invalid_request <- function(message = NULL) {
   )
 }
 
-serve_prediction <- function(json_raw, model) {
+serve_prediction <- function(json_raw, model, ...) {
   mlflow_verbose_message("Serving prediction: ", json_raw)
 
   df <- data.frame()
@@ -106,7 +106,7 @@ serve_prediction <- function(json_raw, model) {
 
   df <- as.data.frame(df)
 
-  mlflow_predict_flavor(model, df)
+  mlflow_predict(model, df, ...)
 }
 
 serve_empty_page <- function(req, sess, model) {
@@ -119,7 +119,7 @@ serve_empty_page <- function(req, sess, model) {
   )
 }
 
-serve_handlers <- function(host, port) {
+serve_handlers <- function(host, port, ...) {
   handlers <- list(
     "^/swagger.json" = function(req, model) {
       list(
@@ -145,7 +145,7 @@ serve_handlers <- function(host, port) {
     "^/predict" = function(req, model) {
       json_raw <- req$rook.input$read()
 
-      results <- serve_prediction(json_raw, model)
+      results <- serve_prediction(json_raw, model, ...)
 
       list(
         status = 200L,
@@ -181,14 +181,14 @@ message_serve_start <- function(host, port, model) {
 }
 
 #' @importFrom utils browseURL
-serve_run <- function(model_path, host, port, start, browse) {
+serve_run <- function(model_path, host, port, start, browse, ...) {
   model <- mlflow_load_model(model_path)
 
   message_serve_start(host, port, model)
 
   if (browse) browseURL(paste0("http://", host, ":", port))
 
-  handlers <- serve_handlers(host, port)
+  handlers <- serve_handlers(host, port, ...)
 
   start(host, port, list(
     onHeaders = function(req) {

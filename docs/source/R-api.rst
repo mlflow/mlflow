@@ -536,9 +536,7 @@ current active client.
 Seealso
 -------
 
-Other artifact uri:
-```mlflow_rfunc_predict`` <mlflow_rfunc_predict.html>`__ ,
-```mlflow_rfunc_serve`` <mlflow_rfunc_serve.html>`__
+Other artifact uri: ```mlflow_rfunc_serve`` <mlflow_rfunc_serve.html>`__
 
 Log Artifact
 ============
@@ -789,50 +787,32 @@ Arguments
 |                               | parameter.                           |
 +-------------------------------+--------------------------------------+
 
-Predict over MLflow Model Flavor
-================================
+Generate Prediction with MLflow Model
+=====================================
 
 Performs prediction over a model loaded using ``mlflow_load_model()`` ,
 to be used by package authors to extend the supported MLflow models.
 
 .. code:: r
 
-   mlflow_predict_flavor(model, data)
+   mlflow_predict(model, data, ...)
 
 .. _arguments-21:
 
 Arguments
 ---------
 
-+-----------+----------------------------------+
-| Argument  | Description                      |
-+===========+==================================+
-| ``model`` | The loaded MLflow model flavor.  |
-+-----------+----------------------------------+
-| ``data``  | A data frame to perform scoring. |
-+-----------+----------------------------------+
-
-Generate Prediction with MLflow Model
-=====================================
-
-Generates a prediction with an MLflow model.
-
-.. code:: r
-
-   mlflow_predict_model(model, data)
-
-.. _arguments-22:
-
-Arguments
----------
-
-+-----------+-------------------------+
-| Argument  | Description             |
-+===========+=========================+
-| ``model`` | MLflow model.           |
-+-----------+-------------------------+
-| ``data``  | Dataframe to be scored. |
-+-----------+-------------------------+
++-----------------------------------+-----------------------------------+
+| Argument                          | Description                       |
++===================================+===================================+
+| ``model``                         | The loaded MLflow model flavor.   |
++-----------------------------------+-----------------------------------+
+| ``data``                          | A data frame to perform scoring.  |
++-----------------------------------+-----------------------------------+
+| ``...``                           | Optional additional arguments     |
+|                                   | passed to underlying predict      |
+|                                   | methods.                          |
++-----------------------------------+-----------------------------------+
 
 Rename Experiment
 =================
@@ -843,7 +823,7 @@ Renames an experiment.
 
    mlflow_rename_experiment(new_name, experiment_id = NULL, client = NULL)
 
-.. _arguments-23:
+.. _arguments-22:
 
 Arguments
 ---------
@@ -882,7 +862,7 @@ restored.
 
    mlflow_restore_experiment(experiment_id, client = NULL)
 
-.. _arguments-24:
+.. _arguments-23:
 
 Arguments
 ---------
@@ -917,7 +897,7 @@ Restore a Run
 
    mlflow_restore_run(run_id, client = NULL)
 
-.. _arguments-25:
+.. _arguments-24:
 
 Arguments
 ---------
@@ -938,73 +918,6 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-Predict using RFunc MLflow Model
-================================
-
-Performs prediction using an RFunc MLflow model from a file or data
-frame.
-
-.. code:: r
-
-   mlflow_rfunc_predict(model_uri, input_path = NULL, output_path = NULL,
-     data = NULL)
-
-.. _arguments-26:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``model_uri``                 | The location, in URI format, of the  |
-|                               | MLflow model.                        |
-+-------------------------------+--------------------------------------+
-| ``input_path``                | Path to ‘JSON’ or ‘CSV’ file to be   |
-|                               | used for prediction.                 |
-+-------------------------------+--------------------------------------+
-| ``output_path``               | ‘JSON’ or ‘CSV’ file where the       |
-|                               | prediction will be written to.       |
-+-------------------------------+--------------------------------------+
-| ``data``                      | Data frame to be scored. This can be |
-|                               | used for testing purposes and can    |
-|                               | only be specified when               |
-|                               | ``input_path`` is not specified.     |
-+-------------------------------+--------------------------------------+
-
-.. _details-20:
-
-Details
--------
-
-The URI scheme must be supported by MLflow - i.e. there has to be an
-MLflow artifact repository corresponding to the scheme of the URI. The
-content is expected to point to a directory containing MLmodel. The
-following are examples of valid model uris: -
-``file:///absolute/path/to/local/model`` -
-``file:relative/path/to/local/model`` - ``s3://my_bucket/path/to/model``
-- ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
-information about supported URI schemes, see the Artifacts Documentation
-``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
-
-.. _seealso-1:
-
-Seealso
--------
-
-Other artifact uri: ```mlflow_load_model`` <mlflow_load_model.html>`__ ,
-```mlflow_rfunc_serve`` <mlflow_rfunc_serve.html>`__
-
-.. _examples-1:
-
-Examples
---------
-
-.. code:: r
-
-    list("\n", "library(mlflow)\n", "\n", "# save simple model which roundtrips data as prediction\n", "mlflow_save_model(function(df) df, \"mlflow_roundtrip\")\n", "\n", "# save data as json\n", "jsonlite::write_json(iris, \"iris.json\")\n", "\n", "# predict existing model from json data\n", "# load the model from local relative path.\n", "mlflow_rfunc_predict(\"file:mlflow_roundtrip\", \"iris.json\")\n") 
-    
-
 Serve an RFunc MLflow Model
 ===========================
 
@@ -1015,7 +928,7 @@ Serves an RFunc MLflow model as a local web API.
    mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
      daemonized = FALSE, browse = !daemonized)
 
-.. _arguments-27:
+.. _arguments-25:
 
 Arguments
 ---------
@@ -1044,7 +957,7 @@ Arguments
 |                               | page?                                |
 +-------------------------------+--------------------------------------+
 
-.. _details-21:
+.. _details-20:
 
 Details
 -------
@@ -1059,15 +972,14 @@ following are examples of valid model uris: -
 information about supported URI schemes, see the Artifacts Documentation
 ``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
 
-.. _seealso-2:
+.. _seealso-1:
 
 Seealso
 -------
 
-Other artifact uri: ```mlflow_load_model`` <mlflow_load_model.html>`__ ,
-```mlflow_rfunc_predict`` <mlflow_rfunc_predict.html>`__
+Other artifact uri: ```mlflow_load_model`` <mlflow_load_model.html>`__
 
-.. _examples-2:
+.. _examples-1:
 
 Examples
 --------
@@ -1088,7 +1000,7 @@ Wrapper for ``mlflow run``.
      backend = NULL, backend_config = NULL, no_conda = FALSE,
      storage_dir = NULL)
 
-.. _arguments-28:
+.. _arguments-26:
 
 Arguments
 ---------
@@ -1143,17 +1055,20 @@ Value
 
 The run associated with this run.
 
-Save MLflow Keras Model Flavor
-==============================
+Save Model for MLflow
+=====================
 
-Saves model in MLflow Keras flavor.
+Saves model in MLflow format that can later be used for prediction and
+serving.
 
 .. code:: r
 
-   list(list("mlflow_save_flavor"), list("keras.engine.training.Model"))(model,
-     path = "model", conda_env = NULL)
+   list(list("mlflow_save_model"), list("crate"))(model, path, ...)
+   list(list("mlflow_save_model"), list("keras.engine.training.Model"))(model, path,
+     conda_env = NULL, ...)
+   mlflow_save_model(model, path, ...)
 
-.. _arguments-29:
+.. _arguments-27:
 
 Arguments
 ---------
@@ -1168,92 +1083,10 @@ Arguments
 |                                   | MLflow compatible model will be   |
 |                                   | saved.                            |
 +-----------------------------------+-----------------------------------+
+| ``...``                           | Optional additional arguments.    |
++-----------------------------------+-----------------------------------+
 | ``conda_env``                     | Path to Conda dependencies file.  |
 +-----------------------------------+-----------------------------------+
-
-.. _value-1:
-
-Value
------
-
-This function must return a list of flavors that conform to the MLmodel
-specification.
-
-Save MLflow Model Flavor
-========================
-
-Saves model in MLflow flavor, to be used by package authors to extend
-the supported MLflow models.
-
-.. code:: r
-
-   mlflow_save_flavor(model, path = "model", ...)
-
-.. _arguments-30:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``model``                     | The model that will perform a        |
-|                               | prediction.                          |
-+-------------------------------+--------------------------------------+
-| ``path``                      | Destination path where this MLflow   |
-|                               | compatible model will be saved.      |
-+-------------------------------+--------------------------------------+
-| ``...``                       | Optional additional arguments passed |
-|                               | to ``mlflow_save_flavor()`` - for    |
-|                               | example,                             |
-|                               | ``conda_env = /path/to/conda.yaml``  |
-|                               | may be passed to specify a conda     |
-|                               | dependencies file for flavors        |
-|                               | (e.g. keras) that support conda      |
-|                               | environments.                        |
-+-------------------------------+--------------------------------------+
-
-.. _value-2:
-
-Value
------
-
-This function must return a list of flavors that conform to the MLmodel
-specification.
-
-Save Model for MLflow
-=====================
-
-Saves model in MLflow format that can later be used for prediction and
-serving.
-
-.. code:: r
-
-   mlflow_save_model(model, path = "model", ...)
-
-.. _arguments-31:
-
-Arguments
----------
-
-+-------------------------------+--------------------------------------+
-| Argument                      | Description                          |
-+===============================+======================================+
-| ``model``                     | The model that will perform a        |
-|                               | prediction.                          |
-+-------------------------------+--------------------------------------+
-| ``path``                      | Destination path where this MLflow   |
-|                               | compatible model will be saved.      |
-+-------------------------------+--------------------------------------+
-| ``...``                       | Optional additional arguments passed |
-|                               | to ``mlflow_save_flavor()`` - for    |
-|                               | example,                             |
-|                               | ``conda_env = /path/to/conda.yaml``  |
-|                               | may be passed to specify a conda     |
-|                               | dependencies file for flavors        |
-|                               | (e.g. keras) that support conda      |
-|                               | environments.                        |
-+-------------------------------+--------------------------------------+
 
 Search Runs
 ===========
@@ -1266,7 +1099,7 @@ Metric and Param keys.
    mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
      "DELETED_ONLY", "ALL"), experiment_ids = NULL, client = NULL)
 
-.. _arguments-32:
+.. _arguments-28:
 
 Arguments
 ---------
@@ -1292,7 +1125,7 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
-.. _details-22:
+.. _details-21:
 
 Details
 -------
@@ -1311,7 +1144,7 @@ Wrapper for ``mlflow server``.
      host = "127.0.0.1", port = 5000, workers = 4,
      static_prefix = NULL)
 
-.. _arguments-33:
+.. _arguments-29:
 
 Arguments
 ---------
@@ -1351,7 +1184,7 @@ provided name. Returns the ID of the active experiment.
    mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
      artifact_location = NULL)
 
-.. _arguments-34:
+.. _arguments-30:
 
 Arguments
 ---------
@@ -1379,7 +1212,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-35:
+.. _arguments-31:
 
 Arguments
 ---------
@@ -1400,7 +1233,7 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
-.. _details-23:
+.. _details-22:
 
 Details
 -------
@@ -1418,7 +1251,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-36:
+.. _arguments-32:
 
 Arguments
 ---------
@@ -1439,7 +1272,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-37:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1464,7 +1297,7 @@ can be provided.
    mlflow_start_run(run_id = NULL, experiment_id = NULL,
      start_time = NULL, tags = NULL, client = NULL)
 
-.. _arguments-38:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1498,7 +1331,7 @@ Arguments
 |                               | object.                              |
 +-------------------------------+--------------------------------------+
 
-.. _details-24:
+.. _details-23:
 
 Details
 -------
@@ -1506,7 +1339,7 @@ Details
 When ``client`` is not specified, these functions attempt to infer the
 current active client.
 
-.. _examples-3:
+.. _examples-2:
 
 Examples
 --------
@@ -1525,7 +1358,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(x, ...)
 
-.. _arguments-39:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1540,7 +1373,7 @@ Arguments
 |                               | path to a file store.                |
 +-------------------------------+--------------------------------------+
 
-.. _examples-4:
+.. _examples-3:
 
 Examples
 --------

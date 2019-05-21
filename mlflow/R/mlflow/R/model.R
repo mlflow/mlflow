@@ -6,19 +6,11 @@
 #' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
-#' @param ... Optional additional arguments passed to `mlflow_save_flavor()` - for example,
-#'   `conda_env = /path/to/conda.yaml` may be passed to specify a conda dependencies file
-#'   for flavors (e.g. keras) that support conda environments.
+#' @param ... Optional additional arguments.
 #' @importFrom yaml write_yaml
 #' @export
-mlflow_save_model <- function(model, path = "model", ...) {
-  if (dir.exists(path)) unlink(path, recursive = TRUE)
-  dir.create(path)
-
-  flavor_spec <- list (
-    flavors = mlflow_save_flavor(model, path, ...)
-  )
-  mlflow_write_model_spec(path, flavor_spec)
+mlflow_save_model <- function(model, path, ...) {
+  UseMethod("mlflow_save_model")
 }
 
 #' Log Model
@@ -58,17 +50,6 @@ mlflow_write_model_spec <- function(path, content) {
     purrr::compact(content),
     file.path(path, "MLmodel")
   )
-}
-
-#' Generate Prediction with MLflow Model
-#'
-#' Generates a prediction with an MLflow model.
-#'
-#' @param model MLflow model.
-#' @param data Dataframe to be scored.
-#' @export
-mlflow_predict_model <- function(model, data) {
-   model %>% mlflow_predict_flavor(data)
 }
 
 #' Load MLflow Model
@@ -114,9 +95,54 @@ mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()
     }
     flavor <- available_flavors[[1]]
   }
-  flavor_path <- model_path
-  class(flavor_path) <- c(flavor, class(flavor_path))
-  mlflow_load_flavor(flavor_path)
+
+  flavor <- mlflow_flavor(flavor)
+  mlflow_load_flavor(flavor, model_path)
+}
+
+new_mlflow_flavor <- function(flavor, class = character(0)) {
+  structure(character(0), class = c(class, "mlflow_flavor"))
+}
+
+# Create an MLflow Flavor Object
+#
+# This function creates an `mlflow_flavor` object that can be used to dispatch
+#   the `mlflow_load_flavor()` method.
+#
+# @param flavor The name of the flavor.
+# @keywords internal
+mlflow_flavor <- function(flavor) {
+  new_mlflow_flavor(flavor, paste0("mlflow_flavor_", flavor))
+}
+
+#' Load MLflow Model Flavor
+#'
+#' Loads an MLflow model flavor, to be used by package authors
+#' to extend the supported MLflow models.
+#'
+#' @param flavor An MLflow flavor object.
+#' @param model_path The path to the MLflow model wrapped in the correct
+#'   class.
+#'
+#' @export
+mlflow_load_flavor <- function(flavor, model_path) {
+  UseMethod("mlflow_load_flavor")
+}
+
+#' Generate Prediction with MLflow Model
+#'
+#' Performs prediction over a model loaded using
+#' \code{mlflow_load_model()}, to be used by package authors
+#' to extend the supported MLflow models.
+#'
+#' @param model The loaded MLflow model flavor.
+#' @param data A data frame to perform scoring.
+#' @param ... Optional additional arguments passed to underlying predict
+#'   methods.
+#'
+#' @export
+mlflow_predict <- function(model, data, ...) {
+  UseMethod("mlflow_predict")
 }
 
 
@@ -137,17 +163,18 @@ mlflow_rfunc_predict <- function(model_path, input_path = NULL, output_path = NU
   data <- switch(
     content_type %||% "json",
     json = parse_json(input_path, json_format %||% "split"),
-    csv = read.csv(input_path),
+    csv = utils::read.csv(input_path),
     stop("Unsupported input file format.")
   )
   model <- mlflow_load_model(model_path)
-  prediction <- mlflow_predict_flavor(model, data)
+  prediction <- mlflow_predict(model, data)
   jsonlite::write_json(prediction, output_path, digits = NA)
   invisible(NULL)
 }
 
 supported_model_flavors <- function() {
-  purrr::map(utils::methods(generic.function = mlflow_load_flavor), ~ substring(.x, 20))
+  purrr::map(utils::methods(generic.function = mlflow_load_flavor),
+             ~ gsub("mlflow_load_flavor\\.mlflow_flavor_", "", .x))
 }
 
 # Helper function to parse data frame from json based on given the json_fomat.
