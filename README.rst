@@ -1,12 +1,24 @@
-===================
-MLflow Beta Release
-===================
+=============================================
+MLflow: A Machine Learning Lifecycle Platform
+=============================================
+
+MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
+into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs in that can
+used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
+currently run ML code (e.g. in notebooks, standalone applications or the cloud). MLflow's current components are:
+
+* `MLflow Tracking <https://mlflow.org/docs/latest/tracking.html>`_: An API to log parameters, code, and
+  results in machine learning experiments and compare them using an interactive UI.
+* `MLflow Projects <https://mlflow.org/docs/latest/projects.html>`_: A code packaging format for reproducible
+  runs using Conda and Docker, so you can share your ML code with others.
+* `MLflow Models <https://mlflow.org/docs/latest/models.html>`_: A model packaging format and tools that let
+  you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
+  Docker, Apache Spark, Azure ML and AWS SageMaker.
 
 **Note:** The current version of MLflow is a beta release. This means that APIs and data formats
-are subject to change!
+are subject to change! However, the next release, MLflow 1.0, will stabilize these.
 
-**Note 2:** We do not currently support running MLflow on Windows. Despite this, we would appreciate any contributions
-to make MLflow work better on Windows.
+**Note 2:** The released versions of MLflow currently do not run on Windows, although the master branch can.
 
 Installing
 ----------
@@ -75,9 +87,6 @@ MLflow artifacts and then load them again for serving. There is an example train
     $ mlflow pyfunc serve -r <run-id> -m model
 
     $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
-
-
-
 
 
 Contributing
