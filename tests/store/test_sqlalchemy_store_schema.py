@@ -16,7 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.dbmodels.models import Base
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-from mlflow.store.dbmodels.initial_models import Base as InitialBase
+from tests.resources.db.initial_models import Base as InitialBase
 from tests.store.dump_schema import dump_sqlalchemy_store_schema, dump_db_schema
 from tests.integration.utils import invoke_cli_runner
 

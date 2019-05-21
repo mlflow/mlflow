@@ -22,7 +22,7 @@ from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils.search_utils import SearchFilter
-from mlflow.store.dbmodels.initial_models import Base as InitialBase
+from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
 

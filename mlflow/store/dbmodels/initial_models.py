@@ -2,7 +2,9 @@
 # Used to standardize initial database state.
 # Copied from https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, with
 # modifications to substitute constants from MLflow with hard-coded values (e.g. replacing
-# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK").
+# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK") and changes to ensure
+# that all constraint names are unique. Unique constraint names are important to allow using the
+# MLflow tracking DB with DBMSes that require unique constraint names (e.g. MySQL >= 8.0).
 import time
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
@@ -58,7 +60,7 @@ class SqlExperiment(Base):
     __table_args__ = (
         CheckConstraint(
             lifecycle_stage.in_(["active", "deleted"]),
-            name='lifecycle_stage'),
+            name='experiments_lifecycle_stage'),
         PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
 
@@ -136,7 +138,7 @@ class SqlRun(Base):
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
         CheckConstraint(lifecycle_stage.in_(["active", "deleted"]),
-                        name='lifecycle_stage'),
+                        name='runs_lifecycle_stage'),
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
