@@ -113,15 +113,14 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             eprint("Repeated parameter: '%s'" % name)
             sys.exit(1)
         param_dict[name] = value
-    cluster_spec_arg = backend_config
     if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
-            cluster_spec_arg = json.loads(backend_config)
+            backend_config = json.loads(backend_config)
         except ValueError as e:
-            eprint("Invalid cluster spec JSON. Parse error: %s" % e)
+            eprint("Invalid backend config JSON. Parse error: %s" % e)
             raise
     if backend == "kubernetes":
-        if cluster_spec_arg is None:
+        if backend_config is None:
             eprint("Specify 'backend_config' when using kubernetes mode.")
             sys.exit(1)
     try:
@@ -133,7 +132,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             experiment_id=experiment_id,
             parameters=param_dict,
             backend=backend,
-            backend_config=cluster_spec_arg,
+            backend_config=backend_config,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
             synchronous=backend == "local" or backend is None,
