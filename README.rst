@@ -2,6 +2,9 @@
 MLflow: A Machine Learning Lifecycle Platform
 =============================================
 
+.. image:: https://travis-ci.org/mlflow/mlflow.svg?branch=master
+    :target: https://travis-ci.org/mlflow/mlflow
+
 MLflow is a platform to streamline machine learning development, including tracking experiments, packaging code
 into reproducible runs, and sharing and deploying models. MLflow offers a set of lightweight APIs in that can
 used with any existing machine learning application or library (TensorFlow, PyTorch, XGBoost, etc), wherever you
