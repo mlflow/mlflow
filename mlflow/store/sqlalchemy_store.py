@@ -22,7 +22,7 @@ from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
     _validate_run_id, _validate_metric
-from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _stamp_initial_db
+from mlflow.store.db.utils import _upgrade_db, _get_alembic_config
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
 
@@ -95,7 +95,6 @@ class SqlAlchemyStore(AbstractStore):
         _logger.info("Creating initial MLflow database tables...")
         InitialBase.metadata.create_all(engine)
         engine_url = str(engine.url)
-        _stamp_initial_db(engine_url)
         _upgrade_db(engine_url)
 
     @staticmethod

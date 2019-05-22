@@ -32,8 +32,8 @@ CREATE TABLE runs (
 	experiment_id INTEGER, 
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid), 
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id), 
-	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')), 
 	CONSTRAINT status CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING')), 
+	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')), 
 	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
 )
 

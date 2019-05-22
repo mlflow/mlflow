@@ -19,4 +19,5 @@ def upgrade(url):
     version. Note that schema migrations can be slow and are not guaranteed to be transactional -
     always take a backup of your database before running migrations.
     """
+    mlflow.store.db.utils._upgrade_db_for_pre_1_users(url)
     mlflow.store.db.utils._upgrade_db(url)
