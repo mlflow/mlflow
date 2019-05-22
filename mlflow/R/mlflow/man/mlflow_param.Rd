@@ -20,13 +20,15 @@ must be one of "numeric", "integer", or "string".}
 Reads a command-line parameter passed to an MLflow project
 MLflow allows you to define named, typed input parameters to your R scripts via the mlflow_param
 API. This is useful for experimentation, e.g. tracking multiple invocations of the same script
-with different parameters. For example, you could write a parametrized script to train
-a GBM model as follows: You can then run your script (assuming it's saved at /some/directory/param_example.R) with
-custom parameters via the `mlflow run` CLI as follows:
-$ mlflow run /some/directory --entry-point params_example.R -P num_trees=200 -P learning_rate=0.1
+with different parameters.
 }
 \examples{
 \dontrun{
+# This parametrized script trains a GBM model on the Iris dataset and can be run as an MLflow
+# project. You can run this script
+# (assuming it's saved at /some/directory/params_example.R) with
+# custom parameters via:
+# mlflow_run(entry_point = "params_example.R", uri = "/some/directory", parameters = list(num_trees = 200, learning_rate = 0.1))
 install.packages("gbm")
 library(mlflow)
 library(gbm)

@@ -392,31 +392,8 @@ mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY
 #'
 #' @details
 #'
-#' When logging to Amazon S3, ensure that the user has a proper policy
-#' attached to it, for instance:
-#'
-#' \code{
-#' {
-#' "Version": "2012-10-17",
-#' "Statement": [
-#'   {
-#'     "Sid": "VisualEditor0",
-#'     "Effect": "Allow",
-#'     "Action": [
-#'       "s3:PutObject",
-#'       "s3:GetObject",
-#'       "s3:ListBucket",
-#'       "s3:GetBucketLocation"
-#'       ],
-#'     "Resource": [
-#'       "arn:aws:s3:::mlflow-test/*",
-#'       "arn:aws:s3:::mlflow-test"
-#'       ]
-#'   }
-#'   ]
-#' }
-#' }
-#'
+#' When logging to Amazon S3, ensure that you have the s3:PutObject, s3:GetObject,
+#' s3:ListBucket, and s3:GetBucketLocation permissions on your bucket.
 #'
 #' Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
 #' environment variables must be set to the corresponding key and secrets provided

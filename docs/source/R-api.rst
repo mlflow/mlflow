@@ -555,17 +555,16 @@ Details
 The URI scheme must be supported by MLflow - i.e. there has to be an
 MLflow artifact repository corresponding to the scheme of the URI. The
 content is expected to point to a directory containing MLmodel. The
-following are examples of valid model uris: -
-``file:///absolute/path/to/local/model`` -
-``file:relative/path/to/local/model`` - ``s3://my_bucket/path/to/model``
-- ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
-information about supported URI schemes, see the Artifacts Documentation
-``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+following are examples of valid model uris:
 
-Seealso
--------
+-  ``file:///absolute/path/to/local/model``
+-  ``file:relative/path/to/local/model``
+-  ``s3://my_bucket/path/to/model``
+-  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-Other artifact uri: ```mlflow_rfunc_serve`` <#mlflowrfuncserve>`__
+For more information about supported URI schemes, see the Artifacts
+Documentation at
+https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores.
 
 ``mlflow_log_artifact``
 =======================
@@ -610,10 +609,9 @@ Arguments
 Details
 -------
 
-When logging to Amazon S3, ensure that the user has a proper policy
-attached to it, for instance:
-
-\`\`
+When logging to Amazon S3, ensure that you have the s3:PutObject,
+s3:GetObject, s3:ListBucket, and s3:GetBucketLocation permissions on
+your bucket.
 
 Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
@@ -805,12 +803,7 @@ Read Command-Line Parameter
 Reads a command-line parameter passed to an MLflow project MLflow allows
 you to define named, typed input parameters to your R scripts via the
 mlflow_param API. This is useful for experimentation, e.g. tracking
-multiple invocations of the same script with different parameters. For
-example, you could write a parametrized script to train a GBM model as
-follows: You can then run your script (assuming it’s saved at
-/some/directory/param_example.R) with custom parameters via the
-``mlflow run`` CLI as follows: $ mlflow run /some/directory –entry-point
-params_example.R -P num_trees=200 -P learning_rate=0.1
+multiple invocations of the same script with different parameters.
 
 .. code:: r
 
@@ -844,6 +837,11 @@ Examples
 
 .. code:: r
 
+   # This parametrized script trains a GBM model on the Iris dataset and can be run as an MLflow
+   # project. You can run this script
+   # (assuming it's saved at /some/directory/params_example.R) with
+   # custom parameters via:
+   # mlflow_run(entry_point = "params_example.R", uri = "/some/directory", parameters = list(num_trees = 200, learning_rate = 0.1))
    install.packages("gbm")
    library(mlflow)
    library(gbm)
@@ -1044,19 +1042,16 @@ Details
 The URI scheme must be supported by MLflow - i.e. there has to be an
 MLflow artifact repository corresponding to the scheme of the URI. The
 content is expected to point to a directory containing MLmodel. The
-following are examples of valid model uris: -
-``file:///absolute/path/to/local/model`` -
-``file:relative/path/to/local/model`` - ``s3://my_bucket/path/to/model``
-- ``runs:/<mlflow_run_id>/run-relative/path/to/model`` For more
-information about supported URI schemes, see the Artifacts Documentation
-``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
+following are examples of valid model uris:
 
-.. _seealso-1:
+-  ``file:///absolute/path/to/local/model``
+-  ``file:relative/path/to/local/model``
+-  ``s3://my_bucket/path/to/model``
+-  ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-Seealso
--------
-
-Other artifact uri: ```mlflow_load_model`` <#mlflowloadmodel>`__
+For more information about supported URI schemes, see the Artifacts
+Documentation at
+https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores.
 
 .. _examples-2:
 
@@ -1081,7 +1076,8 @@ Examples
 
 Run an MLflow Project
 
-Wrapper for ``mlflow run``.
+Wrapper for the ``mlflow run`` CLI command. See
+https://www.mlflow.org/docs/latest/cli.html#run for more info.
 
 .. code:: r
 
@@ -1144,6 +1140,27 @@ Value
 -----
 
 The run associated with this run.
+
+.. _examples-3:
+
+Examples
+--------
+
+.. code:: r
+
+   # This parametrized script trains a GBM model on the Iris dataset and can be run as an MLflow
+   # project. You can run this script
+   # (assuming it's saved at /some/directory/params_example.R) with
+   # custom parameters via:
+   # mlflow_run(entry_point = "params_example.R", uri = "/some/directory", parameters = list(num_trees = 200, learning_rate = 0.1))
+   install.packages("gbm")
+   library(mlflow)
+   library(gbm)
+   # define and read input parameters
+   num_trees <- mlflow_param(name = "num_trees", default = 200, type = "integer")
+   lr <- mlflow_param(name = "learning_rate", default = 0.1, type = "numeric")
+   # use params to fit a model
+   ir.adaboost <- gbm(Species ~., data=iris, n.trees=num_trees, shrinkage=lr)
 
 ``mlflow_save_model.crate``
 ===========================
@@ -1439,7 +1456,7 @@ Arguments
 |                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _examples-3:
+.. _examples-4:
 
 Examples
 --------
@@ -1476,7 +1493,7 @@ Arguments
 |                               | path to a file store.                |
 +-------------------------------+--------------------------------------+
 
-.. _examples-4:
+.. _examples-5:
 
 Examples
 --------
