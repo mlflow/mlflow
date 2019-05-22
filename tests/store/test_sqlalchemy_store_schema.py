@@ -7,7 +7,6 @@ from alembic.script import ScriptDirectory
 from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.autogenerate import compare_metadata
 import sqlalchemy
-from sqlalchemy.schema import MetaData
 
 import mlflow.db
 from mlflow.exceptions import MlflowException
@@ -15,7 +14,7 @@ from mlflow.store.db.utils import _get_alembic_config
 from mlflow.store.dbmodels.models import Base
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from tests.resources.db.initial_models import Base as InitialBase
-from tests.store.dump_schema import dump_sqlalchemy_store_schema, dump_db_schema
+from tests.store.dump_schema import dump_db_schema
 from tests.integration.utils import invoke_cli_runner
 
 

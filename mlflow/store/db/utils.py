@@ -62,6 +62,8 @@ def _get_schema_version(engine):
 
 def _is_initialized_before_mlflow_1(url):
     """
+    Returns true if the database at the specified URL was initialized before MLflow 1.0, False
+    otherwise.
     A database is initialized before MLflow 1.0 if and only if its revision ID is set to None.
     """
     engine = sqlalchemy.create_engine(url)
@@ -70,13 +72,13 @@ def _is_initialized_before_mlflow_1(url):
 
 def _upgrade_db_initialized_before_mlflow_1(url):
     """
-    Updates the database schema of an MLflow tracking database created prior to MLflow 1.0,
-    removing duplicate constraint names. This method performs a one-time update for pre-1.0 users
-    that we plan to make available in MLflow 1.0 but remove in successive versions
-    (e.g. MLflow 1.1), after which we will assume that effectively all databases have been
-    initialized using the schema in mlflow.store.dbmodels.initial_models (with a small number of
-    special-case databases initialized pre-1.0 and migrated to have the same schema as
-    mlflow.store.dbmodels.initial_models via this method).
+    Upgrades the schema of an MLflow tracking database created prior to MLflow 1.0, removing
+    duplicate constraint names. This method performs a one-time update for pre-1.0 users that we
+    plan to make available in MLflow 1.0 but remove in successive versions (e.g. MLflow 1.1),
+    after which we will assume that effectively all databases have been initialized using the schema
+    in mlflow.store.dbmodels.initial_models (with a small number of special-case databases
+    initialized pre-1.0 and migrated to have the same schema as mlflow.store.dbmodels.initial_models
+    via this method).
     TODO: remove this method in MLflow 1.1.
     """
     # alembic adds significant import time, so we import it lazily

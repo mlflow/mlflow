@@ -4,7 +4,6 @@ from contextlib import contextmanager
 
 import posixpath
 from six.moves import urllib
-from alembic.migration import MigrationContext  # pylint: disable=import-error
 from alembic.script import ScriptDirectory
 import sqlalchemy
 
