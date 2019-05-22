@@ -19,7 +19,6 @@ import logging
 import numpy as np
 import pandas as pd
 from six import reraise
-import subprocess
 import sys
 import traceback
 
@@ -180,21 +179,6 @@ def init(model):
     return app
 
 
-def _safe_local_path(local_path):
-    # NB: Since mlflow 1.0, mlflow.pyfunc.load_model expects uri instead of local path. Local paths
-    # work, however absolute windows path don't because the drive is parsed as scheme. Since we do
-    # not control the version of mlflow (the scoring server version matches the version of mlflow
-    # invoking the scoring command, the rest of mlflow comes from the model environment) we check
-    # the mlflow version at run time and convert local path to file uri to ensure platform
-    # independence.
-    from mlflow.version import VERSION
-    is_recent_version = VERSION.endswith("dev0") or int(VERSION.split(".")[0]) >= 1
-    if is_recent_version:
-        from mlflow.tracking.utils import path_to_local_file_uri
-        return path_to_local_file_uri(local_path)
-    return local_path
-
-
 def _predict(local_path, input_path, output_path, content_type, json_format):
     pyfunc_model = load_model(_safe_local_path(local_path))
     if input_path is None or input_path == "__stdin__":
@@ -249,13 +233,3 @@ def _get_jsonable_obj(data, pandas_orient="records"):
         return pd.DataFrame(data).to_dict(orient=pandas_orient)
     else:  # by default just return whatever this is and hope for the best
         return data
-
-
-if __name__ == '__main__':
-    if sys.argv[1] == "predict":
-        _predict(local_path=sys.argv[2], input_path=sys.argv[3], output_path=sys.argv[4],
-                 content_type=sys.argv[5], json_format=sys.argv[6])
-    elif sys.argv[1] == "serve":
-        _serve(local_path=sys.argv[2], port=sys.argv[3], host=sys.argv[4])
-    else:
-        raise Exception("Unknown command '{}'".format(sys.argv[1]))
