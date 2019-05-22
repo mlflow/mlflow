@@ -14,7 +14,7 @@ MLflow Tracking APIs to log the model and its metadata (e.g., hyperparameters an
 for later use and reference. ``train.py`` operates on the Wine Quality Dataset, which is included
 in ``wine-quality.csv``.
 
-Most importantly, the project also includes an ``MLProject`` file, which specifies the Docker 
+Most importantly, the project also includes an ``MLproject`` file, which specifies the Docker 
 container environment in which to run the project using the ``docker_env`` field:
 
 .. code-block:: yaml
@@ -27,7 +27,7 @@ image (see `Docker docs <https://docs.docker.com/engine/reference/run/#general-f
 example references a locally-stored image (``mlflow-docker-example``) by tag.
 
 Finally, the project includes a ``Dockerfile`` that is used to build the image referenced by the
-``MLProject`` file. The ``Dockerfile`` specifies library dependencies required by the project, such 
+``MLproject`` file. The ``Dockerfile`` specifies library dependencies required by the project, such 
 as ``mlflow`` and ``scikit-learn``.
 
 Running this Example
@@ -46,7 +46,7 @@ name:
   docker build -t mlflow-docker-example -f Dockerfile .
 
 Note that the name if the image used in the ``docker build`` command, ``mlflow-docker-example``, 
-matches the name of the image referenced in the ``MLProject`` file.
+matches the name of the image referenced in the ``MLproject`` file.
 
 Finally, run the example project using ``mlflow run examples/docker -P alpha=0.5``.
 
