@@ -22,6 +22,7 @@ def dump_db_schema(db_url, dst_file):
     with open(dst_file, "w") as handle:
         handle.write(schema)
 
+
 def dump_sqlalchemy_store_schema(dst_file):
     db_tmpdir = tempfile.mkdtemp()
     try:

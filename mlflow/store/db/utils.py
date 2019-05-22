@@ -59,6 +59,7 @@ def _get_schema_version(engine):
         mc = MigrationContext.configure(connection)
         return mc.get_current_revision()
 
+
 def _is_initialized_before_mlflow_1(url):
     """
     A database is initialized before MLflow 1.0 if and only if its revision ID is set to None.
