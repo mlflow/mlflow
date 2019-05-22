@@ -37,7 +37,6 @@ except ImportError:
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
 
-
 try:
     from StringIO import StringIO
 except ImportError:
@@ -158,8 +157,8 @@ def init(model):
             return flask.Response(
                 response=("This predictor only supports the following content types,"
                           " {supported_content_types}. Got '{received_content_type}'.".format(
-                            supported_content_types=CONTENT_TYPES,
-                            received_content_type=flask.request.content_type)),
+                    supported_content_types=CONTENT_TYPES,
+                    received_content_type=flask.request.content_type)),
                 status=415,
                 mimetype='text/plain')
 
@@ -218,9 +217,6 @@ def _predict(local_path, input_path, output_path, content_type, json_format):
 def _serve(local_path, port, host):
     pyfunc_model = load_model(_safe_local_path(local_path))
     init(pyfunc_model).run(port=port, host=host)
-
-
-
 
 
 class NumpyEncoder(JSONEncoder):
