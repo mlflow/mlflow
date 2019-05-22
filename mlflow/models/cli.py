@@ -36,6 +36,7 @@ def serve(model_uri, port, host, no_conda=False, install_mlflow=False):
     """
     _serve(model_uri, port, host, no_conda, install_mlflow)
 
+
 # NB: For internal use only. The body of serve is extracted into a private function so that it can
 # be called from python. Calling cli from inside an environment is dangerouse because it could point
 # to the base environment in case mlflow is missing in the current one which could lead to confusing

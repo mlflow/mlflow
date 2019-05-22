@@ -11,8 +11,6 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 from mlflow.version import VERSION
 
-
-
 _logger = logging.getLogger(__name__)
 
 
@@ -38,17 +36,17 @@ class PyFuncBackend(FlavorBackend):
                 command = ('python -c "from mlflow.models.cli import _predict; _predict('
                            'model_uri={model_uri}, '
                            'input_path={input_path}, '
-                           'output_path={output_path}, '                            
+                           'output_path={output_path}, '
                            'content_type={content_type}, '
                            'json_format={json_format}, '
                            'no_conda=True, '
                            'install_mlflow=False)"'
                            ).format(
-                             model_uri=repr(model_uri),
-                             input_path=repr(input_path),
-                             output_path=repr(output_path),
-                             content_type=repr(content_type),
-                             json_format=repr(json_format))
+                    model_uri=repr(model_uri),
+                    input_path=repr(input_path),
+                    output_path=repr(output_path),
+                    content_type=repr(content_type),
+                    json_format=repr(json_format))
                 return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
             else:
                 scoring_server._predict(local_path, input_path, output_path, content_type,
@@ -63,16 +61,16 @@ class PyFuncBackend(FlavorBackend):
             if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
 
-                command = ('python -c "from mlflow.models.cli import _serve; _serve(' 
-                           'model_uri={model_uri}, ' 
+                command = ('python -c "from mlflow.models.cli import _serve; _serve('
+                           'model_uri={model_uri}, '
                            'port={port}, '
                            'host={host}, '
                            'no_conda=True,'
                            'install_mlflow=False'
                            ).format(
-                             model_uri=repr(model_uri),
-                             input_path=repr(input_path),
-                             output_path=repr(output_path))
+                    model_uri=repr(model_uri),
+                    input_path=repr(input_path),
+                    output_path=repr(output_path))
 
                 return _execute_in_conda_env(conda_env_path, command,
                                              self._install_mlflow)

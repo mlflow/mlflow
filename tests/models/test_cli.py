@@ -1,4 +1,3 @@
-
 import os
 import pandas as pd
 import pytest
@@ -17,17 +16,16 @@ import mlflow
 import mlflow.pyfunc as pyfunc
 import mlflow.sklearn
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils.environment import _mlflow_conda_env
-
 
 in_travis = 'TRAVIS' in os.environ
 # NB: for now, windows tests on Travis do not have conda available.
 no_conda = ["--no-conda"] if in_travis and sys.platform == "win32" else []
 
-#NB: need to install mlflow since the pip version does not have mlflow models cli.
+# NB: need to install mlflow since the pip version does not have mlflow models cli.
 install_mlflow = ["--install-mlflow"] if not no_conda else []
 
 extra_options = no_conda + install_mlflow
+
 
 @pytest.fixture(scope="module")
 def iris_data():
