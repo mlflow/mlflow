@@ -180,7 +180,7 @@ describe('unit tests', () => {
     expect(MetricsPlotView.parseTimestamp(timestamp, history, X_AXIS_WALL)).toBe(timestampStr);
   });
 
-  test('should disable plotly logo and link to plotly studio', () => {
+  test('should disable both plotly logo and the link to plotly studio', () => {
     wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart} />);
     const plot = wrapper.find(Plot);
     expect(plot.props().config.displaylogo).toBe(false);
