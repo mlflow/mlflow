@@ -42,7 +42,6 @@ def sk_model(iris_data):
     return knn_model
 
 
-@pytest.mark.large
 def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
