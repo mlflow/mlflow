@@ -27,5 +27,6 @@ NO_CONDA = click.option("--no-conda", is_flag=True,
                              "conda environment.")
 
 INSTALL_MLFLOW = click.option("--install-mlflow", is_flag=True, default=False,
-                              help="If specified, latest version of mlflow will be installed into "
-                                   "the environment after it's activated.")
+                              help="If specified, mlflow will be installed into the environment "
+                                   "after it has been activated. The version of installed mlflow "
+                                   "will be the same as the one used to invoke this command.")

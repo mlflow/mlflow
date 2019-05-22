@@ -179,9 +179,9 @@ def init(model):
     return app
 
 
-def _predict(local_path, input_path, output_path, content_type, json_format):
-    pyfunc_model = load_model(_safe_local_path(local_path))
-    if input_path is None or input_path == "__stdin__":
+def _predict(model_uri, input_path, output_path, content_type, json_format):
+    pyfunc_model = load_model(model_uri)
+    if input_path is None:
         input_path = sys.stdin
 
     if content_type == "json":
@@ -198,8 +198,8 @@ def _predict(local_path, input_path, output_path, content_type, json_format):
             predictions_to_json(pyfunc_model.predict(df), fout)
 
 
-def _serve(local_path, port, host):
-    pyfunc_model = load_model(_safe_local_path(local_path))
+def _serve(model_uri, port, host):
+    pyfunc_model = load_model(model_uri)
     init(pyfunc_model).run(port=port, host=host)
 
 

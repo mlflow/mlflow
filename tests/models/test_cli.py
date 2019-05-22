@@ -13,7 +13,6 @@ except ImportError:
     from io import StringIO
 
 import mlflow
-import mlflow.pyfunc as pyfunc
 import mlflow.sklearn
 from mlflow.utils.file_utils import TempDir
 
@@ -66,11 +65,11 @@ def test_predict(iris_data, sk_model):
                               "-o", output_json_path],
                              stderr=subprocess.PIPE,
                              cwd=tmp.path(""))
-        assert p.wait() != 0
         _, stderr = p.communicate()
         stderr = stderr.decode("utf-8")
         print(stderr)
-        assert "ModuleNotFoundError: No module named 'mlflow.models.cli'" in stderr
+        assert p.wait() != 0
+        assert "ModuleNotFoundError: No module named 'mlflow'" in stderr
 
         # should work with no conda
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
