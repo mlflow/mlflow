@@ -1,11 +1,9 @@
 package org.mlflow.mleap;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import org.mlflow.Flavor;
 
 /** Represents an MLeap flavor configuration */
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class MLeapFlavor implements Flavor {
   public static final String FLAVOR_NAME = "mleap";
 
@@ -14,6 +12,9 @@ public class MLeapFlavor implements Flavor {
 
   @JsonProperty("model_data")
   private String modelDataPath;
+
+  @JsonProperty("input_schema")
+  private String inputSchemaPath;
 
   @Override
   public String getName() {
@@ -30,4 +31,11 @@ public class MLeapFlavor implements Flavor {
     return mleapVersion;
   }
 
+  /**
+   * @return The relative path to the model's serialized input schema. This path is relative to the
+   *     root directory of an MLFlow model
+   */
+  public String getInputSchemaPath() {
+    return inputSchemaPath;
+  }
 }

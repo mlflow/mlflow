@@ -3,14 +3,12 @@ package org.mlflow.sagemaker;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import ml.combust.mleap.core.types.StructType;
 import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
-import ml.combust.mleap.runtime.javadsl.LeapFrameBuilder;
 import org.junit.Assert;
 import org.junit.Test;
 import org.mlflow.MLflowRootResourceProvider;
@@ -18,7 +16,7 @@ import org.mlflow.utils.SerializationUtils;
 
 public class PandasDataFrameTest {
 
-  LeapFrameBuilder builder = new LeapFrameBuilder();
+  private final MLeapSchemaReader schemaReader = new MLeapSchemaReader();
 
   @Test
   public void testPandasDataFrameIsProducedFromValidJsonSuccessfully() throws IOException {
@@ -89,9 +87,9 @@ public class PandasDataFrameTest {
   @Test
   public void testPandasDataFrameWithMLeapCompatibleSchemaIsConvertedToLeapFrameSuccessfully()
       throws IOException {
-    StructType leapFrameSchema = builder.createSchema(Arrays.asList(
-            builder.createField("text", builder.createString()),
-            builder.createField("topic", builder.createString())));
+
+    String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
+    StructType leapFrameSchema = schemaReader.fromFile(schemaPath);
 
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
@@ -110,9 +108,8 @@ public class PandasDataFrameTest {
   @Test
   public void testConvertingPandasDataFrameWithMissingMLeapSchemaFieldThrowsException()
       throws IOException {
-    StructType leapFrameSchema = builder.createSchema(Arrays.asList(
-            builder.createField("text", builder.createString()),
-            builder.createField("topic", builder.createString())));
+    String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
+    StructType leapFrameSchema = schemaReader.fromFile(schemaPath);
 
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
