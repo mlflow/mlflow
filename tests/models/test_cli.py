@@ -17,6 +17,7 @@ from mlflow import pyfunc
 import mlflow.sklearn
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
+from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
 
 in_travis = 'TRAVIS' in os.environ
@@ -77,6 +78,44 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         assert all(expected == actual)
 
 
+def test_mlflow_is_not_installed_unless_specified():
+    if no_conda:
+        pytest.skip("This test requires conda.")
+    with TempDir(chdr=True) as tmp:
+        fake_model_path = tmp.path("fake_model")
+        fake_env_path = tmp.path("fake_env.yaml")
+        _mlflow_conda_env(path=fake_env_path, install_mlflow=False)
+        mlflow.pyfunc.save_model(fake_model_path, loader_module=__name__, conda_env=fake_env_path)
+        # The following should fail because there should be no mlflow in the env:
+        p = subprocess.Popen(["mlflow", "models", "predict", "-m", fake_model_path],
+                             stderr=subprocess.PIPE, cwd=tmp.path(""))
+        _, stderr = p.communicate()
+        stderr = stderr.decode("utf-8")
+        print(stderr)
+        assert p.wait() != 0
+        if PYTHON_VERSION.startswith("3"):
+            assert "ModuleNotFoundError: No module named 'mlflow'" in stderr
+        else:
+            assert "ImportError: No module named mlflow.pyfunc.scoring_server" in stderr
+
+
+def test_model_with_no_deployable_flavors_fails_pollitely():
+    from mlflow.models import Model
+    with TempDir(chdr=True) as tmp:
+        m = Model(artifact_path=None, run_id=None, utc_time_created="now",
+                  flavors={"some": {}, "useless": {}, "flavors": {}})
+        os.mkdir(tmp.path("model"))
+        m.save(tmp.path("model", "MLmodel"))
+        # The following should fail because there should be no suitable flavor
+        p = subprocess.Popen(["mlflow", "models", "predict", "-m", tmp.path("model")],
+                             stderr=subprocess.PIPE, cwd=tmp.path(""))
+        _, stderr = p.communicate()
+        stderr = stderr.decode("utf-8")
+        print(stderr)
+        assert p.wait() != 0
+        assert "No suitable flavor backend was found for the model." in stderr
+
+
 def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
@@ -88,23 +127,6 @@ def test_predict(iris_data, sk_model):
         x, _ = iris_data
         pd.DataFrame(x).to_json(input_json_path, orient="split")
         pd.DataFrame(x).to_csv(input_csv_path, index=False)
-
-        fake_model_path = tmp.path("fake_model")
-        fake_env_path = tmp.path("fake_env.yaml")
-
-        _mlflow_conda_env(path=fake_env_path, install_mlflow=False)
-        mlflow.pyfunc.save_model(fake_model_path, loader_module=__name__, conda_env=fake_env_path)
-        # The following should fail because there should be no mlflow in the env:
-        p = subprocess.Popen(["mlflow", "models", "predict", "-m", fake_model_path, "-i",
-                              input_json_path,
-                              "-o", output_json_path],
-                             stderr=subprocess.PIPE,
-                             cwd=tmp.path(""))
-        _, stderr = p.communicate()
-        stderr = stderr.decode("utf-8")
-        print(stderr)
-        assert p.wait() != 0
-        assert "ModuleNotFoundError: No module named 'mlflow'" in stderr
 
         # Test with no conda
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
