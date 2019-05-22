@@ -28,6 +28,7 @@ To run this tutorial, you'll need to:
     .. container:: python
 
        - Install MLflow (via ``pip install mlflow``)
+       - Install scikit-learn (via ``pip install scikit-learn``)
        - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``cd`` into the ``examples`` directory within your clone of MLflow - we'll use this working
