@@ -1,7 +1,3 @@
-# Install Rd2md from source as a temporary fix for the rendering of code examples, until
-# a release is published including the fixes in https://github.com/quantsch/Rd2md/issues/1
-devtools::install_github("https://github.com/quantsch/Rd2md", ref = "6b48255")
-
 # Generate docs as markdown into a per-session tempdir that's automatically cleaned up when
 # the R session terminates.
 Rd2md::ReferenceManual(outdir = tempdir())
