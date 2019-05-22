@@ -90,7 +90,6 @@ public class PandasDataFrameTest {
 
     String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
     StructType leapFrameSchema = schemaReader.fromFile(schemaPath);
-
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
@@ -110,7 +109,6 @@ public class PandasDataFrameTest {
       throws IOException {
     String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
     StructType leapFrameSchema = schemaReader.fromFile(schemaPath);
-
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
