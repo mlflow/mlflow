@@ -41,7 +41,7 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
             "Generated schema did not match expected schema. Generated schema had table " \
             "definition:\n{generated_table}\nExpected schema had table definition:" \
             "\n{expected_table}\nIf you intended to make schema changes, run " \
-            "'python tests/store/dump_schema.py {expected_file} from your checkout of MLflow to " \
+            "'python tests/store/dump_schema.py {expected_file}' from your checkout of MLflow to " \
             "update the schema snapshot.".format(
                 generated_table=generated_schema_table, expected_table=expected_schema_table,
                 expected_file=expected_schema_file)
@@ -59,12 +59,14 @@ def db_url(tmpdir):
     return "sqlite:///%s" % tmpdir.join("db_file").strpath
 
 
-def test_sqlalchemystore_idempotently_generates_up_to_date_schema(tmpdir, expected_schema_file):
+def test_sqlalchemystore_idempotently_generates_up_to_date_schema(
+        tmpdir, db_url, expected_schema_file):
     generated_schema_file = tmpdir.join("generated-schema.sql").strpath
     # Repeatedly initialize a SQLAlchemyStore against the same DB URL. Initialization should
     # succeed and the schema should be the same.
     for _ in range(3):
-        dump_sqlalchemy_store_schema(dst_file=generated_schema_file)
+        SqlAlchemyStore(db_url, tmpdir.join("ARTIFACTS").strpath)
+        dump_db_schema(db_url, dst_file=generated_schema_file)
         _assert_schema_files_equal(generated_schema_file, expected_schema_file)
 
 
@@ -73,11 +75,8 @@ def test_running_migrations_generates_expected_schema(tmpdir, expected_schema_fi
     engine = sqlalchemy.create_engine(db_url)
     InitialBase.metadata.create_all(engine)
     invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
-    engine = sqlalchemy.create_engine(db_url)
-    created_tables_metadata = MetaData(bind=engine)
-    created_tables_metadata.reflect()
     generated_schema_file = tmpdir.join("generated-schema.sql").strpath
-    dump_db_schema(created_tables_metadata, generated_schema_file)
+    dump_db_schema(db_url, generated_schema_file)
     _assert_schema_files_equal(generated_schema_file, expected_schema_file)
 
 
