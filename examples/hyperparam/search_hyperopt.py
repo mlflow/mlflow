@@ -12,15 +12,14 @@ This example currently does not support parallel execution.
 """
 
 import click
-import math
-
-import os
-import shutil
-import tempfile
+import numpy as np
 
 from hyperopt import fmin, hp, tpe, rand
 
 import mlflow.projects
+from mlflow.tracking.client import MlflowClient
+
+_inf = np.finfo(np.float64).max
 
 
 @click.command(help="Perform hyperparameter search with Hyperopt library."
@@ -35,16 +34,12 @@ import mlflow.projects
               help="Optimizer algorhitm.")
 @click.option("--seed", type=click.INT, default=97531,
               help="Seed for the random generator")
-@click.option("--training-experiment-id", type=click.INT, default=-1,
-              help="Maximum number of runs to evaluate. Inherit parent;s experiment if == -1.")
 @click.argument("training_data")
-def train(training_data, max_runs, epochs, metric, algo, seed, training_experiment_id):
+def train(training_data, max_runs, epochs, metric, algo, seed):
     """
     Run hyperparameter optimization.
     """
     # create random file to store run ids of the training tasks
-    tmp = tempfile.mkdtemp()
-    results_path = os.path.join(tmp, "results")
     tracking_client = mlflow.tracking.MlflowClient()
 
     def new_eval(nepochs,
@@ -79,31 +74,31 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
             """
             import mlflow.tracking
             lr, momentum = params
-            p = mlflow.projects.run(
-                uri=".",
-                entry_point="train",
-                parameters={
-                    "training_data": training_data,
-                    "epochs": str(nepochs),
-                    "learning_rate": str(lr),
-                    "momentum": str(momentum),
-                    "seed": seed},
-                experiment_id=experiment_id
-            )
-
-            if p.wait():
+            with mlflow.start_run(nested=True) as child_run:
+                p = mlflow.projects.run(
+                    uri=".",
+                    entry_point="train",
+                    run_id=child_run.info.run_id,
+                    parameters={
+                        "training_data": training_data,
+                        "epochs": str(nepochs),
+                        "learning_rate": str(lr),
+                        "momentum": str(momentum),
+                        "seed": seed},
+                    experiment_id=experiment_id,
+                    use_conda=False  # We are already in the environment
+                )
+                succeded = p.wait()
+            if succeded:
                 training_run = tracking_client.get_run(p.run_id)
-
-                def get_metric(metric_name):
-                    return training_run.data.metrics[metric_name].value
-
+                metrics = training_run.data.metrics
                 # cap the loss at the loss of the null model
                 train_loss = min(null_train_loss,
-                                 get_metric("train_{}".format(metric)))
+                                 metrics["train_{}".format(metric)])
                 valid_loss = min(null_valid_loss,
-                                 get_metric("val_{}".format(metric)))
+                                 metrics["val_{}".format(metric)])
                 test_loss = min(null_test_loss,
-                                get_metric("test_{}".format(metric)))
+                                metrics["test_{}".format(metric)])
             else:
                 # run failed => return null loss
                 tracking_client.set_terminated(p.run_id, "FAILED")
@@ -111,15 +106,12 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
                 valid_loss = null_valid_loss
                 test_loss = null_test_loss
 
-            mlflow.log_metric("train_{}".format(metric), train_loss)
-            mlflow.log_metric("val_{}".format(metric), valid_loss)
-            mlflow.log_metric("test_{}".format(metric), test_loss)
+            mlflow.log_metrics({
+                "train_{}".format(metric): train_loss,
+                "val_{}".format(metric):  valid_loss,
+                "test_{}".format(metric): test_loss
+            })
 
-            with open(results_path, "a") as f:
-                f.write("{runId} {train} {val} {test}\n".format(runId=p.run_id,
-                                                                train=train_loss,
-                                                                val=valid_loss,
-                                                                test=test_loss))
             if return_all:
                 return train_loss, valid_loss, test_loss
             else:
@@ -133,14 +125,13 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
     ]
 
     with mlflow.start_run() as run:
-        experiment_id = run.info.experiment_id if training_experiment_id == -1 \
-            else training_experiment_id
+        experiment_id = run.info.experiment_id
         # Evaluate null model first.
         train_null_loss, valid_null_loss, test_null_loss = new_eval(0,
                                                                     experiment_id,
-                                                                    math.inf,
-                                                                    math.inf,
-                                                                    math.inf,
+                                                                    _inf,
+                                                                    _inf,
+                                                                    _inf,
                                                                     True)(params=[0, 0])
         best = fmin(fn=new_eval(epochs,
                                 experiment_id,
@@ -150,31 +141,28 @@ def train(training_data, max_runs, epochs, metric, algo, seed, training_experime
                     space=space,
                     algo=tpe.suggest if algo == "tpe.suggest" else rand.suggest,
                     max_evals=max_runs)
-        print("best", best)
-        best_val_train = math.inf
-        best_val_valid = math.inf
-        best_val_test = math.inf
+        mlflow.set_tag("best params", str(best))
+        # find the best run, log its metrics as the final metrics of this run.
+        client = MlflowClient()
+        runs = client.search_runs([experiment_id], "tags.mlflow.parentRunId = '{run_id}' ".format(
+            run_id=run.info.run_id
+        ))
+        best_val_train = _inf
+        best_val_valid = _inf
+        best_val_test = _inf
         best_run = None
-        # we do not have tags yet, for now store list of executed runs as an artifact
-        mlflow.log_artifact(results_path, "training_runs")
-        with open(results_path) as f:
-            for line in f.readlines():
-                run_id, str_val, str_val2, str_val3 = line.split(" ")
-                val = float(str_val2)
-                if val < best_val_valid:
-                    best_val_train = float(str_val)
-                    best_val_valid = val
-                    best_val_test = float(str_val3)
-                    best_run = run_id
-        # record which run produced the best results, store it as a param for now
-        best_run_path = os.path.join(os.path.join(tmp, "best_run.txt"))
-        with open(best_run_path, "w") as f:
-            f.write("{run_id} {val}\n".format(run_id=best_run, val=best_val_valid))
-        mlflow.log_artifact(best_run_path, "best-run")
-        mlflow.log_metric("train_{}".format(metric), best_val_train)
-        mlflow.log_metric("val_{}".format(metric), best_val_valid)
-        mlflow.log_metric("test_{}".format(metric), best_val_test)
-        shutil.rmtree(tmp)
+        for r in runs:
+            if r.data.metrics["val_rmse"] < best_val_valid:
+                best_run = r
+                best_val_train = r.data.metrics["train_rmse"]
+                best_val_valid = r.data.metrics["val_rmse"]
+                best_val_test = r.data.metrics["test_rmse"]
+        mlflow.set_tag("best_run", best_run.info.run_id)
+        mlflow.log_metrics({
+            "train_{}".format(metric): best_val_train,
+            "val_{}".format(metric): best_val_valid,
+            "test_{}".format(metric): best_val_test
+        })
 
 
 if __name__ == '__main__':

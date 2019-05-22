@@ -8,8 +8,7 @@ dependencies:
   - scikit-learn=0.19.1
   - matplotlib=2.2.2
   - pip:
-    - mlflow>=0.5.2
-    - click==6.7
+    - mlflow>=1.0
     - Gpy==1.9.2
     - GpyOpt==1.2.5
     - tensorflow==1.10.1

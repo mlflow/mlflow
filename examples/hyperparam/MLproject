@@ -27,14 +27,13 @@ entry_points:
       epochs: {type: int, default: 32}
       metric: {type: string, default: "rmse"}
       seed: {type: int, default: 97531}
-      training_experiment_id: {type: int, default: "-1"}
     command: "python search_random.py  {training_data}
                                              --max-runs {max_runs}
                                              --max-p {max_p}
                                              --epochs {epochs}
                                              --metric {metric}
-                                             --seed {seed}
-                                             --training-experiment-id {training_experiment_id}"
+                                             --seed {seed}"
+
 
 
   # Use GPyOpt to optimize hyperparams of the train entry_point.
@@ -50,7 +49,6 @@ entry_points:
       gpy_acquisition: {type: string, default: "EI"}
       initial_design: {type: string, default: "random"}
       seed: {type: int, default: 97531}
-      training_experiment_id: {type: int, default: "-1"}
 
     command: "python search_gpyopt.py  {training_data}
                                              --max-runs {max_runs}
@@ -61,8 +59,7 @@ entry_points:
                                              --gpy-model {gpy_model}
                                              --gpy-acquisition {gpy_acquisition}
                                              --initial-design {initial_design}
-                                             --seed {seed}
-                                             --training-experiment-id {training_experiment_id}"
+                                             --seed {seed}"
 
   # Use Hyperopt to optimize hyperparams of the train entry_point.
   hyperopt:
@@ -73,14 +70,12 @@ entry_points:
       metric: {type: string, default: "rmse"}
       algo: {type: string, default: "tpe.suggest"}
       seed: {type: int, default: 97531}
-      training_experiment_id: {type: int, default: "-1"}
     command: "python -O search_hyperopt.py {training_data}
                                                  --max-runs {max_runs}
                                                  --epochs {epochs}
                                                  --metric {metric}
                                                  --algo {algo}
-                                                 --seed {seed}
-                                                 --training-experiment-id {training_experiment_id}"
+                                                 --seed {seed}"
 
 
 
