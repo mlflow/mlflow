@@ -502,7 +502,9 @@ Load MLflow Model Flavor
 
 Loads an MLflow model using a specific flavor. This method is called
 internally by `mlflow_load_model <#mlflow-load-model>`__ , but is
-exposed for package authors to extend the supported MLflow models.
+exposed for package authors to extend the supported MLflow models. See
+https://mlflow.org/docs/latest/models.html#storage-format for more info
+on MLflow model flavors.
 
 .. code:: r
 
@@ -513,13 +515,18 @@ exposed for package authors to extend the supported MLflow models.
 Arguments
 ---------
 
-+----------------+------------------------------------------------------------+
-| Argument       | Description                                                |
-+================+============================================================+
-| ``flavor``     | An MLflow flavor object.                                   |
-+----------------+------------------------------------------------------------+
-| ``model_path`` | The path to the MLflow model wrapped in the correct class. |
-+----------------+------------------------------------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``flavor``                    | An MLflow flavor object loaded by    |
+|                               | `mlflow_load_model <#mlflow-load-mod |
+|                               | el>`__                               |
+|                               | , with class loaded from the flavor  |
+|                               | field in an MLmodel file.            |
++-------------------------------+--------------------------------------+
+| ``model_path``                | The path to the MLflow model wrapped |
+|                               | in the correct class.                |
++-------------------------------+--------------------------------------+
 
 ``mlflow_load_model``
 =====================

@@ -119,9 +119,11 @@ mlflow_flavor <- function(flavor) {
 #'
 #' Loads an MLflow model using a specific flavor. This method is called internally by
 #' \link[mlflow]{mlflow_load_model}, but is exposed for package authors to extend the supported
-#' MLflow models.
+#' MLflow models. See https://mlflow.org/docs/latest/models.html#storage-format for more
+#' info on MLflow model flavors.
 #'
-#' @param flavor An MLflow flavor object.
+#' @param flavor An MLflow flavor object loaded by \link[mlflow]{mlflow_load_model}, with class
+#' loaded from the flavor field in an MLmodel file.
 #' @param model_path The path to the MLflow model wrapped in the correct
 #'   class.
 #'
