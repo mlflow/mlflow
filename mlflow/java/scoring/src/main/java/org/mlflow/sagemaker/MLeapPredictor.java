@@ -36,15 +36,18 @@ public class MLeapPredictor extends Predictor {
    * Constructs an {@link MLeapPredictor}
    *
    * @param modelDataPath The path to the serialized MLeap model
+   * @param inputSchemaPath The path to JSON-formatted file containing the input schema that the
+   *     model accepts
    */
   public MLeapPredictor(String modelDataPath, String inputSchemaPath) {
     MleapContext mleapContext = new ContextBuilder().createMleapContext();
     BundleBuilder bundleBuilder = new BundleBuilder();
-    this.pipelineTransformer = bundleBuilder.load(new File(modelDataPath), mleapContext).root();
+    MLeapSchemaReader schemaReader = new MLeapSchemaReader();
     this.leapFrameSupport = new LeapFrameSupport();
 
+    this.pipelineTransformer = bundleBuilder.load(new File(modelDataPath), mleapContext).root();
     try {
-      this.inputSchema = new MLeapSchemaReader().fromFile(inputSchemaPath);
+      this.inputSchema = schemaReader.fromFile(inputSchemaPath);
     } catch (Exception e) {
       logger.error("Could not read the model input schema from the specified path", e);
       throw new PredictorLoadingException(
