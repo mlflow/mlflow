@@ -1,20 +1,30 @@
-# Snapshot of MLflow DB models as of the 0.9.1 release, prior to the first database migration.
-# Used to standardize initial database state.
-# Copied with modifications from
-# https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, which
-# is the first database schema that users could be running. In particular, modifications have
-# been made to substitute constants from MLflow with hard-coded values (e.g. replacing
-# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK") and ensure
-# that all constraint names are unique. Note that pre-1.0 database schemas did not have unique
-# constraint names - we provided a one-time migration script for pre-1.0 users so that their
-# database schema matched the schema in this file.
+"""ensure_unique_constraint_names
+
+Revision ID: ff01da956556
+Revises: 
+Create Date: 2019-05-18 22:58:06.487489
+
+"""
 import time
+
+from alembic import op
+from sqlalchemy import column, CheckConstraint
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
     Column, String, Float, ForeignKey, Integer, CheckConstraint,
     BigInteger, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
 
+# revision identifiers, used by Alembic.
+revision = 'ff01da956556'
+down_revision = None
+branch_labels = None
+depends_on = None
+
+# Inline initial runs and experiment table schema for use in migration logic
+# Copied from https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, with
+# modifications to substitute constants from MLflow with hard-coded values (e.g. replacing
+# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK").
 Base = declarative_base()
 
 
@@ -63,7 +73,7 @@ class SqlExperiment(Base):
     __table_args__ = (
         CheckConstraint(
             lifecycle_stage.in_(["active", "deleted"]),
-            name='experiments_lifecycle_stage'),
+            name='lifecycle_stage'),
         PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
 
@@ -141,100 +151,34 @@ class SqlRun(Base):
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
         CheckConstraint(lifecycle_stage.in_(["active", "deleted"]),
-                        name='runs_lifecycle_stage'),
+                        name='lifecycle_stage'),
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
 
-class SqlTag(Base):
-    """
-    DB model for :py:class:`mlflow.entities.RunTag`. These are recorded in ``tags`` table.
-    """
-    __tablename__ = 'tags'
-
-    key = Column(String(250))
-    """
-    Tag key: `String` (limit 250 characters). *Primary Key* for ``tags`` table.
-    """
-    value = Column(String(250), nullable=True)
-    """
-    Value associated with tag: `String` (limit 250 characters). Could be *null*.
-    """
-    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
-    """
-    Run UUID to which this tag belongs to: *Foreign Key* into ``runs`` table.
-    """
-    run = relationship('SqlRun', backref=backref('tags', cascade='all'))
-    """
-    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
-    """
-
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid', name='tag_pk'),
-    )
-
-    def __repr__(self):
-        return '<SqlRunTag({}, {})>'.format(self.key, self.value)
+def upgrade():
+    # Use batch mode so that we can run "ALTER TABLE" statements against SQLite
+    # databases (see more info at https://alembic.sqlalchemy.org/en/latest/
+    # batch.html#running-batch-migrations-for-sqlite-and-other-databases).
+    # Also, we directly pass the schema of the table we're modifying to circumvent shortcomings
+    # in Alembic's ability to reflect CHECK constraints, as described in
+    # https://alembic.sqlalchemy.org/en/latest/batch.html#working-in-offline-mode
+    with op.batch_alter_table("experiments", copy_from=SqlExperiment.__table__) as batch_op:
+        batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
+        batch_op.create_check_constraint(
+            constraint_name="experiments_lifecycle_stage",
+            condition=column('lifecycle_stage').in_(["active", "deleted"])
+        )
+    with op.batch_alter_table("runs", copy_from=SqlRun.__table__) as batch_op:
+        batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
+        batch_op.create_check_constraint(
+            constraint_name="runs_lifecycle_stage",
+            condition=column('lifecycle_stage').in_(["active", "deleted"])
+        )
 
 
-class SqlMetric(Base):
-    __tablename__ = 'metrics'
-
-    key = Column(String(250))
-    """
-    Metric key: `String` (limit 250 characters). Part of *Primary Key* for ``metrics`` table.
-    """
-    value = Column(Float, nullable=False)
-    """
-    Metric value: `Float`. Defined as *Non-null* in schema.
-    """
-    timestamp = Column(BigInteger, default=lambda: int(time.time()))
-    """
-    Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
-                                               ``metrics`` table.
-    """
-    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
-    """
-    Run UUID to which this metric belongs to: Part of *Primary Key* for ``metrics`` table.
-                                              *Foreign Key* into ``runs`` table.
-    """
-    run = relationship('SqlRun', backref=backref('metrics', cascade='all'))
-    """
-    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
-    """
-
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'run_uuid', name='metric_pk'),
-    )
-
-    def __repr__(self):
-        return '<SqlMetric({}, {}, {})>'.format(self.key, self.value, self.timestamp)
-
-
-class SqlParam(Base):
-    __tablename__ = 'params'
-
-    key = Column(String(250))
-    """
-    Param key: `String` (limit 250 characters). Part of *Primary Key* for ``params`` table.
-    """
-    value = Column(String(250), nullable=False)
-    """
-    Param value: `String` (limit 250 characters). Defined as *Non-null* in schema.
-    """
-    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
-    """
-    Run UUID to which this metric belongs to: Part of *Primary Key* for ``params`` table.
-                                              *Foreign Key* into ``runs`` table.
-    """
-    run = relationship('SqlRun', backref=backref('params', cascade='all'))
-    """
-    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
-    """
-
-    __table_args__ = (
-        PrimaryKeyConstraint('key', 'run_uuid', name='param_pk'),
-    )
-
-    def __repr__(self):
-        return '<SqlParam({}, {})>'.format(self.key, self.value)
+def downgrade():
+    # Omit downgrade logic for now - we don't currently provide users a command/API for
+    # reverting a database migration, instead recommending that they take a database backup
+    # before running the migration.
+    pass

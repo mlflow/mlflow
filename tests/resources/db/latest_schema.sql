@@ -12,7 +12,7 @@ CREATE TABLE experiments (
 	lifecycle_stage VARCHAR(32), 
 	CONSTRAINT experiment_pk PRIMARY KEY (experiment_id), 
 	UNIQUE (name), 
-	CONSTRAINT lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
+	CONSTRAINT experiments_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
 )
 
 
@@ -32,9 +32,9 @@ CREATE TABLE runs (
 	experiment_id INTEGER, 
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid), 
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id), 
-	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')), 
 	CONSTRAINT status CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING')), 
-	CONSTRAINT lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
+	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')), 
+	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
 )
 
 
