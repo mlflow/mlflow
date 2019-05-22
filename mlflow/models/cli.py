@@ -37,10 +37,9 @@ def serve(model_uri, port, host, no_conda=False, install_mlflow=False):
     _serve(model_uri, port, host, no_conda, install_mlflow)
 
 
-# NB: For internal use only. The body of serve is extracted into a private function so that it can
-# be called from python. Calling cli from inside an environment is dangerouse because it could point
-# to the base environment in case mlflow is missing in the current one which could lead to confusing
-# errors.
+# NB: For internal use only. Defines serve api callable from python. Calling cli from inside
+# a conda  environment is dangerous because it could point to the base environment if mlflow is not
+# installed in the active environment.
 def _serve(model_uri, port, host, no_conda, install_mlflow):
     return _get_flavor_backend(model_uri, no_conda=no_conda,
                                install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
@@ -78,10 +77,9 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
              install_mlflow)
 
 
-# NB: For internal use only. The body of predict is extracted into a private function so that it can
-# be called from python. Calling cli from inside an environment is dangerouse because it could point
-# to the base environment in case mlflow is missing in the current one which could lead to confusing
-# errors.
+# NB: For internal use only. Defines prediction api callable from python. Calling cli from inside
+# a conda  environment is dangerous because it could point to the base environment if mlflow is not
+# installed in the active environment.
 def _predict(model_uri, input_path, output_path, content_type, json_format, no_conda,
              install_mlflow):
     return _get_flavor_backend(model_uri, no_conda=no_conda,
