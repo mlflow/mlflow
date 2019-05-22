@@ -1,10 +1,13 @@
 # Snapshot of MLflow DB models as of the 0.9.1 release, prior to the first database migration.
 # Used to standardize initial database state.
-# Copied from https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, with
-# modifications to substitute constants from MLflow with hard-coded values (e.g. replacing
-# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK") and changes to ensure
-# that all constraint names are unique. Unique constraint names are important to allow using the
-# MLflow tracking DB with DBMSes that require unique constraint names (e.g. MySQL >= 8.0).
+# Copied with modifications from
+# https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, which
+# is the first database schema that users could be running. In particular, modifications have
+# been made to substitute constants from MLflow with hard-coded values (e.g. replacing
+# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK") and ensure
+# that all constraint names are unique. Note that pre-1.0 database schemas did not have unique
+# constraint names - we provided a one-time migration script for pre-1.0 users so that their
+# database schema matched the schema in this file.
 import time
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (

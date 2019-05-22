@@ -54,7 +54,13 @@ def _upgrade_db(url):
 def _upgrade_db_for_pre_1_users(url):
     """
     Upgrades the schema of an MLflow tracking database created prior to MLflow 1.0, removing
-    duplicate constraint names. TODO: remove this method in MLflow 1.1.
+    duplicate constraint names. This method performs a one-time update for pre-1.0 users that we
+    plan to make available in MLflow 1.0 but remove in successive versions (e.g. MLflow 1.1),
+    after which we will assume that effectively all databases have been initialized using the schema
+    in mlflow.store.dbmodels.initial_models (with a small number of special-case databases
+    initialized pre-1.0 and migrated to have the same schema as mlflow.store.dbmodels.initial_models
+    via this method).
+    TODO: remove this method in MLflow 1.1.
     """
     # alembic adds significant import time, so we import it lazily
     from alembic import command
@@ -63,4 +69,8 @@ def _upgrade_db_for_pre_1_users(url):
     alembic_dir = os.path.join(_get_package_dir(), 'temporary_db_migrations_for_pre_1_users')
     config = _get_alembic_config(url, alembic_dir)
     command.upgrade(config, 'heads')
+    # Reset the alembic version to "base" (the 'first' version) so that a) the versioning system
+    # is unaware that this migration occurred and b) subsequent migrations, like the migration to
+    # add metric steps, do not need to depend on this one. This allows us to eventually remove this
+    # method and the associated migration e.g. in MLflow 1.1.
     command.stamp(config, "base")
