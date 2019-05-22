@@ -24,6 +24,7 @@ pytest tests --large --ignore=tests/h2o --ignore=tests/keras \
 pytest --verbose tests/h2o --large
 # TODO(smurching): Re-enable Keras tests once they're no longer flaky
 # - pytest --verbose tests/keras --large
+pytest --verbose tests/models --large
 pytest --verbose tests/pytorch --large
 pytest --verbose tests/pyfunc --large
 pytest --verbose tests/sagemaker --large

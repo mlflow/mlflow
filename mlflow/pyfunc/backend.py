@@ -1,17 +1,17 @@
 import logging
 import os
+from six.moves import shlex_quote
 import subprocess
 
-from mlflow.pyfunc import ENV
-
-from mlflow.pyfunc import scoring_server
 from mlflow.models import FlavorBackend
-
-from mlflow.utils.file_utils import TempDir
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.pyfunc import ENV
+from mlflow.pyfunc import scoring_server
 from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.file_utils import TempDir
+from mlflow.version import VERSION
 
-from six.moves import shlex_quote
+
 
 _logger = logging.getLogger(__name__)
 
@@ -35,17 +35,20 @@ class PyFuncBackend(FlavorBackend):
             local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
             if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
-                command = ("mlflow models predict --no-conda "
-                           "--model-uri {0} "
-                           "--content-type {1} "
-                           "--json-format {2}").format(
-                    shlex_quote(local_path),
-                    content_type,
-                    json_format)
-                if input_path is not None:
-                    command += " -i {}".format(shlex_quote(input_path))
-                if output_path is not None:
-                    command += " -o {}".format(shlex_quote(output_path))
+                command = ('python -c "from mlflow.models.cli import _predict; _predict('
+                           'model_uri={model_uri}, '
+                           'input_path={input_path}, '
+                           'output_path={output_path}, '                            
+                           'content_type={content_type}, '
+                           'json_format={json_format}, '
+                           'no_conda=True, '
+                           'install_mlflow=False)"'
+                           ).format(
+                             model_uri=repr(model_uri),
+                             input_path=repr(input_path),
+                             output_path=repr(output_path),
+                             content_type=repr(content_type),
+                             json_format=repr(json_format))
                 return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
             else:
                 scoring_server._predict(local_path, input_path, output_path, content_type,
@@ -59,10 +62,20 @@ class PyFuncBackend(FlavorBackend):
             local_path = shlex_quote(_download_artifact_from_uri(model_uri, output_path=tmp.path()))
             if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
-                command = "mlflow models serve --no-conda --model-uri {0} --port {1} --host {2}". \
-                    format(shlex_quote(local_path), port, host)
-                return scoring_server._execute_in_conda_env(conda_env_path, command,
-                                                            self._install_mlflow)
+
+                command = ('python -c "from mlflow.models.cli import _serve; _serve(' 
+                           'model_uri={model_uri}, ' 
+                           'port={port}, '
+                           'host={host}, '
+                           'no_conda=True,'
+                           'install_mlflow=False'
+                           ).format(
+                             model_uri=repr(model_uri),
+                             input_path=repr(input_path),
+                             output_path=repr(output_path))
+
+                return _execute_in_conda_env(conda_env_path, command,
+                                             self._install_mlflow)
             else:
                 scoring_server._serve(local_path, port, host)
 
@@ -84,8 +97,14 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow):
     conda_env_name = _get_or_create_conda_env(conda_env_path)
     activate_path = _get_conda_bin_executable("activate")
     activate_conda_env = ["source {0} {1}".format(activate_path, conda_env_name)]
+
     if install_mlflow:
-        activate_conda_env += ["pip install -U mlflow 1>&2"]
+        if "MLFLOW_HOME" in os.environ:  # dev version
+            install_mlflow = "pip install -e {} 1>&2".format(os.environ["MLFLOW_HOME"])
+        else:
+            install_mlflow = "pip install -U mlflow>={} 1>&2".format(VERSION)
+
+        activate_conda_env += [install_mlflow]
 
     command = " && ".join(activate_conda_env + [command])
     _logger.info("=== Running command '%s'", command)
