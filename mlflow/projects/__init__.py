@@ -19,6 +19,7 @@ import docker
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
+import mlflow.tracking.context as context
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException, MlflowException
@@ -28,8 +29,8 @@ from mlflow.tracking.context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
-    MLFLOW_DOCKER_IMAGE_ID, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, \
-    MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
+    MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
+    MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
     LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID
 from mlflow.utils import databricks_utils, file_utils
 
@@ -114,7 +115,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     elif backend == "local" or backend is None:
         command = []
         command_separator = " "
-        # If a docker_env attribute is defined in MLProject then it takes precedence over conda yaml
+        # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
@@ -559,6 +560,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
         parent_run_id = None
 
     tags = {
+        MLFLOW_USER: context._get_user(),
         MLFLOW_SOURCE_NAME: source_name,
         MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PROJECT),
         MLFLOW_PROJECT_ENTRY_POINT: entry_point
@@ -692,7 +694,7 @@ def _build_docker_image(work_dir, project, active_run):
     built image with the project name specified by `project`.
     """
     if not project.name:
-        raise ExecutionException("Project name in MLProject must be specified when using docker "
+        raise ExecutionException("Project name in MLproject must be specified when using docker "
                                  "for image tagging.")
     tag_name = "mlflow-{name}-{version}".format(
         name=(project.name if project.name else "docker-project"),

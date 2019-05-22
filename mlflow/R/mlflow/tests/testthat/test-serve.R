@@ -1,12 +1,13 @@
 context("Serve")
 
+library("carrier")
+
 test_that("mlflow can serve a model function", {
   mlflow_clear_test_dir("model")
 
   model <- lm(Sepal.Width ~ Sepal.Length + Petal.Width, iris)
-
-  fn <- crate(~ stats::predict(model, .x), model)
-  mlflow_save_model(fn)
+  fn <- crate(~ stats::predict(model, .x), model = model)
+  mlflow_save_model(fn, path = "model")
   expect_true(dir.exists("model"))
   model_server <- processx::process$new(
     "Rscript",
@@ -45,7 +46,7 @@ test_that("mlflow can serve a model function", {
   model_server$kill()
 
   expect_equal(
-    unlist(http_prediction$predictions),
+    unlist(http_prediction),
     as.vector(predict(model, newdata)),
     tolerance = 1e-5
   )

@@ -4,8 +4,9 @@ import mock
 import numpy
 import pytest
 
-from mlflow.utils.rest_utils import NumpyEncoder, http_request, http_request_safe,\
+from mlflow.utils.rest_utils import http_request, http_request_safe,\
     MlflowHostCreds, _DEFAULT_HEADERS
+from mlflow.pyfunc.scoring_server import NumpyEncoder
 from mlflow.exceptions import MlflowException, RestException
 
 
