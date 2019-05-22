@@ -8,7 +8,6 @@
 #'   will be saved.
 #' @param ... Optional additional arguments.
 #' @importFrom yaml write_yaml
-#' @rdname mlflow_save_model
 #' @export
 mlflow_save_model <- function(model, path, ...) {
   UseMethod("mlflow_save_model")
@@ -25,6 +24,7 @@ mlflow_save_model <- function(model, path, ...) {
 #' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
 #'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
 #'   dependencies file for flavors (e.g. keras) that support conda environments.
+#'
 #' @export
 mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)
