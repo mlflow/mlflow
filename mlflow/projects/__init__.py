@@ -431,6 +431,12 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
+    :param conda_env_path: Path to a conda yaml file.
+    :param env_id: Optional string that is added to the contents of the yaml file before
+                   calculating the hash. It can be used to distinguish environments that have the
+                   same conda dependencies but are supposed to be different based on the context.
+                   For example, when serving the model we may install additional dependencies to the
+                   environment after the environment has been activated.
     """
     conda_path = _get_conda_bin_executable("conda")
     try:

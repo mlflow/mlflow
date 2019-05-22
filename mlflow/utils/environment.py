@@ -25,8 +25,8 @@ def _mlflow_conda_env(path=None, additional_conda_deps=None, additional_pip_deps
     """
     env = yaml.safe_load(_conda_header)
     env["dependencies"] = ["python={}".format(PYTHON_VERSION)]
-    pip_deps = ["mlflow"] if install_mlflow else [] + additional_pip_deps if additional_pip_deps \
-        else []
+    pip_deps = (["mlflow"] if install_mlflow else []) + (
+        additional_pip_deps if additional_pip_deps else [])
     if additional_conda_deps is not None:
         env["dependencies"] += additional_conda_deps
     env["dependencies"].append({"pip": pip_deps})

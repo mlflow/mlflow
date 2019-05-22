@@ -13,8 +13,10 @@ except ImportError:
     from io import StringIO
 
 import mlflow
+from mlflow import pyfunc
 import mlflow.sklearn
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
+from tests.models import test_pyfunc
 
 in_travis = 'TRAVIS' in os.environ
 # NB: for now, windows tests on Travis do not have conda available.
@@ -40,6 +42,39 @@ def sk_model(iris_data):
     knn_model = sklearn.neighbors.KNeighborsClassifier()
     knn_model.fit(x, y)
     return knn_model
+
+
+def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
+    if no_conda:
+        pytest.skip("This test needs conda.")
+    # TODO: Enable this test after 1.0 is out to ensure we do not break the serve / predict
+    # TODO: Also add a test for serve, not just predict.
+    pytest.skip("TODO: enable this after 1.0 release is out.")
+    x, _ = iris_data
+    with TempDir() as tmp:
+        input_records_path = tmp.path("input_records.json")
+        pd.DataFrame(x).to_json(input_records_path, orient="records")
+        output_json_path = tmp.path("output.json")
+        test_model_path = tmp.path("test_model")
+        from mlflow.utils.environment import _mlflow_conda_env
+        test_model_conda_path = tmp.path("conda.yml")
+        # create env with odl mlflow!
+        _mlflow_conda_env(path=test_model_conda_path,
+                          additional_pip_deps=["mlflow=={}".format(test_pyfunc.MLFLOW_VERSION)])
+        pyfunc.save_model(path=test_model_path,
+                          loader_module=test_pyfunc.__name__.split(".")[-1],
+                          code_path=[test_pyfunc.__file__],
+                          conda_env=test_model_conda_path)
+        # explicit json format with orient records
+        p = subprocess.Popen(["mlflow", "models", "predict", "-m",
+                              path_to_local_file_uri(test_model_path), "-i", input_records_path,
+                              "-o", output_json_path, "-t", "json", "--json-format", "records"]
+                             + no_conda)
+        assert 0 == p.wait()
+        actual = pd.read_json(output_json_path, orient="records")
+        actual = actual[actual.columns[0]].values
+        expected = test_pyfunc.PyFuncTestModel(check_version=False).predict(df=pd.DataFrame(x))
+        assert all(expected == actual)
 
 
 def test_predict(iris_data, sk_model):
