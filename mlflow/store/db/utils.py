@@ -2,6 +2,9 @@ import os
 
 import logging
 
+from alembic.migration import MigrationContext  # pylint: disable=import-error
+import sqlalchemy
+
 
 _logger = logging.getLogger(__name__)
 
@@ -51,15 +54,28 @@ def _upgrade_db(url):
     command.upgrade(config, 'heads')
 
 
-def _upgrade_db_for_pre_1_users(url):
+def _get_schema_version(engine):
+    with engine.connect() as connection:
+        mc = MigrationContext.configure(connection)
+        return mc.get_current_revision()
+
+def _is_initialized_before_mlflow_1(url):
     """
-    Upgrades the schema of an MLflow tracking database created prior to MLflow 1.0, removing
-    duplicate constraint names. This method performs a one-time update for pre-1.0 users that we
-    plan to make available in MLflow 1.0 but remove in successive versions (e.g. MLflow 1.1),
-    after which we will assume that effectively all databases have been initialized using the schema
-    in mlflow.store.dbmodels.initial_models (with a small number of special-case databases
-    initialized pre-1.0 and migrated to have the same schema as mlflow.store.dbmodels.initial_models
-    via this method).
+    A database is initialized before MLflow 1.0 if and only if its revision ID is set to None.
+    """
+    engine = sqlalchemy.create_engine(url)
+    return _get_schema_version(engine) is None
+
+
+def _upgrade_db_initialized_before_mlflow_1(url):
+    """
+    Updates the database schema of an MLflow tracking database created prior to MLflow 1.0,
+    removing duplicate constraint names. This method performs a one-time update for pre-1.0 users
+    that we plan to make available in MLflow 1.0 but remove in successive versions
+    (e.g. MLflow 1.1), after which we will assume that effectively all databases have been
+    initialized using the schema in mlflow.store.dbmodels.initial_models (with a small number of
+    special-case databases initialized pre-1.0 and migrated to have the same schema as
+    mlflow.store.dbmodels.initial_models via this method).
     TODO: remove this method in MLflow 1.1.
     """
     # alembic adds significant import time, so we import it lazily

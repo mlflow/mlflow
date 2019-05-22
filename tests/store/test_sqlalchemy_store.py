@@ -17,6 +17,7 @@ from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment,
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.db.utils import _get_schema_version
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
@@ -1092,6 +1093,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self._verify_logged(run.info.run_id, params=[], metrics=[metric0], tags=[])
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric1], tags=[])
         self._verify_logged(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
+
+    def test_upgrade_cli_idempotence(self):
+        # Repeatedly run `mlflow db upgrade` against our database, verifying that the command
+        # succeeds and that the DB has the latest schema
+        engine = sqlalchemy.create_engine(self.db_url)
+        assert _get_schema_version(engine) == SqlAlchemyStore._get_latest_schema_revision()
+        for _ in range(3):
+            invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
+            assert _get_schema_version(engine) == SqlAlchemyStore._get_latest_schema_revision()
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):

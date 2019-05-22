@@ -22,7 +22,7 @@ from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
     _validate_run_id, _validate_metric
-from mlflow.store.db.utils import _upgrade_db, _get_alembic_config
+from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
 
@@ -98,25 +98,29 @@ class SqlAlchemyStore(AbstractStore):
         _upgrade_db(engine_url)
 
     @staticmethod
-    def _verify_schema(engine):
-        engine_url = str(engine.url)
-        config = _get_alembic_config(engine_url)
+    def _get_latest_schema_revision():
+        """Get latest schema revision as a string."""
+        # We aren't executing any commands against a DB, so we leave the DB URL unspecified
+        config = _get_alembic_config(db_url="")
         script = ScriptDirectory.from_config(config)
         heads = script.get_heads()
         if len(heads) != 1:
-            raise MlflowException("Unexpected database state, got %s head database versions but "
-                                  "expected only 1. Found versions: %s" % (len(heads), heads))
-        head_revision = heads[0]
-        with engine.connect() as connection:
-            mc = MigrationContext.configure(connection)
-            current_rev = mc.get_current_revision()
-            if current_rev != head_revision:
-                raise MlflowException(
-                    "Detected out-of-date database schema (found version %s, but expected %s). "
-                    "Take a backup of your database, then run 'mlflow db upgrade %s' to migrate "
-                    "your database to the latest schema. NOTE: schema migration may result in "
-                    "database downtime - please consult your database's documentation for more "
-                    "detail." % (current_rev, head_revision, engine_url))
+            raise MlflowException("Migration script directory was in unexpected state. Got %s head "
+                                  "database versions but expected only 1. Found versions: %s"
+                                  % (len(heads), heads))
+        return heads[0]
+
+    @staticmethod
+    def _verify_schema(engine):
+        head_revision = SqlAlchemyStore._get_latest_schema_revision()
+        current_rev = _get_schema_version(engine)
+        if current_rev != head_revision:
+            raise MlflowException(
+                "Detected out-of-date database schema (found version %s, but expected %s). "
+                "Take a backup of your database, then run 'mlflow db upgrade %s' to migrate "
+                "your database to the latest schema. NOTE: schema migration may result in "
+                "database downtime - please consult your database's documentation for more "
+                "detail." % (current_rev, head_revision, str(engine.url)))
 
     @staticmethod
     def _get_managed_session_maker(SessionMaker):
