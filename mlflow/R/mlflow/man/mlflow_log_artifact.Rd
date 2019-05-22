@@ -14,14 +14,14 @@ mlflow_log_artifact(path, artifact_path = NULL, run_id = NULL,
 
 \item{run_id}{Run ID.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
+server associated with the passed-in client. If unspecified (the common case), MLflow
+will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Logs a specific file or directory as an artifact for a run.
 }
 \details{
-When `client` is not specified, these functions attempt to infer the current active client.
-
 When logging to Amazon S3, ensure that the user has a proper policy
 attached to it, for instance:
 
@@ -46,6 +46,7 @@ attached to it, for instance:
   ]
 }
 }
+
 
 Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
 environment variables must be set to the corresponding key and secrets provided

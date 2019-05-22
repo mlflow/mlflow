@@ -9,11 +9,10 @@ mlflow_delete_run(run_id, client = NULL)
 \arguments{
 \item{run_id}{Run ID.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
+server associated with the passed-in client. If unspecified (the common case), MLflow
+will use the tracking server associated with the current tracking URI.}
 }
 \description{
-Delete a Run
-}
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
+Deletes the run with the specified ID.
 }

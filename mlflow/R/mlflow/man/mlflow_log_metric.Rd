@@ -20,13 +20,12 @@ unspecified, the default value of zero is used.}
 
 \item{run_id}{Run ID.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
+server associated with the passed-in client. If unspecified (the common case), MLflow
+will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Logs a metric for a run. Metrics key-value pair that records a single float measure.
   During a single execution of a run, a particular metric can be logged several times.
   The MLflow Backend keeps track of historical metric values along two axes: timestamp and step.
-}
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
 }

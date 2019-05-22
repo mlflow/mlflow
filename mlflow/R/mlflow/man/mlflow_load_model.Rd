@@ -12,7 +12,9 @@ mlflow_load_model(model_uri, flavor = NULL, client = mlflow_client())
 \item{flavor}{Optional flavor specification. Can be used to load a particular flavor in case
 there are multiple flavors available.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
+server associated with the passed-in client. If unspecified (the common case), MLflow
+will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models
@@ -28,8 +30,6 @@ The URI scheme must be supported by MLflow - i.e. there has to be an MLflow arti
                  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
          For more information about supported URI schemes, see the Artifacts Documentation
                  `<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>`_.
-
-When `client` is not specified, these functions attempt to infer the current active client.
 }
 \seealso{
 Other artifact uri: \code{\link{mlflow_rfunc_serve}}

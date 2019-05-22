@@ -4,18 +4,22 @@
 R API
 ========
 
-The MLflow R API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
+The MLflow `R <https://www.r-project.org/about.html/>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
-You can use the R API to `install MLflow`_, start the `user interface <Run MLflow user interface_>`_, `create <Create Experiment_>`_ and `list experiments <List Experiments_>`_, `save models <Save Model for MLflow_>`_, `run projects <Run in MLflow_>`_ and `serve models <Serve an RFunc MLflow Model_>`_ among many other functions available in the R API.
+You can use the R API to `install MLflow <install_mlflow_>`_, start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `list experiments <mlflow_list_experiments_>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
 
 .. contents:: Table of Contents
     :local:
     :depth: 1
 
-Install MLflow
-==============
+``install_mlflow``
+==================
 
-Installs MLflow for individual use.
+Install MLflow
+
+Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
+one-time setup step, you must run install_mlflow() to install these
+dependencies before calling other MLflow APIs.
 
 .. code:: r
 
@@ -24,7 +28,7 @@ Installs MLflow for individual use.
 Details
 -------
 
-MLflow requires Python and Conda to be installed. See
+install_mlflow() requires Python and Conda to be installed. See
 https://www.python.org/getit/ and
 https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
 
@@ -33,13 +37,16 @@ Examples
 
 .. code:: r
 
-    list("\n", "library(mlflow)\n", "install_mlflow()\n") 
-    
+   library(mlflow)
+   install_mlflow()
+
+``mlflow_client``
+=================
 
 Initialize an MLflow Client
-===========================
 
-Initialize an MLflow Client
+Initializes and returns an MLflow client that communicates with the
+tracking server or store at the specified URI.
 
 .. code:: r
 
@@ -56,8 +63,10 @@ Arguments
 |                               | ``mlflow_set_tracking_uri()``.       |
 +-------------------------------+--------------------------------------+
 
+``mlflow_create_experiment``
+============================
+
 Create Experiment
-=================
 
 Creates an MLflow experiment and returns its id.
 
@@ -82,19 +91,19 @@ Arguments
 |                               | select an appropriate default.       |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-1:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_delete_experiment``
+============================
 
 Delete Experiment
-=================
 
 Marks an experiment and associated runs, params, metrics, etc. for
 deletion. If the experiment uses FileStore, artifacts associated with
@@ -109,28 +118,28 @@ experiment are also deleted.
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``experiment_id``                 | ID of the associated experiment.  |
-|                                   | This field is required.           |
-+-----------------------------------+-----------------------------------+
-| ``client``                        | (Optional) An ``mlflow_client``   |
-|                                   | object.                           |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``experiment_id``             | ID of the associated experiment.     |
+|                               | This field is required.              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-2:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
-
-Delete a Run
-============
+``mlflow_delete_run``
+=====================
 
 Delete a Run
+
+Deletes the run with the specified ID.
 
 .. code:: r
 
@@ -141,24 +150,25 @@ Delete a Run
 Arguments
 ---------
 
-+------------+-----------------------------------------+
-| Argument   | Description                             |
-+============+=========================================+
-| ``run_id`` | Run ID.                                 |
-+------------+-----------------------------------------+
-| ``client`` | (Optional) An ``mlflow_client`` object. |
-+------------+-----------------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-3:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_download_artifacts``
+=============================
 
 Download Artifacts
-==================
 
 Download an artifact file or directory from a run to a local directory
 if applicable, and return a local path for it.
@@ -172,26 +182,28 @@ if applicable, and return a local path for it.
 Arguments
 ---------
 
-+------------+-----------------------------------------------+
-| Argument   | Description                                   |
-+============+===============================================+
-| ``path``   | Relative source path to the desired artifact. |
-+------------+-----------------------------------------------+
-| ``run_id`` | Run ID.                                       |
-+------------+-----------------------------------------------+
-| ``client`` | (Optional) An ``mlflow_client`` object.       |
-+------------+-----------------------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``path``                      | Relative source path to the desired  |
+|                               | artifact.                            |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-4:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_end_run``
+==================
 
 End a Run
-=========
 
 Terminates a run. Attempts to end the current active run if ``run_id``
 is not specified.
@@ -206,28 +218,31 @@ is not specified.
 Arguments
 ---------
 
-+--------------+-------------------------------------------------------+
-| Argument     | Description                                           |
-+==============+=======================================================+
-| ``status``   | Updated status of the run. Defaults to ``FINISHED``.  |
-+--------------+-------------------------------------------------------+
-| ``end_time`` | Unix timestamp of when the run ended in milliseconds. |
-+--------------+-------------------------------------------------------+
-| ``run_id``   | Run ID.                                               |
-+--------------+-------------------------------------------------------+
-| ``client``   | (Optional) An ``mlflow_client`` object.               |
-+--------------+-------------------------------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``status``                    | Updated status of the run. Defaults  |
+|                               | to ``FINISHED``.                     |
++-------------------------------+--------------------------------------+
+| ``end_time``                  | Unix timestamp of when the run ended |
+|                               | in milliseconds.                     |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-5:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_get_experiment``
+=========================
 
 Get Experiment
-==============
 
 Gets metadata for an experiment and a list of runs for the experiment.
 Attempts to obtain the active experiment if both ``experiment_id`` and
@@ -253,19 +268,19 @@ Arguments
 |                               | be specified.                        |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-6:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_get_metric_history``
+=============================
 
 Get Metric History
-==================
 
 Get a list of all values for the specified metric for a given run.
 
@@ -278,26 +293,27 @@ Get a list of all values for the specified metric for a given run.
 Arguments
 ---------
 
-+----------------+-----------------------------------------+
-| Argument       | Description                             |
-+================+=========================================+
-| ``metric_key`` | Name of the metric.                     |
-+----------------+-----------------------------------------+
-| ``run_id``     | Run ID.                                 |
-+----------------+-----------------------------------------+
-| ``client``     | (Optional) An ``mlflow_client`` object. |
-+----------------+-----------------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``metric_key``                | Name of the metric.                  |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-7:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_get_run``
+==================
 
 Get Run
-=======
 
 Gets metadata, params, tags, and metrics for a run. Returns a single
 value for each metric key: the most recently logged metric value at the
@@ -312,24 +328,25 @@ largest step.
 Arguments
 ---------
 
-+------------+-----------------------------------------+
-| Argument   | Description                             |
-+============+=========================================+
-| ``run_id`` | Run ID.                                 |
-+------------+-----------------------------------------+
-| ``client`` | (Optional) An ``mlflow_client`` object. |
-+------------+-----------------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-8:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_get_tracking_uri``
+===========================
 
 Get Remote Tracking URI
-=======================
 
 Gets the remote tracking URI.
 
@@ -337,8 +354,10 @@ Gets the remote tracking URI.
 
    mlflow_get_tracking_uri()
 
+``mlflow_id``
+=============
+
 Get Run or Experiment ID
-========================
 
 Extracts the ID of the run or experiment.
 
@@ -359,8 +378,10 @@ Arguments
 | ``object`` | An ``mlflow_run`` or ``mlflow_experiment`` object. |
 +------------+----------------------------------------------------+
 
+``mlflow_list_artifacts``
+=========================
+
 List Artifacts
-==============
 
 Gets a list of artifacts.
 
@@ -383,19 +404,19 @@ Arguments
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-9:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_list_experiments``
+===========================
 
 List Experiments
-================
 
 Gets a list of all experiments.
 
@@ -417,21 +438,22 @@ Arguments
 |                               | ``ACTIVE_ONLY``.                     |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-10:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_list_run_infos``
+=========================
 
 List Run Infos
-==============
 
-List run infos.
+Returns a tibble whose columns contain run metadata (run ID, etc) for
+all runs under the specified experiment.
 
 .. code:: r
 
@@ -452,26 +474,26 @@ Arguments
 |                               | active experiment if not specified.  |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-11:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_load_flavor``
+======================
 
 Load MLflow Model Flavor
-========================
 
 Loads an MLflow model flavor, to be used by package authors to extend
 the supported MLflow models.
 
 .. code:: r
 
-   mlflow_load_flavor(model_path)
+   mlflow_load_flavor(flavor, model_path)
 
 .. _arguments-13:
 
@@ -481,11 +503,15 @@ Arguments
 +----------------+------------------------------------------------------------+
 | Argument       | Description                                                |
 +================+============================================================+
+| ``flavor``     | An MLflow flavor object.                                   |
++----------------+------------------------------------------------------------+
 | ``model_path`` | The path to the MLflow model wrapped in the correct class. |
 +----------------+------------------------------------------------------------+
 
+``mlflow_load_model``
+=====================
+
 Load MLflow Model
-=================
 
 Loads an MLflow model. MLflow models can have multiple model flavors.
 Not all flavors / models can be loaded in R. This method by default
@@ -512,10 +538,16 @@ Arguments
 |                               | available.                           |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-12:
+.. _details-1:
 
 Details
 -------
@@ -530,16 +562,15 @@ following are examples of valid model uris: -
 information about supported URI schemes, see the Artifacts Documentation
 ``<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>``\ \_.
 
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
-
 Seealso
 -------
 
-Other artifact uri: ```mlflow_rfunc_serve`` <mlflow_rfunc_serve.html>`__
+Other artifact uri: ```mlflow_rfunc_serve`` <#mlflowrfuncserve>`__
+
+``mlflow_log_artifact``
+=======================
 
 Log Artifact
-============
 
 Logs a specific file or directory as an artifact for a run.
 
@@ -553,25 +584,31 @@ Logs a specific file or directory as an artifact for a run.
 Arguments
 ---------
 
-+-------------------+-------------------------------------------------+
-| Argument          | Description                                     |
-+===================+=================================================+
-| ``path``          | The file or directory to log as an artifact.    |
-+-------------------+-------------------------------------------------+
-| ``artifact_path`` | Destination path within the run’s artifact URI. |
-+-------------------+-------------------------------------------------+
-| ``run_id``        | Run ID.                                         |
-+-------------------+-------------------------------------------------+
-| ``client``        | (Optional) An ``mlflow_client`` object.         |
-+-------------------+-------------------------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``path``                      | The file or directory to log as an   |
+|                               | artifact.                            |
++-------------------------------+--------------------------------------+
+| ``artifact_path``             | Destination path within the run’s    |
+|                               | artifact URI.                        |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-13:
+.. _details-2:
 
 Details
 -------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
 
 When logging to Amazon S3, ensure that the user has a proper policy
 attached to it, for instance:
@@ -582,8 +619,10 @@ Additionally, at least the ``AWS_ACCESS_KEY_ID`` and
 ``AWS_SECRET_ACCESS_KEY`` environment variables must be set to the
 corresponding key and secrets provided by Amazon IAM.
 
+``mlflow_log_batch``
+====================
+
 Log Batch
-=========
 
 Log a batch of metrics, params, and/or tags for a run. The server will
 respond with an error (non-200 status code) if any data failed to be
@@ -624,19 +663,19 @@ Arguments
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-14:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_log_metric``
+=====================
 
 Log Metric
-==========
 
 Logs a metric for a run. Metrics key-value pair that records a single
 float measure. During a single execution of a run, a particular metric
@@ -675,19 +714,19 @@ Arguments
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-15:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_log_model``
+====================
 
 Log Model
-=========
 
 Logs a model for this run. Similar to ``mlflow_save_model()`` but stores
 model as an artifact within the active run.
@@ -720,8 +759,10 @@ Arguments
 |                               | environments.                        |
 +-------------------------------+--------------------------------------+
 
+``mlflow_log_param``
+====================
+
 Log Parameter
-=============
 
 Logs a parameter for a run. Examples are params and hyperparams used for
 ML training, or constant dates and values used in an ETL pipeline. A
@@ -737,30 +778,39 @@ allowed to be logged only once.
 Arguments
 ---------
 
-+------------+-----------------------------------------+
-| Argument   | Description                             |
-+============+=========================================+
-| ``key``    | Name of the parameter.                  |
-+------------+-----------------------------------------+
-| ``value``  | String value of the parameter.          |
-+------------+-----------------------------------------+
-| ``run_id`` | Run ID.                                 |
-+------------+-----------------------------------------+
-| ``client`` | (Optional) An ``mlflow_client`` object. |
-+------------+-----------------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``key``                       | Name of the parameter.               |
++-------------------------------+--------------------------------------+
+| ``value``                     | String value of the parameter.       |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-16:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_param``
+================
 
 Read Command-Line Parameter
-===========================
 
-Reads a command-line parameter.
+Reads a command-line parameter passed to an MLflow project MLflow allows
+you to define named, typed input parameters to your R scripts via the
+mlflow_param API. This is useful for experimentation, e.g. tracking
+multiple invocations of the same script with different parameters. For
+example, you could write a parametrized script to train a GBM model as
+follows: You can then run your script (assuming it’s saved at
+/some/directory/param_example.R) with custom parameters via the
+``mlflow run`` CLI as follows: $ mlflow run /some/directory –entry-point
+params_example.R -P num_trees=200 -P learning_rate=0.1
 
 .. code:: r
 
@@ -787,8 +837,26 @@ Arguments
 |                               | parameter.                           |
 +-------------------------------+--------------------------------------+
 
+.. _examples-1:
+
+Examples
+--------
+
+.. code:: r
+
+   install.packages("gbm")
+   library(mlflow)
+   library(gbm)
+   # define and read input parameters
+   num_trees <- mlflow_param(name = "num_trees", default = 200, type = "integer")
+   lr <- mlflow_param(name = "learning_rate", default = 0.1, type = "numeric")
+   # use params to fit a model
+   ir.adaboost <- gbm(Species ~., data=iris, n.trees=num_trees, shrinkage=lr)
+
+``mlflow_predict``
+==================
+
 Generate Prediction with MLflow Model
-=====================================
 
 Performs prediction over a model loaded using ``mlflow_load_model()`` ,
 to be used by package authors to extend the supported MLflow models.
@@ -814,8 +882,10 @@ Arguments
 |                                   | methods.                          |
 +-----------------------------------+-----------------------------------+
 
+``mlflow_rename_experiment``
+============================
+
 Rename Experiment
-=================
 
 Renames an experiment.
 
@@ -839,19 +909,19 @@ Arguments
 |                               | This field is required.              |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-17:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_restore_experiment``
+=============================
 
 Restore Experiment
-==================
 
 Restores an experiment marked for deletion. This also restores
 associated metadata, runs, metrics, and params. If experiment uses
@@ -867,17 +937,23 @@ restored.
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``experiment_id``                 | ID of the associated experiment.  |
-|                                   | This field is required.           |
-+-----------------------------------+-----------------------------------+
-| ``client``                        | (Optional) An ``mlflow_client``   |
-|                                   | object.                           |
-+-----------------------------------+-----------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``experiment_id``             | ID of the associated experiment.     |
+|                               | This field is required.              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-18:
+.. _details-3:
 
 Details
 -------
@@ -885,13 +961,12 @@ Details
 Throws ``RESOURCE_DOES_NOT_EXIST`` if the experiment was never created
 or was permanently deleted.
 
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_restore_run``
+======================
 
 Restore a Run
-=============
 
-Restore a Run
+Restores the run with the specified ID.
 
 .. code:: r
 
@@ -902,31 +977,32 @@ Restore a Run
 Arguments
 ---------
 
-+------------+-----------------------------------------+
-| Argument   | Description                             |
-+============+=========================================+
-| ``run_id`` | Run ID.                                 |
-+------------+-----------------------------------------+
-| ``client`` | (Optional) An ``mlflow_client`` object. |
-+------------+-----------------------------------------+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``run_id``                    | Run ID.                              |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An ``mlflow_client``      |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
++-------------------------------+--------------------------------------+
 
-.. _details-19:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_rfunc_serve``
+======================
 
 Serve an RFunc MLflow Model
-===========================
 
 Serves an RFunc MLflow model as a local web API.
 
 .. code:: r
 
    mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
-     daemonized = FALSE, browse = !daemonized)
+     daemonized = FALSE, browse = !daemonized, ...)
 
 .. _arguments-25:
 
@@ -956,8 +1032,11 @@ Arguments
 | ``browse``                    | Launch browser with serving landing  |
 |                               | page?                                |
 +-------------------------------+--------------------------------------+
+| ``...``                       | Optional arguments passed to         |
+|                               | ``mlflow_predict()``.                |
++-------------------------------+--------------------------------------+
 
-.. _details-20:
+.. _details-4:
 
 Details
 -------
@@ -977,19 +1056,30 @@ information about supported URI schemes, see the Artifacts Documentation
 Seealso
 -------
 
-Other artifact uri: ```mlflow_load_model`` <mlflow_load_model.html>`__
+Other artifact uri: ```mlflow_load_model`` <#mlflowloadmodel>`__
 
-.. _examples-1:
+.. _examples-2:
 
 Examples
 --------
 
 .. code:: r
 
-    list("\n", "library(mlflow)\n", "\n", "# save simple model with constant prediction\n", "mlflow_save_model(function(df) 1, \"mlflow_constant\")\n", "\n", "# serve an existing model over a web interface\n", "mlflow_rfunc_serve(\"mlflow_constant\")\n", "\n", "# request prediction from server\n", "httr::POST(\"http://127.0.0.1:8090/predict/\")\n") 
+   library(mlflow)
+
+   # save simple model with constant prediction
+   mlflow_save_model(function(df) 1, "mlflow_constant")
+
+   # serve an existing model over a web interface
+   mlflow_rfunc_serve("mlflow_constant")
+
+   # request prediction from server
+   httr::POST("http://127.0.0.1:8090/predict/")
+
+``mlflow_run``
+==============
 
 Run an MLflow Project
-=====================
 
 Wrapper for ``mlflow run``.
 
@@ -1055,8 +1145,10 @@ Value
 
 The run associated with this run.
 
+``mlflow_save_model.crate``
+===========================
+
 Save Model for MLflow
-=====================
 
 Saves model in MLflow format that can later be used for prediction and
 serving.
@@ -1088,8 +1180,10 @@ Arguments
 | ``conda_env``                     | Path to Conda dependencies file.  |
 +-----------------------------------+-----------------------------------+
 
+``mlflow_search_runs``
+======================
+
 Search Runs
-===========
 
 Search for runs that satisfy expressions. Search expressions can use
 Metric and Param keys.
@@ -1122,19 +1216,19 @@ Arguments
 |                               | experiment if not specified.         |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-21:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_server``
+=================
 
 Run MLflow Tracking Server
-==========================
 
 Wrapper for ``mlflow server``.
 
@@ -1171,8 +1265,10 @@ Arguments
 |                               | the path of all static paths.        |
 +-------------------------------+--------------------------------------+
 
+``mlflow_set_experiment``
+=========================
+
 Set Experiment
-==============
 
 Sets an experiment as the active experiment. Either the name or ID of
 the experiment can be provided. If the a name is provided but the
@@ -1202,8 +1298,10 @@ Arguments
 |                               | select an appropriate default.       |
 +-------------------------------+--------------------------------------+
 
+``mlflow_set_tag``
+==================
+
 Set Tag
-=======
 
 Sets a tag on a run. Tags are run metadata that can be updated during a
 run and after a run completes.
@@ -1230,19 +1328,19 @@ Arguments
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-22:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
+``mlflow_set_tracking_uri``
+===========================
 
 Set Remote Tracking URI
-=======================
 
 Specifies the URI to the remote MLflow server that will be used to track
 experiments.
@@ -1262,8 +1360,10 @@ Arguments
 | ``uri``  | The URI to the remote MLflow server. |
 +----------+--------------------------------------+
 
+``mlflow_source``
+=================
+
 Source a Script with MLflow Params
-==================================
 
 This function should not be used interactively. It is designed to be
 called via ``Rscript`` from the terminal or through the MLflow CLI.
@@ -1283,8 +1383,10 @@ Arguments
 | ``uri``  | Path to an R script, can be a quoted or unquoted string. |
 +----------+----------------------------------------------------------+
 
+``mlflow_start_run``
+====================
+
 Start Run
-=========
 
 Starts a new run. If ``client`` is not provided, this function infers
 contextual information such as source name and version, and also
@@ -1328,29 +1430,30 @@ Arguments
 |                               | ``client`` is specified.             |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object.                              |
+|                               | object. If specified, MLflow will    |
+|                               | use to the tracking server           |
+|                               | associated with the passed-in        |
+|                               | client. If unspecified (the common   |
+|                               | case), MLflow will use the tracking  |
+|                               | server associated with the current   |
+|                               | tracking URI.                        |
 +-------------------------------+--------------------------------------+
 
-.. _details-23:
-
-Details
--------
-
-When ``client`` is not specified, these functions attempt to infer the
-current active client.
-
-.. _examples-2:
+.. _examples-3:
 
 Examples
 --------
 
 .. code:: r
 
-    list("\n", "with(mlflow_start_run(), {\n", "  mlflow_log(\"test\", 10)\n", "})\n") 
-    
+   with(mlflow_start_run(), {
+   mlflow_log_metric("test_metric", 10)
+   })
+
+``mlflow_ui``
+=============
 
 Run MLflow User Interface
-=========================
 
 Launches the MLflow user interface.
 
@@ -1373,12 +1476,19 @@ Arguments
 |                               | path to a file store.                |
 +-------------------------------+--------------------------------------+
 
-.. _examples-3:
+.. _examples-4:
 
 Examples
 --------
 
 .. code:: r
 
-    list("\n", "library(mlflow)\n", "install_mlflow()\n", "\n", "# launch mlflow ui locally\n", "mlflow_ui()\n", "\n", "# launch mlflow ui for existing mlflow server\n", "mlflow_set_tracking_uri(\"http://tracking-server:5000\")\n", "mlflow_ui()\n") 
-    
+   library(mlflow)
+   install_mlflow()
+
+   # launch mlflow ui locally
+   mlflow_ui()
+
+   # launch mlflow ui for existing mlflow server
+   mlflow_set_tracking_uri("http://tracking-server:5000")
+   mlflow_ui()

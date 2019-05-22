@@ -14,11 +14,10 @@ mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
 
 \item{run_id}{Run ID.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
+server associated with the passed-in client. If unspecified (the common case), MLflow
+will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Terminates a run. Attempts to end the current active run if `run_id` is not specified.
-}
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
 }

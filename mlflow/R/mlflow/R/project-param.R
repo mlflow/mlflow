@@ -1,7 +1,26 @@
 #' Read Command-Line Parameter
 #'
-#' Reads a command-line parameter.
+#' Reads a command-line parameter passed to an MLflow project
+#' MLflow allows you to define named, typed input parameters to your R scripts via the mlflow_param
+#' API. This is useful for experimentation, e.g. tracking multiple invocations of the same script
+#' with different parameters. For example, you could write a parametrized script to train
+#' a GBM model as follows: You can then run your script (assuming it's saved at /some/directory/param_example.R) with
+#' custom parameters via the `mlflow run` CLI as follows:
+#' $ mlflow run /some/directory --entry-point params_example.R -P num_trees=200 -P learning_rate=0.1
 #'
+#' @examples
+#' \dontrun{
+#' install.packages("gbm")
+#' library(mlflow)
+#' library(gbm)
+#' # define and read input parameters
+#' num_trees <- mlflow_param(name = "num_trees", default = 200, type = "integer")
+#' lr <- mlflow_param(name = "learning_rate", default = 0.1, type = "numeric")
+#' # use params to fit a model
+#' ir.adaboost <- gbm(Species ~., data=iris, n.trees=num_trees, shrinkage=lr)
+#' }
+#'
+
 #' @param name The name of the parameter.
 #' @param default The default value of the parameter.
 #' @param type Type of this parameter. Required if `default` is not set. If specified,

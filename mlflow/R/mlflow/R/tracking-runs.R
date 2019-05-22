@@ -61,6 +61,7 @@ mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NU
 
 #' Delete a Run
 #'
+#' Deletes the run with the specified ID.
 #' @template roxlate-client
 #' @template roxlate-run-id
 #' @export
@@ -77,6 +78,7 @@ mlflow_delete_run <- function(run_id, client = NULL) {
 
 #' Restore a Run
 #'
+#' Restores the run with the specified ID.
 #' @template roxlate-client
 #' @template roxlate-run-id
 #' @export
@@ -353,7 +355,8 @@ mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_cli
 
 #' List Run Infos
 #'
-#' List run infos.
+#' Returns a tibble whose columns contain run metadata (run ID, etc) for all runs under the
+#' specified experiment.
 #'
 #' @param experiment_id Experiment ID. Attempts to use the active experiment if not specified.
 #' @param run_view_type Run view type.
@@ -414,6 +417,7 @@ mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY
 #' }
 #' }
 #'
+#'
 #' Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
 #' environment variables must be set to the corresponding key and secrets provided
 #' by Amazon IAM.
@@ -465,7 +469,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' @examples
 #' \dontrun{
 #' with(mlflow_start_run(), {
-#'   mlflow_log("test", 10)
+#'   mlflow_log_metric("test_metric", 10)
 #' })
 #' }
 #'
