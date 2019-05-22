@@ -41,10 +41,9 @@ class LocalArtifactRepository(ArtifactRepository):
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
-        Download an artifact file or directory to a local directory if applicable, and return a
-        local path for it.
-        The caller is responsible for managing the lifecycle of the downloaded artifacts. If
-        dst_path is unspecified, the downloaded artifact may not be mutated in general.
+        Artifacts tracked by ``LocalArtifactRepository`` already exist on the local filesystem.
+        If ``dst_path`` is ``None``, the absolute filesystem path of the specified artifact is
+        returned. If ``dst_path`` is not ``None``, the local artifact is copied to ``dst_path``.
 
         :param artifact_path: Relative source path to the desired artifacts.
         :param dst_path: Absolute path of the local filesystem destination directory to which to
@@ -55,7 +54,7 @@ class LocalArtifactRepository(ArtifactRepository):
         """
         if dst_path:
             return super(LocalArtifactRepository, self).download_artifacts(artifact_path, dst_path)
-        # NOTE: The remote_file_path is expected to be in posix format.
+        # NOTE: The artifact_path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.
         local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
         return os.path.abspath(local_artifact_path)

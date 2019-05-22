@@ -6,7 +6,6 @@ from six.moves import shlex_quote
 
 from mlflow.models import FlavorBackend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
 

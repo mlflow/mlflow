@@ -6,7 +6,6 @@ from mlflow.pyfunc import ENV
 from mlflow.pyfunc import scoring_server
 from mlflow.models import FlavorBackend
 
-from mlflow.utils.file_utils import TempDir
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.projects import _get_conda_bin_executable
 
