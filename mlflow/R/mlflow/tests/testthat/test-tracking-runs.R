@@ -236,16 +236,16 @@ test_that("mlflow_search_runs() works", {
   with(mlflow_start_run(), {
     mlflow_log_metric("test", 20)
   })
-  expect_equal(nrow(mlflow_search_runs(experiment_id = "0")), 2)
-  expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 10", experiment_id = "0")), 1)
-  expect_equal(nrow(mlflow_search_runs(filter = "metrics.test < 20", experiment_id = "0")), 1)
-  expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 20", experiment_id = "0")), 0)
+  expect_equal(nrow(mlflow_search_runs(experiment_ids = list("0"))), 2)
+  expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 10", experiment_ids = list("0"))), 1)
+  expect_equal(nrow(mlflow_search_runs(filter = "metrics.test < 20", experiment_ids = list("0"))), 1)
+  expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 20", experiment_ids = list("0"))), 0)
   mlflow_set_experiment("new-experiment")
   expect_equal(nrow(mlflow_search_runs()), 0)
   with(mlflow_start_run(), {
     mlflow_log_metric("new_experiment_metric", 30)
   })
-  expect_equal(nrow(mlflow_search_runs(filter = "metrics.new_experiment = 30")), 1)
+  expect_equal(nrow(mlflow_search_runs(filter = "metrics.new_experiment_metric = 30")), 1)
 })
 
 test_that("mlflow_list_run_infos() works", {
