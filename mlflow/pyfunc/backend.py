@@ -18,7 +18,6 @@ class PyFuncBackend(FlavorBackend):
     """
         Flavor backend implementation for the generic python models.
     """
-
     def __init__(self, config, no_conda=False, install_mlflow=False, **kwargs):
         super(PyFuncBackend, self).__init__(config=config, **kwargs)
         self._no_conda = no_conda
@@ -100,6 +99,7 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow):
         if "MLFLOW_HOME" in os.environ:  # dev version
             install_mlflow = "pip install -e {} 1>&2".format(os.environ["MLFLOW_HOME"])
         else:
+            from mlflow.version import VERSION
             install_mlflow = "pip install -U mlflow>={} 1>&2".format(VERSION)
 
         activate_conda_env += [install_mlflow]
