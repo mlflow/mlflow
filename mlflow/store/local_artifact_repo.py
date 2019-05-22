@@ -43,7 +43,8 @@ class LocalArtifactRepository(ArtifactRepository):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
-        The caller is responsible for managing the lifecycle of the downloaded artifacts.
+        The caller is responsible for managing the lifecycle of the downloaded artifacts. If dst_path is unspecified,
+        the downloaded artifact may not be mutated in general.
 
         :param artifact_path: Relative source path to the desired artifacts.
         :param dst_path: Absolute path of the local filesystem destination directory to which to
