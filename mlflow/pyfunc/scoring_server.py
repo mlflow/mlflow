@@ -191,7 +191,7 @@ def _predict(model_uri, input_path, output_path, content_type, json_format):
     else:
         raise Exception("Unknown content type '{}'".format(content_type))
 
-    if output_path is None or output_path == "__stdout__":
+    if output_path is None:
         predictions_to_json(pyfunc_model.predict(df), sys.stdout)
     else:
         with open(output_path, "w") as fout:

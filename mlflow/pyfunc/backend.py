@@ -32,7 +32,7 @@ class PyFuncBackend(FlavorBackend):
         with TempDir() as tmp:
             local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
             # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
-            # platform compoatibility.
+            # platform compatibility.
             local_uri = path_to_local_file_uri(local_path)
             if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
@@ -60,7 +60,7 @@ class PyFuncBackend(FlavorBackend):
         with TempDir() as tmp:
             local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
             # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
-            # platform compoatibility.
+            # platform compatibility.
             local_uri = path_to_local_file_uri(local_path)
             if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])

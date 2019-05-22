@@ -16,6 +16,7 @@ import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
+from mlflow.utils.environment import _mlflow_conda_env
 from tests.models import test_pyfunc
 
 in_travis = 'TRAVIS' in os.environ
@@ -56,7 +57,6 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         pd.DataFrame(x).to_json(input_records_path, orient="records")
         output_json_path = tmp.path("output.json")
         test_model_path = tmp.path("test_model")
-        from mlflow.utils.environment import _mlflow_conda_env
         test_model_conda_path = tmp.path("conda.yml")
         # create env with odl mlflow!
         _mlflow_conda_env(path=test_model_conda_path,
@@ -91,11 +91,12 @@ def test_predict(iris_data, sk_model):
 
         fake_model_path = tmp.path("fake_model")
         fake_env_path = tmp.path("fake_env.yaml")
-        from mlflow.utils.environment import _mlflow_conda_env
+
         _mlflow_conda_env(path=fake_env_path, install_mlflow=False)
         mlflow.pyfunc.save_model(fake_model_path, loader_module=__name__, conda_env=fake_env_path)
-        # the following should fail because the last mlflow does not have mlflow models
-        p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
+        # The following should fail because there should be no mlflow in the env:
+        p = subprocess.Popen(["mlflow", "models", "predict", "-m", fake_model_path, "-i",
+                              input_json_path,
                               "-o", output_json_path],
                              stderr=subprocess.PIPE,
                              cwd=tmp.path(""))
@@ -105,7 +106,7 @@ def test_predict(iris_data, sk_model):
         assert p.wait() != 0
         assert "ModuleNotFoundError: No module named 'mlflow'" in stderr
 
-        # should work with no conda
+        # Test with no conda
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
                               "-o", output_json_path, "--no-conda"], stderr=subprocess.PIPE)
         assert p.wait() == 0
@@ -114,7 +115,7 @@ def test_predict(iris_data, sk_model):
         expected = sk_model.predict(x)
         assert all(expected == actual)
 
-        # with conda this time
+        # With conda + --install-mlflow
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
                               "-o", output_json_path] + extra_options)
         assert 0 == p.wait()
