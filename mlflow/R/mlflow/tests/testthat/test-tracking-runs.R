@@ -236,7 +236,7 @@ test_that("mlflow_search_runs() works", {
   with(mlflow_start_run(), {
     mlflow_log_metric("test", 20)
   })
-  expect_equal(nrow(mlflow_search_runs(experiment_id = 0)), 2)
+  expect_equal(nrow(mlflow_search_runs(experiment_id = "0")), 2)
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 10", experiment_id = "0")), 1)
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.test < 20", experiment_id = "0")), 1)
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 20", experiment_id = "0")), 0)
