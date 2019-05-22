@@ -12,9 +12,10 @@ mlflow_list_run_infos(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 
 \item{experiment_id}{Experiment ID. Attempts to use the active experiment if not specified.}
 
-\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
-server associated with the passed-in client. If unspecified (the common case), MLflow
-will use the tracking server associated with the current tracking URI.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Returns a tibble whose columns contain run metadata (run ID, etc) for all runs under the

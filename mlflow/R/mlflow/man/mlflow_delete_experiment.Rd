@@ -9,9 +9,10 @@ mlflow_delete_experiment(experiment_id, client = NULL)
 \arguments{
 \item{experiment_id}{ID of the associated experiment. This field is required.}
 
-\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
-server associated with the passed-in client. If unspecified (the common case), MLflow
-will use the tracking server associated with the current tracking URI.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Marks an experiment and associated runs, params, metrics, etc. for deletion. If the

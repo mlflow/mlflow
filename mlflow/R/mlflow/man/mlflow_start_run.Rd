@@ -20,9 +20,10 @@ a new experiment with a randomly generated name.}
 
 \item{tags}{Additional metadata for run in key-value pairs. Only used when `client` is specified.}
 
-\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
-server associated with the passed-in client. If unspecified (the common case), MLflow
-will use the tracking server associated with the current tracking URI.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Starts a new run. If `client` is not provided, this function infers contextual information such as

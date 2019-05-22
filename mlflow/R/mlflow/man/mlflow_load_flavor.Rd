@@ -13,6 +13,7 @@ mlflow_load_flavor(flavor, model_path)
 class.}
 }
 \description{
-Loads an MLflow model flavor, to be used by package authors
-to extend the supported MLflow models.
+Loads an MLflow model using a specific flavor. This method is called internally by
+\link[mlflow]{mlflow_load_model}, but is exposed for package authors to extend the supported
+MLflow models.
 }

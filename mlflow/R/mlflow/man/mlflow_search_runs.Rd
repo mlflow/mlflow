@@ -15,9 +15,10 @@ The syntax is a subset of SQL which allows only ANDing together binary operation
 
 \item{experiment_ids}{List of experiment IDs to search over. Attempts to use active experiment if not specified.}
 
-\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
-server associated with the passed-in client. If unspecified (the common case), MLflow
-will use the tracking server associated with the current tracking URI.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.

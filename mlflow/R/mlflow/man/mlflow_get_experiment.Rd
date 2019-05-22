@@ -12,9 +12,10 @@ mlflow_get_experiment(experiment_id = NULL, name = NULL,
 
 \item{name}{The experiment name. Only one of `name` or `experiment_id` should be specified.}
 
-\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
-server associated with the passed-in client. If unspecified (the common case), MLflow
-will use the tracking server associated with the current tracking URI.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Gets metadata for an experiment and a list of runs for the experiment. Attempts to obtain the

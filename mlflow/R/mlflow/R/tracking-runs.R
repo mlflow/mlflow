@@ -520,13 +520,14 @@ mlflow_get_run_context.default <- function(client, experiment_id, ...) {
 #'
 #' Terminates a run. Attempts to end the current active run if `run_id` is not specified.
 #'
-#' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @param status Updated status of the run. Defaults to `FINISHED`. Can also be set to
+#' "FAILED" or "KILLED".
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @template roxlate-run-id
 #' @template roxlate-client
 #'
 #' @export
-mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+mlflow_end_run <- function(status = c("FINISHED", "FAILED", "KILLED"),
                            end_time = NULL, run_id = NULL, client = NULL) {
 
   status <- match.arg(status)

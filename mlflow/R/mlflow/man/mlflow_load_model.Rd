@@ -9,12 +9,13 @@ mlflow_load_model(model_uri, flavor = NULL, client = mlflow_client())
 \arguments{
 \item{model_uri}{The location, in URI format, of the MLflow model.}
 
-\item{flavor}{Optional flavor specification. Can be used to load a particular flavor in case
-there are multiple flavors available.}
+\item{flavor}{Optional flavor specification (string). Can be used to load a particular flavor in
+case there are multiple flavors available.}
 
-\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
-server associated with the passed-in client. If unspecified (the common case), MLflow
-will use the tracking server associated with the current tracking URI.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Loads an MLflow model. MLflow models can have multiple model flavors. Not all flavors / models

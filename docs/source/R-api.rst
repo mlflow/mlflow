@@ -90,14 +90,15 @@ Arguments
 |                               | provided, the remote server will     |
 |                               | select an appropriate default.       |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_delete_experiment``
@@ -124,14 +125,15 @@ Arguments
 | ``experiment_id``             | ID of the associated experiment.     |
 |                               | This field is required.              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_delete_run``
@@ -155,14 +157,15 @@ Arguments
 +===============================+======================================+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_download_artifacts``
@@ -190,14 +193,15 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_end_run``
@@ -210,7 +214,7 @@ is not specified.
 
 .. code:: r
 
-   mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+   mlflow_end_run(status = c("FINISHED", "FAILED", "KILLED"),
      end_time = NULL, run_id = NULL, client = NULL)
 
 .. _arguments-5:
@@ -222,21 +226,23 @@ Arguments
 | Argument                      | Description                          |
 +===============================+======================================+
 | ``status``                    | Updated status of the run. Defaults  |
-|                               | to ``FINISHED``.                     |
+|                               | to ``FINISHED``. Can also be set to  |
+|                               | “FAILED” or “KILLED”.                |
 +-------------------------------+--------------------------------------+
 | ``end_time``                  | Unix timestamp of when the run ended |
 |                               | in milliseconds.                     |
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_get_experiment``
@@ -267,14 +273,15 @@ Arguments
 |                               | ``name`` or ``experiment_id`` should |
 |                               | be specified.                        |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_get_metric_history``
@@ -300,14 +307,15 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_get_run``
@@ -333,14 +341,15 @@ Arguments
 +===============================+======================================+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_get_tracking_uri``
@@ -403,14 +412,15 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_list_experiments``
@@ -437,14 +447,15 @@ Arguments
 |                               | be returned. Defaults to             |
 |                               | ``ACTIVE_ONLY``.                     |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_list_run_infos``
@@ -473,14 +484,15 @@ Arguments
 | ``experiment_id``             | Experiment ID. Attempts to use the   |
 |                               | active experiment if not specified.  |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_load_flavor``
@@ -488,8 +500,9 @@ Arguments
 
 Load MLflow Model Flavor
 
-Loads an MLflow model flavor, to be used by package authors to extend
-the supported MLflow models.
+Loads an MLflow model using a specific flavor. This method is called
+internally by `mlflow_load_model <#mlflow-load-model>`__ , but is
+exposed for package authors to extend the supported MLflow models.
 
 .. code:: r
 
@@ -532,19 +545,20 @@ Arguments
 | ``model_uri``                 | The location, in URI format, of the  |
 |                               | MLflow model.                        |
 +-------------------------------+--------------------------------------+
-| ``flavor``                    | Optional flavor specification. Can   |
-|                               | be used to load a particular flavor  |
-|                               | in case there are multiple flavors   |
-|                               | available.                           |
+| ``flavor``                    | Optional flavor specification        |
+|                               | (string). Can be used to load a      |
+|                               | particular flavor in case there are  |
+|                               | multiple flavors available.          |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 .. _details-1:
@@ -594,14 +608,15 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 .. _details-2:
@@ -660,14 +675,15 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_log_metric``
@@ -711,14 +727,15 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_log_model``
@@ -726,8 +743,9 @@ Arguments
 
 Log Model
 
-Logs a model for this run. Similar to ``mlflow_save_model()`` but stores
-model as an artifact within the active run.
+Logs a model for this run. Similar to
+`mlflow_save_model <#mlflow-save-model>`__ but stores model as an
+artifact within the active run.
 
 .. code:: r
 
@@ -785,14 +803,15 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_param``
@@ -906,14 +925,15 @@ Arguments
 | ``experiment_id``             | ID of the associated experiment.     |
 |                               | This field is required.              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_restore_experiment``
@@ -941,14 +961,15 @@ Arguments
 | ``experiment_id``             | ID of the associated experiment.     |
 |                               | This field is required.              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 .. _details-3:
@@ -980,14 +1001,15 @@ Arguments
 +===============================+======================================+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_rfunc_serve``
@@ -1168,7 +1190,7 @@ Examples
 Save Model for MLflow
 
 Saves model in MLflow format that can later be used for prediction and
-serving.
+serving. This method is generic to allow
 
 .. code:: r
 
@@ -1232,14 +1254,15 @@ Arguments
 |                               | over. Attempts to use active         |
 |                               | experiment if not specified.         |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_server``
@@ -1344,14 +1367,15 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_set_tracking_uri``
@@ -1446,14 +1470,15 @@ Arguments
 |                               | key-value pairs. Only used when      |
 |                               | ``client`` is specified.             |
 +-------------------------------+--------------------------------------+
-| ``client``                    | (Optional) An ``mlflow_client``      |
-|                               | object. If specified, MLflow will    |
-|                               | use to the tracking server           |
-|                               | associated with the passed-in        |
-|                               | client. If unspecified (the common   |
-|                               | case), MLflow will use the tracking  |
-|                               | server associated with the current   |
-|                               | tracking URI.                        |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 
 .. _examples-4:

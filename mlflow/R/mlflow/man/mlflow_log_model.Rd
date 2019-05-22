@@ -17,6 +17,6 @@ model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a
 dependencies file for flavors (e.g. keras) that support conda environments.}
 }
 \description{
-Logs a model for this run. Similar to `mlflow_save_model()`
+Logs a model for this run. Similar to \link[mlflow]{mlflow_save_model}
 but stores model as an artifact within the active run.
 }

@@ -9,9 +9,10 @@ mlflow_get_run(run_id = NULL, client = NULL)
 \arguments{
 \item{run_id}{Run ID.}
 
-\item{client}{(Optional) An `mlflow_client` object. If specified, MLflow will use to the tracking
-server associated with the passed-in client. If unspecified (the common case), MLflow
-will use the tracking server associated with the current tracking URI.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Gets metadata, params, tags, and metrics for a run. Returns a single value for each metric

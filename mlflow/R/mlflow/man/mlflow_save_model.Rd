@@ -25,5 +25,5 @@ will be saved.}
 }
 \description{
 Saves model in MLflow format that can later be used
-for prediction and serving.
+for prediction and serving. This method is generic to allow
 }
