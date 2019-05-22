@@ -36,7 +36,7 @@ except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
-from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
+
 
 try:
     from StringIO import StringIO
@@ -220,19 +220,7 @@ def _serve(local_path, port, host):
     init(pyfunc_model).run(port=port, host=host)
 
 
-def _execute_in_conda_env(conda_env_path, command):
-    conda_env_name = _get_or_create_conda_env(conda_env_path)
-    activate_path = _get_conda_bin_executable("activate")
-    command = " && ".join(
-        ["source {} {}".format(activate_path, conda_env_name), "pip install mlflow 1>&2", command]
-    )
-    _logger.info("=== Running command '%s'", command)
-    child = subprocess.Popen(["bash", "-c", command], close_fds=True)
-    rc = child.wait()
-    if rc != 0:
-        raise Exception("Command '{0}' returned non zero return code. Return code = {1}".format(
-            command, rc
-        ))
+
 
 
 class NumpyEncoder(JSONEncoder):

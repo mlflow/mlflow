@@ -25,3 +25,7 @@ NO_CONDA = click.option("--no-conda", is_flag=True,
                              "a Conda environmen with the necessary dependencies for "
                              "the current project instead of attempting to create a new "
                              "conda environment.")
+
+INSTALL_MLFLOW = click.option("--install-mlflow", is_flag=True, default=False,
+                              help="If specified, latest version of mlflow will be installed into "
+                                   "the environment after it's activated.")

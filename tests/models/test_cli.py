@@ -53,7 +53,8 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         test_model_conda_path = tmp.path("conda.yml")
         # create env with odl mlflow!
         _mlflow_conda_env(path=test_model_conda_path,
-                          additional_pip_deps=["mlflow=={}".format(test_pyfunc.MLFLOW_VERSION)])
+                          additional_pip_deps=["mlflow=={}".format(test_pyfunc.MLFLOW_VERSION)],
+                          install_mlflow=False)
         pyfunc.save_model(path=test_model_path,
                           loader_module=test_pyfunc.__name__.split(".")[-1],
                           code_path=[test_pyfunc.__file__],
