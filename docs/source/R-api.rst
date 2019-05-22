@@ -1122,7 +1122,8 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_view_type``             | Run view type.                       |
 +-------------------------------+--------------------------------------+
-| ``experiment_ids``            | List of string experiment IDs to     |
+| ``experiment_ids``            | List of string experiment IDs (or a  |
+|                               | single string experiment ID) to      |
 |                               | search over. Attempts to use active  |
 |                               | experiment if not specified.         |
 +-------------------------------+--------------------------------------+
