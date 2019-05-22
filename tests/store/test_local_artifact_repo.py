@@ -94,6 +94,9 @@ def test_download_artifacts_returns_absolute_paths(local_artifact_repo):
             dst_path = local_artifact_repo.download_artifacts(
                 artifact_path=artifact_rel_path,
                 dst_path=dst_dir)
+            if dst_dir is not None:
+                # If dst_dir isn't none, assert we're actually downloading to dst_dir.
+                assert dst_path.startswith(os.path.abspath(dst_dir))
             assert dst_path == os.path.abspath(dst_path)
 
 
