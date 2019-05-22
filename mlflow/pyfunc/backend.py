@@ -45,7 +45,7 @@ class PyFuncBackend(FlavorBackend):
                 if input_path is not None:
                     command += " -i {}".format(shlex_quote(input_path))
                 if output_path is not None:
-                    command += " -o {}".format(shlex_quote(input_path))
+                    command += " -o {}".format(shlex_quote(output_path))
                 return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
             else:
                 scoring_server._predict(local_path, input_path, output_path, content_type,
