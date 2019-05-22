@@ -1,13 +1,14 @@
 #' Save Model for MLflow
 #'
-#' Saves model in MLflow format that can later be used
-#' for prediction and serving. This method is generic to allow
+#' Saves model in MLflow format that can later be used for prediction and serving. This method is
+#' generic to allow package authors to save custom model types.
 #'
 #' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
 #'   will be saved.
 #' @param ... Optional additional arguments.
 #' @importFrom yaml write_yaml
+#' @rdname mlflow_save_model
 #' @export
 mlflow_save_model <- function(model, path, ...) {
   UseMethod("mlflow_save_model")
@@ -15,7 +16,7 @@ mlflow_save_model <- function(model, path, ...) {
 
 #' Log Model
 #'
-#' Logs a model for this run. Similar to \link[mlflow]{mlflow_save_model.crate}
+#' Logs a model for this run. Similar to `mlflow_save_model()`
 #' but stores model as an artifact within the active run.
 #'
 #' @param model The model that will perform a prediction.
@@ -24,7 +25,6 @@ mlflow_save_model <- function(model, path, ...) {
 #' @param ... Optional additional arguments passed to `mlflow_save_model()` when persisting the
 #'   model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
 #'   dependencies file for flavors (e.g. keras) that support conda environments.
-#'
 #' @export
 mlflow_log_model <- function(model, artifact_path, ...) {
   temp_path <- fs::path_temp(artifact_path)

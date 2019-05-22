@@ -743,9 +743,8 @@ Arguments
 
 Log Model
 
-Logs a model for this run. Similar to
-`mlflow_save_model <#mlflow-save-model>`__ but stores model as an
-artifact within the active run.
+Logs a model for this run. Similar to ``mlflow_save_model()`` but stores
+model as an artifact within the active run.
 
 .. code:: r
 
@@ -1190,7 +1189,8 @@ Examples
 Save Model for MLflow
 
 Saves model in MLflow format that can later be used for prediction and
-serving. This method is generic to allow
+serving. This method is generic to allow package authors to save custom
+model types.
 
 .. code:: r
 
@@ -1501,7 +1501,7 @@ Launches the MLflow user interface.
 
 .. code:: r
 
-   mlflow_ui(x, ...)
+   mlflow_ui(client, ...)
 
 .. _arguments-35:
 
@@ -1511,7 +1511,15 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``x``                         | An ``mlflow_client`` object.         |
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
 | ``...``                       | Optional arguments passed to         |
 |                               | ``mlflow_server()`` when ``x`` is a  |
