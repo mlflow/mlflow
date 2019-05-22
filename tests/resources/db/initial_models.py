@@ -1,5 +1,6 @@
 # Snapshot of MLflow DB models as of the 0.9.1 release, prior to the first database migration.
-# Used to standardize initial database state.
+# This file corresponds to the first database schema that we can reasonably expect users to be
+# running and exists to test that the oldest database schema can be brought up-to-date.
 # Copied from https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, with
 # modifications to substitute constants from MLflow with hard-coded values (e.g. replacing
 # SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK").
