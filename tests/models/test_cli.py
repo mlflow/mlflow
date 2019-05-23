@@ -120,6 +120,8 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
 
 
 def test_serve_gunicorn_opts(iris_data, sk_model):
+    if sys.platform == "win32":
+        pytest.skip("This test requires gunicorn which is not available on windows.")
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
