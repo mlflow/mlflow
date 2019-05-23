@@ -471,7 +471,7 @@ the supported MLflow models.
 
 .. code:: r
 
-   mlflow_load_flavor(model_path)
+   mlflow_load_flavor(flavor, model_path)
 
 .. _arguments-13:
 
@@ -481,6 +481,8 @@ Arguments
 +----------------+------------------------------------------------------------+
 | Argument       | Description                                                |
 +================+============================================================+
+| ``flavor``     | An MLflow flavor object.                                   |
++----------------+------------------------------------------------------------+
 | ``model_path`` | The path to the MLflow model wrapped in the correct class. |
 +----------------+------------------------------------------------------------+
 
@@ -926,7 +928,7 @@ Serves an RFunc MLflow model as a local web API.
 .. code:: r
 
    mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
-     daemonized = FALSE, browse = !daemonized)
+     daemonized = FALSE, browse = !daemonized, ...)
 
 .. _arguments-25:
 
@@ -955,6 +957,9 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``browse``                    | Launch browser with serving landing  |
 |                               | page?                                |
++-------------------------------+--------------------------------------+
+| ``...``                       | Optional arguments passed to         |
+|                               | ``mlflow_predict()``.                |
 +-------------------------------+--------------------------------------+
 
 .. _details-20:
@@ -1117,8 +1122,9 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_view_type``             | Run view type.                       |
 +-------------------------------+--------------------------------------+
-| ``experiment_ids``            | List of experiment IDs to search     |
-|                               | over. Attempts to use active         |
+| ``experiment_ids``            | List of string experiment IDs (or a  |
+|                               | single string experiment ID) to      |
+|                               | search over. Attempts to use active  |
 |                               | experiment if not specified.         |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An ``mlflow_client``      |
@@ -1346,7 +1352,7 @@ Examples
 
 .. code:: r
 
-    list("\n", "with(mlflow_start_run(), {\n", "  mlflow_log(\"test\", 10)\n", "})\n") 
+    list("\n", "with(mlflow_start_run(), {\n", "  mlflow_log_metric(\"test\", 10)\n", "})\n") 
     
 
 Run MLflow User Interface
