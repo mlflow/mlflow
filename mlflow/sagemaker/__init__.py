@@ -114,7 +114,7 @@ def _docker_ignore(mlflow_root):
     return ignore
 
 
-def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None, model_uri=None):
+def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None, model_uri=None, flavor=None):
     """
     Build an MLflow Docker image.
     The image is built locally and it requires Docker to run.
@@ -152,8 +152,17 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None, model_uri=None):
                 "RUN rm /opt/java/pom.xml"
             ).format(version=mlflow.version.VERSION)
         if model_uri:
+            model_path = _download_artifact_from_uri(model_uri)
+            model_config_path = os.path.join(model_path, "MLmodel")
+            model_config = Model.load(model_config_path)
+
+            if flavor is None:
+                flavor = _get_preferred_deployment_flavor(model_config)
+            else:
+                _validate_deployment_flavor(model_config, flavor)
+            print("Using the {selected_flavor} flavor for local serving!".format(selected_flavor=flavor))
             copy_model_into_container = (
-                "abc"
+                "COPY {model_dir} /opt/ml/model"
             )
         else:
             copy_model_into_container = ""
@@ -540,6 +549,9 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
                 " \"{error_message}\"".format(error_message=operation_status.message))
         if not archive:
             delete_operation.clean_up()
+
+
+
 
 
 def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
