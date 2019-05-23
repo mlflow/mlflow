@@ -137,13 +137,6 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
     expected_command_pattern = re.compile((
         "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"))
     x = output.getvalue()
-    print()
-    print()
-    print()
-    print(x)
-    print()
-    print()
-    print()
     assert expected_command_pattern.search(x) is not None
 
 
