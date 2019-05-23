@@ -4,9 +4,11 @@ import posixpath
 
 from mlflow.models import Model
 from mlflow.models.flavor_backend_registry import get_flavor_backend
+from mlflow.models.docker_utils import _build_image
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import cli_args
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -67,6 +69,24 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
                                                                      output_path=output_path,
                                                                      content_type=content_type,
                                                                      json_format=json_format)
+
+
+@commands.command("build-docker")
+@experimental
+@cli_args.MODEL_URI
+@click.option("--name", "-n", default="mlflow-pyfunc-servable",
+              help="Name to use for built image")
+def build_docker(model_uri, name):
+    """
+    [EXPERIMENTAL] Builds a Docker image containing the MLflow model at the specified URI.
+    The image's entry point serves the model with default settings. Note that the
+    model is assumed to have the pyfunc flavor - see
+    https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information.
+
+    This command is experimental and does not guarantee that the arguments nor format of the
+    Docker container will remain the same.
+    """
+    _build_image(model_uri, name)
 
 
 def _get_flavor_backend(model_uri, no_conda):

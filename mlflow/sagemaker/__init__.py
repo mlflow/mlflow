@@ -114,7 +114,7 @@ def _docker_ignore(mlflow_root):
     return ignore
 
 
-def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
+def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None, model_uri=None):
     """
     Build an MLflow Docker image.
     The image is built locally and it requires Docker to run.
@@ -149,8 +149,14 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
                 " -DoutputDirectory=/opt/java/jars\n"
                 "RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&"
                 " mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
-                "RUN rm /opt/java/pom.xml\n"
+                "RUN rm /opt/java/pom.xml"
             ).format(version=mlflow.version.VERSION)
+        if model_uri:
+            copy_model_into_container = (
+                "abc"
+            )
+        else:
+            copy_model_into_container = ""
 
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
             f.write(_DOCKERFILE_TEMPLATE % install_mlflow)
