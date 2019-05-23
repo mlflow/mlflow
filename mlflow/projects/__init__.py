@@ -160,7 +160,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                     active_run=active_run)
         kb.push_image_to_registry(image)
         job_info = kb.run_kubernetes_job(image,
-                                         parameters,
+                                         _get_entry_point_command(project, entry_point,
+                                                                  parameters, storage_dir),
                                          _get_run_env_vars(
                                              run_id=active_run.info.run_uuid,
                                              experiment_id=active_run.info.experiment_id),

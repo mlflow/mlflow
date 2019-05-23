@@ -7,9 +7,9 @@ def test_run_command_creation():  # pylint: disable=unused-argument
     """
     Tests command creation.
     """
-    parameters = {'alpha': '0.5'}
-    command = kb._get_run_command(parameters)
-    assert ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5'] == command
+    command = ['python train.py --alpha 0.5 --l1-ratio 0.1']
+    command = kb._get_run_command(command)
+    assert ['python', 'train.py', '--alpha', '0.5', '--l1-ratio', '0.1'] == command
 
 
 def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
@@ -45,7 +45,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
 
 def test_run_kubernetes_job():
     image = 'mlflow-docker-example-5e74a5a'
-    parameters = {'alpha': '0.5'}
+    command = ['python train.py --alpha 0.5 --l1-ratio 0.1']
     env_vars = {'RUN_ID': '1'}
     kube_context = "docker-for-desktop"
     job_template = yaml.load("apiVersion: batch/v1\n"
@@ -64,7 +64,7 @@ def test_run_kubernetes_job():
                              "      restartPolicy: Never\n")
     with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
         with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
-            job_info = kb.run_kubernetes_job(image=image, parameters=parameters, env_vars=env_vars,
+            job_info = kb.run_kubernetes_job(image=image, command=command, env_vars=env_vars,
                                              job_template=job_template, kube_context=kube_context)
             assert job_info["job_name"].startswith(image)
             assert job_info["job_namespace"] == "mlflow"

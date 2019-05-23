@@ -39,18 +39,19 @@ def _get_kubernetes_job_definition(image, command, env_vars, job_template):
     return job_template
 
 
-def _get_run_command(parameters):
-    command = ['mlflow',  'run', '.', '--no-conda']
-    for key, value in parameters.items():
-        command.extend(["-P", "%s=%s" % (key, value)])
-    return command
+def _get_run_command(entrypoint_command):
+    formatted_command = []
+    for cmd in entrypoint_command:
+        formatted_command = cmd.split(" ")
+    return formatted_command
 
 
-def run_kubernetes_job(image, parameters, env_vars,
+def run_kubernetes_job(image, command, env_vars,
                        kube_context, job_template=None):
-    command = _get_run_command(parameters)
-    job_definition = _get_kubernetes_job_definition(image=image, command=command,
-                                                    env_vars=env_vars, job_template=job_template)
+    job_definition = _get_kubernetes_job_definition(image=image,
+                                                    command=_get_run_command(command),
+                                                    env_vars=env_vars,
+                                                    job_template=job_template)
     job_name = job_definition['metadata']['name']
     job_namespace = job_definition['metadata']['namespace']
     kubernetes.config.load_kube_config(context=kube_context)
@@ -80,7 +81,18 @@ def monitor_job_status(job_name, job_namespace):
         pod = api_instance.read_namespaced_pod_status(pod.metadata.name,
                                                       job_namespace,
                                                       pretty=True)
-    _logger.info("Pod running")
+    container_state = pod.status.container_statuses[0].state
+    if container_state.waiting is not None:
+        _logger.info("Pod {name} wating".format(name=pod.metadata.name))
+    elif container_state.running is not None:
+        _logger.info("Pod {name} running".format(name=pod.metadata.name))
+    elif container_state.terminated is not None:
+        reason = container_state.terminated.reason
+        message = container_state.terminated.message
+        _logger.info("Pod {name} terminated. Reason: {reason}".format(name=pod.metadata.name,
+                                                                      reason=reason))
+        _logger.info("Message: {message}".format(message=message))
+
     api_instance = kubernetes.client.CoreV1Api()
     for line in api_instance.read_namespaced_pod_log(pod.metadata.name, job_namespace,
                                                      follow=True, _preload_content=False).stream():
