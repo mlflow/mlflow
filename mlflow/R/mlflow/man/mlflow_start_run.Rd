@@ -20,15 +20,15 @@ a new experiment with a randomly generated name.}
 
 \item{tags}{Additional metadata for run in key-value pairs. Only used when `client` is specified.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Starts a new run. If `client` is not provided, this function infers contextual information such as
   source name and version, and also registers the created run as the active run. If `client` is provided,
   no inference is done, and additional arguments such as `start_time` can be provided.
-}
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
 }
 \examples{
 \dontrun{

@@ -12,11 +12,11 @@ mlflow_create_experiment(name, artifact_location = NULL, client = NULL)
 \item{artifact_location}{Location where all artifacts for this experiment are stored. If
 not provided, the remote server will select an appropriate default.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Creates an MLflow experiment and returns its id.
-}
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
 }
