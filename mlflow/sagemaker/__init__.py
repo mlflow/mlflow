@@ -162,7 +162,8 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None, model_uri=None, flavo
                 _validate_deployment_flavor(model_config, flavor)
             print("Using the {selected_flavor} flavor for local serving!".format(selected_flavor=flavor))
             copy_model_into_container = (
-                "COPY {model_dir} /opt/ml/model"
+                "RUN export {disable_env}=true"
+                "COPY {model_dir} /opt/ml/model".format("")
             )
         else:
             copy_model_into_container = ""

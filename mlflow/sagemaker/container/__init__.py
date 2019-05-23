@@ -26,6 +26,7 @@ from mlflow.version import VERSION as MLFLOW_VERSION
 MODEL_PATH = "/opt/ml/model"
 
 DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
+DISABLE_ENV = "MLFLOW_DISABLE_ENV"
 
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
 
@@ -86,20 +87,25 @@ def _serve():
         raise Exception("This container only supports models with the MLeap or PyFunc flavors.")
 
 
+def _maybe_create_model_env(model_path):
+    """If model is a pyfunc model, create its conda env (even if it also has mleap flavor)"""
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model = Model.load(model_config_path)
+    # NOTE: this differs from _serve cause we always activate the env even if you're serving
+    # an mleap model
+    if pyfunc.FLAVOR_NAME not in model.flavors:
+        return
+    conf = model.flavors[pyfunc.FLAVOR_NAME]
+    print("creating and activating custom environment")
+    env = conf[pyfunc.ENV]
+    env_path = os.path.join(model_path, env)
+    os.system("conda env create -n custom_env -f {}".format(env_path))
+
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
-    if pyfunc.ENV in conf:
-        print("activating custom environment")
-        env = conf[pyfunc.ENV]
-        env_path_dst = os.path.join("/opt/mlflow/", env)
-        env_path_dst_dir = os.path.dirname(env_path_dst)
-        if not os.path.exists(env_path_dst_dir):
-            os.makedirs(env_path_dst_dir)
-        # TODO: should we test that the environment does not include any of the server dependencies?
-        # Those are gonna be reinstalled. should probably test this on the client side
-        shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
-        os.system("conda env create -n custom_env -f {}".format(env_path_dst))
+    if pyfunc.ENV in conf and not os.environ.get(DISABLE_ENV) == "true":
+        _maybe_create_model_env(model)
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
