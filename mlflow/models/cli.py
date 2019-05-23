@@ -27,14 +27,16 @@ def commands():
 @click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
 @click.option("--host", "-h", default="127.0.0.1", help="Server host. [default: 127.0.0.1]")
 @cli_args.NO_CONDA
-def serve(model_uri, port, host, no_conda=False):
+@cli_args.INSTALL_MLFLOW
+def serve(model_uri, port, host, no_conda=False, install_mlflow=False):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port. For
     information about the input data formats accepted by the webserver, see the following
     documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
     """
-    return _get_flavor_backend(model_uri, no_conda=no_conda).serve(model_uri=model_uri, port=port,
-                                                                   host=host)
+    return _get_flavor_backend(model_uri, no_conda=no_conda,
+                               install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
+                                                                    host=host)
 
 
 @commands.command("predict")
@@ -54,7 +56,9 @@ def serve(model_uri, port, host, no_conda=False):
                    "https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json"
                    ".html")
 @cli_args.NO_CONDA
-def predict(model_uri, input_path, output_path, content_type, json_format, no_conda):
+@cli_args.INSTALL_MLFLOW
+def predict(model_uri, input_path, output_path, content_type, json_format, no_conda,
+            install_mlflow):
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
@@ -62,19 +66,20 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
     """
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
-    return _get_flavor_backend(model_uri, no_conda=no_conda).predict(model_uri=model_uri,
-                                                                     input_path=input_path,
-                                                                     output_path=output_path,
-                                                                     content_type=content_type,
-                                                                     json_format=json_format)
+    return _get_flavor_backend(model_uri, no_conda=no_conda,
+                               install_mlflow=install_mlflow).predict(model_uri=model_uri,
+                                                                      input_path=input_path,
+                                                                      output_path=output_path,
+                                                                      content_type=content_type,
+                                                                      json_format=json_format)
 
 
-def _get_flavor_backend(model_uri, no_conda):
+def _get_flavor_backend(model_uri, **kwargs):
     with TempDir() as tmp:
         local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
                                                  output_path=tmp.path())
         model = Model.load(local_path)
-    flavor_name, flavor_backend = get_flavor_backend(model, no_conda=no_conda)
+    flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
 
     _logger.info("Selected backend for flavor '%s'", flavor_name)
     if flavor_backend is None:
