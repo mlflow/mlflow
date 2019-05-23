@@ -44,10 +44,10 @@ for more info.
 \examples{
 \dontrun{
 # This parametrized script trains a GBM model on the Iris dataset and can be run as an MLflow
-# project. You can run this script
-# (assuming it's saved at /some/directory/params_example.R) with
-# custom parameters via:
-# mlflow_run(entry_point = "params_example.R", uri = "/some/directory", parameters = list(num_trees = 200, learning_rate = 0.1))
+# project. You can run this script (assuming it's saved at /some/directory/params_example.R)
+# with custom parameters via:
+# mlflow_run(entry_point = "params_example.R", uri = "/some/directory",
+#   parameters = list(num_trees = 200, learning_rate = 0.1))
 install.packages("gbm")
 library(mlflow)
 library(gbm)
