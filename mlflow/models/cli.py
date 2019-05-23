@@ -24,17 +24,20 @@ def commands():
 
 @commands.command("serve")
 @cli_args.MODEL_URI
-@click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
-@click.option("--host", "-h", default="127.0.0.1", help="Server host. [default: 127.0.0.1]")
+@cli_args.PORT
+@cli_args.HOST
+@cli_args.WORKERS
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
-def serve(model_uri, port, host, no_conda=False, install_mlflow=False):
+def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port. For
     information about the input data formats accepted by the webserver, see the following
     documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
     """
-    return _get_flavor_backend(model_uri, no_conda=no_conda,
+    return _get_flavor_backend(model_uri,
+                               no_conda=no_conda,
+                               workers=workers,
                                install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
                                                                     host=host)
 
