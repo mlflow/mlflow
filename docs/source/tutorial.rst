@@ -285,7 +285,7 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: bash
 
-          mlflow pyfunc serve -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
+          mlflow models serve -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
 
       .. note::
 
@@ -296,8 +296,8 @@ in MLflow saved the model as an artifact within the run.
 
       Once you have deployed the server, you can pass it some sample data and see the
       predictions. The following example uses ``curl`` to send a JSON-serialized pandas DataFrame
-      with the ``split`` orientation to the pyfunc server. For more information about the input data
-      formats accepted by the pyfunc model server, see the
+      with the ``split`` orientation to the model server. For more information about the input data
+      formats accepted by the model server, see the
       :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
 
       .. code-block:: bash
