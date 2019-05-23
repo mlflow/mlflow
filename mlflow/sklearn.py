@@ -14,7 +14,6 @@ from __future__ import absolute_import
 import os
 import pickle
 import yaml
-import copy
 
 import mlflow
 from mlflow import pyfunc
@@ -127,8 +126,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = copy.deepcopy(get_default_conda_env(
-            include_cloudpickle=serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE))
+        conda_env = get_default_conda_env(
+            include_cloudpickle=serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
