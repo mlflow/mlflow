@@ -30,12 +30,12 @@ mlflow_ui <- function(client, ...) {
 }
 
 #' @export
-mlflow_ui.mlflow_client <- function(x, ...) {
-  mlflow_view_url(x$get_host_creds()$host)
+mlflow_ui.mlflow_client <- function(client, ...) {
+  mlflow_view_url(client$get_host_creds()$host)
 }
 
 #' @export
-mlflow_ui.NULL <- function(x, ...) {
+mlflow_ui.NULL <- function(client, ...) {
   client <- mlflow_client()
   mlflow_ui(client)
 }
