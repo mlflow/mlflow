@@ -12,7 +12,7 @@ public class LoaderModuleTest {
   public void testMLeapLoaderModuleDeserializesValidMLeapModelAsPredictor() {
     String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");
     try {
-      Predictor predictor = (new MLeapLoader()).load(modelPath);
+      Predictor predictor = new MLeapLoader().load(modelPath);
     } catch (PredictorLoadingException e) {
       e.printStackTrace();
       Assert.fail("Encountered unexpected `PredictorLoadingException`!");

@@ -1,12 +1,13 @@
 package org.mlflow.sagemaker;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import ml.combust.mleap.core.types.StructType;
 import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 import org.junit.Assert;
 import org.junit.Test;
@@ -14,6 +15,9 @@ import org.mlflow.MLflowRootResourceProvider;
 import org.mlflow.utils.SerializationUtils;
 
 public class PandasDataFrameTest {
+
+  private final MLeapSchemaReader schemaReader = new MLeapSchemaReader();
+
   @Test
   public void testPandasDataFrameIsProducedFromValidJsonSuccessfully() throws IOException {
     String sampleInputPath =
@@ -38,7 +42,7 @@ public class PandasDataFrameTest {
 
   @Test
   public void testLoadingPandasDataFrameFromJsonWithInvalidSplitOrientationSchemaThrowsException()
-      throws IOException, JsonProcessingException {
+      throws IOException {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
@@ -59,7 +63,7 @@ public class PandasDataFrameTest {
 
   @Test
   public void testLoadingPandasDataFrameFromJsonWithInvalidFrameDataThrowsException()
-      throws IOException, JsonProcessingException {
+      throws IOException {
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
@@ -82,10 +86,10 @@ public class PandasDataFrameTest {
 
   @Test
   public void testPandasDataFrameWithMLeapCompatibleSchemaIsConvertedToLeapFrameSuccessfully()
-      throws JsonProcessingException, IOException {
-    String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
-    LeapFrameSchema leapFrameSchema = LeapFrameSchema.fromPath(schemaPath);
+      throws IOException {
 
+    String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
+    StructType leapFrameSchema = schemaReader.fromFile(schemaPath);
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
@@ -102,10 +106,9 @@ public class PandasDataFrameTest {
    */
   @Test
   public void testConvertingPandasDataFrameWithMissingMLeapSchemaFieldThrowsException()
-      throws IOException, JsonProcessingException {
+      throws IOException {
     String schemaPath = MLflowRootResourceProvider.getResourcePath("mleap_model/mleap/schema.json");
-    LeapFrameSchema leapFrameSchema = LeapFrameSchema.fromPath(schemaPath);
-
+    StructType leapFrameSchema = schemaReader.fromFile(schemaPath);
     String sampleInputPath =
         MLflowRootResourceProvider.getResourcePath("mleap_model/sample_input.json");
     String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
