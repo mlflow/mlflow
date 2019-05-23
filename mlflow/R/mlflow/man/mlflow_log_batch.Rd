@@ -19,13 +19,13 @@ This dataframe cannot contain any missing ('NA') entries.}
 
 \item{run_id}{Run ID.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Log a batch of metrics, params, and/or tags for a run. The server will respond with an error (non-200 status code)
   if any data failed to be persisted. In case of error (due to internal server error or an invalid request), partial
   data may be written.
-}
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
 }

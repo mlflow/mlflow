@@ -11,5 +11,6 @@ mlflow_client(tracking_uri = NULL)
 set by `mlflow_set_tracking_uri()`.}
 }
 \description{
-Initialize an MLflow Client
+Initializes and returns an MLflow client that communicates with the tracking server or store
+at the specified URI.
 }

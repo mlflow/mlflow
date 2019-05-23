@@ -10,11 +10,11 @@ mlflow_list_experiments(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
 \arguments{
 \item{view_type}{Qualifier for type of experiments to be returned. Defaults to `ACTIVE_ONLY`.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Gets a list of all experiments.
-}
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
 }

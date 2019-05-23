@@ -111,7 +111,7 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     .. code-block:: R
 
-        mlflow_run(uri = "examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5))
+        mlflow_run(uri = "examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.1, lambda = 0.5))
 
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
@@ -235,7 +235,7 @@ Now that you have your training code, you can package it so that other data scie
 
       .. code-block:: r
 
-        mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
+        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       After running this command, MLflow runs your training code in a new R session.
 
@@ -244,7 +244,7 @@ Now that you have your training code, you can package it so that other data scie
       .. code-block:: r
 
         mlflow_restore_snapshot()
-        mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
+        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
 
@@ -253,7 +253,7 @@ Now that you have your training code, you can package it so that other data scie
         mlflow_run(
           "train.R",
           "https://github.com/rstudio/mlflow-example",
-          param_list = list(alpha = 0.2)
+          parameters = list(alpha = 0.2)
         )
 
 Serving the Model

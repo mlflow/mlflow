@@ -9,7 +9,10 @@ mlflow_restore_experiment(experiment_id, client = NULL)
 \arguments{
 \item{experiment_id}{ID of the associated experiment. This field is required.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Restores an experiment marked for deletion. This also restores associated metadata,
@@ -18,6 +21,4 @@ Restores an experiment marked for deletion. This also restores associated metada
 }
 \details{
 Throws `RESOURCE_DOES_NOT_EXIST` if the experiment was never created or was permanently deleted.
-
-When `client` is not specified, these functions attempt to infer the current active client.
 }

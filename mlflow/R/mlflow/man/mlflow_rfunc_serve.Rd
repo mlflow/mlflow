@@ -29,12 +29,14 @@ Serves an RFunc MLflow model as a local web API.
 The URI scheme must be supported by MLflow - i.e. there has to be an MLflow artifact
          repository corresponding to the scheme of the URI. The content is expected to point to a
          directory containing MLmodel. The following are examples of valid model uris:
+
                  - ``file:///absolute/path/to/local/model``
                  - ``file:relative/path/to/local/model``
                  - ``s3://my_bucket/path/to/model``
                  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-         For more information about supported URI schemes, see the Artifacts Documentation
-                 `<https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores>`_.
+
+ For more information about supported URI schemes, see the Artifacts Documentation at
+ https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores.
 }
 \examples{
 \dontrun{
@@ -50,7 +52,3 @@ mlflow_rfunc_serve("mlflow_constant")
 httr::POST("http://127.0.0.1:8090/predict/")
 }
 }
-\seealso{
-Other artifact uri: \code{\link{mlflow_load_model}}
-}
-\concept{artifact uri}

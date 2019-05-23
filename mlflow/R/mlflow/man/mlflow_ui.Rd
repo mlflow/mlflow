@@ -4,10 +4,13 @@
 \alias{mlflow_ui}
 \title{Run MLflow User Interface}
 \usage{
-mlflow_ui(x, ...)
+mlflow_ui(client, ...)
 }
 \arguments{
-\item{x}{An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 
 \item{...}{Optional arguments passed to `mlflow_server()` when `x` is a path to a file store.}
 }
