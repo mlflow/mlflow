@@ -69,5 +69,5 @@ class TestRunInfo(unittest.TestCase):
                     lifecycle_stage, artifact_uri)
 
     def test_searchable_attributes(self):
-        self.assertSequenceEqual(set(["lifecycle_stage", "status", "artifact_uri"]),
+        self.assertSequenceEqual(set(["status", "artifact_uri"]),
                                  set(RunInfo.get_searchable_attributes()))
