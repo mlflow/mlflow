@@ -228,6 +228,42 @@ test_that("with() errors when not passed active run", {
   )
 })
 
+test_that("mlflow_search_runs() works", {
+  mlflow_clear_test_dir("mlruns")
+  with(mlflow_start_run(), {
+    mlflow_log_metric("test", 10)
+  })
+  with(mlflow_start_run(), {
+    mlflow_log_metric("test", 20)
+  })
+  expect_equal(nrow(mlflow_search_runs(experiment_ids = list("0"))), 2)
+  expect_equal(nrow(mlflow_search_runs(experiment_ids = "0")), 2)
+  expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 10", experiment_ids = list("0"))), 1)
+  expect_equal(nrow(mlflow_search_runs(filter = "metrics.test < 20", experiment_ids = list("0"))), 1)
+  expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 20", experiment_ids = list("0"))), 0)
+  mlflow_set_experiment("new-experiment")
+  expect_equal(nrow(mlflow_search_runs()), 0)
+  with(mlflow_start_run(), {
+    mlflow_log_metric("new_experiment_metric", 30)
+  })
+  expect_equal(nrow(mlflow_search_runs(filter = "metrics.new_experiment_metric = 30")), 1)
+})
+
+test_that("mlflow_list_run_infos() works", {
+  mlflow_clear_test_dir("mlruns")
+  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 0)
+  with(mlflow_start_run(), {
+    mlflow_log_metric("test", 10)
+  })
+  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 1)
+  mlflow_set_experiment("new-experiment")
+  expect_equal(nrow(mlflow_list_run_infos()), 0)
+  with(mlflow_start_run(), {
+    mlflow_log_metric("new_experiment_metric", 20)
+  })
+  expect_equal(nrow(mlflow_list_run_infos()), 1)
+})
+
 test_that("mlflow_log_batch() works", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()

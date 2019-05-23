@@ -13,7 +13,8 @@ The syntax is a subset of SQL which allows only ANDing together binary operation
 
 \item{run_view_type}{Run view type.}
 
-\item{experiment_ids}{List of experiment IDs to search over. Attempts to use active experiment if not specified.}
+\item{experiment_ids}{List of string experiment IDs (or a single string experiment ID) to search
+over. Attempts to use active experiment if not specified.}
 
 \item{client}{(Optional) An `mlflow_client` object.}
 }

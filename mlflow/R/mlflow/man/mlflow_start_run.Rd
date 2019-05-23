@@ -33,7 +33,7 @@ When `client` is not specified, these functions attempt to infer the current act
 \examples{
 \dontrun{
 with(mlflow_start_run(), {
-  mlflow_log("test", 10)
+  mlflow_log_metric("test", 10)
 })
 }
 
