@@ -174,7 +174,7 @@ predictions.
 
 The following example uses ``curl`` to send a JSON-serialized pandas DataFrame with the ``split``
 orientation to the model server. For more information about the input data formats accepted by
-the pyfunc model server, see the :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
+the pyfunc model server, see the :ref:`MLflow deployment tools documentation <local_model_deployment>`.
 
 .. code-block:: bash
 

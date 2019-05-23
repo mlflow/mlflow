@@ -298,7 +298,7 @@ in MLflow saved the model as an artifact within the run.
       predictions. The following example uses ``curl`` to send a JSON-serialized pandas DataFrame
       with the ``split`` orientation to the model server. For more information about the input data
       formats accepted by the model server, see the
-      :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
+      :ref:`MLflow deployment tools documentation <local_model_deployment>`.
 
       .. code-block:: bash
 

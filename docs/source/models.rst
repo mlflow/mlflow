@@ -455,7 +455,7 @@ Not all deployment methods are available for all model flavors.
   :local:
   :depth: 1
 
-.. _model_deployment:
+.. _local_model_deployment:
 
 Deploy MLflow models locally
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -644,7 +644,7 @@ MLflow includes the utility function ``build_and_push_container`` to perform thi
 module accept the following data formats as input, depending on the deployment flavor:
 
 * ``python_function``: For this deployment flavor, the endpoint accepts the same formats described
-  in the :ref:`pyfunc deployment documentation <pyfunc_deployment>`.
+  in the :ref:`local model deployment documentation <local_model_deployment>`.
 
 * ``mleap``: For this deployment flavor, the endpoint accepts `only`
   JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
