@@ -404,8 +404,10 @@ def _fetch_git_repo(uri, version, dst_dir):
         repo.heads.master.checkout()
 
 
-def _get_conda_env_name(conda_env_path):
+def _get_conda_env_name(conda_env_path, env_id=None):
     conda_env_contents = open(conda_env_path).read() if conda_env_path else ""
+    if env_id:
+        conda_env_contents += env_id
     return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
 
 
@@ -425,10 +427,16 @@ def _get_conda_bin_executable(executable_name):
     return executable_name
 
 
-def _get_or_create_conda_env(conda_env_path):
+def _get_or_create_conda_env(conda_env_path, env_id=None):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
+    :param conda_env_path: Path to a conda yaml file.
+    :param env_id: Optional string that is added to the contents of the yaml file before
+                   calculating the hash. It can be used to distinguish environments that have the
+                   same conda dependencies but are supposed to be different based on the context.
+                   For example, when serving the model we may install additional dependencies to the
+                   environment after the environment has been activated.
     """
     conda_path = _get_conda_bin_executable("conda")
     try:
@@ -442,7 +450,7 @@ def _get_or_create_conda_env(conda_env_path):
                                  "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
-    project_env_name = _get_conda_env_name(conda_env_path)
+    project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
         _logger.info('=== Creating conda environment %s ===', project_env_name)
         if conda_env_path:

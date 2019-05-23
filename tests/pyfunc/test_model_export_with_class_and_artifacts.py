@@ -115,6 +115,7 @@ def _conda_env():
     # NB: We need mlflow as a dependency in the environment.
     return _mlflow_conda_env(
         additional_conda_deps=None,
+        install_mlflow=False,
         additional_pip_deps=[
             "-e " + os.path.dirname(mlflow.__path__[0]),
             "cloudpickle=={}".format(cloudpickle.__version__),
