@@ -22,20 +22,20 @@ mlflow_view_url <- function(url) {
 #' mlflow_ui()
 #' }
 #'
-#' @param x An `mlflow_client` object.
+#' @template roxlate-client
 #' @param ... Optional arguments passed to `mlflow_server()` when `x` is a path to a file store.
 #' @export
-mlflow_ui <- function(x, ...) {
+mlflow_ui <- function(client, ...) {
   UseMethod("mlflow_ui")
 }
 
 #' @export
-mlflow_ui.mlflow_client <- function(x, ...) {
-  mlflow_view_url(x$get_host_creds()$host)
+mlflow_ui.mlflow_client <- function(client, ...) {
+  mlflow_view_url(client$get_host_creds()$host)
 }
 
 #' @export
-mlflow_ui.NULL <- function(x, ...) {
+mlflow_ui.NULL <- function(client, ...) {
   client <- mlflow_client()
   mlflow_ui(client)
 }

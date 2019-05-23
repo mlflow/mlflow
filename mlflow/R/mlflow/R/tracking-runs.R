@@ -61,6 +61,7 @@ mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NU
 
 #' Delete a Run
 #'
+#' Deletes the run with the specified ID.
 #' @template roxlate-client
 #' @template roxlate-run-id
 #' @export
@@ -77,6 +78,7 @@ mlflow_delete_run <- function(run_id, client = NULL) {
 
 #' Restore a Run
 #'
+#' Restores the run with the specified ID.
 #' @template roxlate-client
 #' @template roxlate-run-id
 #' @export
@@ -358,7 +360,8 @@ mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_cli
 
 #' List Run Infos
 #'
-#' List run infos.
+#' Returns a tibble whose columns contain run metadata (run ID, etc) for all runs under the
+#' specified experiment.
 #'
 #' @param experiment_id Experiment ID. Attempts to use the active experiment if not specified.
 #' @param run_view_type Run view type.
@@ -394,30 +397,8 @@ mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY
 #'
 #' @details
 #'
-#' When logging to Amazon S3, ensure that the user has a proper policy
-#' attached to it, for instance:
-#'
-#' \code{
-#' {
-#' "Version": "2012-10-17",
-#' "Statement": [
-#'   {
-#'     "Sid": "VisualEditor0",
-#'     "Effect": "Allow",
-#'     "Action": [
-#'       "s3:PutObject",
-#'       "s3:GetObject",
-#'       "s3:ListBucket",
-#'       "s3:GetBucketLocation"
-#'       ],
-#'     "Resource": [
-#'       "arn:aws:s3:::mlflow-test/*",
-#'       "arn:aws:s3:::mlflow-test"
-#'       ]
-#'   }
-#'   ]
-#' }
-#' }
+#' When logging to Amazon S3, ensure that you have the s3:PutObject, s3:GetObject,
+#' s3:ListBucket, and s3:GetBucketLocation permissions on your bucket.
 #'
 #' Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
 #' environment variables must be set to the corresponding key and secrets provided
@@ -544,13 +525,14 @@ mlflow_get_run_context.default <- function(client, experiment_id, ...) {
 #'
 #' Terminates a run. Attempts to end the current active run if `run_id` is not specified.
 #'
-#' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @param status Updated status of the run. Defaults to `FINISHED`. Can also be set to
+#' "FAILED" or "KILLED".
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @template roxlate-run-id
 #' @template roxlate-client
 #'
 #' @export
-mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+mlflow_end_run <- function(status = c("FINISHED", "FAILED", "KILLED"),
                            end_time = NULL, run_id = NULL, client = NULL) {
 
   status <- match.arg(status)
