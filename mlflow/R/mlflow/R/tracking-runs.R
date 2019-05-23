@@ -246,7 +246,8 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #' Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.
 #'
 #' @template roxlate-client
-#' @param experiment_ids List of experiment IDs to search over. Attempts to use active experiment if not specified.
+#' @param experiment_ids List of string experiment IDs (or a single string experiment ID) to search
+#' over. Attempts to use active experiment if not specified.
 #' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
 #'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
@@ -256,10 +257,14 @@ mlflow_search_runs <- function(filter = NULL,
                                run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), experiment_ids = NULL,
                                client = NULL) {
   experiment_ids <- resolve_experiment_id(experiment_ids)
+  # If we get back a single experiment ID, e.g. the active experiment ID, convert it to a list
+  if (is.atomic(experiment_ids)) {
+    experiment_ids <- list(experiment_ids)
+  }
   client <- resolve_client(client)
 
   run_view_type <- match.arg(run_view_type)
-  experiment_ids <- cast_double_list(experiment_ids)
+  experiment_ids <- cast_string_list(experiment_ids)
   filter <- cast_nullable_string(filter)
 
   response <- mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
@@ -465,7 +470,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' @examples
 #' \dontrun{
 #' with(mlflow_start_run(), {
-#'   mlflow_log("test", 10)
+#'   mlflow_log_metric("test", 10)
 #' })
 #' }
 #'
