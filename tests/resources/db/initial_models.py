@@ -1,13 +1,9 @@
 # Snapshot of MLflow DB models as of the 0.9.1 release, prior to the first database migration.
-# Used to standardize initial database state.
-# Copied with modifications from
-# https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, which
-# is the first database schema that users could be running. In particular, modifications have
-# been made to substitute constants from MLflow with hard-coded values (e.g. replacing
-# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK") and ensure
-# that all constraint names are unique. Note that pre-1.0 database schemas did not have unique
-# constraint names - we provided a one-time migration script for pre-1.0 users so that their
-# database schema matched the schema in this file.
+# This file corresponds to the first database schema that we can reasonably expect users to be
+# running and exists to test that the oldest database schema can be brought up-to-date.
+# Copied from https://github.com/mlflow/mlflow/blob/v0.9.1/mlflow/store/dbmodels/models.py, with
+# modifications to substitute constants from MLflow with hard-coded values (e.g. replacing
+# SourceType.to_string(SourceType.NOTEBOOK) with the constant "NOTEBOOK").
 import time
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
@@ -63,7 +59,7 @@ class SqlExperiment(Base):
     __table_args__ = (
         CheckConstraint(
             lifecycle_stage.in_(["active", "deleted"]),
-            name='experiments_lifecycle_stage'),
+            name='lifecycle_stage'),
         PrimaryKeyConstraint('experiment_id', name='experiment_pk')
     )
 
@@ -141,7 +137,7 @@ class SqlRun(Base):
         CheckConstraint(source_type.in_(SourceTypes), name='source_type'),
         CheckConstraint(status.in_(RunStatusTypes), name='status'),
         CheckConstraint(lifecycle_stage.in_(["active", "deleted"]),
-                        name='runs_lifecycle_stage'),
+                        name='lifecycle_stage'),
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 

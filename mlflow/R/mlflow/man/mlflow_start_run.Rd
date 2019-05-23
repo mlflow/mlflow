@@ -33,7 +33,7 @@ Starts a new run. If `client` is not provided, this function infers contextual i
 \examples{
 \dontrun{
 with(mlflow_start_run(), {
-  mlflow_log_metric("test_metric", 10)
+  mlflow_log_metric("test", 10)
 })
 }
 

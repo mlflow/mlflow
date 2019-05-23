@@ -1257,8 +1257,9 @@ Arguments
 +-------------------------------+--------------------------------------+
 | ``run_view_type``             | Run view type.                       |
 +-------------------------------+--------------------------------------+
-| ``experiment_ids``            | List of experiment IDs to search     |
-|                               | over. Attempts to use active         |
+| ``experiment_ids``            | List of string experiment IDs (or a  |
+|                               | single string experiment ID) to      |
+|                               | search over. Attempts to use active  |
 |                               | experiment if not specified.         |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An MLflow client object   |
@@ -1496,7 +1497,7 @@ Examples
 .. code:: r
 
    with(mlflow_start_run(), {
-   mlflow_log_metric("test_metric", 10)
+   mlflow_log_metric("test", 10)
    })
 
 ``mlflow_ui``
