@@ -98,7 +98,7 @@ MLflow artifacts and then load them again for serving. There is an example train
     Score: 0.666
     Model saved in run <run-id>
 
-    $ mlflow pyfunc serve -r <run-id> -m model
+    $ mlflow models serve --model-uri runs:/<run-id>/model
 
     $ curl -d '{"columns":[0],"index":[0,1],"data":[[1],[-1]]}' -H 'Content-Type: application/json'  localhost:5000/invocations
 

@@ -85,12 +85,12 @@ run_id ``101``.
 
 - To test REST api scoring do the following two steps:
 
-  1. Deploy the model as a local REST endpoint by running mlflow pyfunc serve:
+  1. Deploy the model as a local REST endpoint by running ``mlflow models serve``:
 
   .. code-block:: bash
 
       # deploy the model to local REST api endpoint
-      mlflow pyfunc serve -p 54321 -r 101 -m model
+      mlflow models serve --model-uri runs:/101/model --port 54321
 
 
   2. Apply the model to new data using the provided score_images_rest.py script:
