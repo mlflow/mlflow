@@ -1,4 +1,4 @@
-MLFLOW_VERSION = "0.8.0"  # we expect this model to be bound to this mlflow version.
+MLFLOW_VERSION = "1.0.0"  # we expect this model to be bound to this mlflow version.
 
 
 class PyFuncTestModel:

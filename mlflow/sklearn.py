@@ -14,7 +14,6 @@ from __future__ import absolute_import
 import os
 import pickle
 import yaml
-import copy
 
 import mlflow
 from mlflow import pyfunc
@@ -37,18 +36,21 @@ SUPPORTED_SERIALIZATION_FORMATS = [
 ]
 
 
-def get_default_conda_env():
+def get_default_conda_env(include_cloudpickle=False):
     """
     :return: The default Conda environment for MLflow Models produced by calls to
     :func:`save_model()` and :func:`log_model()`.
     """
     import sklearn
-
+    pip_deps = None
+    if include_cloudpickle:
+        import cloudpickle
+        pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
     return _mlflow_conda_env(
         additional_conda_deps=[
             "scikit-learn={}".format(sklearn.__version__),
         ],
-        additional_pip_deps=None,
+        additional_pip_deps=pip_deps,
         additional_conda_channels=None
     )
 
@@ -124,11 +126,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = copy.deepcopy(get_default_conda_env())
-        if serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
-            import cloudpickle
-            conda_env["dependencies"].append(
-                {"pip": ["cloudpickle=={}".format(cloudpickle.__version__)]})
+        conda_env = get_default_conda_env(
+            include_cloudpickle=serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)

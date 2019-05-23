@@ -19,7 +19,6 @@ import logging
 import numpy as np
 import pandas as pd
 from six import reraise
-import subprocess
 import sys
 import traceback
 
@@ -36,7 +35,6 @@ except ImportError:
     from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
 from mlflow.server.handlers import catch_mlflow_exception
-from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
 
 try:
     from StringIO import StringIO
@@ -181,24 +179,9 @@ def init(model):
     return app
 
 
-def _safe_local_path(local_path):
-    # NB: Since mlflow 1.0, mlflow.pyfunc.load_model expects uri instead of local path. Local paths
-    # work, however absolute windows path don't because the drive is parsed as scheme. Since we do
-    # not control the version of mlflow (the scoring server version matches the version of mlflow
-    # invoking the scoring command, the rest of mlflow comes from the model environment) we check
-    # the mlflow version at run time and convert local path to file uri to ensure platform
-    # independence.
-    from mlflow.version import VERSION
-    is_recent_version = VERSION.endswith("dev0") or int(VERSION.split(".")[0]) >= 1
-    if is_recent_version:
-        from mlflow.tracking.utils import path_to_local_file_uri
-        return path_to_local_file_uri(local_path)
-    return local_path
-
-
-def _predict(local_path, input_path, output_path, content_type, json_format):
-    pyfunc_model = load_model(_safe_local_path(local_path))
-    if input_path is None or input_path == "__stdin__":
+def _predict(model_uri, input_path, output_path, content_type, json_format):
+    pyfunc_model = load_model(model_uri)
+    if input_path is None:
         input_path = sys.stdin
 
     if content_type == "json":
@@ -208,31 +191,16 @@ def _predict(local_path, input_path, output_path, content_type, json_format):
     else:
         raise Exception("Unknown content type '{}'".format(content_type))
 
-    if output_path is None or output_path == "__stdout__":
+    if output_path is None:
         predictions_to_json(pyfunc_model.predict(df), sys.stdout)
     else:
         with open(output_path, "w") as fout:
             predictions_to_json(pyfunc_model.predict(df), fout)
 
 
-def _serve(local_path, port, host):
-    pyfunc_model = load_model(_safe_local_path(local_path))
+def _serve(model_uri, port, host):
+    pyfunc_model = load_model(model_uri)
     init(pyfunc_model).run(port=port, host=host)
-
-
-def _execute_in_conda_env(conda_env_path, command):
-    conda_env_name = _get_or_create_conda_env(conda_env_path)
-    activate_path = _get_conda_bin_executable("activate")
-    command = " && ".join(
-        ["source {} {}".format(activate_path, conda_env_name), "pip install mlflow 1>&2", command]
-    )
-    _logger.info("=== Running command '%s'", command)
-    child = subprocess.Popen(["bash", "-c", command], close_fds=True)
-    rc = child.wait()
-    if rc != 0:
-        raise Exception("Command '{0}' returned non zero return code. Return code = {1}".format(
-            command, rc
-        ))
 
 
 class NumpyEncoder(JSONEncoder):
@@ -265,13 +233,3 @@ def _get_jsonable_obj(data, pandas_orient="records"):
         return pd.DataFrame(data).to_dict(orient=pandas_orient)
     else:  # by default just return whatever this is and hope for the best
         return data
-
-
-if __name__ == '__main__':
-    if sys.argv[1] == "predict":
-        _predict(local_path=sys.argv[2], input_path=sys.argv[3], output_path=sys.argv[4],
-                 content_type=sys.argv[5], json_format=sys.argv[6])
-    elif sys.argv[1] == "serve":
-        _serve(local_path=sys.argv[2], port=sys.argv[3], host=sys.argv[4])
-    else:
-        raise Exception("Unknown command '{}'".format(sys.argv[1]))

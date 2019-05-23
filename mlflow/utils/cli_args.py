@@ -21,7 +21,13 @@ RUN_ID = click.option("--run-id", "-r", default=None, required=False, metavar="I
                       help="ID of the MLflow run that generated the referenced content.")
 
 NO_CONDA = click.option("--no-conda", is_flag=True,
-                        help="If specified, will assume that MLModel/MLproject is running within "
-                             "a Conda environmen with the necessary dependencies for "
+                        help="If specified, will assume that MLmodel/MLproject is running within "
+                             "a Conda environment with the necessary dependencies for "
                              "the current project instead of attempting to create a new "
                              "conda environment.")
+
+INSTALL_MLFLOW = click.option("--install-mlflow", is_flag=True, default=False,
+                              help="If specified and there is a conda environment to be activated "
+                                   "mlflow will be installed into the environment after it has been"
+                                   " activated. The version of installed mlflow will be the same as"
+                                   "the one used to invoke this command.")
