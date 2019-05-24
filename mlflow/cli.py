@@ -206,14 +206,9 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
                    "Note that this flag does not impact already-created experiments. "
                    "Default: Within file store, if a file:/ URI is provided. If a sql backend is"
                    " used, then this option is required.")
-@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
-              help="The network address to listen on (default: 127.0.0.1). "
-                   "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
-                   "server from other machines.")
-@click.option("--port", "-p", default=5000,
-              help="The port to listen on (default: 5000).")
-@click.option("--workers", "-w", default=4,
-              help="Number of gunicorn worker processes to handle requests (default: 4).")
+@cli_args.HOST
+@cli_args.PORT
+@cli_args.WORKERS
 @click.option("--static-prefix", default=None, callback=_validate_static_prefix,
               help="A prefix which will be prepended to the path of all static paths.")
 @click.option("--gunicorn-opts", default=None,
