@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import random
 import shutil
 import six
 import tempfile
@@ -11,7 +12,7 @@ import uuid
 import mock
 import pytest
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage
+from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, RunStatus
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
@@ -55,7 +56,7 @@ class TestFileStore(unittest.TestCase):
                             "run_id": run_id,
                             "experiment_id": exp,
                             "user_id": random_str(random_int(10, 25)),
-                            "status": random_int(1, 5),
+                            "status": random.choice(RunStatus.all_status()),
                             "start_time": random_int(1, 10),
                             "end_time": random_int(20, 30),
                             "tags": [],
@@ -280,6 +281,7 @@ class TestFileStore(unittest.TestCase):
         run_info.pop("params", None)
         run_info.pop("tags", None)
         run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
+        run_info['status'] = RunStatus.to_string(run_info['status'])
         self.assertEqual(run_info, dict(run.info))
 
     def test_get_run(self):
@@ -308,6 +310,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info.pop("params")
                 dict_run_info.pop("tags")
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
+                dict_run_info['status'] = RunStatus.to_string(dict_run_info['status'])
                 self.assertEqual(dict_run_info, dict(run_info))
 
     def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):

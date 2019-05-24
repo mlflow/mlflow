@@ -12,7 +12,6 @@ import sklearn.neighbors
 
 import mlflow
 import mlflow.pyfunc
-import mlflow.pyfunc.cli
 import mlflow.pyfunc.model
 import mlflow.sklearn
 from mlflow.exceptions import MlflowException

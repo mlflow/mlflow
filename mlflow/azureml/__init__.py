@@ -47,8 +47,8 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
                       For more information about supported URI schemes, see
-                      `Artifact Stores <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-store-locations>`_.
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param image_name: The name to assign the Azure Container Image that will be created. If
                        unspecified, a unique image name will be generated.
@@ -314,8 +314,7 @@ import pandas as pd
 
 from azureml.core.model import Model
 from mlflow.pyfunc import load_pyfunc
-from mlflow.pyfunc.scoring_server import parse_json_input
-from mlflow.utils import get_jsonable_obj
+from mlflow.pyfunc.scoring_server import parse_json_input, _get_jsonable_obj
 
 
 def init():
@@ -326,6 +325,6 @@ def init():
 
 def run(json_input):
     input_df = parse_json_input(json_input=json_input, orient="split")
-    return get_jsonable_obj(model.predict(input_df), pandas_orient="records")
+    return _get_jsonable_obj(model.predict(input_df), pandas_orient="records")
 
 """

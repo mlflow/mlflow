@@ -30,7 +30,9 @@ You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 
 If contributing to MLflow's R APIs, install `R <https://cloud.r-project.org/>`_. For changes to R
 documentation, also install `pandoc <https://pandoc.org/installing.html>`_ 2.2.1 or above,
-verifying the version of your installation via ``pandoc --version``.
+verifying the version of your installation via ``pandoc --version``. If using Mac OSX, note that
+the homebrew installation of pandoc may be out of date - you can find newer pandoc versions at
+https://github.com/jgm/pandoc/releases.
 
 If contributing to MLflow's Java APIs or modifying Java documentation,
 install `Java <https://www.java.com/>`_ and `Apache Maven <https://maven.apache.org/download.cgi>`_.
@@ -155,6 +157,7 @@ run tests annotated with @pytest.mark.large. For example, to run all pyfunc test
 (including large tests), you can run:
 
 .. code-block:: bash
+
     pytest tests/pyfunc --large
 
 Note: Certain model tests are not well-isolated (can result in OOMs when run in the same Python
@@ -185,19 +188,19 @@ MLflow's Tracking component supports storing experiment and run data in a SQL ba
 make changes to the tracking database schema, run the following from your
 checkout of MLflow:
 
-```
-# starting at the root of the project
-$ pwd
-~/mlflow
-$ cd mlflow
-# MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
-$ alembic revision -m "add new field to db"
-  Generating ~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py
+.. code-block:: bash
 
-```
+    # starting at the root of the project
+    $ pwd
+    ~/mlflow
+    $ cd mlflow
+    # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
+    $ alembic revision -m "add new field to db"
+      Generating ~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py
+
 
 These commands generate a new migration script (e.g. at
-~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py) that you should then edit to add
+``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``) that you should then edit to add
 migration logic.
 
 
@@ -264,12 +267,14 @@ see subsequent sections for instructions on generating R and Java docs.
 Generate R API rst doc files via:
 
 .. code-block:: bash
+
   cd docs
   make rdocs
 
 Generate Java API rst doc files via:
 
 .. code-block:: bash
+
   cd docs
   make javadocs
 
@@ -277,6 +282,7 @@ Generate Java API rst doc files via:
 Generate API docs for all languages via:
 
 .. code-block:: bash
+
   cd docs
   make html
 

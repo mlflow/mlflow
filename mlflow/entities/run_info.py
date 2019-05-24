@@ -1,3 +1,4 @@
+from mlflow.entities.run_status import RunStatus
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
@@ -17,8 +18,10 @@ def check_run_is_deleted(run_info):
                               .format(run_info.run_id))
 
 
-class numeric_property(property):
-    is_numeric = True
+class searchable_attribute(property):
+    # Wrapper class over property to designate some of the properties as searchable
+    # run attributes
+    pass
 
 
 class RunInfo(_MLflowObject):
@@ -88,7 +91,7 @@ class RunInfo(_MLflowObject):
         """String ID of the user who initiated this run."""
         return self._user_id
 
-    @numeric_property
+    @searchable_attribute
     def status(self):
         """
         One of the values in :py:class:`mlflow.entities.RunStatus`
@@ -96,17 +99,17 @@ class RunInfo(_MLflowObject):
         """
         return self._status
 
-    @numeric_property
+    @property
     def start_time(self):
         """Start time of the run, in number of milliseconds since the UNIX epoch."""
         return self._start_time
 
-    @numeric_property
+    @property
     def end_time(self):
         """End time of the run, in number of milliseconds since the UNIX epoch."""
         return self._end_time
 
-    @property
+    @searchable_attribute
     def artifact_uri(self):
         """String root artifact URI of the run."""
         return self._artifact_uri
@@ -121,7 +124,7 @@ class RunInfo(_MLflowObject):
         proto.run_id = self.run_id
         proto.experiment_id = self.experiment_id
         proto.user_id = self.user_id
-        proto.status = self.status
+        proto.status = RunStatus.from_string(self.status)
         proto.start_time = self.start_time
         if self.end_time:
             proto.end_time = self.end_time
@@ -138,14 +141,11 @@ class RunInfo(_MLflowObject):
         if end_time == 0:
             end_time = None
         return cls(run_uuid=proto.run_uuid, run_id=proto.run_id, experiment_id=proto.experiment_id,
-                   user_id=proto.user_id, status=proto.status, start_time=proto.start_time,
-                   end_time=end_time, lifecycle_stage=proto.lifecycle_stage,
-                   artifact_uri=proto.artifact_uri)
+                   user_id=proto.user_id, status=RunStatus.to_string(proto.status),
+                   start_time=proto.start_time, end_time=end_time,
+                   lifecycle_stage=proto.lifecycle_stage, artifact_uri=proto.artifact_uri)
 
     @classmethod
-    def get_attributes(cls):
-        return cls._properties()
-
-    @classmethod
-    def get_numeric_attributes(cls):
-        return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), numeric_property)])
+    def get_searchable_attributes(cls):
+        return sorted([p for p in cls.__dict__
+                       if isinstance(getattr(cls, p), searchable_attribute)])

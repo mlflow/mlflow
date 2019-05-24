@@ -1,29 +1,18 @@
-#' MLflow Command
-#'
-#' Runs a generic MLflow command through the command-line interface.
-#'
-#' @param ... The parameters to pass to the command line.
-#' @param background Should this command be triggered as a background task?
-#'   Defaults to \code{FALSE}.
-#' @param echo Print the standard output and error to the screen? Defaults to
-#'   \code{TRUE}, does not apply to background tasks.
-#' @param stderr_callback NULL, or a function to call for every chunk of the standard error.
-#' @param client Mlflow client to provide environment for the cli process.
-#'
-#' @return A \code{processx} task.
-#'
-#' @examples
-#' \dontrun{
-#' library(mlflow)
-#' mlflow_install()
-#'
-#' mlflow_cli("server", "--help")
-#' }
-#'
+# Runs a generic MLflow command through the command-line interface.
+#
+# @param ... The parameters to pass to the command line.
+# @param background Should this command be triggered as a background task?
+#   Defaults to \code{FALSE}.
+# @param echo Print the standard output and error to the screen? Defaults to
+#   \code{TRUE}, does not apply to background tasks.
+# @param stderr_callback NULL, or a function to call for every chunk of the standard error.
+#   Defaults to a function that prints chunks to standard error.
+# @param client Mlflow client to provide environment for the cli process.
+#
+# @return A \code{processx} task.
 #' @importFrom processx run
 #' @importFrom processx process
 #' @importFrom withr with_envvar
-#' @export
 mlflow_cli <- function(...,
                        background = FALSE,
                        echo = TRUE,
@@ -34,12 +23,17 @@ mlflow_cli <- function(...,
   verbose <- mlflow_is_verbose()
 
   python <- dirname(python_bin())
-  mlflow_bin <- file.path(python, "mlflow")
+  mlflow_bin <- python_mlflow_bin()
   env <- modifyList(list(
     PATH = paste(python, Sys.getenv("PATH"), sep = ":"),
     MLFLOW_CONDA_HOME = python_conda_home(),
     MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
   ), env)
+  if (is.null(stderr_callback)) {
+    stderr_callback <- function(x, p) {
+      cat(x, file = stderr())
+    }
+  }
 
   with_envvar(env, {
     if (background) {

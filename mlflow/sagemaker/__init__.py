@@ -40,7 +40,9 @@ DEPLOYMENT_MODES = [
     DEPLOYMENT_MODE_REPLACE
 ]
 
-IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
+IMAGE_NAME_ENV_VAR = "MLFLOW_SAGEMAKER_DEPLOY_IMG_URL"
+# Deprecated as of MLflow 1.0.
+DEPRECATED_IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
@@ -225,8 +227,8 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
                       For more information about supported URI schemes, see
-                      `Artifact Stores <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-store-locations>`_.
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
                                access the specified Docker image and S3 bucket containing MLflow
@@ -547,8 +549,8 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
                       For more information about supported URI schemes, see
-                      `Artifact Stores <https://www.mlflow.org/docs/latest/tracking.html#
-                      artifact-store-locations>`_.
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param port: Local port.
     :param image: Name of the Docker image to be used.
@@ -591,6 +593,12 @@ def _get_default_image_url(region_name):
     import boto3
     env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
     if env_img:
+        return env_img
+
+    env_img = os.environ.get(DEPRECATED_IMAGE_NAME_ENV_VAR)
+    if env_img:
+        _logger.warning("Environment variable '%s' is deprecated, please use '%s' instead",
+                        DEPRECATED_IMAGE_NAME_ENV_VAR, IMAGE_NAME_ENV_VAR)
         return env_img
 
     ecr_client = boto3.client("ecr", region_name=region_name)

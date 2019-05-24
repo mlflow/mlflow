@@ -235,6 +235,40 @@ You can access all of the functions in the Tracking UI programmatically. This ma
 * Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
 
+.. _artifact-locations:
+
+Referencing Artifacts
+---------------------
+
+When you specify the location of an artifact in MLflow APIs, the syntax depends on whether you
+are invoking the Tracking API or Models API. For the Tracking API, you specify the artifact location using a (run ID, relative path) tuple. 
+For the Model API, you specify the artifact location in the follow ways:
+
+- ``/Users/me/path/to/local/model``
+- ``relative/path/to/local/model``
+- ``<scheme>/<scheme-dependent-path>``. For example:
+
+  - ``s3://my_bucket/path/to/model``
+  - ``hdfs://<host>:<port>/<path>``
+  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+For example:
+
+.. rubric:: Tracking API
+
+.. code-block:: py
+
+  mlflow.tracking.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
+  
+.. rubric:: Models API
+
+.. code-block:: py
+
+  mlflow.pytorch.load_model("runs:/<mlflow_run_id>/run-relative/path/to/model")
+
+
+
+
 
 .. _tracking_server:
 
@@ -410,38 +444,6 @@ Optionally one can select a different version of the HDFS driver library using:
   export MLFLOW_HDFS_DRIVER=libhdfs3
 
 The default one is ```libhdfs```.
-
-
-.. _artifact-store-locations:
-
-Artifact Store Locations
-^^^^^^^^^^^^^^^^^^^^^^^^
-
-When you specify the location of an artifact store in MLflow APIs, the syntax depends on whether you
-are invoking the Tracking API or Model API. For the Tracking API, you specify the artifact location using a (run ID, relative path) tuple. 
-For the Model API, you specify the artifact location in the follow ways:
-
-- ``/Users/me/path/to/local/model``
-- ``relative/path/to/local/model``
-- ``s3://my_bucket/path/to/model``
-- ``hdfs://<host>:<port>/<path>``
-- ``runs:/<mlflow_run_id>/run-relative/path/to/model``
-
-For example:
-
-.. rubric:: Tracking API
-
-.. code-block:: py
-
-  mlflow.tracking.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
-  
-.. rubric:: Model API
-
-.. code-block:: py
-
-  mlflow.pytorch.load_model("runs:/<mlflow_run_id>/run-relative/path/to/model")
-
-
 
 
 Networking

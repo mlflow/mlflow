@@ -21,7 +21,22 @@ RUN_ID = click.option("--run-id", "-r", default=None, required=False, metavar="I
                       help="ID of the MLflow run that generated the referenced content.")
 
 NO_CONDA = click.option("--no-conda", is_flag=True,
-                        help="If specified, will assume that MLModel/MLProject is running within "
-                             "a Conda environmen with the necessary dependencies for "
+                        help="If specified, will assume that MLmodel/MLproject is running within "
+                             "a Conda environment with the necessary dependencies for "
                              "the current project instead of attempting to create a new "
                              "conda environment.")
+
+INSTALL_MLFLOW = click.option("--install-mlflow", is_flag=True, default=False,
+                              help="If specified and there is a conda environment to be activated "
+                                   "mlflow will be installed into the environment after it has been"
+                                   " activated. The version of installed mlflow will be the same as"
+                                   "the one used to invoke this command.")
+
+HOST = click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
+                    help="The network address to listen on (default: 127.0.0.1). "
+                         "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
+                         "server from other machines.")
+PORT = click.option("--port", "-p", default=5000,
+                    help="The port to listen on (default: 5000).")
+WORKERS = click.option("--workers", "-w", default=4,
+                       help="Number of gunicorn worker processes to handle requests (default: 4).")

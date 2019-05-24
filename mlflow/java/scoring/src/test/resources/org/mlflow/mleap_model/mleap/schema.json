@@ -1,17 +1,17 @@
 {
     "fields": [
         {
-            "nullable": true, 
-            "type": "string", 
-            "name": "text", 
+            "nullable": true,
+            "type": "string",
+            "name": "text",
             "metadata": {}
-        }, 
+        },
         {
-            "nullable": true, 
-            "type": "string", 
-            "name": "topic", 
+            "nullable": true,
+            "type": "string",
+            "name": "topic",
             "metadata": {}
         }
-    ], 
+    ],
     "type": "struct"
 }

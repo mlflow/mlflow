@@ -213,3 +213,13 @@ def test_split_oriented_json_to_df():
 
     assert set(df.columns) == {'zip', 'cost', 'count'}
     assert set(str(dt) for dt in df.dtypes) == {'object', 'float64', 'int64'}
+
+
+def test_get_jsonnable_obj():
+    from mlflow.pyfunc.scoring_server import _get_jsonable_obj
+    from mlflow.pyfunc.scoring_server import NumpyEncoder
+    py_ary = [["a", "b", "c"], ["e", "f", "g"]]
+    np_ary = _get_jsonable_obj(np.array(py_ary))
+    assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)
+    np_ary = _get_jsonable_obj(np.array(py_ary, dtype=type(str)))
+    assert json.dumps(py_ary, cls=NumpyEncoder) == json.dumps(np_ary, cls=NumpyEncoder)

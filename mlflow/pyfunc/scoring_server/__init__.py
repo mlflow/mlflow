@@ -12,17 +12,28 @@ Defines two endpoints:
 """
 from __future__ import print_function
 
-import json
-import traceback
-import logging
-
-import pandas as pd
 import flask
+import json
+from json import JSONEncoder
+import logging
+import numpy as np
+import pandas as pd
 from six import reraise
+import sys
+import traceback
 
+# NB: We need to be careful what we import form mlflow here. Scoring server is used from within
+# model's conda environment. The version of mlflow doing the serving (outside) and the verison of
+# mlflow int the model's conda environment (inside) can differ. We should therefore keep mlflow
+# dependencies to the minimum here.
+# ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
+
+try:
+    from mlflow.pyfunc import load_model
+except ImportError:
+    from mlflow.pyfunc import load_pyfunc as load_model
 from mlflow.protos.databricks_pb2 import MALFORMED_REQUEST, BAD_REQUEST
-from mlflow.utils.rest_utils import NumpyEncoder
 from mlflow.server.handlers import catch_mlflow_exception
 
 try:
@@ -30,7 +41,7 @@ try:
 except ImportError:
     from io import StringIO
 
-from mlflow.utils import get_jsonable_obj
+_SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
@@ -43,7 +54,6 @@ CONTENT_TYPES = [
     CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_ORIENTED
 ]
-
 
 _logger = logging.getLogger(__name__)
 
@@ -60,12 +70,12 @@ def parse_json_input(json_input, orient="split"):
         return pd.read_json(json_input, orient=orient, dtype=False)
     except Exception:
         _handle_serving_error(
-                error_message=(
-                    "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                    " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
-                    " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
-                    " method.".format(orient=orient)),
-                error_code=MALFORMED_REQUEST)
+            error_message=(
+                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                " a valid JSON-formatted Pandas DataFrame with the `{orient}` orient"
+                " produced using the `pandas.DataFrame.to_json(..., orient='{orient}')`"
+                " method.".format(orient=orient)),
+            error_code=MALFORMED_REQUEST)
 
 
 def parse_csv_input(csv_input):
@@ -78,11 +88,16 @@ def parse_csv_input(csv_input):
         return pd.read_csv(csv_input)
     except Exception:
         _handle_serving_error(
-                error_message=(
-                    "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
-                    " a valid CSV-formatted Pandas DataFrame produced using the"
-                    " `pandas.DataFrame.to_csv()` method."),
-                error_code=MALFORMED_REQUEST)
+            error_message=(
+                "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
+                " a valid CSV-formatted Pandas DataFrame produced using the"
+                " `pandas.DataFrame.to_csv()` method."),
+            error_code=MALFORMED_REQUEST)
+
+
+def predictions_to_json(raw_predictions, output):
+    predictions = _get_jsonable_obj(raw_predictions, pandas_orient="records")
+    json.dump(predictions, output, cls=NumpyEncoder)
 
 
 def _handle_serving_error(error_message, error_code):
@@ -141,12 +156,12 @@ def init(model):
                                     orient="records")
         else:
             return flask.Response(
-                    response=("This predictor only supports the following content types,"
-                              " {supported_content_types}. Got '{received_content_type}'.".format(
-                                  supported_content_types=CONTENT_TYPES,
-                                  received_content_type=flask.request.content_type)),
-                    status=415,
-                    mimetype='text/plain')
+                response=("This predictor only supports the following content types,"
+                          " {supported_content_types}. Got '{received_content_type}'.".format(
+                            supported_content_types=CONTENT_TYPES,
+                            received_content_type=flask.request.content_type)),
+                status=415,
+                mimetype='text/plain')
 
         # Do the prediction
         # pylint: disable=broad-except
@@ -154,14 +169,69 @@ def init(model):
             raw_predictions = model.predict(data)
         except Exception:
             _handle_serving_error(
-                    error_message=(
-                        "Encountered an unexpected error while evaluating the model. Verify"
-                        " that the serialized input Dataframe is compatible with the model for"
-                        " inference."),
-                    error_code=BAD_REQUEST)
-
-        predictions = get_jsonable_obj(raw_predictions, pandas_orient="records")
-        result = json.dumps(predictions, cls=NumpyEncoder)
-        return flask.Response(response=result, status=200, mimetype='application/json')
+                error_message=(
+                    "Encountered an unexpected error while evaluating the model. Verify"
+                    " that the serialized input Dataframe is compatible with the model for"
+                    " inference."),
+                error_code=BAD_REQUEST)
+        result = StringIO()
+        predictions_to_json(raw_predictions, result)
+        return flask.Response(response=result.getvalue(), status=200, mimetype='application/json')
 
     return app
+
+
+def _predict(model_uri, input_path, output_path, content_type, json_format):
+    pyfunc_model = load_model(model_uri)
+    if input_path is None:
+        input_path = sys.stdin
+
+    if content_type == "json":
+        df = parse_json_input(input_path, orient=json_format)
+    elif content_type == "csv":
+        df = parse_csv_input(input_path)
+    else:
+        raise Exception("Unknown content type '{}'".format(content_type))
+
+    if output_path is None:
+        predictions_to_json(pyfunc_model.predict(df), sys.stdout)
+    else:
+        with open(output_path, "w") as fout:
+            predictions_to_json(pyfunc_model.predict(df), fout)
+
+
+def _serve(model_uri, port, host):
+    pyfunc_model = load_model(model_uri)
+    init(pyfunc_model).run(port=port, host=host)
+
+
+class NumpyEncoder(JSONEncoder):
+    """ Special json encoder for numpy types.
+    Note that some numpy types doesn't have native python equivalence,
+    hence json.dumps will raise TypeError.
+    In this case, you'll need to convert your numpy types into its closest python equivalence.
+    """
+
+    def default(self, o):  # pylint: disable=E0202
+        if isinstance(o, np.generic):
+            return np.asscalar(o)
+        return JSONEncoder.default(self, o)
+
+
+def _get_jsonable_obj(data, pandas_orient="records"):
+    """Attempt to make the data json-able via standard library.
+    Look for some commonly used types that are not jsonable and convert them into json-able ones.
+    Unknown data types are returned as is.
+
+    :param data: data to be converted, works with pandas and numpy, rest will be returned as is.
+    :param pandas_orient: If `data` is a Pandas DataFrame, it will be converted to a JSON
+                          dictionary using this Pandas serialization orientation.
+    """
+    if isinstance(data, np.ndarray):
+        return data.tolist()
+    if isinstance(data, pd.DataFrame):
+        return data.to_dict(orient=pandas_orient)
+    if isinstance(data, pd.Series):
+        return pd.DataFrame(data).to_dict(orient=pandas_orient)
+    else:  # by default just return whatever this is and hope for the best
+        return data

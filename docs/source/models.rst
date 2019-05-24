@@ -61,7 +61,7 @@ model with the ``sklearn`` flavor:
 
 .. code-block:: bash
 
-    mlflow sklearn serve my_model
+    mlflow models serve my_model
 
 In addition, the ``mlflow sagemaker`` command-line tool can package and deploy models to AWS
 SageMaker as long as they support the ``python_function`` flavor:
@@ -448,22 +448,19 @@ and return a PyTorch model from its serialized representation.
 Built-In Deployment Tools
 -------------------------
 
-MLflow provides tools for deploying models on a local machine and to several production environments.
-Not all deployment methods are available for all model flavors. Deployment is supported for the
-Python Function format and all compatible formats.
+MLflow provides tools for deploying MLflow models on a local machine and to several production environments.
+Not all deployment methods are available for all model flavors.
 
 .. contents:: In this section:
   :local:
   :depth: 1
 
-.. _pyfunc_deployment:
+.. _local_model_deployment:
 
-Deploy a ``python_function`` model as a local REST API endpoint
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-MLflow can deploy models locally as local REST API endpoints or to directly score CSV files.
-This functionality is a convenient way of testing models before deploying to a remote model server.
-You deploy the Python Function flavor locally using the CLI interface to the :py:mod:`mlflow.pyfunc` module.
+Deploy MLflow models locally
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+MLflow can deploy models locally as local REST API endpoints or to directly score files.
+You deploy MLflow model locally using the CLI interface to the :py:mod:`mlflow.models` module.
 The local REST API server accepts the following data formats as inputs:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
@@ -481,20 +478,22 @@ The local REST API server accepts the following data formats as inputs:
 For more information about serializing pandas DataFrames, see
 `pandas.DataFrame.to_json <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html>`_.
 
+The predict command accepts the same input formats. The format is specified as command line arguments.
+
 Commands
 ~~~~~~~~~
 
-* :py:func:`serve <mlflow.pyfunc.cli.serve>` deploys the model as a local REST API server.
-* :py:func:`predict <mlflow.pyfunc.cli.predict>` uses the model to generate a prediction for a local
-  CSV file.
+* :py:func:`serve <mlflow.models.cli.serve>` deploys the model as a local REST API server.
+* :py:func:`predict <mlflow.models.cli.predict>` uses the model to generate a prediction for a local
+  CSV or JSON file.
 
 For more info, see:
 
 .. code-block:: bash
 
-    mlflow pyfunc --help
-    mlflow pyfunc serve --help
-    mlflow pyfunc predict --help
+    mlflow models --help
+    mlflow models serve --help
+    mlflow models predict --help
 
 .. _azureml_deployment:
 
@@ -644,9 +643,8 @@ MLflow provides a default Docker image definition; however, it is up to you to b
 MLflow includes the utility function ``build_and_push_container`` to perform this step. Once built and uploaded, you can use the MLflow container for all MLflow Models. Model webservers deployed using the :py:mod:`mlflow.sagemaker`
 module accept the following data formats as input, depending on the deployment flavor:
 
-* ``python_function``: For this deployment flavor, the endpoint accepts the same formats
-  as the pyfunc server. These formats are described in the
-  :ref:`pyfunc deployment documentation <pyfunc_deployment>`.
+* ``python_function``: For this deployment flavor, the endpoint accepts the same formats described
+  in the :ref:`local model deployment documentation <local_model_deployment>`.
 
 * ``mleap``: For this deployment flavor, the endpoint accepts `only`
   JSON-serialized pandas DataFrames in the ``split`` orientation. For example,

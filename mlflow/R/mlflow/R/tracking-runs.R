@@ -61,6 +61,7 @@ mlflow_create_run <- function(start_time = NULL, tags = NULL, experiment_id = NU
 
 #' Delete a Run
 #'
+#' Deletes the run with the specified ID.
 #' @template roxlate-client
 #' @template roxlate-run-id
 #' @export
@@ -77,6 +78,7 @@ mlflow_delete_run <- function(run_id, client = NULL) {
 
 #' Restore a Run
 #'
+#' Restores the run with the specified ID.
 #' @template roxlate-client
 #' @template roxlate-run-id
 #' @export
@@ -91,9 +93,8 @@ mlflow_restore_run <- function(run_id, client = NULL) {
 
 #' Get Run
 #'
-#' Gets metadata, params, tags, and metrics for a run. In the case where multiple metrics with the
-#' same key are logged for the run, returns only the value with the latest timestamp. If there are
-#' multiple values with the latest timestamp, returns the maximum of these values.
+#' Gets metadata, params, tags, and metrics for a run. Returns a single value for each metric
+#' key: the most recently logged metric value at the largest step.
 #'
 #' @template roxlate-run-id
 #' @template roxlate-client
@@ -247,7 +248,8 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #' Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.
 #'
 #' @template roxlate-client
-#' @param experiment_ids List of experiment IDs to search over. Attempts to use active experiment if not specified.
+#' @param experiment_ids List of string experiment IDs (or a single string experiment ID) to search
+#' over. Attempts to use active experiment if not specified.
 #' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
 #'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
@@ -257,10 +259,14 @@ mlflow_search_runs <- function(filter = NULL,
                                run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), experiment_ids = NULL,
                                client = NULL) {
   experiment_ids <- resolve_experiment_id(experiment_ids)
+  # If we get back a single experiment ID, e.g. the active experiment ID, convert it to a list
+  if (is.atomic(experiment_ids)) {
+    experiment_ids <- list(experiment_ids)
+  }
   client <- resolve_client(client)
 
   run_view_type <- match.arg(run_view_type)
-  experiment_ids <- cast_double_list(experiment_ids)
+  experiment_ids <- cast_string_list(experiment_ids)
   filter <- cast_nullable_string(filter)
 
   response <- mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
@@ -348,14 +354,14 @@ mlflow_download_artifacts <- function(path, run_id = NULL, client = NULL) {
 
 # ' Download Artifacts from URI.
 mlflow_download_artifacts_from_uri <- function(artifact_uri, client = mlflow_client()) {
-  result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE,
-                       client = client)
+  result <- mlflow_cli("artifacts", "download", "-u", artifact_uri, echo = FALSE, client = client)
   gsub("\n", "", result$stdout)
 }
 
 #' List Run Infos
 #'
-#' List run infos.
+#' Returns a tibble whose columns contain run metadata (run ID, etc) for all runs under the
+#' specified experiment.
 #'
 #' @param experiment_id Experiment ID. Attempts to use the active experiment if not specified.
 #' @param run_view_type Run view type.
@@ -391,30 +397,8 @@ mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY
 #'
 #' @details
 #'
-#' When logging to Amazon S3, ensure that the user has a proper policy
-#' attached to it, for instance:
-#'
-#' \code{
-#' {
-#' "Version": "2012-10-17",
-#' "Statement": [
-#'   {
-#'     "Sid": "VisualEditor0",
-#'     "Effect": "Allow",
-#'     "Action": [
-#'       "s3:PutObject",
-#'       "s3:GetObject",
-#'       "s3:ListBucket",
-#'       "s3:GetBucketLocation"
-#'       ],
-#'     "Resource": [
-#'       "arn:aws:s3:::mlflow-test/*",
-#'       "arn:aws:s3:::mlflow-test"
-#'       ]
-#'   }
-#'   ]
-#' }
-#' }
+#' When logging to Amazon S3, ensure that you have the s3:PutObject, s3:GetObject,
+#' s3:ListBucket, and s3:GetBucketLocation permissions on your bucket.
 #'
 #' Additionally, at least the \code{AWS_ACCESS_KEY_ID} and \code{AWS_SECRET_ACCESS_KEY}
 #' environment variables must be set to the corresponding key and secrets provided
@@ -460,11 +444,6 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' @param experiment_id Used only when `run_id` is unspecified. ID of the experiment under
 #'   which to create the current run. If unspecified, the run is created under
 #'   a new experiment with a randomly generated name.
-#' @param source_name Name of the source file or URI of the project to be associated with the run.
-#'   Defaults to the current file if none provided.
-#' @param source_version Optional Git commit hash to associate with the run.
-#' @param entry_point_name Optional name of the entry point for to the current run.
-#' @param source_type Integer enum value describing the type of the run  ("local", "project", etc.).
 #' @param start_time Unix timestamp of when the run started in milliseconds. Only used when `client` is specified.
 #' @param tags Additional metadata for run in key-value pairs. Only used when `client` is specified.
 #' @template roxlate-client
@@ -472,7 +451,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
 #' @examples
 #' \dontrun{
 #' with(mlflow_start_run(), {
-#'   mlflow_log("test", 10)
+#'   mlflow_log_metric("test", 10)
 #' })
 #' }
 #'
@@ -546,13 +525,14 @@ mlflow_get_run_context.default <- function(client, experiment_id, ...) {
 #'
 #' Terminates a run. Attempts to end the current active run if `run_id` is not specified.
 #'
-#' @param status Updated status of the run. Defaults to `FINISHED`.
+#' @param status Updated status of the run. Defaults to `FINISHED`. Can also be set to
+#' "FAILED" or "KILLED".
 #' @param end_time Unix timestamp of when the run ended in milliseconds.
 #' @template roxlate-run-id
 #' @template roxlate-client
 #'
 #' @export
-mlflow_end_run <- function(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+mlflow_end_run <- function(status = c("FINISHED", "FAILED", "KILLED"),
                            end_time = NULL, run_id = NULL, client = NULL) {
 
   status <- match.arg(status)

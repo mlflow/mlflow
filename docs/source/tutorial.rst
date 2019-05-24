@@ -27,7 +27,13 @@ To run this tutorial, you'll need to:
 
     .. container:: python
 
-       - Install MLflow (via ``pip install mlflow``)
+       - Install MLflow and scikit-learn. There are two options for installing these dependencies:
+
+           1. Install MLflow with extra dependencies, including scikit-learn
+              (via ``pip install mlflow[extras]``)
+           2. Install MLflow (via ``pip install mlflow``) and install scikit-learn separately
+              (via ``pip install sckit-learn``)
+
        - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``cd`` into the ``examples`` directory within your clone of MLflow - we'll use this working
@@ -39,7 +45,7 @@ To run this tutorial, you'll need to:
 
        - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Install the MLflow package (via ``install.packages("mlflow")``)
-       - Install MLflow (via ``mlflow::mlflow_install()``)
+       - Install MLflow (via ``mlflow::install_mlflow()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``example`` directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
@@ -105,7 +111,7 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     .. code-block:: R
 
-        mlflow_run(uri = "examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5))
+        mlflow_run(uri = "examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.1, lambda = 0.5))
 
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
@@ -229,7 +235,7 @@ Now that you have your training code, you can package it so that other data scie
 
       .. code-block:: r
 
-        mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
+        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       After running this command, MLflow runs your training code in a new R session.
 
@@ -238,7 +244,7 @@ Now that you have your training code, you can package it so that other data scie
       .. code-block:: r
 
         mlflow_restore_snapshot()
-        mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
+        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
 
@@ -247,7 +253,7 @@ Now that you have your training code, you can package it so that other data scie
         mlflow_run(
           "train.R",
           "https://github.com/rstudio/mlflow-example",
-          param_list = list(alpha = 0.2)
+          parameters = list(alpha = 0.2)
         )
 
 Serving the Model
@@ -285,7 +291,7 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: bash
 
-          mlflow pyfunc serve -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
+          mlflow models serve -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
 
       .. note::
 
@@ -296,9 +302,9 @@ in MLflow saved the model as an artifact within the run.
 
       Once you have deployed the server, you can pass it some sample data and see the
       predictions. The following example uses ``curl`` to send a JSON-serialized pandas DataFrame
-      with the ``split`` orientation to the pyfunc server. For more information about the input data
-      formats accepted by the pyfunc model server, see the
-      :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
+      with the ``split`` orientation to the model server. For more information about the input data
+      formats accepted by the model server, see the
+      :ref:`MLflow deployment tools documentation <local_model_deployment>`.
 
       .. code-block:: bash
 

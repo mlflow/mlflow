@@ -12,8 +12,8 @@ import mlflow.azureml.cli
 import mlflow.projects as projects
 import mlflow.data
 import mlflow.experiments
-import mlflow.pyfunc.cli
-import mlflow.rfunc.cli
+import mlflow.models.cli
+
 import mlflow.sagemaker.cli
 import mlflow.runs
 import mlflow.store.db.utils
@@ -27,7 +27,6 @@ from mlflow.server import _run_server
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow import tracking
 import mlflow.store.cli
-
 
 _logger = logging.getLogger(__name__)
 
@@ -153,17 +152,12 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
               help="Path to local directory to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
                    "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
-              help="The network address to listen on (default: 127.0.0.1). "
-                   "Use 0.0.0.0 to bind to all addresses if you want to access the UI from "
-                   "other machines.")
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
-@click.option("--gunicorn-opts", default=None,
-              help="Additional command line options forwarded to gunicorn processes.")
-def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
+def ui(backend_store_uri, default_artifact_root, port):
     """
-    Launch the MLflow tracking UI.
+    Launch the MLflow tracking UI for local viewing of run results. To launch a production
+    server, use the "mlflow server" command instead.
 
     The UI will be visible at http://localhost:5000 by default.
     """
@@ -179,7 +173,7 @@ def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
 
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(backend_store_uri, default_artifact_root, host, port, 1, None, gunicorn_opts)
+        _run_server(backend_store_uri, default_artifact_root, "127.0.0.1", port, 1, None, [])
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
@@ -210,15 +204,11 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 @click.option("--default-artifact-root", metavar="URI", default=None,
               help="Local or S3 URI to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
-                   "Default: Within file store")
-@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
-              help="The network address to listen on (default: 127.0.0.1). "
-                   "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
-                   "server from other machines.")
-@click.option("--port", "-p", default=5000,
-              help="The port to listen on (default: 5000).")
-@click.option("--workers", "-w", default=4,
-              help="Number of gunicorn worker processes to handle requests (default: 4).")
+                   "Default: Within file store, if a file:/ URI is provided. If a sql backend is"
+                   " used, then this option is required.")
+@cli_args.HOST
+@cli_args.PORT
+@cli_args.WORKERS
 @click.option("--static-prefix", default=None, callback=_validate_static_prefix,
               help="A prefix which will be prepended to the path of all static paths.")
 @click.option("--gunicorn-opts", default=None,
@@ -253,8 +243,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
 
-cli.add_command(mlflow.pyfunc.cli.commands)
-cli.add_command(mlflow.rfunc.cli.commands)
+cli.add_command(mlflow.models.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)
