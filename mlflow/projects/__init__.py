@@ -155,7 +155,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         _validate_docker_installation()
         if not project.docker_env.get('image'):
             raise ExecutionException("Project with docker environment must specify the docker "
-                "image to use via an 'image' field under the 'docker_env' field")
+                                     "image to use via an 'image' field under the 'docker_env' "
+                                     " field.")
         kube_config = _parse_kubernetes_config(backend_config, work_dir)
         image = _build_docker_image(work_dir=work_dir,
                                     image_uri=kube_config["image-uri"],
