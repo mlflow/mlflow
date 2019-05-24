@@ -9,7 +9,6 @@ from mlflow.pyfunc import scoring_server
 
 from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.version import VERSION
 
