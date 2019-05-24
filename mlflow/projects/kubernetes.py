@@ -83,15 +83,14 @@ def monitor_job_status(job_name, job_namespace):
                                                       pretty=True)
     container_state = pod.status.container_statuses[0].state
     if container_state.waiting is not None:
-        _logger.info("Pod {name} wating".format(name=pod.metadata.name))
+        _logger.info("Pod %s wating", pod.metadata.name)
     elif container_state.running is not None:
-        _logger.info("Pod {name} running".format(name=pod.metadata.name))
+        _logger.info("Pod %s running", pod.metadata.name)
     elif container_state.terminated is not None:
         reason = container_state.terminated.reason
         message = container_state.terminated.message
-        _logger.info("Pod {name} terminated. Reason: {reason}".format(name=pod.metadata.name,
-                                                                      reason=reason))
-        _logger.info("Message: {message}".format(message=message))
+        _logger.info("Pod %s terminated. Reason: %s", pod.metadata.name, reason)
+        _logger.info("Message: %s", message)
 
     api_instance = kubernetes.client.CoreV1Api()
     for line in api_instance.read_namespaced_pod_log(pod.metadata.name, job_namespace,
