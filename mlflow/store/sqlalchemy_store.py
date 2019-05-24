@@ -49,7 +49,7 @@ def _validate_db_driver_string(driver):
 def _validate_db_type_string(db_type):
     """validates db_type parsed from DB URI is supported"""
     if db_type not in DATABASE_ENGINES:
-        error_msg= "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
+        error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
 
