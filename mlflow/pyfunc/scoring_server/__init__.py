@@ -41,6 +41,8 @@ try:
 except ImportError:
     from io import StringIO
 
+_SERVER_MODEL_PATH = "__pyfunc_model_path__"
+
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
