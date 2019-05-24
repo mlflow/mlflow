@@ -26,7 +26,7 @@ from mlflow.utils import get_unique_resource_id
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.utils.logging_utils import eprint
 from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
+from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME, DISABLE_ENV_CREATION
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
@@ -69,13 +69,14 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
 # Download and setup miniconda
 RUN curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
 RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
-ENV PATH="/miniconda/bin:${PATH}"
+ENV PATH="/miniconda/bin:$PATH"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
 RUN conda install gunicorn;\
     conda install gevent;\
 
-%s
+{install_mlflow}
+{setup_model}
 
 # Set up the program in the image
 WORKDIR /opt/mlflow
@@ -132,11 +133,6 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None, model_uri=None, flavo
             install_mlflow = (
                 "COPY {mlflow_dir} /opt/mlflow\n"
                 "RUN pip install /opt/mlflow\n"
-                "RUN cd /opt/mlflow/mlflow/java/scoring &&"
-                " mvn --batch-mode package -DskipTests &&"
-                " mkdir -p /opt/java/jars &&"
-                " mv /opt/mlflow/mlflow/java/scoring/target/"
-                "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
             ).format(mlflow_dir=mlflow_dir)
         else:
             install_mlflow = (
@@ -152,7 +148,9 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None, model_uri=None, flavo
                 "RUN rm /opt/java/pom.xml"
             ).format(version=mlflow.version.VERSION)
         if model_uri:
-            model_path = _download_artifact_from_uri(model_uri)
+            model_cwd = tmp.path("model_dir")
+            os.mkdir(model_cwd)
+            model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
             model_config_path = os.path.join(model_path, "MLmodel")
             model_config = Model.load(model_config_path)
 
@@ -161,15 +159,17 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None, model_uri=None, flavo
             else:
                 _validate_deployment_flavor(model_config, flavor)
             print("Using the {selected_flavor} flavor for local serving!".format(selected_flavor=flavor))
-            copy_model_into_container = (
-                "RUN export {disable_env}=true"
-                "COPY {model_dir} /opt/ml/model".format("")
+            copy_model_into_container = ("""
+            ENV {disable_env}="true"
+            COPY {model_dir} /opt/ml/model
+            RUN python -c 'from mlflow.sagemaker.container import _maybe_create_model_env; _maybe_create_model_env("/opt/ml/model")'    
+            """.format(disable_env=DISABLE_ENV_CREATION, model_dir=os.path.join("model_dir", os.path.basename(model_path)))
             )
         else:
             copy_model_into_container = ""
 
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
-            f.write(_DOCKERFILE_TEMPLATE % install_mlflow)
+            f.write(_DOCKERFILE_TEMPLATE.format(install_mlflow=install_mlflow, setup_model=copy_model_into_container))
         _logger.info("building docker image")
         os.system('find {cwd}/'.format(cwd=cwd))
         proc = Popen(["docker", "build", "-t", name, "-f", "Dockerfile", "."],

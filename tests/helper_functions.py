@@ -48,6 +48,9 @@ def score_model_in_sagemaker_docker_container(
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
+def score():
+    pass
+
 def pyfunc_serve_and_score_model(
         model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
     """

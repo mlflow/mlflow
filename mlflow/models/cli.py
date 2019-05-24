@@ -85,14 +85,15 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
 def build_docker(model_uri, name, flavor):
     """
     [EXPERIMENTAL] Builds a Docker image containing the MLflow model at the specified URI.
-    The image's entry point serves the model with default settings. Note that the
+    The image's entry point serves the model with default settings (i.e. as an endpoint exposed
+    at port 8080). Note that the
     model is assumed to have the pyfunc flavor - see
     https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information.
 
     This command is experimental and does not guarantee that the arguments nor format of the
     Docker container will remain the same.
     """
-    _build_image(model_uri, name, flavor)
+    _build_image(model_uri, name, mlflow_home=".", flavor=flavor)
 
 
 def _get_flavor_backend(model_uri, no_conda):

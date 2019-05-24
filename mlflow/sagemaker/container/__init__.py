@@ -26,7 +26,7 @@ from mlflow.version import VERSION as MLFLOW_VERSION
 MODEL_PATH = "/opt/ml/model"
 
 DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
-DISABLE_ENV = "MLFLOW_DISABLE_ENV"
+DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
 
@@ -104,8 +104,11 @@ def _maybe_create_model_env(model_path):
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
-    if pyfunc.ENV in conf and not os.environ.get(DISABLE_ENV) == "true":
-        _maybe_create_model_env(model)
+    if pyfunc.ENV in conf:
+        if not os.environ.get(DISABLE_ENV_CREATION) == "true":
+            _maybe_create_model_env(model)
+        # TODO don't unconditionally activate env (e.g. for non-pyfunc models)? We might already
+        # do this anyways so it could be ok
         bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])

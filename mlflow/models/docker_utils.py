@@ -11,7 +11,6 @@ def _build_image(model_uri, image_name, mlflow_home=None, flavor=None):
     at the specified URI.  The image's entry point serves the model with default settings. Note
     that the model is assumed to have the pyfunc flavor.
     """
-    deployment_config = _get_deployment_config(flavor_name=flavor)
     mlflow.sagemaker.build_image(
         image_name,
         mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
