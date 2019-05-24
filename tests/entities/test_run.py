@@ -36,7 +36,7 @@ class TestRun(TestRunInfo, TestRunData):
         self.assertEqual(
             run3.to_dictionary(),
             {
-                "info": dict(run_info), 
+                "info": dict(run_info),
             }
         )
 
