@@ -7,12 +7,15 @@
 mlflow_load_flavor(flavor, model_path)
 }
 \arguments{
-\item{flavor}{An MLflow flavor object.}
+\item{flavor}{An MLflow flavor object loaded by \link[mlflow]{mlflow_load_model}, with class
+loaded from the flavor field in an MLmodel file.}
 
 \item{model_path}{The path to the MLflow model wrapped in the correct
 class.}
 }
 \description{
-Loads an MLflow model flavor, to be used by package authors
-to extend the supported MLflow models.
+Loads an MLflow model using a specific flavor. This method is called internally by
+\link[mlflow]{mlflow_load_model}, but is exposed for package authors to extend the supported
+MLflow models. See https://mlflow.org/docs/latest/models.html#storage-format for more
+info on MLflow model flavors.
 }

@@ -11,12 +11,12 @@ mlflow_download_artifacts(path, run_id = NULL, client = NULL)
 
 \item{run_id}{Run ID.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Download an artifact file or directory from a run to a local directory if applicable,
   and return a local path for it.
-}
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
 }

@@ -26,7 +26,7 @@ def commands():
 
 @commands.command("list")
 @click.option("--experiment-id", envvar=mlflow.tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
-              help="Specify the experiment ID for list of runs.")
+              help="Specify the experiment ID for list of runs.", required=True)
 @click.option("--view", "-v", default="active_only",
               help="Select view type for list experiments. Valid view types are "
                    "'active_only' (default), 'deleted_only', and 'all'.")
@@ -39,7 +39,7 @@ def list_run(experiment_id, view):
     runs = store.search_runs([experiment_id], None, view_type)
     table = []
     for run in runs:
-        tags = {t.key: t.value for t in run.data.tags}
+        tags = {k: v for k, v in run.data.tags.items()}
         run_name = tags.get(MLFLOW_RUN_NAME, "")
         table.append([conv_longdate_to_str(run.info.start_time), run_name, run.info.run_id])
     print(tabulate(sorted(table, reverse=True), headers=["Date", "Name", "ID"]))
