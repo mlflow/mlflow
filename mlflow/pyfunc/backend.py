@@ -63,7 +63,7 @@ class PyFuncBackend(FlavorBackend):
             # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
             # platform compatibility.
             local_uri = path_to_local_file_uri(local_path)
-            command = ("gunicorn --timeout 60  -b {host}:{port} -w {nworkers} "
+            command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} "
                        "mlflow.pyfunc.scoring_server.wsgi:app").format(
                          host=host,
                          port=port,
@@ -76,7 +76,7 @@ class PyFuncBackend(FlavorBackend):
                                              command_env=command_env)
             else:
                 _logger.info("=== Running command '%s'", command)
-                subprocess.Popen(command, env=command_env).wait()
+                subprocess.Popen(command.split(" "), env=command_env).wait()
 
     def can_score_model(self):
         if self._no_conda:
