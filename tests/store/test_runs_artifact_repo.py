@@ -47,6 +47,7 @@ def test_runs_artifact_repo_init():
     expected_absolute_uri = "%s%s/artifacts/path/to/model" % (artifact_location, run_id)
     assert runs_repo.repo.artifact_uri == expected_absolute_uri
 
+
 def test_runs_artifact_repo_uses_repo_download_artifacts():
     """
     The RunsArtifactRepo should delegate `download_artifacts` to it's self.repo.download_artifacts
@@ -60,4 +61,3 @@ def test_runs_artifact_repo_uses_repo_download_artifacts():
     runs_repo.repo = Mock()
     runs_repo.download_artifacts('artifact_path', 'dst_path')
     runs_repo.repo.download_artifacts.assert_called_once()
-
