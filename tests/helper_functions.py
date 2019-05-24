@@ -95,25 +95,28 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
+def _assert_scoring_proc_healthy(proc, health_check_timeout=250):
+    for i in range(0, int(health_check_timeout / 5)):
+        assert proc.poll() is None, "scoring process died"
+        time.sleep(5)
+        # noinspection PyBroadException
+        try:
+            ping_status = requests.get(url='http://localhost:%d/ping' % port)
+            print('connection attempt', i, "server is up! ping status", ping_status)
+            if ping_status.status_code == 200:
+                break
+        except Exception:  # pylint: disable=broad-except
+            print('connection attempt', i, "failed, server is not up yet")
+    assert proc.poll() is None, "scoring process died"
+
+
+def _evaluate_scoring_proc(proc, port, data, content_type, health_check_timeout=250):
     """
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+    :param health_check_timeout: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     """
     try:
-        for i in range(0, int(activity_polling_timeout_seconds / 5)):
-            assert proc.poll() is None, "scoring process died"
-            time.sleep(5)
-            # noinspection PyBroadException
-            try:
-                ping_status = requests.get(url='http://localhost:%d/ping' % port)
-                print('connection attempt', i, "server is up! ping status", ping_status)
-                if ping_status.status_code == 200:
-                    break
-            except Exception:  # pylint: disable=broad-except
-                print('connection attempt', i, "failed, server is not up yet")
-
-        assert proc.poll() is None, "scoring process died"
+        _assert_scoring_proc_healthy(proc, health_check_timeout=health_check_timeout)
         ping_status = requests.get(url='http://localhost:%d/ping' % port)
         print("server up, ping status", ping_status)
         if ping_status.status_code != 200:
