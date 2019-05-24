@@ -72,14 +72,13 @@ public class ScoringServer {
 
   private static Predictor loadPredictorFromPath(String modelPath)
       throws PredictorLoadingException {
-    Model config = null;
     try {
-      config = Model.fromRootPath(modelPath);
+      Model config = Model.fromRootPath(modelPath);
+      return (new MLeapLoader()).load(config);
     } catch (IOException e) {
       throw new PredictorLoadingException(
           "Failed to load the configuration for the MLFlow model at the specified path.");
     }
-    return (new MLeapLoader()).load(config);
   }
 
   /**
