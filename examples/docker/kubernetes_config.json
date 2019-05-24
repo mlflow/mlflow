@@ -1,6 +1,5 @@
 {
     "kube-context": "docker-for-desktop",
     "kube-job-template-path": "kubernetes_job_template.yaml",
-    "image-uri": "username/mlflow-kubernetes-example",
-    "base-image": "mlflow-docker-example"
+    "image-uri": "username/mlflow-kubernetes-example"
 }

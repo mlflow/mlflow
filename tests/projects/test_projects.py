@@ -370,8 +370,7 @@ def test_parse_kubernetes_config():
     kubernetes_config = {
         "kube-context": "docker-for-desktop",
         "kube-job-template-path": "kubernetes_job_template.yaml",
-        "image-uri": "dockerhub_account/mlflow-kubernetes-example",
-        "base-image": "mlflow-docker-example"
+        "image-uri": "dockerhub_account/mlflow-kubernetes-example"
     }
     work_dir = "./examples/docker"
     yaml_obj = None
@@ -388,8 +387,7 @@ def test_parse_kubernetes_config():
 def test_parse_kubernetes_config_without_context():
     kubernetes_config = {
         "image-uri": "dockerhub_account/mlflow-kubernetes-example",
-        "kube-job-template-path": "kubernetes_job_template.yaml",
-        "base-image": "mlflow-docker-example"
+        "kube-job-template-path": "kubernetes_job_template.yaml"
     }
     work_dir = "./examples/docker"
     with pytest.raises(ExecutionException):
@@ -399,19 +397,7 @@ def test_parse_kubernetes_config_without_context():
 def test_parse_kubernetes_config_without_image_uri():
     kubernetes_config = {
         "kube-context": "docker-for-desktop",
-        "kube-job-template-path": "kubernetes_job_template.yaml",
-        "base-image": "mlflow-docker-example"
-    }
-    work_dir = "./examples/docker"
-    with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config, work_dir)
-
-
-def test_parse_kubernetes_config_without_base_image():
-    kubernetes_config = {
-        "kube-context": "docker-for-desktop",
-        "kube-job-template-path": "kubernetes_job_template.yaml",
-        "image-uri": "username/mlflow-kubernetes-example"
+        "kube-job-template-path": "kubernetes_job_template.yaml"
     }
     work_dir = "./examples/docker"
     with pytest.raises(ExecutionException):
@@ -421,7 +407,6 @@ def test_parse_kubernetes_config_without_base_image():
 def test_parse_kubernetes_config_invalid_template_job_file():
     kubernetes_config = {
         "kube-context": "docker-for-desktop",
-        "base-image": "mlflow-docker-example",
         "image-uri": "username/mlflow-kubernetes-example",
         "kube-job-template-path": "file_not_found.yaml"
     }
