@@ -877,17 +877,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         filter_string = "attribute.artifact_uri != 'random_artifact_path'"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.lifecycle_stage = '{}'".format(entities.LifecycleStage.ACTIVE)
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
-
-        # change lifecycle stage for one of the runs
-        self.store.delete_run(r1)
-
-        filter_string = "attribute.lifecycle_stage = '{}'".format(entities.LifecycleStage.ACTIVE)
-        six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
-
-        filter_string = "attribute.lifecycle_stage = '{}'".format(entities.LifecycleStage.DELETED)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        for (k, v) in {"experiment_id": e1,
+                       "lifecycle_stage": "ACTIVE",
+                       "run_id": r1,
+                       "run_uuid": r2}.items():
+            with self.assertRaises(MlflowException) as e:
+                self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
+            self.assertIn("Invalid attribute key", e.exception.message)
 
     def test_search_full(self):
         experiment_id = self._experiment_factory('search_params')

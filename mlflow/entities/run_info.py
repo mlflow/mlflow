@@ -114,7 +114,7 @@ class RunInfo(_MLflowObject):
         """String root artifact URI of the run."""
         return self._artifact_uri
 
-    @searchable_attribute
+    @property
     def lifecycle_stage(self):
         return self._lifecycle_stage
 
