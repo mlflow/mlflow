@@ -212,7 +212,8 @@ Docker container environment
   
   .. code-block:: yaml
 
-    docker_env: mlflow-docker-example-environment
+    docker_env:
+      image: mlflow-docker-example-environment
 
   In this example, ``docker_env`` refers to the Docker image with name 
   ``mlflow-docker-example-environment`` and default tag ``latest``. Because no registry path is 
@@ -223,7 +224,8 @@ Docker container environment
 
   .. code-block:: yaml
     
-    docker_env: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0
+    docker_env:
+      image: 012345678910.dkr.ecr.us-west-2.amazonaws.com/mlflow-docker-example-environment:7.0
 
   In this example, ``docker_env`` refers to the Docker image with name 
   ``mlflow-docker-example-environment`` and tag ``7.0`` in the Docker registry with path
@@ -374,9 +376,9 @@ Run a project on Kubernetes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 MLflow projects can be executed in kubernetes clusters. Basically it uses the image created to run 
-projects just like in :ref:`Docker environment <project-docker-container-environments>`  and pushes it to an 
-image repository. After that it creates a Kubernetes Job that uses this published image and runs 
-the MLflow project on kubernetes.
+projects in :ref:`Docker environment <project-docker-container-environments>`  and pushes it to an 
+image repository, so you need to configure MLproject with ``docker_env`` section. After that it 
+creates a Kubernetes Job that uses this published image and runs the MLflow project on kubernetes.
 A brief overview of how to configure and use this feature is as follows:
 
 In project folder you need to create a ``backend_config.json`` with the follwing attributes:
@@ -387,8 +389,6 @@ In project folder you need to create a ``backend_config.json`` with the follwing
   "kube-context": "docker-for-desktop",
   
   "image-uri": "username/mlflow-kubernetes-example",
-  
-  "base-image": "mlflow-docker-example",
 
   "kube-job-template-path": "kubernetes_job_template.yaml"
 }
@@ -396,8 +396,6 @@ In project folder you need to create a ``backend_config.json`` with the follwing
 The ``kube-context`` attribute is the kubernetes context where mlflow will run the Job. ``image-uri`` points to the 
 registry/repository/image where the image will be pushed so kubernetes can download it and run. Remeber that mlflow 
 expects that login credentials are already stored for both kubernetes context and docker repository to push images.
-
-``base-image`` is the base image to use in the ``FROM`` clause when mlflow builds project's image. 
 
 The ``kube-job-template-path`` points to a yaml file with the kubernetes Job/Batch specification to run the traning on 
 kubernetes. 
