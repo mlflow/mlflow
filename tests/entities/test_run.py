@@ -40,7 +40,6 @@ class TestRun(TestRunInfo, TestRunData):
             }
         )
 
-
     def test_string_repr(self):
         run_info = RunInfo(
             run_uuid="hi", run_id="hi", experiment_id=0,
