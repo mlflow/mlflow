@@ -40,7 +40,8 @@ Identifier
 
 Required in the LHS of a search expression. Signifies an entity to compare against. An identifier has two
 parts separated by a period: the type of the entity and the name of the entity. 
-The type of the entity is ``metrics``, ``params``, or ``tags``. The entity name can contain alphanumeric characters and special characters.
+The type of the entity is ``metrics``, ``params``, ``tags``, or ``attributes``. The entity name can
+contain alphanumeric characters and special characters.
 For example: ``metrics.accuracy``.
 
 Entity Name Contains Special Characters
@@ -72,13 +73,50 @@ For example:
   metrics."2019-04-02 error rate"
 
 
+Run attributes
+~~~~~~~~~~~~~~
+
+Syntax supports searching runs using two attribute names ``status`` and ``artifact_uri``. Search
+will error out if other attribute names used in filter string. Both these attributes have string
+values.
+
+Experiment ID field is already a part of Search API. Run's ``lifecycle_stage`` attribute is not
+allowed in search because it is already encoded as a part of API's ``run_view_type`` field. To
+search for runs using ``run_id`` it is more efficient to use get run APIs. Other fields in
+:py:class:`mlflow.entities.RunInfo` are `System tags`_.
+
+Currently, search does not support ``start_time`` and ``end_time`` attributes, since values have
+datetime datatype.
+
+System tags
+~~~~~~~~~~~
+
+Some run tags that are automatically created have special names and searchable in UI and through
+API.
+
++-----------------------------------------------------------+-----------------------------+
+| User visible info                                         |    System tag name          |
++===========================================================+=============================+
+| Source type (possible values are ``"NOTEBOOK"``,          |  ``"mlflow.source.type"``   |
+| ``"JOB"``, ``"PROJECT"``, ``"LOCAL"``, and ``"UNKNOWN"``) |                             |
++-----------------------------------------------------------+-----------------------------+
+| Source name                                               |  ``"mlflow.source.name"``   |
++-----------------------------------------------------------+-----------------------------+
+| Run name                                                  |  ``"mlflow.runName"``       |
++-----------------------------------------------------------+-----------------------------+
+| Parent run ID                                             |  ``"mlflow.parentRundId"``  |
++-----------------------------------------------------------+-----------------------------+
+| String ID of the user who initiated this run              |  ``"mlflow.user"``          |
+| (:py:class:`mlflow.entities.RunInfo.user_id`)             |                             |
++-----------------------------------------------------------+-----------------------------+
+
 Comparator
 ^^^^^^^^^^
 
 There are two classes of comparators: numeric and string.
 
 - Numeric comparators (``metrics``): ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-- String comparators (``params`` and ``tags``): ``=`` and ``!=``.
+- String comparators (``params``, ``tags``, and ``attributes``): ``=`` and ``!=``.
 
 Constant
 ^^^^^^^^
