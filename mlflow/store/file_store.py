@@ -190,8 +190,7 @@ class FileStore(AbstractStore):
         return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
-        if artifact_uri is None:
-            raise ValueError("Attempted to create an MLflow experiment without an artifact uri!")
+        assert artifact_uri, "experiment artifact URI must be a non-empty string"
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
