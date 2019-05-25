@@ -194,7 +194,7 @@ def log_metrics(metrics, step=None):
     :returns: None
     """
     run_id = _get_or_start_run().info.run_id
-    timestamp = int(time.time())
+    timestamp = int(time.time() * 1000)
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 
