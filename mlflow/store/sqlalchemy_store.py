@@ -77,9 +77,15 @@ def _parse_db_uri_to_db_type(db_uri):
 
 class SqlAlchemyStore(AbstractStore):
     """
-    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. Currently
-    supported database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. This store
-    interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
+    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. Currently,
+    MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+    As specified in the
+    `SQLAlchemy docs <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_ ,
+    the database URI is expected in the format
+    ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. SQLAlchemy will use
+    a dialect's default driver if a driver is not specified.
+
+    This store interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
     :py:class:`mlflow.store.dbmodels.models.SqlExperiment`,
     :py:class:`mlflow.store.dbmodels.models.SqlRun`,
     :py:class:`mlflow.store.dbmodels.models.SqlTag`,
@@ -98,11 +104,11 @@ class SqlAlchemyStore(AbstractStore):
         """
         Create a database backed store.
 
-        :param db_uri: SQL connection string used by SQLAlchemy Engine to connect to the database.
-                       Argument is expected to be in the format:
-                       ``db_type+driver://<user_name>:<password>@<host>:<port>/<database_name>`
-                       Supported database types are ``mysql``, ``mssql``, ``sqlite``,
-                       and ``postgresql``. The driver element is optional.
+        :param db_uri: The SQLAlchemy database URI string to connect to the database. See
+                       the `SQLAlchemy docs
+                       <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
+                       for format specifications. Mlflow supports the dialects ``mysql``,
+                       ``mssql``, ``sqlite``, and ``postgresql``.
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
