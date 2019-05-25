@@ -92,15 +92,15 @@ class FileStore(AbstractStore):
         """
         super(FileStore, self).__init__()
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
-        if artifact_root_uri is None:
-            artifact_root_uri = path_to_local_file_uri(self.root_directory)
+        self.artifact_root_uri = artifact_root_uri if artifact_root_uri is not None\
+            else path_to_local_file_uri(self.root_directory)
         self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
             self._create_experiment_with_id(name=Experiment.DEFAULT_EXPERIMENT_NAME,
                                             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
-                                            artifact_uri=artifact_root_uri)
+                                            artifact_uri=self.artifact_root_uri)
         # Create trash folder if needed
         if not exists(self.trash_folder):
             mkdir(self.trash_folder)
@@ -191,10 +191,10 @@ class FileStore(AbstractStore):
         return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
+        if artifact_uri is None:
+            raise ValueError("Attempted to create an MLflow experiment without an artifact uri")
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        artifact_uri = artifact_uri or path_to_local_file_uri(
-            os.path.join(self.root_directory, str(experiment_id)))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
@@ -220,6 +220,10 @@ class FileStore(AbstractStore):
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [int(e.experiment_id) for e in self.list_experiments(ViewType.ALL)]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
+
+        if artifact_location is None:
+            artifact_location = self.artifact_root_uri
+
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location)
 
     def _has_experiment(self, experiment_id):

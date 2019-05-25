@@ -14,6 +14,8 @@ from threading import Thread
 import time
 import tempfile
 
+from six.moves import urllib
+
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag, ViewType
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
@@ -101,7 +103,7 @@ def _get_safe_port():
 # Root directory for all stores (backend or artifact stores) created during this suite
 SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
 # Root directory for all artifact stores created during this suite
-SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
+SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts")
 
 
 def _get_sqlite_uri():
@@ -363,6 +365,9 @@ def test_set_terminated_status(mlflow_client):
 
 def test_artifacts(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Art In Fact')
+    experiment_info = mlflow_client.get_experiment(experiment_id)
+    print("ARTIFACT LOCATION", experiment_info.artifact_location)
+
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
     src_dir = tempfile.mkdtemp('test_artifacts_src')
