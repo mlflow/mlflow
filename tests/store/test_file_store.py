@@ -39,8 +39,8 @@ class TestFileStore(unittest.TestCase):
         # Include default experiment
         self.experiments.append(FileStore.DEFAULT_EXPERIMENT_ID)
         for exp in self.experiments:
-            # create experiment
-            exp_folder = os.path.join(self.test_root, str(exp))
+            # create experiment with a non-default artifaction location
+            exp_folder = tempfile.mkdtemp()
             os.makedirs(exp_folder)
             d = {"experiment_id": exp, "name": random_str(), "artifact_location": exp_folder}
             self.exp_data[exp] = d
