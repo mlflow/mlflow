@@ -203,7 +203,8 @@ def _load_pyfunc(path, *args, **kwargs):
 
 def load_model(model_uri, *args, **kwargs):
     """
-    Load a Keras model from a local file (if ``run_id`` is None) or a run. Extra arguments are passed through to keras.load_model.
+    Load a Keras model from a local file (if ``run_id`` is None) or a run.
+    Extra arguments are passed through to keras.load_model.
 
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
