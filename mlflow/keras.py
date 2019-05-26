@@ -177,7 +177,7 @@ class _KerasModelWrapper:
         return predicted
 
 
-def _load_pyfunc(path, **kwargs):
+def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
 
@@ -195,7 +195,7 @@ def _load_pyfunc(path, **kwargs):
         with graph.as_default():
             with sess.as_default():  # pylint:disable=not-context-manager
                 K.set_learning_phase(0)
-                m = _load_model(path, **kwargs)
+                m = _load_model(path, compile=False)
         return _KerasModelWrapper(m, graph, sess)
     else:
         raise Exception("Unsupported backend '%s'" % K._BACKEND)
