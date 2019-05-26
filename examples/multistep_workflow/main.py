@@ -70,7 +70,8 @@ def _get_or_run(entrypoint, parameters, git_commit, use_cache=True):
 @click.command()
 @click.option("--als-max-iter", default=10, type=int)
 @click.option("--keras-hidden-units", default=20, type=int)
-def workflow(als_max_iter, keras_hidden_units):
+@click.option("--max-row-limit", default=100000, type=int)
+def workflow(als_max_iter, keras_hidden_units, max_row_limit):
     # Note: The entrypoint names are defined in MLproject. The artifact directories
     # are documented by each step's .py file.
     with mlflow.start_run() as active_run:
@@ -78,7 +79,10 @@ def workflow(als_max_iter, keras_hidden_units):
         git_commit = active_run.data.tags.get(mlflow_tags.MLFLOW_GIT_COMMIT)
         load_raw_data_run = _get_or_run("load_raw_data", {}, git_commit)
         ratings_csv_uri = os.path.join(load_raw_data_run.info.artifact_uri, "ratings-csv-dir")
-        etl_data_run = _get_or_run("etl_data", {"ratings_csv": ratings_csv_uri}, git_commit)
+        etl_data_run = _get_or_run("etl_data",
+                                   {"ratings_csv": ratings_csv_uri,
+                                    "max_row_limit": max_row_limit},
+                                   git_commit)
         ratings_parquet_uri = os.path.join(etl_data_run.info.artifact_uri, "ratings-parquet-dir")
 
         # We specify a spark-defaults.conf to override the default driver memory. ALS requires
