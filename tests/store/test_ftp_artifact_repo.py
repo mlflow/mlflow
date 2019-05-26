@@ -118,10 +118,12 @@ def test_log_artifact(ftp_mock, tmpdir):
     fpath = d + '/test.txt'
     fpath = fpath.strpath
 
+    ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None])
+
     repo.log_artifact(fpath)
 
     ftp_mock.mkd.assert_called_once_with('/some/path')
-    ftp_mock.cwd.assert_called_once_with('/some/path')
+    ftp_mock.cwd.assert_called_with('/some/path')
     ftp_mock.storbinary.assert_called_once()
     assert ftp_mock.storbinary.call_args_list[0][0][0] == 'STOR test.txt'
 
@@ -137,6 +139,8 @@ def test_log_artifacts(ftp_mock, tmpdir):
     subd.join("a.txt").write("A")
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
+
+    ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None, None, None, None, None])
 
     repo.log_artifacts(subd.strpath)
 
