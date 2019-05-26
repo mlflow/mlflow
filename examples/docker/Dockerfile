@@ -5,4 +5,5 @@ RUN pip install mlflow==0.9.1 \
     && pip install numpy==1.14.3 \
     && pip install pandas==0.22.0 \
     && pip install scikit-learn==0.19.1 \
+    && pip install ipython \
     && pip install cloudpickle
