@@ -274,6 +274,8 @@ Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect'
 For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``. 
 For example, ``--backend-store-uri sqlite:///mlflow.db`` would create a local sqlite database.
 
+For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``.
+
 .. important::
 
     ``mlflow server`` will fail against a database-backed store with an out-of-date database schema.
