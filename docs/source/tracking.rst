@@ -157,21 +157,21 @@ Organizing Runs in Experiments
 
 MLflow allows you to group runs under experiments, which can be useful for comparing runs intended
 to tackle a particular task. You can create experiments using the :ref:`cli` (``mlflow experiments``) or
-the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment ID for a individual run
-using the CLI (for example, ``mlflow run ... --experiment-id [ID]``) or the ``MLFLOW_EXPERIMENT_ID``
-environment variable.
+the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for a individual run
+using the CLI (for example, ``mlflow run ... --experiment-name [name]``) or the ``MLFLOW_EXPERIMENT_NAME``
+environment variable. Alternatively, you can use the experiment id instead, via ``--experiment-id`` CLI
+flag or ``MLFLOW_EXPERIMENT_ID`` environment variable.
 
 .. code-block:: bash
 
-    # Prints "created an experiment with ID <id>
     mlflow experiments create fraud-detection
-    # Set the ID via environment variables
-    export MLFLOW_EXPERIMENT_ID=<id>
+    # Set the experiment via environment variables
+    export MLFLOW_EXPERIMENT_NAME=fraud-detection
 
 .. code-block:: py
 
-    # Launch a run. The experiment ID is inferred from the MLFLOW_EXPERIMENT_ID environment
-    # variable, or from the --experiment-id parameter passed to the MLflow CLI (the latter
+    # Launch a run. The experiment is inferred from the MLFLOW_EXPERIMENT_NAME environment
+    # variable, or from the --experiment-name parameter passed to the MLflow CLI (the latter
     # taking precedence)
     with mlflow.start_run():
         mlflow.log_param("a", 1)
@@ -271,7 +271,8 @@ backend as ``./path_to_store`` or ``file:/path_to_store`` and a *database-backed
 .html#database-urls>`_. The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
 MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
 Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver.
-For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``.
+For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``. 
+For example, ``--backend-store-uri sqlite:///mlflow.db`` would create a local sqlite database.
 
 .. important::
 
