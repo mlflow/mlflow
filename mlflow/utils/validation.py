@@ -9,6 +9,7 @@ import numpy as np
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 
 _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
@@ -29,6 +30,10 @@ MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 250
 MAX_TAG_VAL_LENGTH = 250
 MAX_ENTITY_KEY_LENGTH = 250
+
+_VALID_DRIVER_STRING = re.compile(r"^[a-z0-9_]*$")
+_BAD_DRIVER_STRING_MSG = "Driver can only include lowercase alphanumerics and underscores (_)"
+_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
 
 
 def bad_path_message(name):
@@ -195,3 +200,17 @@ def _validate_experiment_artifact_location(artifact_location):
         raise MlflowException("Artifact location cannot be a runs:/ URI. Given: '%s'"
                               % artifact_location,
                               error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_db_driver_string(driver):
+    """validates DB API driver name used in db_uri parameter"""
+    if not _VALID_DRIVER_STRING.match(driver):
+        error_msg = "Invalid driver in db_uri: '%s'. %s" % (driver, _BAD_DRIVER_STRING_MSG)
+        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
+
+
+def _validate_db_type_string(db_type):
+    """validates db_type parsed from DB URI is supported"""
+    if db_type not in DATABASE_ENGINES:
+        error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
+        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)

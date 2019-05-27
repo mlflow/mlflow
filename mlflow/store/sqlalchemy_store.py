@@ -2,7 +2,6 @@ import logging
 import pprint
 import uuid
 from contextlib import contextmanager
-import re
 
 import posixpath
 from six.moves import urllib
@@ -12,7 +11,7 @@ import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.dbmodels.db_types import DATABASE_ENGINES, MYSQL
+from mlflow.store.dbmodels.db_types import MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.abstract_store import AbstractStore
@@ -22,8 +21,8 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
-from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
-    _validate_run_id, _validate_metric
+from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
+    _validate_run_id, _validate_metric, _validate_db_driver_string, _validate_db_type_string
 from mlflow.store.db.utils import _upgrade_db
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
@@ -31,29 +30,11 @@ from mlflow.store.dbmodels.initial_models import Base as InitialBase
 _logger = logging.getLogger(__name__)
 
 
-_VALID_DRIVER_STRING = re.compile(r"^[a-z0-9_]*$")
-
-_BAD_DRIVER_STRING_MSG = "Driver can only include lowercase alphanumerics and underscores (_)"
-_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
-_BAD_DB_URI_MSG = "Please refer to https://docs.sqlalchemy.org/en/latest/core/engines.html for " \
-                  "format specifications."
+_INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for " \
+                      "format specifications."
 
 
-def _validate_db_driver_string(driver):
-    """validates DB API driver name used in db_uri parameter"""
-    if not _VALID_DRIVER_STRING.match(driver):
-        error_msg = "Invalid driver in db_uri: '%s'. %s" % (driver, _BAD_DRIVER_STRING_MSG)
-        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
-
-
-def _validate_db_type_string(db_type):
-    """validates db_type parsed from DB URI is supported"""
-    if db_type not in DATABASE_ENGINES:
-        error_msg = "Invalid database engine: '%s'. '%s'" % (db_type, _UNSUPPORTED_DB_TYPE_MSG)
-        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
-
-
-def _parse_db_uri_to_db_type(db_uri):
+def _parse_db_uri_extract_db_type(db_uri):
     """
     Parse the specified DB URI to extract the database type. Confirm the database type is
     supported. If a driver is specified, confirm it passes a plausible regex.
@@ -67,7 +48,7 @@ def _parse_db_uri_to_db_type(db_uri):
         db_type, driver = scheme.split('+')
         _validate_db_driver_string(driver)
     else:
-        error_msg = "Invalid database URI: '%s'. %s" % (db_uri, _BAD_DB_URI_MSG)
+        error_msg = "Invalid database URI: '%s'. %s" % (db_uri, _INVALID_DB_URI_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
     _validate_db_type_string(db_type)
@@ -114,7 +95,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri
-        self.db_type = _parse_db_uri_to_db_type(db_uri)
+        self.db_type = _parse_db_uri_extract_db_type(db_uri)
         self.artifact_root_uri = default_artifact_root
         self.engine = sqlalchemy.create_engine(db_uri)
         insp = sqlalchemy.inspect(self.engine)
