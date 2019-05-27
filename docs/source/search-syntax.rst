@@ -35,6 +35,13 @@ recorded error metric under 0.05.
   params.model = "LogisticRegression" and params.lambda = "0.001" and metrics.error <= 0.05
 
 
+Search for all failed runs.
+
+.. code-block:: sql
+
+  attributes.status = "FAILED"
+
+
 Identifier
 ^^^^^^^^^^
 
@@ -85,8 +92,8 @@ allowed in search because it is already encoded as a part of API's ``run_view_ty
 search for runs using ``run_id`` it is more efficient to use get run APIs. Other fields in
 :py:class:`mlflow.entities.RunInfo` are `System tags`_.
 
-Currently, search does not support ``start_time`` and ``end_time`` attributes, since values have
-datetime datatype.
+Currently, search does not support ``start_time`` and ``end_time`` attributes, but these will be
+added in a future version.
 
 System tags
 ~~~~~~~~~~~
