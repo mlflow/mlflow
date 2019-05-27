@@ -436,9 +436,10 @@ then make API requests to your remote tracking server.
 
 .. _system_tags:
 
-System tags
+System Tags
 ===========
-Runs can be annotated with arbitrary tags. Tag keys that start with ``mlflow.`` are reserved for
+
+You can annotate runs with arbitrary tags. Tag keys that start with ``mlflow.`` are reserved for
 internal use. The following tags are set automatically by MLflow, when appropriate:
 
 +-------------------------------+----------------------------------------------------------------------------------------+
@@ -448,12 +449,12 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
 +-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.user``               | Identifer of user who created the run.                                                 |
+| ``mlflow.user``               | Identifier of the user who created the run.                                            |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.source.type``        | Source type (possible values are ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,             |
 |                               | ``"LOCAL"``, and ``"UNKNOWN"``)                                                        |
 +-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.name``        | Source identifier (e.g., GitHub URL, local Python filename, name of notebook           |
+| ``mlflow.source.name``        | Source identifier (e.g., GitHub URL, local Python filename, name of notebook)          |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.source.git.commit``  | Commit hash of the executed code, if in a git repository.                              |
 +-------------------------------+----------------------------------------------------------------------------------------+
@@ -461,7 +462,7 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.source.git.repoURL`` | URL that the executed code was cloned from.                                            |
 +-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.project.env``        | One of "docker" or "conda", indicating the runtime context used by the mlflow project. |
+| ``mlflow.project.env``        | One of "docker" or "conda", indicating the runtime context used by the MLflow project. |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.project.entryPoint`` | Name of the project entry point associated with the current run, if any.               |
 +-------------------------------+----------------------------------------------------------------------------------------+
