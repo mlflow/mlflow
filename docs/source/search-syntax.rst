@@ -20,26 +20,23 @@ the left-hand side (LHS), a comparator, and constant on the right-hand side (RHS
 Example Expressions
 ^^^^^^^^^^^^^^^^^^^^
 
-Search for the subset of runs with logged accuracy metric greater than 0.92.
+- Search for the subset of runs with logged accuracy metric greater than 0.92.
 
-.. code-block:: sql
+  .. code-block:: sql
 
-  metrics.accuracy > 0.92
+    metrics.accuracy > 0.92
 
+- Search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and recorded error metric under 0.05.
 
-Search for runs created using a Logistic Regression model, a learning rate (lambda) of 0.001, and
-recorded error metric under 0.05.
+  .. code-block:: sql
 
-.. code-block:: sql
+    params.model = "LogisticRegression" and params.lambda = "0.001" and metrics.error <= 0.05
 
-  params.model = "LogisticRegression" and params.lambda = "0.001" and metrics.error <= 0.05
+- Search for all failed runs.
 
+  .. code-block:: sql
 
-Search for all failed runs.
-
-.. code-block:: sql
-
-  attributes.status = "FAILED"
+    attributes.status = "FAILED"
 
 
 Identifier
@@ -80,38 +77,16 @@ For example:
   metrics."2019-04-02 error rate"
 
 
-Run attributes
+Run Attributes
 ~~~~~~~~~~~~~~
 
-Syntax supports searching runs using two attribute names ``status`` and ``artifact_uri``. Search
-will error out if other attribute names used in filter string. Both these attributes have string
-values.
+The search syntax supports searching runs using two attributes: ``status`` and ``artifact_uri``. Both attributes have string values. Other fields in :py:class:`mlflow.entities.RunInfo` are :ref:`system-tags` that are searchable using the UI and the API. The search returns an error if you use other attribute names in the filter string. 
 
-Experiment ID field is already a part of Search API. Run's ``lifecycle_stage`` attribute is not
-allowed in search because it is already encoded as a part of API's ``run_view_type`` field. To
-search for runs using ``run_id`` it is more efficient to use get run APIs. Other fields in
-:py:class:`mlflow.entities.RunInfo` are `System tags`_.
-
-Search does not support ``start_time`` and ``end_time`` attributes.
-
-System tags
-~~~~~~~~~~~
-
-Some run tags that are automatically created have special names and searchable in UI and through
-API.
-
-+-----------------------------------------------------------+-----------------------------+
-| User visible info                                         |    System tag name          |
-+===========================================================+=============================+
-| Source type (possible values are ``"NOTEBOOK"``,          |  ``"mlflow.source.type"``   |
-| ``"JOB"``, ``"PROJECT"``, ``"LOCAL"``, and ``"UNKNOWN"``) |                             |
-+-----------------------------------------------------------+-----------------------------+
-| Source name                                               |  ``"mlflow.source.name"``   |
-+-----------------------------------------------------------+-----------------------------+
-| Run name                                                  |  ``"mlflow.runName"``       |
-+-----------------------------------------------------------+-----------------------------+
-| Parent run ID                                             |  ``"mlflow.parentRundId"``  |
-+-----------------------------------------------------------+-----------------------------+
+.. note::
+  
+  - The experiment ID is implicitly selected by the search API. 
+  - A run's ``lifecycle_stage`` attribute is not allowed because it is already encoded as a part of the API's ``run_view_type`` field. To search for runs using ``run_id``, it is more efficient to use ``get_run`` APIs. 
+  - The ``start_time`` and ``end_time`` attributes are not supported.
 
 Comparator
 ^^^^^^^^^^
