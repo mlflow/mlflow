@@ -94,7 +94,7 @@ def test_docker_uri_mode_validation(tracking_uri_mock):  # pylint: disable=unuse
 def test_docker_tag_name_with_git(get_git_commit_mock):
     get_git_commit_mock.return_value = '1234567890'
     tag_name = _get_docker_tag_name("my_project", "my_workdir")
-    assert tag_name == "mlflow-my_project-1234567"
+    assert tag_name == "mlflow-my_project:1234567"
     get_git_commit_mock.assert_called_with('my_workdir')
 
 

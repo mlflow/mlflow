@@ -795,8 +795,8 @@ def _get_docker_tag_name(imagename, work_dir):
     imagename = imagename if imagename else "docker-project"
     # Optionally include first 7 digits of git SHA in tag name, if available.
     git_commit = _get_git_commit(work_dir)
-    version_string = "-" + git_commit[:7] if git_commit else ""
-    return "mlflow-" + imagename + ":" + version_string
+    version_string = ":" + git_commit[:7] if git_commit else ""
+    return "mlflow-" + imagename + version_string
 
 
 __all__ = [
