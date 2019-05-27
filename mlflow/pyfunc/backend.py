@@ -4,6 +4,7 @@ import os
 import subprocess
 
 from mlflow.models import FlavorBackend
+from mlflow.models.docker_utils import _build_image
 from mlflow.pyfunc import ENV
 from mlflow.pyfunc import scoring_server
 from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
@@ -90,6 +91,14 @@ class PyFuncBackend(FlavorBackend):
         except FileNotFoundError:
             # Can not find conda
             return False
+
+    def build_image(self, model_uri, image_name, mlflow_home=None, flavor=None):
+        _build_image(
+            model_uri=model_uri,
+            image_name=image_name,
+            mlflow_home=mlflow_home,
+            flavor=flavor
+        )
 
 
 def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=None):

@@ -23,6 +23,7 @@ from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image,\
     _evaluate_scoring_proc, get_safe_port, pyfunc_serve_and_score_model
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
@@ -223,6 +224,7 @@ def test_predict(iris_data, sk_model):
         assert all(expected == actual)
 
 
+@pytest.mark.large
 def test_build_docker(iris_data, sk_model, tmpdir):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
@@ -244,3 +246,7 @@ def test_build_docker(iris_data, sk_model, tmpdir):
     np.testing.assert_array_equal(
         np.array(json.loads(scoring_response.text)),
         sk_model.predict(x))
+
+
+def test_build_docker_honors_flavor_argument():
+    pass

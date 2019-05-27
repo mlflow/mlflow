@@ -3,9 +3,9 @@ import click
 import posixpath
 
 import mlflow.sagemaker
-from mlflow.models import Model
-from mlflow.models.flavor_backend_registry import get_flavor_backend
-from mlflow.models.docker_utils import _build_image
+from mlflow.models import Model, docker_utils
+from mlflow.models.flavor_backend_registry import get_flavor_backend,\
+    get_flavor_backend_for_build_image
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import cli_args
@@ -89,7 +89,7 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
               help=("The name of the flavor to use for local serving. Must be one of the following:"
                     " {supported_flavors}. If unspecified, a flavor will be automatically selected"
                     " from the model's available flavors.".format(
-                        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
+                        supported_flavors=docker_utils.SUPPORTED_DEPLOYMENT_FLAVORS)))
 def build_docker(model_uri, name, flavor):
     """
     [EXPERIMENTAL] Builds a Docker image containing the MLflow model at the specified URI.
@@ -100,7 +100,20 @@ def build_docker(model_uri, name, flavor):
     This command is experimental and does not guarantee that the arguments nor format of the
     Docker container will remain the same.
     """
-    _build_image(model_uri, name, mlflow_home=".", flavor=flavor)
+    _get_flavor_backend_for_image_build(model_uri, flavor).build_image(
+        model_uri, name, mlflow_home=".")
+
+
+def _get_flavor_backend_for_image_build(model_uri, flavor, **kwargs):
+    with TempDir() as tmp:
+        local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
+                                                 output_path=tmp.path())
+        model = Model.load(local_path)
+    flavor_name, flavor_backend = get_flavor_backend_for_build_image(model, flavor, **kwargs)
+    if flavor_backend is None:
+        raise Exception("No suitable flavor backend was found for the model.")
+    _logger.info("Selected backend for flavor '%s'", flavor_name)
+    return flavor_backend
 
 
 def _get_flavor_backend(model_uri, **kwargs):
@@ -109,8 +122,7 @@ def _get_flavor_backend(model_uri, **kwargs):
                                                  output_path=tmp.path())
         model = Model.load(local_path)
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
-
-    _logger.info("Selected backend for flavor '%s'", flavor_name)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
+    _logger.info("Selected backend for flavor '%s'", flavor_name)
     return flavor_backend

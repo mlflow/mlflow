@@ -1,7 +1,11 @@
 import os
 
+from mlflow import pyfunc
 import mlflow.sagemaker
 
+SUPPORTED_DEPLOYMENT_FLAVORS = [
+    pyfunc.FLAVOR_NAME,
+]
 
 def _build_image(model_uri, image_name, mlflow_home=None, flavor=None):
     """
