@@ -32,7 +32,7 @@ MAX_TAG_VAL_LENGTH = 250
 MAX_ENTITY_KEY_LENGTH = 250
 
 _VALID_DRIVER_STRING = re.compile(r"^[a-z0-9_]*$")
-_BAD_DRIVER_STRING_MSG = "Driver can only include lowercase alphanumerics and underscores (_)"
+_BAD_DRIVER_STRING_MSG = "Driver name can include only lowercase alphanumerics and underscores (_)"
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
 
 

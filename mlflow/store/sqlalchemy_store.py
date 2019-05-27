@@ -56,13 +56,13 @@ def _parse_db_uri_extract_db_type(db_uri):
 
 class SqlAlchemyStore(AbstractStore):
     """
-    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. Currently,
-    MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
+    supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
     As specified in the
     `SQLAlchemy docs <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_ ,
     the database URI is expected in the format
-    ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. SQLAlchemy will use
-    a dialect's default driver if a driver is not specified.
+    ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. If you do not
+    specify a driver, SQLAlchemy uses a dialect's default driver.
 
     This store interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
     :py:class:`mlflow.store.dbmodels.models.SqlExperiment`,
