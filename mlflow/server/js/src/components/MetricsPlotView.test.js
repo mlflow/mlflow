@@ -4,6 +4,7 @@ import { MetricsPlotView } from './MetricsPlotView';
 import { X_AXIS_RELATIVE, X_AXIS_WALL } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, CHART_TYPE_LINE } from './MetricsPlotPanel';
 import Utils from '../utils/Utils';
+import Plot from 'react-plotly.js';
 
 const metricsForLine = [
   {
@@ -177,5 +178,12 @@ describe('unit tests', () => {
     expect(MetricsPlotView.parseTimestamp(timestamp, history, X_AXIS_RELATIVE)).toBe(1);
     // convert to date time string when axis is Time (Wall)
     expect(MetricsPlotView.parseTimestamp(timestamp, history, X_AXIS_WALL)).toBe(timestampStr);
+  });
+
+  test('should disable both plotly logo and the link to plotly studio', () => {
+    wrapper = shallow(<MetricsPlotView {...minimalPropsForBarChart} />);
+    const plot = wrapper.find(Plot);
+    expect(plot.props().config.displaylogo).toBe(false);
+    expect(plot.props().config.modeBarButtonsToRemove).toContain('sendDataToCloud');
   });
 });

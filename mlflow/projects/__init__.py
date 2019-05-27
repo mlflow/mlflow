@@ -115,7 +115,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     elif backend == "local" or backend is None:
         command = []
         command_separator = " "
-        # If a docker_env attribute is defined in MLProject then it takes precedence over conda yaml
+        # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
@@ -404,8 +404,10 @@ def _fetch_git_repo(uri, version, dst_dir):
         repo.heads.master.checkout()
 
 
-def _get_conda_env_name(conda_env_path):
+def _get_conda_env_name(conda_env_path, env_id=None):
     conda_env_contents = open(conda_env_path).read() if conda_env_path else ""
+    if env_id:
+        conda_env_contents += env_id
     return "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
 
 
@@ -425,10 +427,16 @@ def _get_conda_bin_executable(executable_name):
     return executable_name
 
 
-def _get_or_create_conda_env(conda_env_path):
+def _get_or_create_conda_env(conda_env_path, env_id=None):
     """
     Given a `Project`, creates a conda environment containing the project's dependencies if such a
     conda environment doesn't already exist. Returns the name of the conda environment.
+    :param conda_env_path: Path to a conda yaml file.
+    :param env_id: Optional string that is added to the contents of the yaml file before
+                   calculating the hash. It can be used to distinguish environments that have the
+                   same conda dependencies but are supposed to be different based on the context.
+                   For example, when serving the model we may install additional dependencies to the
+                   environment after the environment has been activated.
     """
     conda_path = _get_conda_bin_executable("conda")
     try:
@@ -442,7 +450,7 @@ def _get_or_create_conda_env(conda_env_path):
                                  "executable".format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
-    project_env_name = _get_conda_env_name(conda_env_path)
+    project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
         _logger.info('=== Creating conda environment %s ===', project_env_name)
         if conda_env_path:
@@ -694,11 +702,9 @@ def _build_docker_image(work_dir, project, active_run):
     built image with the project name specified by `project`.
     """
     if not project.name:
-        raise ExecutionException("Project name in MLProject must be specified when using docker "
+        raise ExecutionException("Project name in MLproject must be specified when using docker "
                                  "for image tagging.")
-    tag_name = "mlflow-{name}-{version}".format(
-        name=(project.name if project.name else "docker-project"),
-        version=_get_git_commit(work_dir)[:7], )
+    tag_name = _get_docker_tag_name(project.name, work_dir)
     dockerfile = (
         "FROM {imagename}\n"
         "LABEL Name={tag_name}\n"
@@ -726,6 +732,15 @@ def _build_docker_image(work_dir, project, active_run):
                                     MLFLOW_DOCKER_IMAGE_ID,
                                     image[0].id)
     return tag_name
+
+
+def _get_docker_tag_name(project_name, work_dir):
+    """Returns an appropriate Docker tag for a project based on name and git hash."""
+    project_name = project_name if project_name else "docker-project"
+    # Optionally include first 7 digits of git SHA in tag name, if available.
+    git_commit = _get_git_commit(work_dir)
+    version_string = "-" + git_commit[:7] if git_commit else ""
+    return "mlflow-" + project_name + version_string
 
 
 __all__ = [
