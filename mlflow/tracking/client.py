@@ -34,9 +34,9 @@ class MlflowClient(object):
     def get_run(self, run_id):
         """
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
-        contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
-        as well as a collection of run parameters, tags, and metrics -
-        :py:class`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
+        contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
+        as well as a collection of run parameters, tags, and metrics --
+        :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
         same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
         the most recently logged value at the largest step for each metric.
 
