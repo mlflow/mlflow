@@ -7,7 +7,6 @@ REST api endpoint, or build a docker image for serving the model locally or remo
 Not all flavors have a flavor backend.
 """
 import mlflow.pyfunc as pyfunc
-from mlflow.exceptions import MlflowException
 from mlflow.pyfunc.backend import PyFuncBackend
 from mlflow.rfunc.backend import RFuncBackend
 
@@ -25,6 +24,7 @@ def get_flavor_backend(model, **kwargs):
             if backend.can_score_model():
                 return flavor_name, backend
     return None, None
+
 
 def get_flavor_backend_for_build_image(model, flavor, **kwargs):
     for flavor_name, flavor_config in model.flavors.items():

@@ -19,12 +19,12 @@ import mlflow.version
 
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
+from mlflow.models.docker_utils import DISABLE_ENV_CREATION
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
 
 DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
-DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
 DEFAULT_SAGEMAKER_SERVER_PORT = 8080
 

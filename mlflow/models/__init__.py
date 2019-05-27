@@ -131,7 +131,6 @@ class FlavorBackend(object):
         """
         pass
 
-
     def can_build_image(self):
         """
         :return: True if this flavor has a `build_image` method defined for building a docker

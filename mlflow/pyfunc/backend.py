@@ -4,7 +4,7 @@ import os
 import subprocess
 
 from mlflow.models import FlavorBackend
-from mlflow.models.docker_utils import _build_image
+from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
 from mlflow.pyfunc import ENV
 from mlflow.pyfunc import scoring_server
 from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
@@ -92,12 +92,23 @@ class PyFuncBackend(FlavorBackend):
             # Can not find conda
             return False
 
-    def build_image(self, model_uri, image_name, mlflow_home=None, flavor=None):
+    def build_image(self, model_uri, image_name, mlflow_home=None):
+        def copy_model_into_container(dockerfile_context_dir):
+            model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
+            os.mkdir(model_cwd)
+            model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
+            return """
+                ENV {disable_env}="true"
+                COPY {model_dir} /opt/ml/model
+                RUN python -c \
+                'from mlflow.sagemaker.container import _install_base_deps;\
+                _install_base_deps("/opt/ml/model")'""".format(
+                disable_env=DISABLE_ENV_CREATION,
+                model_dir=os.path.join("model_dir", os.path.basename(model_path)))
         _build_image(
-            model_uri=model_uri,
             image_name=image_name,
             mlflow_home=mlflow_home,
-            flavor=flavor
+            custom_setup_steps_hook=copy_model_into_container
         )
 
 

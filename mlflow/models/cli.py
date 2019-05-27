@@ -2,7 +2,6 @@ import logging
 import click
 import posixpath
 
-import mlflow.sagemaker
 from mlflow.models import Model, docker_utils
 from mlflow.models.flavor_backend_registry import get_flavor_backend,\
     get_flavor_backend_for_build_image

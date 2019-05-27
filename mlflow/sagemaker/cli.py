@@ -9,6 +9,7 @@ import mlflow
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
+import mlflow.models.docker_utils
 
 
 @click.group("sagemaker")
@@ -165,8 +166,9 @@ def build_and_push_container(build, push, container, mlflow_home):
     if not (build or push):
         print("skipping both build and push, have nothing to do!")
     if build:
-        mlflow.sagemaker.build_image(container,
-                                     mlflow_home=os.path.abspath(mlflow_home) if mlflow_home
-                                     else None)
+        mlflow.models.docker_utils._build_image(
+            container,
+            mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None
+        )
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)
