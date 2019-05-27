@@ -1,0 +1,14 @@
+{
+    "data": [
+        [
+            17,
+            25,
+            "<=50K"
+        ]
+    ],
+    "columns": [
+        "age",
+        "hours_per_week",
+        "income"
+    ]
+}

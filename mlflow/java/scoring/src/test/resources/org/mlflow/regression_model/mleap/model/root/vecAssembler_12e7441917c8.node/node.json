@@ -1,0 +1,16 @@
+{
+  "name": "vecAssembler_12e7441917c8",
+  "shape": {
+    "inputs": [{
+      "port": "input0",
+      "name": "age"
+    }, {
+      "port": "input1",
+      "name": "hours_per_week"
+    }],
+    "outputs": [{
+      "port": "output",
+      "name": "features"
+    }]
+  }
+}

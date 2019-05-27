@@ -13,6 +13,7 @@ import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 import ml.combust.mleap.runtime.frame.Transformer;
 import ml.combust.mleap.runtime.javadsl.BundleBuilder;
 import ml.combust.mleap.runtime.javadsl.ContextBuilder;
+import ml.combust.mleap.runtime.javadsl.LeapFrameBuilder;
 import ml.combust.mleap.runtime.javadsl.LeapFrameSupport;
 import org.mlflow.utils.SerializationUtils;
 import org.slf4j.Logger;
@@ -47,7 +48,18 @@ public class MLeapPredictor extends Predictor {
 
     this.pipelineTransformer = bundleBuilder.load(new File(modelDataPath), mleapContext).root();
     try {
-      this.inputSchema = schemaReader.fromFile(inputSchemaPath);
+      StructType trainingSchema = schemaReader.fromFile(inputSchemaPath);
+      List<String> requiredFields = this.leapFrameSupport
+                                .getFields(this.pipelineTransformer.inputSchema())
+                                .stream()
+                                .map(field -> field.name())
+                                .collect(Collectors.toList());
+      this.inputSchema = new LeapFrameBuilder().createSchema(this.leapFrameSupport
+              .getFields(trainingSchema)
+              .stream()
+              .filter(field -> requiredFields.contains(field.name()))
+              .collect(Collectors.toList()));
+
     } catch (Exception e) {
       logger.error("Could not read the model input schema from the specified path", e);
       throw new PredictorLoadingException(
