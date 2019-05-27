@@ -131,7 +131,7 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250,
+def _evaluate_scoring_proc(proc, port, data, content_type, health_check_timeout=250,
                            stdout=sys.stdout):
     """
     :param health_check_timeout: The amount of time, in seconds, to wait before
