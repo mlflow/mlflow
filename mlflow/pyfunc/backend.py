@@ -19,8 +19,9 @@ class PyFuncBackend(FlavorBackend):
     """
         Flavor backend implementation for the generic python models.
     """
-    def __init__(self, config, no_conda=False, install_mlflow=False, **kwargs):
+    def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
         super(PyFuncBackend, self).__init__(config=config, **kwargs)
+        self._nworkers = workers
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow
 
@@ -62,22 +63,20 @@ class PyFuncBackend(FlavorBackend):
             # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
             # platform compatibility.
             local_uri = path_to_local_file_uri(local_path)
+            command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} "
+                       "mlflow.pyfunc.scoring_server.wsgi:app").format(
+                         host=host,
+                         port=port,
+                         nworkers=self._nworkers)
+            command_env = os.environ.copy()
+            command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
             if not self._no_conda and ENV in self._config:
                 conda_env_path = os.path.join(local_path, self._config[ENV])
-
-                command = ('python -c "from mlflow.pyfunc.scoring_server import _serve; _serve('
-                           'model_uri={model_uri}, '
-                           'port={port}, '
-                           'host={host})"'
-                           ).format(
-                             model_uri=repr(local_uri),
-                             port=repr(port),
-                             host=repr(host))
-
-                return _execute_in_conda_env(conda_env_path, command,
-                                             self._install_mlflow)
+                return _execute_in_conda_env(conda_env_path, command, self._install_mlflow,
+                                             command_env=command_env)
             else:
-                scoring_server._serve(local_uri, port, host)
+                _logger.info("=== Running command '%s'", command)
+                subprocess.Popen(command.split(" "), env=command_env).wait()
 
     def can_score_model(self):
         if self._no_conda:
@@ -93,7 +92,9 @@ class PyFuncBackend(FlavorBackend):
             return False
 
 
-def _execute_in_conda_env(conda_env_path, command, install_mlflow):
+def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=None):
+    if command_env is None:
+        command_env = os.environ
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
     conda_env_name = _get_or_create_conda_env(conda_env_path, env_id=env_id)
     activate_path = _get_conda_bin_executable("activate")
@@ -109,7 +110,7 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow):
 
     command = " && ".join(activate_conda_env + [command])
     _logger.info("=== Running command '%s'", command)
-    child = subprocess.Popen(["bash", "-c", command], close_fds=True)
+    child = subprocess.Popen(["bash", "-c", command], close_fds=True, env=command_env)
     rc = child.wait()
     if rc != 0:
         raise Exception("Command '{0}' returned non zero return code. Return code = {1}".format(

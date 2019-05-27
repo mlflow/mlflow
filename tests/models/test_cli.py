@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import pandas as pd
 import pytest
+import re
 import sklearn
 import sklearn.datasets
 import sklearn.neighbors
@@ -23,7 +24,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
 from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image,\
-    _evaluate_scoring_proc, get_safe_port
+    _evaluate_scoring_proc, get_safe_port, pyfunc_serve_and_score_model
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
 
 in_travis = 'TRAVIS' in os.environ
@@ -120,6 +121,29 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         print(stderr)
         assert p.wait() != 0
         assert "No suitable flavor backend was found for the model." in stderr
+
+
+def test_serve_gunicorn_opts(iris_data, sk_model):
+    if sys.platform == "win32":
+        pytest.skip("This test requires gunicorn which is not available on windows.")
+    with mlflow.start_run() as active_run:
+        mlflow.sklearn.log_model(sk_model, "model")
+        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+
+    output = StringIO()
+    x, _ = iris_data
+    scoring_response = pyfunc_serve_and_score_model(model_uri, pd.DataFrame(x),
+                                                    content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                                                    stdout=output,
+                                                    extra_args=["-w", "3"])
+    actual = pd.read_json(scoring_response.content, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = sk_model.predict(x)
+    assert all(expected == actual)
+    expected_command_pattern = re.compile((
+        "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"))
+    x = output.getvalue()
+    assert expected_command_pattern.search(x) is not None
 
 
 def test_predict(iris_data, sk_model):

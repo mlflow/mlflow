@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import random
 import re
@@ -8,6 +10,7 @@ import signal
 import socket
 from subprocess import Popen, PIPE, STDOUT
 import uuid
+import sys
 
 import pandas as pd
 import pytest
@@ -83,7 +86,8 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
 
 
 def pyfunc_serve_and_score_model(
-        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
+        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None,
+        stdout=sys.stdout):
     """
     :param model_uri: URI to the model to be served.
     :param data: The data to send to the pyfunc server for testing. This is either a
@@ -104,11 +108,12 @@ def pyfunc_serve_and_score_model(
         scoring_cmd += extra_args
     proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
     for x in iter(proc.stdout.readline, ""):
-        print(x)
-        m = re.match(pattern=".*Running on http://127.0.0.1:(\\d+).*", string=x)
+        print(x, file=stdout)
+        m = re.search(pattern=" Listening at: http://127.0.0.1:(\\d+).*", string=x)
         if m:
             return _evaluate_scoring_proc(
-                    proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds)
+                proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds,
+                stdout=stdout)
 
     raise Exception("Failed to start server")
 
@@ -126,7 +131,8 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, health_check_timeout=250):
+def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250,
+                           stdout=sys.stdout):
     """
     :param health_check_timeout: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
@@ -168,10 +174,10 @@ def _evaluate_scoring_proc(proc, port, data, content_type, health_check_timeout=
             # This will terminate all child processes of the scoring process
             pgrp = os.getpgid(proc.pid)
             os.killpg(pgrp, signal.SIGTERM)
-        print("captured output of the scoring process")
-        print("-------------------------STDOUT------------------------------")
-        print(proc.stdout.read())
-        print("==============================================================")
+        print("captured output of the scoring process", file=stdout)
+        print("-------------------------STDOUT------------------------------", file=stdout)
+        print(proc.stdout.read(), file=stdout)
+        print("==============================================================", file=stdout)
 
 
 @pytest.fixture(scope='module', autouse=True)
