@@ -86,7 +86,7 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
               help=("The name of the flavor to use for local serving. Must be one of the following:"
                     " {supported_flavors}. If unspecified, a flavor will be automatically selected"
                     " from the model's available flavors.".format(
-                  supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
+                        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
 def build_docker(model_uri, name, flavor):
     """
     [EXPERIMENTAL] Builds a Docker image containing the MLflow model at the specified URI.

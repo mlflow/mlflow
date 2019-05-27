@@ -2,8 +2,6 @@ import os
 
 import mlflow.sagemaker
 
-from mlflow.sagemaker import _download_artifact_from_uri, _get_preferred_deployment_flavor, _validate_deployment_flavor, _get_deployment_config
-from mlflow.models import Model
 
 def _build_image(model_uri, image_name, mlflow_home=None, flavor=None):
     """

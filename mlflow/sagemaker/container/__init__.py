@@ -8,11 +8,9 @@ from __future__ import print_function
 
 import multiprocessing
 import os
-import shutil
 import signal
 from subprocess import check_call, Popen
 import sys
-import yaml
 
 from pkg_resources import resource_filename
 
@@ -51,17 +49,38 @@ def _init(cmd):
                                                                                 args=str(sys.argv)))
 
 
-def _server_dependencies_cmds():
+def _install_base_deps(model_path):
     """
-    Get commands required to install packages required to serve the model with MLflow. These are
-    packages outside of the user-provided environment, except for the MLflow itself.
+    Creates a conda env for serving the model at the specified path and installs almost all serving
+    dependencies into the environment - MLflow is not installed as it's not available via conda.
+    """
+    # If model is a pyfunc model, create its conda env (even if it also has mleap flavor)
+    model_config_path = os.path.join(model_path, "MLmodel")
+    model = Model.load(model_config_path)
+    # NOTE: this differs from _serve cause we always activate the env even if you're serving
+    # an mleap model
+    if pyfunc.FLAVOR_NAME not in model.flavors:
+        return
+    conf = model.flavors[pyfunc.FLAVOR_NAME]
+    print("creating and activating custom environment")
+    env = conf[pyfunc.ENV]
+    env_path = os.path.join(model_path, env)
+    conda_create_and_install_deps = "conda env create -n custom_env -f {} && " \
+                                    "conda install -n custom_env gunicorn gevent".format(env_path)
+    install_deps_proc = Popen(["bash", "-c", conda_create_and_install_deps])
+    if install_deps_proc.wait() != 0:
+        raise Exception("Failed to install server dependencies")
 
-    :return: List of commands.
+
+def _install_mlflow_cmds():
     """
-    # TODO: Should we reinstall MLflow? What if there is MLflow in the user's conda environment?
-    return ["conda install gunicorn", "conda install gevent",
-            "pip install /opt/mlflow/." if _container_includes_mlflow_source()
-            else "pip install mlflow=={}".format(MLFLOW_VERSION)]
+    Return commands needed to install MLflow
+    :return:
+    """
+    return [
+        "pip install /opt/mlflow/." if _container_includes_mlflow_source()
+        else "pip install mlflow=={}".format(MLFLOW_VERSION)
+    ]
 
 
 def _serve():
@@ -87,29 +106,16 @@ def _serve():
         raise Exception("This container only supports models with the MLeap or PyFunc flavors.")
 
 
-def _maybe_create_model_env(model_path):
-    """If model is a pyfunc model, create its conda env (even if it also has mleap flavor)"""
-    model_config_path = os.path.join(model_path, "MLmodel")
-    model = Model.load(model_config_path)
-    # NOTE: this differs from _serve cause we always activate the env even if you're serving
-    # an mleap model
-    if pyfunc.FLAVOR_NAME not in model.flavors:
-        return
-    conf = model.flavors[pyfunc.FLAVOR_NAME]
-    print("creating and activating custom environment")
-    env = conf[pyfunc.ENV]
-    env_path = os.path.join(model_path, env)
-    os.system("conda env create -n custom_env -f {}".format(env_path))
-
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
         if not os.environ.get(DISABLE_ENV_CREATION) == "true":
-            _maybe_create_model_env(model)
+            _install_base_deps(model)
         # TODO don't unconditionally activate env (e.g. for non-pyfunc models)? We might already
         # do this anyways so it could be ok
-        bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
+        bash_cmds += ["source /miniconda/bin/activate custom_env"]
+        bash_cmds += _install_mlflow_cmds()
     nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
     # link the log streams to stdout/err so they will be logged to the container logs

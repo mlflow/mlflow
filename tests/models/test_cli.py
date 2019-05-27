@@ -1,12 +1,14 @@
+import json
 import os
+import subprocess
+import sys
+
+import numpy as np
 import pandas as pd
 import pytest
 import sklearn
 import sklearn.datasets
 import sklearn.neighbors
-import subprocess
-import sys
-import uuid
 
 try:
     from StringIO import StringIO
@@ -20,7 +22,8 @@ from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
-from tests.helper_functions import _assert_scoring_proc_healthy
+from tests.helper_functions import pyfunc_build_image_serve_and_score_model
+from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
 
 in_travis = 'TRAVIS' in os.environ
 # NB: for now, windows tests on Travis do not have conda available.
@@ -194,25 +197,23 @@ def test_predict(iris_data, sk_model):
         expected = sk_model.predict(x)
         assert all(expected == actual)
 
+
 def test_build_docker(iris_data, sk_model, tmpdir):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
-    input_json_path = tmpdir.strpath("input.json")
-    input_csv_path = tmpdir.strpath("input.csv")
-    output_json_path = tmpdir.strpath("output.json")
+    input_json_path = tmpdir.join("input.json").strpath
+    input_csv_path = tmpdir.join("input.csv").strpath
     x, _ = iris_data
-    pd.DataFrame(x).to_json(input_json_path, orient="split")
-    pd.DataFrame(x).to_csv(input_csv_path, index=False)
-
-    # Test building model with -n (name) and -f (flavor) options
-    name = uuid.uuid4().hex
-    p = subprocess.Popen(["mlflow", "models", "build-docker", "-m", model_uri,
-                          "-n", name], stderr=subprocess.PIPE)
-    assert p.wait() == 0
-    server_proc = subprocess.Popen(["docker", "run", "-p", name, "serve"])
-
-    actual = pd.read_json(output_json_path, orient="records")
-    actual = actual[actual.columns[0]].values
-    expected = sk_model.predict(x)
-    assert all(expected == actual)
+    df = pd.DataFrame(x)
+    df.to_json(input_json_path, orient="split")
+    df.to_csv(input_csv_path, index=False)
+    # TODO test for failures when using e.g. bad JSON or CSV formats like records orientation
+    scoring_response = pyfunc_build_image_serve_and_score_model(
+        model_uri=model_uri, data=df, content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+        activity_polling_timeout_seconds=500, extra_args=None)
+    assert scoring_response.status_code == 200, "Failed to serve prediction, got response %s" %\
+                                                scoring_response.text
+    np.testing.assert_array_equal(
+        np.array(json.loads(scoring_response.text)),
+        sk_model.predict(x))

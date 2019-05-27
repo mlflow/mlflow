@@ -4,17 +4,12 @@ The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to A
 from __future__ import print_function
 
 import os
-import sys
 from subprocess import Popen, PIPE, STDOUT
 from six.moves import urllib
 import tarfile
-import uuid
-import shutil
 import logging
 import time
 
-import base64
-import yaml
 import mlflow
 import mlflow.version
 from mlflow import pyfunc, mleap
@@ -158,18 +153,23 @@ def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None, model_uri=None, flavo
                 flavor = _get_preferred_deployment_flavor(model_config)
             else:
                 _validate_deployment_flavor(model_config, flavor)
-            print("Using the {selected_flavor} flavor for local serving!".format(selected_flavor=flavor))
+            print("Using the {selected_flavor} flavor for local "
+                  "serving!".format(selected_flavor=flavor))
             copy_model_into_container = ("""
             ENV {disable_env}="true"
             COPY {model_dir} /opt/ml/model
-            RUN python -c 'from mlflow.sagemaker.container import _maybe_create_model_env; _maybe_create_model_env("/opt/ml/model")'    
-            """.format(disable_env=DISABLE_ENV_CREATION, model_dir=os.path.join("model_dir", os.path.basename(model_path)))
+            RUN python -c \
+            'from mlflow.sagemaker.container import _install_base_deps;\
+            _install_base_deps("/opt/ml/model")'
+            """.format(disable_env=DISABLE_ENV_CREATION,
+                       model_dir=os.path.join("model_dir", os.path.basename(model_path)))
             )
         else:
             copy_model_into_container = ""
 
         with open(os.path.join(cwd, "Dockerfile"), "w") as f:
-            f.write(_DOCKERFILE_TEMPLATE.format(install_mlflow=install_mlflow, setup_model=copy_model_into_container))
+            f.write(_DOCKERFILE_TEMPLATE.format(
+                install_mlflow=install_mlflow, setup_model=copy_model_into_container))
         _logger.info("building docker image")
         os.system('find {cwd}/'.format(cwd=cwd))
         proc = Popen(["docker", "build", "-t", name, "-f", "Dockerfile", "."],
@@ -550,9 +550,6 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
                 " \"{error_message}\"".format(error_message=operation_status.message))
         if not archive:
             delete_operation.clean_up()
-
-
-
 
 
 def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):

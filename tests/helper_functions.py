@@ -5,7 +5,9 @@ import requests
 import string
 import time
 import signal
+import socket
 from subprocess import Popen, PIPE, STDOUT
+import uuid
 
 import pandas as pd
 import pytest
@@ -13,6 +15,17 @@ import pytest
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 from mlflow.utils.file_utils import read_yaml, write_yaml
+
+LOCALHOST = '127.0.0.1'
+
+
+def get_safe_port():
+    """Returns an ephemeral port that is very likely to be free to bind to."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((LOCALHOST, 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
 
 
 def random_int(lo=1, hi=1e10):
@@ -48,8 +61,40 @@ def score_model_in_sagemaker_docker_container(
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
-def score():
-    pass
+def pyfunc_build_image_serve_and_score_model(
+        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
+    """
+    :param model_uri: URI to the model to be served.
+    :param data: The data to send to the pyfunc server for testing. This is either a
+                 Pandas dataframe or string of the format specified by `content_type`.
+    :param content_type: The type of the data to send to the pyfunc server for testing. This is
+                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
+    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+                                             declaring the scoring process to have failed.
+    :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
+                       example, passing ``extra_args=["--no-conda"]`` will pass the ``--no-conda``
+                       flag to the scoring server to ensure that conda environment activation
+                       is skipped.
+    """
+    env = dict(os.environ)
+    env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+    # Test building model with -n (name) and -f (flavor) options
+    # name = "mlflow-pyfunc-servable"
+    name = uuid.uuid4().hex
+    p = Popen(["mlflow", "models", "build-docker", "-m", model_uri, "-n", name])
+    assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
+    host_port = get_safe_port()
+    scoring_cmd = ['docker', 'run', "-p", "%s:8080" % host_port, name, "serve"]
+    if extra_args is not None:
+        scoring_cmd += extra_args
+    proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
+    for x in iter(proc.stdout.readline, ""):
+        print(x)
+        return _evaluate_scoring_proc(
+            proc, host_port, data, content_type, activity_polling_timeout_seconds)
+
+    raise Exception("Failed to start server")
+
 
 def pyfunc_serve_and_score_model(
         model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
@@ -95,28 +140,24 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _assert_scoring_proc_healthy(proc, health_check_timeout=250):
-    for i in range(0, int(health_check_timeout / 5)):
-        assert proc.poll() is None, "scoring process died"
-        time.sleep(5)
-        # noinspection PyBroadException
-        try:
-            ping_status = requests.get(url='http://localhost:%d/ping' % port)
-            print('connection attempt', i, "server is up! ping status", ping_status)
-            if ping_status.status_code == 200:
-                break
-        except Exception:  # pylint: disable=broad-except
-            print('connection attempt', i, "failed, server is not up yet")
-    assert proc.poll() is None, "scoring process died"
-
-
 def _evaluate_scoring_proc(proc, port, data, content_type, health_check_timeout=250):
     """
     :param health_check_timeout: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     """
     try:
-        _assert_scoring_proc_healthy(proc, health_check_timeout=health_check_timeout)
+        for i in range(0, int(health_check_timeout / 5)):
+            assert proc.poll() is None, "scoring process died"
+            time.sleep(5)
+            # noinspection PyBroadException
+            try:
+                ping_status = requests.get(url='http://localhost:%d/ping' % port)
+                print('connection attempt', i, "server is up! ping status", ping_status)
+                if ping_status.status_code == 200:
+                    break
+            except Exception:  # pylint: disable=broad-except
+                print('connection attempt', i, "failed, server is not up yet")
+        assert proc.poll() is None, "scoring process died"
         ping_status = requests.get(url='http://localhost:%d/ping' % port)
         print("server up, ping status", ping_status)
         if ping_status.status_code != 200:
