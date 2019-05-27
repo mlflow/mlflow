@@ -6,8 +6,7 @@ from mlflow.entities import Metric, Param, RunTag
 from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
     _validate_tag_name, _validate_run_id, _validate_batch_log_data, \
-    _validate_batch_log_limits, _validate_experiment_artifact_location, _validate_db_type_string, \
-    _validate_db_driver_string
+    _validate_batch_log_limits, _validate_experiment_artifact_location, _validate_db_type_string
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e.", "a b/c d",
@@ -132,15 +131,3 @@ def test_db_type():
         with pytest.raises(MlflowException) as e:
             _validate_db_type_string(db_type)
         assert "Invalid database engine" in e.value.message
-
-
-def test_db_driver_type():
-    # This does not check for actual driver type but only parses valid driver strings
-    for parsable_driver_string in ["mysqldb", "mysqlconnector", "abc", "a_c_b", "__sql__"]:
-        # no exception raised
-        _validate_db_driver_string(parsable_driver_string)
-
-    for not_parsable_driver_string in ["a+b", "mysql+mysqldb", "mysql-mysqldb", "mysql#mysqldb"]:
-        with pytest.raises(MlflowException) as e:
-            _validate_db_driver_string(not_parsable_driver_string)
-        assert "Invalid driver in db_uri" in e.value.message

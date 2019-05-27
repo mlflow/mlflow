@@ -65,15 +65,6 @@ class TestParseDbUri(unittest.TestCase):
                               'snowflake://...', '://...', 'abcdefg']
         self._db_uri_error(bad_db_uri_strings, "Supported database engines are ")
 
-    def test_fail_on_bad_driver(self):
-        """test characters that are allowed by rfc1738 but not allowed in SQA"""
-        # NOTE: not handled here are upper case letters (lower-cased by urllib.parse.urlparse), and
-        # special characters beyond periods and hyphens. Other special characters and spaces cause
-        # urlparse to classify the whole DB URI as a path instead of extracting a scheme. In this
-        # case, our _DB_TYPE_NOT_SUPPORTED_MSG is raised due to attempted db_type=''
-        bad_db_uri_strings = ['blah+bad-driver://...', 'sqlite+b.ddriver://...']
-        self._db_uri_error(bad_db_uri_strings, "lowercase alphanumerics and underscores")
-
     def test_fail_on_multiple_drivers(self):
         bad_db_uri_strings = ['mysql+pymsql+pyodbc://...']
         self._db_uri_error(bad_db_uri_strings,

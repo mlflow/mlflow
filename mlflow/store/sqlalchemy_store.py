@@ -20,7 +20,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
-    _validate_run_id, _validate_metric, _validate_db_driver_string, _validate_db_type_string
+    _validate_run_id, _validate_metric, _validate_db_type_string
 from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
@@ -43,8 +43,7 @@ def _parse_db_uri_extract_db_type(db_uri):
     if scheme_plus_count == 0:
         db_type = scheme
     elif scheme_plus_count == 1:
-        db_type, driver = scheme.split('+')
-        _validate_db_driver_string(driver)
+        db_type, _ = scheme.split('+')
     else:
         error_msg = "Invalid database URI: '%s'. %s" % (db_uri, _INVALID_DB_URI_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
