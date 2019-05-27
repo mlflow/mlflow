@@ -71,7 +71,7 @@ call :py:func:`mlflow.set_tracking_uri`.
 There are different kinds of remote tracking URIs:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
-- Database encoded as a connection string (specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``)
+- Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. Mlflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
 
@@ -265,11 +265,12 @@ The backend store is where MLflow Tracking Server stores experiment and run meta
 params, metrics, and tags for runs. MLflow supports two types of backend stores: *file store* and
 *database-backed store*.
 
-Use ``--backend-store-uri`` to configure type of backend store. This can be a local path *file
-store* specified as ``./path_to_store`` or ``file:/path_to_store``, or a SQL connection string
-for a *database-backed store*. For the latter, the argument must be a SQL connection string
-specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported
-database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+Use ``--backend-store-uri`` to configure the type of backend store. You specify a *file store*
+backend as ``./path_to_store`` or ``file:/path_to_store`` and a *database-backed store* as
+`SQLAlchemy database URI <https://docs.sqlalchemy.org/en/latest/core/engines
+.html#database-urls>`_. The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
+MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver.
 For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``.
 
 .. important::
