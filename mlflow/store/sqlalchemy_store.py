@@ -19,8 +19,8 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
-from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
-    _validate_run_id, _validate_metric
+from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
+    _validate_run_id, _validate_metric, _validate_db_type_string
 from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
@@ -28,11 +28,42 @@ from mlflow.store.dbmodels.initial_models import Base as InitialBase
 _logger = logging.getLogger(__name__)
 
 
+_INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for " \
+                      "format specifications."
+
+
+def _parse_db_uri_extract_db_type(db_uri):
+    """
+    Parse the specified DB URI to extract the database type. Confirm the database type is
+    supported. If a driver is specified, confirm it passes a plausible regex.
+    """
+    scheme = urllib.parse.urlparse(db_uri).scheme
+    scheme_plus_count = scheme.count('+')
+
+    if scheme_plus_count == 0:
+        db_type = scheme
+    elif scheme_plus_count == 1:
+        db_type, _ = scheme.split('+')
+    else:
+        error_msg = "Invalid database URI: '%s'. %s" % (db_uri, _INVALID_DB_URI_MSG)
+        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
+
+    _validate_db_type_string(db_type)
+
+    return db_type
+
+
 class SqlAlchemyStore(AbstractStore):
     """
-    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. Currently
-    supported database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. This store
-    interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
+    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
+    supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+    As specified in the
+    `SQLAlchemy docs <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_ ,
+    the database URI is expected in the format
+    ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. If you do not
+    specify a driver, SQLAlchemy uses a dialect's default driver.
+
+    This store interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
     :py:class:`mlflow.store.dbmodels.models.SqlExperiment`,
     :py:class:`mlflow.store.dbmodels.models.SqlRun`,
     :py:class:`mlflow.store.dbmodels.models.SqlTag`,
@@ -51,17 +82,17 @@ class SqlAlchemyStore(AbstractStore):
         """
         Create a database backed store.
 
-        :param db_uri: SQL connection string used by SQLAlchemy Engine to connect to the database.
-                       Argument is expected to be in the format:
-                       ``db_type://<user_name>:<password>@<host>:<port>/<database_name>`
-                       Supported database types are ``mysql``, ``mssql``, ``sqlite``,
-                       and ``postgresql``.
+        :param db_uri: The SQLAlchemy database URI string to connect to the database. See
+                       the `SQLAlchemy docs
+                       <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
+                       for format specifications. Mlflow supports the dialects ``mysql``,
+                       ``mssql``, ``sqlite``, and ``postgresql``.
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri
-        self.db_type = urllib.parse.urlparse(db_uri).scheme
+        self.db_type = _parse_db_uri_extract_db_type(db_uri)
         self.artifact_root_uri = default_artifact_root
         self.engine = sqlalchemy.create_engine(db_uri)
         insp = sqlalchemy.inspect(self.engine)
