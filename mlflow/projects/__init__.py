@@ -760,10 +760,7 @@ def _build_docker_image(work_dir, image_uri, base_image, active_run):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
     """
-    if not project.name:
-        raise ExecutionException("Project name in MLproject must be specified when using docker "
-                                 "for image tagging.")
-    tag_name = _get_docker_tag_name(project.name, work_dir)
+    tag_name = _get_docker_tag_name(image_uri, work_dir)
     dockerfile = (
         "FROM {imagename}\n"
         "LABEL Name={tag_name}\n"
