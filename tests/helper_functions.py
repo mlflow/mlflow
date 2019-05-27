@@ -61,39 +61,25 @@ def score_model_in_sagemaker_docker_container(
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
-def pyfunc_build_image_serve_and_score_model(
-        model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None):
-    """
-    :param model_uri: URI to the model to be served.
-    :param data: The data to send to the pyfunc server for testing. This is either a
-                 Pandas dataframe or string of the format specified by `content_type`.
-    :param content_type: The type of the data to send to the pyfunc server for testing. This is
-                         one of `mlflow.pyfunc.scoring_server.CONTENT_TYPES`.
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
-    :param extra_args: A list of extra arguments to pass to the pyfunc scoring server command. For
-                       example, passing ``extra_args=["--no-conda"]`` will pass the ``--no-conda``
-                       flag to the scoring server to ensure that conda environment activation
-                       is skipped.
-    """
-    env = dict(os.environ)
-    env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    # Test building model with -n (name) and -f (flavor) options
-    # name = "mlflow-pyfunc-servable"
+def pyfunc_build_image(model_uri):
+    """Builds a docker image containing the specified model, returning the name of the image."""
     name = uuid.uuid4().hex
     p = Popen(["mlflow", "models", "build-docker", "-m", model_uri, "-n", name])
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
-    host_port = get_safe_port()
-    scoring_cmd = ['docker', 'run', "-p", "%s:8080" % host_port, name, "serve"]
+    return name
+
+
+def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
+    """
+    Serves a model from a docker container, exposing it as an endpoint at the specified port
+    on the host machine. Returns a handle (Popen object) to the server process.
+    """
+    env = dict(os.environ)
+    env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+    scoring_cmd = ['docker', 'run', "-p", "%s:8080" % host_port, image_name, "serve"]
     if extra_args is not None:
         scoring_cmd += extra_args
-    proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
-    for x in iter(proc.stdout.readline, ""):
-        print(x)
-        return _evaluate_scoring_proc(
-            proc, host_port, data, content_type, activity_polling_timeout_seconds)
-
-    raise Exception("Failed to start server")
+    return _start_scoring_proc(cmd=scoring_cmd, env=env)
 
 
 def pyfunc_serve_and_score_model(

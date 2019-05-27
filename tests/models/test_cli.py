@@ -22,7 +22,8 @@ from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
-from tests.helper_functions import pyfunc_build_image_serve_and_score_model
+from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image,\
+    _evaluate_scoring_proc, get_safe_port
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
 
 in_travis = 'TRAVIS' in os.environ
@@ -209,9 +210,11 @@ def test_build_docker(iris_data, sk_model, tmpdir):
     df.to_json(input_json_path, orient="split")
     df.to_csv(input_csv_path, index=False)
     # TODO test for failures when using e.g. bad JSON or CSV formats like records orientation
-    scoring_response = pyfunc_build_image_serve_and_score_model(
-        model_uri=model_uri, data=df, content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-        activity_polling_timeout_seconds=500, extra_args=None)
+    host_port = get_safe_port()
+    image_name = pyfunc_build_image(model_uri)
+    scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
+    scoring_response = _evaluate_scoring_proc(scoring_proc, host_port, df,
+                                              CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert scoring_response.status_code == 200, "Failed to serve prediction, got response %s" %\
                                                 scoring_response.text
     np.testing.assert_array_equal(
