@@ -704,9 +704,7 @@ def _build_docker_image(work_dir, project, active_run):
     if not project.name:
         raise ExecutionException("Project name in MLproject must be specified when using docker "
                                  "for image tagging.")
-    tag_name = "mlflow-{name}-{version}".format(
-        name=(project.name if project.name else "docker-project"),
-        version=_get_git_commit(work_dir)[:7], )
+    tag_name = _get_docker_tag_name(project.name, work_dir)
     dockerfile = (
         "FROM {imagename}\n"
         "LABEL Name={tag_name}\n"
@@ -734,6 +732,15 @@ def _build_docker_image(work_dir, project, active_run):
                                     MLFLOW_DOCKER_IMAGE_ID,
                                     image[0].id)
     return tag_name
+
+
+def _get_docker_tag_name(project_name, work_dir):
+    """Returns an appropriate Docker tag for a project based on name and git hash."""
+    project_name = project_name if project_name else "docker-project"
+    # Optionally include first 7 digits of git SHA in tag name, if available.
+    git_commit = _get_git_commit(work_dir)
+    version_string = "-" + git_commit[:7] if git_commit else ""
+    return "mlflow-" + project_name + version_string
 
 
 __all__ = [

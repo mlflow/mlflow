@@ -1,5 +1,4 @@
 import os
-import git
 
 import mock
 import pytest
@@ -8,7 +7,7 @@ from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow.entities import ViewType
-from mlflow.projects import ExecutionException
+from mlflow.projects import ExecutionException, _get_docker_tag_name
 from mlflow.store import file_store
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
     MLFLOW_DOCKER_IMAGE_ID
@@ -22,11 +21,6 @@ def _build_uri(base_uri, subdirectory):
     if subdirectory != "":
         return "%s#%s" % (base_uri, subdirectory)
     return base_uri
-
-
-def _get_version_local_git_repo(local_git_repo):
-    repo = git.Repo(local_git_repo, search_parent_directories=True)
-    return repo.git.rev_parse("HEAD")
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
@@ -94,3 +88,19 @@ def test_docker_uri_mode_validation(tracking_uri_mock):  # pylint: disable=unuse
     with pytest.raises(ExecutionException):
         build_docker_example_base_image()
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")
+
+
+@mock.patch('mlflow.projects._get_git_commit')
+def test_docker_tag_name_with_git(get_git_commit_mock):
+    get_git_commit_mock.return_value = '1234567890'
+    tag_name = _get_docker_tag_name("my_project", "my_workdir")
+    assert tag_name == "mlflow-my_project-1234567"
+    get_git_commit_mock.assert_called_with('my_workdir')
+
+
+@mock.patch('mlflow.projects._get_git_commit')
+def test_docker_tag_name_no_git(get_git_commit_mock):
+    get_git_commit_mock.return_value = None
+    tag_name = _get_docker_tag_name("my_project", "my_workdir")
+    assert tag_name == "mlflow-my_project"
+    get_git_commit_mock.assert_called_with('my_workdir')
