@@ -1,6 +1,7 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
+from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Run as ProtoRun
 
 
@@ -11,7 +12,9 @@ class Run(_MLflowObject):
 
     def __init__(self, run_info, run_data):
         if run_info is None:
-            raise Exception("run_info cannot be None")
+            raise MlflowException("run_info cannot be None")
+        if run_data is None:
+            raise MlflowException("run_data cannot be None")
         self._info = run_info
         self._data = run_data
 
