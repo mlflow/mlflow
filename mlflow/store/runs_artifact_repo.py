@@ -101,7 +101,7 @@ class RunsArtifactRepository(ArtifactRepository):
 
         :return: Absolute path of the local filesystem location containing the desired artifacts.
         """
-        return self.repo.download_artifacts(artifact_path, dst_path=None)
+        return self.repo.download_artifacts(artifact_path, dst_path)
 
     def _download_file(self, remote_file_path, local_path):
         """
