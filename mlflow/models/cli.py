@@ -4,7 +4,7 @@ import posixpath
 
 from mlflow.models import Model
 from mlflow.models.flavor_backend_registry import get_flavor_backend,\
-    get_flavor_backend_for_build_image
+    get_flavor_backend_for_build_docker
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import cli_args
@@ -106,15 +106,15 @@ def build_docker(model_uri, name):
     This command is experimental and does not guarantee that the arguments nor format of the
     Docker container will remain the same.
     """
-    _get_flavor_backend_for_image_build(model_uri).build_image(model_uri, name, mlflow_home=".")
+    _get_flavor_backend_for_build_docker(model_uri).build_image(model_uri, name, mlflow_home=".")
 
 
-def _get_flavor_backend_for_image_build(model_uri, **kwargs):
+def _get_flavor_backend_for_build_docker(model_uri, **kwargs):
     with TempDir() as tmp:
         local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
                                                  output_path=tmp.path())
         model = Model.load(local_path)
-    flavor_name, flavor_backend = get_flavor_backend_for_build_image(model, **kwargs)
+    flavor_name, flavor_backend = get_flavor_backend_for_build_docker(model, **kwargs)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
     _logger.info("Selected backend for flavor '%s'", flavor_name)

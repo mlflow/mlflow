@@ -10,7 +10,6 @@ from mlflow.utils.logging_utils import eprint
 _logger = logging.getLogger(__name__)
 
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
-DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
 _DOCKERFILE_TEMPLATE = """
 # Build an image that can serve pyfunc model in SageMaker
