@@ -7,7 +7,7 @@ test_that("mlflow can serve a model function", {
 
   model <- lm(Sepal.Width ~ Sepal.Length + Petal.Width, iris)
   fn <- crate(~ stats::predict(model, .x), model = model)
-  mlflow_save_model(fn)
+  mlflow_save_model(fn, path = "model")
   expect_true(dir.exists("model"))
   model_server <- processx::process$new(
     "Rscript",

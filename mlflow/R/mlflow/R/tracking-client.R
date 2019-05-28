@@ -126,6 +126,9 @@ new_mlflow_client.mlflow_https <- function(tracking_uri) {
 
 #' Initialize an MLflow Client
 #'
+#' Initializes and returns an MLflow client that communicates with the tracking server or store
+#' at the specified URI.
+#'
 #' @param tracking_uri The tracking URI. If not provided, defaults to the service
 #'  set by `mlflow_set_tracking_uri()`.
 #' @export
