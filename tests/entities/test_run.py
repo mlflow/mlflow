@@ -67,4 +67,3 @@ class TestRun(TestRunInfo, TestRunData):
         with pytest.raises(MlflowException) as no_data_exc:
             Run(run_info, None)
         assert "run_data cannot be None" in str(no_data_exc)
-
