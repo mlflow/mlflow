@@ -340,7 +340,6 @@ def _fetch_project(uri, force_tempdir, version=None):
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_zip_uri(parsed_uri):
         if _is_file_uri(parsed_uri):
-            from six.moves import urllib
             parsed_file_uri = urllib.parse.urlparse(urllib.parse.unquote(parsed_uri))
             parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
         _unzip_repo(zip_file=(
