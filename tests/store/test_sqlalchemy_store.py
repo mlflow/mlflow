@@ -21,7 +21,7 @@ from mlflow.store.db.utils import _get_schema_version
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
-from mlflow.store.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.sqlalchemy_store import SqlAlchemyStore, _parse_db_uri_extract_db_type
 from mlflow.utils.search_utils import SearchFilter
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
@@ -29,6 +29,46 @@ from tests.integration.utils import invoke_cli_runner
 
 DB_URI = 'sqlite:///'
 ARTIFACT_URI = 'artifact_folder'
+
+
+class TestParseDbUri(unittest.TestCase):
+
+    def test_correct_db_type_from_uri(self):
+        # try each the main drivers per supported database type
+        target_db_type_uris = {
+            'sqlite': ('pysqlite', 'pysqlcipher'),
+            'postgresql': ('psycopg2', 'pg8000', 'psycopg2cffi',
+                           'pypostgresql', 'pygresql', 'zxjdbc'),
+            'mysql': ('mysqldb', 'pymysql', 'mysqlconnector', 'cymysql',
+                      'oursql', 'mysqldb', 'gaerdbms', 'pyodbc', 'zxjdbc'),
+            'mssql': ('pyodbc', 'mxodbc', 'pymssql', 'zxjdbc', 'adodbapi')
+        }
+        for target_db_type, drivers in target_db_type_uris.items():
+            # try the driver-less version, which will revert SQLAlchemy to the default driver
+            uri = "%s://..." % target_db_type
+            parsed_db_type = _parse_db_uri_extract_db_type(uri)
+            self.assertEqual(target_db_type, parsed_db_type)
+            # try each of the popular drivers (per SQLAlchemy's dialect pages)
+            for driver in drivers:
+                uri = "%s+%s://..." % (target_db_type, driver)
+                parsed_db_type = _parse_db_uri_extract_db_type(uri)
+                self.assertEqual(target_db_type, parsed_db_type)
+
+    def _db_uri_error(self, db_uris, expected_message_part):
+        for db_uri in db_uris:
+            with self.assertRaises(MlflowException) as e:
+                _parse_db_uri_extract_db_type(db_uri)
+            self.assertIn(expected_message_part, e.exception.message)
+
+    def test_fail_on_unsupported_db_type(self):
+        bad_db_uri_strings = ['oracle://...', 'oracle+cx_oracle://...',
+                              'snowflake://...', '://...', 'abcdefg']
+        self._db_uri_error(bad_db_uri_strings, "Supported database engines are ")
+
+    def test_fail_on_multiple_drivers(self):
+        bad_db_uri_strings = ['mysql+pymsql+pyodbc://...']
+        self._db_uri_error(bad_db_uri_strings,
+                           "mlflow.org/docs/latest/tracking.html#storage for format specifications")
 
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase):

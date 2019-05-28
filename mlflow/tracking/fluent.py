@@ -78,6 +78,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     ``start_run`` attempts to resume a run with the specified run ID and
     other parameters are ignored. ``run_id`` takes precedence over ``MLFLOW_RUN_ID``.
 
+    MLflow will set a variety of default tags on the run, as defined in
+    :ref:`MLflow system tags <system_tags>`.
+
     :param run_id: If specified, get the run with the specified UUID and log parameters
                      and metrics under that run. The run's end time is unset and its status
                      is set to running, but the run's other attributes (``source_version``,
@@ -194,7 +197,7 @@ def log_metrics(metrics, step=None):
     :returns: None
     """
     run_id = _get_or_start_run().info.run_id
-    timestamp = int(time.time())
+    timestamp = int(time.time() * 1000)
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 

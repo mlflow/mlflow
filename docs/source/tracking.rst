@@ -71,7 +71,7 @@ call :py:func:`mlflow.set_tracking_uri`.
 There are different kinds of remote tracking URIs:
 
 - Local file path (specified as ``file:/my/local/dir``), where data is just directly stored locally.
-- Database encoded as a connection string (specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``)
+- Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. Mlflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
 
@@ -265,11 +265,12 @@ The backend store is where MLflow Tracking Server stores experiment and run meta
 params, metrics, and tags for runs. MLflow supports two types of backend stores: *file store* and
 *database-backed store*.
 
-Use ``--backend-store-uri`` to configure type of backend store. This can be a local path *file
-store* specified as ``./path_to_store`` or ``file:/path_to_store``, or a SQL connection string
-for a *database-backed store*. For the latter, the argument must be a SQL connection string
-specified as ``db_type://<user_name>:<password>@<host>:<port>/<database_name>``. Supported
-database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+Use ``--backend-store-uri`` to configure the type of backend store. You specify a *file store*
+backend as ``./path_to_store`` or ``file:/path_to_store`` and a *database-backed store* as
+`SQLAlchemy database URI <https://docs.sqlalchemy.org/en/latest/core/engines
+.html#database-urls>`_. The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
+MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver.
 For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``.
 
 .. important::
@@ -433,3 +434,40 @@ then make API requests to your remote tracking server.
     with mlflow.start_run():
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
+
+.. _system_tags:
+
+System Tags
+===========
+
+You can annotate runs with arbitrary tags. Tag keys that start with ``mlflow.`` are reserved for
+internal use. The following tags are set automatically by MLflow, when appropriate:
+
++-------------------------------+----------------------------------------------------------------------------------------+
+| Key                           | Description                                                                            |
++===============================+========================================================================================+
+| ``mlflow.runName``            | Human readable name that identifies this run.                                          |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.parentRunId``        | The ID of the parent run, if this is a nested run.                                     |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.user``               | Identifier of the user who created the run.                                            |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.type``        | Source type (possible values are ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,             |
+|                               | ``"LOCAL"``, and ``"UNKNOWN"``)                                                        |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.name``        | Source identifier (e.g., GitHub URL, local Python filename, name of notebook)          |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.git.commit``  | Commit hash of the executed code, if in a git repository.                              |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.git.branch``  | Name of the branch of the executed code, if in a git repository.                       |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.source.git.repoURL`` | URL that the executed code was cloned from.                                            |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.project.env``        | One of "docker" or "conda", indicating the runtime context used by the MLflow project. |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.project.entryPoint`` | Name of the project entry point associated with the current run, if any.               |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.docker.image.name``  | Name of the Docker image used to execute this run.                                     |
++-------------------------------+----------------------------------------------------------------------------------------+
+| ``mlflow.docker.image.id``    | ID of the Docker image used to execute this run.                                       |
++-------------------------------+----------------------------------------------------------------------------------------+
