@@ -169,7 +169,7 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
                     or content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
                 data = data.to_json(orient="split")
             elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
-                data = data.to_csv()
+                data = data.to_csv(index=False)
             else:
                 raise Exception(
                         "Unexpected content type for Pandas dataframe input %s" % content_type)
