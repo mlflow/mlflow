@@ -281,9 +281,9 @@ class TestFileStore(unittest.TestCase):
             "my_first_tag": "first",
             "my-second-tag": "2nd",
         }
-        tags_entities = {
+        tags_entities = [
             RunTag(key, value) for key, value in tags_dict.items()
-        }
+        ]
         tags_run = fs.create_run(
             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
             user_id='user',
