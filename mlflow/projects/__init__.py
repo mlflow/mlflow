@@ -625,16 +625,31 @@ def _validate_execution_environment(project, backend):
             "Running docker-based projects on Databricks is not yet supported.")
 
 
+def _get_local_uri_or_none(uri):
+    if uri == "databricks":
+        return None, None
+    parsed_uri = urllib.parse.urlparse(uri)
+    if not parsed_uri.netloc and parsed_uri.scheme in ("", "file", "sqlite"):
+        path = urllib.request.url2pathname(parsed_uri.path)
+        if parsed_uri.scheme == "sqlite":
+            uri = "sqlite:////" + _MLFLOW_DOCKER_TRACKING_DIR_PATH
+        else:
+            uri = "file://" + _MLFLOW_DOCKER_TRACKING_DIR_PATH
+        return path, uri
+    else:
+        return None, None
+
+
 def _get_docker_command(image, active_run):
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
     env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
                                  experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
-    if tracking.utils._is_local_uri(tracking_uri):
-        path = file_utils.local_file_uri_to_path(tracking_uri)
-        cmd += ["-v", "%s:%s" % (path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = _MLFLOW_DOCKER_TRACKING_DIR_PATH
+    local_path, container_tracking_uri = _get_local_uri_or_none(tracking_uri)
+    if local_path is not None:
+        cmd += ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
+        env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
     if tracking.utils._is_databricks_uri(tracking_uri):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)
