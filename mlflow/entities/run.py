@@ -45,8 +45,4 @@ class Run(_MLflowObject):
         return cls(RunInfo.from_proto(proto.info), RunData.from_proto(proto.data))
 
     def to_dictionary(self):
-        run_dict = {
-            "info": dict(self.info),
-        }
-        if self.data:
-            run_dict["data"] = self.data.to_dictionary()
+        return {"info": dict(self.info), "data": self.data.to_dictionary()}
