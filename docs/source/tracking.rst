@@ -55,7 +55,7 @@ UI let you create and search for experiments.
 Once your runs have been recorded, you can query them using the :ref:`tracking_ui` or the MLflow
 API.
 
-.. _where-runs-are-recorded:
+.. _where_runs_are_recorded:
 
 Where Runs Are Recorded
 =======================
@@ -150,7 +150,7 @@ just one block of code as follows:
 The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
 
-.. _organizing-runs-in-experiments:
+.. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments
 ==============================
@@ -272,7 +272,7 @@ backend as ``./path_to_store`` or ``file:/path_to_store`` and a *database-backed
 MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
 Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver.
 For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``. 
-For example, ``--backend-store-uri sqlite:///mlflow.db`` would create a local sqlite database.
+For example, ``--backend-store-uri sqlite:///mlflow.db`` would create a local SQLite database.
 
 For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``.
 
@@ -419,7 +419,7 @@ Networking
 The ``--host`` option exposes the service on all interfaces. If running a server in production, we
 would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted),
 and instead putting it behind a reverse proxy like NGINX or Apache httpd, or connecting over VPN.
-You can then pass authentication headers to MLflow using :ref:`these environment variables <tracking_auth>`.
+You can then pass authentication headers to MLflow using these:ref:`environment variables <tracking_auth>`.
 
 Additionally, you should ensure that the ``--backend-store-uri`` (which defaults to the
 ``./mlruns`` directory) points to a persistent (non-ephemeral) disk or database connection.
@@ -443,13 +443,13 @@ then make API requests to your remote tracking server.
 .. _tracking_auth:
 
 In addition to the ``MLFLOW_TRACKING_URI`` environment variable, the following environment variables
-are also present in order to allow passing HTTP authentication to the given tracking server:
+allow passing HTTP authentication to the tracking server:
 
 - ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` - username and password to use with HTTP
-  Basic auth. Both environment variables must be set for Basic auth to be used.
-- ``MLFLOW_TRACKING_TOKEN`` - token to use with HTTP Bearer auth. Basic auth takes precedence if set.
-- ``MLFLOW_TRACKING_INSECURE_TLS`` - if set to the literal ``true``, MLflow will not verify the TLS connection,
-  meaning no certificate or hostname validation for ``https://`` tracking URIs. This flag is not recommended for
+  Basic authentication. To use Basic authentication, you must set `both` environment variables .
+- ``MLFLOW_TRACKING_TOKEN`` - token to use with HTTP Bearer authentication. Basic authentication takes precedence if set.
+- ``MLFLOW_TRACKING_INSECURE_TLS`` - if set to the literal ``true``, MLflow does not verify the TLS connection,
+  meaning it does not validate certificates or hostnames for ``https://`` tracking URIs. This flag is not recommended for
   production environments.
 
 .. _system_tags:
