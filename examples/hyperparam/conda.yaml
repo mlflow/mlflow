@@ -7,12 +7,12 @@ dependencies:
   - pandas=0.22.0
   - scikit-learn=0.19.1
   - matplotlib=2.2.2
+  - tensorflow-mkl==1.13.1
+  - keras==2.2.2
   - pip:
     - mlflow>=1.0
     - Gpy==1.9.2
     - GpyOpt==1.2.5
-    - tensorflow==1.10.1
-    - keras==2.2.2
     - pyDOE==0.3.8
     - hyperopt==0.1
 
