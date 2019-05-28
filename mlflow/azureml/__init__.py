@@ -38,8 +38,8 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     For information about the input data formats accepted by this webserver, see the
     :ref:`MLflow deployment tools documentation <azureml_deployment>`.
 
-    :param model_uri: The location, in URI format, of the MLflow model to build an Azure
-                      ML deployment image of. For example:
+    :param model_uri: The location, in URI format, of the MLflow model used to build the Azure
+                      ML deployment image. For example:
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``

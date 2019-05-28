@@ -8,7 +8,6 @@ exposed in the :py:mod:`mlflow` module, so we recommend starting there.
 
 .. toctree::
   :glob:
-  :maxdepth: 1
 
   *
 

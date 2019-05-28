@@ -492,8 +492,8 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                       Conda environment yaml file. This decribes the environment this model should
                       be run in. If ``python_model`` is not ``None``, the Conda environment must
                       at least specify the dependencies contained in
-                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV`. If ``None``, the default
-                      :data:`mlflow.pyfunc.DEFAULT_CONDA_ENV` environment is added to the
+                      :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`get_default_conda_env()` environment is added to the
                       model. The following is an *example* dictionary representation of a Conda
                       environment::
 

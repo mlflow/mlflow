@@ -241,8 +241,7 @@ Referencing Artifacts
 ---------------------
 
 When you specify the location of an artifact in MLflow APIs, the syntax depends on whether you
-are invoking the Tracking API or Models API. For the Tracking API, you specify the artifact location using a (run ID, relative path) tuple. 
-For the Model API, you specify the artifact location in the follow ways:
+are invoking the Tracking, Models, or Projects API. For the Tracking API, you specify the artifact location using a (run ID, relative path) tuple. For the Models and Projects APIs, you specify the artifact location in the follow ways:
 
 - ``/Users/me/path/to/local/model``
 - ``relative/path/to/local/model``
