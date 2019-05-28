@@ -105,10 +105,16 @@ class PyFuncBackend(FlavorBackend):
                 _install_base_deps("/opt/ml/model")'""".format(
                 disable_env=DISABLE_ENV_CREATION,
                 model_dir=os.path.join("model_dir", os.path.basename(model_path)))
+        # The pyfunc image runs the same server as the Sagemaker image
+        pyfunc_entrypoint = """
+        ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container as C; \
+        C._init('serve')"]
+        """
         _build_image(
             image_name=image_name,
             mlflow_home=mlflow_home,
-            custom_setup_steps_hook=copy_model_into_container
+            custom_setup_steps_hook=copy_model_into_container,
+            entrypoint=pyfunc_entrypoint,
         )
 
 

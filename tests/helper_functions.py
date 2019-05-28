@@ -86,7 +86,7 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ['docker', 'run', "-p", "%s:8080" % host_port, image_name, "serve"]
+    scoring_cmd = ['docker', 'run', "-p", "%s:8080" % host_port, image_name]
     if extra_args is not None:
         scoring_cmd += extra_args
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
@@ -138,14 +138,14 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, health_check_timeout=250,
+def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250,
                            stdout=sys.stdout):
     """
-    :param health_check_timeout: The amount of time, in seconds, to wait before
+    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     """
     try:
-        for i in range(0, int(health_check_timeout / 5)):
+        for i in range(0, int(activity_polling_timeout_seconds / 5)):
             assert proc.poll() is None, "scoring process died"
             time.sleep(5)
             # noinspection PyBroadException
@@ -156,6 +156,7 @@ def _evaluate_scoring_proc(proc, port, data, content_type, health_check_timeout=
                     break
             except Exception:  # pylint: disable=broad-except
                 print('connection attempt', i, "failed, server is not up yet")
+
         assert proc.poll() is None, "scoring process died"
         ping_status = requests.get(url='http://localhost:%d/ping' % port)
         print("server up, ping status", ping_status)
