@@ -28,6 +28,7 @@ from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.tracking.context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
+from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
     MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
@@ -632,9 +633,9 @@ def _get_local_uri_or_none(uri):
     if not parsed_uri.netloc and parsed_uri.scheme in ("", "file", "sqlite"):
         path = urllib.request.url2pathname(parsed_uri.path)
         if parsed_uri.scheme == "sqlite":
-            uri = "sqlite:////" + _MLFLOW_DOCKER_TRACKING_DIR_PATH
+            uri = path_to_local_sqlite_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
         else:
-            uri = "file://" + _MLFLOW_DOCKER_TRACKING_DIR_PATH
+            uri = path_to_local_file_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
         return path, uri
     else:
         return None, None
