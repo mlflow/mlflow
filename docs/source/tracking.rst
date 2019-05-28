@@ -159,8 +159,8 @@ MLflow allows you to group runs under experiments, which can be useful for compa
 to tackle a particular task. You can create experiments using the :ref:`cli` (``mlflow experiments``) or
 the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for a individual run
 using the CLI (for example, ``mlflow run ... --experiment-name [name]``) or the ``MLFLOW_EXPERIMENT_NAME``
-environment variable. Alternatively, you can use the experiment id instead, via ``--experiment-id`` CLI
-flag or ``MLFLOW_EXPERIMENT_ID`` environment variable.
+environment variable. Alternatively, you can use the experiment ID instead, via the
+``--experiment-id`` CLI flag or the ``MLFLOW_EXPERIMENT_ID`` environment variable.
 
 .. code-block:: bash
 
@@ -419,6 +419,8 @@ Networking
 The ``--host`` option exposes the service on all interfaces. If running a server in production, we
 would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted),
 and instead putting it behind a reverse proxy like NGINX or Apache httpd, or connecting over VPN.
+You can then pass authentication headers to MLflow using :ref:`these environment variables <tracking_auth>`.
+
 Additionally, you should ensure that the ``--backend-store-uri`` (which defaults to the
 ``./mlruns`` directory) points to a persistent (non-ephemeral) disk or database connection.
 
@@ -437,6 +439,18 @@ then make API requests to your remote tracking server.
     with mlflow.start_run():
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
+
+.. _tracking_auth:
+
+In addition to the ``MLFLOW_TRACKING_URI`` environment variable, the following environment variables
+are also present in order to allow passing HTTP authentication to the given tracking server:
+
+- ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` - username and password to use with HTTP
+  Basic auth. Both environment variables must be set for Basic auth to be used.
+- ``MLFLOW_TRACKING_TOKEN`` - token to use with HTTP Bearer auth. Basic auth takes precedence if set.
+- ``MLFLOW_TRACKING_INSECURE_TLS`` - if set to the literal ``true``, MLflow will not verify the TLS connection,
+  meaning no certificate or hostname validation for ``https://`` tracking URIs. This flag is not recommended for
+  production environments.
 
 .. _system_tags:
 
