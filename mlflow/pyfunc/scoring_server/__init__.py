@@ -145,13 +145,16 @@ def init(model):
         """
         # Convert from CSV to pandas
         if flask.request.content_type == CONTENT_TYPE_CSV:
+            print("yo CSV")
             data = flask.request.data.decode('utf-8')
             csv_input = StringIO(data)
             data = parse_csv_input(csv_input=csv_input)
         elif flask.request.content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_JSON_SPLIT_ORIENTED]:
+            print("yo JSON")
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orient="split")
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
+            print("yo JSON records")
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orient="records")
         else:

@@ -4,19 +4,12 @@ import logging
 
 import mlflow
 import mlflow.version
-from mlflow import pyfunc, mleap
 from mlflow.utils.file_utils import TempDir, _copy_project
 from mlflow.utils.logging_utils import eprint
 
 _logger = logging.getLogger(__name__)
 
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
-
-SUPPORTED_DEPLOYMENT_FLAVORS = [
-    pyfunc.FLAVOR_NAME,
-    mleap.FLAVOR_NAME,
-]
-
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
 
 _DOCKERFILE_TEMPLATE = """

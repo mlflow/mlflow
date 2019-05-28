@@ -2,7 +2,6 @@ import json
 import os
 import subprocess
 import sys
-import uuid
 
 import numpy as np
 import pandas as pd
@@ -17,12 +16,9 @@ try:
 except ImportError:
     from io import StringIO
 
-from click.testing import CliRunner
-
 import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
-from mlflow.models.cli import build_docker
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
@@ -253,12 +249,3 @@ def test_build_docker(iris_data, sk_model):
         assert scoring_response.status_code == 500,\
             "Expected server failure with error code 500, got response with status code %s " \
             "and body %s" % (scoring_response.status_code, scoring_response.text)
-    # Pass "python-function" as the flavor, it should work
-    pyfunc_build_image(model_uri, extra_args=["-f", pyfunc.FLAVOR_NAME])
-    # Pass currently-unsupported flavors (mleap, R's crate flavor), expect failure
-    for bad_flavor in ["mleap", "crate"]:
-        bad_flavor_image_name = uuid.uuid4().hex
-        res = CliRunner().invoke(build_docker, ["-m", model_uri, "-n", bad_flavor_image_name, "-f",
-                                                bad_flavor])
-        assert res.exit_code != 0
-        assert "Unable to find flavor backend to serve model flavor" in str(res.exception)

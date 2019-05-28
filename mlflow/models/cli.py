@@ -2,13 +2,12 @@ import logging
 import click
 import posixpath
 
-from mlflow.models import Model, docker_utils
+from mlflow.models import Model
 from mlflow.models.flavor_backend_registry import get_flavor_backend,\
     get_flavor_backend_for_build_image
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import cli_args
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -83,36 +82,41 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
 @cli_args.MODEL_URI
 @click.option("--name", "-n", default="mlflow-pyfunc-servable",
               help="Name to use for built image")
-@click.option("--flavor", "-f", default=None,
-              help=("The name of the flavor to use for local serving. Must be one of the following:"
-                    " {supported_flavors}. If unspecified, a flavor will be automatically selected"
-                    " from the model's available flavors.".format(
-                        supported_flavors=docker_utils.SUPPORTED_DEPLOYMENT_FLAVORS)))
-def build_docker(model_uri, name, flavor):
+def build_docker(model_uri, name):
     """
-    EXPERIMENTAL: Builds a Docker image containing the MLflow model at the specified URI.
-    The image's entry point serves the model with default settings (i.e. as an endpoint exposed
-    at port 8080 within the container). Note that the model is assumed to have the pyfunc flavor -
-    see https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information.
+    **EXPERIMENTAL**: Builds a Docker image whose default entrypoint serves the specified MLflow
+    model at port 8080 within the container, using the 'python_function' flavor.
+
+    For example, the following command builds a docker image named 'my-image-name' that serves the
+    model from run 'some-run-uuid' at run-relative artifact path 'my-model':
+
+    .. code:: bash
+
+        mlflow models build-docker -m "runs:/some-run-uuid/my-model" -n "my-image-name"
+
+    We can then serve the model, exposing it at port 5001 on the host via:
+
+    .. code:: bash
+
+        docker run -p 5001:8080 "my-image-name"
+
+    See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
+    'python_function' flavor.
 
     This command is experimental and does not guarantee that the arguments nor format of the
     Docker container will remain the same.
     """
-    _get_flavor_backend_for_image_build(model_uri, flavor).build_image(
-        model_uri, name, mlflow_home=".")
+    _get_flavor_backend_for_image_build(model_uri).build_image(model_uri, name, mlflow_home=".")
 
 
-def _get_flavor_backend_for_image_build(model_uri, flavor, **kwargs):
+def _get_flavor_backend_for_image_build(model_uri, **kwargs):
     with TempDir() as tmp:
         local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
                                                  output_path=tmp.path())
         model = Model.load(local_path)
-    flavor_name, flavor_backend = get_flavor_backend_for_build_image(model, flavor, **kwargs)
+    flavor_name, flavor_backend = get_flavor_backend_for_build_image(model, **kwargs)
     if flavor_backend is None:
-        if flavor is None:
-            raise Exception("No suitable flavor backend was found for the model.")
-        else:
-            raise Exception("Unable to find flavor backend to serve model flavor '%s'" % flavor)
+        raise Exception("No suitable flavor backend was found for the model.")
     _logger.info("Selected backend for flavor '%s'", flavor_name)
     return flavor_backend
 

@@ -26,9 +26,9 @@ def get_flavor_backend(model, **kwargs):
     return None, None
 
 
-def get_flavor_backend_for_build_image(model, flavor, **kwargs):
+def get_flavor_backend_for_build_image(model, **kwargs):
     for flavor_name, flavor_config in model.flavors.items():
-        if flavor_name in _flavor_backends and (flavor is None or flavor_name == flavor):
+        if flavor_name in _flavor_backends:
             backend = _flavor_backends[flavor_name](flavor_config, **kwargs)
             if backend.can_build_image():
                 return flavor_name, backend
