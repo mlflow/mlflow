@@ -13,8 +13,6 @@ class Run(_MLflowObject):
     def __init__(self, run_info, run_data):
         if run_info is None:
             raise MlflowException("run_info cannot be None")
-        if run_data is None:
-            raise MlflowException("run_data cannot be None")
         self._info = run_info
         self._data = run_data
 
@@ -48,4 +46,8 @@ class Run(_MLflowObject):
         return cls(RunInfo.from_proto(proto.info), RunData.from_proto(proto.data))
 
     def to_dictionary(self):
-        return {"info": dict(self.info), "data": self.data.to_dictionary()}
+        run_dict = {
+            "info": dict(self.info),
+        }
+        if self.data:
+            run_dict["data"] = self.data.to_dictionary()

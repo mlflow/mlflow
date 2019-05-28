@@ -57,13 +57,8 @@ class TestRun(TestRunInfo, TestRunData):
                     "start_time=0, status=4, user_id='user-id'>>")
         assert str(run1) == expected
 
-    def test_creating_run_with_absent_info_or_data_throws_exception(self):
+    def test_creating_run_with_absent_info_throws_exception(self):
         run_data = TestRunData._create()[0]
         with pytest.raises(MlflowException) as no_info_exc:
             Run(None, run_data)
         assert "run_info cannot be None" in str(no_info_exc)
-
-        run_info = TestRunInfo._create()[0]
-        with pytest.raises(MlflowException) as no_data_exc:
-            Run(run_info, None)
-        assert "run_data cannot be None" in str(no_data_exc)
