@@ -232,20 +232,13 @@ def test_build_docker(iris_data, sk_model):
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     x, _ = iris_data
     df = pd.DataFrame(x)
-    host_port = get_safe_port()
     image_name = pyfunc_build_image(model_uri)
-    scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
-    scoring_response = _evaluate_scoring_proc(scoring_proc, host_port, df,
-                                              CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    assert scoring_response.status_code == 200, "Failed to serve prediction, got response %s" %\
-                                                scoring_response.text
-    np.testing.assert_array_equal(
-        np.array(json.loads(scoring_response.text)),
-        sk_model.predict(x))
-    # Test for failures when using e.g. bad JSON or CSV formats like records orientation
-    for bad_content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]:
+    for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
+        host_port = get_safe_port()
         scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
-        scoring_response = _evaluate_scoring_proc(scoring_proc, host_port, df, bad_content_type)
-        assert scoring_response.status_code == 500,\
-            "Expected server failure with error code 500, got response with status code %s " \
-            "and body %s" % (scoring_response.status_code, scoring_response.text)
+        scoring_response = _evaluate_scoring_proc(scoring_proc, host_port, df, content_type)
+        assert scoring_response.status_code == 200, "Failed to serve prediction, got " \
+                                                    "response %s" % scoring_response.text
+        np.testing.assert_array_equal(
+            np.array(json.loads(scoring_response.text)),
+            sk_model.predict(x))

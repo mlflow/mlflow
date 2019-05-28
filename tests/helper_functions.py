@@ -163,9 +163,10 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
         if type(data) == pd.DataFrame:
-            if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON:
+            if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
                 data = data.to_json(orient="records")
-            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
+            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON \
+                    or content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
                 data = data.to_json(orient="split")
             elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
                 data = data.to_csv()
