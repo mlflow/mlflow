@@ -1,6 +1,5 @@
 import filecmp
 import os
-import sys
 import docker
 from docker.errors import BuildError, APIError
 

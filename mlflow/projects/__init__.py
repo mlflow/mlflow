@@ -11,6 +11,7 @@ import os
 import sys
 import re
 import shutil
+from six.moves import urllib
 import subprocess
 import tempfile
 import logging
