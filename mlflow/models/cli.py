@@ -110,7 +110,10 @@ def _get_flavor_backend_for_image_build(model_uri, flavor, **kwargs):
         model = Model.load(local_path)
     flavor_name, flavor_backend = get_flavor_backend_for_build_image(model, flavor, **kwargs)
     if flavor_backend is None:
-        raise Exception("No suitable flavor backend was found for the model.")
+        if flavor is None:
+            raise Exception("No suitable flavor backend was found for the model.")
+        else:
+            raise Exception("Unable to find flavor backend to serve model flavor '%s'" % flavor)
     _logger.info("Selected backend for flavor '%s'", flavor_name)
     return flavor_backend
 

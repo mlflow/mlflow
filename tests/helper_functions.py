@@ -64,10 +64,17 @@ def score_model_in_sagemaker_docker_container(
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
-def pyfunc_build_image(model_uri):
-    """Builds a docker image containing the specified model, returning the name of the image."""
+def pyfunc_build_image(model_uri, extra_args=None):
+    """
+    Builds a docker image containing the specified model, returning the name of the image.
+    :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
+    :param extra_args: List of extra args to pass to `mlflow models build-docker` command
+    """
     name = uuid.uuid4().hex
-    p = Popen(["mlflow", "models", "build-docker", "-m", model_uri, "-n", name])
+    cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
+    if extra_args:
+        cmd += extra_args
+    p = Popen(cmd)
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 

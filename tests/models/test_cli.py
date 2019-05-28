@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+import uuid
 
 import numpy as np
 import pandas as pd
@@ -16,9 +17,12 @@ try:
 except ImportError:
     from io import StringIO
 
+from click.testing import CliRunner
+
 import mlflow
 from mlflow import pyfunc
 import mlflow.sklearn
+from mlflow.models.cli import build_docker
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
@@ -26,7 +30,9 @@ from tests.models import test_pyfunc
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image,\
     _evaluate_scoring_proc, get_safe_port, pyfunc_serve_and_score_model
-from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED
+from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED,\
+    CONTENT_TYPE_JSON, CONTENT_TYPE_CSV
+
 
 in_travis = 'TRAVIS' in os.environ
 # NB: for now, windows tests on Travis do not have conda available.
@@ -225,17 +231,12 @@ def test_predict(iris_data, sk_model):
 
 
 @pytest.mark.large
-def test_build_docker(iris_data, sk_model, tmpdir):
+def test_build_docker(iris_data, sk_model):
     with mlflow.start_run() as active_run:
         mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
-    input_json_path = tmpdir.join("input.json").strpath
-    input_csv_path = tmpdir.join("input.csv").strpath
     x, _ = iris_data
     df = pd.DataFrame(x)
-    df.to_json(input_json_path, orient="split")
-    df.to_csv(input_csv_path, index=False)
-    # TODO test for failures when using e.g. bad JSON or CSV formats like records orientation
     host_port = get_safe_port()
     image_name = pyfunc_build_image(model_uri)
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
@@ -246,7 +247,18 @@ def test_build_docker(iris_data, sk_model, tmpdir):
     np.testing.assert_array_equal(
         np.array(json.loads(scoring_response.text)),
         sk_model.predict(x))
-
-
-def test_build_docker_honors_flavor_argument():
-    pass
+    # Test for failures when using e.g. bad JSON or CSV formats like records orientation
+    for bad_content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]:
+        scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
+        scoring_response = _evaluate_scoring_proc(scoring_proc, host_port, df, bad_content_type)
+        assert scoring_response.status_code == 500,\
+            "Expected server failure with error code 500, got response with status code %s " \
+            "and body %s" % (scoring_response.status_code, scoring_response.text)
+    # Pass "python-function" as the flavor, it should work
+    pyfunc_build_image(model_uri, extra_args=["-f", pyfunc.FLAVOR_NAME])
+    # Pass a non-existent flavor, expect failure
+    bad_flavor_image_name = uuid.uuid4().hex
+    res = CliRunner().invoke(build_docker, ["-m", model_uri, "-n", bad_flavor_image_name, "-f",
+                                            "some-nonexistent-flavor"])
+    assert res.exit_code != 0
+    assert "Unable to find flavor backend to serve model flavor" in str(res.exception)
