@@ -65,11 +65,12 @@ class ArtifactRepository:
 
         :param artifact_path: Relative source path to the desired artifacts.
         :param dst_path: Absolute path of the local filesystem destination directory to which to
-                         download the specified artifacts. This directory must already exist. If
-                         unspecified, the artifacts will be downloaded to a new, uniquely-named
-                         directory on the local filesystem.
+                         download the specified artifacts. This directory must already exist.
+                         If unspecified, the artifacts will either be downloaded to a new
+                         uniquely-named directory on the local filesystem or will be returned
+                         directly in the case of the LocalArtifactRepository.
 
-        :return: Absolute path of the local filesystem location containing the downloaded artifacts.
+        :return: Absolute path of the local filesystem location containing the desired artifacts.
         """
 
         # TODO: Probably need to add a more efficient method to stream just a single artifact
