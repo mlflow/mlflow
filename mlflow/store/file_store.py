@@ -190,7 +190,9 @@ class FileStore(AbstractStore):
         return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
-        assert artifact_uri, "experiment artifact URI must be a non-empty string"
+        if not artifact_uri:
+            raise MlflowException(
+                "Experiment artifact URI must be a non-empty string, found: %s" % artifact_uri)
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)

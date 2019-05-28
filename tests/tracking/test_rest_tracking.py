@@ -14,8 +14,6 @@ from threading import Thread
 import time
 import tempfile
 
-from six.moves import urllib
-
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag, ViewType
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
@@ -366,12 +364,12 @@ def test_set_terminated_status(mlflow_client):
 def test_artifacts(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Art In Fact')
     experiment_info = mlflow_client.get_experiment(experiment_id)
-    experiment_artifact_path = urllib.parse.urlparse(experiment_info.artifact_location).path
-    assert experiment_artifact_path.startswith(SUITE_ARTIFACT_ROOT_DIR)
+    assert experiment_info.artifact_location.startswith(
+        path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR))
 
     created_run = mlflow_client.create_run(experiment_id)
-    run_artifact_path = urllib.parse.urlparse(created_run.info.artifact_uri).path
-    assert run_artifact_path.startswith(SUITE_ARTIFACT_ROOT_DIR)
+    assert created_run.info.artifact_uri.startswith(
+        path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR))
     run_id = created_run.info.run_id
     src_dir = tempfile.mkdtemp('test_artifacts_src')
     src_file = os.path.join(src_dir, 'my.file')
