@@ -80,7 +80,6 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
 
 
 @commands.command("build-docker")
-@experimental
 @cli_args.MODEL_URI
 @click.option("--name", "-n", default="mlflow-pyfunc-servable",
               help="Name to use for built image")
@@ -91,7 +90,7 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
                         supported_flavors=docker_utils.SUPPORTED_DEPLOYMENT_FLAVORS)))
 def build_docker(model_uri, name, flavor):
     """
-    [EXPERIMENTAL] Builds a Docker image containing the MLflow model at the specified URI.
+    EXPERIMENTAL: Builds a Docker image containing the MLflow model at the specified URI.
     The image's entry point serves the model with default settings (i.e. as an endpoint exposed
     at port 8080 within the container). Note that the model is assumed to have the pyfunc flavor -
     see https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information.
