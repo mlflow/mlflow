@@ -108,6 +108,8 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     elif _RUN_ID_ENV_VAR in os.environ:
         existing_run_id = os.environ[_RUN_ID_ENV_VAR]
         del os.environ[_RUN_ID_ENV_VAR]
+    else:
+        existing_run_id = None
     if existing_run_id:
         _validate_run_id(existing_run_id)
         active_run_obj = MlflowClient().get_run(existing_run_id)
