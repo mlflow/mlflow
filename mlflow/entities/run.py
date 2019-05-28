@@ -51,3 +51,4 @@ class Run(_MLflowObject):
         }
         if self.data:
             run_dict["data"] = self.data.to_dictionary()
+        return run_dict
