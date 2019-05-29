@@ -228,7 +228,7 @@ def test_log_batch(tracking_uri_mock, tmpdir):
 
 def test_log_metric(tracking_uri_mock):
     with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = range(300, 400)
+        time_mock.side_effect = [123 for _ in range(100)]
         run_id = active_run.info.run_id
         mlflow.log_metric("name_1", 25)
         mlflow.log_metric("name_2", -3)
@@ -244,19 +244,19 @@ def test_log_metric(tracking_uri_mock):
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name1]) == set([
-        (25, 300 * 1000, 0),
-        (30, 302 * 1000, 5),
-        (40, 303 * 1000, -2),
+        (25, 123 * 1000, 0),
+        (30, 123 * 1000, 5),
+        (40, 123 * 1000, -2),
     ])
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
     assert set([(m.value, m.timestamp, m.step) for m in metric_history_name2]) == set([
-        (-3, 301 * 1000, 0),
+        (-3, 123 * 1000, 0),
     ])
 
 
 def test_log_metrics_uses_millisecond_timestamp_resolution(tracking_uri_mock):
     with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = range(300, 400)
+        time_mock.side_effect = [123 for _ in range(100)]
         mlflow.log_metrics({
             "name_1": 25,
             "name_2": -3,
@@ -272,13 +272,13 @@ def test_log_metrics_uses_millisecond_timestamp_resolution(tracking_uri_mock):
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
     assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set([
-        (25, 300 * 1000),
-        (30, 301 * 1000),
-        (40, 302 * 1000),
+        (25, 123 * 1000),
+        (30, 123 * 1000),
+        (40, 123 * 1000),
     ])
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
     assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
-        (-3, 300 * 1000),
+        (-3, 123 * 1000),
     ])
 
 
@@ -337,11 +337,10 @@ def test_log_param(tracking_uri_mock):
         run_id = active_run.info.run_id
         mlflow.log_param("name_1", "a")
         mlflow.log_param("name_2", "b")
-        mlflow.log_param("name_1", "c")
         mlflow.log_param("nested/nested/name", 5)
     finished_run = tracking.MlflowClient().get_run(run_id)
     # Validate params
-    assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    assert finished_run.data.params == {"name_1": "a", "name_2": "b", "nested/nested/name": "5"}
 
 
 def test_log_params(tracking_uri_mock):
