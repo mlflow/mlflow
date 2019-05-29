@@ -3,6 +3,7 @@ import gzip
 import os
 import posixpath
 import shutil
+import sys
 import tarfile
 import tempfile
 
@@ -351,13 +352,22 @@ def relative_path_to_artifact_path(path):
 
 def path_to_local_file_uri(path):
     """
-    Convert local filesystem path to uri with the given scheme.
+    Convert local filesystem path to local file uri.
     """
     path = pathname2url(path)
     if path == posixpath.abspath(path):
         return "file://{path}".format(path=path)
     else:
         return "file:{path}".format(path=path)
+
+
+def path_to_local_sqlite_uri(path):
+    """
+    Convert local filesystem path to sqlite uri.
+    """
+    path = posixpath.abspath(pathname2url(os.path.abspath(path)))
+    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:///"
+    return prefix + path
 
 
 def local_file_uri_to_path(uri):
