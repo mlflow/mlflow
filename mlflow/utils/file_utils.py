@@ -367,3 +367,14 @@ def local_file_uri_to_path(uri):
     """
     path = urllib.parse.urlparse(uri).path if uri.startswith("file:") else uri
     return urllib.request.url2pathname(path)
+
+
+def get_local_path_or_none(path_or_uri):
+    """Check if the argument is a local path (no scheme or file:///) and return local path if true,
+    None otherwise.
+    """
+    parsed_uri = urllib.parse.urlparse(path_or_uri)
+    if len(parsed_uri.scheme) == 0 or parsed_uri.scheme == "file" and len(parsed_uri.netloc) == 0:
+        return local_file_uri_to_path(path_or_uri)
+    else:
+        return None
