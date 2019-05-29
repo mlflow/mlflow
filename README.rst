@@ -92,9 +92,9 @@ Saving and Serving Models
 -------------------------
 To illustrate managing models, the ``mlflow.sklearn`` package can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
-``examples/sklearn_logisitic_regression/train.py`` that you can run as follows::
+``examples/sklearn_logistic_regression/train.py`` that you can run as follows::
 
-    $ python examples/sklearn_logisitic_regression/train.py
+    $ python examples/sklearn_logistic_regression/train.py
     Score: 0.666
     Model saved in run <run-id>
 
