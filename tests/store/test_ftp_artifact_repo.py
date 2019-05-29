@@ -118,12 +118,62 @@ def test_log_artifact(ftp_mock, tmpdir):
     fpath = d + '/test.txt'
     fpath = fpath.strpath
 
+    ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None])
+
     repo.log_artifact(fpath)
 
     ftp_mock.mkd.assert_called_once_with('/some/path')
-    ftp_mock.cwd.assert_called_once_with('/some/path')
+    ftp_mock.cwd.assert_called_with('/some/path')
     ftp_mock.storbinary.assert_called_once()
     assert ftp_mock.storbinary.call_args_list[0][0][0] == 'STOR test.txt'
+
+
+def test_log_artifact_multiple_calls(ftp_mock, tmpdir):
+    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
+
+    d = tmpdir.mkdir("data")
+    file1 = d.join("test1.txt")
+    file1.write("hello world!")
+    fpath1 = d + '/test1.txt'
+    fpath1 = fpath1.strpath
+
+    file2 = d.join("test2.txt")
+    file2.write("hello world!")
+    fpath2 = d + '/test2.txt'
+    fpath2 = fpath2.strpath
+
+    ftp_mock.cwd = MagicMock(side_effect=[
+        ftplib.error_perm,
+        None,
+        ftplib.error_perm,
+        None,
+        None,
+        None
+    ])
+
+    repo.log_artifact(fpath1)
+    ftp_mock.mkd.assert_called_once_with('/some/path')
+    ftp_mock.cwd.assert_called_with('/some/path')
+    ftp_mock.storbinary.assert_called()
+    assert ftp_mock.storbinary.call_args_list[0][0][0] == 'STOR test1.txt'
+    ftp_mock.reset_mock()
+
+    repo.log_artifact(fpath1, "subdir")
+    ftp_mock.mkd.assert_called_once_with('/some/path/subdir')
+    ftp_mock.cwd.assert_called_with('/some/path/subdir')
+    ftp_mock.storbinary.assert_called()
+    assert ftp_mock.storbinary.call_args_list[0][0][0] == 'STOR test1.txt'
+    ftp_mock.reset_mock()
+
+    repo.log_artifact(fpath2)
+    ftp_mock.mkd.assert_not_called()
+    ftp_mock.cwd.assert_called_with('/some/path')
+    ftp_mock.storbinary.assert_called()
+    assert ftp_mock.storbinary.call_args_list[0][0][0] == 'STOR test2.txt'
 
 
 def test_log_artifacts(ftp_mock, tmpdir):
@@ -137,6 +187,8 @@ def test_log_artifacts(ftp_mock, tmpdir):
     subd.join("a.txt").write("A")
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
+
+    ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None, None, None, None, None])
 
     repo.log_artifacts(subd.strpath)
 
