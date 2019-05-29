@@ -80,7 +80,7 @@ For example:
 Run Attributes
 ~~~~~~~~~~~~~~
 
-The search syntax supports searching runs using two attributes: ``status`` and ``artifact_uri``. Both attributes have string values. Other fields in :py:class:`mlflow.entities.RunInfo` are :ref:`system-tags` that are searchable using the UI and the API. The search returns an error if you use other attribute names in the filter string. 
+The search syntax supports searching runs using two attributes: ``status`` and ``artifact_uri``. Both attributes have string values. Other fields in :py:class:`mlflow.entities.RunInfo` are :ref:`system_tags` that are searchable using the UI and the API. The search returns an error if you use other attribute names in the filter string. 
 
 .. note::
   

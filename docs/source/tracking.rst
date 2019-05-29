@@ -55,7 +55,7 @@ UI let you create and search for experiments.
 Once your runs have been recorded, you can query them using the :ref:`tracking_ui` or the MLflow
 API.
 
-.. _where-runs-are-recorded:
+.. _where_runs_are_recorded:
 
 Where Runs Are Recorded
 =======================
@@ -150,28 +150,28 @@ just one block of code as follows:
 The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
 
-.. _organizing-runs-in-experiments:
+.. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments
 ==============================
 
 MLflow allows you to group runs under experiments, which can be useful for comparing runs intended
 to tackle a particular task. You can create experiments using the :ref:`cli` (``mlflow experiments``) or
-the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment ID for a individual run
-using the CLI (for example, ``mlflow run ... --experiment-id [ID]``) or the ``MLFLOW_EXPERIMENT_ID``
-environment variable.
+the :py:func:`mlflow.create_experiment` Python API. You can pass the experiment name for a individual run
+using the CLI (for example, ``mlflow run ... --experiment-name [name]``) or the ``MLFLOW_EXPERIMENT_NAME``
+environment variable. Alternatively, you can use the experiment ID instead, via the
+``--experiment-id`` CLI flag or the ``MLFLOW_EXPERIMENT_ID`` environment variable.
 
 .. code-block:: bash
 
-    # Prints "created an experiment with ID <id>
     mlflow experiments create fraud-detection
-    # Set the ID via environment variables
-    export MLFLOW_EXPERIMENT_ID=<id>
+    # Set the experiment via environment variables
+    export MLFLOW_EXPERIMENT_NAME=fraud-detection
 
 .. code-block:: py
 
-    # Launch a run. The experiment ID is inferred from the MLFLOW_EXPERIMENT_ID environment
-    # variable, or from the --experiment-id parameter passed to the MLflow CLI (the latter
+    # Launch a run. The experiment is inferred from the MLFLOW_EXPERIMENT_NAME environment
+    # variable, or from the --experiment-name parameter passed to the MLflow CLI (the latter
     # taking precedence)
     with mlflow.start_run():
         mlflow.log_param("a", 1)
@@ -271,6 +271,9 @@ backend as ``./path_to_store`` or ``file:/path_to_store`` and a *database-backed
 .html#database-urls>`_. The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
 MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
 Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver.
+For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``. 
+For example, ``--backend-store-uri sqlite:///mlflow.db`` would create a local SQLite database.
+
 For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``.
 
 .. important::
@@ -416,6 +419,8 @@ Networking
 The ``--host`` option exposes the service on all interfaces. If running a server in production, we
 would recommend not exposing the built-in server broadly (as it is unauthenticated and unencrypted),
 and instead putting it behind a reverse proxy like NGINX or Apache httpd, or connecting over VPN.
+You can then pass authentication headers to MLflow using these :ref:`environment variables <tracking_auth>`.
+
 Additionally, you should ensure that the ``--backend-store-uri`` (which defaults to the
 ``./mlruns`` directory) points to a persistent (non-ephemeral) disk or database connection.
 
@@ -434,6 +439,18 @@ then make API requests to your remote tracking server.
     with mlflow.start_run():
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
+
+.. _tracking_auth:
+
+In addition to the ``MLFLOW_TRACKING_URI`` environment variable, the following environment variables
+allow passing HTTP authentication to the tracking server:
+
+- ``MLFLOW_TRACKING_USERNAME`` and ``MLFLOW_TRACKING_PASSWORD`` - username and password to use with HTTP
+  Basic authentication. To use Basic authentication, you must set `both` environment variables .
+- ``MLFLOW_TRACKING_TOKEN`` - token to use with HTTP Bearer authentication. Basic authentication takes precedence if set.
+- ``MLFLOW_TRACKING_INSECURE_TLS`` - if set to the literal ``true``, MLflow does not verify the TLS connection,
+  meaning it does not validate certificates or hostnames for ``https://`` tracking URIs. This flag is not recommended for
+  production environments.
 
 .. _system_tags:
 
