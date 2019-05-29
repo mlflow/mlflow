@@ -368,7 +368,7 @@ def path_to_local_sqlite_uri(path):
     path = pathname2url(path)
     if path != posixpath.abspath(path):
         raise Exception("Sqlite uris only work with absolute paths.")
-    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:////"
+    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:///"
     return prefix + path
 
 
