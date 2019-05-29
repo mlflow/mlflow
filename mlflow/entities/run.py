@@ -1,6 +1,7 @@
 from mlflow.entities._mlflow_object import _MLflowObject
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
+from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import Run as ProtoRun
 
 
@@ -11,7 +12,7 @@ class Run(_MLflowObject):
 
     def __init__(self, run_info, run_data):
         if run_info is None:
-            raise Exception("run_info cannot be None")
+            raise MlflowException("run_info cannot be None")
         self._info = run_info
         self._data = run_data
 
@@ -45,4 +46,9 @@ class Run(_MLflowObject):
         return cls(RunInfo.from_proto(proto.info), RunData.from_proto(proto.data))
 
     def to_dictionary(self):
-        return {"info": dict(self.info), "data": self.data.to_dictionary()}
+        run_dict = {
+            "info": dict(self.info),
+        }
+        if self.data:
+            run_dict["data"] = self.data.to_dictionary()
+        return run_dict
