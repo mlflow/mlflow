@@ -6,6 +6,7 @@ import re
 from six.moves import urllib
 
 from mlflow.utils import process
+from mlflow.utils.file_utils import local_file_uri_to_path
 
 DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
@@ -75,3 +76,14 @@ def download_uri(uri, output_path):
     else:
         raise DownloadException("`uri` must be a DBFS (%s), S3 (%s), or GCS (%s) URI, got "
                                 "%s" % (DBFS_PREFIX, S3_PREFIX, GS_PREFIX, uri))
+
+
+def get_local_path(path_or_uri):
+    """Check if the argument is a local path (no scheme or file:///) and return local path if true,
+    None otherwise.
+    """
+    parsed_uri = urllib.parse.urlparse(path_or_uri)
+    if len(parsed_uri.scheme) == 0 or parsed_uri.scheme == "file" and len(parsed_uri.netloc) == 0:
+        return local_file_uri_to_path(path_or_uri)
+    else:
+        return None
