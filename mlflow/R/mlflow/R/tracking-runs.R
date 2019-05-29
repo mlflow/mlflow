@@ -277,7 +277,7 @@ mlflow_search_runs <- function(filter = NULL,
 
   runs_list <- response$run %>%
     purrr::map(parse_run)
-  do.call("rbind", runs_list)
+  do.call("rbind", runs_list) %||% data.frame()
 }
 
 #' List Artifacts
@@ -385,7 +385,7 @@ mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY
   run_infos_list <- response$runs %>%
     purrr::map("info") %>%
     purrr::map(parse_run_info)
-  do.call("rbind", run_infos_list)
+  do.call("rbind", run_infos_list) %||% data.frame()
 }
 
 #' Log Artifact
