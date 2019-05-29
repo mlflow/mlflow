@@ -8,6 +8,7 @@ from six.moves import shlex_quote
 
 from mlflow import data
 from mlflow.exceptions import ExecutionException
+from mlflow.utils.file_utils import get_local_path_or_none
 
 
 MLPROJECT_FILE_NAME = "MLproject"
@@ -158,7 +159,7 @@ class Parameter(object):
         return user_param_value
 
     def _compute_path_value(self, user_param_value, storage_dir):
-        local_path = data.get_local_path(user_param_value)
+        local_path = get_local_path_or_none(user_param_value)
         if local_path:
             if not os.path.exists(local_path):
                 raise ExecutionException("Got value %s for parameter %s, but no such file or "
