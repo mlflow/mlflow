@@ -265,18 +265,19 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_id
     print("Run id=%s" % run_id)
-    run = mlflow_client.get_run(run_id)
-    assert run.info.run_id == run_id
-    assert run.info.run_uuid == run_id
-    assert run.info.experiment_id == experiment_id
-    assert run.info.user_id == user
-    assert run.info.start_time == create_run_kwargs["start_time"]
-    for tag in create_run_kwargs["tags"]:
-        assert tag in run.data.tags
-    assert run.data.tags.get(MLFLOW_USER) == user
-    assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
-    assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
-    assert mlflow_client.list_run_infos(experiment_id) == [run.info]
+    fetched_run = mlflow_client.get_run(run_id)
+    for run in [created_run, fetched_run]:
+        assert run.info.run_id == run_id
+        assert run.info.run_uuid == run_id
+        assert run.info.experiment_id == experiment_id
+        assert run.info.user_id == user
+        assert run.info.start_time == create_run_kwargs["start_time"]
+        for tag in create_run_kwargs["tags"]:
+            assert tag in run.data.tags
+        assert run.data.tags.get(MLFLOW_USER) == user
+        assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
+        assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
+        assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
 
 def test_create_run_defaults(mlflow_client):
