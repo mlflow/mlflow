@@ -140,9 +140,16 @@ parse_run <- function(r) {
   new_mlflow_run(info)
 }
 
+fill_missing_run_cols <- function(r) {
+  expected_names <- c("run_uuid", "experiment_id", "user_id", "status", "start_time", "artifact_uri", "lifecycle_stage", "run_id", "end_time")
+  r[setdiff(expected_names, names(r))] <- NA
+  r
+}
+
 parse_run_info <- function(r) {
   r %>%
     purrr::map_at(c("start_time", "end_time"), milliseconds_to_date) %>%
+    fill_missing_run_cols %>%
     tibble::as_tibble()
 }
 

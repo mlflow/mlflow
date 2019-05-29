@@ -24,7 +24,6 @@ Depends:
   R (>= 3.3.0)
 Imports:
   base64enc,
-  dplyr,
   forge,
   fs,
   git2r,
