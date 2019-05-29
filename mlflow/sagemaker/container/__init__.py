@@ -62,14 +62,16 @@ def _install_base_deps(model_path):
     if pyfunc.FLAVOR_NAME not in model.flavors:
         return
     conf = model.flavors[pyfunc.FLAVOR_NAME]
-    print("creating and activating custom environment")
-    env = conf[pyfunc.ENV]
-    env_path = os.path.join(model_path, env)
-    conda_create_and_install_deps = "conda env create -n custom_env -f {} && " \
-                                    "conda install -n custom_env gunicorn gevent".format(env_path)
-    install_deps_proc = Popen(["bash", "-c", conda_create_and_install_deps])
-    if install_deps_proc.wait() != 0:
-        raise Exception("Failed to install server dependencies")
+    if pyfunc.ENV in conf:
+        print("creating and activating custom environment")
+        env = conf[pyfunc.ENV]
+        env_path = os.path.join(model_path, env)
+        conda_create_and_install_deps = "conda env create -n custom_env -f {} && conda install -n " \
+                                        "custom_env gunicorn[gevent] gevent".format(env_path)
+        install_deps_proc = Popen(["bash", "-c", conda_create_and_install_deps])
+        if install_deps_proc.wait() != 0:
+            raise Exception("Failed to install server dependencies")
+
 
 
 def _install_mlflow_cmds():

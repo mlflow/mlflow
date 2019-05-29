@@ -3,8 +3,7 @@ import click
 import posixpath
 
 from mlflow.models import Model
-from mlflow.models.flavor_backend_registry import get_flavor_backend,\
-    get_flavor_backend_for_build_docker
+from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import cli_args
@@ -39,6 +38,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     return _get_flavor_backend(model_uri,
                                no_conda=no_conda,
                                workers=workers,
+                               require_can_score_model=True,
                                install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
                                                                     host=host)
 
@@ -71,6 +71,7 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
     return _get_flavor_backend(model_uri, no_conda=no_conda,
+                               require_can_score_model=True,
                                install_mlflow=install_mlflow).predict(model_uri=model_uri,
                                                                       input_path=input_path,
                                                                       output_path=output_path,
@@ -103,30 +104,23 @@ def build_docker(model_uri, name):
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
 
-    This command is experimental and does not guarantee that the arguments nor format of the
-    Docker container will remain the same.
+    This command is experimental (may be changed or removed in a future release without warning)
+    and does not guarantee that the arguments nor format of the Docker container will remain the
+    same.
     """
-    _get_flavor_backend_for_build_docker(model_uri).build_image(model_uri, name, mlflow_home=".")
+    _get_flavor_backend(model_uri, require_can_build_image=True).build_image(
+        model_uri, name, mlflow_home=".")
 
 
-def _get_flavor_backend_for_build_docker(model_uri, **kwargs):
+def _get_flavor_backend(model_uri, require_can_score_model=False, require_can_build_image=False,
+                        **kwargs):
     with TempDir() as tmp:
         local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
                                                  output_path=tmp.path())
         model = Model.load(local_path)
-    flavor_name, flavor_backend = get_flavor_backend_for_build_docker(model, **kwargs)
-    if flavor_backend is None:
-        raise Exception("No suitable flavor backend was found for the model.")
-    _logger.info("Selected backend for flavor '%s'", flavor_name)
-    return flavor_backend
-
-
-def _get_flavor_backend(model_uri, **kwargs):
-    with TempDir() as tmp:
-        local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
-                                                 output_path=tmp.path())
-        model = Model.load(local_path)
-    flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
+    flavor_name, flavor_backend = get_flavor_backend(
+        model, require_can_score_model=require_can_score_model,
+        require_can_build_image=require_can_build_image, **kwargs)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
     _logger.info("Selected backend for flavor '%s'", flavor_name)

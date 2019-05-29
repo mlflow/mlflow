@@ -25,6 +25,7 @@ from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
 from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image,\
     _evaluate_scoring_proc, get_safe_port, pyfunc_serve_and_score_model
+from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED,\
     CONTENT_TYPE_JSON, CONTENT_TYPE_CSV
 
@@ -242,3 +243,17 @@ def test_build_docker(iris_data, sk_model):
         np.testing.assert_array_equal(
             np.array(json.loads(scoring_response.text)),
             sk_model.predict(x))
+    # Try examples of bad input, verify we get a non-200 status code
+    for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
+        host_port = get_safe_port()
+        scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
+        scoring_response = _evaluate_scoring_proc(proc=scoring_proc, port=host_port, data="",
+                                                  content_type=content_type)
+        assert scoring_response.status_code == 500, \
+            "Expected server failure with error code 500, got response with status code %s " \
+            "and body %s" % (scoring_response.status_code, scoring_response.text)
+        scoring_response_dict = json.loads(scoring_response.content)
+        assert "error_code" in scoring_response_dict
+        assert scoring_response_dict["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+        assert "message" in scoring_response_dict
+        assert "stack_trace" in scoring_response_dict

@@ -34,9 +34,6 @@ RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
 ENV PATH="/miniconda/bin:$PATH"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 
-RUN conda install gunicorn;\
-    conda install gevent;\
-
 # Set up the program in the image
 WORKDIR /opt/mlflow
 
