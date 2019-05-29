@@ -103,7 +103,13 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         raise Exception(("Run with UUID {} is already active. To start a nested " +
                         "run call start_run with nested=True").format(
             _active_run_stack[0].info.run_id))
-    existing_run_id = run_id or os.environ.get(_RUN_ID_ENV_VAR, None)
+    if run_id:
+        existing_run_id = run_id
+    elif _RUN_ID_ENV_VAR in os.environ:
+        existing_run_id = os.environ[_RUN_ID_ENV_VAR]
+        del os.environ[_RUN_ID_ENV_VAR]
+    else:
+        existing_run_id = None
     if existing_run_id:
         _validate_run_id(existing_run_id)
         active_run_obj = MlflowClient().get_run(existing_run_id)

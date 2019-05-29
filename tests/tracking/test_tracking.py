@@ -20,6 +20,7 @@ from mlflow.tracking.fluent import start_run, end_run
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE
+from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 from tests.projects.utils import tracking_uri_mock
 
@@ -453,10 +454,16 @@ def test_with_startrun():
 
 
 def test_parent_create_run(tracking_uri_mock):
+
     with mlflow.start_run() as parent_run:
+        parent_run_id = parent_run.info.run_id
+    os.environ[_RUN_ID_ENV_VAR] = parent_run_id
+    with mlflow.start_run() as parent_run:
+        assert parent_run.info.run_id == parent_run_id
         with pytest.raises(Exception, match='To start a nested run'):
             mlflow.start_run()
         with mlflow.start_run(nested=True) as child_run:
+            assert child_run.info.run_id != parent_run_id
             with mlflow.start_run(nested=True) as grand_child_run:
                 pass
 
