@@ -56,7 +56,7 @@ And its ``MLmodel`` file describes two flavors:
         loader_module: mlflow.sklearn
 
 This model can then be used with any tool that supports *either* the ``sklearn`` or
-``python_function`` model flavor. For example, the ``mlflow sklearn`` command can serve a
+``python_function`` model flavor. For example, the ``mlflow models serve`` command can serve a
 model with the ``sklearn`` flavor:
 
 .. code-block:: bash
