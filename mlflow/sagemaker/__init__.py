@@ -243,8 +243,9 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                                https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
-    :param image: Name of the Docker image to be used. if not specified, uses a
-                  publicly-available pre-built image.
+    :param image_url: URL of the ECR-hosted docker image the model should be deployed into, produced
+                      by ``mlflow sagemaker build-and-push-container``. This parameter may also
+                      be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
 
