@@ -15,10 +15,6 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 
-**Note:** The current version of MLflow is a beta. This means that APIs and data formats
-are subject to change! However, the next release, MLflow 1.0, will stabilize these.
-The current release also does not support Windows, although 1.0 will.
-
 |docs| |travis| |pypi| |conda-forge|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
