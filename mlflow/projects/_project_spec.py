@@ -158,12 +158,11 @@ class Parameter(object):
         return user_param_value
 
     def _compute_path_value(self, user_param_value, storage_dir):
-        local_path = data.get_local_path(user_param_value)
-        if local_path:
-            if not os.path.exists(local_path):
+        if not data.is_uri(user_param_value):
+            if not os.path.exists(user_param_value):
                 raise ExecutionException("Got value %s for parameter %s, but no such file or "
                                          "directory was found." % (user_param_value, self.name))
-            return os.path.abspath(local_path)
+            return os.path.abspath(user_param_value)
         basename = os.path.basename(user_param_value)
         dest_path = os.path.join(storage_dir, basename)
         if dest_path != user_param_value:
