@@ -74,7 +74,7 @@ def get_tracking_uri():
 
 def _is_local_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return uri != 'databricks' and (scheme == '' or scheme == 'file')
+    return uri != 'databricks' and (scheme == '' or scheme == 'file' or scheme == "sqlite")
 
 
 def _is_http_uri(uri):
