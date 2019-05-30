@@ -17,12 +17,10 @@ _flavor_backends = {
 }
 
 
-def get_flavor_backend(model, require_can_score_model, require_can_build_image, **kwargs):
+def get_flavor_backend(model, **kwargs):
     for flavor_name, flavor_config in model.flavors.items():
         if flavor_name in _flavor_backends:
             backend = _flavor_backends[flavor_name](flavor_config, **kwargs)
-            score_check_passed = (not require_can_score_model or backend.can_score_model())
-            build_image_check_passed = (not require_can_build_image or backend.can_build_image())
-            if score_check_passed and build_image_check_passed:
-                return flavor_name, backend
+            if backend.is_available():
+                 return flavor_name, backend
     return None, None

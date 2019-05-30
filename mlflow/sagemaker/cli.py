@@ -167,13 +167,21 @@ def build_and_push_container(build, push, container, mlflow_home):
         print("skipping both build and push, have nothing to do!")
     if build:
         sagemaker_image_entrypoint = """
-        ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container as C; \
+        ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; \
         C._init(sys.argv[1])"]
         """
+        def setup_container(_):
+            return "\n".join([
+                'ENV {disable_env}="false"',
+                'RUN python -c "from mlflow.models.container import _install_pyfunc_deps;'
+                '_install_pyfunc_deps(None, False)"'
+            ])
+        
         mlflow.models.docker_utils._build_image(
             container,
             mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
             entrypoint=sagemaker_image_entrypoint,
+            custom_setup_steps_hook=setup_container
         )
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)

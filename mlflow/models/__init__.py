@@ -123,7 +123,7 @@ class FlavorBackend(object):
         pass
 
     @abstractmethod
-    def can_score_model(self):
+    def is_available(self):
         """
         Check whether this flavor backend can be deployed in the current environment.
 

@@ -12,7 +12,7 @@ _logger = logging.getLogger(__name__)
 DISABLE_ENV_CREATION = "MLFLOW_DISABLE_ENV_CREATION"
 
 _DOCKERFILE_TEMPLATE = """
-# Build an image that can serve pyfunc model in SageMaker
+# Build an image that can serve mlflow models.
 FROM ubuntu:16.04
 
 RUN apt-get -y update && apt-get install -y --no-install-recommends \
@@ -38,6 +38,20 @@ ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 WORKDIR /opt/mlflow
 
 {install_mlflow}
+
+RUN mvn --batch-mode dependency:copy \
+        -Dartifact=org.mlflow:mlflow-scoring:{version}:pom\
+        -DoutputDirectory=/opt/java
+        
+RUN mvn --batch-mode dependency:copy\
+        -Dartifact=org.mlflow:mlflow-scoring:{version}:jar\
+        -DoutputDirectory=/opt/java/jars
+        
+RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&\
+    mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars
+    
+RUN rm /opt/java/pom.xml"
+
 {custom_setup_steps}
 {entrypoint}
 """
@@ -58,15 +72,6 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
     else:
         return (
             "RUN pip install mlflow=={version}\n"
-            "RUN mvn --batch-mode dependency:copy"
-            " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
-            " -DoutputDirectory=/opt/java\n"
-            "RUN mvn --batch-mode dependency:copy"
-            " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-            " -DoutputDirectory=/opt/java/jars\n"
-            "RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&"
-            " mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
-            "RUN rm /opt/java/pom.xml"
         ).format(version=mlflow.version.VERSION)
 
 

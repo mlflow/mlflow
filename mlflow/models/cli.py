@@ -108,19 +108,15 @@ def build_docker(model_uri, name):
     and does not guarantee that the arguments nor format of the Docker container will remain the
     same.
     """
-    _get_flavor_backend(model_uri, require_can_build_image=True).build_image(
-        model_uri, name, mlflow_home=".")
+    _get_flavor_backend(model_uri, docker_build=True).build_image(model_uri, name, mlflow_home=".")
 
 
-def _get_flavor_backend(model_uri, require_can_score_model=False, require_can_build_image=False,
-                        **kwargs):
+def _get_flavor_backend(model_uri, **kwargs):
     with TempDir() as tmp:
         local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
                                                  output_path=tmp.path())
         model = Model.load(local_path)
-    flavor_name, flavor_backend = get_flavor_backend(
-        model, require_can_score_model=require_can_score_model,
-        require_can_build_image=require_can_build_image, **kwargs)
+    flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
     _logger.info("Selected backend for flavor '%s'", flavor_name)
