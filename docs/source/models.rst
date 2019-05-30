@@ -535,7 +535,7 @@ accepts the following data formats as input:
                                        exist_okay=True)
 
     # Build an Azure ML container image for deployment
-    azure_image, azure_model = mlflow.azureml.build_image(model_path="<path-to-model>",
+    azure_image, azure_model = mlflow.azureml.build_image(model_uri="<path-to-model>",
                                                           workspace=azure_workspace,
                                                           description="Wine regression model 1",
                                                           synchronous=True)
