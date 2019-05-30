@@ -260,7 +260,6 @@ def server(backend_store_uri, default_artifact_root, host, port,
             sys.exit(1)
 
     try:
-        _logger.error(backend_store_uri) ####### DEBUG
         _get_store(backend_store_uri)
     except Exception as e:  # pylint: disable=broad-except
         # We need a broad exception here to catch exceptions in optional
