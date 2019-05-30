@@ -59,11 +59,6 @@ class RFuncBackend(FlavorBackend):
 def _execute(command):
     env = os.environ.copy()
     import sys
-    print("Command: %s, env=%s" % (command, env))
-    process = subprocess.Popen(["Rscript", "-e", "print(packageDescription(\"mlflow\"))"], env=env, close_fds=False,
-                               stdin=sys.stdin,
-                               stdout=sys.stdout,
-                               stderr=sys.stderr)
     process = subprocess.Popen(["Rscript", "-e", command], env=env, close_fds=False,
                                stdin=sys.stdin,
                                stdout=sys.stdout,
