@@ -188,6 +188,8 @@ class TestFileStore(unittest.TestCase):
         # get the new experiment (by id) and verify (by name)
         exp1 = fs.get_experiment(created_id)
         self.assertEqual(exp1.name, name)
+        self.assertEqual(exp1.artifact_location,
+                         os.path.join("file://" + self.test_root, created_id))
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)

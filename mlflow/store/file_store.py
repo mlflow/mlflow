@@ -97,9 +97,11 @@ class FileStore(AbstractStore):
         # Create root directory if needed
         if not exists(self.root_directory):
             mkdir(self.root_directory)
+            artifact_uri = os.path.join(self.artifact_root_uri,
+                                        str(FileStore.DEFAULT_EXPERIMENT_ID))
             self._create_experiment_with_id(name=Experiment.DEFAULT_EXPERIMENT_NAME,
                                             experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
-                                            artifact_uri=self.artifact_root_uri)
+                                            artifact_uri=artifact_uri)
         # Create trash folder if needed
         if not exists(self.trash_folder):
             mkdir(self.trash_folder)
@@ -220,7 +222,8 @@ class FileStore(AbstractStore):
         # len(list_all(..)) would not work when experiments are deleted.
         experiments_ids = [int(e.experiment_id) for e in self.list_experiments(ViewType.ALL)]
         experiment_id = max(experiments_ids) + 1 if experiments_ids else 0
-        artifact_location = artifact_location or self.artifact_root_uri
+        artifact_location = artifact_location or \
+            os.path.join(self.artifact_root_uri, str(experiment_id))
         return self._create_experiment_with_id(name, str(experiment_id), artifact_location)
 
     def _has_experiment(self, experiment_id):
