@@ -217,7 +217,7 @@ def log_params(params):
     :returns: None
     """
     run_id = _get_or_start_run().info.run_id
-    params_arr = [Param(key, value) for key, value in params.items()]
+    params_arr = [Param(key, str(value)) for key, value in params.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
 
 
@@ -229,7 +229,7 @@ def set_tags(tags):
     :returns: None
     """
     run_id = _get_or_start_run().info.run_id
-    tags_arr = [RunTag(key, value) for key, value in tags.items()]
+    tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=[], tags=tags_arr)
 
 
