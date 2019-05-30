@@ -98,14 +98,14 @@ run_id ``101``.
   .. code-block:: bash
 
       # score the deployed model
-      python score_images_rest.py --port 54321 http://127.0.0.1 ./my_images_to_score
+      python score_images_rest.py --model-uri runs:/101/model --port 54321 http://127.0.0.1 --data-path /path/to/images/for/scoring
 
 
 - To test batch scoring in Spark, run score_images_spark.py to score the model in Spark like this:
 
 .. code-block:: bash
 
-   python score_images_spark.py ./my_images_to_score model --run-id 101
+   python score_images_spark.py --model-uri runs:/101/model --data-path /path/to/images/for/scoring
 
 
 
