@@ -22,5 +22,5 @@ def get_flavor_backend(model, build_docker=True, **kwargs):
         if flavor_name in _flavor_backends:
             backend = _flavor_backends[flavor_name](flavor_config, **kwargs)
             if build_docker and backend.can_build_image() or backend.can_score_model():
-                 return flavor_name, backend
+                return flavor_name, backend
     return None, None
