@@ -208,6 +208,14 @@ def test_predict(iris_data, sk_model):
         with open(input_json_path, "r") as f:
             stdout, _ = p.communicate(f.read())
         assert 0 == p.wait()
+        print()
+        print()
+        print()
+        print("STDOUT")
+        print(stdout)
+        print()
+        print()
+        print()
         actual = pd.read_json(StringIO(stdout), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
