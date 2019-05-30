@@ -4,6 +4,7 @@ get_python_bin <- function() {
   conda <- mlflow_conda_bin()
   envs <- conda_list(conda = conda)
   mlflow_env <- envs[envs$name == mlflow_conda_env_name(), ]
+  print(packageDescription("mlflow"))
   if (nrow(mlflow_env) == 0) {
     stop("MLflow not configured, please run install_mlflow().")
   }
