@@ -23,12 +23,19 @@ from mlflow.utils.validation import _validate_batch_log_api_req
 
 _store = None
 
+import logging ###### DEBUG
 
-def _get_store():
+_logger = logging.getLogger(__name__)  ####### DEBUG
+
+
+
+def _get_store(backend_store_uri=None):
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+    _logger.error(backend_store_uri)  ######## DEBUG
     global _store
     if _store is None:
-        store_dir = os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        store_dir = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        _logger.error(store_dir) ####### DEBUG
         artifact_root = os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
         if _is_database_uri(store_dir):
             from mlflow.store.sqlalchemy_store import SqlAlchemyStore
