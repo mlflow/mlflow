@@ -1,6 +1,8 @@
 import mock
 import yaml
+import pytest
 from mlflow.projects import kubernetes as kb
+from mlflow.exceptions import ExecutionException
 
 
 def test_run_command_creation():  # pylint: disable=unused-argument
@@ -82,3 +84,9 @@ def test_push_image_to_registry():
         assert client.images.push.call_count == 1
         args = client.images.push.call_args_list
         assert args[0][1]['repository'] == image_uri
+
+
+def test_push_image_to_registry_handling_errors():
+    image_uri = "dockerhub_account/mlflow-kubernetes-example"
+    with pytest.raises(ExecutionException):
+        kb.push_image_to_registry(image_uri)

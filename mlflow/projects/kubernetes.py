@@ -6,6 +6,7 @@ import os
 import time
 import kubernetes
 from datetime import datetime
+from mlflow.exceptions import ExecutionException
 
 _logger = logging.getLogger(__name__)
 
@@ -13,7 +14,10 @@ _logger = logging.getLogger(__name__)
 def push_image_to_registry(image_uri):
     client = docker.from_env()
     _logger.info("=== Pushing docker image %s ===", image_uri)
-    client.images.push(repository=image_uri)
+    for line in client.images.push(repository=image_uri, stream=True, decode=True):
+        if 'error' in line and line['error']:
+            raise ExecutionException("Error while pushing to docker registry: "
+                                     "{error}".format(error=line['error']))
 
 
 def _get_kubernetes_job_definition(image, command, env_vars, job_template):
