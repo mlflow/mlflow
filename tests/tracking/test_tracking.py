@@ -307,7 +307,7 @@ def get_store_mock(tmpdir):
 
 
 def test_set_tags(tracking_uri_mock):
-    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    exact_expected_tags = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
     approx_expected_tags = set([MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE])
     with start_run() as active_run:
         run_id = active_run.info.run_id
@@ -319,7 +319,7 @@ def test_set_tags(tracking_uri_mock):
         if tag_key in approx_expected_tags:
             pass
         else:
-            assert exact_expected_tags[tag_key] == tag_val
+            assert str(exact_expected_tags[tag_key]) == tag_val
 
 
 def test_log_metric_validation(tracking_uri_mock):
@@ -344,7 +344,7 @@ def test_log_param(tracking_uri_mock):
 
 
 def test_log_params(tracking_uri_mock):
-    expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
+    expected_params = {"name_1": "c", "name_2": "b", "nested/nested/name": 5}
     with start_run() as active_run:
         run_id = active_run.info.run_id
         mlflow.log_params(expected_params)
