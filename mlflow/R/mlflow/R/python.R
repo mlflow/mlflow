@@ -2,8 +2,11 @@
 #' @importFrom reticulate conda_list
 get_python_bin <- function() {
   conda <- mlflow_conda_bin()
+  print(paste("Conda env", conda))
   envs <- conda_list(conda = conda)
+  print(paste("Conda envs", envs))
   mlflow_env <- envs[envs$name == mlflow_conda_env_name(), ]
+  print(paste("Conda env name", mlflow_conda_env_name))
   if (nrow(mlflow_env) == 0) {
     stop("MLflow not configured, please run install_mlflow().")
   }
