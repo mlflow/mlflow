@@ -24,7 +24,6 @@ Depends:
   R (>= 3.3.0)
 Imports:
   base64enc,
-  dplyr,
   forge,
   fs,
   git2r,
@@ -35,13 +34,11 @@ Imports:
   openssl,
   processx,
   reticulate,
-  packrat,
   purrr,
   swagger,
   withr,
   xml2,
   yaml,
-  pryr,
   rlang (>= 0.2.0),
   zeallot,
   tibble,
