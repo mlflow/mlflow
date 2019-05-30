@@ -24,6 +24,6 @@ will be saved.}
 \item{conda_env}{Path to Conda dependencies file.}
 }
 \description{
-Saves model in MLflow format that can later be used
-for prediction and serving.
+Saves model in MLflow format that can later be used for prediction and serving. This method is
+generic to allow package authors to save custom model types.
 }

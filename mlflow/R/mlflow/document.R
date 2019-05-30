@@ -18,7 +18,7 @@ markdown_fixed <- gsub("## Description", "", markdown_fixed)
 markdown_fixed <- gsub("## Usage", "", markdown_fixed)
 
 # Remove objects exported from other packages section
-last_section <- which(grepl("Objects exported from other packages", markdown_fixed))[[1]]
+last_section <- which(grepl("reexports", markdown_fixed))[[1]]
 markdown_fixed <- markdown_fixed[1:last_section - 1]
 
 # Write fixed markdown file
@@ -39,9 +39,9 @@ rst_header <- ".. _R-api:
 R API
 ========
 
-The MLflow R API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
+The MLflow `R <https://www.r-project.org/about.html/>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
-You can use the R API to `install MLflow`_, start the `user interface <Run MLflow user interface_>`_, `create <Create Experiment_>`_ and `list experiments <List Experiments_>`_, `save models <Save Model for MLflow_>`_, `run projects <Run in MLflow_>`_ and `serve models <Serve an RFunc MLflow Model_>`_ among many other functions available in the R API.
+You can use the R API to `install MLflow <install_mlflow_>`_, start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `list experiments <mlflow_list_experiments_>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
 
 .. contents:: Table of Contents
     :local:
