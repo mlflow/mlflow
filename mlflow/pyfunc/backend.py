@@ -93,7 +93,6 @@ class PyFuncBackend(FlavorBackend):
             return False
 
     def build_image(self, model_uri, image_name, install_mlflow=False, mlflow_home=None):
-        assert self._docker_build
 
         def copy_model_into_container(dockerfile_context_dir):
             model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
