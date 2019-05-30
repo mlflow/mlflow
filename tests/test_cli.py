@@ -1,8 +1,10 @@
 from click.testing import CliRunner
 from mock import mock
+import pytest
 
-from mlflow.cli import server, run
+from mlflow.cli import run, server, ui
 from mlflow.server import handlers
+
 
 def test_server_static_prefix_validation():
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
@@ -28,11 +30,12 @@ def test_server_default_artifact_root_validation():
         run_server_mock.assert_not_called()
 
 
-def test_server_uri_validation():
+@pytest.mark.parametrize("command", [server, ui])
+def test_tracking_uri_validation(command):
     handlers._store = None
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
         # SQLAlchemy expects postgresql:// not postgres://
-        CliRunner().invoke(server,
+        CliRunner().invoke(command,
                            ["--backend-store-uri", "postgres://user:pwd@host:5432/mydb",
                             "--default-artifact-root", "./mlruns"])
         run_server_mock.assert_not_called()

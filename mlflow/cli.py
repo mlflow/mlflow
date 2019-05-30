@@ -183,11 +183,9 @@ def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
             default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     try:
-        _get_store(backend_store_uri)
+        _get_store(backend_store_uri, default_artifact_root)
     except Exception as e:  # pylint: disable=broad-except
-        # We need a broad exception here to catch exceptions in optional
-        # dependencies like SQLAlchemy
-        _logger.error("Error related to option --backend-store-uri")
+        _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
 
@@ -260,11 +258,9 @@ def server(backend_store_uri, default_artifact_root, host, port,
             sys.exit(1)
 
     try:
-        _get_store(backend_store_uri)
+        _get_store(backend_store_uri, default_artifact_root)
     except Exception as e:  # pylint: disable=broad-except
-        # We need a broad exception here to catch exceptions in optional
-        # dependencies like SQLAlchemy
-        _logger.error("Error related to option --backend-store-uri")
+        _logger.error("Error initializing backend store")
         _logger.exception(e)
         sys.exit(1)
 
