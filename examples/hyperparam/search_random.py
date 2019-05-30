@@ -50,9 +50,9 @@ def run(training_data, max_runs, max_p, epochs, metric, seed):
                  null_test_loss=_inf):
         def eval(parms):
             lr, momentum = parms
-            with mlflow.start_run(nested=True) as run:
+            with mlflow.start_run(nested=True) as child_run:
                 p = mlflow.projects.run(
-                    run_id=run.info.run_id,
+                    run_id=child_run.info.run_id,
                     uri=".",
                     entry_point="train",
                     parameters={

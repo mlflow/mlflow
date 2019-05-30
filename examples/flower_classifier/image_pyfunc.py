@@ -147,7 +147,7 @@ def _load_pyfunc(path):
     domain = conf["domain"].split("/")
     image_dims = np.array([int(x) for x in conf["image_dims"].split("/")], dtype=np.int32)
     # NOTE: TensorFlow based models depend on global state (Graph and Session) given by the context.
-    # To make sure we score the model in the same session as we loaded it int, we create a new
+    # To make sure we score the model in the same session as we loaded it in, we create a new
     # session and a new graph here and store them with the model.
     with tf.Graph().as_default() as g:
         with tf.Session().as_default() as sess:

@@ -295,7 +295,7 @@ in MLflow saved the model as an artifact within the run.
 
       .. note::
 
-          The version of Python used to create the model must be the same as the one running ``mlflow sklearn``.
+          The version of Python used to create the model must be the same as the one running ``mlflow models serve``.
           If this is not the case, you may see the error
           ``UnicodeDecodeError: 'ascii' codec can't decode byte 0x9f in position 1: ordinal not in range(128)``
           or ``raise ValueError, "unsupported pickle protocol: %d"``.
