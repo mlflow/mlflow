@@ -78,6 +78,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     ``start_run`` attempts to resume a run with the specified run ID and
     other parameters are ignored. ``run_id`` takes precedence over ``MLFLOW_RUN_ID``.
 
+    MLflow will set a variety of default tags on the run, as defined in
+    :ref:`MLflow system tags <system_tags>`.
+
     :param run_id: If specified, get the run with the specified UUID and log parameters
                      and metrics under that run. The run's end time is unset and its status
                      is set to running, but the run's other attributes (``source_version``,
@@ -85,8 +88,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     :param experiment_id: ID of the experiment under which to create the current run (applicable
                           only when ``run_id`` is not specified). If ``experiment_id`` argument
                           is unspecified, will look for valid experiment in the following order:
-                          activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_ID`` env variable,
-                          or the default experiment.
+                          activated using ``set_experiment``, ``MLFLOW_EXPERIMENT_NAME``
+                          environment variable, ``MLFLOW_EXPERIMENT_ID`` environment variable,
+                          or the default experiment as defined by the tracking server.
     :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
                      Used only when ``run_id`` is unspecified.
     :param nested: Parameter which must be set to ``True`` to create nested runs.
@@ -100,7 +104,13 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         raise Exception(("Run with UUID {} is already active. To start a nested " +
                         "run call start_run with nested=True").format(
             _active_run_stack[0].info.run_id))
-    existing_run_id = run_id or os.environ.get(_RUN_ID_ENV_VAR, None)
+    if run_id:
+        existing_run_id = run_id
+    elif _RUN_ID_ENV_VAR in os.environ:
+        existing_run_id = os.environ[_RUN_ID_ENV_VAR]
+        del os.environ[_RUN_ID_ENV_VAR]
+    else:
+        existing_run_id = None
     if existing_run_id:
         _validate_run_id(existing_run_id)
         active_run_obj = MlflowClient().get_run(existing_run_id)
@@ -194,7 +204,7 @@ def log_metrics(metrics, step=None):
     :returns: None
     """
     run_id = _get_or_start_run().info.run_id
-    timestamp = int(time.time())
+    timestamp = int(time.time() * 1000)
     metrics_arr = [Metric(key, value, timestamp, step or 0) for key, value in metrics.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=metrics_arr, params=[], tags=[])
 

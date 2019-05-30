@@ -162,19 +162,19 @@ simple REST server for python-based models:
 
 .. code-block:: bash
 
-    mlflow pyfunc serve -r <RUN_ID> -m model
+    mlflow models serve -m runs:/<RUN_ID>/model
 
 .. note::
 
     By default the server runs on port 5000. If that port is already in use, use the `--port` option to
-    specify a different port. For example: ``mlflow pyfunc serve --port 1234 -r <RUN_ID> -m model``
+    specify a different port. For example: ``mlflow models serve -m runs:/<RUN_ID>/model --port 1234``
 
 Once you have started the server, you can pass it some sample data and see the
 predictions.
 
 The following example uses ``curl`` to send a JSON-serialized pandas DataFrame with the ``split``
-orientation to the pyfunc server. For more information about the input data formats accepted by
-the pyfunc model server, see the :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
+orientation to the model server. For more information about the input data formats accepted by
+the pyfunc model server, see the :ref:`MLflow deployment tools documentation <local_model_deployment>`.
 
 .. code-block:: bash
 
@@ -183,16 +183,5 @@ the pyfunc model server, see the :ref:`MLflow deployment tools documentation <py
 which returns::
 
     {"predictions": [1, 0]}
-
-.. note::
-
-    The ``sklearn_logistic_regression/train.py`` script must be run with the same Python version as
-    the version of Python that runs ``mlflow pyfunc serve``. If they are not the same version,
-    the stacktrace below may appear::
-
-        File "/usr/local/lib/python3.6/site-packages/mlflow/sklearn.py", line 54, in _load_model_from_local_file
-        return pickle.load(f)
-        UnicodeDecodeError: 'ascii' codec can't decode byte 0xc6 in position 0: ordinal not in range(128)
-
 
 For more information, see :doc:`models`.

@@ -4,21 +4,22 @@
 \alias{mlflow_end_run}
 \title{End a Run}
 \usage{
-mlflow_end_run(status = c("FINISHED", "SCHEDULED", "FAILED", "KILLED"),
+mlflow_end_run(status = c("FINISHED", "FAILED", "KILLED"),
   end_time = NULL, run_id = NULL, client = NULL)
 }
 \arguments{
-\item{status}{Updated status of the run. Defaults to `FINISHED`.}
+\item{status}{Updated status of the run. Defaults to `FINISHED`. Can also be set to
+"FAILED" or "KILLED".}
 
 \item{end_time}{Unix timestamp of when the run ended in milliseconds.}
 
 \item{run_id}{Run ID.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Terminates a run. Attempts to end the current active run if `run_id` is not specified.
-}
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
 }

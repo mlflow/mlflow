@@ -1,7 +1,7 @@
 #' Save Model for MLflow
 #'
-#' Saves model in MLflow format that can later be used
-#' for prediction and serving.
+#' Saves model in MLflow format that can later be used for prediction and serving. This method is
+#' generic to allow package authors to save custom model types.
 #'
 #' @param model The model that will perform a prediction.
 #' @param path Destination path where this MLflow compatible model
@@ -59,8 +59,8 @@ mlflow_write_model_spec <- function(path, content) {
 #'
 #' @template roxlate-model-uri
 #' @template roxlate-client
-#' @param flavor Optional flavor specification. Can be used to load a particular flavor in case
-#'        there are multiple flavors available.
+#' @param flavor Optional flavor specification (string). Can be used to load a particular flavor in
+#' case there are multiple flavors available.
 #' @export
 mlflow_load_model <- function(model_uri, flavor = NULL, client = mlflow_client()) {
   model_path <- mlflow_download_artifacts_from_uri(model_uri, client = client)
@@ -117,10 +117,13 @@ mlflow_flavor <- function(flavor) {
 
 #' Load MLflow Model Flavor
 #'
-#' Loads an MLflow model flavor, to be used by package authors
-#' to extend the supported MLflow models.
+#' Loads an MLflow model using a specific flavor. This method is called internally by
+#' \link[mlflow]{mlflow_load_model}, but is exposed for package authors to extend the supported
+#' MLflow models. See https://mlflow.org/docs/latest/models.html#storage-format for more
+#' info on MLflow model flavors.
 #'
-#' @param flavor An MLflow flavor object.
+#' @param flavor An MLflow flavor object loaded by \link[mlflow]{mlflow_load_model}, with class
+#' loaded from the flavor field in an MLmodel file.
 #' @param model_path The path to the MLflow model wrapped in the correct
 #'   class.
 #'

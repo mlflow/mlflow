@@ -371,7 +371,7 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
-        return Run(run_info=run_info, run_data=None)
+        return self.get_run(run_id=run_uuid)
 
     def get_run(self, run_id):
         """
