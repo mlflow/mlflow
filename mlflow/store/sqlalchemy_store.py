@@ -147,10 +147,10 @@ class SqlAlchemyStore(AbstractStore):
         if current_rev != head_revision:
             raise MlflowException(
                 "Detected out-of-date database schema (found version %s, but expected %s). "
-                "Take a backup of your database, then run 'mlflow db upgrade %s' to migrate "
-                "your database to the latest schema. NOTE: schema migration may result in "
-                "database downtime - please consult your database's documentation for more "
-                "detail." % (current_rev, head_revision, str(engine.url)))
+                "Take a backup of your database, then run 'mlflow db upgrade <database_uri>' "
+                "to migrate your database to the latest schema. NOTE: schema migration may "
+                "result in database downtime - please consult your database's documentation for "
+                "more detail." % (current_rev, head_revision))
 
     @staticmethod
     def _get_managed_session_maker(SessionMaker):
