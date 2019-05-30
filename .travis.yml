@@ -39,7 +39,7 @@ matrix:
       cache: packages
       before_install:
         # cache packages dramatically decreases build time, but it must not include mlflow
-        - rm -r /home/travis/R/Library/mlflow
+        - rm -rf /home/travis/R/Library/mlflow
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
