@@ -21,13 +21,11 @@ class PyFuncBackend(FlavorBackend):
         Flavor backend implementation for the generic python models.
     """
 
-    def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, docker_build=False,
-                 **kwargs):
+    def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
         super(PyFuncBackend, self).__init__(config=config, **kwargs)
         self._nworkers = workers
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow
-        self._docker_build = docker_build
 
     def predict(self, model_uri, input_path, output_path, content_type, json_format, ):
         """
@@ -81,9 +79,8 @@ class PyFuncBackend(FlavorBackend):
             subprocess.Popen(command.split(" "), env=command_env).wait()
 
     def can_score_model(self):
-        if self._no_conda or self._docker_build:
-            # noconda => already in python; dependencies are assumed to be installed
-            # docker_build => we can always build compatible docker image for any pyfunc model
+        if self._no_conda:
+            # noconda => already in python and dependencies are assumed to be installed.
             return True
         conda_path = _get_conda_bin_executable("conda")
         try:

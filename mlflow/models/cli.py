@@ -38,7 +38,6 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     return _get_flavor_backend(model_uri,
                                no_conda=no_conda,
                                workers=workers,
-                               require_can_score_model=True,
                                install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
                                                                     host=host)
 
@@ -71,7 +70,6 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))
     return _get_flavor_backend(model_uri, no_conda=no_conda,
-                               require_can_score_model=True,
                                install_mlflow=install_mlflow).predict(model_uri=model_uri,
                                                                       input_path=input_path,
                                                                       output_path=output_path,
