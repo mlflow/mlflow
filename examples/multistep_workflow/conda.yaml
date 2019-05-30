@@ -4,8 +4,9 @@ channels:
 dependencies:
   - python=3.6
   - pyspark
-  - keras
   - requests
   - click
   - pip:
-    - mlflow
+    - tensorflow==1.13.1
+    - keras==2.2.4
+    - mlflow>=1.0

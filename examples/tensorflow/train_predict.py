@@ -1,10 +1,10 @@
+# in case this is run outside of conda environment with python2
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import mlflow
-from mlflow import tracking, pyfunc
-import numpy as np
+from mlflow import pyfunc
 import pandas as pd
 import shutil
 import tempfile
@@ -19,16 +19,19 @@ def main(argv):
     (x_train, y_train), (x_test, y_test) = tf.keras.datasets.boston_housing.load_data()
     # There are 13 features we are using for inference.
     feat_cols = [tf.feature_column.numeric_column(key="features", shape=(x_train.shape[1],))]
-    feat_spec = {"features": tf.placeholder("float", name="features", shape=[None, x_train.shape[1]])}
+    feat_spec = {
+        "features": tf.placeholder("float", name="features", shape=[None, x_train.shape[1]])}
     hidden_units = [50, 20]
     steps = 1000
     regressor = tf.estimator.DNNRegressor(hidden_units=hidden_units, feature_columns=feat_cols)
-    train_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_train}, y_train, num_epochs=None, shuffle=True)
-    with mlflow.start_run() as tracked_run:
+    train_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_train}, y_train,
+                                                        num_epochs=None, shuffle=True)
+    with mlflow.start_run():
         mlflow.log_param("Hidden Units", hidden_units)
         mlflow.log_param("Steps", steps)
         regressor.train(train_input_fn, steps=steps)
-        test_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_test}, y_test, num_epochs=None, shuffle=True)
+        test_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_test}, y_test,
+                                                           num_epochs=None, shuffle=True)
         # Compute mean squared error
         mse = regressor.evaluate(test_input_fn, steps=steps)
         mlflow.log_metric("Mean Square Error", mse['average_loss'])
@@ -39,7 +42,7 @@ def main(argv):
             saved_estimator_path = regressor.export_savedmodel(temp, receiver_fn).decode("utf-8")
             # Logging the saved model
             mlflow.tensorflow.log_model(tf_saved_model_dir=saved_estimator_path,
-                                        tf_meta_graph_tags = [tag_constants.SERVING],
+                                        tf_meta_graph_tags=[tag_constants.SERVING],
                                         tf_signature_def_key="predict",
                                         artifact_path="model")
             # Reloading the model

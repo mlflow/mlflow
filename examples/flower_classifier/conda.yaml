@@ -3,15 +3,11 @@ channels:
   - defaults
   - anaconda
 dependencies:
-  - python==3.6
-  - numpy==1.14.2
-  - keras==2.2.4
+  - python==3.7
   - pandas
-  - tensorflow
+  - scikit-learn
+  - tensorflow-mkl
+  - keras
   - pip:
-    # - tensorflow-gpu==1.10.0
-    # - tensorflow-gpu==1.10.0
-    - mlflow
-    - click==6.7
-    - scikit-learn
+    - mlflow>=1.0
     - pillow

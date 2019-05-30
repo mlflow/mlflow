@@ -77,6 +77,10 @@ entry_points:
                                                  --algo {algo}
                                                  --seed {seed}"
 
+  main:
+    parameters:
+      training_data: {type: string, default: "../sklearn_elasticnet_wine/wine-quality.csv"}
+    command: "python search_random.py {training_data}"
 
 
 

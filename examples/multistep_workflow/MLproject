@@ -9,7 +9,8 @@ entry_points:
   etl_data:
     parameters:
       ratings_csv: path
-    command: "python etl_data.py --ratings-csv {ratings_csv}"
+      max_row_limit: {type: int, default: 100000}
+    command: "python etl_data.py --ratings-csv {ratings_csv} --max-row-limit {max_row_limit}"
 
   als:
     parameters:
@@ -30,4 +31,7 @@ entry_points:
     parameters:
       als_max_iter: {type: int, default: 10}
       keras_hidden_units: {type: int, default: 20}
-    command: "python main.py --als-max-iter {als_max_iter} --keras-hidden-units {keras_hidden_units}"
+      max_row_limit: {type: int, default: 100000}
+    command: "python main.py --als-max-iter {als_max_iter} --keras-hidden-units {keras_hidden_units}
+                             --max-row-limit {max_row_limit}"
+
