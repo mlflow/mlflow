@@ -3,31 +3,39 @@ from __future__ import absolute_import
 import os
 import yaml
 import numpy as np
-import onnx
-import onnxruntime as onnxrt
 
 import pandas as pd
 
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "onnx"
 
-DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=None,
-    additional_pip_deps=[
-        "onnx=={}".format(onnx.__version__),
-        # The ONNX pyfunc representation requires the OnnxRuntime
-        # inference engine. Therefore, the conda environment must
-        # include OnnxRuntime
-        "onnxruntime=={}".format(onnxrt.__version__),
-    ],
-    additional_conda_channels=None,
-)
+
+def get_default_conda_env(include_cloudpickle=False):
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+    :func:`save_model()` and :func:`log_model()`.
+    """
+    import onnx
+    import onnxruntime 
+    return _mlflow_conda_env(
+        additional_conda_deps=None,
+        additional_pip_deps=[
+            "onnx=={}".format(onnx.__version__),
+            # The ONNX pyfunc representation requires the OnnxRuntime
+            # inference engine. Therefore, the conda environment must
+            # include OnnxRuntime
+            "onnxruntime=={}".format(onnxruntime.__version__),
+        ],
+        additional_conda_channels=None,
+    )
 
 
 def save_model(onnx_model, path, conda_env=None, mlflow_model=Model()):
@@ -39,8 +47,8 @@ def save_model(onnx_model, path, conda_env=None, mlflow_model=Model()):
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.onnx.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.onnx.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -56,9 +64,13 @@ def save_model(onnx_model, path, conda_env=None, mlflow_model=Model()):
 
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
+    import onnx
+
     path = os.path.abspath(path)
     if os.path.exists(path):
-        raise Exception("Path '{}' already exists".format(path))
+        raise MlflowException(
+            message="Path '{}' already exists".format(path),
+            error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
     model_data_subpath = "model.onnx"
     model_data_path = os.path.join(path, model_data_subpath)
@@ -68,7 +80,7 @@ def save_model(onnx_model, path, conda_env=None, mlflow_model=Model()):
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = DEFAULT_CONDA_ENV
+        conda_env = get_default_conda_env() 
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -82,6 +94,8 @@ def save_model(onnx_model, path, conda_env=None, mlflow_model=Model()):
 
 
 def _load_model(model_file):
+    import onnx
+
     onnx_model = onnx.load(model_file)
     # Check Formation
     onnx.checker.check_model(onnx_model)
@@ -90,7 +104,8 @@ def _load_model(model_file):
 
 class _OnnxModelWrapper:
     def __init__(self, path):
-        self.rt = onnxrt.InferenceSession(path)
+        import onnxruntime 
+        self.rt = onnxruntime.InferenceSession(path)
         assert len(self.rt.get_inputs()) >= 1
         self.inputs = [
             (inp.name, inp.type) for inp in self.rt.get_inputs()
@@ -166,8 +181,8 @@ def log_model(onnx_model, artifact_path, conda_env=None):
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.onnx.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.onnx.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
