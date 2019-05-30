@@ -6,9 +6,9 @@ import subprocess
 from mlflow.models import FlavorBackend
 from mlflow.pyfunc import ENV
 from mlflow.pyfunc import scoring_server
+
 from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import TempDir
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.version import VERSION
 
@@ -30,53 +30,51 @@ class PyFuncBackend(FlavorBackend):
         Generate predictions using generic python model saved with MLflow.
         Return the prediction results as a JSON.
         """
-        with TempDir() as tmp:
-            local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
-            # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
-            # platform compatibility.
-            local_uri = path_to_local_file_uri(local_path)
-            if not self._no_conda and ENV in self._config:
-                conda_env_path = os.path.join(local_path, self._config[ENV])
-                command = ('python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
-                           'model_uri={model_uri}, '
-                           'input_path={input_path}, '
-                           'output_path={output_path}, '
-                           'content_type={content_type}, '
-                           'json_format={json_format})"'
-                           ).format(
-                             model_uri=repr(local_uri),
-                             input_path=repr(input_path),
-                             output_path=repr(output_path),
-                             content_type=repr(content_type),
-                             json_format=repr(json_format))
-                return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
-            else:
-                scoring_server._predict(local_uri, input_path, output_path, content_type,
-                                        json_format)
+        local_path = _download_artifact_from_uri(model_uri)
+        # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
+        # platform compatibility.
+        local_uri = path_to_local_file_uri(local_path)
+        if not self._no_conda and ENV in self._config:
+            conda_env_path = os.path.join(local_path, self._config[ENV])
+            command = ('python -c "from mlflow.pyfunc.scoring_server import _predict; _predict('
+                       'model_uri={model_uri}, '
+                       'input_path={input_path}, '
+                       'output_path={output_path}, '
+                       'content_type={content_type}, '
+                       'json_format={json_format})"'
+                       ).format(
+                         model_uri=repr(local_uri),
+                         input_path=repr(input_path),
+                         output_path=repr(output_path),
+                         content_type=repr(content_type),
+                         json_format=repr(json_format))
+            return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
+        else:
+            scoring_server._predict(local_uri, input_path, output_path, content_type,
+                                    json_format)
 
     def serve(self, model_uri, port, host):
         """
         Serve pyfunc model locally.
         """
-        with TempDir() as tmp:
-            local_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
-            # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
-            # platform compatibility.
-            local_uri = path_to_local_file_uri(local_path)
-            command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} "
-                       "mlflow.pyfunc.scoring_server.wsgi:app").format(
-                         host=host,
-                         port=port,
-                         nworkers=self._nworkers)
-            command_env = os.environ.copy()
-            command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
-            if not self._no_conda and ENV in self._config:
-                conda_env_path = os.path.join(local_path, self._config[ENV])
-                return _execute_in_conda_env(conda_env_path, command, self._install_mlflow,
-                                             command_env=command_env)
-            else:
-                _logger.info("=== Running command '%s'", command)
-                subprocess.Popen(command.split(" "), env=command_env).wait()
+        local_path = _download_artifact_from_uri(model_uri)
+        # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
+        # platform compatibility.
+        local_uri = path_to_local_file_uri(local_path)
+        command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} "
+                   "mlflow.pyfunc.scoring_server.wsgi:app").format(
+                     host=host,
+                     port=port,
+                     nworkers=self._nworkers)
+        command_env = os.environ.copy()
+        command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
+        if not self._no_conda and ENV in self._config:
+            conda_env_path = os.path.join(local_path, self._config[ENV])
+            return _execute_in_conda_env(conda_env_path, command, self._install_mlflow,
+                                         command_env=command_env)
+        else:
+            _logger.info("=== Running command '%s'", command)
+            subprocess.Popen(command.split(" "), env=command_env).wait()
 
     def can_score_model(self):
         if self._no_conda:
