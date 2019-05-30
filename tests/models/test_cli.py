@@ -233,10 +233,11 @@ def test_build_docker(iris_data, sk_model):
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
     x, _ = iris_data
     df = pd.DataFrame(x)
-    image_name = pyfunc_build_image(model_uri)
+    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"])
+    host_port = get_safe_port()
+    scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
     for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
-        host_port = get_safe_port()
-        scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
+
         scoring_response = _evaluate_scoring_proc(scoring_proc, host_port, df, content_type)
         assert scoring_response.status_code == 200, "Failed to serve prediction, got " \
                                                     "response %s" % scoring_response.text
@@ -245,8 +246,6 @@ def test_build_docker(iris_data, sk_model):
             sk_model.predict(x))
     # Try examples of bad input, verify we get a non-200 status code
     for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
-        host_port = get_safe_port()
-        scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
         scoring_response = _evaluate_scoring_proc(proc=scoring_proc, port=host_port, data="",
                                                   content_type=content_type)
         assert scoring_response.status_code == 500, \
