@@ -80,7 +80,7 @@ class PyFuncBackend(FlavorBackend):
             _logger.info("=== Running command '%s'", command)
             subprocess.Popen(command.split(" "), env=command_env).wait()
 
-    def is_available(self):
+    def can_score_model(self):
         if self._no_conda or self._docker_build:
             # noconda => already in python; dependencies are assumed to be installed
             # docker_build => we can always build compatible docker image for any pyfunc model

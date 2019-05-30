@@ -17,10 +17,10 @@ _flavor_backends = {
 }
 
 
-def get_flavor_backend(model, **kwargs):
+def get_flavor_backend(model, build_docker=True, **kwargs):
     for flavor_name, flavor_config in model.flavors.items():
         if flavor_name in _flavor_backends:
             backend = _flavor_backends[flavor_name](flavor_config, **kwargs)
-            if backend.is_available():
+            if build_docker and backend.can_build_image() or backend.can_score_model():
                  return flavor_name, backend
     return None, None

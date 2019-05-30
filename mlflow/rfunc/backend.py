@@ -41,7 +41,7 @@ class RFuncBackend(FlavorBackend):
             shlex_quote(model_path), port, host)
         _execute(command)
 
-    def is_available(self):
+    def can_score_model(self):
         process = subprocess.Popen(["Rscript", "--version"], close_fds=True,
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE)
