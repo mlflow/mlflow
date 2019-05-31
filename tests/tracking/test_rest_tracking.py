@@ -7,7 +7,9 @@ import mock
 from subprocess import Popen
 import os
 import sys
+import posixpath
 import pytest
+from six.moves import urllib
 import socket
 import shutil
 from threading import Thread
@@ -364,7 +366,14 @@ def test_set_terminated_status(mlflow_client):
 
 def test_artifacts(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Art In Fact')
+    experiment_info = mlflow_client.get_experiment(experiment_id)
+    assert experiment_info.artifact_location.startswith(
+        path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR))
+    artifact_path = urllib.parse.urlparse(experiment_info.artifact_location).path
+    assert posixpath.split(artifact_path)[-1] == experiment_id
+
     created_run = mlflow_client.create_run(experiment_id)
+    assert created_run.info.artifact_uri.startswith(experiment_info.artifact_location)
     run_id = created_run.info.run_id
     src_dir = tempfile.mkdtemp('test_artifacts_src')
     src_file = os.path.join(src_dir, 'my.file')
