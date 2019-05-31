@@ -59,8 +59,8 @@ def score_model_in_sagemaker_docker_container(
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = _start_scoring_proc(
-            cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_uri, '-p', "5000", "-f", flavor],
-            env=env)
+        cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_uri, '-p', "5000", "-f", flavor],
+        env=env)
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
 
 
@@ -138,30 +138,42 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250,
-                           stdout=sys.stdout):
-    """
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
-    """
-    try:
-        for i in range(0, int(activity_polling_timeout_seconds / 5)):
-            assert proc.poll() is None, "scoring process died"
+class RestEndpoint:
+    def __init__(self, proc, port, activity_polling_timeout_seconds=250, stdout=sys.stdout):
+        self._proc = proc
+        self._port = port
+        self._stdout = stdout
+        self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
+
+    def __enter__(self):
+        for i in range(0, int(self._activity_polling_timeout_seconds / 5)):
+            assert self._proc.poll() is None, "scoring process died"
             time.sleep(5)
             # noinspection PyBroadException
             try:
-                ping_status = requests.get(url='http://localhost:%d/ping' % port)
+                ping_status = requests.get(url='http://localhost:%d/ping' % self._port)
                 print('connection attempt', i, "server is up! ping status", ping_status)
                 if ping_status.status_code == 200:
                     break
             except Exception:  # pylint: disable=broad-except
                 print('connection attempt', i, "failed, server is not up yet")
-
-        assert proc.poll() is None, "scoring process died"
-        ping_status = requests.get(url='http://localhost:%d/ping' % port)
-        print("server up, ping status", ping_status)
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
+        print("server up, ping status", ping_status)
+        return self
+
+    def __exit__(self, tp, val, traceback):
+        if self._proc.poll() is None:
+            # Terminate the process group containing the scoring process.
+            # This will terminate all child processes of the scoring process
+            pgrp = os.getpgid(self._proc.pid)
+            os.killpg(pgrp, signal.SIGTERM)
+        print("captured output of the scoring process", file=self._stdout)
+        print("-------------------------STDOUT------------------------------", file=self._stdout)
+        print(self._proc.stdout.read(), file=self._stdout)
+        print("==============================================================", file=self._stdout)
+
+    def invoke(self, data, content_type):
         if type(data) == pd.DataFrame:
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
                 data = data.to_json(orient="records")
@@ -172,21 +184,21 @@ def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_time
                 data = data.to_csv(index=False)
             else:
                 raise Exception(
-                        "Unexpected content type for Pandas dataframe input %s" % content_type)
-        response = requests.post(url='http://localhost:%d/invocations' % port,
+                    "Unexpected content type for Pandas dataframe input %s" % content_type)
+        response = requests.post(url='http://localhost:%d/invocations' % self._port,
                                  data=data,
                                  headers={"Content-Type": content_type})
         return response
-    finally:
-        if proc.poll() is None:
-            # Terminate the process group containing the scoring process.
-            # This will terminate all child processes of the scoring process
-            pgrp = os.getpgid(proc.pid)
-            os.killpg(pgrp, signal.SIGTERM)
-        print("captured output of the scoring process", file=stdout)
-        print("-------------------------STDOUT------------------------------", file=stdout)
-        print(proc.stdout.read(), file=stdout)
-        print("==============================================================", file=stdout)
+
+
+def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250,
+                           stdout=sys.stdout):
+    """
+    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+                                             declaring the scoring process to have failed.
+    """
+    with RestEndpoint(proc, port, activity_polling_timeout_seconds, stdout) as endpoint:
+        return endpoint.invoke(data, content_type)
 
 
 @pytest.fixture(scope='module', autouse=True)

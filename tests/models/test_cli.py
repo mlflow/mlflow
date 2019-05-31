@@ -23,12 +23,11 @@ from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
-from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image,\
-    _evaluate_scoring_proc, get_safe_port, pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image, \
+    RestEndpoint, get_safe_port, pyfunc_serve_and_score_model
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
-from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED,\
+from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED, \
     CONTENT_TYPE_JSON, CONTENT_TYPE_CSV
-
 
 in_travis = 'TRAVIS' in os.environ
 # NB: for now, windows tests on Travis do not have conda available.
@@ -54,6 +53,7 @@ def sk_model(iris_data):
     knn_model = sklearn.neighbors.KNeighborsClassifier()
     knn_model.fit(x, y)
     return knn_model
+
 
 @pytest.mark.release
 def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
@@ -87,6 +87,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         expected = test_pyfunc.PyFuncTestModel(check_version=False).predict(df=pd.DataFrame(x))
         assert all(expected == actual)
 
+
 @pytest.mark.release
 def test_mlflow_is_not_installed_unless_specified():
     if no_conda:
@@ -108,6 +109,7 @@ def test_mlflow_is_not_installed_unless_specified():
         else:
             assert "ImportError: No module named mlflow.pyfunc.scoring_server" in stderr
 
+
 @pytest.mark.release
 def test_model_with_no_deployable_flavors_fails_pollitely():
     from mlflow.models import Model
@@ -124,6 +126,7 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         print(stderr)
         assert p.wait() != 0
         assert "No suitable flavor backend was found for the model." in stderr
+
 
 @pytest.mark.release
 def test_serve_gunicorn_opts(iris_data, sk_model):
@@ -147,6 +150,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
         "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"))
     x = output.getvalue()
     assert expected_command_pattern.search(x) is not None
+
 
 @pytest.mark.release
 def test_predict(iris_data, sk_model):
@@ -236,23 +240,22 @@ def test_build_docker(iris_data, sk_model):
     image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"])
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
-    for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
-
-        scoring_response = _evaluate_scoring_proc(scoring_proc, host_port, df, content_type)
-        assert scoring_response.status_code == 200, "Failed to serve prediction, got " \
-                                                    "response %s" % scoring_response.text
-        np.testing.assert_array_equal(
-            np.array(json.loads(scoring_response.text)),
-            sk_model.predict(x))
-    # Try examples of bad input, verify we get a non-200 status code
-    for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
-        scoring_response = _evaluate_scoring_proc(proc=scoring_proc, port=host_port, data="",
-                                                  content_type=content_type)
-        assert scoring_response.status_code == 500, \
-            "Expected server failure with error code 500, got response with status code %s " \
-            "and body %s" % (scoring_response.status_code, scoring_response.text)
-        scoring_response_dict = json.loads(scoring_response.content)
-        assert "error_code" in scoring_response_dict
-        assert scoring_response_dict["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
-        assert "message" in scoring_response_dict
-        assert "stack_trace" in scoring_response_dict
+    with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
+        for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
+            scoring_response = endpoint.invoke(df, content_type)
+            assert scoring_response.status_code == 200, "Failed to serve prediction, got " \
+                                                        "response %s" % scoring_response.text
+            np.testing.assert_array_equal(
+                np.array(json.loads(scoring_response.text)),
+                sk_model.predict(x))
+        # Try examples of bad input, verify we get a non-200 status code
+        for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
+            scoring_response = endpoint.invoke(data="", content_type=content_type)
+            assert scoring_response.status_code == 500, \
+                "Expected server failure with error code 500, got response with status code %s " \
+                "and body %s" % (scoring_response.status_code, scoring_response.text)
+            scoring_response_dict = json.loads(scoring_response.content)
+            assert "error_code" in scoring_response_dict
+            assert scoring_response_dict["error_code"] == ErrorCode.Name(MALFORMED_REQUEST)
+            assert "message" in scoring_response_dict
+            assert "stack_trace" in scoring_response_dict
