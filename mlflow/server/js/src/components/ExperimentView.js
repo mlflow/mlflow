@@ -92,6 +92,10 @@ export class ExperimentView extends Component {
     searchInput: PropTypes.string.isRequired,
     searchRunsError: PropTypes.string,
     isLoading: PropTypes.bool.isRequired,
+
+    //history object for pushing entry
+    history: PropTypes.object.isRequired
+
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -162,6 +166,8 @@ export class ExperimentView extends Component {
     // componentDidUpdate doesn't fire.
     this.snapshotComponentState();
   }
+
+
 
   static getDerivedStateFromProps(nextProps, prevState) {
     // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
@@ -603,9 +609,15 @@ export class ExperimentView extends Component {
     try {
       this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
         lifecycleFilterInput);
+      this.updateUrlWithSearchFilter(searchInput);
     } catch (ex) {
       this.setState({ searchErrorMessage: ex.errorMessage });
     }
+  }
+
+  updateUrlWithSearchFilter(searchInput) {
+    var stateObj = { foo: "bar" };
+    window.history.replaceState(stateObj, "search page", `/s/${searchInput}`);
   }
 
   onClear() {
