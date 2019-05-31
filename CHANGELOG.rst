@@ -3,33 +3,35 @@ Changelog
 
 1.0 (2019-05-31)
 ----------------
-MLflow 1.0 includes many significant features and improvements. From this version, MLflow is no longer beta, and all APIs except those marked as experimental are intended to be stable until the next version. As such, this release includes a number of breaking changes.
+MLflow 1.0 includes many significant features and improvements. From this version, MLflow is no longer beta, and all APIs except those marked as experimental are intended to be stable until the next major version. As such, this release includes a number of breaking changes.
 
 
 Major features and improvements:
 
 - (TODO) X-coordinates. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr)
-- (TODO: insert link for example) Batch logging. MLflow 1.0 ships with a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <NEED_LINK>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from:
+- (TODO: insert link for example) Logging metrics in batches. MLflow 1.0 ships with a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <NEED_LINK>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from:
 
   - Python: ``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``
   - R: ``mlflow_log_batch``
   - Java: ``MlflowClient.logBatch``
 
-- (TODO) Any search improvements? - changes have been covered in 0.9.0 & 0.9.1 in pieces. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr)
-- Windows support. The MLflow client now works on Windows. (#1171, @eedeleon, @tomasatdatabricks)
+- (TODO) Any search improvements? - changes have been covered in 0.9.0 & 0.9.1 in pieces. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
+- Windows support for MLflow Tracking. The MLflow client is now supported on Windows for Tracking. (#1171, @eedeleon, @tomasatdatabricks)
 
-[Search]
-(TODO: should these go to the search item here, or in "more features"?)
+[Search] (TODO: should these go to the search item here, or in "more features"?)
 - Limiting results returned from SearchRuns API (#1125, @mparkhe)
 - Apply maximum runs limit in the Search UI (#1154, @andrewmchen)
 
-[Batch logging]
-(TODO: where to put this?)
+[Batch logging] (TODO: where to put this?)
 - Update R batched logging API to accept dataframes (#1214, @dbczumar)
 
 
 Breaking changes:
 
+(TODO: add user migration PR to list)
+Some of the breaking changes involve database schema changes. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, @smurching)
+
+(TODO: clean up and group things together)
 - API stabilization
 
     Clean-ups for API stabilization
@@ -54,21 +56,14 @@ Breaking changes:
 
     - Prefix environment variables with "MLFLOW_" (#1268, @aarondav)
 
-(TODO: is this breaking??)
-- Add DB migration support + migration logic for metric x coordinates (#1155, @smurching)
+- Runs URI (breaking)
+    - Cli command to download artifacts from a URI. Updated R apis for loading / scoring models. (#1206, @tomasatdatabricks)
+    - [Runs URI][Python] changes in "models" methods (#1190, @dbczumar)
+    - [Runs URI][Python] changes in deploy methods (#1174, @sueann)
+    - Fix RunsArtifactRepository.list_artifacts (#1175, @sueann)
+    - [Runs URI] Add RunsArtifactRepository (#1169, @sueann)
 
-Runs URI (breaking)
-- Cli command to download artifacts from a URI. Updated R apis for loading / scoring models. (#1206, @tomasatdatabricks)
-- [Runs URI][Python] changes in "models" methods (#1190, @dbczumar)
-- [Runs URI][Python] changes in deploy methods (#1174, @sueann)
-- Fix RunsArtifactRepository.list_artifacts (#1175, @sueann)
-- [Runs URI] Add RunsArtifactRepository (#1169, @sueann)
-
-
-Run tags (user in 1.0, name & source in 0.9.0)
-Mention database migration
-(list others in breaking changes; or put this in the breaking changes section but mention in the blog post)
-- Move user attribute to a tag (#1230, @acroz)
+- The ``user`` property of Runs has been moved to tags (similarly, the ``run_name``, ``source_type``, ``source_name`` properties were moved to tags in 0.9.0). (#1230, @acroz; #1275, #1276, @aarondav)
 
 (TODO: better descriptions)
 - Don't copy local artifacts in download_artifacts (#1307, @andrewmchen)
@@ -83,39 +78,34 @@ Mention database migration
 
 More features and improvements:
 
-- Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald)
+- [DB] Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald)
 - Hadoop artifact repository with Kerberos authorization support  (#1011, @jaroslawk)
-- Add ``view_type`` argument to ``MlflowClient``'s ``list_experiments`` method in Python. (#1212, @smurching)
+- Add ``view_type`` argument to ``MlflowClient.list_experiments()`` in Python. (#1212, @smurching)
 - [R] Tracking API additions to be at parity with REST API and Python (#1122, @kevinykuo)
 - Add ``GetMetricHistory`` client API in Python and Java corresponding to the REST API. (#1178, @smurching)
-
-(TODO: better descriptions)
-- Support GCS in Download Utilities (#1168, @drewmcdonald)
-- SageMaker deployment: Use model name as s3 bucket prefix instead of model path (#1183, @dbczumar)
-- Switch to gunicorn for serving of python models. (#1322, @tomasatdatabricks) (TODO: why is this better?)
+- [REST API] Add support for non-preview API paths. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)
+- Support GCS in download utilities. ``gs://bucket/path`` files are now supported by the ``mlflow download`` CLI command and as parameters of type ``path`` in MLProject files. (#1168, @drewmcdonald)
+- Switch to ``gunicorn`` for serving of python models for better performance. This does not change the user interface. (#1322, @tomasatdatabricks)
+- [SageMaker][Deployment] Use the uniquely-generated model name as the S3 bucket prefix instead of requiring one from user. (#1183, @dbczumar)
 
 Bug fixes and documentation updates:
 
 - [Java] Mark ``sendPost`` and ``sendGet`` as experimental (#1186, @aarondav)
 - [Python] Mark ``azureml.build_image`` as experimental (#1222, @sueann)
 - Document public MLflow environment variables (#1343, @aarondav)
-- Document MLflow system tags (#1342, @aarondav)
+- Document MLflow system tags for Runs (#1342, @aarondav)
 - Autogenerate CLI docs to include all subcommands and details (#1231, @sueann)
 - [R][Docs] Update run selection description in ``mlflow_get_run`` (#1258, @dbczumar)
 - Log metric timestamps in milliseconds by default (#1177, @smurching; #1333, @dbczumar)
 - Update artifact repository download methods to return absolute paths (#1179, @dbczumar)
-- Fix bug when deserializing integer experiment ID for runs in SQLAlchemyStore (#1167, @smurching)
+- [DB] Fix bug when deserializing integer experiment ID for runs in SQLAlchemyStore (#1167, @smurching)
+- [DB] Ensure unique constraint names in MLflow tracking database (#1292, @smurching)
 - [R] Fix base64 encoding for basic auth in R tracking client (#1126, @freefrag)
-- Ensure unique constraint names in MLflow tracking database (#1292, @smurching)
+- [CLI] Correctly handle ``file:/`` URIs for the ``-—backend-store-uri`` option in ``mlflow server`` and ``mlflow ui`` (#1171, @eedeleon, @tomasatdatabricks)
 - Fix ``log_artifact`` failures due to existing directory on FTP server (#1327, @kafendt)
-- [CLI] ``file:/`` URIs are accepted for the ``-—backend-store-uri`` option in ``mlflow server`` and ``mlflow ui`` (#1171, @eedeleon, @tomasatdatabricks)
+- Fix GCS Artifact Logging of Subdirectories (#1285, @jason-huling)
 
-(TODO: better descriptions)
-- Return data associated with new runs created by ``FileStore.create_run()`` (#1328, @dbczumar)
-- swap ``root`` and ``local_dir`` for relpath (#1285, @jason-huling)
-- Adding support for both preview and non-preview APIs (#1236, @mparkhe)
-
-Small bug fixes and doc updates (#1359, #1350, #1331, #1301, #1270, #1271, #1180, #1144, #1135, #1131, @aarondav; #1287, #1344, #1309, @stbof; #1312, @hchiuzhuo; #1348, #1349, #1294, #1227, @tomasatdatabricks; #1345, @withsmilo; #1316, @ancasarb; #1313, #1310, #1305, #1289, #1256, #1124, #1097, #1162, #1163, #1137, @smurching; #1319, #1244, #1224, #1195, #1194, @dbczumar; #1213, #1200, @Kublai-Jing; #1304, @andrewmchen; #1311, @Zangr; #1306, #1293, #1147, @mateiz; #1303, @gliptak; #1261, #1192, @eedeleon; #1273, #1259, @kevinykuo; #1277, #1247, #1243, #1182, @mparkhe; #1210, @vgod-dbx; #1199, @ashtuchkin; #1176, @sueann; #1157, @cclauss; #1156, @clemens-db; #1152, @pogil; #1146, @srowen; #875, @jimthompson5802)
+Small bug fixes and doc updates (#1359, #1350, #1331, #1301, #1270, #1271, #1180, #1144, #1135, #1131, @aarondav; #1287, #1344, #1309, @stbof; #1312, @hchiuzhuo; #1348, #1349, #1294, #1227, @tomasatdatabricks; #1345, @withsmilo; #1316, @ancasarb; #1313, #1310, #1305, #1289, #1256, #1124, #1097, #1162, #1163, #1137, @smurching; #1319, #1244, #1224, #1195, #1194, #1328, @dbczumar; #1213, #1200, @Kublai-Jing; #1304, #1320, @andrewmchen; #1311, @Zangr; #1306, #1293, #1147, @mateiz; #1303, @gliptak; #1261, #1192, @eedeleon; #1273, #1259, @kevinykuo; #1277, #1247, #1243, #1182, @mparkhe; #1210, @vgod-dbx; #1199, @ashtuchkin; #1176, @sueann; #1157, @cclauss; #1156, @clemens-db; #1152, @pogil; #1146, @srowen; #875, @jimthompson5802)
 
 
 0.9.1 (2019-04-21)
