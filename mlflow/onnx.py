@@ -20,7 +20,7 @@ FLAVOR_NAME = "onnx"
 
 
 @experimental
-def get_default_conda_env(include_cloudpickle=False):
+def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
     :func:`save_model()` and :func:`log_model()`.
