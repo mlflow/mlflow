@@ -9,6 +9,7 @@ from __future__ import print_function
 import multiprocessing
 import os
 import signal
+import shutil
 from subprocess import check_call, Popen
 import sys
 
@@ -91,8 +92,12 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False):
         if pyfunc.ENV in conf:
             print("creating and activating custom environment")
             env = conf[pyfunc.ENV]
-            env_path = os.path.join(model_path, env)
-            conda_create_model_env = "conda env create -n custom_env -f {}".format(env_path)
+            env_path_dst = os.path.join("/opt/mlflow/", env)
+            env_path_dst_dir = os.path.dirname(env_path_dst)
+            if not os.path.exists(env_path_dst_dir):
+                os.makedirs(env_path_dst_dir)
+            shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
+            conda_create_model_env = "conda env create -n custom_env -f {}".format(env_path_dst)
             if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
                 raise Exception("Failed to create model environment.")
             has_env = True
