@@ -720,15 +720,15 @@ def _parse_kubernetes_config(backend_config, work_dir):
     kube_config = backend_config.copy()
     if 'kube-job-template-path' in backend_config.keys():
         kube_job_template = backend_config['kube-job-template-path']
-        if os.path.exists(os.path.join(work_dir, kube_job_template)):
+        if os.path.exists(kube_job_template):
             yaml_obj = {}
-            with open(os.path.join(work_dir, kube_job_template), 'r') as job_template:
+            with open(kube_job_template, 'r') as job_template:
                 yaml_obj = yaml.safe_load(job_template.read())
             kube_job_template = yaml_obj
             kube_config['kube-job-template'] = kube_job_template
         else:
             raise ExecutionException("Could not find 'kube-job-template-path' file:{}".format(
-                os.path.join(work_dir, kube_job_template)))
+                kube_job_template))
     else:
         raise ExecutionException("Please specify 'kube-job-template-path' attribute in "
                                  " backend_config.")
