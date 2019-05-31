@@ -55,7 +55,7 @@ def sk_model(iris_data):
     knn_model.fit(x, y)
     return knn_model
 
-
+@pytest.mark.release
 def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
     if no_conda:
         pytest.skip("This test needs conda.")
@@ -87,7 +87,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         expected = test_pyfunc.PyFuncTestModel(check_version=False).predict(df=pd.DataFrame(x))
         assert all(expected == actual)
 
-
+@pytest.mark.release
 def test_mlflow_is_not_installed_unless_specified():
     if no_conda:
         pytest.skip("This test requires conda.")
@@ -108,7 +108,7 @@ def test_mlflow_is_not_installed_unless_specified():
         else:
             assert "ImportError: No module named mlflow.pyfunc.scoring_server" in stderr
 
-
+@pytest.mark.release
 def test_model_with_no_deployable_flavors_fails_pollitely():
     from mlflow.models import Model
     with TempDir(chdr=True) as tmp:
@@ -125,7 +125,7 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         assert p.wait() != 0
         assert "No suitable flavor backend was found for the model." in stderr
 
-
+@pytest.mark.release
 def test_serve_gunicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
@@ -148,7 +148,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
     x = output.getvalue()
     assert expected_command_pattern.search(x) is not None
 
-
+@pytest.mark.small
 def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
@@ -208,14 +208,6 @@ def test_predict(iris_data, sk_model):
         with open(input_json_path, "r") as f:
             stdout, _ = p.communicate(f.read())
         assert 0 == p.wait()
-        print()
-        print()
-        print()
-        print("STDOUT")
-        print(stdout)
-        print()
-        print()
-        print()
         actual = pd.read_json(StringIO(stdout), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)

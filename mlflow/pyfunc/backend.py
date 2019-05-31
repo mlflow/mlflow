@@ -112,7 +112,7 @@ class PyFuncBackend(FlavorBackend):
 
         # The pyfunc image runs the same server as the Sagemaker image
         pyfunc_entrypoint = (
-            'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C; C._serve()]'
+            'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C; C._serve()"]'
         )
         _build_image(
             image_name=image_name,
