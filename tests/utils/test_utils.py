@@ -29,7 +29,6 @@ def test_extract_db_type_from_uri():
         assert legit_db == extract_db_type_from_uri(uri.format(with_driver))
         assert legit_db == get_uri_scheme(uri.format(with_driver))
 
-
-for unsupported_db in ["a", "aa", "sql"]:
-    with pytest.raises(MlflowException):
-        extract_db_type_from_uri(unsupported_db)
+    for unsupported_db in ["a", "aa", "sql"]:
+        with pytest.raises(MlflowException):
+            extract_db_type_from_uri(unsupported_db)
