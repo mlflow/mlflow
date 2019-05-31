@@ -5,7 +5,6 @@ Changelog
 ----------------
 MLflow 1.0 includes many significant features and improvements. From this version, MLflow is no longer beta, and all APIs except those marked as experimental are intended to be stable until the next major version. As such, this release includes a number of breaking changes.
 
-
 Major features and improvements:
 
 - (TODO) X-coordinates. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr)
@@ -19,53 +18,42 @@ Major features and improvements:
 
 Breaking changes:
 
-(TODO: add user migration PR to list)
-Some of the breaking changes involve database schema changes. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, @smurching)
+Some of the breaking changes involve database schema changes. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, @smurching; #1360), @aarondav)
 
-(TODO: clean up and group things together)
-- API stabilization
-
-    Clean-ups for API stabilization
-    - Stabilizing methods in Python Models modules (#1226, @sueann)
-    - Rename dst_path parameter in pyfunc save_model to path (#1221, @aarondav)
-    - Remove deprecated RunInfo properties from start_run (#1220, @aarondav)
+- API changes
+    - [Runs] Rename ``run_uuid`` to ``run_id`` in Python, Java, and REST API (#1187, @aarondav)
+    - [Runs] Remove deprecated ``RunInfo`` properties from ``start_run`` (#1220, @aarondav)
     - Remove deprecated fields from REST, Python, and R APIs for 1.0 (#1188, @aarondav)
-    (TODO: better description - mostly makes small changes to the APIs)
-    - Mark Python/R model/deploy APIs as stable or experimental for 1.0 (#1222, @sueann)
+    - [Models][Python] Stabilizing methods in Python Models modules (#1226, @sueann) (TODO: be more specific in the breaking changes)
+    - [Models/Deploy][Python/R] Mark APIs as stable or experimental for 1.0 (#1222, @sueann) (TODO: better description - mostly makes small changes to the APIs)
+    - [Models] Rename ``dst_path`` parameter in ``pyfunc.save_model`` to ``path`` (#1221, @aarondav)
+    - [CLI] Unify ``mlflow pyfunc`` and ``mlflow rfunc`` commands as ``mlflow models`` (#1257, @tomasatdatabricks; #1321, @dbczumar)
+    - [CLI] Turn arguments into options in ``experiments`` CLI commands (#1235, @sueann)
+    - [CLI] clean-ups for 1.0 (#1233, @sueann)  (TODO: be more specific in the breaking changes)
+    - [CLI] Deprecate ``--file-store`` argument to ``mlflow server`` and ``mlflow ui`` (#1196, @smurching)
+    - [CLI] Simplify ``mlflow ui`` command by removing the ``--host`` and ``--gunicorn-opts`` options (#1267, @aarondav)
+    - [EnvVars] Prefix environment variables with "MLFLOW_" (#1268, @aarondav)
+    - [R] R flavors refactor (#1299, @kevinykuo)  (TODO: be more specific in the breaking changes)
+    - [R] Finalize R projects API & update behavior of mlflow_install() (#1265, @smurching)  (TODO: be more specific in the breaking changes)
+    - [R] API cleanups for MLflow R Tracking API (#1246, @smurching)      (TODO: be more specific in the breaking changes)
 
-    - Unify ``mlflow pyfunc`` and ``mlflow rfunc`` CLI (#1257, @tomasatdatabricks)
-    - Change serving docs from "mlflow pyfunc serve" to "mlflow models serve" (#1321, @dbczumar)
+- [Artifacts] In APIs outside of Tracking, an artifact's location is now represented as a URI. (#1190, @dbczumar; #1174, @dbczumar, @sueann; #1206, @tomasatdatabricks)
+    - The affected APIs are:
+        - Python: ``<model-type>.load_model``, ``azureml.build_image``, ``sagemaker.deploy``, ``sagemaker.run_local``, ``pyfunc._load_model_env``, ``pyfunc.load_pyfunc``, and ``pyfunc.spark_udf``
+        - R: ``mlflow_load_model``, ``mlflow_rfunc_predict``, ``mlflow_rfunc_serve``
+        - CLI: ``mlflow models serve``, ``mlflow models predict``
+    - To allow referring to artifacts in the context of a run, we introduce a new URI scheme of the form ``runs:/<run_id>/relative/path/to/artifact``. (#1169, #1175, @sueann)
 
-    - [Easy] Turn args into opts in experiments CLI commands (#1235, @sueann)
-    - [CLI] clean-ups for 1.0 (#1233, @sueann)
-    - Deprecate --file-store CLI argument to `mlflow server` and `mlflow ui` (#1196, @smurching)
+- [Runs] The ``user`` property of Runs has been moved to tags (similarly, the ``run_name``, ``source_type``, ``source_name`` properties were moved to tags in 0.9.0). (#1230, @acroz; #1275, #1276, @aarondav)
+- [Runs][Python] Expose ``RunData`` fields (``metrics``, ``params``, ``tags``) as dictionaries (#1078, @smurching)
+- [Runs] ``RunInfo.status`` is now a string (#1264, @mparkhe)
 
-    - R flavors refactor (#1299, @kevinykuo)
-    - Finalize R projects API & update behavior of mlflow_install() (#1265, @smurching)
-    - API cleanups for MLflow R Tracking API (#1246, @smurching)
-    - Rename run_uuid in Python, Java, and REST API to run_id (#1187, @aarondav)
-
-    - Prefix environment variables with "MLFLOW_" (#1268, @aarondav)
-
-- Runs URI (breaking)
-    - Cli command to download artifacts from a URI. Updated R apis for loading / scoring models. (#1206, @tomasatdatabricks)
-    - [Runs URI][Python] changes in "models" methods (#1190, @dbczumar)
-    - [Runs URI][Python] changes in deploy methods (#1174, @sueann)
-    - Fix RunsArtifactRepository.list_artifacts (#1175, @sueann)
-    - [Runs URI] Add RunsArtifactRepository (#1169, @sueann)
-
-- The ``user`` property of Runs has been moved to tags (similarly, the ``run_name``, ``source_type``, ``source_name`` properties were moved to tags in 0.9.0). (#1230, @acroz; #1275, #1276, @aarondav)
-
-(TODO: better descriptions)
-- Don't copy local artifacts in download_artifacts (#1307, @andrewmchen)
-- Update how we handle mlflow dependency when dealing with models.  (#1308, @tomasatdatabricks)
-- Remove handling of dependencies via packrat in R APIs (#1263, @smurching)
-- Simplify "mlflow ui" command and clarify relationship to "mlflow server" (#1267, @aarondav)
-- Run's status converted to string data type (#1264, @mparkhe)
-- Update model flavors to lazily import dependencies (#1238, @dbczumar)
-- Remove default dependencies on boto3, scikit-learn, and mleap (#1223, @aarondav)
-- Remove store argument from get_artifact_repository() (#1138, @sueann)
-- Expose RunData fields (metrics, params, tags) as dictionaries in Python API (#1078, @smurching)
+- Dependency changes:
+    - Remove handling of dependencies via packrat in R APIs (#1263, @smurching)
+    - Update how we handle mlflow dependency when dealing with models.  (#1308, @tomasatdatabricks)
+    - Update model flavors to lazily import dependencies (#1238, @dbczumar)
+    - Remove default dependencies on boto3, scikit-learn, and mleap (#1223, @aarondav)
+    - Remove store argument from get_artifact_repository() (#1138, @sueann)
 
 More features and improvements:
 
@@ -74,6 +62,7 @@ More features and improvements:
 - Add ``view_type`` argument to ``MlflowClient.list_experiments()`` in Python. (#1212, @smurching)
 - [R] Tracking API additions to be at parity with REST API and Python (#1122, @kevinykuo)
 - Add ``GetMetricHistory`` client API in Python and Java corresponding to the REST API. (#1178, @smurching)
+- Don't copy local artifacts in ``ArtifactRepository.download_artifacts`` to avoid having many copies of large model files in serving (#1307, @andrewmchen)
 - [REST API] Add support for non-preview API paths. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)
 - Support GCS in download utilities. ``gs://bucket/path`` files are now supported by the ``mlflow download`` CLI command and as parameters of type ``path`` in MLProject files. (#1168, @drewmcdonald)
 - Switch to ``gunicorn`` for serving of python models for better performance. This does not change the user interface. (#1322, @tomasatdatabricks)
