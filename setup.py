@@ -19,7 +19,7 @@ def package_files(directory):
 # to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
 js_files = package_files('mlflow/server/js/build')
 sagmaker_server_files = package_files("mlflow/sagemaker/container")
-alembic_files = ["../mlflow/alembic.ini"]
+alembic_files = ["../mlflow/alembic/alembic.ini", "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini"]
 
 setup(
     name='mlflow',
