@@ -206,7 +206,9 @@ def test_model_save_load_multiple_inputs(onnx_model_multiple_inputs_float64, dat
     assert np.allclose(pd.read_json(scoring_response.content, orient="records").values,
                        predicted_multiple_inputs.values, rtol=1e-05, atol=1e-05)
 
-# TODO: Remove test, along with explicit casting, when https://github.com/mlflow/mlflow/issues/1286 ixed
+
+# TODO: Remove test, along with explicit casting, when https://github.com/mlflow/mlflow/issues/1286
+# is fixed.
 @pytest.mark.large
 def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_inputs(
          onnx_model_multiple_inputs_float32, model_path, data_multiple_inputs,
