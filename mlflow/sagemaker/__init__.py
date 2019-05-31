@@ -6,6 +6,7 @@ from __future__ import print_function
 import os
 from subprocess import Popen, PIPE, STDOUT
 from six.moves import urllib
+import sys
 import tarfile
 import logging
 import time
@@ -458,7 +459,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
         cmd += ["-e", "{key}={value}".format(key=key, value=value)]
     cmd += ["--rm", image, "serve"]
     _logger.info('executing: %s', ' '.join(cmd))
-    proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
+    proc = Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, universal_newlines=True)
 
     def _sigterm_handler(*_):
         _logger.info("received termination signal => killing docker process")
@@ -466,8 +467,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
 
     import signal
     signal.signal(signal.SIGTERM, _sigterm_handler)
-    for x in iter(proc.stdout.readline, ""):
-        eprint(x, end='')
+    proc.wait()
 
 
 def _get_default_image_url(region_name):

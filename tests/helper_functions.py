@@ -125,10 +125,10 @@ def pyfunc_serve_and_score_model(
     raise Exception("Failed to start server")
 
 
-def _start_scoring_proc(cmd, env):
+def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
     proc = Popen(cmd,
-                 stdout=PIPE,
-                 stderr=STDOUT,
+                 stdout=stdout,
+                 stderr=stderr,
                  universal_newlines=True,
                  env=env,
                  # Assign the scoring process to a process group. All child processes of the
@@ -168,10 +168,7 @@ class RestEndpoint:
             # This will terminate all child processes of the scoring process
             pgrp = os.getpgid(self._proc.pid)
             os.killpg(pgrp, signal.SIGTERM)
-        print("captured output of the scoring process", file=self._stdout)
-        print("-------------------------STDOUT------------------------------", file=self._stdout)
-        print(self._proc.stdout.read(), file=self._stdout)
-        print("==============================================================", file=self._stdout)
+
 
     def invoke(self, data, content_type):
         if type(data) == pd.DataFrame:
