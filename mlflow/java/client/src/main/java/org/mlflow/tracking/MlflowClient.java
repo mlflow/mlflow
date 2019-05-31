@@ -27,18 +27,18 @@ public class MlflowClient {
   private final MlflowHttpCaller httpCaller;
   private final MlflowHostCredsProvider hostCredsProvider;
 
-  /** Returns a default client based on the MLFLOW_TRACKING_URI environment variable. */
+  /** Return a default client based on the MLFLOW_TRACKING_URI environment variable. */
   public MlflowClient() {
     this(getDefaultTrackingUri());
   }
 
-  /** Instantiates a new client using the provided tracking uri. */
+  /** Instantiate a new client using the provided tracking uri. */
   public MlflowClient(String trackingUri) {
     this(getHostCredsProviderFromTrackingUri(trackingUri));
   }
 
   /**
-   * Creates a new MlflowClient; users should prefer constructing ApiClients via
+   * Create a new MlflowClient; users should prefer constructing ApiClients via
    * {@link #MlflowClient()} or {@link #MlflowClient(String)} if possible.
    */
   public MlflowClient(MlflowHostCredsProvider hostCredsProvider) {
@@ -48,10 +48,10 @@ public class MlflowClient {
   }
 
   /**
-   * Gets metadata, params, tags, and metrics for a run. A single value is returned for each metric
+   * Get metadata, params, tags, and metrics for a run. A single value is returned for each metric
    * key: the most recently logged metric value at the largest step.
    *
-   * @return Run associated with the id.
+   * @return Run associated with the ID.
    */
   public Run getRun(String runId) {
     URIBuilder builder = newURIBuilder("runs/get")
@@ -69,16 +69,16 @@ public class MlflowClient {
   }
 
   /**
-   * Creates a new run under the default experiment with no application name.
-   * @return RunInfo created by the server
+   * Create a new run under the default experiment with no application name.
+   * @return RunInfo created by the server.
    */
   public RunInfo createRun() {
     return createRun(DEFAULT_EXPERIMENT_ID);
   }
 
   /**
-   * Creates a new run under the given experiment.
-   * @return RunInfo created by the server
+   * Create a new run under the given experiment.
+   * @return RunInfo created by the server.
    */
   public RunInfo createRun(String experimentId) {
     CreateRun.Builder request = CreateRun.newBuilder();
@@ -94,7 +94,7 @@ public class MlflowClient {
   }
 
   /**
-   * Creates a new run. This method allows providing all possible fields of CreateRun, and can be
+   * Create a new run. This method allows providing all possible fields of CreateRun, and can be
    * invoked as follows:
    *
    *   <pre>
@@ -105,7 +105,7 @@ public class MlflowClient {
    *   createRun(request.build());
    *   </pre>
    *
-   * @return RunInfo created by the server
+   * @return RunInfo created by the server.
    */
   public RunInfo createRun(CreateRun request) {
     String ijson = mapper.toJson(request);
@@ -114,7 +114,7 @@ public class MlflowClient {
   }
 
   /**
-   * @return a list of all RunInfos associated with the given experiment.
+   * @return A list of all RunInfos associated with the given experiment.
    */
   public List<RunInfo> listRunInfos(String experimentId) {
     List<String> experimentIds = new ArrayList<>();
@@ -123,30 +123,30 @@ public class MlflowClient {
   }
 
   /**
-   * Returns runs from provided list of experiments, that satisfy the search query.
+   * Return runs from provided list of experiments that satisfy the search query.
    *
-   * @param experimentIds List of experiment IDs
+   * @param experimentIds List of experiment IDs.
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
    *
-   * @return a list of all RunInfos that satisfy search filter.
+   * @return A list of all RunInfos that satisfy search filter.
    */
   public List<RunInfo> searchRuns(List<String> experimentIds, String searchFilter) {
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
   }
 
   /**
-   * Returns runs from provided list of experiments, that satisfy the search query.
+   * Return runs from provided list of experiments that satisfy the search query.
    *
-   * @param experimentIds List of experiment IDs
+   * @param experimentIds List of experiment IDs.
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
    *                    Defaults to ACTIVE_ONLY.
    *
-   * @return a list of all RunInfos that satisfy search filter.
+   * @return A list of all RunInfos that satisfy search filter.
    */
   public List<RunInfo> searchRuns(List<String> experimentIds,
                                   String searchFilter,
@@ -166,29 +166,29 @@ public class MlflowClient {
       .collect(Collectors.toList());
   }
 
-  /** @return  a list of all Experiments. */
+  /** @return  A list of all experiments. */
   public List<Experiment> listExperiments() {
     return mapper.toListExperimentsResponse(httpCaller.get("experiments/list"))
       .getExperimentsList();
   }
 
-  /** @return  an experiment with the given id. */
+  /** @return  An experiment with the given ID. */
   public GetExperiment.Response getExperiment(String experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
       .setParameter("experiment_id", experimentId);
     return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
   }
 
-  /** @return  the experiment associated with the given name or Optional.empty if none exists. */
+  /** @return  The experiment associated with the given name or Optional.empty if none exists. */
   public Optional<Experiment> getExperimentByName(String experimentName) {
     return listExperiments().stream().filter(e -> e.getName()
       .equals(experimentName)).findFirst();
   }
 
   /**
-   * Creates a new experiment using the default artifact location provided by the server.
+   * Create a new experiment using the default artifact location provided by the server.
    * @param experimentName Name of the experiment. This must be unique across all experiments.
-   * @return experiment id of the newly created experiment.
+   * @return Experiment ID of the newly created experiment.
    */
   public String createExperiment(String experimentName) {
     String ijson = mapper.makeCreateExperimentRequest(experimentName);
@@ -196,7 +196,7 @@ public class MlflowClient {
     return mapper.toCreateExperimentResponse(ojson).getExperimentId();
   }
 
-  /** Mark an experiment and associated runs, params, metrics, etc for deletion. */
+  /** Mark an experiment and associated runs, params, metrics, etc. for deletion. */
   public void deleteExperiment(String experimentId) {
     String ijson = mapper.makeDeleteExperimentRequest(experimentId);
     httpCaller.post("experiments/delete", ijson);
@@ -215,7 +215,7 @@ public class MlflowClient {
   }
 
   /**
-   * Deletes a run with the given ID.
+   * Delete a run with the given ID.
    */
   public void deleteRun(String runId) {
     String ijson = mapper.makeDeleteRun(runId);
@@ -223,7 +223,7 @@ public class MlflowClient {
   }
 
   /**
-   * Restores a deleted run with the given ID.
+   * Restore a deleted run with the given ID.
    */
   public void restoreRun(String runId) {
     String ijson = mapper.makeRestoreRun(runId);
@@ -231,7 +231,7 @@ public class MlflowClient {
   }
 
   /**
-   * Logs a parameter against the given run, as a key-value pair.
+   * Log a parameter against the given run, as a key-value pair.
    * This cannot be called against the same parameter key more than once.
    */
   public void logParam(String runId, String key, String value) {
@@ -239,34 +239,34 @@ public class MlflowClient {
   }
 
   /**
-   * Logs a new metric against the given run, as a key-value pair. Metrics are recorded
+   * Log a new metric against the given run, as a key-value pair. Metrics are recorded
    * against two axes: timestamp and step. This method uses the number of milliseconds
    * since the Unix epoch for the timestamp, and it uses the default step of zero.
    *
-   * @param runId the id of the run in which to record the metric
-   * @param key the key identifying the metric for which to record the specified value
-   * @param value the value of the metric
+   * @param runId The ID of the run in which to record the metric.
+   * @param key The key identifying the metric for which to record the specified value.
+   * @param value The value of the metric.
    */
   public void logMetric(String runId, String key, double value) {
     logMetric(runId, key, value, System.currentTimeMillis(), 0);
   }
 
   /**
-   * Logs a new metric against the given run, as a key-value pair. Metrics are recorded
+   * Log a new metric against the given run, as a key-value pair. Metrics are recorded
    * against two axes: timestamp and step.
    *
-   * @param runId the id of the run in which to record the metric
-   * @param key the key identifying the metric for which to record the specified value
-   * @param value the value of the metric
-   * @param timestamp the timestamp at which to record the metric value
-   * @param step the step at which to record the metric value
+   * @param runId The ID of the run in which to record the metric.
+   * @param key The key identifying the metric for which to record the specified value.
+   * @param value The value of the metric.
+   * @param timestamp The timestamp at which to record the metric value.
+   * @param step The step at which to record the metric value.
    */
   public void logMetric(String runId, String key, double value, long timestamp, long step) {
     sendPost("runs/log-metric", mapper.makeLogMetric(runId, key, value, timestamp, step));
   }
 
   /**
-   * Logs a new tag against the given run, as a key-value pair.
+   * Log a new tag against the given run, as a key-value pair.
    */
   public void setTag(String runId, String key, String value) {
     sendPost("runs/set-tag", mapper.makeSetTag(runId, key, value));
@@ -283,17 +283,17 @@ public class MlflowClient {
     sendPost("runs/log-batch", mapper.makeLogBatch(runId, metrics, params, tags));
   }
 
-  /** Sets the status of a run to be FINISHED at the current time. */
+  /** Set the status of a run to be FINISHED at the current time. */
   public void setTerminated(String runId) {
     setTerminated(runId, RunStatus.FINISHED);
   }
 
-  /** Sets the status of a run to be completed at the current time. */
+  /** Set the status of a run to be completed at the current time. */
   public void setTerminated(String runId, RunStatus status) {
     setTerminated(runId, status, System.currentTimeMillis());
   }
 
-  /** Sets the status of a run to be completed at the given endTime. */
+  /** Set the status of a run to be completed at the given endTime. */
   public void setTerminated(String runId, RunStatus status, long endTime) {
     sendPost("runs/update", mapper.makeUpdateRun(runId, status, endTime));
   }
@@ -305,7 +305,7 @@ public class MlflowClient {
    *
    * Send a GET to the following path, including query parameters.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
-   * @return JSON response from the server
+   * @return JSON response from the server.
    */
   public String sendGet(String path) {
     return httpCaller.get(path);
@@ -318,7 +318,7 @@ public class MlflowClient {
    *
    * Send a POST to the following path, with a String-encoded JSON body.
    * This is mostly an internal API, but allows making lower-level or unsupported requests.
-   * @return JSON response from the server
+   * @return JSON response from the server.
    */
   public String sendPost(String path, String json) {
     return httpCaller.post(path, json);
@@ -340,7 +340,7 @@ public class MlflowClient {
   }
 
   /**
-   * Returns the tracking URI from MLFLOW_TRACKING_URI or throws if not available.
+   * Return the tracking URI from MLFLOW_TRACKING_URI or throws if not available.
    * This is used as the body of the no-argument constructor, as constructors must first call
    * this().
    */
@@ -354,7 +354,7 @@ public class MlflowClient {
   }
 
   /**
-   * Returns the MlflowHostCredsProvider associated with the given tracking URI.
+   * Return the MlflowHostCredsProvider associated with the given tracking URI.
    * This is used as the body of the String-argument constructor, as constructors must first call
    * this().
    */
@@ -385,7 +385,7 @@ public class MlflowClient {
   }
 
   /**
-   * Uploads the given local file to the run's root artifact directory. For example,
+   * Upload the given local file to the run's root artifact directory. For example,
    *
    *   <pre>
    *   logArtifact(runId, "/my/localModel")
@@ -400,7 +400,7 @@ public class MlflowClient {
   }
 
   /**
-   * Uploads the given local file to an artifactPath within the run's root directory. For example,
+   * Upload the given local file to an artifactPath within the run's root directory. For example,
    *
    *   <pre>
    *   logArtifact(runId, "/my/localModel", "model")
@@ -419,7 +419,7 @@ public class MlflowClient {
   }
 
   /**
-   * Uploads all files within the given local directory the run's root artifact directory.
+   * Upload all files within the given local directory the run's root artifact directory.
    * For example, if /my/local/dir/ contains two files "file1" and "file2", then
    *
    *   <pre>
@@ -435,7 +435,7 @@ public class MlflowClient {
   }
 
   /**
-   * Uploads all files within the given local director an artifactPath within the run's root
+   * Upload all files within the given local director an artifactPath within the run's root
    * artifact directory. For example, if /my/local/dir/ contains two files "file1" and "file2", then
    *
    *   <pre>
@@ -455,7 +455,7 @@ public class MlflowClient {
   }
 
   /**
-   * Lists the artifacts immediately under the run's root artifact directory. This does not
+   * List the artifacts immediately under the run's root artifact directory. This does not
    * recursively list; instead, it will return FileInfos with isDir=true where further
    * listing may be done.
    * @param runId Run ID of an existing MLflow run.
@@ -465,7 +465,7 @@ public class MlflowClient {
   }
 
   /**
-   * Lists the artifacts immediately under the given artifactPath within the run's root artifact
+   * List the artifacts immediately under the given artifactPath within the run's root artifact
    * directory. This does not recursively list; instead, it will return FileInfos with isDir=true
    * where further listing may be done.
    * @param runId Run ID of an existing MLflow run.
@@ -477,7 +477,7 @@ public class MlflowClient {
   }
 
   /**
-   * Returns a local directory containing *all* artifacts within the run's artifact directory.
+   * Return a local directory containing *all* artifacts within the run's artifact directory.
    * Note that this will download the entire directory path, and so may be expensive if
    * the directory has a lot of data.
    * @param runId Run ID of an existing MLflow run.
@@ -487,7 +487,7 @@ public class MlflowClient {
   }
 
   /**
-   * Returns a local file or directory containing all artifacts within the given artifactPath
+   * Return a local file or directory containing all artifacts within the given artifactPath
    * within the run's root artifactDirectory. For example, if "model/file1" and "model/file2"
    * exist within the artifact directory, then
    *

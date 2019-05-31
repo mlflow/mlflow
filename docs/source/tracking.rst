@@ -33,13 +33,13 @@ Parameters
     Key-value input parameters of your choice. Both keys and values are strings.
 
 Metrics
-    Key-value metrics where the value is numeric. Each metric can be updated throughout the
+    Key-value metrics, where the value is numeric. Each metric can be updated throughout the
     course of the run (for example, to track how your model's loss function is converging), and
     MLflow records and lets you visualize the metric's full history.
 
 Artifacts
     Output files in any format. For example, you can record images (for example, PNGs), models
-    (for example, a pickled scikit-learn model), or even data files (for example, a
+    (for example, a pickled scikit-learn model), and data files (for example, a
     `Parquet <https://parquet.apache.org/>`_ file) as artifacts.
 
 You can record runs using MLflow Python, R, Java, and REST APIs from anywhere you run your code. For
@@ -81,10 +81,14 @@ Logging Data to Runs
 You can log data to runs using the MLflow Python, R, Java, or REST API. This section
 shows the Python API.
 
+.. contents:: In this section:
+  :depth: 1
+  :local:
+
 .. _basic_logging_functions:
 
-Basic Logging Functions
------------------------
+Logging Functions
+------------------
 
 :py:func:`mlflow.set_tracking_uri` connects to a tracking URI. You can also set the
 ``MLFLOW_TRACKING_URI`` environment variable to have MLflow find a URI from there. In both cases,
@@ -150,6 +154,53 @@ just one block of code as follows:
 The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
 
+
+Performance Tracking with Metrics
+---------------------------------
+
+You log MLflow metrics with ``log`` methods in the Tracking API. The ``log`` methods support two alternative methods for distinguishing metric values on the x-axis: ``timestamp`` and ``step``. 
+
+``timestamp`` is an optional long value that represents the time that the metric was logged. ``timestamp`` defaults to the current time. ``step`` is an optional integer that represents any measurement of training progress (number of training iterations, number of epochs, and so on). ``step`` defaults to 0 and has the following requirements and properties:
+
+- Must be a valid 64-bit integer value.
+- Can be negative.
+- Can be out of order in successive write calls. For example, (1, 3, 2) is a valid sequence.
+- Can have "gaps" in the sequence of values specified in successive write calls. For example, (1, 5, 75, -20) is a valid sequence.
+
+If you specify both a timestamp and a step, metrics are recorded against both axes independently.
+
+Examples
+~~~~~~~~
+
+Java and Scala
+  .. code-block:: scala
+  
+    logMetric(String runUuid, String key, double value, long timestamp, int step)
+
+Python
+  .. code-block:: py
+  
+    log_metric(self, run_id, key, value, timestamp=None, step=None)
+
+
+Visualizing Metrics
+-------------------
+
+Here are plots of :ref:`quick start tutorial <quickstart>` with the step x-axis and two timestamp x-axes:
+
+.. figure:: _static/images/metrics-step.png
+
+  X-axis step
+
+.. figure:: _static/images/metrics-time-wall.png
+
+  X-axis wall time
+  
+.. figure:: _static/images/metrics-time-relative.png
+
+  X-axis relative time
+
+
 .. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments
@@ -196,8 +247,6 @@ add tags to a run, and more.
     client.log_param(run.info.run_uuid, "hello", "world")
     client.set_terminated(run.info.run_uuid)
 
-.. _tracking_ui:
-
 Adding Tags to Runs
 ~~~~~~~~~~~~~~~~~~~
 
@@ -209,12 +258,13 @@ The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom
   
 .. important:: Do not use the prefix ``mlflow`` for a tag.  This prefix is reserved for use by MLflow.
 
+.. _tracking_ui:
 
 Tracking UI
 ===========
 
 The Tracking UI lets you visualize, search and compare runs, as well as download run artifacts or
-metadata for analysis in other tools. If you have been logging runs to a local ``mlruns`` directory,
+metadata for analysis in other tools. If you log runs to a local ``mlruns`` directory,
 run ``mlflow ui`` in the directory above it, and it loads the corresponding runs.
 Alternatively, the :ref:`MLflow tracking server <tracking_server>` serves the same UI and enables remote storage of run artifacts.
 

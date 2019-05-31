@@ -78,7 +78,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     ``start_run`` attempts to resume a run with the specified run ID and
     other parameters are ignored. ``run_id`` takes precedence over ``MLFLOW_RUN_ID``.
 
-    MLflow will set a variety of default tags on the run, as defined in
+    MLflow sets a variety of default tags on the run, as defined in
     :ref:`MLflow system tags <system_tags>`.
 
     :param run_id: If specified, get the run with the specified UUID and log parameters
@@ -93,7 +93,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
                           or the default experiment as defined by the tracking server.
     :param run_name: Name of new run (stored as a ``mlflow.runName`` tag).
                      Used only when ``run_id`` is unspecified.
-    :param nested: Parameter which must be set to ``True`` to create nested runs.
+    :param nested: Controls whether run is nested in parent run. ``True`` creates a nest run.
     :return: :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping
              the run's state.
     """
@@ -102,7 +102,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
     if len(_active_run_stack) > 0 and not nested:
         raise Exception(("Run with UUID {} is already active. To start a nested " +
-                        "run call start_run with nested=True").format(
+                        "run, call start_run with nested=True").format(
             _active_run_stack[0].info.run_id))
     if run_id:
         existing_run_id = run_id
