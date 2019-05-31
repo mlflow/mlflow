@@ -12,12 +12,14 @@ import mlflow.tracking
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils import experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "onnx"
 
 
+@experimental
 def get_default_conda_env(include_cloudpickle=False):
     """
     :return: The default Conda environment for MLflow Models produced by calls to
@@ -38,6 +40,7 @@ def get_default_conda_env(include_cloudpickle=False):
     )
 
 
+@experimental
 def save_model(onnx_model, path, conda_env=None, mlflow_model=Model()):
     """
     Save an ONNX model to a path on the local file system.
@@ -114,6 +117,14 @@ class _OnnxModelWrapper:
             outp.name for outp in self.rt.get_outputs()
         ]
 
+    @staticmethod
+    def _cast_float64_to_float32(dataframe, column_names):
+        for input_name in column_names:
+            if dataframe[input_name].values.dtype == np.float64:
+                dataframe[input_name] = dataframe[input_name].values.astype(np.float32)
+        return dataframe
+
+    @experimental
     def predict(self, dataframe):
 
         # ONNXRuntime throws the following exception for some operators when the input
@@ -127,7 +138,7 @@ class _OnnxModelWrapper:
         else:
             cols = dataframe.columns if self.inputs[0][1] == 'tensor(float)' else []
 
-        dataframe = cast_float64_to_float32(dataframe, cols)
+        dataframe = _OnnxModelWrapper._cast_float64_to_float32(dataframe, cols)
         if len(self.inputs) > 1:
             feed_dict = {
                 name: dataframe[name].values
@@ -148,6 +159,7 @@ def _load_pyfunc(path):
     return _OnnxModelWrapper(path)
 
 
+@experimental
 def load_model(model_uri):
     """
     Load an ONNX model from a local file (if ``run_id`` is None) or a run.
@@ -172,6 +184,7 @@ def load_model(model_uri):
     return _load_model(model_file=onnx_model_artifacts_path)
 
 
+@experimental
 def log_model(onnx_model, artifact_path, conda_env=None):
     """
     Log an ONNX model as an MLflow artifact for the current run.
@@ -198,10 +211,3 @@ def log_model(onnx_model, artifact_path, conda_env=None):
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.onnx,
               onnx_model=onnx_model, conda_env=conda_env)
-
-
-def cast_float64_to_float32(dataframe, column_names):
-    for input_name in column_names:
-        if dataframe[input_name].values.dtype == np.float64:
-            dataframe[input_name] = dataframe[input_name].values.astype(np.float32)
-    return dataframe

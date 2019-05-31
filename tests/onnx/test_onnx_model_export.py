@@ -122,7 +122,7 @@ def test_cast_float64_to_float32():
     df = pd.DataFrame([[1.0, 2.1], [True, False]], columns=['col1', 'col2'])
     df['col1'] = df['col1'].astype(np.float64)
     df['col2'] = df['col2'].astype(np.bool)
-    df2 = mlflow.onnx.cast_float64_to_float32(df, df.columns)
+    df2 = mlflow.onnx._OnnxModelWrapper._cast_float64_to_float32(df, df.columns)
     assert df2['col1'].dtype == np.float32 and df2['col2'].dtype == np.bool
 
 
