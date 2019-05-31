@@ -92,7 +92,6 @@ class FileStore(AbstractStore):
         """
         super(FileStore, self).__init__()
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
-        self.artifact_root_uri = artifact_root_uri or path_to_local_file_uri(self.root_directory)
         self.trash_folder = os.path.join(self.root_directory, FileStore.TRASH_FOLDER_NAME)
         # Create root directory if needed
         if not exists(self.root_directory):
@@ -190,7 +189,8 @@ class FileStore(AbstractStore):
         return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
-        artifact_uri = artifact_uri or os.path.join(self.artifact_root_uri, str(experiment_id))
+        artifact_uri = artifact_uri or path_to_local_file_uri(
+            os.path.join(self.root_directory, str(experiment_id)))
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
