@@ -15,10 +15,6 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 
-**Note:** The current version of MLflow is a beta. This means that APIs and data formats
-are subject to change! However, the next release, MLflow 1.0, will stabilize these.
-The current release also does not support Windows, although 1.0 will.
-
 |docs| |travis| |pypi| |conda-forge|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
@@ -92,9 +88,9 @@ Saving and Serving Models
 -------------------------
 To illustrate managing models, the ``mlflow.sklearn`` package can log scikit-learn models as
 MLflow artifacts and then load them again for serving. There is an example training application in
-``examples/sklearn_logisitic_regression/train.py`` that you can run as follows::
+``examples/sklearn_logistic_regression/train.py`` that you can run as follows::
 
-    $ python examples/sklearn_logisitic_regression/train.py
+    $ python examples/sklearn_logistic_regression/train.py
     Score: 0.666
     Model saved in run <run-id>
 

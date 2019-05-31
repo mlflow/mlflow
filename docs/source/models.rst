@@ -56,7 +56,7 @@ And its ``MLmodel`` file describes two flavors:
         loader_module: mlflow.sklearn
 
 This model can then be used with any tool that supports *either* the ``sklearn`` or
-``python_function`` model flavor. For example, the ``mlflow sklearn`` command can serve a
+``python_function`` model flavor. For example, the ``mlflow models serve`` command can serve a
 model with the ``sklearn`` flavor:
 
 .. code-block:: bash
@@ -535,7 +535,7 @@ accepts the following data formats as input:
                                        exist_okay=True)
 
     # Build an Azure ML container image for deployment
-    azure_image, azure_model = mlflow.azureml.build_image(model_path="<path-to-model>",
+    azure_image, azure_model = mlflow.azureml.build_image(model_uri="<path-to-model>",
                                                           workspace=azure_workspace,
                                                           description="Wine regression model 1",
                                                           synchronous=True)
