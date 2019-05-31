@@ -491,7 +491,7 @@ Request Structure
 +------------+------------+--------------------------------------------------------------------------+
 | Field Name |    Type    |                               Description                                |
 +============+============+==========================================================================+
-| run_id     | ``STRING`` | ID of he run to fetch. Must be provided.                                 |
+| run_id     | ``STRING`` | ID of the run to fetch. Must be provided.                                |
 +------------+------------+--------------------------------------------------------------------------+
 | run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run to fetch. This field will |
 |            |            | be removed in a future MLflow version.                                   |
@@ -1022,41 +1022,6 @@ Response Structure
 ===========================
 
 
-
-.. _mlflowMlflowServicepurgeDeletedState:
-
-Purge Deleted State
-===================
-
-
-+----------------------+-------------+
-|       Endpoint       | HTTP Method |
-+======================+=============+
-| ``2.0/mlflow/purge`` | ``POST``    |
-+----------------------+-------------+
-
-Purges (permanently deletes) experiments and runs that were deleted prior to some timestamp.
-
-
-
-
-.. _mlflowPurgeDeletedState:
-
-Request Structure
------------------
-
-
-
-
-
-
-+-------------------+-----------+-----------------------------------------------------------------------------------------+
-|    Field Name     |   Type    |                                       Description                                       |
-+===================+===========+=========================================================================================+
-| horizon_timestamp | ``INT64`` | Horizon for deleted experiments and runs. Any experiments or runs deleted prior to this |
-|                   |           | timestamp (UTC) will be permanently deleted.                                            |
-|                   |           | If this value is not provided, the server will pick the current timestamp.              |
-+-------------------+-----------+-----------------------------------------------------------------------------------------+
 
 .. _RESTadd:
 
