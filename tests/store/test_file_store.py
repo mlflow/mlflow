@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import posixpath
 import random
 import shutil
 import six
@@ -16,7 +17,7 @@ from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, Run
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, read_yaml
+from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.utils.search_utils import SearchFilter
 
@@ -188,6 +189,8 @@ class TestFileStore(unittest.TestCase):
         # get the new experiment (by id) and verify (by name)
         exp1 = fs.get_experiment(created_id)
         self.assertEqual(exp1.name, name)
+        self.assertEqual(exp1.artifact_location,
+                         path_to_local_file_uri(posixpath.join(self.test_root, created_id)))
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)

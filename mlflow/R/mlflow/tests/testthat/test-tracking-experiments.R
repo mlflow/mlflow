@@ -45,7 +45,7 @@ test_that("mlflow_list_experiments() works properly", {
   experiments_list <- mlflow_list_experiments(client = client)
   expect_setequal(experiments_list$experiment_id, c("0", "1", "2"))
   expect_setequal(experiments_list$name, c("Default", "foo1", "foo2"))
-  default_artifact_loc <- file.path("file:/", getwd(), "mlruns", "0", fsep = "/")
+  default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
   expect_setequal(experiments_list$artifact_location, c(default_artifact_loc,
                                                         "art_loc1",
                                                         "art_loc2"))
@@ -54,7 +54,7 @@ test_that("mlflow_list_experiments() works properly", {
   experiments_list <- mlflow_list_experiments()
   expect_setequal(experiments_list$experiment_id, c("0", "1", "2"))
   expect_setequal(experiments_list$name, c("Default", "foo1", "foo2"))
-  default_artifact_loc <- file.path("file:/", getwd(), "mlruns", "0", fsep = "/")
+  default_artifact_loc <- file.path(getwd(), "mlruns", "0", fsep = "/")
   expect_setequal(experiments_list$artifact_location, c(default_artifact_loc,
                                                         "art_loc1",
                                                         "art_loc2"))
