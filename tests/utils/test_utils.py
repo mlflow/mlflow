@@ -31,5 +31,5 @@ def test_extract_db_type_from_uri():
 
 
 for unsupported_db in ["a", "aa", "sql"]:
-        with pytest.raises(MlflowException):
-            extract_db_type_from_uri(unsupported_db)
+    with pytest.raises(MlflowException):
+        extract_db_type_from_uri(unsupported_db)
