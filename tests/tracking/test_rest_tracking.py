@@ -7,7 +7,9 @@ import mock
 from subprocess import Popen
 import os
 import sys
+import posixpath
 import pytest
+from six.moves import urllib
 import socket
 import shutil
 from threading import Thread
@@ -367,7 +369,8 @@ def test_artifacts(mlflow_client):
     experiment_info = mlflow_client.get_experiment(experiment_id)
     assert experiment_info.artifact_location.startswith(
         path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR))
-    assert experiment_info.artifact_location.endswith(experiment_id)
+    artifact_path = urllib.parse.urlparse(experiment_info.artifact_location).path
+    assert posixpath.split(artifact_path)[-1] == experiment_id
 
     created_run = mlflow_client.create_run(experiment_id)
     assert created_run.info.artifact_uri.startswith(experiment_info.artifact_location)
