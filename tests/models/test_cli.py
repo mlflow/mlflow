@@ -148,7 +148,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
     x = output.getvalue()
     assert expected_command_pattern.search(x) is not None
 
-@pytest.mark.small
+@pytest.mark.release
 def test_predict(iris_data, sk_model):
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:

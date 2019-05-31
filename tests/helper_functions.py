@@ -74,7 +74,7 @@ def pyfunc_build_image(model_uri, extra_args=None):
     cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
     if extra_args:
         cmd += extra_args
-    p = Popen(cmd)
+    p = Popen(cmd, )
     assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
     return name
 

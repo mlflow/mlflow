@@ -39,11 +39,6 @@ WORKDIR /opt/mlflow
 
 {install_mlflow}
 
-RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&\
-    mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars
-
-RUN rm /opt/java/pom.xml"
-
 {custom_setup_steps}
 {entrypoint}
 """
