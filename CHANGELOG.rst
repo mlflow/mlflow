@@ -1,6 +1,137 @@
 Changelog
 =========
 
+1.0 (2019-05-31)
+----------------
+MLflow 1.0 includes many significant features and improvements. From this version, MLflow is no longer beta, and all APIs except those marked as experimental are stable until the next version.
+
+
+Major features and improvements:
+
+- (TODO) X-coordinates.
+- (TODO: insert link for example) Batch logging. MLflow 1.0 ships with a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <NEED_LINK>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from:
+
+  - Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``)
+  - R (``mlflow_log_batch``)
+  - Java (``MlflowClient.logBatch``)
+
+- (TODO) Any search improvements? - changes have been covered in 0.9.0 & 0.9.1 in pieces.  _TODO_
+- Windows support. The MLflow client now works on Windows. (#1171, @eedeleon, @tomasatdatabricks)
+
+
+(TODO: list these in the items above)
+[Search]
+- SearchRuns API already has 'run_view_type' field which encodes lifecycle_stage attribute. Supporting that in search query can be confusing. (#1323, @mparkhe)
+- Restrict supported attributes for search (#1272, @mparkhe)
+- Search using run's attributes (#1245, @mparkhe)
+- Add help tooltip for search syntax (#1052, @Zangr)
+- Limiting results returned from SearchRuns API (#1125, @mparkhe)
+- Documentation for search using attributes and system tags (#1326, @mparkhe)
+
+[X-coordinates]
+- Support metric history plotting with Step/Wall/Relative X-axis, multiple metrics,  (#1225, @Zangr)
+- Add "step" parameter to mlflow_log_metric in R (#1237, @dbczumar)
+- Add `step` field to MlflowMessages (#1211, @Zangr)
+- Java support for logging metrics with x-coordinates (#1202, @dbczumar)
+- Add support for specifying metric step in Python fluent APIs (#1143, @smurching)
+- Add step field to MLflow protos (#1132, @smurching)
+- Add metric step support to OSS AbstractStore implementations & server (#1142, @smurching)
+
+[Batch logging]
+- Update R batched logging API to accept dataframes (#1214, @dbczumar)
+
+
+Breaking changes: (32)
+
+- API stabilization
+
+Runs URI (breaking)
+- Cli command to download artifacts from a URI. Updated R apis for loading / scoring models. (#1206, @tomasatdatabricks)
+- [Runs URI][Python] changes in "models" methods (#1190, @dbczumar)
+- [Runs URI][Python] changes in deploy methods (#1174, @sueann)
+- Fix RunsArtifactRepository.list_artifacts (#1175, @sueann)
+- [Runs URI] Add RunsArtifactRepository (#1169, @sueann)
+
+- Stabilizing methods in Python Models modules (#1226, @sueann)
+- Rename dst_path parameter in pyfunc save_model to path (#1221, @aarondav)
+- Remove deprecated RunInfo properties from start_run (#1220, @aarondav)
+- Remove deprecated fields from REST, Python, and R APIs for 1.0 (#1188, @aarondav)
+
+- Unify ``mlflow pyfunc`` and ``mlflow rfunc`` CLI (#1257, @tomasatdatabricks)
+- Change serving docs from "mlflow pyfunc serve" to "mlflow models serve" (#1321, @dbczumar)
+
+- [Easy] Turn args into opts in experiments CLI commands (#1235, @sueann)
+- [CLI] clean-ups for 1.0 (#1233, @sueann)
+- Deprecate --file-store CLI argument to `mlflow server` and `mlflow ui` (#1196, @smurching)
+
+- R flavors refactor (#1299, @kevinykuo)
+- Finalize R projects API & update behavior of mlflow_install() (#1265, @smurching)
+- API cleanups for MLflow R Tracking API (#1246, @smurching)
+- Rename run_uuid in Python, Java, and REST API to run_id (#1187, @aarondav)
+
+- Prefix environment variables with "MLFLOW_" (#1268, @aarondav)
+
+(TODO: is this just docs? if so, move to docs)
+- Mark Python/R model/deploy APIs as stable or experimental for 1.0 (#1222, @sueann)
+
+Run tags (user in 1.0, name & source in 0.9.0)
+Mention database migration
+(list others in breaking changes; or put this in the breaking changes section but mention in the blog post)
+- Move user attribute to a tag (#1230, @acroz)
+
+- Don't copy local artifacts in download_artifacts (#1307, @andrewmchen)
+- Update how we handle mlflow dependency when dealing with models.  (#1308, @tomasatdatabricks)
+- Remove handling of dependencies via packrat in R APIs (#1263, @smurching)
+- Simplify "mlflow ui" command and clarify relationship to "mlflow server" (#1267, @aarondav)
+- Run's status converted to string data type (#1264, @mparkhe)
+- Update model flavors to lazily import dependencies (#1238, @dbczumar)
+- Remove default dependencies on boto3, scikit-learn, and mleap (#1223, @aarondav)
+(TODO: is this breaking??)
+- Add DB migration support + migration logic for metric x coordinates (#1155, @smurching)
+
+- Remove store argument from get_artifact_repository() (#1138, @sueann)
+- Expose RunData fields (metrics, params, tags) as dictionaries in Python API (#1078, @smurching)
+
+More features and improvements:
+
+- Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald)
+
+(TODO: better descriptions)
+- Switch to gunicorn for serving of python models. (#1322, @tomasatdatabricks) (TODO: why is this better?)
+- Add view_type argument to MlflowClient's list_experiments method in Python. R already supports (#1212, @smurching)
+- Update MLflow python client to enable tracking on Windows (#1171, @tomasatdatabricks)
+- Support GCS in Download Utilities (#1168, @drewmcdonald)
+- SageMaker deployment: Use model name as s3 bucket prefix instead of model path (#1183, @dbczumar)
+- Add GetMetricHistory client API (#1178, @smurching)
+- Improve R Tracking API (#1122, @kevinykuo)
+- [enhancement] Hadoop artifact repository with Kerberos authorization support  (#1011, @jaroslawk)
+- Apply maximum runs limit in the Search UI (#1154, @andrewmchen)
+
+Bug fixes and documentation updates: (TODO: make descriptions more informative)
+
+- Bug fix: Return data associated with new runs created by FileStore.create_run() (#1328, @dbczumar)
+- Fix failing ``log_artifact`` due to existing directory on FTP server (#1327, @kafendt)
+- Ensure unique constraint names in MLflow tracking database (#1292, @smurching)
+- swap root and local_dir for relpath (#1285, @jason-huling)
+- Log metric timestamps in ms by default (#1177, @smurching; #1333, @dbczumar)
+- Update artifact repository download methods to return absolute paths (#1179, @dbczumar)
+- Fix bug when deserializing integer experiment ID for runs in SQLAlchemyStore (#1167, @smurching)
+- [R] Fix base64 encoding for basic auth in R tracking client (#1126, @freefrag)
+- Document public MLflow environment variables (#1343, @aarondav)
+- Document MLflow system tags (#1342, @aarondav)
+- R docs: update run selection description in ``mlflow_get_run`` (#1258, @dbczumar)
+- Adding support for both preview and non-preview APIs (#1236, @mparkhe)
+- Autogenerate CLI docs (#1231, @sueann)
+- [Java] Mark sendPost and sendGet as Experimental (#1186, @aarondav)
+
+Small bug fixes and doc updates (#1359, #1350, #1331, #1301, #1270, #1271, #1180, #1144, #1135, #1131, @aarondav; #1287, #1344, #1309, @stbof; #1312, @hchiuzhuo; #1348, #1349, #1294, #1227, @tomasatdatabricks; #1345, @withsmilo; #1316, @ancasarb; #1313, #1310, #1305, #1289, #1256, #1124, #1097, #1162, #1163, @smurching; #1319, #1244, #1224, #1195, #1194, @dbczumar; #1213, #1200, @Kublai-Jing; #1304, @andrewmchen; #1311, @Zangr; #1306, #1293, #1147, @mateiz; #1303, @gliptak; #1261, #1192, @eedeleon; #1273, #1259, @kevinykuo; #1277, #1247, #1243, @mparkhe; #1210, @vgod-dbx; #1199, @ashtuchkin; #1176, @sueann; #1157, @cclauss; #1156, @clemens-db; #1152, @pogil; #1146, @srowen)
+
+(TODO-add to small by changing label)
+- Reintroduces the parent_run_id argument to MlflowClient.create_run (#1137, @smurching)
+- Fix #849: updated mlflow api set used in the tensorflow example (#875, @jimthompson5802)
+- fixed buggy documentation (#1182, @mparkhe)
+
+
 0.9.1 (2019-04-21)
 ------------------
 MLflow 0.9.1 is a patch release on top of 0.9.0 containing mostly bug fixes and internal improvements. We have also included a one breaking API change in preparation for additions in MLflow 1.0 and later. This release also includes significant improvements to the Search API.
