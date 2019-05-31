@@ -381,7 +381,7 @@ image repository, so you need to configure MLproject with ``docker_env`` section
 creates a Kubernetes Job that uses this published image and runs the MLflow project on kubernetes.
 A brief overview of how to configure and use this feature is as follows:
 
-In project folder you need to create a ``backend_config.json`` with the follwing attributes:
+In project folder you need to create a ``backend_config.json`` with the following attributes:
 
 .. code-block:: json
 
