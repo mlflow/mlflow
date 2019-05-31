@@ -99,8 +99,8 @@ Docker container environment
  
   Environment variables, such as ``MLFLOW_TRACKING_URI``, are propagated inside the Docker container 
   during project execution. Additionally, :ref:`runs <concepts>` and 
-  :ref:`experiments <organizing-runs-in-experiments>` created by the project are saved to the 
-  tracking server specified by your :ref:`tracking URI <where-runs-are-recorded>`. When running 
+  :ref:`experiments <organizing_runs_in_experiments>` created by the project are saved to the 
+  tracking server specified by your :ref:`tracking URI <where_runs_are_recorded>`. When running 
   against a local tracking URI, MLflow mounts the host system's tracking directory
   (e.g., a local ``mlruns`` directory) inside the container so that metrics, parameters, and 
   artifacts logged during project execution are accessible afterwards.

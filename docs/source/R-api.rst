@@ -381,11 +381,11 @@ Extracts the ID of the run or experiment.
 Arguments
 ---------
 
-+------------+----------------------------------------------------+
-| Argument   | Description                                        |
-+============+====================================================+
-| ``object`` | An ``mlflow_run`` or ``mlflow_experiment`` object. |
-+------------+----------------------------------------------------+
+========== ==================================================
+Argument   Description
+========== ==================================================
+``object`` An ``mlflow_run`` or ``mlflow_experiment`` object.
+========== ==================================================
 
 ``mlflow_list_artifacts``
 =========================
@@ -893,17 +893,13 @@ to be used by package authors to extend the supported MLflow models.
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``model``                         | The loaded MLflow model flavor.   |
-+-----------------------------------+-----------------------------------+
-| ``data``                          | A data frame to perform scoring.  |
-+-----------------------------------+-----------------------------------+
-| ``...``                           | Optional additional arguments     |
-|                                   | passed to underlying predict      |
-|                                   | methods.                          |
-+-----------------------------------+-----------------------------------+
+========= ===================================================================
+Argument  Description
+========= ===================================================================
+``model`` The loaded MLflow model flavor.
+``data``  A data frame to perform scoring.
+``...``   Optional additional arguments passed to underlying predict methods.
+========= ===================================================================
 
 ``mlflow_rename_experiment``
 ============================
@@ -1211,20 +1207,14 @@ model types.
 Arguments
 ---------
 
-+-----------------------------------+-----------------------------------+
-| Argument                          | Description                       |
-+===================================+===================================+
-| ``model``                         | The model that will perform a     |
-|                                   | prediction.                       |
-+-----------------------------------+-----------------------------------+
-| ``path``                          | Destination path where this       |
-|                                   | MLflow compatible model will be   |
-|                                   | saved.                            |
-+-----------------------------------+-----------------------------------+
-| ``...``                           | Optional additional arguments.    |
-+-----------------------------------+-----------------------------------+
-| ``conda_env``                     | Path to Conda dependencies file.  |
-+-----------------------------------+-----------------------------------+
+============= ==================================================================
+Argument      Description
+============= ==================================================================
+``model``     The model that will perform a prediction.
+``path``      Destination path where this MLflow compatible model will be saved.
+``...``       Optional additional arguments.
+``conda_env`` Path to Conda dependencies file.
+============= ==================================================================
 
 ``mlflow_search_runs``
 ======================
@@ -1403,11 +1393,11 @@ experiments.
 Arguments
 ---------
 
-+----------+--------------------------------------+
-| Argument | Description                          |
-+==========+======================================+
-| ``uri``  | The URI to the remote MLflow server. |
-+----------+--------------------------------------+
+======== ====================================
+Argument Description
+======== ====================================
+``uri``  The URI to the remote MLflow server.
+======== ====================================
 
 ``mlflow_source``
 =================
@@ -1426,11 +1416,11 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 Arguments
 ---------
 
-+----------+----------------------------------------------------------+
-| Argument | Description                                              |
-+==========+==========================================================+
-| ``uri``  | Path to an R script, can be a quoted or unquoted string. |
-+----------+----------------------------------------------------------+
+======== ========================================================
+Argument Description
+======== ========================================================
+``uri``  Path to an R script, can be a quoted or unquoted string.
+======== ========================================================
 
 ``mlflow_start_run``
 ====================
