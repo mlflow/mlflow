@@ -25,10 +25,6 @@ def _get_kubernetes_job_definition(image, command, env_vars, job_template):
     job_name = "{}-{}".format(image.split('/')[-1].replace(':', '-'), timestamp)
     _logger.info("=== Creating Job %s ===", job_name)
     enviroment_variables = ""
-    if os.environ.get('AZURE_STORAGE_ACCESS_KEY'):
-        env_vars['AZURE_STORAGE_ACCESS_KEY'] = os.environ['AZURE_STORAGE_ACCESS_KEY']
-    if os.environ.get('AZURE_STORAGE_CONNECTION_STRING'):
-        env_vars['AZURE_STORAGE_CONNECTION_STRING'] = os.environ['AZURE_STORAGE_CONNECTION_STRING']
     for key in env_vars.keys():
         enviroment_variables += "   - name: {name}\n".format(name=key)
         enviroment_variables += "     value: \"{value}\"\n".format(value=env_vars[key])
