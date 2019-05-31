@@ -38,6 +38,8 @@ matrix:
       name: "R"
       cache: packages
       before_install:
+        # cache packages dramatically decreases build time, but it must not include mlflow
+        - rm -rf /home/travis/R/Library/mlflow
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
@@ -47,6 +49,10 @@ matrix:
         - source ./travis/install-common-deps.sh
       script:
         - cd mlflow/R/mlflow
+        # Building the package here populates the /home/travis/R/Library cache,
+        # and is also used when python forks into R (e.g., rfunc via models CLI).
+        - R CMD build .
+        - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
         - export LINTR_COMMENT_BOT=false
         - cd tests
         - Rscript ../.travis.R
