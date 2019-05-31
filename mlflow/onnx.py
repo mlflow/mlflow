@@ -145,8 +145,8 @@ class _OnnxModelWrapper:
         # dataframe contains float64 values. Unfortunately, even if the original user-supplied
         # dataframe did not contain float64 values, the serialization/deserialization between the
         # client and the scoring server can introduce 64-bit floats. This is being tracked in
-        # issue #1286. Meanwhile we explicitly cast the input to 32-bit floats when needed.
-        # TODO: Remove explicit casting when issue #1286 is fixed
+        # https://github.com/mlflow/mlflow/issues/1286. Meanwhile, we explicitly cast the input to
+        # 32-bit floats when needed. TODO: Remove explicit casting when issue #1286 is fixed.
         if len(self.inputs) > 1:
             cols = [name for (name, type) in self.inputs if type == 'tensor(float)']
         else:

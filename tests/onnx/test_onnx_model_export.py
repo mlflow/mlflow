@@ -61,7 +61,7 @@ def predicted(model, data):
 
 
 @pytest.fixture(scope='module')
-def tf_model_multiple_inputs():
+def tf_model_multiple_inputs_float64():
     graph = tf.Graph()
     with graph.as_default():
         t_in1 = tf.placeholder(tf.float64, 10, name="first_input")
@@ -72,9 +72,36 @@ def tf_model_multiple_inputs():
 
 
 @pytest.fixture(scope='module')
-def onnx_model_multiple_inputs(tf_model_multiple_inputs):
+def tf_model_multiple_inputs_float32():
+    graph = tf.Graph()
+    with graph.as_default():
+        t_in1 = tf.placeholder(tf.float32, 10, name="first_input")
+        t_in2 = tf.placeholder(tf.float32, 10, name="second_input")
+        t_out = tf.multiply(t_in1, t_in2)
+        t_out_named = tf.identity(t_out, name="output")
+    return graph
+
+
+@pytest.fixture(scope='module')
+def onnx_model_multiple_inputs_float64(tf_model_multiple_inputs_float64):
     import tf2onnx
-    sess = tf.Session(graph=tf_model_multiple_inputs)
+    sess = tf.Session(graph=tf_model_multiple_inputs_float64)
+
+    onnx_graph = tf2onnx.tfonnx.process_tf_graph(
+        sess.graph,
+        input_names=[
+            "first_input:0",
+            "second_input:0",
+        ],
+        output_names=["output:0"])
+    model_proto = onnx_graph.make_model("test")
+    return model_proto
+
+
+@pytest.fixture(scope='module')
+def onnx_model_multiple_inputs_float32(tf_model_multiple_inputs_float32):
+    import tf2onnx
+    sess = tf.Session(graph=tf_model_multiple_inputs_float32)
 
     onnx_graph = tf2onnx.tfonnx.process_tf_graph(
         sess.graph,
@@ -154,12 +181,12 @@ def test_model_save_load(onnx_model, model_path, data, predicted):
 
 
 @pytest.mark.large
-def test_model_save_load_multiple_inputs(onnx_model_multiple_inputs, data_multiple_inputs,
+def test_model_save_load_multiple_inputs(onnx_model_multiple_inputs_float64, data_multiple_inputs,
                                          predicted_multiple_inputs, model_path):
     import onnx
     import mlflow.onnx
 
-    mlflow.onnx.save_model(onnx_model_multiple_inputs, model_path)
+    mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
 
     # Loading ONNX model
     onnx.checker.check_model = mock.Mock()
@@ -178,6 +205,33 @@ def test_model_save_load_multiple_inputs(onnx_model_multiple_inputs, data_multip
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert np.allclose(pd.read_json(scoring_response.content, orient="records").values,
                        predicted_multiple_inputs.values, rtol=1e-05, atol=1e-05)
+
+# TODO: Remove test, along with explicit casting, when https://github.com/mlflow/mlflow/issues/1286 ixed
+@pytest.mark.large
+def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_inputs(
+         onnx_model_multiple_inputs_float32, model_path, data_multiple_inputs,
+         predicted_multiple_inputs):
+    """
+    The ``python_function`` representation of an MLflow model with the ONNX flavor
+    casts 64-bit floats to 32-bit floats automatically before evaluating, as opposed
+    to throwing an unexpected type exception. This behavior is implemented due
+    to the issue described in https://github.com/mlflow/mlflow/issues/1286 where
+    the JSON representation of a Pandas DataFrame does not always preserve float
+    precision (e.g., 32-bit floats may be converted to 64-bit floats when persisting a
+    DataFrame as JSON).
+    """
+    import onnx
+    import mlflow.onnx
+
+    mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
+
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    assert np.allclose(pyfunc_loaded.predict(data_multiple_inputs.astype("float64")).values,
+                       predicted_multiple_inputs.astype("float32").values, rtol=1e-05, atol=1e-05)
+
+    with pytest.raises(RuntimeError):
+        pyfunc_loaded.predict(data_multiple_inputs.astype("int32"))
 
 
 @pytest.mark.large
