@@ -348,6 +348,11 @@ class Utils {
     return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
   }
 
+  static getSearchParamsFromUrl(search) {
+    const params = qs.parse(search);
+    return params ? JSON.parse(params) : [];
+  }
+
   static compareByTimestamp(history1, history2) {
     return history1.timestamp - history2.timestamp;
   }
