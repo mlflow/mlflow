@@ -7,7 +7,7 @@ MLflow 1.0 includes many significant features and improvements. From this versio
 
 Major features and improvements:
 
-- (TODO) X-coordinates. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr)
+- Support for recording, querying, and visualizing metrics along a new “step” axis, providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s pre-existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr)
 - Logging metrics in batches. MLflow 1.0 ships with a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``), R (``mlflow_log_batch``), and Java (``MlflowClient.logBatch``). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
 - (TODO) Any search improvements? - changes have been covered in 0.9.0 & 0.9.1 in pieces. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
 
