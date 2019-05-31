@@ -126,7 +126,21 @@ class _OnnxModelWrapper:
 
     @experimental
     def predict(self, dataframe):
-
+        """
+        :param dataframe: A Pandas DataFrame that is converted to a collection of ONNX Runtime
+                          inputs. If the underlying ONNX model only defines a *single* input
+                          tensor, the DataFrame's values are converted to a NumPy array
+                          representation using the `DataFrame.values()
+                          <https://pandas.pydata.org/pandas-docs/stable/reference/api/
+                          pandas.DataFrame.values.html#pandas.DataFrame.values>`_ method. If the
+                          underlying ONNX model defines *multiple* input tensors, each column
+                          of the DataFrame is converted to a NumPy array representation.
+                          The corresponding NumPy array representation is then passed to the
+                          ONNX Runtime. For more information about the ONNX Runtime, see
+                          `<https://github.com/microsoft/onnxruntime>`_.
+        :return: A Pandas DataFrame output. Each column of the DataFrame corresponds to an
+                 output tensor produced by the underlying ONNX model.
+        """
         # ONNXRuntime throws the following exception for some operators when the input
         # dataframe contains float64 values. Unfortunately, even if the original user-supplied
         # dataframe did not contain float64 values, the serialization/deserialization between the
