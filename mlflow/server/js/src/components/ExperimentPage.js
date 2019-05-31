@@ -14,6 +14,8 @@ import ErrorCodes from "../sdk/ErrorCodes";
 import PermissionDeniedView from "./PermissionDeniedView";
 import {Spinner} from "./Spinner";
 
+import Routes from '../Routes';
+
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 
 class ExperimentPage extends Component {
@@ -108,6 +110,13 @@ class ExperimentPage extends Component {
     const searchRunsRequestId = this.props.dispatchSearchRuns(
       this.props.experimentId, searchInput, lifecycleFilterInput);
     this.setState({ searchRunsRequestId });
+    this.updateUrlWithSearchFilter(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput);
+  }
+
+  updateUrlWithSearchFilter(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput) {
+    var stateObj = {};
+    window.history.replaceState(stateObj, "search page",
+        Routes.getRunSearchPageRoute(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput));
   }
 
   render() {

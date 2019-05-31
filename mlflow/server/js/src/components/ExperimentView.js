@@ -91,11 +91,7 @@ export class ExperimentView extends Component {
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
     searchRunsError: PropTypes.string,
-    isLoading: PropTypes.bool.isRequired,
-
-    //history object for pushing entry
-    history: PropTypes.object.isRequired
-
+    isLoading: PropTypes.bool.isRequired
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -609,17 +605,13 @@ export class ExperimentView extends Component {
     try {
       this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
         lifecycleFilterInput);
-      this.updateUrlWithSearchFilter(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput);
+
     } catch (ex) {
       this.setState({ searchErrorMessage: ex.errorMessage });
     }
   }
 
-  updateUrlWithSearchFilter(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput) {
-    var stateObj = {};
-    window.history.replaceState(stateObj, "search page",
-        Routes.getRunSearchPageRoute(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput));
-  }
+
 
   onClear() {
     // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
