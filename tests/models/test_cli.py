@@ -132,20 +132,24 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
         mlflow.sklearn.log_model(sk_model, "model")
         model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
 
-    output = StringIO()
-    x, _ = iris_data
-    scoring_response = pyfunc_serve_and_score_model(model_uri, pd.DataFrame(x),
-                                                    content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-                                                    stdout=output,
-                                                    extra_args=["-w", "3"])
+    with TempDir() as tpm:
+        output_file_path = tpm.path("stoudt")
+        with open(output_file_path, "w") as output_file:
+            x, _ = iris_data
+            scoring_response = pyfunc_serve_and_score_model(
+                model_uri, pd.DataFrame(x),
+                content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                stdout=output_file,
+                extra_args=["-w", "3"])
+        with open(output_file_path, "r") as output_file:
+            stdout = output_file.read()
     actual = pd.read_json(scoring_response.content, orient="records")
     actual = actual[actual.columns[0]].values
     expected = sk_model.predict(x)
     assert all(expected == actual)
     expected_command_pattern = re.compile((
         "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"))
-    x = output.getvalue()
-    assert expected_command_pattern.search(x) is not None
+    assert expected_command_pattern.search(stdout) is not None
 
 
 def test_predict(iris_data, sk_model):

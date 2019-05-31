@@ -2,13 +2,12 @@ from __future__ import print_function
 
 import os
 import random
-import re
 import requests
 import string
 import time
 import signal
 import socket
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen
 import uuid
 import sys
 
@@ -110,19 +109,13 @@ def pyfunc_serve_and_score_model(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", "0"]
+    port = get_safe_port()
+    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", str(port)]
     if extra_args is not None:
         scoring_cmd += extra_args
-    proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
-    for x in iter(proc.stdout.readline, ""):
-        print(x, file=stdout)
-        m = re.search(pattern=" Listening at: http://127.0.0.1:(\\d+).*", string=x)
-        if m:
-            return _evaluate_scoring_proc(
-                proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds,
-                stdout=stdout)
-
-    raise Exception("Failed to start server")
+    proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
+    return _evaluate_scoring_proc(
+        proc, port, data, content_type, activity_polling_timeout_seconds)
 
 
 def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
@@ -139,10 +132,9 @@ def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
 
 
 class RestEndpoint:
-    def __init__(self, proc, port, activity_polling_timeout_seconds=250, stdout=sys.stdout):
+    def __init__(self, proc, port, activity_polling_timeout_seconds=250):
         self._proc = proc
         self._port = port
-        self._stdout = stdout
         self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
 
     def __enter__(self):
@@ -169,7 +161,6 @@ class RestEndpoint:
             pgrp = os.getpgid(self._proc.pid)
             os.killpg(pgrp, signal.SIGTERM)
 
-
     def invoke(self, data, content_type):
         if type(data) == pd.DataFrame:
             if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
@@ -188,13 +179,12 @@ class RestEndpoint:
         return response
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250,
-                           stdout=sys.stdout):
+def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
     """
     :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
                                              declaring the scoring process to have failed.
     """
-    with RestEndpoint(proc, port, activity_polling_timeout_seconds, stdout) as endpoint:
+    with RestEndpoint(proc, port, activity_polling_timeout_seconds) as endpoint:
         return endpoint.invoke(data, content_type)
 
 
