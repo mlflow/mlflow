@@ -9,22 +9,13 @@ MLflow 1.0 includes many significant features and improvements. From this versio
 Major features and improvements:
 
 - (TODO) X-coordinates. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr)
-- (TODO: insert link for example) Logging metrics in batches. MLflow 1.0 ships with a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <NEED_LINK>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from:
-
-  - Python: ``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``
-  - R: ``mlflow_log_batch``
-  - Java: ``MlflowClient.logBatch``
-
+- Logging metrics in batches. MLflow 1.0 ships with a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``), R (``mlflow_log_batch``), and Java (``MlflowClient.logBatch``). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
 - (TODO) Any search improvements? - changes have been covered in 0.9.0 & 0.9.1 in pieces. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
+  - (TODO: should these go to the search item here, or in "more features"?)
+     - Limiting results returned from SearchRuns API (#1125, @mparkhe)
+     - Apply maximum runs limit in the Search UI (#1154, @andrewmchen)
+
 - Windows support for MLflow Tracking. The MLflow client is now supported on Windows for Tracking. (#1171, @eedeleon, @tomasatdatabricks)
-
-[Search] (TODO: should these go to the search item here, or in "more features"?)
-- Limiting results returned from SearchRuns API (#1125, @mparkhe)
-- Apply maximum runs limit in the Search UI (#1154, @andrewmchen)
-
-[Batch logging] (TODO: where to put this?)
-- Update R batched logging API to accept dataframes (#1214, @dbczumar)
-
 
 Breaking changes:
 
@@ -101,7 +92,7 @@ Bug fixes and documentation updates:
 - [DB] Fix bug when deserializing integer experiment ID for runs in SQLAlchemyStore (#1167, @smurching)
 - [DB] Ensure unique constraint names in MLflow tracking database (#1292, @smurching)
 - [R] Fix base64 encoding for basic auth in R tracking client (#1126, @freefrag)
-- [CLI] Correctly handle ``file:/`` URIs for the ``-—backend-store-uri`` option in ``mlflow server`` and ``mlflow ui`` (#1171, @eedeleon, @tomasatdatabricks)
+- [CLI] Correctly handle ``file:`` URIs for the ``-—backend-store-uri`` option in ``mlflow server`` and ``mlflow ui`` (#1171, @eedeleon, @tomasatdatabricks)
 - Fix ``log_artifact`` failures due to existing directory on FTP server (#1327, @kafendt)
 - Fix GCS Artifact Logging of Subdirectories (#1285, @jason-huling)
 
