@@ -2,7 +2,6 @@ from __future__ import absolute_import
 import yaml
 import logging
 import docker
-import os
 import time
 import kubernetes
 from datetime import datetime
