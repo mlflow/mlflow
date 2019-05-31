@@ -364,6 +364,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                         :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string.
                         Only a primitive type or an array (pyspark.sql.types.ArrayType) of primitive
                         types are allowed. The following classes of result type are supported:
+
                         - "int" or pyspark.sql.types.IntegerType: The leftmost integer that can fit
                           in int32 result is returned or exception is raised if there is none.
                         - "long" or pyspark.sql.types.LongType: The leftmost long integer that can
