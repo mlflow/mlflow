@@ -45,12 +45,12 @@ To run this tutorial, you'll need to:
 
        - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Install the MLflow package (via ``install.packages("mlflow")``)
-       - Install MLflow (via ``mlflow::install_mlflow()``)
+       - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
-       - ``setwd()`` into the ``example`` directory within your clone of MLflow - we'll use this working
-         directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
-         so would cause the tutorial to use MLflow from source, rather than your PyPI installation of
-         MLflow.
+       - ``setwd()`` into the ``examples`` directory within your clone of MLflow - we'll use this
+        working directory for running the tutorial. We avoid running directly from our clone of
+        MLflow as doing so would cause the tutorial to use MLflow from source, rather than your
+        PyPI installation of MLflow.
 
 Training the Model
 ------------------
@@ -336,7 +336,7 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: r
 
-          mlflow_rfunc_serve(model_path = "model", run_uuid = "1bf3cca7f3814d8fac7be7874de1046d")
+          mlflow_rfunc_serve(model_uri="mlruns/0/c2a7325210ef4242bd4631cec8f92351/artifacts/model", port=8090)
 
       This initializes a REST server and opens a `Swagger <https://swagger.io/>`_ interface to perform predictions against
       the REST API:
@@ -349,21 +349,40 @@ in MLflow saved the model as an artifact within the run.
           the prediction function matches the model, set ``restore = TRUE`` when calling
           ``mlflow_rfunc_serve()``.
 
-      To serve a prediction, run:
+      To serve a prediction, enter this in the Swagger UI::
+
+        {
+          "fixed acidity": 6.2,
+          "volatile acidity": 0.66,
+          "citric acid": 0.48,
+          "residual sugar": 1.2,
+          "chlorides": 0.029,
+          "free sulfur dioxide": 29,
+          "total sulfur dioxide": 75,
+          "density": 0.98,
+          "pH": 3.33,
+          "sulphates": 0.39,
+          "alcohol": 12.8
+        }
+
+      which should return something like::
+
+        [
+          [
+            6.4287492410792
+          ]
+        ]
+
+      Or run:
 
       .. code-block:: bash
 
           curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{\"fixed acidity\": 6.2, \"volatile acidity\": 0.66, \"citric acid\": 0.48, \"residual sugar\": 1.2, \"chlorides\": 0.029, \"free sulfur dioxide\": 29, \"total sulfur dioxide\": 75, \"density\": 0.98, \"pH\": 3.33, \"sulphates\": 0.39, \"alcohol\": 12.8}"
 
-      which should return something like::
+      the server should respond with output similar to::
 
-        {
-          "predictions": [
-            [
-              6.1312
-            ]
-          ]
-        }
+        [[6.4287492410792]]
+
 
 More Resources
 --------------

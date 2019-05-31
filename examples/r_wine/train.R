@@ -4,6 +4,7 @@
 
 library(mlflow)
 library(glmnet)
+library(carrier)
 
 set.seed(40)
 
@@ -26,7 +27,7 @@ lambda <- mlflow_param("lambda", 0.5, "numeric")
 
 with(mlflow_start_run(), {
     model <- glmnet(train_x, train_y, alpha = alpha, lambda = lambda, family= "gaussian", standardize = FALSE)
-    predictor <- crate(~ glmnet::predict.glmnet(model, as.matrix(.x)), model)
+    predictor <- crate(~ glmnet::predict.glmnet(!!model, as.matrix(.x)), !!model)
     predicted <- predictor(test_x)
 
     rmse <- sqrt(mean((predicted - test_y) ^ 2))
