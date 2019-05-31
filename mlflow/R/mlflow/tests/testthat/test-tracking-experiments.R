@@ -38,6 +38,10 @@ test_that("mlflow_get_experiment() not found error", {
 test_that("mlflow_list_experiments() works properly", {
   mlflow_clear_test_dir("mlruns")
   client <- mlflow_client()
+  default_artifact_loc <- file.path("file:/", getwd(), "mlruns", "0", fsep = "/")
+  experiments_list <- mlflow_list_experiments(client = client)
+  expect_equal(experiments_list$artifact_location[[1]], default_artifact_loc)
+
   mlflow_create_experiment(client = client, "foo1", "art_loc1")
   mlflow_create_experiment(client = client, "foo2", "art_loc2")
 
