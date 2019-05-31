@@ -609,15 +609,16 @@ export class ExperimentView extends Component {
     try {
       this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
         lifecycleFilterInput);
-      this.updateUrlWithSearchFilter(searchInput);
+      this.updateUrlWithSearchFilter(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput);
     } catch (ex) {
       this.setState({ searchErrorMessage: ex.errorMessage });
     }
   }
 
-  updateUrlWithSearchFilter(searchInput) {
-    var stateObj = { foo: "bar" };
-    window.history.replaceState(stateObj, "search page", `/s/${searchInput}`);
+  updateUrlWithSearchFilter(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput) {
+    var stateObj = {};
+    window.history.replaceState(stateObj, "search page",
+        Routes.getRunSearchPageRoute(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput));
   }
 
   onClear() {

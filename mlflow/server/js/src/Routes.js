@@ -25,6 +25,12 @@ class Routes {
   }
 
   static compareRunPageRoute = "/compare-runs"
+
+  static getRunSearchPageRoute(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput) {
+    return `/s?params=${paramKeyFilterInput}&metrics=${metricKeyFilterInput}`
+            +`&searchInput=${searchInput}&lifecycle=${lifecycleFilterInput}`
+  }
+
 }
 
 export default Routes;
