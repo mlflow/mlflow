@@ -146,21 +146,21 @@ def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
               keras_model=keras_model, conda_env=conda_env, **kwargs)
 
 
-def _load_model(model_file):
+def _load_model(model_file, **kwargs):
     import keras
     import keras.models
     import h5py
 
     from distutils.version import StrictVersion
 
-    if StrictVersion(keras.__version__) >= StrictVersion("2.2.3"):
+    if StrictVersion(keras.__version__.split('-')[0]) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         with h5py.File(os.path.abspath(model_file), "r") as model_file:
-            return keras.models.load_model(model_file)
+            return keras.models.load_model(model_file, **kwargs)
     else:
         # NOTE: Older versions of Keras only handle filepath.
-        return keras.models.load_model(model_file)
+        return keras.models.load_model(model_file, **kwargs)
 
 
 class _KerasModelWrapper:
@@ -195,15 +195,16 @@ def _load_pyfunc(path):
         with graph.as_default():
             with sess.as_default():  # pylint:disable=not-context-manager
                 K.set_learning_phase(0)
-                m = _load_model(path)
+                m = _load_model(path, compile=False)
         return _KerasModelWrapper(m, graph, sess)
     else:
         raise Exception("Unsupported backend '%s'" % K._BACKEND)
 
 
-def load_model(model_uri):
+def load_model(model_uri, **kwargs):
     """
     Load a Keras model from a local file (if ``run_id`` is None) or a run.
+    Extra arguments are passed through to keras.load_model.
 
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
@@ -227,4 +228,4 @@ def load_model(model_uri):
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.h5`
     keras_model_artifacts_path = os.path.join(local_model_path, flavor_conf.get("data", "model.h5"))
-    return _load_model(model_file=keras_model_artifacts_path)
+    return _load_model(model_file=keras_model_artifacts_path, **kwargs)
