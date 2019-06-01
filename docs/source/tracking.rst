@@ -172,21 +172,27 @@ If you specify both a timestamp and a step, metrics are recorded against both ax
 Examples
 ~~~~~~~~
 
-Java and Scala
-  .. code-block:: scala
-  
-    logMetric(String runUuid, String key, double value, long timestamp, int step)
-
 Python
   .. code-block:: py
   
-    log_metric(self, run_id, key, value, timestamp=None, step=None)
+    with mlflow.start_run():
+        for epoch in range(0, 3):
+            mlflow.log_metric(key="quality", value=2*epoch, step=epoch)
+
+Java and Scala
+  .. code-block:: java
+
+    MlflowClient client = new MlflowClient();
+    RunInfo run = client.createRun();
+    for (int epoch = 0; epoch < 3; epoch ++) {
+        client.logMetric(run.getRunId(), "quality", 2 * epoch, System.currentTimeMillis(), epoch);
+    }
 
 
 Visualizing Metrics
 -------------------
 
-Here are plots of :ref:`quick start tutorial <quickstart>` with the step x-axis and two timestamp x-axes:
+Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the step x-axis and two timestamp axes:
 
 .. figure:: _static/images/metrics-step.png
 
@@ -194,11 +200,11 @@ Here are plots of :ref:`quick start tutorial <quickstart>` with the step x-axis 
 
 .. figure:: _static/images/metrics-time-wall.png
 
-  X-axis wall time
+  X-axis wall time - graphs the absolute time each metric was logged
   
 .. figure:: _static/images/metrics-time-relative.png
 
-  X-axis relative time
+  X-axis relative time - graphs the time relative to the first metric logged, for each run
 
 
 .. _organizing_runs_in_experiments:
