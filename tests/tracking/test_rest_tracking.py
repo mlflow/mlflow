@@ -25,7 +25,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_RUN_NAME, MLFLOW_PARENT
 from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
 from tests.integration.utils import invoke_cli_runner
 
-LOCALHOST = '127.0.0.1'
+from tests.helper_functions import LOCALHOST, get_safe_port
 
 
 def _await_server_up_or_die(port, timeout=60):
@@ -72,7 +72,7 @@ def _init_server(backend_uri, root_artifact_uri):
              server process (a multiprocessing.Process object).
     """
     mlflow.set_tracking_uri(None)
-    server_port = _get_safe_port()
+    server_port = get_safe_port()
     env = {
         BACKEND_STORE_URI_ENV_VAR: backend_uri,
         ARTIFACT_ROOT_ENV_VAR: path_to_local_file_uri(
@@ -89,15 +89,6 @@ def _init_server(backend_uri, root_artifact_uri):
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
     print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))
     return url, process
-
-
-def _get_safe_port():
-    """Returns an ephemeral port that is very likely to be free to bind to."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((LOCALHOST, 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 # Root directory for all stores (backend or artifact stores) created during this suite

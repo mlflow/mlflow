@@ -18,14 +18,14 @@ def package_files(directory):
 # Prints out a set of paths (relative to the mlflow/ directory) of files in mlflow/server/js/build
 # to include in the wheel, e.g. "../mlflow/server/js/build/index.html"
 js_files = package_files('mlflow/server/js/build')
-sagmaker_server_files = package_files("mlflow/sagemaker/container")
+models_container_server_files = package_files("mlflow/models/container")
 alembic_files = ["../mlflow/alembic/alembic.ini", "../mlflow/temporary_db_migrations_for_pre_1_users/alembic.ini"]
 
 setup(
     name='mlflow',
     version=version,
     packages=find_packages(exclude=['tests', 'tests.*']),
-    package_data={"mlflow": js_files + sagmaker_server_files + alembic_files},
+    package_data={"mlflow": js_files + models_container_server_files + alembic_files},
     install_requires=[
         'alembic',
         'click>=7.0',

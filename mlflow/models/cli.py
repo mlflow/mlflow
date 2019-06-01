@@ -1,5 +1,6 @@
 import logging
 import click
+import os
 import posixpath
 
 from mlflow.models import Model
@@ -77,14 +78,49 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
                                                                       json_format=json_format)
 
 
+@commands.command("build-docker")
+@cli_args.MODEL_URI
+@click.option("--name", "-n", default="mlflow-pyfunc-servable",
+              help="Name to use for built image")
+@cli_args.INSTALL_MLFLOW
+def build_docker(model_uri, name, install_mlflow):
+    """
+    **EXPERIMENTAL**: Builds a Docker image whose default entrypoint serves the specified MLflow
+    model at port 8080 within the container, using the 'python_function' flavor.
+
+    For example, the following command builds a docker image named 'my-image-name' that serves the
+    model from run 'some-run-uuid' at run-relative artifact path 'my-model':
+
+    .. code:: bash
+
+        mlflow models build-docker -m "runs:/some-run-uuid/my-model" -n "my-image-name"
+
+    We can then serve the model, exposing it at port 5001 on the host via:
+
+    .. code:: bash
+
+        docker run -p 5001:8080 "my-image-name"
+
+    See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
+    'python_function' flavor.
+
+    This command is experimental (may be changed or removed in a future release without warning)
+    and does not guarantee that the arguments nor format of the Docker container will remain the
+    same.
+    """
+    mlflow_home = os.environ.get("MLFLOW_HOME", None)
+    _get_flavor_backend(model_uri, docker_build=True).build_image(model_uri, name,
+                                                                  mlflow_home=mlflow_home,
+                                                                  install_mlflow=install_mlflow)
+
+
 def _get_flavor_backend(model_uri, **kwargs):
     with TempDir() as tmp:
         local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
                                                  output_path=tmp.path())
         model = Model.load(local_path)
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
-
-    _logger.info("Selected backend for flavor '%s'", flavor_name)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
+    _logger.info("Selected backend for flavor '%s'", flavor_name)
     return flavor_backend
