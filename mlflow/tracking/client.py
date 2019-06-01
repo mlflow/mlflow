@@ -154,8 +154,8 @@ class MlflowClient(object):
 
     def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
-        Log a metric against the run ID. If timestamp is not provided, uses
-        the current timestamp. The metric's step defaults to 0 if unspecified.
+        Log a metric against the run ID. The timestamp defaults to the current timestamp.
+        The step defaults to 0.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
         step = step if step is not None else 0
