@@ -40,7 +40,8 @@ def before_run_validations(tracking_uri, backend_config):
     if backend_config is None:
         raise ExecutionException("Backend spec must be provided when launching MLflow project "
                                  "runs on Databricks.")
-    if tracking.utils._is_local_uri(tracking_uri):
+    if not tracking.utils._is_databricks_uri(tracking_uri) and \
+            not tracking.utils._is_http_uri(tracking_uri):
         raise ExecutionException(
             "When running on Databricks, the MLflow tracking URI must be of the form "
             "'databricks' or 'databricks://profile', or a remote HTTP URI accessible to both the "

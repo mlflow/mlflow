@@ -25,7 +25,7 @@ def test_server_static_prefix_validation():
 
 def test_server_default_artifact_root_validation():
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
-        result = CliRunner().invoke(server, ["--backend-store-uri", "postgresql://"])
+        result = CliRunner().invoke(server, ["--backend-store-uri", "sqlite:///my.db"])
         assert result.output.startswith("Option 'default-artifact-root' is required")
         run_server_mock.assert_not_called()
 
