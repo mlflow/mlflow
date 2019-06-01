@@ -129,3 +129,10 @@ class FlavorBackend(object):
         :return: True if this flavor backend can be applied int he current environment.
         """
         pass
+
+    def can_build_image(self):
+        """
+        :return: True if this flavor has a `build_image` method defined for building a docker
+        container capable of serving the model, False otherwise.
+        """
+        return callable(getattr(self.__class__, 'build_image', None))

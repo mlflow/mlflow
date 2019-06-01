@@ -2,12 +2,13 @@ from __future__ import print_function
 
 import os
 import random
-import re
 import requests
 import string
 import time
 import signal
-from subprocess import Popen, PIPE, STDOUT
+import socket
+from subprocess import Popen
+import uuid
 import sys
 
 import pandas as pd
@@ -16,6 +17,17 @@ import pytest
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.pyfunc
 from mlflow.utils.file_utils import read_yaml, write_yaml
+
+LOCALHOST = '127.0.0.1'
+
+
+def get_safe_port():
+    """Returns an ephemeral port that is very likely to be free to bind to."""
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind((LOCALHOST, 0))
+    port = sock.getsockname()[1]
+    sock.close()
+    return port
 
 
 def random_int(lo=1, hi=1e10):
@@ -46,9 +58,37 @@ def score_model_in_sagemaker_docker_container(
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
     proc = _start_scoring_proc(
-            cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_uri, '-p', "5000", "-f", flavor],
-            env=env)
+        cmd=['mlflow', 'sagemaker', 'run-local', '-m', model_uri, '-p', "5000", "-f", flavor],
+        env=env)
     return _evaluate_scoring_proc(proc, 5000, data, content_type, activity_polling_timeout_seconds)
+
+
+def pyfunc_build_image(model_uri, extra_args=None):
+    """
+    Builds a docker image containing the specified model, returning the name of the image.
+    :param model_uri: URI of model, e.g. runs:/some-run-id/run-relative/path/to/model
+    :param extra_args: List of extra args to pass to `mlflow models build-docker` command
+    """
+    name = uuid.uuid4().hex
+    cmd = ["mlflow", "models", "build-docker", "-m", model_uri, "-n", name]
+    if extra_args:
+        cmd += extra_args
+    p = Popen(cmd, )
+    assert p.wait() == 0, "Failed to build docker image to serve model from %s" % model_uri
+    return name
+
+
+def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
+    """
+    Serves a model from a docker container, exposing it as an endpoint at the specified port
+    on the host machine. Returns a handle (Popen object) to the server process.
+    """
+    env = dict(os.environ)
+    env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+    scoring_cmd = ['docker', 'run', "-p", "%s:8080" % host_port, image_name]
+    if extra_args is not None:
+        scoring_cmd += extra_args
+    return _start_scoring_proc(cmd=scoring_cmd, env=env)
 
 
 def pyfunc_serve_and_score_model(
@@ -69,25 +109,19 @@ def pyfunc_serve_and_score_model(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
-    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", "0"]
+    port = get_safe_port()
+    scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", str(port)]
     if extra_args is not None:
         scoring_cmd += extra_args
-    proc = _start_scoring_proc(cmd=scoring_cmd, env=env)
-    for x in iter(proc.stdout.readline, ""):
-        print(x, file=stdout)
-        m = re.search(pattern=" Listening at: http://127.0.0.1:(\\d+).*", string=x)
-        if m:
-            return _evaluate_scoring_proc(
-                proc, int(m.group(1)), data, content_type, activity_polling_timeout_seconds,
-                stdout=stdout)
-
-    raise Exception("Failed to start server")
+    proc = _start_scoring_proc(cmd=scoring_cmd, env=env, stdout=stdout, stderr=stdout)
+    return _evaluate_scoring_proc(
+        proc, port, data, content_type, activity_polling_timeout_seconds)
 
 
-def _start_scoring_proc(cmd, env):
+def _start_scoring_proc(cmd, env, stdout=sys.stdout, stderr=sys.stderr):
     proc = Popen(cmd,
-                 stdout=PIPE,
-                 stderr=STDOUT,
+                 stdout=stdout,
+                 stderr=stderr,
                  universal_newlines=True,
                  env=env,
                  # Assign the scoring process to a process group. All child processes of the
@@ -97,54 +131,61 @@ def _start_scoring_proc(cmd, env):
     return proc
 
 
-def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250,
-                           stdout=sys.stdout):
-    """
-    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
-                                             declaring the scoring process to have failed.
-    """
-    try:
-        for i in range(0, int(activity_polling_timeout_seconds / 5)):
-            assert proc.poll() is None, "scoring process died"
+class RestEndpoint:
+    def __init__(self, proc, port, activity_polling_timeout_seconds=250):
+        self._proc = proc
+        self._port = port
+        self._activity_polling_timeout_seconds = activity_polling_timeout_seconds
+
+    def __enter__(self):
+        for i in range(0, int(self._activity_polling_timeout_seconds / 5)):
+            assert self._proc.poll() is None, "scoring process died"
             time.sleep(5)
             # noinspection PyBroadException
             try:
-                ping_status = requests.get(url='http://localhost:%d/ping' % port)
+                ping_status = requests.get(url='http://localhost:%d/ping' % self._port)
                 print('connection attempt', i, "server is up! ping status", ping_status)
                 if ping_status.status_code == 200:
                     break
             except Exception:  # pylint: disable=broad-except
                 print('connection attempt', i, "failed, server is not up yet")
-
-        assert proc.poll() is None, "scoring process died"
-        ping_status = requests.get(url='http://localhost:%d/ping' % port)
-        print("server up, ping status", ping_status)
         if ping_status.status_code != 200:
             raise Exception("ping failed, server is not happy")
+        print("server up, ping status", ping_status)
+        return self
+
+    def __exit__(self, tp, val, traceback):
+        if self._proc.poll() is None:
+            # Terminate the process group containing the scoring process.
+            # This will terminate all child processes of the scoring process
+            pgrp = os.getpgid(self._proc.pid)
+            os.killpg(pgrp, signal.SIGTERM)
+
+    def invoke(self, data, content_type):
         if type(data) == pd.DataFrame:
-            if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON:
+            if content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_ORIENTED:
                 data = data.to_json(orient="records")
-            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
+            elif content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON \
+                    or content_type == pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED:
                 data = data.to_json(orient="split")
             elif content_type == pyfunc_scoring_server.CONTENT_TYPE_CSV:
-                data = data.to_csv()
+                data = data.to_csv(index=False)
             else:
                 raise Exception(
-                        "Unexpected content type for Pandas dataframe input %s" % content_type)
-        response = requests.post(url='http://localhost:%d/invocations' % port,
+                    "Unexpected content type for Pandas dataframe input %s" % content_type)
+        response = requests.post(url='http://localhost:%d/invocations' % self._port,
                                  data=data,
                                  headers={"Content-Type": content_type})
         return response
-    finally:
-        if proc.poll() is None:
-            # Terminate the process group containing the scoring process.
-            # This will terminate all child processes of the scoring process
-            pgrp = os.getpgid(proc.pid)
-            os.killpg(pgrp, signal.SIGTERM)
-        print("captured output of the scoring process", file=stdout)
-        print("-------------------------STDOUT------------------------------", file=stdout)
-        print(proc.stdout.read(), file=stdout)
-        print("==============================================================", file=stdout)
+
+
+def _evaluate_scoring_proc(proc, port, data, content_type, activity_polling_timeout_seconds=250):
+    """
+    :param activity_polling_timeout_seconds: The amount of time, in seconds, to wait before
+                                             declaring the scoring process to have failed.
+    """
+    with RestEndpoint(proc, port, activity_polling_timeout_seconds) as endpoint:
+        return endpoint.invoke(data, content_type)
 
 
 @pytest.fixture(scope='module', autouse=True)

@@ -1,5 +1,5 @@
 """
-Initialize the environment and start model serving on Sagemaker or local Docker container.
+Initialize the environment and start model serving in a Docker container.
 
 To be executed only during the model deployment.
 
@@ -8,11 +8,10 @@ from __future__ import print_function
 
 import multiprocessing
 import os
-import shutil
 import signal
+import shutil
 from subprocess import check_call, Popen
 import sys
-import yaml
 
 from pkg_resources import resource_filename
 
@@ -21,9 +20,11 @@ import mlflow.version
 
 from mlflow import pyfunc, mleap
 from mlflow.models import Model
+from mlflow.models.docker_utils import DISABLE_ENV_CREATION
 from mlflow.version import VERSION as MLFLOW_VERSION
 
 MODEL_PATH = "/opt/ml/model"
+
 
 DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME = "MLFLOW_DEPLOYMENT_FLAVOR_NAME"
 
@@ -50,19 +51,6 @@ def _init(cmd):
                                                                                 args=str(sys.argv)))
 
 
-def _server_dependencies_cmds():
-    """
-    Get commands required to install packages required to serve the model with MLflow. These are
-    packages outside of the user-provided environment, except for the MLflow itself.
-
-    :return: List of commands.
-    """
-    # TODO: Should we reinstall MLflow? What if there is MLflow in the user's conda environment?
-    return ["conda install gunicorn", "conda install gevent",
-            "pip install /opt/mlflow/." if _container_includes_mlflow_source()
-            else "pip install mlflow=={}".format(MLFLOW_VERSION)]
-
-
 def _serve():
     """
     Serve the model.
@@ -86,22 +74,56 @@ def _serve():
         raise Exception("This container only supports models with the MLeap or PyFunc flavors.")
 
 
+def _install_pyfunc_deps(model_path=None, install_mlflow=False):
+    """
+    Creates a conda env for serving the model at the specified path and installs almost all serving
+    dependencies into the environment - MLflow is not installed as it's not available via conda.
+    """
+    # If model is a pyfunc model, create its conda env (even if it also has mleap flavor)
+    has_env = False
+    if model_path:
+        model_config_path = os.path.join(model_path, "MLmodel")
+        model = Model.load(model_config_path)
+        # NOTE: this differs from _serve cause we always activate the env even if you're serving
+        # an mleap model
+        if pyfunc.FLAVOR_NAME not in model.flavors:
+            return
+        conf = model.flavors[pyfunc.FLAVOR_NAME]
+        if pyfunc.ENV in conf:
+            print("creating and activating custom environment")
+            env = conf[pyfunc.ENV]
+            env_path_dst = os.path.join("/opt/mlflow/", env)
+            env_path_dst_dir = os.path.dirname(env_path_dst)
+            if not os.path.exists(env_path_dst_dir):
+                os.makedirs(env_path_dst_dir)
+            shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
+            conda_create_model_env = "conda env create -n custom_env -f {}".format(env_path_dst)
+            if Popen(["bash", "-c", conda_create_model_env]).wait() != 0:
+                raise Exception("Failed to create model environment.")
+            has_env = True
+    activate_cmd = ["source /miniconda/bin/activate custom_env"] if has_env else []
+    # NB: install gunicorn[gevent] from pip rather than from conda because gunicorn is already
+    # dependency of mlflow on pip and we expect mlflow to be part of the environment.
+    install_server_deps = ["pip install gunicorn[gevent]"]
+    if Popen(["bash", "-c", " && ".join(activate_cmd + install_server_deps)]).wait() != 0:
+        raise Exception("Failed to install serving dependencies into the model environment.")
+    if has_env and install_mlflow:
+        install_mlflow_cmd = [
+            "pip install /opt/mlflow/." if _container_includes_mlflow_source()
+            else "pip install mlflow=={}".format(MLFLOW_VERSION)
+        ]
+        if Popen(["bash", "-c", " && ".join(activate_cmd + install_mlflow_cmd)]).wait() != 0:
+            raise Exception("Failed to install mlflow into the model environment.")
+
+
 def _serve_pyfunc(model):
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
-        print("activating custom environment")
-        env = conf[pyfunc.ENV]
-        env_path_dst = os.path.join("/opt/mlflow/", env)
-        env_path_dst_dir = os.path.dirname(env_path_dst)
-        if not os.path.exists(env_path_dst_dir):
-            os.makedirs(env_path_dst_dir)
-        # TODO: should we test that the environment does not include any of the server dependencies?
-        # Those are gonna be reinstalled. should probably test this on the client side
-        shutil.copyfile(os.path.join(MODEL_PATH, env), env_path_dst)
-        os.system("conda env create -n custom_env -f {}".format(env_path_dst))
-        bash_cmds += ["source /miniconda/bin/activate custom_env"] + _server_dependencies_cmds()
-    nginx_conf = resource_filename(mlflow.sagemaker.__name__, "container/scoring_server/nginx.conf")
+        if not os.environ.get(DISABLE_ENV_CREATION) == "true":
+            _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
+        bash_cmds += ["source /miniconda/bin/activate custom_env"]
+    nginx_conf = resource_filename(mlflow.models.__name__, "container/scoring_server/nginx.conf")
     nginx = Popen(['nginx', '-c', nginx_conf])
     # link the log streams to stdout/err so they will be logged to the container logs
     check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
@@ -111,7 +133,7 @@ def _serve_pyfunc(model):
     os.system("python -V")
     os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
     cmd = ("gunicorn --timeout 60 -k gevent -b unix:/tmp/gunicorn.sock -w {nworkers} " +
-           "mlflow.sagemaker.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
+           "mlflow.models.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
     bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)])
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))
