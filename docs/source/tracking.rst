@@ -164,9 +164,10 @@ environment variable. Alternatively, you can use the experiment ID instead, via 
 
 .. code-block:: bash
 
-    mlflow experiments create fraud-detection
     # Set the experiment via environment variables
     export MLFLOW_EXPERIMENT_NAME=fraud-detection
+
+    mlflow experiments create --experiment-name fraud-detection
 
 .. code-block:: py
 
@@ -193,8 +194,8 @@ add tags to a run, and more.
     client = MlflowClient()
     experiments = client.list_experiments() # returns a list of mlflow.entities.Experiment
     run = client.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
-    client.log_param(run.info.run_uuid, "hello", "world")
-    client.set_terminated(run.info.run_uuid)
+    client.log_param(run.info.run_id, "hello", "world")
+    client.set_terminated(run.info.run_id)
 
 .. _tracking_ui:
 
@@ -205,7 +206,7 @@ The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom
 
 .. code-block:: py
 
-  client.set_tag(run.info.run_uuid, "tag_key", "tag_value")
+  client.set_tag(run.info.run_id, "tag_key", "tag_value")
   
 .. important:: Do not use the prefix ``mlflow`` for a tag.  This prefix is reserved for use by MLflow.
 
