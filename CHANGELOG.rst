@@ -8,15 +8,9 @@ MLflow 1.0 includes many significant features and improvements. From this versio
 Major features and improvements:
 
 - Support for recording, querying, and visualizing metrics along a new “step” axis, providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s pre-existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr)
-- Logging metrics in batches. MLflow 1.0 ships with a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``), R (``mlflow_log_batch``), and Java (``MlflowClient.logBatch``). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
-- (TODO) Any search improvements? - changes have been covered in 0.9.0 & 0.9.1 in pieces. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
-
-  - (TODO: should these go to the search item here, or in "more features"?)
-
-    - Limiting results returned from SearchRuns API (#1125, @mparkhe)
-    - Apply maximum runs limit in the Search UI (#1154, @andrewmchen)
-
-- Windows support for MLflow Tracking. The MLflow client is now supported on Windows for Tracking. (#1171, @eedeleon, @tomasatdatabricks)
+- Logging metrics in batches. MLflow 1.0 now has a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``), R (``mlflow_log_batch``), and Java (``MlflowClient.logBatch``). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
+- Search improvements. MLflow 1.0 includes additional support for searching runs within a single experiment or a group of experiments through UI and API. The search filter API supports a simplified version of the SQL WHERE clause. In addition to searching using run's metrics and params, the API has been enhanced to support some run attributes and user and `system tags <https://mlflow.org/docs/latest/tracking.html#system-tags>`_. For details see `Search syntax <https://mlflow.org/docs/latest/search-syntax.html#syntax>`_ and `examples for programmatically searching runs <https://mlflow.org/docs/latest/search-syntax.html#programmatically-searching-runs>`_. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
+- Windows support for MLflow Tracking. The Tracking portion of the MLflow client is now supported on Windows. (#1171, @eedeleon, @tomasatdatabricks)
 
 Breaking changes:
 
@@ -34,7 +28,7 @@ Some of the breaking changes involve database schema changes. If your database i
   - [Models] Rename ``dst_path`` parameter in ``pyfunc.save_model`` to ``path`` (#1221, @aarondav)
   - [CLI] Unify ``mlflow pyfunc`` and ``mlflow rfunc`` commands as ``mlflow models`` (#1257, @tomasatdatabricks; #1321, @dbczumar)
   - [CLI] Turn arguments into options in ``experiments`` CLI commands (#1235, @sueann)
-  - [CLI] Conslidate ``artifacts download``, ``artifacts download-from-uri`` and ``download`` into ``artifacts download`` (#1233, @sueann)
+  - [CLI] Consolidate ``artifacts download``, ``artifacts download-from-uri`` and ``download`` into ``artifacts download`` (#1233, @sueann)
   - [CLI] Remove ``sagemaker list-flavors`` (#1233, @sueann)
   - [CLI] Deprecate ``--file-store`` argument to ``mlflow server`` and ``mlflow ui`` (#1196, @smurching)
   - [CLI] Simplify ``mlflow ui`` command by removing the ``--host`` and ``--gunicorn-opts`` options (#1267, @aarondav)
@@ -48,9 +42,9 @@ Some of the breaking changes involve database schema changes. If your database i
 
   - [R] The ``mlflow_run`` API for running MLflow projects has been modified to more closely reflect the Python ``mlflow.run`` API. In particular, the order of the ``uri`` and ``entry_point`` arguments has been reversed and the ``param_list`` argument has been renamed to ``parameters``. (#1265, @smurching)
   - [R] The ``mlflow_cli`` and ``crate`` APIs are now private. Also, the return values of experiment CRUD APIs have been updated to more closely match the REST API. In particular, ``mlflow_create_experiment`` now returns a string experiment ID instead of an experiment, and the other APIs return NULL. (#1246, @smurching)
-  - [R] Remove ``mlflow_snapshot`` and ``mlflow_restore_snapshot`` APIs. New R APIs will be introduced after MLflow 1.0 for managing code and model dependencies. Also, the ``r_dependencies`` argument used to specify the path to a packrat r-dependencies.txt file has been removed from all APIs. (#1263, @smurching)
+  - [R] Remove ``mlflow_snapshot`` and ``mlflow_restore_snapshot`` APIs. Also, the ``r_dependencies`` argument used to specify the path to a packrat r-dependencies.txt file has been removed from all APIs. (#1263, @smurching)
 
-- [Artifacts] In APIs outside of Tracking, an artifact's location is now represented as a URI. (#1190, #1254, @dbczumar; #1174, @dbczumar, @sueann; #1206, @tomasatdatabricks)
+- [Artifacts] In the Models and Projects APIs, an artifact's location is now represented as a URI. (#1190, #1254, @dbczumar; #1174, @dbczumar, @sueann; #1206, @tomasatdatabricks)
 
   - The affected APIs are:
 
@@ -62,24 +56,25 @@ Some of the breaking changes involve database schema changes. If your database i
 - [Runs] The ``user`` property of Runs has been moved to tags (similarly, the ``run_name``, ``source_type``, ``source_name`` properties were moved to tags in 0.9.0). (#1230, @acroz; #1275, #1276, @aarondav)
 - [Runs][Python] Expose ``RunData`` fields (``metrics``, ``params``, ``tags``) as dictionaries (#1078, @smurching)
 - [Runs] ``RunInfo.status``'s type is now string (#1264, @mparkhe)
-- [Installation] The MLflow python package no longer depends on ``scikit-learn``, ``mleap``, or ``boto3``. Users who want to use the ``scikit-learn`` support, the ``MLeap`` support, or ``s3`` artifact repository / ``sagemaker`` support will have to install these respective dependencies explicitly. (#1223, @aarondav)
+- [Installation] The MLflow Python package no longer depends on ``scikit-learn``, ``mleap``, or ``boto3``. If you want to use the ``scikit-learn`` support, the ``MLeap`` support, or ``s3`` artifact repository / ``sagemaker`` support, you will have to install these respective dependencies explicitly. (#1223, @aarondav)
 
 More features and improvements:
 
 - [Tracking][DB] Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald)
 - [Tracking] Validate backend store URI before starting tracking server (#1218, @luke-zhu, @sueann)
 - Add ``view_type`` argument to ``MlflowClient.list_experiments()`` in Python. (#1212, @smurching)
-- [Python] Dictionary values provided to ``mlflow.log_params`` and ``mlflow.set_tags`` can now be non-string types (e.g., numbers), and they will be automatically converted to strings. (#1364, @aarondav)
+- [Python] Dictionary values provided to ``mlflow.log_params`` and ``mlflow.set_tags`` can now be non-string types (e.g., numbers), and they are automatically converted to strings. (#1364, @aarondav)
 - Add ``GetMetricHistory`` client API in Python and Java corresponding to the REST API. (#1178, @smurching)
 - [Tracking][R] API additions to be at parity with REST API and Python (#1122, @kevinykuo)
 - [Artifacts] Hadoop artifact repository with Kerberos authorization support  (#1011, @jaroslawk)
-- [Artifacts] Don't copy local artifacts in ``ArtifactRepository.download_artifacts`` to avoid having many copies of large model files in serving (#1307, @andrewmchen)
+- [Artifacts] To avoid having many copies of large model files in serving, ``ArtifactRepository.download_artifacts`` no longer copies local artifacts (#1307, @andrewmchen)
 - Support GCS in download utilities. ``gs://bucket/path`` files are now supported by the ``mlflow download`` CLI command and as parameters of type ``path`` in MLProject files. (#1168, @drewmcdonald)
-- [Python][Models] All python models exported by MLflow now declare ``mlflow`` as a dependency by default. In addition, we introduce a flag ``--install-mlflow`` users can pass to ``mlflow models serve`` and ``mlflow models predict`` methods to force installation of the latest version of MLflow into the model's environment. (#1308, @tomasatdatabricks)
-- [Python][Models] Update model flavors to lazily import dependencies. Modules that define Model flavors now import extra dependencies such as ``tensorflow``, ``scikit-learn``, and ``pytorch`` inside individual _methods_, ensuring that these modules can be imported and explored even if the dependencies have not been installed on a user's system. Also, the ``DEFAULT_CONDA_ENVIRONMENT`` module variable has been replaced with a ``get_default_conda_env()`` function for each flavor.
-- [Serving] Switch to ``gunicorn`` for serving of python models for better performance. This does not change the user interface. (#1322, @tomasatdatabricks)
-- [SageMaker][Deployment] Use the uniquely-generated model name as the S3 bucket prefix instead of requiring one from user. (#1183, @dbczumar)
-- [REST API] Add support for non-preview API paths. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)
+- [Python][Models] All Python models exported by MLflow now declare ``mlflow`` as a dependency by default. In addition, we introduce a flag ``--install-mlflow`` users can pass to ``mlflow models serve`` and ``mlflow models predict`` methods to force installation of the latest version of MLflow into the model's environment. (#1308, @tomasatdatabricks)
+- [Python][Models] Update model flavors to lazily import dependencies. Modules that define Model flavors now import extra dependencies such as ``tensorflow``, ``scikit-learn``, and ``pytorch`` inside individual _methods_, ensuring that these modules can be imported and explored even if the dependencies have not been installed on your system. Also, the ``DEFAULT_CONDA_ENVIRONMENT`` module variable has been replaced with a ``get_default_conda_env()`` function for each flavor.
+- [Serving] For better performance, switch to ``gunicorn`` for serving Python models. This does not change the user interface. (#1322, @tomasatdatabricks)
+- [SageMaker][Deployment] Use the uniquely-generated model name as the S3 bucket prefix instead of requiring one. (#1183, @dbczumar)
+- [REST API] Add support for API paths without the ``preview`` component. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)
+- [Search] Limit number of results returned from ``SearchRuns`` API and UI for faster load (#1125, @mparkhe; #1154, @andrewmchen)
 
 Bug fixes and documentation updates:
 
@@ -92,11 +87,11 @@ Bug fixes and documentation updates:
 - [CLI] Correctly handle ``file:`` URIs for the ``-—backend-store-uri`` option in ``mlflow server`` and ``mlflow ui`` (#1171, @eedeleon, @tomasatdatabricks)
 - [Artifacts] Fix ``log_artifact`` failures due to existing directory on FTP server (#1327, @kafendt)
 - [Artifacts] Fix GCS artifact logging of subdirectories (#1285, @jason-huling)
-- [Projects] Fix bug not sharing sqlite db file with docker container (#1347, @tomasatdatabricks)
+- [Projects] Fix bug not sharing ``SQLite`` database file with Docker container (#1347, @tomasatdatabricks)
 - [Java] Mark ``sendPost`` and ``sendGet`` as experimental (#1186, @aarondav)
 - [Python][CLI] Mark ``azureml.build_image`` as experimental (#1222, #1233 @sueann)
 - Document public MLflow environment variables (#1343, @aarondav)
-- Document MLflow system tags for Runs (#1342, @aarondav)
+- Document MLflow system tags for runs (#1342, @aarondav)
 - Autogenerate CLI documentation to include subcommands and descriptions (#1231, @sueann)
 - [Docs][R] Update run selection description in ``mlflow_get_run`` (#1258, @dbczumar)
 - Update examples to reflect API changes (#1361, @tomasatdatabricks; #1367, @mparkhe)
