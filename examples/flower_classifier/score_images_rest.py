@@ -11,6 +11,8 @@ import requests
 import click
 import pandas as pd
 
+from mlflow.utils import cli_args
+
 
 def score_model(path, uri, port):
     """
@@ -48,14 +50,14 @@ def score_model(path, uri, port):
 
 @click.command(help="Score images.")
 @click.option("--port", type=click.INT, default=80, help="Port at which the model is deployed.")
-@click.argument("model_uri")
-@click.argument("input_data_path")
-def run(input_data_path, model_uri, port):
+@cli_args.MODEL_URI
+@click.argument("--data-path", "-d")
+def run(data_path, model_uri, port):
     """
     Score images with MLflow deployed deployed at given uri and port and print out the response
     to standard out.
     """
-    print(score_model(input_data_path, model_uri, port).text)
+    print(score_model(data_path, model_uri, port).text)
 
 
 if __name__ == '__main__':

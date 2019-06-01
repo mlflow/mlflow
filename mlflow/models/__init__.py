@@ -104,9 +104,8 @@ class FlavorBackend(object):
         :param json_format: Only applies if content_type == 'json'. Specifies how is the input data
                             encoded in json. Can be one of {'split', 'records'} mirroring the
                             behavior of Pandas orient attribute. The default is 'split' which
-                            expects dict like data: {'index' -> [index],
-                                                     'columns' -> [columns],
-                                                     'data' -> [values]}, where index is optional.
+                            expects dict like data: ``{'index' -> [index], 'columns' -> [columns],
+                            'data' -> [values]}``, where index is optional.
                             For more information see "https://pandas.pydata.org/
                             pandas-docs/stable/reference/api/pandas.read_json.html"
         """
@@ -130,3 +129,10 @@ class FlavorBackend(object):
         :return: True if this flavor backend can be applied int he current environment.
         """
         pass
+
+    def can_build_image(self):
+        """
+        :return: True if this flavor has a `build_image` method defined for building a docker
+        container capable of serving the model, False otherwise.
+        """
+        return callable(getattr(self.__class__, 'build_image', None))

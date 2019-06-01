@@ -6,7 +6,6 @@ from six.moves import shlex_quote
 
 from mlflow.models import FlavorBackend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
 
@@ -23,26 +22,24 @@ class RFuncBackend(FlavorBackend):
         Generate predictions using R model saved with MLflow.
         Return the prediction results as a JSON.
         """
-        with TempDir() as tmp:
-            model_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
-            str_cmd = "mlflow:::mlflow_rfunc_predict(model_path = '{0}', input_path = {1}, " \
-                      "output_path = {2}, content_type = {3}, json_format = {4})"
-            command = str_cmd.format(shlex_quote(model_path),
-                                     _str_optional(input_path),
-                                     _str_optional(output_path),
-                                     _str_optional(content_type),
-                                     _str_optional(json_format))
-            _execute(command)
+        model_path = _download_artifact_from_uri(model_uri)
+        str_cmd = "mlflow:::mlflow_rfunc_predict(model_path = '{0}', input_path = {1}, " \
+                  "output_path = {2}, content_type = {3}, json_format = {4})"
+        command = str_cmd.format(shlex_quote(model_path),
+                                 _str_optional(input_path),
+                                 _str_optional(output_path),
+                                 _str_optional(content_type),
+                                 _str_optional(json_format))
+        _execute(command)
 
     def serve(self, model_uri, port, host):
         """
         Generate R model locally.
         """
-        with TempDir() as tmp:
-            model_path = _download_artifact_from_uri(model_uri, output_path=tmp.path())
-            command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
-                shlex_quote(model_path), port, host)
-            _execute(command)
+        model_path = _download_artifact_from_uri(model_uri)
+        command = "mlflow::mlflow_rfunc_serve('{0}', port = {1}, host = '{2}')".format(
+            shlex_quote(model_path), port, host)
+        _execute(command)
 
     def can_score_model(self):
         process = subprocess.Popen(["Rscript", "--version"], close_fds=True,

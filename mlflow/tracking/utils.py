@@ -73,6 +73,7 @@ def get_tracking_uri():
 
 
 def _is_local_uri(uri):
+    """Returns true if this is a local file path (/foo or file:/foo)."""
     scheme = urllib.parse.urlparse(uri).scheme
     return uri != 'databricks' and (scheme == '' or scheme == 'file')
 

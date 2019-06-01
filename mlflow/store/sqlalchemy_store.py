@@ -3,7 +3,6 @@ import uuid
 from contextlib import contextmanager
 
 import posixpath
-from six.moves import urllib
 from alembic.script import ScriptDirectory
 import sqlalchemy
 
@@ -18,8 +17,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from mlflow.tracking.utils import _is_local_uri
+from mlflow.utils import extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
-from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data,\
+from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id, _validate_metric
 from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
@@ -30,9 +30,15 @@ _logger = logging.getLogger(__name__)
 
 class SqlAlchemyStore(AbstractStore):
     """
-    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. Currently
-    supported database types are ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. This store
-    interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
+    SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
+    supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+    As specified in the
+    `SQLAlchemy docs <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_ ,
+    the database URI is expected in the format
+    ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. If you do not
+    specify a driver, SQLAlchemy uses a dialect's default driver.
+
+    This store interacts with SQL store using SQLAlchemy abstractions defined for MLflow entities.
     :py:class:`mlflow.store.dbmodels.models.SqlExperiment`,
     :py:class:`mlflow.store.dbmodels.models.SqlRun`,
     :py:class:`mlflow.store.dbmodels.models.SqlTag`,
@@ -51,17 +57,17 @@ class SqlAlchemyStore(AbstractStore):
         """
         Create a database backed store.
 
-        :param db_uri: SQL connection string used by SQLAlchemy Engine to connect to the database.
-                       Argument is expected to be in the format:
-                       ``db_type://<user_name>:<password>@<host>:<port>/<database_name>`
-                       Supported database types are ``mysql``, ``mssql``, ``sqlite``,
-                       and ``postgresql``.
+        :param db_uri: The SQLAlchemy database URI string to connect to the database. See
+                       the `SQLAlchemy docs
+                       <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
+                       for format specifications. Mlflow supports the dialects ``mysql``,
+                       ``mssql``, ``sqlite``, and ``postgresql``.
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri
-        self.db_type = urllib.parse.urlparse(db_uri).scheme
+        self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
         self.engine = sqlalchemy.create_engine(db_uri)
         insp = sqlalchemy.inspect(self.engine)
@@ -116,10 +122,10 @@ class SqlAlchemyStore(AbstractStore):
         if current_rev != head_revision:
             raise MlflowException(
                 "Detected out-of-date database schema (found version %s, but expected %s). "
-                "Take a backup of your database, then run 'mlflow db upgrade %s' to migrate "
-                "your database to the latest schema. NOTE: schema migration may result in "
-                "database downtime - please consult your database's documentation for more "
-                "detail." % (current_rev, head_revision, str(engine.url)))
+                "Take a backup of your database, then run 'mlflow db upgrade <database_uri>' "
+                "to migrate your database to the latest schema. NOTE: schema migration may "
+                "result in database downtime - please consult your database's documentation for "
+                "more detail." % (current_rev, head_revision))
 
     @staticmethod
     def _get_managed_session_maker(SessionMaker):
