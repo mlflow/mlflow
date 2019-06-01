@@ -7,7 +7,7 @@ MLflow 1.0 includes many significant features and improvements. From this versio
 
 Major features and improvements:
 
-- Support for recording, querying, and visualizing metrics along a new “step” axis, providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s pre-existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr)
+- Support for recording, querying, and visualizing metrics along a new “step” axis, providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s pre-existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr; #1372, @stbof)
 - Logging metrics in batches. MLflow 1.0 now has a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``), R (``mlflow_log_batch``), and Java (``MlflowClient.logBatch``). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
 - Search improvements. MLflow 1.0 includes additional support for searching runs within a single experiment or a group of experiments through UI and API. The search filter API supports a simplified version of the SQL WHERE clause. In addition to searching using run's metrics and params, the API has been enhanced to support some run attributes and user and `system tags <https://mlflow.org/docs/latest/tracking.html#system-tags>`_. For details see `Search syntax <https://mlflow.org/docs/latest/search-syntax.html#syntax>`_ and `examples for programmatically searching runs <https://mlflow.org/docs/latest/search-syntax.html#programmatically-searching-runs>`_. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
 - Windows support for MLflow Tracking. The Tracking portion of the MLflow client is now supported on Windows. (#1171, @eedeleon, @tomasatdatabricks)
@@ -60,7 +60,8 @@ Some of the breaking changes involve database schema changes. If your database i
 
 More features and improvements:
 
-- [Tracking][DB] Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald)
+- [CLI] Add an ``mlflow models build-docker`` CLI command for building a docker image capable of serving an MLflow model. Note that this API is experimental and does not guarantee that the arguments nor format of the Docker container will remain the same. Currently, the model is served at port 8080 within the container by default. (#1329, @smurching, @tomasatdatabricks)
+- [Tracking][DB] Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald; #1374, @mparkhe)
 - [Tracking] Validate backend store URI before starting tracking server (#1218, @luke-zhu, @sueann)
 - Add ``view_type`` argument to ``MlflowClient.list_experiments()`` in Python. (#1212, @smurching)
 - [Python] Dictionary values provided to ``mlflow.log_params`` and ``mlflow.set_tags`` can now be non-string types (e.g., numbers), and they are automatically converted to strings. (#1364, @aarondav)
@@ -71,6 +72,7 @@ More features and improvements:
 - Support GCS in download utilities. ``gs://bucket/path`` files are now supported by the ``mlflow download`` CLI command and as parameters of type ``path`` in MLProject files. (#1168, @drewmcdonald)
 - [Python][Models] All Python models exported by MLflow now declare ``mlflow`` as a dependency by default. In addition, we introduce a flag ``--install-mlflow`` users can pass to ``mlflow models serve`` and ``mlflow models predict`` methods to force installation of the latest version of MLflow into the model's environment. (#1308, @tomasatdatabricks)
 - [Python][Models] Update model flavors to lazily import dependencies. Modules that define Model flavors now import extra dependencies such as ``tensorflow``, ``scikit-learn``, and ``pytorch`` inside individual _methods_, ensuring that these modules can be imported and explored even if the dependencies have not been installed on your system. Also, the ``DEFAULT_CONDA_ENVIRONMENT`` module variable has been replaced with a ``get_default_conda_env()`` function for each flavor.
+- [Keras] It is now possible to pass extra arguments to ``mlflow.keras.load_model`` that will be passed through to ``keras.load_model``. (#1330, @@yorickvP)
 - [Serving] For better performance, switch to ``gunicorn`` for serving Python models. This does not change the user interface. (#1322, @tomasatdatabricks)
 - [SageMaker][Deployment] Use the uniquely-generated model name as the S3 bucket prefix instead of requiring one. (#1183, @dbczumar)
 - [REST API] Add support for API paths without the ``preview`` component. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)
@@ -87,7 +89,7 @@ Bug fixes and documentation updates:
 - [CLI] Correctly handle ``file:`` URIs for the ``-—backend-store-uri`` option in ``mlflow server`` and ``mlflow ui`` (#1171, @eedeleon, @tomasatdatabricks)
 - [Artifacts] Fix ``log_artifact`` failures due to existing directory on FTP server (#1327, @kafendt)
 - [Artifacts] Fix GCS artifact logging of subdirectories (#1285, @jason-huling)
-- [Projects] Fix bug not sharing ``SQLite`` database file with Docker container (#1347, @tomasatdatabricks)
+- [Projects] Fix bug not sharing ``SQLite`` database file with Docker container (#1347, @tomasatdatabricks; #1375, @aarondav)
 - [Java] Mark ``sendPost`` and ``sendGet`` as experimental (#1186, @aarondav)
 - [Python][CLI] Mark ``azureml.build_image`` as experimental (#1222, #1233 @sueann)
 - Document public MLflow environment variables (#1343, @aarondav)
@@ -96,7 +98,7 @@ Bug fixes and documentation updates:
 - [Docs][R] Update run selection description in ``mlflow_get_run`` (#1258, @dbczumar)
 - Update examples to reflect API changes (#1361, @tomasatdatabricks; #1367, @mparkhe)
 
-Small bug fixes and doc updates (#1359, #1350, #1331, #1301, #1270, #1271, #1180, #1144, #1135, #1131, #1358, #1369, #1368, @aarondav; #1287, #1344, #1309, @stbof; #1312, @hchiuzhuo; #1348, #1349, #1294, #1227, @tomasatdatabricks; #1345, @withsmilo; #1316, @ancasarb; #1313, #1310, #1305, #1289, #1256, #1124, #1097, #1162, #1163, #1137, #1351, @smurching; #1319, #1244, #1224, #1195, #1194, #1328, @dbczumar; #1213, #1200, @Kublai-Jing; #1304, #1320, @andrewmchen; #1311, @Zangr; #1306, #1293, #1147, @mateiz; #1303, @gliptak; #1261, #1192, @eedeleon; #1273, #1259, @kevinykuo; #1277, #1247, #1243, #1182, @mparkhe; #1210, @vgod-dbx; #1199, @ashtuchkin; #1176, #1138, #1365, @sueann; #1157, @cclauss; #1156, @clemens-db; #1152, @pogil; #1146, @srowen; #875, #1251, @jimthompson5802)
+Small bug fixes and doc updates (#1359, #1350, #1331, #1301, #1270, #1271, #1180, #1144, #1135, #1131, #1358, #1369, #1368, @aarondav; #1373, @akarloff; #1287, #1344, #1309, @stbof; #1312, @hchiuzhuo; #1348, #1349, #1294, #1227, @tomasatdatabricks; #1345, @withsmilo; #1316, @ancasarb; #1313, #1310, #1305, #1289, #1256, #1124, #1097, #1162, #1163, #1137, #1351, @smurching; #1319, #1244, #1224, #1195, #1194, #1328, @dbczumar; #1213, #1200, @Kublai-Jing; #1304, #1320, @andrewmchen; #1311, @Zangr; #1306, #1293, #1147, @mateiz; #1303, @gliptak; #1261, #1192, @eedeleon; #1273, #1259, @kevinykuo; #1277, #1247, #1243, #1182, #1376, @mparkhe; #1210, @vgod-dbx; #1199, @ashtuchkin; #1176, #1138, #1365, @sueann; #1157, @cclauss; #1156, @clemens-db; #1152, @pogil; #1146, @srowen; #875, #1251, @jimthompson5802)
 
 
 0.9.1 (2019-04-21)
