@@ -7,11 +7,14 @@ from mlflow.server import handlers
 from mlflow.server.handlers import get_artifact_handler
 from mlflow.utils.process import exec_cmd
 
-BACKEND_STORE_URI_ENV_VAR = "MLFLOW_SERVER_FILE_STORE"
-ARTIFACT_ROOT_ENV_VAR = "MLFLOW_SERVER_ARTIFACT_ROOT"
-STATIC_PREFIX_ENV_VAR = "MLFLOW_STATIC_PREFIX"
+# NB: These are intenrnal environment variables used for communication between
+# the cli and the forked gunicorn processes.
+BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
+ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
+STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 REL_STATIC_DIR = "js/build"
+
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 

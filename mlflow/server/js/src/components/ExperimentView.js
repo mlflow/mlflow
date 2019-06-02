@@ -21,13 +21,16 @@ import RestoreRunModal from './modals/RestoreRunModal';
 
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
+import { Icon, Popover } from 'antd';
 
 import Utils from '../utils/Utils';
+import {Spinner} from "./Spinner";
+import {SEARCH_MAX_RESULTS} from "../Actions";
 
 export const DEFAULT_EXPANDED_VALUE = false;
 
 
-class ExperimentView extends Component {
+export class ExperimentView extends Component {
   constructor(props) {
     super(props);
     this.onCheckbox = this.onCheckbox.bind(this);
@@ -87,6 +90,8 @@ class ExperimentView extends Component {
 
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
+    searchRunsError: PropTypes.string,
+    isLoading: PropTypes.bool.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -265,6 +270,18 @@ class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
+    const searchInputHelpTooltipContent = (
+      <div className="search-input-tooltip-content">
+        Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
+        <a
+          href="https://www.mlflow.org/docs/latest/search-syntax.html"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Learn more
+        </a>
+      </div>
+    );
     return (
       <div className="ExperimentView runs-table-flex-container">
         <DeleteRunModal
@@ -289,9 +306,9 @@ class ExperimentView extends Component {
           </span>
         </div>
         <div className="ExperimentView-runs runs-table-flex-container">
-          {this.state.searchErrorMessage !== undefined ?
+          {this.props.searchRunsError ?
             <div className="error-message">
-              <span className="error-message">{this.state.searchErrorMessage}</span>
+              <span className="error-message">{this.props.searchRunsError}</span>
             </div> :
             null
           }
@@ -307,15 +324,28 @@ class ExperimentView extends Component {
             <div className="ExperimentView-search-inputs">
               <div className="ExperimentView-search">
                 <div className="ExperimentView-search-input">
-                  <label className="filter-label">Search Runs:</label>
+                  <label className="filter-label">Search Expression:</label>
                   <div className="filter-wrapper">
-                    <input type="text"
-                           placeholder={'metrics.rmse < 1 and params.model = "tree"'}
-                           value={this.state.searchInput}
-                           onChange={this.onSearchInput}
+                    <input
+                      className="ExperimentView-searchInput"
+                      type="text"
+                      placeholder={'metrics.rmse < 1 and params.model = "tree"'}
+                      value={this.state.searchInput}
+                      onChange={this.onSearchInput}
                     />
                   </div>
                 </div>
+                <Popover
+                  overlayClassName="search-input-tooltip"
+                  content={searchInputHelpTooltipContent}
+                  placement="bottom"
+                >
+                  <Icon
+                    type="question-circle"
+                    className="ExperimentView-search-help"
+                    theme="filled"
+                  />
+                </Popover>
                 <div className="ExperimentView-lifecycle-input">
                   <label className="filter-label" style={styles.lifecycleButtonLabel}>State:</label>
                   <div className="filter-wrapper" style={styles.lifecycleButtonFilterWrapper}>
@@ -346,7 +376,7 @@ class ExperimentView extends Component {
               </div>
               <div className="ExperimentView-keyFilters">
                 <div className="ExperimentView-paramKeyFilter">
-                  <label className="filter-label">Filter Params:</label>
+                  <label className="filter-label">Params:</label>
                   <div className="filter-wrapper">
                     <input type="text"
                            placeholder="alpha, lr"
@@ -356,7 +386,7 @@ class ExperimentView extends Component {
                   </div>
                 </div>
                 <div className="ExperimentView-metricKeyFilter">
-                  <label className="filter-label">Filter Metrics:</label>
+                  <label className="filter-label">Metrics:</label>
                   <div className="filter-wrapper">
                     <input type="text"
                            placeholder="rmse, r2"
@@ -370,7 +400,10 @@ class ExperimentView extends Component {
           </form>
           <div className="ExperimentView-run-buttons">
             <span className="run-count">
-              {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
+              {runInfos.length > SEARCH_MAX_RESULTS ?
+                `Showing the latest ${SEARCH_MAX_RESULTS} matching runs` :
+                `${runInfos.length} matching ${runInfos.length === 1 ? 'run' : 'runs'}`
+              }
             </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare
@@ -409,45 +442,48 @@ class ExperimentView extends Component {
                 </ButtonGroup>
             </span>
           </div>
-          {this.state.persistedState.showMultiColumns ?
-            <ExperimentRunsTableMultiColumnView
-              onCheckbox={this.onCheckbox}
-              runInfos={this.props.runInfos}
-              paramsList={this.props.paramsList}
-              metricsList={this.props.metricsList}
-              tagsList={this.props.tagsList}
-              paramKeyList={paramKeyList}
-              metricKeyList={metricKeyList}
-              onCheckAll={this.onCheckAll}
-              isAllChecked={this.isAllChecked()}
-              onSortBy={this.onSortBy}
-              sortState={this.state.persistedState.sort}
-              runsSelected={this.state.runsSelected}
-              runsExpanded={this.state.persistedState.runsExpanded}
-              onExpand={this.onExpand}
-            /> :
-            <ExperimentRunsTableCompactView
-              onCheckbox={this.onCheckbox}
-              runInfos={this.props.runInfos}
-              // Bagged param and metric keys
-              paramKeyList={paramKeyList}
-              metricKeyList={metricKeyList}
-              paramsList={this.props.paramsList}
-              metricsList={this.props.metricsList}
-              tagsList={this.props.tagsList}
-              onCheckAll={this.onCheckAll}
-              isAllChecked={this.isAllChecked()}
-              onSortBy={this.onSortBy}
-              sortState={this.state.persistedState.sort}
-              runsSelected={this.state.runsSelected}
-              setSortByHandler={this.setSortBy}
-              runsExpanded={this.state.persistedState.runsExpanded}
-              onExpand={this.onExpand}
-              unbaggedMetrics={unbaggedMetricKeyList}
-              unbaggedParams={unbaggedParamKeyList}
-              onAddBagged={this.addBagged}
-              onRemoveBagged={this.removeBagged}
-            />
+          {this.props.isLoading ?
+            <Spinner showImmediately/> :
+            (this.state.persistedState.showMultiColumns ?
+                <ExperimentRunsTableMultiColumnView
+                  onCheckbox={this.onCheckbox}
+                  runInfos={this.props.runInfos}
+                  paramsList={this.props.paramsList}
+                  metricsList={this.props.metricsList}
+                  tagsList={this.props.tagsList}
+                  paramKeyList={paramKeyList}
+                  metricKeyList={metricKeyList}
+                  onCheckAll={this.onCheckAll}
+                  isAllChecked={this.isAllChecked()}
+                  onSortBy={this.onSortBy}
+                  sortState={this.state.persistedState.sort}
+                  runsSelected={this.state.runsSelected}
+                  runsExpanded={this.state.persistedState.runsExpanded}
+                  onExpand={this.onExpand}
+                /> :
+                <ExperimentRunsTableCompactView
+                  onCheckbox={this.onCheckbox}
+                  runInfos={this.props.runInfos}
+                  // Bagged param and metric keys
+                  paramKeyList={paramKeyList}
+                  metricKeyList={metricKeyList}
+                  paramsList={this.props.paramsList}
+                  metricsList={this.props.metricsList}
+                  tagsList={this.props.tagsList}
+                  onCheckAll={this.onCheckAll}
+                  isAllChecked={this.isAllChecked()}
+                  onSortBy={this.onSortBy}
+                  sortState={this.state.persistedState.sort}
+                  runsSelected={this.state.runsSelected}
+                  setSortByHandler={this.setSortBy}
+                  runsExpanded={this.state.persistedState.runsExpanded}
+                  onExpand={this.onExpand}
+                  unbaggedMetrics={unbaggedMetricKeyList}
+                  unbaggedParams={unbaggedParamKeyList}
+                  onAddBagged={this.addBagged}
+                  onRemoveBagged={this.removeBagged}
+                />
+            )
           }
         </div>
       </div>
@@ -609,7 +645,7 @@ class ExperimentView extends Component {
     if (str === undefined) {
       return "";
     }
-    if (/[,"\r\n]/.test(str)) {
+    if ((/[,"\r\n]/).test(str)) {
       return '"' + str.replace(/"/g, '""') + '"';
     }
     return str;
@@ -676,9 +712,9 @@ class ExperimentView extends Component {
       const row = [
         runInfo.run_uuid,
         Utils.getRunName(tagsList[index]), // add run name to csv export row
-        runInfo.source_type,
-        runInfo.source_name,
-        runInfo.user_id,
+        Utils.getSourceType(tagsList[index]),
+        Utils.getSourceName(tagsList[index]),
+        Utils.getUser(runInfo, tagsList[index]),
         runInfo.status,
       ];
 
@@ -706,12 +742,12 @@ class ExperimentView extends Component {
   }
 }
 
-const mapStateToProps = (state, ownProps) => {
+export const mapStateToProps = (state, ownProps) => {
   const { lifecycleFilter, searchRunsRequestId } = ownProps;
   const searchRunApi = getApis([searchRunsRequestId], state)[0];
   // The runUuids we should serve.
   let runUuids;
-  if (searchRunApi.data.runs) {
+  if (searchRunApi.data && searchRunApi.data.runs) {
     runUuids = new Set(searchRunApi.data.runs.map((r) => r.info.run_uuid));
   } else {
     runUuids = new Set();

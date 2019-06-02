@@ -145,15 +145,18 @@ class RunView extends Component {
   }
 
   getRunCommand() {
-    const { run, params } = this.props;
+    const { tags, params } = this.props;
     let runCommand = null;
-    if (run.source_type === "PROJECT") {
-      runCommand = 'mlflow run ' + shellEscape(run.source_name);
-      if (run.source_version && run.source_version !== "latest") {
-        runCommand += ' -v ' + shellEscape(run.source_version);
+    const sourceName = Utils.getSourceName(tags);
+    const sourceVersion = Utils.getSourceVersion(tags);
+    const entryPointName = Utils.getEntryPointName(tags);
+    if (Utils.getSourceType(tags) === "PROJECT") {
+      runCommand = 'mlflow run ' + shellEscape(sourceName);
+      if (sourceVersion && sourceVersion !== "latest") {
+        runCommand += ' -v ' + shellEscape(sourceVersion);
       }
-      if (run.entry_point_name && run.entry_point_name !== "main") {
-        runCommand += ' -e ' + shellEscape(run.entry_point_name);
+      if (entryPointName && entryPointName !== "main") {
+        runCommand += ' -e ' + shellEscape(entryPointName);
       }
       Object.values(params).sort().forEach(p => {
         runCommand += ' -P ' + shellEscape(p.key + '=' + p.value);
@@ -168,6 +171,8 @@ class RunView extends Component {
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
+    const queryParams = window.location && window.location.search ?
+      window.location.search : "";
     const tableStyles = {
       table: {
         width: 'auto',
@@ -219,27 +224,27 @@ class RunView extends Component {
           <div className="run-info">
             <span className="metadata-header">Source: </span>
             <span className="metadata-info">
-              {Utils.renderSourceTypeIcon(run.source_type)}
-              {Utils.renderSource(run, tags)}
+              {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
+              {Utils.renderSource(tags, queryParams)}
             </span>
           </div>
-          {run.source_version ?
+          {Utils.getSourceVersion(tags) ?
             <div className="run-info">
               <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
+              <span className="metadata-info">{Utils.renderVersion(tags, false)}</span>
             </div>
             : null
           }
-          {run.source_type === "PROJECT" ?
+          {Utils.getSourceType(tags) === "PROJECT" ?
             <div className="run-info">
               <span className="metadata-header">Entry Point: </span>
-              <span className="metadata-info">{run.entry_point_name || "main"}</span>
+              <span className="metadata-info">{Utils.getEntryPointName(tags) || "main"}</span>
             </div>
             : null
           }
           <div className="run-info">
             <span className="metadata-header">User: </span>
-            <span className="metadata-info">{run.getUserId()}</span>
+            <span className="metadata-info">{Utils.getUser(run, tags)}</span>
           </div>
           {duration !== null ?
             <div className="run-info">
@@ -264,7 +269,12 @@ class RunView extends Component {
             <div className="run-info">
               <span className="metadata-header">Job Output: </span>
               <span className="metadata-info">
-                <a href={tags['mlflow.databricks.runURL'].value} target="_blank">Logs</a>
+                <a
+                  href={Utils.setQueryParams(tags['mlflow.databricks.runURL'].value, queryParams)}
+                  target="_blank"
+                >
+                  Logs
+                </a>
               </span>
             </div>
             : null
@@ -402,7 +412,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
 };
 
 const shellEscape = (str) => {
-  if (/["\r\n\t ]/.test(str)) {
+  if ((/["\r\n\t ]/).test(str)) {
     return '"' + str.replace(/"/g, '\\"') + '"';
   }
   return str;

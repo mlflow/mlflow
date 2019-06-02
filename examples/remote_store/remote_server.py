@@ -17,14 +17,14 @@ if __name__ == "__main__":
     log_metric("foo", 6)
     log_metric("foo", 7)
     log_metric("random_int", random.randint(0, 100))
-    run_uuid = active_run().info.run_uuid
+    run_id = active_run().info.run_id
     # Get run metadata & data from the tracking server
     service = mlflow.tracking.MlflowClient()
-    run = service.get_run(run_uuid)
-    print("Metadata & data for run with UUID %s: %s" % (run_uuid, run))
+    run = service.get_run(run_id)
+    print("Metadata & data for run with UUID %s: %s" % (run_id, run))
     local_dir = tempfile.mkdtemp()
     message = "test artifact written during run %s within artifact URI %s\n" \
-              % (active_run().info.run_uuid, get_artifact_uri())
+              % (active_run().info.run_id, get_artifact_uri())
     try:
         file_path = os.path.join(local_dir, "some_output_file.txt")
         with open(file_path, "w") as handle:

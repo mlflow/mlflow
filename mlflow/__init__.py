@@ -27,8 +27,6 @@ For a lower level API, see the :py:mod:`mlflow.tracking` module.
 
 from mlflow.version import VERSION as __version__
 
-import os
-
 # Filter annoying Cython warnings that serve no good purpose, and so before
 # importing other modules.
 # See: https://github.com/numpy/numpy/pull/432/commits/170ed4e33d6196d7
@@ -58,6 +56,9 @@ set_tracking_uri = tracking.set_tracking_uri
 get_tracking_uri = tracking.get_tracking_uri
 create_experiment = mlflow.tracking.fluent.create_experiment
 set_experiment = mlflow.tracking.fluent.set_experiment
+log_params = mlflow.tracking.fluent.log_params
+log_metrics = mlflow.tracking.fluent.log_metrics
+set_tags = mlflow.tracking.fluent.set_tags
 
 
 run = projects.run

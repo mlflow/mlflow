@@ -17,11 +17,14 @@ import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model
-from mlflow.tracking.utils import _get_model_log_dir
+from mlflow.store.s3_artifact_repo import S3ArtifactRepository
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
@@ -66,8 +69,9 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
+@pytest.mark.large
 def test_model_save_load(model, model_path, data, predicted):
-    x, y = data
+    x, _ = data
     mlflow.keras.save_model(model, model_path)
 
     # Loading Keras model
@@ -80,45 +84,61 @@ def test_model_save_load(model, model_path, data, predicted):
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
-        model_path=os.path.abspath(model_path),
+        model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
                == predicted)
 
     # test spark udf
-    spark_udf_preds = score_model_as_udf(os.path.abspath(model_path),
-                                         run_id=None,
+    spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
                                          pandas_df=pd.DataFrame(x),
                                          result_type="float")
     np.testing.assert_array_almost_equal(
         np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=4)
 
 
+@pytest.mark.large
+def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
+    x, _ = data
+    mlflow.keras.save_model(model, model_path)
+
+    artifact_root = "s3://{bucket_name}".format(bucket_name=mock_s3_bucket)
+    artifact_path = "model"
+    artifact_repo = S3ArtifactRepository(artifact_root)
+    artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
+
+    model_uri = artifact_root + "/" + artifact_path
+    model_loaded = mlflow.keras.load_model(model_uri=model_uri)
+    assert all(model_loaded.predict(x) == predicted)
+
+
+@pytest.mark.large
 def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disable=unused-argument
-    x, y = data
+    x, _ = data
     # should_start_run tests whether or not calling log_model() automatically starts a run.
     for should_start_run in [False, True]:
         try:
             if should_start_run:
                 mlflow.start_run()
-            mlflow.keras.log_model(model, artifact_path="keras_model")
+            artifact_path = "keras_model"
+            mlflow.keras.log_model(model, artifact_path=artifact_path)
+            model_uri = "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id,
+                artifact_path=artifact_path)
 
             # Load model
-            model_loaded = mlflow.keras.load_model(
-                "keras_model",
-                run_id=mlflow.active_run().info.run_uuid)
+            model_loaded = mlflow.keras.load_model(model_uri=model_uri)
             assert all(model_loaded.predict(x) == predicted)
 
             # Loading pyfunc model
-            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(
-                "keras_model",
-                run_id=mlflow.active_run().info.run_uuid)
+            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
             assert all(pyfunc_loaded.predict(x).values == predicted)
         finally:
             mlflow.end_run()
 
 
+@pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         model, model_path, keras_custom_env):
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=keras_custom_env)
@@ -135,8 +155,9 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     assert saved_conda_env_parsed == keras_custom_env_parsed
 
 
+@pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(model, model_path):
-    conda_env = dict(mlflow.keras.DEFAULT_CONDA_ENV)
+    conda_env = dict(mlflow.keras.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=conda_env)
 
@@ -149,13 +170,14 @@ def test_model_save_accepts_conda_env_as_dict(model, model_path):
     assert saved_conda_env_parsed == conda_env
 
 
+@pytest.mark.large
 def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model, keras_custom_env):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.keras.log_model(
             keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env)
-        run_id = mlflow.active_run().info.run_uuid
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -169,6 +191,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     assert saved_conda_env_parsed == keras_custom_env_parsed
 
 
+@pytest.mark.large
 def test_model_save_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         model, model_path):
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
@@ -177,25 +200,27 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.keras.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.keras.get_default_conda_env()
 
 
+@pytest.mark.large
 def test_model_log_without_specified_conda_env_uses_default_env_with_expected_dependencies(
         model):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path, conda_env=None)
-        run_id = mlflow.active_run().info.run_uuid
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.keras.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.keras.get_default_conda_env()
 
 
+@pytest.mark.large
 def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_path(
         model, model_path, data, predicted):
     """
@@ -220,7 +245,7 @@ def test_sagemaker_docker_model_scoring_with_default_conda_env(model, model_path
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=None)
 
     scoring_response = score_model_in_sagemaker_docker_container(
-        model_path=model_path,
+        model_uri=model_path,
         data=data[0],
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED,
         flavor=mlflow.pyfunc.FLAVOR_NAME,

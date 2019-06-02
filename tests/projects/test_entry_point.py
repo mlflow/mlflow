@@ -6,7 +6,7 @@ from six.moves import shlex_quote
 
 from mlflow.exceptions import ExecutionException
 from mlflow.projects._project_spec import EntryPoint
-from mlflow.utils.file_utils import TempDir
+from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from tests.projects.utils import load_project, TEST_PROJECT_DIR
 
 
@@ -68,6 +68,13 @@ def test_path_parameter():
                 storage_dir=dst_dir)
             assert params["path"] == os.path.abspath(local_path)
             assert download_uri_mock.call_count == 0
+
+            params, _ = entry_point.compute_parameters(
+                user_parameters={"path": path_to_local_file_uri(local_path)},
+                storage_dir=dst_dir)
+            assert params["path"] == os.path.abspath(local_path)
+            assert download_uri_mock.call_count == 0
+
         # Verify that we raise an exception when passing a non-existent local file to a
         # parameter of type "path"
         with TempDir() as tmp, pytest.raises(ExecutionException):
@@ -76,7 +83,7 @@ def test_path_parameter():
                 user_parameters={"path": os.path.join(dst_dir, "some/nonexistent/file")},
                 storage_dir=dst_dir)
         # Verify that we do call `download_uri` when passing a URI to a parameter of type "path"
-        for i, prefix in enumerate(["dbfs:/", "s3://"]):
+        for i, prefix in enumerate(["dbfs:/", "s3://", "gs://"]):
             with TempDir() as tmp:
                 dst_dir = tmp.path()
                 params, _ = entry_point.compute_parameters(

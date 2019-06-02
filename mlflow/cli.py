@@ -12,21 +12,22 @@ import mlflow.azureml.cli
 import mlflow.projects as projects
 import mlflow.data
 import mlflow.experiments
-import mlflow.pyfunc.cli
-import mlflow.rfunc.cli
+import mlflow.models.cli
+
 import mlflow.sagemaker.cli
 import mlflow.runs
+import mlflow.store.db.utils
+import mlflow.db
 
-from mlflow.entities.experiment import Experiment
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
+from mlflow.server.handlers import _get_store
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow import tracking
 import mlflow.store.cli
-
 
 _logger = logging.getLogger(__name__)
 
@@ -53,12 +54,11 @@ def cli():
 @click.option("--experiment-name", envvar=tracking._EXPERIMENT_NAME_ENV_VAR,
               help="Name of the experiment under which to launch the run. If not "
                    "specified, 'experiment-id' option will be used to launch run.")
-@click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.INT,
-              help="ID of the experiment under which to launch the run. Defaults to %s" %
-                   Experiment.DEFAULT_EXPERIMENT_ID)
+@click.option("--experiment-id", envvar=tracking._EXPERIMENT_ID_ENV_VAR, type=click.STRING,
+              help="ID of the experiment under which to launch the run.")
 # TODO: Add tracking server argument once we have it working.
-@click.option("--mode", "-m", metavar="MODE",
-              help="Execution mode to use for run. Supported values: 'local' (runs project "
+@click.option("--backend", "-b", metavar="BACKEND",
+              help="Execution backend to use for run. Supported values: 'local' (runs project "
                    "locally) and 'databricks' (runs project on a Databricks cluster). "
                    "Defaults to 'local'. If running against Databricks, will run against a "
                    "Databricks workspace determined as follows: if a Databricks tracking URI "
@@ -68,26 +68,24 @@ def cli():
                    "specified by the default Databricks CLI profile. See "
                    "https://github.com/databricks/databricks-cli for more info on configuring a "
                    "Databricks CLI profile.")
-@click.option("--cluster-spec", "-c", metavar="FILE",
-              help="Path to JSON file (must end in '.json') or JSON string describing the cluster "
-                   "to use when launching a run on Databricks. See "
-                   "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster for "
-                   "more info. Note that MLflow runs are currently launched against a new cluster.")
-@click.option("--git-username", metavar="USERNAME", envvar="MLFLOW_GIT_USERNAME",
-              help="Username for HTTP(S) Git authentication.")
-@click.option("--git-password", metavar="PASSWORD", envvar="MLFLOW_GIT_PASSWORD",
-              help="Password for HTTP(S) Git authentication.")
+@click.option("--backend-config", "-c", metavar="FILE",
+              help="Path to JSON file (must end in '.json') or JSON string which will be passed "
+                   "as config to the backend. For the Databricks backend, this should be a "
+                   "cluster spec: see "
+                   "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster "
+                   "for more information. Note that MLflow runs are currently launched against "
+                   "a new cluster.")
 @cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
-              help="Only valid when `mode` is local."
+              help="Only valid when ``backend`` is local."
                    "MLflow downloads artifacts from distributed URIs passed to parameters of "
                    "type 'path' to subdirectories of storage_dir.")
 @click.option("--run-id", metavar="RUN_ID",
               help="If specified, the given run ID will be used instead of creating a new run. "
                    "Note: this argument is used internally by the MLflow project APIs "
                    "and should not be specified.")
-def run(uri, entry_point, version, param_list, experiment_name, experiment_id, mode, cluster_spec,
-        git_username, git_password, no_conda, storage_dir, run_id):
+def run(uri, entry_point, version, param_list, experiment_name, experiment_id, backend,
+        backend_config, no_conda, storage_dir, run_id):
     """
     Run an MLflow project from the given URI.
 
@@ -116,10 +114,10 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
             eprint("Repeated parameter: '%s'" % name)
             sys.exit(1)
         param_dict[name] = value
-    cluster_spec_arg = cluster_spec
-    if cluster_spec is not None and os.path.splitext(cluster_spec)[-1] != ".json":
+    cluster_spec_arg = backend_config
+    if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
-            cluster_spec_arg = json.loads(cluster_spec)
+            cluster_spec_arg = json.loads(backend_config)
         except ValueError as e:
             eprint("Invalid cluster spec JSON. Parse error: %s" % e)
             raise
@@ -131,13 +129,11 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
             experiment_name=experiment_name,
             experiment_id=experiment_id,
             parameters=param_dict,
-            mode=mode,
-            cluster_spec=cluster_spec_arg,
-            git_username=git_username,
-            git_password=git_password,
+            backend=backend,
+            backend_config=cluster_spec_arg,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
-            block=mode == "local" or mode is None,
+            synchronous=backend == "local" or backend is None,
             run_id=run_id,
         )
     except projects.ExecutionException as e:
@@ -146,27 +142,23 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, m
 
 
 @cli.command()
-@click.option("--backend-store-uri", "--file-store", metavar="PATH",
+@click.option("--backend-store-uri", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI or path for backend store implementation. Acceptable backend store "
-                   "are SQLAlchemy compatible implementation or local storage. "
-                   "Example 'sqlite:///path/to/file.db'. "
-                   "By default file backed store will be used. (default: ./mlruns).")
+              help="URI to which to persist experiment and run data. Acceptable URIs are "
+                   "SQLAlchemy-compatible database connection strings "
+                   "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+                   "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
+                   "to the ./mlruns directory.")
 @click.option("--default-artifact-root", metavar="URI", default=None,
               help="Path to local directory to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
                    "Default: " + DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
-              help="The network address to listen on (default: 127.0.0.1). "
-                   "Use 0.0.0.0 to bind to all addresses if you want to access the UI from "
-                   "other machines.")
 @click.option("--port", "-p", default=5000,
               help="The port to listen on (default: 5000).")
-@click.option("--gunicorn-opts", default=None,
-              help="Additional command line options forwarded to gunicorn processes.")
-def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
+def ui(backend_store_uri, default_artifact_root, port):
     """
-    Launch the MLflow tracking UI.
+    Launch the MLflow tracking UI for local viewing of run results. To launch a production
+    server, use the "mlflow server" command instead.
 
     The UI will be visible at http://localhost:5000 by default.
     """
@@ -180,9 +172,16 @@ def ui(backend_store_uri, default_artifact_root, host, port, gunicorn_opts):
         else:
             default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
+    try:
+        _get_store(backend_store_uri, default_artifact_root)
+    except Exception as e:  # pylint: disable=broad-except
+        _logger.error("Error initializing backend store")
+        _logger.exception(e)
+        sys.exit(1)
+
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(backend_store_uri, default_artifact_root, host, port, 1, None, gunicorn_opts)
+        _run_server(backend_store_uri, default_artifact_root, "127.0.0.1", port, 1, None, [])
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
@@ -203,26 +202,21 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
 
 
 @cli.command()
-@click.option("--backend-store-uri", "--file-store", metavar="PATH",
+@click.option("--backend-store-uri", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-              help="URI or path for backend store implementation. Acceptable backend store "
-                   "are SQLAlchemy compatible implementation or local storage. Supports "
-                   "various SQLAlchemy compatible database like SQLite, MySQL, PostgreSQL. As an "
-                   "example MySQL backed store can be configured using connection string. "
-                   "'mysql://<user_name>:<password>@<host>:<port>/<database_name>' "
-                   "By default file based backed store will be used. (default: ./mlruns).")
+              help="URI to which to persist experiment and run data. Acceptable URIs are "
+                   "SQLAlchemy-compatible database connection strings "
+                   "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
+                   "(e.g. 'file:///absolute/path/to/directory'). By default, data will be logged "
+                   "to the ./mlruns directory.")
 @click.option("--default-artifact-root", metavar="URI", default=None,
               help="Local or S3 URI to store artifacts, for new experiments. "
                    "Note that this flag does not impact already-created experiments. "
-                   "Default: Within file store")
-@click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
-              help="The network address to listen on (default: 127.0.0.1). "
-                   "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
-                   "server from other machines.")
-@click.option("--port", "-p", default=5000,
-              help="The port to listen on (default: 5000).")
-@click.option("--workers", "-w", default=4,
-              help="Number of gunicorn worker processes to handle requests (default: 4).")
+                   "Default: Within file store, if a file:/ URI is provided. If a sql backend is"
+                   " used, then this option is required.")
+@cli_args.HOST
+@cli_args.PORT
+@cli_args.WORKERS
 @click.option("--static-prefix", default=None, callback=_validate_static_prefix,
               help="A prefix which will be prepended to the path of all static paths.")
 @click.option("--gunicorn-opts", default=None,
@@ -250,6 +244,13 @@ def server(backend_store_uri, default_artifact_root, host, port,
             sys.exit(1)
 
     try:
+        _get_store(backend_store_uri, default_artifact_root)
+    except Exception as e:  # pylint: disable=broad-except
+        _logger.error("Error initializing backend store")
+        _logger.exception(e)
+        sys.exit(1)
+
+    try:
         _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
                     gunicorn_opts)
     except ShellCommandException:
@@ -257,14 +258,13 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
 
-cli.add_command(mlflow.data.download)
-cli.add_command(mlflow.pyfunc.cli.commands)
-cli.add_command(mlflow.rfunc.cli.commands)
+cli.add_command(mlflow.models.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
+cli.add_command(mlflow.db.commands)
 
 if __name__ == '__main__':
     cli()

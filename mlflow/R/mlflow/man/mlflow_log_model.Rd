@@ -4,15 +4,19 @@
 \alias{mlflow_log_model}
 \title{Log Model}
 \usage{
-mlflow_log_model(fn, artifact_path)
+mlflow_log_model(model, artifact_path, ...)
 }
 \arguments{
-\item{fn}{The serving function that will perform a prediction.}
+\item{model}{The model that will perform a prediction.}
 
 \item{artifact_path}{Destination path where this MLflow compatible model
 will be saved.}
+
+\item{...}{Optional additional arguments passed to `mlflow_save_model()` when persisting the
+model. For example, `conda_env = /path/to/conda.yaml` may be passed to specify a conda
+dependencies file for flavors (e.g. keras) that support conda environments.}
 }
 \description{
-Logs a model in the given run. Similar to `mlflow_save_model()`
+Logs a model for this run. Similar to `mlflow_save_model()`
 but stores model as an artifact within the active run.
 }

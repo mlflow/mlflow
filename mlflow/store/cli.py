@@ -1,11 +1,12 @@
 import logging
+import sys
 
 import click
 
-from mlflow.tracking import _get_store
 from mlflow.store.artifact_repository_registry import get_artifact_repository
+from mlflow.tracking import _get_store
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.proto_json_utils import message_to_json
-
 
 _logger = logging.getLogger(__name__)
 
@@ -31,13 +32,13 @@ def commands():
                    "run's artifact directory.")
 def log_artifact(local_file, run_id, artifact_path):
     """
-    Logs a local file as an artifact of a run, optionally within a run-specific
+    Log a local file as an artifact of a run, optionally within a run-specific
     artifact path. Run artifacts can be organized into directories, so you can
     place the artifact in a directory this way.
     """
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri, store)
+    artifact_repo = get_artifact_repository(artifact_uri)
     artifact_repo.log_artifact(local_file, artifact_path)
     _logger.info("Logged artifact from local file %s to artifact_path=%s",
                  local_file, artifact_path)
@@ -53,13 +54,13 @@ def log_artifact(local_file, run_id, artifact_path):
                    "run's artifact directory.")
 def log_artifacts(local_dir, run_id, artifact_path):
     """
-    Logs the files within a local directory as an artifact of a run, optionally
+    Log the files within a local directory as an artifact of a run, optionally
     within a run-specific artifact path. Run artifacts can be organized into
     directories, so you can place the artifact in a directory this way.
     """
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri, store)
+    artifact_repo = get_artifact_repository(artifact_uri)
     artifact_repo.log_artifacts(local_dir, artifact_path)
     _logger.info("Logged artifact from local dir %s to artifact_path=%s", local_dir, artifact_path)
 
@@ -77,7 +78,7 @@ def list_artifacts(run_id, artifact_path):
     artifact_path = artifact_path if artifact_path is not None else ""
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri, store)
+    artifact_repo = get_artifact_repository(artifact_uri)
     file_infos = artifact_repo.list_artifacts(artifact_path)
     print(_file_infos_to_json(file_infos))
 
@@ -88,18 +89,32 @@ def _file_infos_to_json(file_infos):
 
 
 @commands.command("download")
-@click.option("--run-id", "-r", required=True,
+@click.option("--run-id", "-r",
               help="Run ID from which to download")
 @click.option("--artifact-path", "-a",
-              help="If specified, a path relative to the run's root directory to download")
-def download_artifacts(run_id, artifact_path):
+              help="For use with Run ID: if specified, a path relative to the run's root "
+                   "directory to download")
+@click.option("--artifact-uri", "-u",
+              help="URI pointing to the artifact file or artifacts directory; use as an "
+                   "alternative to specifying --run_id and --artifact-path")
+def download_artifacts(run_id, artifact_path, artifact_uri):
     """
     Download an artifact file or directory to a local directory.
     The output is the name of the file or directory on the local disk.
+
+    Either ``--run-id`` or ``--artifact-uri`` must be provided.
     """
+    if run_id is None and artifact_uri is None:
+        _logger.error("Either ``--run-id`` or ``--artifact-uri`` must be provided.")
+        sys.exit(1)
+
+    if artifact_uri is not None:
+        print(_download_artifact_from_uri(artifact_uri))
+        return
+
     artifact_path = artifact_path if artifact_path is not None else ""
     store = _get_store()
     artifact_uri = store.get_run(run_id).info.artifact_uri
-    artifact_repo = get_artifact_repository(artifact_uri, store)
+    artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path)
     print(artifact_location)

@@ -8,15 +8,27 @@ import mock
 import pytest
 
 import mlflow
-from mlflow.entities import RunStatus, ViewType
-from mlflow.exceptions import ExecutionException
+
+from mlflow.entities import RunStatus, ViewType, Experiment, SourceType
+from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.store.file_store import FileStore
 from mlflow.utils import env
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, \
-    LEGACY_MLFLOW_GIT_BRANCH_NAME, LEGACY_MLFLOW_GIT_REPO_URL
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
+    MLFLOW_SOURCE_TYPE, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
+    LEGACY_MLFLOW_GIT_REPO_URL, MLFLOW_PROJECT_ENTRY_POINT
 
 from tests.projects.utils import TEST_PROJECT_DIR, TEST_PROJECT_NAME, GIT_PROJECT_URI, \
     validate_exit_status, assert_dirs_equal
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+
+
+MOCK_USER = "janebloggs"
+
+
+@pytest.fixture
+def patch_user():
+    with mock.patch("mlflow.tracking.context._get_user", return_value=MOCK_USER):
+        yield
 
 
 def _build_uri(base_uri, subdirectory):
@@ -30,7 +42,7 @@ def _get_version_local_git_repo(local_git_repo):
     return repo.git.rev_parse("HEAD")
 
 
-@pytest.fixture()
+@pytest.fixture
 def local_git_repo(tmpdir):
     local_git = tmpdir.join('git_repo').strpath
     repo = git.Repo.init(local_git)
@@ -41,12 +53,12 @@ def local_git_repo(tmpdir):
     yield os.path.abspath(local_git)
 
 
-@pytest.fixture()
+@pytest.fixture
 def local_git_repo_uri(local_git_repo):
     return "file://%s" % local_git_repo
 
 
-@pytest.fixture()
+@pytest.fixture
 def zipped_repo(tmpdir):
     import zipfile
     zip_name = tmpdir.join('%s.zip' % TEST_PROJECT_NAME).strpath
@@ -54,7 +66,7 @@ def zipped_repo(tmpdir):
         for root, _, files in os.walk(TEST_PROJECT_DIR):
             for file_name in files:
                 file_path = os.path.join(root, file_name)
-                zip_file.write(file_path, file_path[len(TEST_PROJECT_DIR)+len(os.sep):])
+                zip_file.write(file_path, file_path[len(TEST_PROJECT_DIR) + len(os.sep):])
     return zip_name
 
 
@@ -116,22 +128,14 @@ def test_fetch_project_validations(local_git_repo_uri):
     with pytest.raises(ExecutionException):
         mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, force_tempdir=False, version="version")
 
-    # Passing only one of git_username, git_password results in an error
-    for username, password in [(None, "hi"), ("hi", None)]:
-        with pytest.raises(ExecutionException):
-            mlflow.projects._fetch_project(
-                local_git_repo_uri, force_tempdir=False, git_username=username,
-                git_password=password)
-
 
 def test_dont_remove_mlruns(tmpdir):
     # Fetching a directory containing an "mlruns" folder doesn't remove the "mlruns" folder
     src_dir = tmpdir.mkdir("mlruns-src-dir")
     src_dir.mkdir("mlruns").join("some-file.txt").write("hi")
     src_dir.join("MLproject").write("dummy MLproject contents")
-    dst_dir = mlflow.projects._fetch_project(
-        uri=src_dir.strpath, version=None, git_username=None,
-        git_password=None, force_tempdir=False)
+    dst_dir = mlflow.projects._fetch_project(uri=src_dir.strpath, version=None,
+                                             force_tempdir=False)
     assert_dirs_equal(expected=src_dir.strpath, actual=dst_dir)
 
 
@@ -151,7 +155,7 @@ def test_parse_subdirectory():
 def test_invalid_run_mode(tracking_uri_mock):  # pylint: disable=unused-argument
     """ Verify that we raise an exception given an invalid run mode """
     with pytest.raises(ExecutionException):
-        mlflow.projects.run(uri=TEST_PROJECT_DIR, mode="some unsupported mode")
+        mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
 def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
@@ -173,9 +177,10 @@ def test_is_valid_branch_name(local_git_repo):
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 @pytest.mark.parametrize("version", [None, "master", "git-commit"])
-def test_run_local_git_repo(local_git_repo,
+def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
+                            local_git_repo,
                             local_git_repo_uri,
-                            tracking_uri_mock,   # pylint: disable=unused-argument
+                            tracking_uri_mock,  # pylint: disable=unused-argument
                             use_start_run,
                             version):
     if version is not None:
@@ -187,7 +192,7 @@ def test_run_local_git_repo(local_git_repo,
     submitted_run = mlflow.projects.run(
         uri, entry_point="test_tracking", version=version,
         parameters={"use_start_run": use_start_run},
-        use_conda=False, experiment_id=0)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
 
     # Blocking runs should be finished when they return
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
@@ -196,48 +201,72 @@ def test_run_local_git_repo(local_git_repo,
     submitted_run.wait()
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
-    run_uuid = submitted_run.run_id
+    run_id = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
-    run_infos = mlflow_service.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
-    assert "file:" in run_infos[0].source_name
+    run_infos = mlflow_service.list_run_infos(
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
     assert len(run_infos) == 1
-    store_run_uuid = run_infos[0].run_uuid
-    assert run_uuid == store_run_uuid
-    run = mlflow_service.get_run(run_uuid)
-    expected_params = {"use_start_run": use_start_run}
-    assert run.info.status == RunStatus.FINISHED
-    assert len(run.data.params) == len(expected_params)
-    for param in run.data.params:
-        assert param.value == expected_params[param.key]
-    expected_metrics = {"some_key": 3}
-    assert len(run.data.metrics) == len(expected_metrics)
-    for metric in run.data.metrics:
-        assert metric.value == expected_metrics[metric.key]
-    # Validate the branch name tag is logged
+    store_run_id = run_infos[0].run_id
+    assert run_id == store_run_id
+    run = mlflow_service.get_run(run_id)
+
+    assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
+    assert run.data.params == {"use_start_run": use_start_run}
+    assert run.data.metrics == {"some_key": 3}
+
+    tags = run.data.tags
+    assert tags[MLFLOW_USER] == MOCK_USER
+    assert "file:" in tags[MLFLOW_SOURCE_NAME]
+    assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
+    assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
+
     if version == "master":
-        tags = {tag.key: tag.value for tag in run.data.tags}
         assert tags[MLFLOW_GIT_BRANCH] == "master"
         assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri
         assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
         assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
 
 
+@pytest.mark.parametrize("experiment_id,experiment_name,expected",
+                         [("1", None, "1"), (None, 'name', "33")])
+def test_resolve_experiment_id(experiment_id, experiment_name, expected):
+    with mock.patch('mlflow.tracking.MlflowClient.get_experiment_by_name') \
+            as get_experiment_by_name_mock:
+        get_experiment_by_name_mock.return_value = Experiment(experiment_id="33", name='Name',
+                                                              artifact_location=None,
+                                                              lifecycle_stage=None)
+
+        exp_id = mlflow.projects._resolve_experiment_id(experiment_name=experiment_name,
+                                                        experiment_id=experiment_id)
+        assert exp_id == expected
+
+
+def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
+    with pytest.raises(MlflowException,
+                       match="Specify only one of 'experiment_name' or 'experiment_id'."):
+        _ = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named',
+                                                   experiment_id="44")
+
+
 def test_invalid_version_local_git_repo(local_git_repo_uri,
-                                        tracking_uri_mock):   # pylint: disable=unused-argument
+                                        tracking_uri_mock):  # pylint: disable=unused-argument
     # Run project with invalid commit hash
     with pytest.raises(ExecutionException,
                        match=r'Unable to checkout version \'badc0de\''):
         mlflow.projects.run(local_git_repo_uri + "#" + TEST_PROJECT_NAME,
                             entry_point="test_tracking", version="badc0de",
-                            use_conda=False, experiment_id=0)
+                            use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
 
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
-def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unused-argument
+def test_run(tmpdir,  # pylint: disable=unused-argument
+             patch_user,  # pylint: disable=unused-argument
+             tracking_uri_mock,  # pylint: disable=unused-argument
+             use_start_run):
     submitted_run = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="test_tracking",
         parameters={"use_start_run": use_start_run},
-        use_conda=False, experiment_id=0)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
     assert submitted_run.run_id is not None
     # Blocking runs should be finished when they return
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
@@ -246,50 +275,53 @@ def test_run(tmpdir, tracking_uri_mock, use_start_run):  # pylint: disable=unuse
     submitted_run.wait()
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
     # Validate run contents in the FileStore
-    run_uuid = submitted_run.run_id
+    run_id = submitted_run.run_id
     mlflow_service = mlflow.tracking.MlflowClient()
-    run_infos = mlflow_service.list_run_infos(experiment_id=0, run_view_type=ViewType.ACTIVE_ONLY)
+
+    run_infos = mlflow_service.list_run_infos(
+        experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, run_view_type=ViewType.ACTIVE_ONLY)
     assert len(run_infos) == 1
-    store_run_uuid = run_infos[0].run_uuid
-    assert run_uuid == store_run_uuid
-    run = mlflow_service.get_run(run_uuid)
-    expected_params = {"use_start_run": use_start_run}
-    assert run.info.status == RunStatus.FINISHED
-    assert len(run.data.params) == len(expected_params)
-    for param in run.data.params:
-        assert param.value == expected_params[param.key]
-    expected_metrics = {"some_key": 3}
-    assert len(run.data.metrics) == len(expected_metrics)
-    for metric in run.data.metrics:
-        assert metric.value == expected_metrics[metric.key]
+    store_run_id = run_infos[0].run_id
+    assert run_id == store_run_id
+    run = mlflow_service.get_run(run_id)
+
+    assert run.info.status == RunStatus.to_string(RunStatus.FINISHED)
+
+    assert run.data.params == {"use_start_run": use_start_run}
+    assert run.data.metrics == {"some_key": 3}
+
+    tags = run.data.tags
+    assert tags[MLFLOW_USER] == MOCK_USER
+    assert "file:" in tags[MLFLOW_SOURCE_NAME]
+    assert tags[MLFLOW_SOURCE_TYPE] == SourceType.to_string(SourceType.PROJECT)
+    assert tags[MLFLOW_PROJECT_ENTRY_POINT] == "test_tracking"
 
 
 def test_run_with_parent(tmpdir, tracking_uri_mock):  # pylint: disable=unused-argument
     """Verify that if we are in a nested run, mlflow.projects.run() will have a parent_run_id."""
     with mlflow.start_run():
-        parent_run_id = mlflow.active_run().info.run_uuid
+        parent_run_id = mlflow.active_run().info.run_id
         submitted_run = mlflow.projects.run(
             TEST_PROJECT_DIR, entry_point="test_tracking",
             parameters={"use_start_run": "1"},
-            use_conda=False, experiment_id=0)
+            use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID)
     assert submitted_run.run_id is not None
     validate_exit_status(submitted_run.get_status(), RunStatus.FINISHED)
-    run_uuid = submitted_run.run_id
-    run = mlflow.tracking.MlflowClient().get_run(run_uuid)
-    parent_run_id_tag = [tag.value for tag in run.data.tags if tag.key == MLFLOW_PARENT_RUN_ID]
-    assert parent_run_id_tag == [parent_run_id]
+    run_id = submitted_run.run_id
+    run = mlflow.tracking.MlflowClient().get_run(run_id)
+    assert run.data.tags[MLFLOW_PARENT_RUN_ID] == parent_run_id
 
 
 def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0 = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
-        use_conda=False, experiment_id=0, block=False)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, synchronous=False)
     validate_exit_status(submitted_run0.get_status(), RunStatus.RUNNING)
     submitted_run0.wait()
     validate_exit_status(submitted_run0.get_status(), RunStatus.FINISHED)
     submitted_run1 = mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": -1, "invalid-param": 30},
-        use_conda=False, experiment_id=0, block=False)
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, synchronous=False)
     submitted_run1.wait()
     validate_exit_status(submitted_run1.get_status(), RunStatus.FAILED)
 
@@ -300,7 +332,7 @@ def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
         ({}, "conda", "activate"),
         ({mlflow.projects.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
          "/some/dir/bin/activate")
-     ]
+    ]
 )
 def test_conda_path(mock_env, expected_conda, expected_activate):
     """Verify that we correctly determine the path to conda executables"""
@@ -312,7 +344,8 @@ def test_conda_path(mock_env, expected_conda, expected_activate):
 def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
     submitted_run0, submitted_run1 = [mlflow.projects.run(
         TEST_PROJECT_DIR, entry_point="sleep", parameters={"duration": 2},
-        use_conda=False, experiment_id=0, block=False) for _ in range(2)]
+        use_conda=False, experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+        synchronous=False) for _ in range(2)]
     submitted_run0.cancel()
     validate_exit_status(submitted_run0.get_status(), RunStatus.FAILED)
     # Sanity check: cancelling one run has no effect on the other

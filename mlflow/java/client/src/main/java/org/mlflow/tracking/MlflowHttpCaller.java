@@ -73,6 +73,7 @@ class MlflowHttpCaller {
     HttpPost request = new HttpPost();
     fillRequestSettings(request, path);
     request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
+    request.setHeader("Content-Type", "application/json");
     try {
       HttpResponse response = httpClient.execute(request);
       checkError(response);
@@ -114,6 +115,13 @@ class MlflowHttpCaller {
     } else if (token != null) {
       request.addHeader("Authorization", "Bearer " + token);
     }
+
+    String userAgent = "mlflow-java-client";
+    String clientVersion = MlflowClientVersion.getClientVersion();
+    if (!clientVersion.isEmpty()) {
+      userAgent += "/" + clientVersion;
+    }
+    request.addHeader("User-Agent", userAgent);
   }
 
   private boolean isError(int statusCode) {

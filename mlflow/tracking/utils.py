@@ -8,15 +8,13 @@ import entrypoints
 from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
-from mlflow.utils import env, rest_utils
+from mlflow.utils import env, rest_utils, file_utils, get_uri_scheme
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 _LOCAL_FS_URI_PREFIX = "file:///"
@@ -71,62 +69,11 @@ def get_tracking_uri():
     elif env.get_env(_TRACKING_URI_ENV_VAR) is not None:
         return env.get_env(_TRACKING_URI_ENV_VAR)
     else:
-        return os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
-
-
-def get_artifact_uri(run_id, artifact_path=None):
-    """
-    Get the absolute URI of the specified artifact in the specified run. If `path` is not specified,
-    the artifact root URI of the specified run will be returned; calls to ``log_artifact``
-    and ``log_artifacts`` write artifact(s) to subdirectories of the artifact root URI.
-
-    :param run_id: The ID of the run for which to obtain an absolute artifact URI.
-    :param artifact_path: The run-relative artifact path. For example,
-                          ``path/to/artifact``. If unspecified, the artifact root URI for the
-                          specified run will be returned.
-    :return: An *absolute* URI referring to the specified artifact or the specified run's artifact
-             root. For example, if an artifact path is provided and the specified run uses an
-             S3-backed  store, this may be a uri of the form
-             ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
-             is not provided and the specified run uses an S3-backed store, this may be a URI of
-             the form ``s3://<bucket_name>/path/to/artifact/root``.
-    """
-    if not run_id:
-        raise MlflowException(
-                message="A run_id must be specified in order to obtain an artifact uri!",
-                error_code=INVALID_PARAMETER_VALUE)
-
-    store = _get_store()
-    run = store.get_run(run_id)
-    if artifact_path is None:
-        return run.info.artifact_uri
-    else:
-        # Path separators may not be consistent across all artifact repositories. Therefore, when
-        # joining the run's artifact root directory with the artifact's relative path, we use the
-        # path module defined by the appropriate artifact repository
-        artifact_path_module =\
-            get_artifact_repository(run.info.artifact_uri, store).get_path_module()
-        return artifact_path_module.join(run.info.artifact_uri, artifact_path)
-
-
-def _download_artifact_from_uri(artifact_uri, output_path=None):
-    """
-    :param artifact_uri: The *absolute* URI of the artifact to download.
-    :param output_path: The local filesystem path to which to download the artifact. If unspecified,
-                        a local output path will be created.
-    """
-    store = _get_store(artifact_uri=artifact_uri)
-    artifact_path_module =\
-        get_artifact_repository(artifact_uri, store).get_path_module()
-    artifact_src_dir = artifact_path_module.dirname(artifact_uri)
-    artifact_src_relative_path = artifact_path_module.basename(artifact_uri)
-    artifact_repo = get_artifact_repository(
-            artifact_uri=artifact_src_dir, store=store)
-    return artifact_repo.download_artifacts(
-            artifact_path=artifact_src_relative_path, dst_path=output_path)
+        return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
 
 
 def _is_local_uri(uri):
+    """Returns true if this is a local file path (/foo or file:/foo)."""
     scheme = urllib.parse.urlparse(uri).scheme
     return uri != 'databricks' and (scheme == '' or scheme == 'file')
 
@@ -143,8 +90,7 @@ def _is_databricks_uri(uri):
 
 
 def _get_file_store(store_uri, **_):
-    path = urllib.parse.urlparse(store_uri).path if store_uri else None
-    return FileStore(path, path)
+    return FileStore(file_utils.local_file_uri_to_path(store_uri), store_uri)
 
 
 def _is_database_uri(uri):
@@ -169,6 +115,7 @@ def _get_rest_store(store_uri, **_):
             token=os.environ.get(_TRACKING_TOKEN_ENV_VAR),
             ignore_tls_verification=os.environ.get(_TRACKING_INSECURE_TLS_ENV_VAR) == 'true',
         )
+
     return RestStore(get_default_host_creds)
 
 
@@ -235,12 +182,8 @@ class TrackingStoreRegistry:
                  requirements.
         """
         store_uri = store_uri if store_uri is not None else get_tracking_uri()
+        scheme = store_uri if store_uri == "databricks" else get_uri_scheme(store_uri)
 
-        if store_uri == 'databricks':
-            # Add colon so databricks is parsed as scheme
-            store_uri += ':'
-
-        scheme = urllib.parse.urlparse(store_uri).scheme
         try:
             store_builder = self._registry[scheme]
         except KeyError:
@@ -268,19 +211,10 @@ _tracking_store_registry.register_entrypoints()
 
 
 def _get_store(store_uri=None, artifact_uri=None):
-
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
-def _get_model_log_dir(model_name, run_id):
-    if not run_id:
-        raise Exception("Must specify a run_id to get logging directory for a model.")
-    store = _get_store()
-    run = store.get_run(run_id)
-    artifact_repo = get_artifact_repository(run.info.artifact_uri, store)
-    return artifact_repo.download_artifacts(model_name)
-
-
+# TODO(sueann): move to a projects utils module
 def _get_git_url_if_present(uri):
     """
     Return the path git_uri#sub_directory if the URI passed is a local path that's part of

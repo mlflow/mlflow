@@ -35,12 +35,13 @@ DBFS_EXPERIMENT_DIR_BASE = "mlflow-experiments"
 _logger = logging.getLogger(__name__)
 
 
-def before_run_validations(tracking_uri, cluster_spec):
+def before_run_validations(tracking_uri, backend_config):
     """Validations to perform before running a project on Databricks."""
-    if cluster_spec is None:
-        raise ExecutionException("Cluster spec must be provided when launching MLflow project "
+    if backend_config is None:
+        raise ExecutionException("Backend spec must be provided when launching MLflow project "
                                  "runs on Databricks.")
-    if tracking.utils._is_local_uri(tracking_uri):
+    if not tracking.utils._is_databricks_uri(tracking_uri) and \
+            not tracking.utils._is_http_uri(tracking_uri):
         raise ExecutionException(
             "When running on Databricks, the MLflow tracking URI must be of the form "
             "'databricks' or 'databricks://profile', or a remote HTTP URI accessible to both the "
@@ -112,7 +113,7 @@ class DatabricksJobRunner(object):
                             a directory containing an MLproject file).
         """
         temp_tarfile_dir = tempfile.mkdtemp()
-        temp_tar_filename = file_utils.build_path(temp_tarfile_dir, "project.tar.gz")
+        temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
 
         def custom_filter(x):
             return None if os.path.basename(x.name) == "mlruns" else x
@@ -264,7 +265,7 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
     profile = tracking.utils.get_db_profile_from_uri(tracking.get_tracking_uri())
-    run_id = remote_run.info.run_uuid
+    run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile=profile)
     db_run_id = db_job_runner.run_databricks(
         uri, entry_point, work_dir, parameters, experiment_id, cluster_spec, run_id)
