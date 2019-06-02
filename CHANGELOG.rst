@@ -5,14 +5,16 @@ Changelog
 ----------------
 MLflow 1.0 includes many significant features and improvements. From this version, MLflow is no longer beta, and all APIs except those marked as experimental are intended to be stable until the next major version. As such, this release includes a number of breaking changes.
 
-#### Major features and improvements:
+Major features and improvements:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Support for recording, querying, and visualizing metrics along a new “step” axis, providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s pre-existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr; #1372, @stbof)
 - Logging metrics in batches. MLflow 1.0 now has a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``), R (``mlflow_log_batch``), and Java (``MlflowClient.logBatch``). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
 - Search improvements. MLflow 1.0 includes additional support for searching runs within a single experiment or a group of experiments through UI and API. The search filter API supports a simplified version of the SQL WHERE clause. In addition to searching using run's metrics and params, the API has been enhanced to support some run attributes and user and `system tags <https://mlflow.org/docs/latest/tracking.html#system-tags>`_. For details see `Search syntax <https://mlflow.org/docs/latest/search-syntax.html#syntax>`_ and `examples for programmatically searching runs <https://mlflow.org/docs/latest/search-syntax.html#programmatically-searching-runs>`_. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
 - Windows support for MLflow Tracking. The Tracking portion of the MLflow client is now supported on Windows. (#1171, @eedeleon, @tomasatdatabricks)
 
-#### Breaking changes:
+Breaking changes:
+~~~~~~~~~~~~~~~~~
 
 Some of the breaking changes involve database schema changes. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, #1371, @smurching; #1360, @aarondav)
 
@@ -74,7 +76,8 @@ Other:
 - [Projects] Remove and rename some ``projects.run`` parameters for generality and consistency. (#1222, @sueann)
 - [EnvVars] Prefix environment variables with "MLFLOW_" (#1268, @aarondav)
 
-#### More features and improvements:
+More features and improvements:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - [CLI] Add an ``mlflow models build-docker`` CLI command for building a docker image capable of serving an MLflow model. Note that this API is experimental and does not guarantee that the arguments nor format of the Docker container will remain the same. Currently, the model is served at port 8080 within the container by default. (#1329, @smurching, @tomasatdatabricks)
 - [Tracking][DB] Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald; #1374, @mparkhe)
@@ -94,7 +97,8 @@ Other:
 - [REST API] Add support for API paths without the ``preview`` component. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)
 - [Search] Limit number of results returned from ``SearchRuns`` API and UI for faster load (#1125, @mparkhe; #1154, @andrewmchen)
 
-#### Bug fixes and documentation updates:
+Bug fixes and documentation updates:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Log metric timestamps in milliseconds by default (#1177, @smurching; #1333, @dbczumar)
 - Update artifact repository download methods to return absolute paths (#1179, @dbczumar)
