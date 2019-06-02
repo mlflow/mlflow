@@ -5,60 +5,76 @@ Changelog
 ----------------
 MLflow 1.0 includes many significant features and improvements. From this version, MLflow is no longer beta, and all APIs except those marked as experimental are intended to be stable until the next major version. As such, this release includes a number of breaking changes.
 
-Major features and improvements:
+#### Major features and improvements:
 
 - Support for recording, querying, and visualizing metrics along a new “step” axis, providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s pre-existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr; #1372, @stbof)
 - Logging metrics in batches. MLflow 1.0 now has a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``), R (``mlflow_log_batch``), and Java (``MlflowClient.logBatch``). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
 - Search improvements. MLflow 1.0 includes additional support for searching runs within a single experiment or a group of experiments through UI and API. The search filter API supports a simplified version of the SQL WHERE clause. In addition to searching using run's metrics and params, the API has been enhanced to support some run attributes and user and `system tags <https://mlflow.org/docs/latest/tracking.html#system-tags>`_. For details see `Search syntax <https://mlflow.org/docs/latest/search-syntax.html#syntax>`_ and `examples for programmatically searching runs <https://mlflow.org/docs/latest/search-syntax.html#programmatically-searching-runs>`_. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
 - Windows support for MLflow Tracking. The Tracking portion of the MLflow client is now supported on Windows. (#1171, @eedeleon, @tomasatdatabricks)
 
-Breaking changes:
+#### Breaking changes:
 
 Some of the breaking changes involve database schema changes. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, #1371, @smurching; #1360, @aarondav)
 
-- API changes
+Installation:
 
-  - [Runs] Rename ``run_uuid`` to ``run_id`` in Python, Java, and REST API (#1187, @aarondav)
-  - [Runs] Remove deprecated ``RunInfo`` properties from ``start_run`` (#1220, @aarondav)
-  - Remove deprecated fields from REST, Python, and R APIs for 1.0 (#1188, @aarondav)
-  - [Models][Python] Require arguments as keywords in `log_model`, `save_model` and `add_to_model` methods in the `tensorflow` and `mleap` modules to avoid breaking changes in the future (#1226, @sueann)
-  - [Models/Deploy][Python/R] Introduce ``pyfunc.load_model`` to be consistent with other Models modules. ``pyfunc.load_pyfunc`` will be deprecated in the near future. (#1222, @sueann)
-  - Also remove the unsupported ``jars`` argument from ```spark.log_model`` (#1222, @sueann)
-  - [Projects] Remove and rename some ``projects.run`` parameters for generality and consistency. (#1222, @sueann)
-  - [Models] Rename ``dst_path`` parameter in ``pyfunc.save_model`` to ``path`` (#1221, @aarondav)
-  - [CLI] Unify ``mlflow pyfunc`` and ``mlflow rfunc`` commands as ``mlflow models`` (#1257, @tomasatdatabricks; #1321, @dbczumar)
-  - [CLI] Turn arguments into options in ``experiments`` CLI commands (#1235, @sueann)
-  - [CLI] Consolidate ``artifacts download``, ``artifacts download-from-uri`` and ``download`` into ``artifacts download`` (#1233, @sueann)
-  - [CLI] Remove ``sagemaker list-flavors`` (#1233, @sueann)
-  - [CLI] Deprecate ``--file-store`` argument to ``mlflow server`` and ``mlflow ui`` (#1196, @smurching)
-  - [CLI] Simplify ``mlflow ui`` command by removing the ``--host`` and ``--gunicorn-opts`` options (#1267, @aarondav)
-  - [EnvVars] Prefix environment variables with "MLFLOW_" (#1268, @aarondav)
-  - [R] R flavors refactor (#1299, @kevinykuo)
+- The MLflow Python package no longer depends on ``scikit-learn``, ``mleap``, or ``boto3``. If you want to use the ``scikit-learn`` support, the ``MLeap`` support, or ``s3`` artifact repository / ``sagemaker`` support, you will have to install these respective dependencies explicitly. (#1223, @aarondav)
 
-    - ``mlflow_predict()`` has been added in favor of ``mlflow_predict_model()`` and ``mlflow_predict_flavor()`` which have been removed.
-    - ``mlflow_save_model()`` is now a generic and ``mlflow_save_flavor()`` is no longer needed and has been removed.
-    - ``mlflow_predict()`` takes ``...`` to pass to underlying predict methods.
-    - ``mlflow_load_flavor()`` now has the signature ``function(flavor, model_path)`` and flavor authors should implement ``mlflow_load_flavor.mlflow_flavor_{FLAVORNAME}``. The flavor argument is inferred from the inputs of user-facing ``mlflow_load_model()`` and does not need to be explicitly provided by the user.
+CLI:
 
-  - [R] The ``mlflow_run`` API for running MLflow projects has been modified to more closely reflect the Python ``mlflow.run`` API. In particular, the order of the ``uri`` and ``entry_point`` arguments has been reversed and the ``param_list`` argument has been renamed to ``parameters``. (#1265, @smurching)
-  - [R] The ``mlflow_cli`` and ``crate`` APIs are now private. Also, the return values of experiment CRUD APIs have been updated to more closely match the REST API. In particular, ``mlflow_create_experiment`` now returns a string experiment ID instead of an experiment, and the other APIs return NULL. (#1246, @smurching)
-  - [R] Remove ``mlflow_snapshot`` and ``mlflow_restore_snapshot`` APIs. Also, the ``r_dependencies`` argument used to specify the path to a packrat r-dependencies.txt file has been removed from all APIs. (#1263, @smurching)
+- [Tracking] The ``--file-store`` option is deprecated in ``mlflow server`` and ``mlflow ui`` commands. (#1196, @smurching)
+- [Tracking] The ``--host`` and ``--gunicorn-opts`` options are removed in the ``mlflow ui`` command. (#1267, @aarondav)
+- [Tracking] Arguments to ``mlflow experiments`` subcommands, notably ``--experiment-name`` and ``--experiment-id`` are now options (#1235, @sueann)
+- [Models] ``mlflow pyfunc`` and ``mlflow rfunc`` commands have been unified as ``mlflow models`` (#1257, @tomasatdatabricks; #1321, @dbczumar)
+- [Deploy] The ``mlflow sagemaker``, ``mlflow azureml``, and ``mlflow models`` subcommands now require specifying model locations as URIs via the ``--model-uri`` option. See the `documentation <https://mlflow.org/docs/latest/tracking.html#referencing-artifacts>`_ for the list of accepted URIs. (#1174, @dbczumar, @sueann)
+- [Artifacts] ``mlflow artifacts download``, ``mlflow artifacts download-from-uri`` and ``mlflow download`` commands have been consolidated into ``mlflow artifacts download`` (#1233, @sueann)
+- [SageMaker] ``mlflow sagemaker list-flavors`` has been removed (#1233, @sueann)
 
-- [Artifacts] In the Models and Projects APIs, an artifact's location is now represented as a URI. (#1190, #1254, @dbczumar; #1174, @dbczumar, @sueann; #1206, @tomasatdatabricks)
+Runs:
+
+- [Python] Expose ``RunData`` fields (``metrics``, ``params``, ``tags``) as dictionaries. Note that the ``mlflow.entities.RunData`` constructor still accepts lists of ``metric``/``param``/``tag`` entities. (#1078, @smurching)
+- The ``user`` property of Runs has been moved to tags (similarly, the ``run_name``, ``source_type``, ``source_name`` properties were moved to tags in 0.9.0). (#1230, @acroz; #1275, #1276, @aarondav)
+- Rename ``run_uuid`` to ``run_id`` in Python, Java, and REST API. Where necessary, MLflow will continue to accept ``run_uuid`` until MLflow 1.1. (#1187, @aarondav)
+- Remove deprecated ``RunInfo`` properties from ``start_run``. (#1220, @aarondav)
+- ``RunInfo.status``'s type is now string. (#1264, @mparkhe)
+- As deprecated in 0.9.1 and before, the RunInfo fields run_name, source_name, source_version, source_type, and entry_point_name and the SearchRuns field anded_expressions have been removed from the REST API and Python, Java, and R tracking client APIs. They are still available as tags, documented in the REST API documentation. (#1188, @aarondav)
+
+Models and deployment:
+
+- [Artifacts] In the Models APIs, an artifact's location is now represented as a URI. See the `documentation <https://mlflow.org/docs/latest/tracking.html#referencing-artifacts>`_ for the list of accepted URIs. (#1190, #1254, @dbczumar; #1174, @dbczumar, @sueann; #1206, @tomasatdatabricks)
 
   - The affected APIs are:
 
     - Python: ``<model-type>.load_model``, ``azureml.build_image``, ``sagemaker.deploy``, ``sagemaker.run_local``, ``pyfunc._load_model_env``, ``pyfunc.load_pyfunc``, and ``pyfunc.spark_udf``
     - R: ``mlflow_load_model``, ``mlflow_rfunc_predict``, ``mlflow_rfunc_serve``
     - CLI: ``mlflow models serve``, ``mlflow models predict``
+
   - To allow referring to artifacts in the context of a run, we introduce a new URI scheme of the form ``runs:/<run_id>/relative/path/to/artifact``. (#1169, #1175, @sueann)
 
-- [Runs] The ``user`` property of Runs has been moved to tags (similarly, the ``run_name``, ``source_type``, ``source_name`` properties were moved to tags in 0.9.0). (#1230, @acroz; #1275, #1276, @aarondav)
-- [Runs][Python] Expose ``RunData`` fields (``metrics``, ``params``, ``tags``) as dictionaries (#1078, @smurching)
-- [Runs] ``RunInfo.status``'s type is now string (#1264, @mparkhe)
-- [Installation] The MLflow Python package no longer depends on ``scikit-learn``, ``mleap``, or ``boto3``. If you want to use the ``scikit-learn`` support, the ``MLeap`` support, or ``s3`` artifact repository / ``sagemaker`` support, you will have to install these respective dependencies explicitly. (#1223, @aarondav)
+- [Python] Require arguments as keywords in `log_model`, `save_model` and `add_to_model` methods in the `tensorflow` and `mleap` modules to avoid breaking changes in the future (#1226, @sueann)
+- Remove the unsupported ``jars`` argument from ```spark.log_model`` (#1222, @sueann)
+- [Python/R] Introduce ``pyfunc.load_model`` to be consistent with other Models modules. ``pyfunc.load_pyfunc`` will be deprecated in the near future. (#1222, @sueann)
+- Rename ``dst_path`` parameter in ``pyfunc.save_model`` to ``path`` (#1221, @aarondav)
 
-More features and improvements:
+R:
+
+- [Tracking] The return values of experiment CRUD APIs have been updated to more closely match the REST API. In particular, ``mlflow_create_experiment`` now returns a string experiment ID instead of an experiment, and the other APIs return NULL. (#1246, @smurching)
+- [Models] R flavors refactor (#1299, @kevinykuo)
+
+  - ``mlflow_predict()`` has been added in favor of ``mlflow_predict_model()`` and ``mlflow_predict_flavor()`` which have been removed.
+  - ``mlflow_save_model()`` is now a generic and ``mlflow_save_flavor()`` is no longer needed and has been removed.
+  - ``mlflow_predict()`` takes ``...`` to pass to underlying predict methods.
+  - ``mlflow_load_flavor()`` now has the signature ``function(flavor, model_path)`` and flavor authors should implement ``mlflow_load_flavor.mlflow_flavor_{FLAVORNAME}``. The flavor argument is inferred from the inputs of user-facing ``mlflow_load_model()`` and does not need to be explicitly provided by the user.
+
+- [Models][Projects] Remove ``mlflow_snapshot`` and ``mlflow_restore_snapshot`` APIs. Also, the ``r_dependencies`` argument used to specify the path to a packrat r-dependencies.txt file has been removed from all APIs. (#1263, @smurching)
+- [Projects] The ``mlflow_run`` API for running MLflow projects has been modified to more closely reflect the Python ``mlflow.run`` API. In particular, the order of the ``uri`` and ``entry_point`` arguments has been reversed and the ``param_list`` argument has been renamed to ``parameters``. (#1265, @smurching)
+- The ``mlflow_cli`` and ``crate`` APIs are now private. (#1246, @smurching)
+
+Other:
+- [Projects] Remove and rename some ``projects.run`` parameters for generality and consistency. (#1222, @sueann)
+- [EnvVars] Prefix environment variables with "MLFLOW_" (#1268, @aarondav)
+
+#### More features and improvements:
 
 - [CLI] Add an ``mlflow models build-docker`` CLI command for building a docker image capable of serving an MLflow model. Note that this API is experimental and does not guarantee that the arguments nor format of the Docker container will remain the same. Currently, the model is served at port 8080 within the container by default. (#1329, @smurching, @tomasatdatabricks)
 - [Tracking][DB] Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald; #1374, @mparkhe)
@@ -78,7 +94,7 @@ More features and improvements:
 - [REST API] Add support for API paths without the ``preview`` component. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)
 - [Search] Limit number of results returned from ``SearchRuns`` API and UI for faster load (#1125, @mparkhe; #1154, @andrewmchen)
 
-Bug fixes and documentation updates:
+#### Bug fixes and documentation updates:
 
 - Log metric timestamps in milliseconds by default (#1177, @smurching; #1333, @dbczumar)
 - Update artifact repository download methods to return absolute paths (#1179, @dbczumar)
@@ -111,7 +127,7 @@ Breaking changes:
 
 More features and improvements:
 
-- [Search][API] Moving search filters into a query string based syntax, with Java client, python client, and UI support. This also improves quote, period, and special character handling in query strings and adds the ability to search on tags in filter string. (#1042, #1055, #1063, #1068, #1099, #1106 @mparkhe; #1025 @andrewmchen; #1060 @smurching)
+- [Search][API] Moving search filters into a query string based syntax, with Java client, Python client, and UI support. This also improves quote, period, and special character handling in query strings and adds the ability to search on tags in filter string. (#1042, #1055, #1063, #1068, #1099, #1106 @mparkhe; #1025 @andrewmchen; #1060 @smurching)
 - [Tracking] Limits and validations to batch-logging APIs in OSS server (#958 @smurching)
 - [Tracking][Java] Java client API for batch-logging (#1081 @mparkhe)
 - [Tracking] Improved consistency of handling multiple metric values per timestamp across tracking stores (#972, #999 @dbczumar)
