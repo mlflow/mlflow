@@ -73,6 +73,7 @@ R:
 - The ``mlflow_cli`` and ``crate`` APIs are now private. (#1246, @smurching)
 
 Other:
+
 - [Projects] Remove and rename some ``projects.run`` parameters for generality and consistency. (#1222, @sueann)
 - [EnvVars] Prefix environment variables with "MLFLOW_" (#1268, @aarondav)
 
@@ -81,21 +82,21 @@ More features and improvements:
 
 - [CLI] Add an ``mlflow models build-docker`` CLI command for building a docker image capable of serving an MLflow model. Note that this API is experimental and does not guarantee that the arguments nor format of the Docker container will remain the same. Currently, the model is served at port 8080 within the container by default. (#1329, @smurching, @tomasatdatabricks)
 - [Tracking][DB] Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald; #1374, @mparkhe)
-- [Tracking] Validate backend store URI before starting tracking server (#1218, @luke-zhu, @sueann)
-- Add ``view_type`` argument to ``MlflowClient.list_experiments()`` in Python. (#1212, @smurching)
-- [Python] Dictionary values provided to ``mlflow.log_params`` and ``mlflow.set_tags`` can now be non-string types (e.g., numbers), and they are automatically converted to strings. (#1364, @aarondav)
-- Add ``GetMetricHistory`` client API in Python and Java corresponding to the REST API. (#1178, @smurching)
+- [Tracking][Server] Validate backend store URI before starting tracking server (#1218, @luke-zhu, @sueann)
+- [Tracking] Add ``GetMetricHistory`` client API in Python and Java corresponding to the REST API. (#1178, @smurching)
+- [Tracking] Add ``view_type`` argument to ``MlflowClient.list_experiments()`` in Python. (#1212, @smurching)
+- [Tracking][Python] Dictionary values provided to ``mlflow.log_params`` and ``mlflow.set_tags`` can now be non-string types (e.g., numbers), and they are automatically converted to strings. (#1364, @aarondav)
 - [Tracking][R] API additions to be at parity with REST API and Python (#1122, @kevinykuo)
+- [Tracking][Search] Limit number of results returned from ``SearchRuns`` API and UI for faster load (#1125, @mparkhe; #1154, @andrewmchen)
 - [Artifacts] Hadoop artifact repository with Kerberos authorization support  (#1011, @jaroslawk)
 - [Artifacts] To avoid having many copies of large model files in serving, ``ArtifactRepository.download_artifacts`` no longer copies local artifacts (#1307, @andrewmchen)
-- Support GCS in download utilities. ``gs://bucket/path`` files are now supported by the ``mlflow download`` CLI command and as parameters of type ``path`` in MLProject files. (#1168, @drewmcdonald)
-- [Python][Models] All Python models exported by MLflow now declare ``mlflow`` as a dependency by default. In addition, we introduce a flag ``--install-mlflow`` users can pass to ``mlflow models serve`` and ``mlflow models predict`` methods to force installation of the latest version of MLflow into the model's environment. (#1308, @tomasatdatabricks)
-- [Python][Models] Update model flavors to lazily import dependencies. Modules that define Model flavors now import extra dependencies such as ``tensorflow``, ``scikit-learn``, and ``pytorch`` inside individual _methods_, ensuring that these modules can be imported and explored even if the dependencies have not been installed on your system. Also, the ``DEFAULT_CONDA_ENVIRONMENT`` module variable has been replaced with a ``get_default_conda_env()`` function for each flavor.
-- [Keras] It is now possible to pass extra arguments to ``mlflow.keras.load_model`` that will be passed through to ``keras.load_model``. (#1330, @@yorickvP)
+- [Artifacts][Projects] Support GCS in download utilities. ``gs://bucket/path`` files are now supported by the ``mlflow artifacts download`` CLI command and as parameters of type ``path`` in MLProject files. (#1168, @drewmcdonald)
+- [Models][Python] All Python models exported by MLflow now declare ``mlflow`` as a dependency by default. In addition, we introduce a flag ``--install-mlflow`` users can pass to ``mlflow models serve`` and ``mlflow models predict`` methods to force installation of the latest version of MLflow into the model's environment. (#1308, @tomasatdatabricks)
+- [Models][Python] Update model flavors to lazily import dependencies. Modules that define Model flavors now import extra dependencies such as ``tensorflow``, ``scikit-learn``, and ``pytorch`` inside individual _methods_, ensuring that these modules can be imported and explored even if the dependencies have not been installed on your system. Also, the ``DEFAULT_CONDA_ENVIRONMENT`` module variable has been replaced with a ``get_default_conda_env()`` function for each flavor.
+- [Models][Keras] It is now possible to pass extra arguments to ``mlflow.keras.load_model`` that will be passed through to ``keras.load_model``. (#1330, @@yorickvP)
 - [Serving] For better performance, switch to ``gunicorn`` for serving Python models. This does not change the user interface. (#1322, @tomasatdatabricks)
-- [SageMaker][Deployment] Use the uniquely-generated model name as the S3 bucket prefix instead of requiring one. (#1183, @dbczumar)
+- [Deployment][SageMaker] Use the uniquely-generated model name as the S3 bucket prefix instead of requiring one. (#1183, @dbczumar)
 - [REST API] Add support for API paths without the ``preview`` component. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)
-- [Search] Limit number of results returned from ``SearchRuns`` API and UI for faster load (#1125, @mparkhe; #1154, @andrewmchen)
 
 Bug fixes and documentation updates:
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
