@@ -1,3 +1,13 @@
+"""
+The ``mlflow.onnx`` module provides APIs for logging and loading ONNX models in the MLflow Model
+format. This module exports MLflow Models with the following flavors:
+
+ONNX (native) format
+    This is the main flavor that can be loaded back as an ONNX model object.
+:py:mod:`mlflow.pyfunc`
+    Produced for use by generic pyfunc-based deployment tools and batch inference.
+"""
+
 from __future__ import absolute_import
 
 import os
@@ -23,7 +33,7 @@ FLAVOR_NAME = "onnx"
 def get_default_conda_env():
     """
     :return: The default Conda environment for MLflow Models produced by calls to
-    :func:`save_model()` and :func:`log_model()`.
+             :func:`save_model()` and :func:`log_model()`.
     """
     import onnx
     import onnxruntime
