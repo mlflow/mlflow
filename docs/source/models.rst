@@ -150,9 +150,9 @@ and the :mod:`mlflow.pyfunc` documentation.
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The ``crate`` model flavor defines a generic model format for representing aribtrary R predict
-function as Mlflow model. The predict function is expected to take a dataframe on the  input and
-produce a dataframe or a vector or a list with the predictions on the output.
+The ``crate`` model flavor defines a generic model format for representing aribtrary R prediction
+function as Mlflow model. The prediction function is expected to take a dataframe as input and
+produce a dataframe, a vector or a list with the predictions as output.
 
 This flavor requires R to be installed in order to be used.
 
@@ -180,16 +180,17 @@ For more information, see :py:mod:`mlflow.h2o`.
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
-The ``keras`` model flavor enables logging and loading Keras models. It is available in both python
+The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
 and R clients. The :py:mod:`mlflow.keras` module defines :py:func:`save_model()<mlflow.keras.save_model>`
 and :py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
-in MLflow Model format in python. Similarly, in R, you can save or log the model using
+in MLflow Model format in Python. Similarly, in R, you can save or log the model using
 :rlang:func:`mlflow_save_model` and :rlang:func:`mlflow_log_model. These functions serialize Keras
 models as HDF5 files using the Keras library's built-in model persistence functions. MLflow Models
 produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
 as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, you
-can use the :py:func:`mlflow.keras.load_model()` function to load MLflow Models with the
-``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
+can use the :py:func:`mlflow.keras.load_model()` in Python or :rlang:func:`mlflow_load_model()` in R
+function to load MLflow Models with the ``keras`` flavor as
+`Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 For more information, see :py:mod:`mlflow.keras`.
 
@@ -470,7 +471,7 @@ Not all deployment methods are available for all model flavors.
 Deploy MLflow models
 ^^^^^^^^^^^^^^^^^^^^
 MLflow can deploy models locally as local REST API endpoints or to directly score files. In addition,
-MLflow can package models as self contained docker images with the REST api endpoint. The image can
+MLflow can package models as self contained docker images with the REST API endpoint. The image can
 be used to safely deploy the model to various environments such as Kubernetes.
 
 You deploy MLflow model locally or generate a docker image using the CLI interface to the
@@ -499,7 +500,7 @@ Commands
 ~~~~~~~~
 
 * :py:func:`serve <mlflow.models.cli.serve>` deploys the model as a local REST API server.
-* :py:func:`build_docker <mlflow.models.cli.build-docker>` packages a REST api endpoint serving the
+* :py:func:`build_docker <mlflow.models.cli.build-docker>` packages a REST API endpoint serving the
             model as a docker image.
 * :py:func:`predict <mlflow.models.cli.predict>` uses the model to generate a prediction for a local
   CSV or JSON file.
