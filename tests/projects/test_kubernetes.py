@@ -46,6 +46,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
 
 
 def test_run_kubernetes_job():
+    active_run = mock.Mock()
     image = 'mlflow-docker-example-5e74a5a'
     command = ['python train.py --alpha 0.5 --l1-ratio 0.1']
     env_vars = {'RUN_ID': '1'}
@@ -66,10 +67,14 @@ def test_run_kubernetes_job():
                              "      restartPolicy: Never\n")
     with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
         with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
-            job_info = kb.run_kubernetes_job(image=image, command=command, env_vars=env_vars,
-                                             job_template=job_template, kube_context=kube_context)
-            assert job_info["job_name"].startswith(image)
-            assert job_info["job_namespace"] == "mlflow"
+            submitted_run_obj  = kb.run_kubernetes_job(active_run=active_run, image=image,
+                                                       command=command, env_vars=env_vars,
+                                                       job_template=job_template,
+                                                       kube_context=kube_context)
+            
+            assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
+            assert submitted_run_obj._job_name.startswith(image)
+            assert submitted_run_obj._job_namespace == "mlflow"
             assert kube_api_mock.call_count == 1
             args = kube_config_mock.call_args_list
             assert args[0][1]['context'] == kube_context

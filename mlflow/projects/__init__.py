@@ -159,22 +159,22 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                         "kubernetes")
         _validate_docker_env(project, "kubernetes")
         _validate_docker_installation()
-        kube_config = _parse_kubernetes_config(backend_config, work_dir)
+        kube_config = _parse_kubernetes_config(backend_config)
         image = _build_docker_image(work_dir=work_dir,
                                     image_uri=kube_config["image-uri"],
                                     base_image=project.docker_env.get('image'),
                                     active_run=active_run)
         kb.push_image_to_registry(image)
-        job_info = kb.run_kubernetes_job(image,
-                                         _get_entry_point_command(project, entry_point,
-                                                                  parameters, storage_dir),
-                                         _get_run_env_vars(
-                                             run_id=active_run.info.run_uuid,
-                                             experiment_id=active_run.info.experiment_id),
-                                         kube_config['kube-context'],
-                                         kube_config['kube-job-template'])
-        return kb.monitor_job_status(job_info["job_name"],
-                                     job_info["job_namespace"])
+        submitted_run = kb.run_kubernetes_job(active_run,
+                                              image,
+                                              _get_entry_point_command(project, entry_point,
+                                                                       parameters, storage_dir),
+                                              _get_run_env_vars(
+                                                run_id=active_run.info.run_uuid,
+                                                experiment_id=active_run.info.experiment_id),
+                                              kube_config['kube-context'],
+                                              kube_config['kube-job-template'])
+        return submitted_run
 
     supported_backends = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
@@ -711,7 +711,7 @@ def _validate_docker_env(project, backend="local"):
                                  "to use via an 'image' field under the 'docker_env' field.")
 
 
-def _parse_kubernetes_config(backend_config, work_dir):
+def _parse_kubernetes_config(backend_config):
     """
     Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
     """

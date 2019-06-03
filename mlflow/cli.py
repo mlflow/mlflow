@@ -135,7 +135,7 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             backend_config=backend_config,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
-            synchronous=backend == "local" or backend is None,
+            synchronous=backend in ("local", "kubernetes") or backend is None,
             run_id=run_id
         )
     except projects.ExecutionException as e:

@@ -367,17 +367,16 @@ def test_storage_dir(tmpdir):
 
 
 def test_parse_kubernetes_config():
+    work_dir = "./examples/docker"
     kubernetes_config = {
         "kube-context": "docker-for-desktop",
-        "kube-job-template-path": "kubernetes_job_template.yaml",
+        "kube-job-template-path": os.path.join(work_dir, "kubernetes_job_template.yaml"),
         "image-uri": "dockerhub_account/mlflow-kubernetes-example"
     }
-    work_dir = "./examples/docker"
     yaml_obj = None
-    file_path = os.path.join(work_dir, kubernetes_config["kube-job-template-path"])
-    with open(file_path, 'r') as job_template:
+    with open(kubernetes_config["kube-job-template-path"], 'r') as job_template:
         yaml_obj = yaml.safe_load(job_template.read())
-    kube_config = mlflow.projects._parse_kubernetes_config(kubernetes_config, work_dir)
+    kube_config = mlflow.projects._parse_kubernetes_config(kubernetes_config)
     assert kube_config["kube-context"] == kubernetes_config["kube-context"]
     assert kube_config["kube-job-template-path"] == kubernetes_config["kube-job-template-path"]
     assert kube_config["image-uri"] == kubernetes_config["image-uri"]
@@ -391,7 +390,7 @@ def test_parse_kubernetes_config_without_context():
     }
     work_dir = "./examples/docker"
     with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config, work_dir)
+        mlflow.projects._parse_kubernetes_config(kubernetes_config)
 
 
 def test_parse_kubernetes_config_without_image_uri():
@@ -401,7 +400,7 @@ def test_parse_kubernetes_config_without_image_uri():
     }
     work_dir = "./examples/docker"
     with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config, work_dir)
+        mlflow.projects._parse_kubernetes_config(kubernetes_config)
 
 
 def test_parse_kubernetes_config_invalid_template_job_file():
@@ -412,4 +411,4 @@ def test_parse_kubernetes_config_invalid_template_job_file():
     }
     work_dir = "./examples/docker"
     with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config, work_dir)
+        mlflow.projects._parse_kubernetes_config(kubernetes_config)
