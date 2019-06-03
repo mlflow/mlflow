@@ -1,7 +1,7 @@
 Changelog
 =========
 
-1.0 (2019-05-31)
+1.0 (2019-06-03)
 ----------------
 MLflow 1.0 includes many significant features and improvements. From this version, MLflow is no longer beta, and all APIs except those marked as experimental are intended to be stable until the next major version. As such, this release includes a number of breaking changes.
 
@@ -14,7 +14,7 @@ Major features, improvements, and breaking changes
 - Windows support for MLflow Tracking. The Tracking portion of the MLflow client is now supported on Windows. (#1171, @eedeleon, @tomasatdatabricks)
 - HDFS support for artifacts. Hadoop artifact repository with Kerberos authorization support was added, so you can use HDFS to log and retrieve models and other artifacts. (#1011, @jaroslawk)
 - CLI command to build Docker images for serving. Added an ``mlflow models build-docker`` CLI command for building a Docker image capable of serving an MLflow model. The model is served at port 8080 within the container by default. Note that this API is experimental and does not guarantee that the arguments nor format of the Docker container will remain the same. (#1329, @smurching, @tomasatdatabricks)
-- New ``onnx`` model flavor for saving, loading, and evaluating ONNX models with MLflow. ONNX flavor APIs are available in the ``mlflow.onnx`` module. (#1127, @avflor, @dbczumar)
+- New ``onnx`` model flavor for saving, loading, and evaluating ONNX models with MLflow. ONNX flavor APIs are available in the ``mlflow.onnx`` module. (#1127, @avflor, @dbczumar; #1388, @dbczumar)
 - Major breaking changes:
 
   - Some of the breaking changes involve database schema changes in the SQLAlchemy tracking store. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, #1371, @smurching; #1360, @aarondav)
