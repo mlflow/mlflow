@@ -80,7 +80,7 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     :param artifact_path: Run-relative artifact path.
     :param conda_env: Path to a Conda environment file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`get_default_conda_env()` environment is added to the model. The
                       following is an *example* dictionary representation of a Conda environment::
 
@@ -168,7 +168,7 @@ def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_p
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`get_default_conda_env()` environment is added to the model. The
                       following is an *example* dictionary representation of a Conda environment::
 
@@ -298,7 +298,7 @@ def _load_model(path, **kwargs):
 
 def load_model(model_uri, **kwargs):
     """
-    Load a PyTorch model from a local file (if ``run_id`` is ``None``) or a run.
+    Load a PyTorch model from a local file or a run.
 
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
@@ -307,9 +307,9 @@ def load_model(model_uri, **kwargs):
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param kwargs: kwargs to pass to ``torch.load`` method.
     :return: A PyTorch model.
@@ -320,7 +320,7 @@ def load_model(model_uri, **kwargs):
     >>> # set values
     >>> model_path_dir = ...
     >>> run_id="96771d893a5e46159d9f3b49bf9013e2"
-    >>> pytorch_model = mlflow.pytorch.load_model(model_path_dir, run_id)
+    >>> pytorch_model = mlflow.pytorch.load_model("runs:/" + run_id + "/" + model_path_dir)
     >>> y_pred = pytorch_model(x_new_data)
     """
     import torch

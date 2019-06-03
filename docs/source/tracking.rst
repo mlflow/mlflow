@@ -6,8 +6,7 @@ MLflow Tracking
 
 The MLflow Tracking component is an API and UI for logging parameters, code versions, metrics, and output files
 when running your machine learning code and for later visualizing the results.
-MLflow Tracking lets you log and query experiments using :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R-api`, 
-and :ref:`java_api` APIs.
+MLflow Tracking lets you log and query experiments using :ref:`Python <python-api>`, :ref:`REST <rest-api>`, :ref:`R-api`, and :ref:`java_api` APIs.
 
 .. contents:: Table of Contents
   :local:
@@ -61,8 +60,7 @@ Where Runs Are Recorded
 =======================
 
 MLflow runs can be recorded to local files, to a SQLAlchemy compatible database, or remotely
-to a tracking server.
-By default, the MLflow Python API logs runs locally to files in an ``mlruns`` directory wherever you
+to a tracking server. By default, the MLflow Python API logs runs locally to files in an ``mlruns`` directory wherever you
 ran your program. You can then run ``mlflow ui`` to see the logged runs. 
 
 To log runs remotely, set the ``MLFLOW_TRACKING_URI`` environment variable to a tracking server's URI or 
@@ -287,12 +285,45 @@ The UI contains the following key features:
 Querying Runs Programmatically
 ==============================
 
-All of the functions in the Tracking UI can be accessed programmatically. This makes it easy to do several common tasks:
+You can access all of the functions in the Tracking UI programmatically. This makes it easy to do several common tasks:
 
 * Query and compare runs using any data analysis tool of your choice, for example, **pandas**. 
 * Determine the artifact URI for a run to feed some of its artifacts into a new run when executing a workflow. For an example of querying runs and constructing a multistep workflow, see the MLflow `Multistep Workflow Example project <https://github.com/mlflow/mlflow/blob/15cc05ce2217b7c7af4133977b07542934a9a19f/examples/multistep_workflow/main.py#L63>`_.
 * Load artifacts from past runs as :ref:`models`. For an example of training, exporting, and loading a model, and predicting using the model, see the MLFlow `TensorFlow example <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_.
 * Run automated parameter search algorithms, where you query the metrics from various runs to submit new ones. For an example of running automated parameter search algorithms, see the MLflow `Hyperparameter Tuning Example project <https://github.com/mlflow/mlflow/blob/master/examples/hyperparam/README.rst>`_.
+
+.. _artifact-locations:
+
+Referencing Artifacts
+---------------------
+
+When you specify the location of an artifact in MLflow APIs, the syntax depends on whether you
+are invoking the Tracking, Models, or Projects API. For the Tracking API, you specify the artifact location using a (run ID, relative path) tuple. For the Models and Projects APIs, you specify the artifact location in the follow ways:
+
+- ``/Users/me/path/to/local/model``
+- ``relative/path/to/local/model``
+- ``<scheme>/<scheme-dependent-path>``. For example:
+
+  - ``s3://my_bucket/path/to/model``
+  - ``hdfs://<host>:<port>/<path>``
+  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+For example:
+
+.. rubric:: Tracking API
+
+.. code-block:: py
+
+  mlflow.tracking.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
+  
+.. rubric:: Models API
+
+.. code-block:: py
+
+  mlflow.pytorch.load_model("runs:/<mlflow_run_id>/run-relative/path/to/model")
+
+
+
 
 
 .. _tracking_server:
@@ -336,9 +367,9 @@ For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-
 .. important::
 
     ``mlflow server`` will fail against a database-backed store with an out-of-date database schema.
-    To prevent this, upgrade your database schema to the latest supported version via
-    ``mlflow db upgrade [db_uri]``. Note that schema migrations can result in database downtime, may
-    take longer on larger databases, and are not guaranteed to be transactional. As such, always
+    To prevent this, upgrade your database schema to the latest supported version using
+    ``mlflow db upgrade [db_uri]``. Schema migrations can result in database downtime, may
+    take longer on larger databases, and are not guaranteed to be transactional. You should always
     take a backup of your database prior to running ``mlflow db upgrade`` - consult your database's
     documentation for instructions on taking a backup.
 
@@ -373,8 +404,12 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
   is a path inside the file store. Typically this is not an appropriate location, as the client and
   server probably refer to different physical locations (that is, the same path on different disks).
 
-Supported Artifact Stores
-~~~~~~~~~~~~~~~~~~~~~~~~~
+Artifact Stores
+~~~~~~~~~~~~~~~~
+
+.. contents:: In this section:
+  :local:
+  :depth: 1
 
 In addition to local file paths, MLflow supports the following storage systems as artifact
 stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
@@ -419,7 +454,7 @@ to access Google Cloud Storage; MLflow does not declare a dependency on this pac
 FTP server
 ^^^^^^^^^^^
 
-Specify a URI of the form ftp://user@host/path/to/directory to store artifacts in a FTP server. 
+To store artifacts in a FTP server, specify a URI of the form ftp://user@host/path/to/directory . 
 The URI may optionally include a password for logging into the server, e.g. ``ftp://user:pass@host/path/to/directory``
 
 SFTP Server
@@ -469,6 +504,7 @@ Optionally one can select a different version of the HDFS driver library using:
   export MLFLOW_HDFS_DRIVER=libhdfs3
 
 The default one is ```libhdfs```.
+
 
 Networking
 ----------

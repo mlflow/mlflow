@@ -169,10 +169,10 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
 
 def _get_mleap_schema(dataframe):
     """
-    :param dataframe: A PySpark dataframe object
+    :param dataframe: A PySpark DataFrame object
 
     :return: The schema of the supplied dataframe, in MLeap format. This serialized object of type
-    `ml.combust.mleap.core.types.StructType`, represented as a JSON dictionary.
+    ``ml.combust.mleap.core.types.StructType``, represented as a JSON dictionary.
     """
     from pyspark.ml.util import _jvm
     ReflectionUtil = _jvm().py4j.reflection.ReflectionUtil
@@ -204,5 +204,5 @@ def _handle_py4j_error(reraised_error_type, reraised_error_text):
 
 
 class MLeapSerializationException(MlflowException):
-    """Exception thrown when a model or dataframe cannot be serialized in MLeap format"""
+    """Exception thrown when a model or DataFrame cannot be serialized in MLeap format"""
     pass

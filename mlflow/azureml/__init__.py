@@ -38,17 +38,17 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     For information about the input data formats accepted by this webserver, see the
     :ref:`MLflow deployment tools documentation <azureml_deployment>`.
 
-    :param model_uri: The location, in URI format, of the MLflow model for which to build an Azure
-                      ML deployment image, for example:
+    :param model_uri: The location, in URI format, of the MLflow model used to build the Azure
+                      ML deployment image. For example:
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param image_name: The name to assign the Azure Container Image that will be created. If
                        unspecified, a unique image name will be generated.
@@ -67,20 +67,21 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
                         azureml.core.model.model?view=azure-ml-py#register>`_.
     :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to
                  associate with the Azure Container Image and the Azure Model that will be created.
-                 These tags will be added to a set of default tags that include the model path,
-                 the model run id (if specified), and more. For more information, see
+                 These tags are added to a set of default tags that include the model uri,
+                 and more. For more information, see
                  `<https://docs.microsoft.com/en-us/python/api/azureml-core/
                  azureml.core.image.container.containerimageconfig>`_ and
                  `<https://docs.microsoft.com/en-us/python/api/azureml-core/
                  azureml.core.model.model?view=azure-ml-py#register>`_.
-    :param synchronous: If `True`, this method will block until the image creation procedure
-                        terminates before returning. If `False`, the method will return immediately,
+    :param synchronous: If ``True``, this method blocks until the image creation procedure
+                        terminates before returning. If ``False``, the method returns immediately,
                         but the returned image will not be available until the asynchronous
-                        creation process completes. The `azureml.core.Image.wait_for_creation()`
-                        function can be used to wait for the creation process to complete.
+                        creation process completes. Use the
+                        ``azureml.core.Image.wait_for_creation()`` function to wait for the creation
+                        process to complete.
     :return: A tuple containing the following elements in order:
-             - An `azureml.core.image.ContainerImage` object containing metadata for the new image.
-             - An `azureml.core.model.Model` object containing metadata for the new model.
+            - An ``azureml.core.image.ContainerImage`` object containing metadata for the new image.
+            - An ``azureml.core.model.Model`` object containing metadata for the new model.
 
     >>> import mlflow.azureml
     >>> from azureml.core import Workspace
@@ -100,7 +101,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     >>>
     >>> # Build an Azure ML Container Image for an MLflow model
     >>> azure_image, azure_model = mlflow.azureml.build_image(
-    >>>                                 model_path="<model_path>",
+    >>>                                 model_uri="<model_uri>",
     >>>                                 workspace=azure_workspace,
     >>>                                 synchronous=True)
     >>> # If your image build failed, you can access build logs at the following URI:
@@ -126,7 +127,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     if model_python_version is not None and\
             StrictVersion(model_python_version) < StrictVersion("3.0.0"):
         raise MlflowException(
-                message=("Azure ML can only deploy models trained in Python 3 or above! Please see"
+                message=("Azure ML can only deploy models trained in Python 3 and above. See"
                          " the following MLflow GitHub issue for a thorough explanation of this"
                          " limitation and a workaround to enable support for deploying models"
                          " trained in Python 2: https://github.com/mlflow/mlflow/issues/668"),
