@@ -474,7 +474,7 @@ MLflow can deploy models locally as local REST API endpoints or to directly scor
 MLflow can package models as self contained Docker images with the REST API endpoint. The image can
 be used to safely deploy the model to various environments such as Kubernetes.
 
-You deploy MLflow model locally or generate a docker image using the CLI interface to the
+You deploy MLflow model locally or generate a Docker image using the CLI interface to the
 :py:mod:`mlflow.models` module.
 
 The REST API server accepts the following data formats as inputs:
