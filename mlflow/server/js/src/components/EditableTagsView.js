@@ -4,7 +4,7 @@ import HtmlTableView from './HtmlTableView';
 import Utils from '../utils/Utils';
 import PropTypes from 'prop-types';
 import { Form, Input, Button, message } from 'antd';
-import { setTagApi } from '../Actions';
+import { getUUID, setTagApi } from '../Actions';
 
 class EditableTagsView extends React.Component {
   static propTypes = {
@@ -14,22 +14,24 @@ class EditableTagsView extends React.Component {
     form: PropTypes.object.isRequired,
   };
 
-  state = { requestPending: false };
+  state = { isRequestPending: false };
+
+  requestId = getUUID();
 
   handleAddTag = (e) => {
     e.preventDefault();
     const { form, runUuid, setTagApi } = this.props;
     form.validateFields((err, values) => {
       if (!err) {
-        this.setState({ requestPending: true });
-        setTagApi(runUuid, values.name, values.value)
+        this.setState({ isRequestPending: true });
+        setTagApi(runUuid, values.name, values.value, this.requestId)
           .then(() => {
-            this.setState({ requestPending: false });
+            this.setState({ isRequestPending: false });
             form.resetFields();
             message.success('Tag added successfully.');
           })
           .catch((e) => {
-            this.setState({ requestPending: false });
+            this.setState({ isRequestPending: false });
             console.error(e);
             message.error('Failed to add tag.');
           });
@@ -40,6 +42,7 @@ class EditableTagsView extends React.Component {
   render() {
     const { tags, tableStyles, form } = this.props;
     const { getFieldDecorator } = form;
+    const { isRequestPending } = this.state;
     return (
       <div>
         <HtmlTableView
@@ -65,7 +68,7 @@ class EditableTagsView extends React.Component {
               )}
             </Form.Item>
             <Form.Item>
-              <Button htmlType='submit'>Add</Button>
+              <Button loading={isRequestPending} htmlType='submit'>Add</Button>
             </Form.Item>
           </Form>
         </div>
