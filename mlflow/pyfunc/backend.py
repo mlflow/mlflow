@@ -4,6 +4,7 @@ import os
 import subprocess
 
 from mlflow.models import FlavorBackend
+from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
 from mlflow.pyfunc import ENV
 from mlflow.pyfunc import scoring_server
 
@@ -19,6 +20,7 @@ class PyFuncBackend(FlavorBackend):
     """
         Flavor backend implementation for the generic python models.
     """
+
     def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
         super(PyFuncBackend, self).__init__(config=config, **kwargs)
         self._nworkers = workers
@@ -78,7 +80,8 @@ class PyFuncBackend(FlavorBackend):
 
     def can_score_model(self):
         if self._no_conda:
-            return True  # already in python; dependencies are assumed to be installed (no_conda)
+            # noconda => already in python and dependencies are assumed to be installed.
+            return True
         conda_path = _get_conda_bin_executable("conda")
         try:
             p = subprocess.Popen([conda_path, "--version"], stdout=subprocess.PIPE,
@@ -89,6 +92,35 @@ class PyFuncBackend(FlavorBackend):
             # Can not find conda
             return False
 
+    def build_image(self, model_uri, image_name, install_mlflow=False, mlflow_home=None):
+
+        def copy_model_into_container(dockerfile_context_dir):
+            model_cwd = os.path.join(dockerfile_context_dir, "model_dir")
+            os.mkdir(model_cwd)
+            model_path = _download_artifact_from_uri(model_uri, output_path=model_cwd)
+            return """
+                COPY {model_dir} /opt/ml/model
+                RUN python -c \
+                'from mlflow.models.container import _install_pyfunc_deps;\
+                _install_pyfunc_deps("/opt/ml/model", install_mlflow={install_mlflow})'
+                ENV {disable_env}="true"
+                """.format(
+                disable_env=DISABLE_ENV_CREATION,
+                model_dir=os.path.join("model_dir", os.path.basename(model_path)),
+                install_mlflow=repr(install_mlflow)
+            )
+
+        # The pyfunc image runs the same server as the Sagemaker image
+        pyfunc_entrypoint = (
+            'ENTRYPOINT ["python", "-c", "from mlflow.models import container as C; C._serve()"]'
+        )
+        _build_image(
+            image_name=image_name,
+            mlflow_home=mlflow_home,
+            custom_setup_steps_hook=copy_model_into_container,
+            entrypoint=pyfunc_entrypoint,
+        )
+
 
 def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=None):
     if command_env is None:
@@ -96,7 +128,7 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
     conda_env_name = _get_or_create_conda_env(conda_env_path, env_id=env_id)
     activate_path = _get_conda_bin_executable("activate")
-    activate_conda_env = ["source {0} {1}".format(activate_path, conda_env_name)]
+    activate_conda_env = ["source {0} {1} 1>&2".format(activate_path, conda_env_name)]
 
     if install_mlflow:
         if "MLFLOW_HOME" in os.environ:  # dev version

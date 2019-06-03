@@ -32,13 +32,13 @@ Parameters
     Key-value input parameters of your choice. Both keys and values are strings.
 
 Metrics
-    Key-value metrics where the value is numeric. Each metric can be updated throughout the
+    Key-value metrics, where the value is numeric. Each metric can be updated throughout the
     course of the run (for example, to track how your model's loss function is converging), and
     MLflow records and lets you visualize the metric's full history.
 
 Artifacts
     Output files in any format. For example, you can record images (for example, PNGs), models
-    (for example, a pickled scikit-learn model), or even data files (for example, a
+    (for example, a pickled scikit-learn model), and data files (for example, a
     `Parquet <https://parquet.apache.org/>`_ file) as artifacts.
 
 You can record runs using MLflow Python, R, Java, and REST APIs from anywhere you run your code. For
@@ -79,10 +79,14 @@ Logging Data to Runs
 You can log data to runs using the MLflow Python, R, Java, or REST API. This section
 shows the Python API.
 
+.. contents:: In this section:
+  :depth: 1
+  :local:
+
 .. _basic_logging_functions:
 
-Basic Logging Functions
------------------------
+Logging Functions
+------------------
 
 :py:func:`mlflow.set_tracking_uri` connects to a tracking URI. You can also set the
 ``MLFLOW_TRACKING_URI`` environment variable to have MLflow find a URI from there. In both cases,
@@ -148,6 +152,59 @@ just one block of code as follows:
 The run remains open throughout the ``with`` statement, and is automatically closed when the
 statement exits, even if it exits due to an exception.
 
+
+Performance Tracking with Metrics
+---------------------------------
+
+You log MLflow metrics with ``log`` methods in the Tracking API. The ``log`` methods support two alternative methods for distinguishing metric values on the x-axis: ``timestamp`` and ``step``. 
+
+``timestamp`` is an optional long value that represents the time that the metric was logged. ``timestamp`` defaults to the current time. ``step`` is an optional integer that represents any measurement of training progress (number of training iterations, number of epochs, and so on). ``step`` defaults to 0 and has the following requirements and properties:
+
+- Must be a valid 64-bit integer value.
+- Can be negative.
+- Can be out of order in successive write calls. For example, (1, 3, 2) is a valid sequence.
+- Can have "gaps" in the sequence of values specified in successive write calls. For example, (1, 5, 75, -20) is a valid sequence.
+
+If you specify both a timestamp and a step, metrics are recorded against both axes independently.
+
+Examples
+~~~~~~~~
+
+Python
+  .. code-block:: py
+  
+    with mlflow.start_run():
+        for epoch in range(0, 3):
+            mlflow.log_metric(key="quality", value=2*epoch, step=epoch)
+
+Java and Scala
+  .. code-block:: java
+
+    MlflowClient client = new MlflowClient();
+    RunInfo run = client.createRun();
+    for (int epoch = 0; epoch < 3; epoch ++) {
+        client.logMetric(run.getRunId(), "quality", 2 * epoch, System.currentTimeMillis(), epoch);
+    }
+
+
+Visualizing Metrics
+-------------------
+
+Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the step x-axis and two timestamp axes:
+
+.. figure:: _static/images/metrics-step.png
+
+  X-axis step
+
+.. figure:: _static/images/metrics-time-wall.png
+
+  X-axis wall time - graphs the absolute time each metric was logged
+  
+.. figure:: _static/images/metrics-time-relative.png
+
+  X-axis relative time - graphs the time relative to the first metric logged, for each run
+
+
 .. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments
@@ -162,9 +219,10 @@ environment variable. Alternatively, you can use the experiment ID instead, via 
 
 .. code-block:: bash
 
-    mlflow experiments create fraud-detection
     # Set the experiment via environment variables
     export MLFLOW_EXPERIMENT_NAME=fraud-detection
+
+    mlflow experiments create --experiment-name fraud-detection
 
 .. code-block:: py
 
@@ -191,10 +249,8 @@ add tags to a run, and more.
     client = MlflowClient()
     experiments = client.list_experiments() # returns a list of mlflow.entities.Experiment
     run = client.create_run(experiments[0].experiment_id) # returns mlflow.entities.Run
-    client.log_param(run.info.run_uuid, "hello", "world")
-    client.set_terminated(run.info.run_uuid)
-
-.. _tracking_ui:
+    client.log_param(run.info.run_id, "hello", "world")
+    client.set_terminated(run.info.run_id)
 
 Adding Tags to Runs
 ~~~~~~~~~~~~~~~~~~~
@@ -203,16 +259,17 @@ The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom
 
 .. code-block:: py
 
-  client.set_tag(run.info.run_uuid, "tag_key", "tag_value")
+  client.set_tag(run.info.run_id, "tag_key", "tag_value")
   
 .. important:: Do not use the prefix ``mlflow`` for a tag.  This prefix is reserved for use by MLflow.
 
+.. _tracking_ui:
 
 Tracking UI
 ===========
 
 The Tracking UI lets you visualize, search and compare runs, as well as download run artifacts or
-metadata for analysis in other tools. If you have been logging runs to a local ``mlruns`` directory,
+metadata for analysis in other tools. If you log runs to a local ``mlruns`` directory,
 run ``mlflow ui`` in the directory above it, and it loads the corresponding runs.
 Alternatively, the :ref:`MLflow tracking server <tracking_server>` serves the same UI and enables remote storage of run artifacts.
 
