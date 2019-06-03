@@ -149,17 +149,17 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
     :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
 
     :param app_name: Name of the deployed application.
-    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker,
-                      for example:
+    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+                      For example:
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
                                access the specified Docker image and S3 bucket containing MLflow
@@ -174,8 +174,8 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                                https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
-    :param image_url: URL of the ECR-hosted docker image the model should be deployed into, produced
-                      by ``mlflow sagemaker build-and-push-container``. This parameter may also
+    :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
+                      by ``mlflow sagemaker build-and-push-container``. This parameter can also
                       be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
@@ -235,18 +235,18 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                    a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
-    :param synchronous: If `True`, this function will block until the deployment process succeeds
-                        or encounters an irrecoverable failure. If `False`, this function will
+    :param synchronous: If ``True``, this function will block until the deployment process succeeds
+                        or encounters an irrecoverable failure. If ``False``, this function will
                         return immediately after starting the deployment process. It will not wait
                         for the deployment process to complete; in this case, the caller is
                         responsible for monitoring the health and status of the pending deployment
                         via native SageMaker APIs or the AWS console.
-    :param timeout_seconds: If `synchronous` is `True`, the deployment process will return after the
-                            specified number of seconds if no definitive result (success or failure)
-                            is achieved. Once the function returns, the caller is responsible
-                            for monitoring the health and status of the pending deployment via
-                            native SageMaker APIs or the AWS console. If `synchronous` is False,
-                            this parameter is ignored.
+    :param timeout_seconds: If ``synchronous`` is ``True``, the deployment process will return after
+                            the specified number of seconds if no definitive result (success or
+                            failure) is achieved. Once the function returns, the caller is
+                            responsible for monitoring the health and status of the pending
+                            deployment using native SageMaker APIs or the AWS console. If
+                            ``synchronous`` is ``False``, this parameter is ignored.
     """
     import boto3
     if (not archive) and (not synchronous):
@@ -430,9 +430,9 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param port: Local port.
     :param image: Name of the Docker image to be used.
@@ -883,7 +883,7 @@ def _find_endpoint(endpoint_name, sage_client):
 
     :param sage_client: A boto3 client for SageMaker.
     :return: If the endpoint exists, a dictionary of endpoint attributes. If the endpoint does not
-             exist, `None`.
+             exist, ``None``.
     """
     endpoints_page = sage_client.list_endpoints(
         MaxResults=100, NameContains=endpoint_name)
