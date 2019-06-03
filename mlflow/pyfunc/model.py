@@ -4,7 +4,6 @@ models with a user-defined ``PythonModel`` subclass.
 """
 
 import os
-import tempfile
 import shutil
 import yaml
 from abc import ABCMeta, abstractmethod
