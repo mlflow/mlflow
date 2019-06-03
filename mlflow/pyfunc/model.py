@@ -4,7 +4,6 @@ models with a user-defined ``PythonModel`` subclass.
 """
 
 import os
-import tempfile
 import shutil
 import yaml
 from abc import ABCMeta, abstractmethod
@@ -212,20 +211,11 @@ def _load_pyfunc(model_path):
     with open(os.path.join(model_path, python_model_subpath), "rb") as f:
         python_model = cloudpickle.load(f)
 
-    # TODO: If the longevity of the temporary directory prior becomes problematic, consider using
-    # an alternative solution.
-    tmp_artifacts_dir_path = tempfile.mkdtemp(suffix="artifacts")
     artifacts = {}
     for saved_artifact_name, saved_artifact_info in\
             pyfunc_config.get(CONFIG_KEY_ARTIFACTS, {}).items():
-        tmp_artifact_path = os.path.join(
-                tmp_artifacts_dir_path,
-                _copy_file_or_tree(
-                    src=os.path.join(
-                        model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH]),
-                    dst=tmp_artifacts_dir_path,
-                    dst_dir=saved_artifact_name))
-        artifacts[saved_artifact_name] = tmp_artifact_path
+        artifacts[saved_artifact_name] = os.path.join(
+            model_path, saved_artifact_info[CONFIG_KEY_ARTIFACT_RELATIVE_PATH])
 
     context = PythonModelContext(artifacts=artifacts)
     python_model.load_context(context=context)
