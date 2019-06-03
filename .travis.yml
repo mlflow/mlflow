@@ -1,9 +1,12 @@
 language: python
 
-dist: trusty
+dist: xenial
 
 services:
   - docker
+
+jdk:
+  - openjdk8
 
 matrix:
   include:
