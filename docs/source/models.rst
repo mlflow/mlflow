@@ -147,6 +147,15 @@ The :py:mod:`mlflow.pyfunc` module defines functions for saving and loading MLfl
 For more information, see the :ref:`custom Python models documentation <custom-python-models>`
 and the :mod:`mlflow.pyfunc` documentation.
 
+R Function (``crate``)
+^^^^^^^^^^^^^^^^^^^^^^
+
+The ``crate`` model flavor defines a generic model format for representing aribtrary R predict
+function as Mlflow model. The predict function is expected to take a dataframe on the  input and
+produce a dataframe or a vector or a list with the predictions on the output.
+
+This flavor requires R to be installed in order to be used.
+
 H\ :sub:`2`\ O (``h2o``)
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -171,14 +180,15 @@ For more information, see :py:mod:`mlflow.h2o`.
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
-The ``keras`` model flavor enables logging and loading Keras models. The :py:mod:`mlflow.keras`
-module defines :py:func:`save_model() <mlflow.keras.save_model>` and
-:py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
-in MLflow Model format. These functions serialize Keras models as HDF5 files using the Keras
-library's built-in model persistence functions. MLflow Models produced by these functions
-also contain the ``python_function`` flavor, allowing them to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, you can use
-the :py:func:`mlflow.keras.load_model()` function to load MLflow Models with the
+The ``keras`` model flavor enables logging and loading Keras models. I tis available in both python
+and R clients. The :py:mod:`mlflow.keras` module defines :py:func:`save_model()<mlflow.keras.save_model>`
+and :py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
+in MLflow Model format in python. Similarly, in R, you can save or log the model using
+:rlang:func:`mlflow_save_model` and :rlang:func:`mlflow_log_model. These functions serialize Keras
+models as HDF5 files using the Keras library's built-in model persistence functions. MLflow Models
+produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
+as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, you
+can use the :py:func:`mlflow.keras.load_model()` function to load MLflow Models with the
 ``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 For more information, see :py:mod:`mlflow.keras`.
@@ -457,11 +467,16 @@ Not all deployment methods are available for all model flavors.
 
 .. _local_model_deployment:
 
-Deploy MLflow models locally
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-MLflow can deploy models locally as local REST API endpoints or to directly score files.
-You deploy MLflow model locally using the CLI interface to the :py:mod:`mlflow.models` module.
-The local REST API server accepts the following data formats as inputs:
+Deploy MLflow models
+^^^^^^^^^^^^^^^^^^^^
+MLflow can deploy models locally as local REST API endpoints or to directly score files. MLflow can
+also package REST api endpoitn serving the model as a self contained docker image. The image can be
+used to safely deploy the model to various environments such as Kubernetes.
+
+You deploy MLflow model locally or generate a docker image using the CLI interface to the
+:py:mod:`mlflow.models` module.
+
+The REST API server accepts the following data formats as inputs:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
   ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
@@ -481,9 +496,11 @@ For more information about serializing pandas DataFrames, see
 The predict command accepts the same input formats. The format is specified as command line arguments.
 
 Commands
-~~~~~~~~~
+~~~~~~~~
 
 * :py:func:`serve <mlflow.models.cli.serve>` deploys the model as a local REST API server.
+* :py:func:`build_docker <mlflow.models.cli.build-docker>` packages a REST api endpoint serving the
+            model as a docker image.
 * :py:func:`predict <mlflow.models.cli.predict>` uses the model to generate a prediction for a local
   CSV or JSON file.
 
@@ -494,6 +511,7 @@ For more info, see:
     mlflow models --help
     mlflow models serve --help
     mlflow models predict --help
+    mlflow models build-docker --help
 
 .. _azureml_deployment:
 
