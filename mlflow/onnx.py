@@ -1,6 +1,6 @@
 """
 The ``mlflow.onnx`` module provides APIs for logging and loading ONNX models in the MLflow Model
-format. This module exports MLflow models with the following flavors:
+format. This module exports MLflow Models with the following flavors:
 
 ONNX (native) format
     This is the main flavor that can be loaded back as an ONNX model object.
