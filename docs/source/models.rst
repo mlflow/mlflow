@@ -275,6 +275,19 @@ flavor as TensorFlow graphs.
 
 For more information, see :py:mod:`mlflow.tensorflow`.
 
+ONNX (``onnx``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``onnx`` model flavor enables logging of `ONNX models <http://onnx.ai/>`_ in MLflow format via
+the :py:func:`mlflow.onnx.save_model()` and :py:func:`mlflow.onnx.log_model()` methods. These
+methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_pyfunc()`. The ``python_function`` representation of an MLflow
+ONNX model uses the `ONNX Runtime execution engine <https://github.com/microsoft/onnxruntime>`_ for
+evaluation Finally, you can use the :py:func:`mlflow.onnx.load_model()` method to load MLflow
+Models with the ``onnx`` flavor in native ONNX format.
+
+For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
+
 Model Customization
 -------------------
 
