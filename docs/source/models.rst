@@ -184,7 +184,7 @@ The ``keras`` model flavor enables logging and loading Keras models. It is avail
 and R clients. The :py:mod:`mlflow.keras` module defines :py:func:`save_model()<mlflow.keras.save_model>`
 and :py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
 in MLflow Model format in Python. Similarly, in R, you can save or log the model using
-`mlflow_save_model <#mlflow-save-model>`__ and `mlflow_log_model <r-api#mlflow-log-model>`__. These functions serialize Keras
+`mlflow_save_model <#mlflow-save-model>`__ and `mlflow_log_model <r-api.rst#mlflow-log-model>`__. These functions serialize Keras
 models as HDF5 files using the Keras library's built-in model persistence functions. MLflow Models
 produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
 as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, you
