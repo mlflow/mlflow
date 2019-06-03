@@ -48,9 +48,9 @@ To run this tutorial, you'll need to:
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``examples`` directory within your clone of MLflow - we'll use this
-        working directory for running the tutorial. We avoid running directly from our clone of
-        MLflow as doing so would cause the tutorial to use MLflow from source, rather than your
-        PyPI installation of MLflow.
+         working directory for running the tutorial. We avoid running directly from our clone of
+         MLflow as doing so would cause the tutorial to use MLflow from source, rather than your
+         PyPI installation of MLflow.
 
 Training the Model
 ------------------
