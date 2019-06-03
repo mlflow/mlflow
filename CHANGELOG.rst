@@ -5,8 +5,8 @@ Changelog
 ----------------
 MLflow 1.0 includes many significant features and improvements. From this version, MLflow is no longer beta, and all APIs except those marked as experimental are intended to be stable until the next major version. As such, this release includes a number of breaking changes.
 
-Major features and improvements
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Major features, improvements, and breaking changes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Support for recording, querying, and visualizing metrics along a new “step” axis (x coordinate), providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr; #1372, @stbof)
 - Search improvements. MLflow 1.0 includes additional support in both the API and UI for searching runs within a single experiment or a group of experiments. The search filter API supports a simplified version of the ``SQL WHERE`` clause. In addition to searching using run's metrics and params, the API has been enhanced to support some run attributes and user and `system tags <https://mlflow.org/docs/latest/tracking.html#system-tags>`_. For details see `Search syntax <https://mlflow.org/docs/latest/search-syntax.html#syntax>`_ and `examples for programmatically searching runs <https://mlflow.org/docs/latest/search-syntax.html#programmatically-searching-runs>`_. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
@@ -79,7 +79,7 @@ Environment variables:
 
 - Prefix environment variables with "MLFLOW_" (#1268, @aarondav). Affected variables are: 
 
-  - ]Tracking] ``_MLFLOW_SERVER_FILE_STORE``, ``_MLFLOW_SERVER_ARTIFACT_ROOT``, ``_MLFLOW_STATIC_PREFIX``
+  - [Tracking] ``_MLFLOW_SERVER_FILE_STORE``, ``_MLFLOW_SERVER_ARTIFACT_ROOT``, ``_MLFLOW_STATIC_PREFIX``
   - [SageMaker] ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``, ``MLFLOW_DEPLOYMENT_FLAVOR_NAME``
   - [Scoring] ``MLFLOW_SCORING_SERVER_MIN_THREADS``, ``MLFLOW_SCORING_SERVER_MAX_THREADS``
 
