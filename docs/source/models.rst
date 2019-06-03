@@ -188,8 +188,8 @@ in MLflow Model format in Python. Similarly, in R, you can save or log the model
 models as HDF5 files using the Keras library's built-in model persistence functions. MLflow Models
 produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
 as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, you
-can use the :py:func:`mlflow.keras.load_model()` in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__
-in R function to load MLflow Models with the ``keras`` flavor as
+can use the :py:func:`mlflow.keras.load_model()` function in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__
+function in R to load MLflow Models with the ``keras`` flavor as
 `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 For more information, see :py:mod:`mlflow.keras`.
@@ -471,7 +471,7 @@ Not all deployment methods are available for all model flavors.
 Deploy MLflow models
 ^^^^^^^^^^^^^^^^^^^^
 MLflow can deploy models locally as local REST API endpoints or to directly score files. In addition,
-MLflow can package models as self contained docker images with the REST API endpoint. The image can
+MLflow can package models as self contained Docker images with the REST API endpoint. The image can
 be used to safely deploy the model to various environments such as Kubernetes.
 
 You deploy MLflow model locally or generate a docker image using the CLI interface to the
