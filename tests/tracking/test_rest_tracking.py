@@ -23,6 +23,7 @@ from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, \
     MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
 from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
+from mlflow.utils.file_utils import path_to_local_sqlite_uri
 from tests.integration.utils import invoke_cli_runner
 
 LOCALHOST = '127.0.0.1'
@@ -106,20 +107,9 @@ SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
 SUITE_ARTIFACT_ROOT_DIR = tempfile.mkdtemp(suffix="artifacts", dir=SUITE_ROOT_DIR)
 
 
-def _get_sqlite_uri():
-    path = path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "test-database.bd"))
-    path = path[len("file://"):]
-
-    # NB: It looks like windows and posix have different requirements on number of slashes for
-    # whatever reason. Windows needs uri like 'sqlite:///C:/path/to/my/file' whereas posix expects
-    # sqlite://///path/to/my/file
-    prefix = "sqlite://" if sys.platform == "win32" else "sqlite:////"
-    return prefix + path
-
-
 # Backend store URIs to test against
 BACKEND_URIS = [
-    _get_sqlite_uri(),  # SqlAlchemy
+    path_to_local_sqlite_uri(os.path.join(SUITE_ROOT_DIR, "test-database.db")),  # SqlAlchemy
     path_to_local_file_uri(os.path.join(SUITE_ROOT_DIR, "file_store_root")),  # FileStore
 ]
 
