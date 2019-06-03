@@ -180,7 +180,7 @@ For more information, see :py:mod:`mlflow.h2o`.
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
-The ``keras`` model flavor enables logging and loading Keras models. I tis available in both python
+The ``keras`` model flavor enables logging and loading Keras models. It is available in both python
 and R clients. The :py:mod:`mlflow.keras` module defines :py:func:`save_model()<mlflow.keras.save_model>`
 and :py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
 in MLflow Model format in python. Similarly, in R, you can save or log the model using
