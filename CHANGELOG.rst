@@ -5,37 +5,37 @@ Changelog
 ----------------
 MLflow 1.0 includes many significant features and improvements. From this version, MLflow is no longer beta, and all APIs except those marked as experimental are intended to be stable until the next major version. As such, this release includes a number of breaking changes.
 
-Major features and improvements:
+Major features and improvements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Support for recording, querying, and visualizing metrics along a new “step” axis (x-coordinate), providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s pre-existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr; #1372, @stbof)
-- Search improvements. MLflow 1.0 includes additional support for searching runs within a single experiment or a group of experiments through UI and API. The search filter API supports a simplified version of the SQL WHERE clause. In addition to searching using run's metrics and params, the API has been enhanced to support some run attributes and user and `system tags <https://mlflow.org/docs/latest/tracking.html#system-tags>`_. For details see `Search syntax <https://mlflow.org/docs/latest/search-syntax.html#syntax>`_ and `examples for programmatically searching runs <https://mlflow.org/docs/latest/search-syntax.html#programmatically-searching-runs>`_. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
-- Logging metrics in batches. MLflow 1.0 now has a stable ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. This is useful for performant logging of multiple metrics at the end of a model training epoch (see `example <https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``), R (``mlflow_log_batch``), and Java (``MlflowClient.logBatch``). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
+- Support for recording, querying, and visualizing metrics along a new “step” axis (x coordinate), providing increased flexibility for examining model performance relative to training progress. For example, you can now record performance metrics as a function of the number of training iterations or epochs. MLflow 1.0’s enhanced metrics UI enables you to visualize the change in a metric’s value as a function of its step, augmenting MLflow’s existing UI for plotting a metric’s value as a function of wall-clock time. (#1202, #1237, @dbczumar; #1132, #1142, #1143, @smurching; #1211, #1225, @Zangr; #1372, @stbof)
+- Search improvements. MLflow 1.0 includes additional support in both the API and UI for searching runs within a single experiment or a group of experiments. The search filter API supports a simplified version of the ``SQL WHERE`` clause. In addition to searching using run's metrics and params, the API has been enhanced to support some run attributes and user and `system tags <https://mlflow.org/docs/latest/tracking.html#system-tags>`_. For details see `Search syntax <https://mlflow.org/docs/latest/search-syntax.html#syntax>`_ and `examples for programmatically searching runs <https://mlflow.org/docs/latest/search-syntax.html#programmatically-searching-runs>`_. (#1245, #1272, #1323, #1326, @mparkhe; #1052, @Zangr; #1363, @aarondav)
+- Logging metrics in batches. MLflow 1.0 now has a ``runs/log-batch`` REST API endpoint for logging multiple metrics, params, and tags in a single API request. The endpoint useful for performant logging of multiple metrics at the end of a model training epoch (see `example <https://github.com/mlflow/mlflow/blob/bb8c7602dcb6a3a8786301fe6b98f01e8d3f288d/examples/hyperparam/search_hyperopt.py#L161>`_), or logging of many input model parameters at the start of training. You can call this batched-logging endpoint from Python (``mlflow.log_metrics``, ``mlflow.log_params``, ``mlflow.set_tags``), R (``mlflow_log_batch``), and Java (``MlflowClient.logBatch``). (#1214, @dbczumar; see 0.9.1 and 0.9.0 for other changes)
 - Windows support for MLflow Tracking. The Tracking portion of the MLflow client is now supported on Windows. (#1171, @eedeleon, @tomasatdatabricks)
 - HDFS support for artifacts. Hadoop artifact repository with Kerberos authorization support was added, so you can use HDFS to log and retrieve models and other artifacts. (#1011, @jaroslawk)
-- CLI command to build docker images for serving. Added an ``mlflow models build-docker`` CLI command for building a docker image capable of serving an MLflow model. The model is served at port 8080 within the container by default. Note that this API is experimental and does not guarantee that the arguments nor format of the Docker container will remain the same. (#1329, @smurching, @tomasatdatabricks)
+- CLI command to build Docker images for serving. Added an ``mlflow models build-docker`` CLI command for building a Docker image capable of serving an MLflow model. The model is served at port 8080 within the container by default. Note that this API is experimental and does not guarantee that the arguments nor format of the Docker container will remain the same. (#1329, @smurching, @tomasatdatabricks)
 - New ``onnx`` model flavor for saving, loading, and evaluating ONNX models with MLflow. ONNX flavor APIs are available in ``mlflow.onnx``. (#1127, @avflor, @dbczumar)
 - Major breaking changes:
 
-  - Some of the breaking changes involve database schema changes in the SQLAlchemy Tracking store. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, #1371, @smurching; #1360, @aarondav)
+  - Some of the breaking changes involve database schema changes in the SQLAlchemy tracking store. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, #1371, @smurching; #1360, @aarondav)
   - [Installation] The MLflow Python package no longer depends on ``scikit-learn``, ``mleap``, or ``boto3``. If you want to use the ``scikit-learn`` support, the ``MLeap`` support, or ``s3`` artifact repository / ``sagemaker`` support, you will have to install these respective dependencies explicitly. (#1223, @aarondav)
-  - [Artifacts] In the Models APIs, an artifact's location is now represented as a URI. See the `documentation <https://mlflow.org/docs/latest/tracking.html#referencing-artifacts>`_ for the list of accepted URIs. (#1190, #1254, @dbczumar; #1174, @dbczumar, @sueann; #1206, @tomasatdatabricks)
+  - [Artifacts] In the Models API, an artifact's location is now represented as a URI. See the `documentation <https://mlflow.org/docs/latest/tracking.html#referencing-artifacts>`_ for the list of accepted URIs. (#1190, #1254, @dbczumar; #1174, @dbczumar, @sueann; #1206, @tomasatdatabricks)
 
-    - The affected APIs are:
+    - The affected methods are:
 
       - Python: ``<model-type>.load_model``, ``azureml.build_image``, ``sagemaker.deploy``, ``sagemaker.run_local``, ``pyfunc._load_model_env``, ``pyfunc.load_pyfunc``, and ``pyfunc.spark_udf``
       - R: ``mlflow_load_model``, ``mlflow_rfunc_predict``, ``mlflow_rfunc_serve``
       - CLI: ``mlflow models serve``, ``mlflow models predict``, ``mlflow sagemaker``, ``mlflow azureml`` (with the new ``--model-uri`` option)
 
-    - To allow referring to artifacts in the context of a run, we introduce a new URI scheme of the form ``runs:/<run_id>/relative/path/to/artifact``. (#1169, #1175, @sueann)
+    - To allow referring to artifacts in the context of a run, MLflow introduces a new URI scheme of the form ``runs:/<run_id>/relative/path/to/artifact``. (#1169, #1175, @sueann)
 
   - [CLI] ``mlflow pyfunc`` and ``mlflow rfunc`` commands have been unified as ``mlflow models`` (#1257, @tomasatdatabricks; #1321, @dbczumar)
   - [CLI] ``mlflow artifacts download``, ``mlflow artifacts download-from-uri`` and ``mlflow download`` commands have been consolidated into ``mlflow artifacts download`` (#1233, @sueann)
   - [Runs] Expose ``RunData`` fields (``metrics``, ``params``, ``tags``) as dictionaries. Note that the ``mlflow.entities.RunData`` constructor still accepts lists of ``metric``/``param``/``tag`` entities. (#1078, @smurching)
   - [Runs] Rename ``run_uuid`` to ``run_id`` in Python, Java, and REST API. Where necessary, MLflow will continue to accept ``run_uuid`` until MLflow 1.1. (#1187, @aarondav)
 
-Other breaking changes:
-~~~~~~~~~~~~~~~~~
+Other breaking changes
+~~~~~~~~~~~~~~~~~~~~~~
 
 CLI:
 
@@ -46,7 +46,7 @@ CLI:
 
 Tracking:
 
-- The ``user`` property of Runs has been moved to tags (similarly, the ``run_name``, ``source_type``, ``source_name`` properties were moved to tags in 0.9.0). (#1230, @acroz; #1275, #1276, @aarondav)
+- The ``user`` property of ``Run``s has been moved to tags (similarly, the ``run_name``, ``source_type``, ``source_name`` properties were moved to tags in 0.9.0). (#1230, @acroz; #1275, #1276, @aarondav)
 - In R, the return values of experiment CRUD APIs have been updated to more closely match the REST API. In particular, ``mlflow_create_experiment`` now returns a string experiment ID instead of an experiment, and the other APIs return NULL. (#1246, @smurching)
 - ``RunInfo.status``'s type is now string. (#1264, @mparkhe)
 - Remove deprecated ``RunInfo`` properties from ``start_run``. (#1220, @aarondav)
@@ -54,7 +54,7 @@ Tracking:
 
 Models and deployment:
 
-- In Python, require arguments as keywords in `log_model`, `save_model` and `add_to_model` methods in the `tensorflow` and `mleap` modules to avoid breaking changes in the future (#1226, @sueann)
+- In Python, require arguments as keywords in ``log_model``, ``save_model`` and ``add_to_model`` methods in the ``tensorflow`` and ``mleap`` modules to avoid breaking changes in the future (#1226, @sueann)
 - Remove the unsupported ``jars`` argument from ```spark.log_model`` in Python (#1222, @sueann)
 - Introduce ``pyfunc.load_model`` to be consistent with other Models modules. ``pyfunc.load_pyfunc`` will be deprecated in the near future. (#1222, @sueann)
 - Rename ``dst_path`` parameter in ``pyfunc.save_model`` to ``path`` (#1221, @aarondav)
@@ -83,7 +83,7 @@ Environment variables:
   - [SageMaker] ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``, ``MLFLOW_DEPLOYMENT_FLAVOR_NAME``
   - [Scoring] ``MLFLOW_SCORING_SERVER_MIN_THREADS``, ``MLFLOW_SCORING_SERVER_MAX_THREADS``
 
-More features and improvements:
+More features and improvements
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - [Tracking] Non-default driver support for SQLAlchemy backends: ``db+driver`` is now a valid tracking backend URI scheme (#1297, @drewmcdonald; #1374, @mparkhe)
@@ -102,7 +102,7 @@ More features and improvements:
 - [Deployment] For SageMaker, use the uniquely-generated model name as the S3 bucket prefix instead of requiring one. (#1183, @dbczumar)
 - [REST API] Add support for API paths without the ``preview`` component. The ``preview`` paths will be deprecated in a future version of MLflow. (#1236, @mparkhe)
 
-Bug fixes and documentation updates:
+Bug fixes and documentation updates
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - [Tracking] Log metric timestamps in milliseconds by default (#1177, @smurching; #1333, @dbczumar)
