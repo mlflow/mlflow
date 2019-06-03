@@ -361,9 +361,7 @@ for your run. Then, run your project using the command
 
   mlflow run <uri> -m databricks --cluster-spec <json-cluster-spec>
 
-where ``<uri>`` is a Git repository URI or a folder. You can pass Git credentials with the
-``git-username`` and ``git-password`` arguments or using the ``MLFLOW_GIT_USERNAME`` and
-``MLFLOW_GIT_PASSWORD`` environment variables.
+where ``<uri>`` is a Git repository URI or a folder.
 
 Iterating Quickly
 -----------------
