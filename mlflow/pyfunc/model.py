@@ -109,15 +109,17 @@ def _save_model_with_class_artifacts_params(path, python_model, artifacts=None, 
     :param path: The path to which to save the Python model.
     :param python_model: An instance of a subclass of :class:`~PythonModel`. ``python_model``
                         defines how the model loads artifacts and how it performs inference.
-    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries. Remote artifact URIs
+    :param artifacts: A dictionary containing ``<name, artifact_uri>`` entries.
+                      Remote artifact URIs
                       are resolved to absolute filesystem paths, producing a dictionary of
                       ``<name, absolute_path>`` entries. ``python_model`` can reference these
-                      resolved entries as the ``artifacts`` property of the ``context`` attribute.
-                      If *None*, no artifacts are added to the model.
-    :param conda_env: Either a dictionary representation of a Conda environment or the path to a
-                      Conda environment yaml file. If provided, this decribes the environment
-                      this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      resolved entries as the ``artifacts`` property of the ``context``
+                      attribute. If ``None``, no artifacts are added to the model.
+    :param conda_env: Either a dictionary representation of a Conda environment or the
+                      path to a Conda environment yaml file. If provided, this decribes the
+                      environment this model should be run in. At minimum, it should specify
+                      the dependencies
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`get_default_conda_env()` environment is added to the model.
     :param code_paths: A list of local filesystem paths to Python file dependencies (or directories
                        containing file dependencies). These files are *prepended* to the system

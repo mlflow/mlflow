@@ -182,18 +182,18 @@ def load_model(model_uri, tf_sess):
     """
     Load an MLflow model that contains the TensorFlow flavor from the specified path.
 
-    **This method must be called within a TensorFlow graph context.**
+    *This method must be called within a TensorFlow graph context.*
 
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param tf_sess: The TensorFlow session in which to load the model.
     :return: A TensorFlow signature definition of type:
@@ -205,7 +205,8 @@ def load_model(model_uri, tf_sess):
     >>> tf_graph = tf.Graph()
     >>> tf_sess = tf.Session(graph=tf_graph)
     >>> with tf_graph.as_default():
-    >>>     signature_definition = mlflow.tensorflow.load_model(path="model_path", tf_sess=tf_sess)
+    >>>     signature_definition = mlflow.tensorflow.load_model(model_uri="model_uri",
+    >>>                            tf_sess=tf_sess)
     >>>     input_tensors = [tf_graph.get_tensor_by_name(input_signature.name)
     >>>                      for _, input_signature in signature_def.inputs.items()]
     >>>     output_tensors = [tf_graph.get_tensor_by_name(output_signature.name)
@@ -222,7 +223,7 @@ def load_model(model_uri, tf_sess):
 def _load_tensorflow_saved_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags,
                                  tf_signature_def_key):
     """
-    Load a specified TensorFlow model consisting of a TensorFlow meta graph and signature definition
+    Load a specified TensorFlow model consisting of a TensorFlow metagraph and signature definition
     from a serialized TensorFlow ``SavedModel`` collection.
 
     :param tf_saved_model_dir: The local filesystem path or run-relative artifact path to the model.
