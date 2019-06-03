@@ -186,7 +186,7 @@ def _load_pyfunc(path):
 @experimental
 def load_model(model_uri):
     """
-    Load an ONNX model from a local file (if ``run_id`` is None) or a run.
+    Load an ONNX model from a local file or a run.
 
     :param model_uri: The location, in URI format, of the MLflow model, for example:
 
