@@ -5,6 +5,7 @@ import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
 import qs from 'qs';
+import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 
 class Utils {
   /**
@@ -356,6 +357,15 @@ class Utils {
     const stepResult = history1.step - history2.step;
     return stepResult === 0 ? (history1.timestamp - history2.timestamp) : stepResult;
   }
+
+  static getVisibleTagValues(tags) {
+    // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
+    return Object.values(tags).map((t) =>
+      [t.getKey(), t.getValue()]
+    ).filter(t =>
+      !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
+    );
+  };
 }
 
 export default Utils;
