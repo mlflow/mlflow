@@ -14,6 +14,7 @@ Major features and improvements:
 - Windows support for MLflow Tracking. The Tracking portion of the MLflow client is now supported on Windows. (#1171, @eedeleon, @tomasatdatabricks)
 - HDFS support for artifacts. Hadoop artifact repository with Kerberos authorization support was added, so you can use HDFS to log and retrieve models and other artifacts. (#1011, @jaroslawk)
 - CLI command to build docker images for serving. Added an ``mlflow models build-docker`` CLI command for building a docker image capable of serving an MLflow model. The model is served at port 8080 within the container by default. Note that this API is experimental and does not guarantee that the arguments nor format of the Docker container will remain the same. (#1329, @smurching, @tomasatdatabricks)
+- New ``onnx`` model flavor for saving, loading, and evaluating ONNX models with MLflow. ONNX flavor APIs are available in ``mlflow.onnx``. (#1127, @avflor, @dbczumar)
 - Major breaking changes:
 
   - Some of the breaking changes involve database schema changes in the SQLAlchemy Tracking store. If your database instance's schema is not up-to-date, MLflow will issue an error at the start-up of ``mlflow server`` or ``mlflow ui``. To migrate an existing database to the newest schema, you can use the ``mlflow db upgrade`` CLI command. (#1155, #1371, @smurching; #1360, @aarondav)
