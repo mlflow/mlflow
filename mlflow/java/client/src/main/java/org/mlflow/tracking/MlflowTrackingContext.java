@@ -37,7 +37,7 @@ public class MlflowTrackingContext {
                 .setExperimentId(experimentId)
                 .setStartTime(System.currentTimeMillis())
                 .build();
-        RunInfo runInfo = client.createRun(experimentId);
+        RunInfo runInfo = client.createRun(createRunRequest);
         ActiveRun activeRun = new ActiveRun(runInfo, client);
         activeRunStack.push(activeRun);
         return activeRun;
