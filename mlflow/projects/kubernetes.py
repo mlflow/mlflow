@@ -100,7 +100,6 @@ class KubernetesSubmittedRun(SubmittedRun):
             job_status = api_response.status
         _logger.info("Job started at %s", job_status.start_time)
 
-
     def _monitor_pods(self):
         kube_api = kubernetes.client.CoreV1Api()
         pods = kube_api.list_namespaced_pod(self._job_namespace,
@@ -112,8 +111,8 @@ class KubernetesSubmittedRun(SubmittedRun):
             _logger.info("Waiting for pod to start")
             time.sleep(self.POLL_STATUS_INTERVAL)
             pod = kube_api.read_namespaced_pod_status(pod.metadata.name,
-                                                        self._job_namespace,
-                                                        pretty=True)
+                                                      self._job_namespace,
+                                                      pretty=True)
         container_state = pod.status.container_statuses[0].state
         if container_state.waiting is not None:
             _logger.info("Pod %s wating", pod.metadata.name)
@@ -125,11 +124,10 @@ class KubernetesSubmittedRun(SubmittedRun):
             _logger.info("Pod %s terminated. Reason: %s", pod.metadata.name, reason)
             _logger.info("Message: %s", message)
         for line in kube_api.read_namespaced_pod_log(pod.metadata.name,
-                                                        self._job_namespace,
-                                                        follow=True,
-                                                        _preload_content=False).stream():
+                                                     self._job_namespace,
+                                                     follow=True,
+                                                     _preload_content=False).stream():
             _logger.info(line.rstrip().decode("utf-8"))
-
 
     def wait(self):
         self._monitor_job()
