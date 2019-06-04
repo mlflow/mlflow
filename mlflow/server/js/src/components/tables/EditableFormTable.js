@@ -13,6 +13,7 @@ class EditableCell extends React.Component {
     title: PropTypes.string.isRequired,
     record: PropTypes.object.isRequired,
     index: PropTypes.number.isRequired,
+    onSaveEdit: PropTypes.func.isRequired,
     children: PropTypes.object,
   };
 
@@ -120,29 +121,20 @@ class EditableTable extends React.Component {
   };
 
   save(form, key) {
-    form.validateFields((error, row) => {
-      if (error) {
-        return;
-      }
-      const newData = [...this.state.data];
-      const index = newData.findIndex((item) => key === item.key);
-      if (index > -1) {
-        const item = newData[index];
-        newData.splice(index, 1, {
-          ...item,
-          ...row,
-        });
-        this.setState({ data: newData, editingKey: '' });
-      } else {
-        newData.push(row);
-        this.setState({ data: newData, editingKey: '' });
+    form.validateFields((err, row) => {
+      if (!err) {
+        const dataRow = this.props.data.find((row) => row.key === key);
+        if (dataRow) {
+          this.props.onSaveEdit({ ...dataRow, ...row });
+        }
+        this.setState({ editingKey: '' });
       }
     });
-  }
+  };
 
   edit(key) {
     this.setState({ editingKey: key });
-  }
+  };
 
   render() {
     const components = {

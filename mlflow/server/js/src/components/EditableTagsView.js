@@ -52,7 +52,6 @@ class EditableTagsView extends React.Component {
           .then(() => {
             this.setState({ isRequestPending: false });
             form.resetFields();
-            message.success('Tag added successfully.');
           })
           .catch((e) => {
             this.setState({ isRequestPending: false });
@@ -61,6 +60,15 @@ class EditableTagsView extends React.Component {
           });
       }
     });
+  };
+
+  handleSaveEdit = ({ name, value }) => {
+    const { runUuid, setTagApi } = this.props;
+    return setTagApi(runUuid, name, value, this.requestId)
+      .catch((e) => {
+        console.error(e);
+        message.error('Failed to set tag.');
+      });
   };
 
   render() {
@@ -73,6 +81,7 @@ class EditableTagsView extends React.Component {
         <EditableFormTable
           columns={this.tableColumns}
           data={this.getData()}
+          onSaveEdit={this.handleSaveEdit}
         />
         <h2 style={{ marginTop: 20 }}>Add Tag</h2>
         <div style={{ marginBottom: 20 }}>
