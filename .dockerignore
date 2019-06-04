@@ -5,8 +5,6 @@ apidocs
 mlflow.Rcheck
 outputs
 examples
-travis
-tests
 node_modules
 coverage
 build
