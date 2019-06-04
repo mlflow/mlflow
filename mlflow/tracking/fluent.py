@@ -273,7 +273,7 @@ def delete_experiment(experiment_id):
 
     :param experiment_id: The experiment ID returned from ``create_experiment``.
     """
-    return MlflowClient().delete_experiment(experiment_id)
+    MlflowClient().delete_experiment(experiment_id)
 
 
 def delete_run(run_id):
@@ -282,7 +282,7 @@ def delete_run(run_id):
 
     :param run_id: Unique identifier for the run to delete.
     """
-    return MlflowClient().delete_run(run_id)
+    MlflowClient().delete_run(run_id)
 
 
 def get_artifact_uri(artifact_path=None):
