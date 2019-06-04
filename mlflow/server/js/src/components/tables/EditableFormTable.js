@@ -63,7 +63,20 @@ class EditableTable extends React.Component {
   }
 
   initColumns = () => [
-    ...this.props.columns,
+    ...this.props.columns.map((col) =>
+      col.editable
+        ? {
+          ...col,
+          // onCell returns props to be added to EditableCell
+          onCell: (record) => ({
+            record,
+            dataIndex: col.dataIndex,
+            title: col.title,
+            editing: this.isEditing(record),
+          }),
+        }
+        : col,
+    ),
     {
       title: 'Operation',
       dataIndex: 'operation',
@@ -98,11 +111,11 @@ class EditableTable extends React.Component {
   };
 
   save = (form, key) => {
-    form.validateFields((err, row) => {
+    form.validateFields((err, values) => {
       if (!err) {
-        const dataRow = this.props.data.find((r) => r.key === key);
-        if (dataRow) {
-          this.props.onSaveEdit({ ...dataRow, ...row });
+        const record = this.props.data.find((r) => r.key === key);
+        if (record) {
+          this.props.onSaveEdit({ ...record, ...values });
         }
         this.setState({ editingKey: '' });
       }
@@ -119,30 +132,14 @@ class EditableTable extends React.Component {
         cell: EditableCell,
       },
     };
-
-    const columns = this.columns.map(col => {
-      if (!col.editable) {
-        return col;
-      }
-      return {
-        ...col,
-        onCell: record => ({
-          record,
-          dataIndex: col.dataIndex,
-          title: col.title,
-          editing: this.isEditing(record),
-        }),
-      };
-    });
-
-    const { data } = this.props;
+    const { data, form } = this.props;
     return (
-      <EditableContext.Provider value={this.props.form}>
+      <EditableContext.Provider value={form}>
         <Table
           className='editable-table'
           components={components}
           dataSource={data}
-          columns={columns}
+          columns={this.columns}
           size='middle'
           pagination={false}
         />
