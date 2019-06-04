@@ -279,6 +279,8 @@ def delete_experiment(experiment_id):
 def delete_run(run_id):
     """
     Deletes a run with the given ID.
+
+    :param run_id: Unique identifier for the run to delete.
     """
     return MlflowClient().delete_run(run_id)
 
