@@ -365,7 +365,7 @@ class Utils {
     ).filter(t =>
       !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
     );
-  };
+  }
 }
 
 export default Utils;

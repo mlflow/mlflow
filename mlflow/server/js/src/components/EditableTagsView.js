@@ -1,6 +1,5 @@
 import React from 'react';
 import { connect } from 'react-redux';
-import HtmlTableView from './HtmlTableView';
 import Utils from '../utils/Utils';
 import PropTypes from 'prop-types';
 import { Form, Input, Button, message } from 'antd';
@@ -13,6 +12,7 @@ class EditableTagsView extends React.Component {
     tableStyles: PropTypes.object.isRequired,
     tags: PropTypes.object.isRequired,
     form: PropTypes.object.isRequired,
+    setTagApi: PropTypes.func.isRequired,
   };
 
   state = { isRequestPending: false };
@@ -44,18 +44,18 @@ class EditableTagsView extends React.Component {
 
   handleAddTag = (e) => {
     e.preventDefault();
-    const { form, runUuid, setTagApi } = this.props;
+    const { form, runUuid, setTagApi: setTag } = this.props;
     form.validateFields((err, values) => {
       if (!err) {
         this.setState({ isRequestPending: true });
-        setTagApi(runUuid, values.name, values.value, this.requestId)
+        setTag(runUuid, values.name, values.value, this.requestId)
           .then(() => {
             this.setState({ isRequestPending: false });
             form.resetFields();
           })
-          .catch((e) => {
+          .catch((ex) => {
             this.setState({ isRequestPending: false });
-            console.error(e);
+            console.error(ex);
             message.error('Failed to add tag.');
           });
       }
@@ -63,8 +63,8 @@ class EditableTagsView extends React.Component {
   };
 
   handleSaveEdit = ({ name, value }) => {
-    const { runUuid, setTagApi } = this.props;
-    return setTagApi(runUuid, name, value, this.requestId)
+    const { runUuid, setTagApi: setTag } = this.props;
+    return setTag(runUuid, name, value, this.requestId)
       .catch((e) => {
         console.error(e);
         message.error('Failed to set tag.');

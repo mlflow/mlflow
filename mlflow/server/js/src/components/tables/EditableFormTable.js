@@ -1,5 +1,5 @@
 import React from 'react';
-import { Table, Input, InputNumber, Popconfirm, Form } from 'antd';
+import { Table, Input, Form } from 'antd';
 import PropTypes from 'prop-types';
 
 import './EditableFormTable.css';
@@ -8,12 +8,11 @@ const EditableContext = React.createContext();
 
 class EditableCell extends React.Component {
   static propTypes = {
-    editing: PropTypes.bool.isRequired,
-    dataIndex: PropTypes.string.isRequired,
-    title: PropTypes.string.isRequired,
-    record: PropTypes.object.isRequired,
-    index: PropTypes.number.isRequired,
-    onSaveEdit: PropTypes.func.isRequired,
+    editing: PropTypes.bool,
+    dataIndex: PropTypes.string,
+    title: PropTypes.string,
+    record: PropTypes.object,
+    index: PropTypes.number,
     children: PropTypes.object,
   };
 
@@ -27,7 +26,6 @@ class EditableCell extends React.Component {
       dataIndex,
       title,
       record,
-      index,
       children,
       ...restProps
     } = this.props;
@@ -59,24 +57,10 @@ class EditableCell extends React.Component {
 
 class EditableTable extends React.Component {
   static propTypes = {
-    /*
-      {
-        title: 'name',
-        dataIndex: 'name',
-        width: '25%',
-        editable: true,
-      },
-     */
     columns: PropTypes.arrayOf(Object).isRequired,
-    /*
-      {
-        key: i.toString(),
-        name: `Edrward ${i}`,
-        age: 32,
-        address: `London Park no. ${i}`,
-      }
-    */
     data: PropTypes.arrayOf(Object).isRequired,
+    onSaveEdit: PropTypes.func.isRequired,
+    form: PropTypes.object.isRequired,
   };
 
   constructor(props) {
@@ -120,10 +104,10 @@ class EditableTable extends React.Component {
     this.setState({ editingKey: '' });
   };
 
-  save(form, key) {
+  save = (form, key) => {
     form.validateFields((err, row) => {
       if (!err) {
-        const dataRow = this.props.data.find((row) => row.key === key);
+        const dataRow = this.props.data.find((r) => r.key === key);
         if (dataRow) {
           this.props.onSaveEdit({ ...dataRow, ...row });
         }
@@ -132,7 +116,7 @@ class EditableTable extends React.Component {
     });
   };
 
-  edit(key) {
+  edit = (key) => {
     this.setState({ editingKey: key });
   };
 
@@ -151,7 +135,6 @@ class EditableTable extends React.Component {
         ...col,
         onCell: record => ({
           record,
-          inputType: col.dataIndex || 'text',
           dataIndex: col.dataIndex,
           title: col.title,
           editing: this.isEditing(record),
@@ -159,7 +142,7 @@ class EditableTable extends React.Component {
       };
     });
 
-    const { data, style } = this.props;
+    const { data } = this.props;
     return (
       <EditableContext.Provider value={this.props.form}>
         <Table
