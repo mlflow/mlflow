@@ -23,14 +23,14 @@ class ExperimentPage extends Component {
     super(props);
     this.onSearch = this.onSearch.bind(this);
     this.getRequestIds = this.getRequestIds.bind(this);
-    const store = ExperimentPage.getLocalStore(this.props.experimentId);
+    const urlState = Utils.getSearchParamsFromUrl(window.location.search);
+
     // Load state data persisted in localStorage. If data isn't present in localStorage (e.g. the
     // first time we construct this component in a browser), the default values in
     // ExperimentPagePersistedState will take precedence.
-    const persistedState = new ExperimentPagePersistedState(store.loadComponentState());
     this.state = {
       ...ExperimentPage.getDefaultUnpersistedState(),
-      persistedState: persistedState.toJSON(),
+      persistedState: urlState,
     };
   }
 
@@ -53,18 +53,9 @@ class ExperimentPage extends Component {
     };
   }
 
-  /**
-   * Returns a LocalStorageStore instance that can be used to persist data associated with the
-   * ExperimentPage component (e.g. component state like metric/param filter info), for the
-   * specified experiment.
-   */
-  static getLocalStore(experimentId) {
-    return LocalStorageUtils.getStoreForComponent("ExperimentPage", experimentId);
-  }
-
   snapshotComponentState() {
-    const store = ExperimentPage.getLocalStore(this.props.experimentId);
-    store.saveComponentState(new ExperimentPagePersistedState(this.state.persistedState));
+    debugger;
+    this.updateUrlWithSearchFilter();
   }
 
   componentDidUpdate() {
@@ -79,11 +70,10 @@ class ExperimentPage extends Component {
 
   static getDerivedStateFromProps(props, state) {
     if (props.experimentId !== state.lastExperimentId) {
-      const store = ExperimentPage.getLocalStore(props.experimentId);
-      const loadedState = new ExperimentPagePersistedState(store.loadComponentState()).toJSON();
       const newState = {
         ...ExperimentPage.getDefaultUnpersistedState(),
-        persistedState: loadedState,
+        persistedState: state.lastExperimentId == undefined ?
+            state.persistedState : (new ExperimentPagePersistedState()).toJSON(),
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
@@ -99,6 +89,7 @@ class ExperimentPage extends Component {
   }
 
   onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
+
     this.setState({
       persistedState: new ExperimentPagePersistedState({
         paramKeyFilterString,
@@ -110,13 +101,13 @@ class ExperimentPage extends Component {
     const searchRunsRequestId = this.props.dispatchSearchRuns(
       this.props.experimentId, searchInput, lifecycleFilterInput);
     this.setState({ searchRunsRequestId });
-    this.updateUrlWithSearchFilter(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput);
+    //this.updateUrlWithSearchFilter();
   }
 
-  updateUrlWithSearchFilter(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput) {
+  updateUrlWithSearchFilter() {
     var stateObj = {};
     window.history.replaceState(stateObj, "search page",
-        Routes.getRunSearchPageRoute(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput));
+        `s?${Utils.getSearchUrlFromState(this.state.persistedState)}`);
   }
 
   render() {

@@ -349,8 +349,19 @@ class Utils {
   }
 
   static getSearchParamsFromUrl(search) {
-    const params = qs.parse(search);
-    return params ? JSON.parse(params) : [];
+    const params = qs.parse(search, {ignoreQueryPrefix: true});
+    var str =  JSON.stringify(params, function (key, value) {return (value === undefined) ? "" : value});
+
+    return params ? JSON.parse(str) : [];
+  }
+
+  static getSearchUrlFromState(state) {
+    for (var key in state) {
+      if (state[key] === undefined) {
+        state[key] = '';
+      }
+    }
+    return qs.stringify(state);
   }
 
   static compareByTimestamp(history1, history2) {
