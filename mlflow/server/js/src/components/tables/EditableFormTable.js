@@ -2,6 +2,8 @@ import React from 'react';
 import { Table, Input, InputNumber, Popconfirm, Form } from 'antd';
 import PropTypes from 'prop-types';
 
+import './EditableFormTable.css';
+
 const EditableContext = React.createContext();
 
 class EditableCell extends React.Component {
@@ -12,6 +14,10 @@ class EditableCell extends React.Component {
     record: PropTypes.object.isRequired,
     index: PropTypes.number.isRequired,
     children: PropTypes.object,
+  };
+
+  static defaultProps = {
+    style: {},
   };
 
   renderCell = ({ getFieldDecorator }) => {
@@ -25,7 +31,7 @@ class EditableCell extends React.Component {
       ...restProps
     } = this.props;
     return (
-      <td {...restProps}>
+      <td {...restProps} className={editing ? 'editing-cell' : ''}>
         {editing ? (
           <Form.Item style={{ margin: 0 }}>
             {getFieldDecorator(dataIndex, {
@@ -81,7 +87,7 @@ class EditableTable extends React.Component {
   initColumns = () => [
     ...this.props.columns,
     {
-      title: 'operation',
+      title: 'Operation',
       dataIndex: 'operation',
       width: 100,
       render: (text, record) => {
@@ -161,13 +167,14 @@ class EditableTable extends React.Component {
       };
     });
 
+    const { data, style } = this.props;
     return (
       <EditableContext.Provider value={this.props.form}>
         <Table
+          className='editable-table'
           components={components}
-          dataSource={this.props.data}
+          dataSource={data}
           columns={columns}
-          rowClassName='editable-row'
           size='middle'
           pagination={false}
         />

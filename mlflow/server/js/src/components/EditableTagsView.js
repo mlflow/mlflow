@@ -67,14 +67,15 @@ class EditableTagsView extends React.Component {
     const { form } = this.props;
     const { getFieldDecorator } = form;
     const { isRequestPending } = this.state;
+
     return (
       <div>
         <EditableFormTable
           columns={this.tableColumns}
           data={this.getData()}
         />
-        <h2>Add Tag</h2>
-        <div className='add-tag-form' style={styles.addTagForm}>
+        <h2 style={{ marginTop: 20 }}>Add Tag</h2>
+        <div style={{ marginBottom: 20 }}>
           <Form layout='inline' onSubmit={this.handleAddTag}>
             <Form.Item>
               {getFieldDecorator('name', {
@@ -99,12 +100,6 @@ class EditableTagsView extends React.Component {
     );
   }
 }
-
-const styles = {
-  addTagForm: {
-    marginBottom: 20,
-  }
-};
 
 const mapDispatchToProps = { setTagApi };
 
