@@ -5,6 +5,7 @@ import Utils from '../utils/Utils';
 import PropTypes from 'prop-types';
 import { Form, Input, Button, message } from 'antd';
 import { getUUID, setTagApi } from '../Actions';
+import { EditableFormTable } from './tables/EditableFormTable';
 
 class EditableTagsView extends React.Component {
   static propTypes = {
@@ -16,7 +17,30 @@ class EditableTagsView extends React.Component {
 
   state = { isRequestPending: false };
 
+  tableColumns = [
+    {
+      title: 'Name',
+      dataIndex: 'name',
+      width: 200,
+    },
+    {
+      title: 'Value',
+      dataIndex: 'value',
+      width: 200,
+      editable: true,
+    }
+  ];
+
   requestId = getUUID();
+
+  getData = () => {
+    const { tags } = this.props;
+    return Utils.getVisibleTagValues(tags).map((values) => ({
+      key: values[0],
+      name: values[0],
+      value: values[1],
+    }));
+  };
 
   handleAddTag = (e) => {
     e.preventDefault();
@@ -40,15 +64,14 @@ class EditableTagsView extends React.Component {
   };
 
   render() {
-    const { tags, tableStyles, form } = this.props;
+    const { form } = this.props;
     const { getFieldDecorator } = form;
     const { isRequestPending } = this.state;
     return (
       <div>
-        <HtmlTableView
-          columns={["Name", "Value"]}
-          values={Utils.getVisibleTagValues(tags)}
-          styles={tableStyles}
+        <EditableFormTable
+          columns={this.tableColumns}
+          data={this.getData()}
         />
         <h2>Add Tag</h2>
         <div className='add-tag-form' style={styles.addTagForm}>
