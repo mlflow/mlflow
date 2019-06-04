@@ -101,7 +101,13 @@ class EditableTagsTableView extends React.Component {
               )}
             </Form.Item>
             <Form.Item>
-              <Button loading={isRequestPending} htmlType='submit'>Add</Button>
+              <Button
+                loading={isRequestPending}
+                htmlType='submit'
+                style={styles.addTagForm.addButton}
+              >
+                Add
+              </Button>
             </Form.Item>
           </Form>
         </div>
@@ -119,6 +125,7 @@ const styles = {
     form: { marginBottom: 20 },
     nameInput: { width: 186 },
     valueInput: { width: 186 },
+    addButton: { width: 90 },
   }
 };
 
