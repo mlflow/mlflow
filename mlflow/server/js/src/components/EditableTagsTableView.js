@@ -83,21 +83,21 @@ class EditableTagsTableView extends React.Component {
           data={this.getData()}
           onSaveEdit={this.handleSaveEdit}
         />
-        <h2 style={{ marginTop: 20 }}>Add Tag</h2>
-        <div style={{ marginBottom: 20 }}>
-          <Form layout='inline' onSubmit={this.handleAddTag}>
+        <div style={styles.addTagForm.wrapper}>
+          <h2 style={styles.addTagForm.label}>Add Tag</h2>
+          <Form layout='inline' onSubmit={this.handleAddTag} style={styles.addTagForm.form}>
             <Form.Item>
               {getFieldDecorator('name', {
                 rules: [{ required: true, message: 'Name is required.'}]
               })(
-                <Input placeholder='Name'/>
+                <Input placeholder='Name' style={styles.addTagForm.nameInput}/>
               )}
             </Form.Item>
             <Form.Item>
               {getFieldDecorator('value', {
                 rules: [{ required: true, message: 'Value is required.'}]
               })(
-                <Input placeholder='Value'/>
+                <Input placeholder='Value' style={styles.addTagForm.valueInput}/>
               )}
             </Form.Item>
             <Form.Item>
@@ -109,6 +109,18 @@ class EditableTagsTableView extends React.Component {
     );
   }
 }
+
+const styles = {
+  addTagForm: {
+    wrapper: { marginLeft: 7 },
+    label: {
+      marginTop: 20,
+    },
+    form: { marginBottom: 20 },
+    nameInput: { width: 186 },
+    valueInput: { width: 186 },
+  }
+};
 
 const mapDispatchToProps = { setTagApi };
 
