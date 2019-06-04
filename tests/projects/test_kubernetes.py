@@ -1,8 +1,10 @@
 import mock
 import yaml
 import pytest
+import kubernetes
 from mlflow.projects import kubernetes as kb
 from mlflow.exceptions import ExecutionException
+from mlflow.entities import RunStatus
 
 
 def test_run_command_creation():  # pylint: disable=unused-argument
@@ -95,3 +97,80 @@ def test_push_image_to_registry_handling_errors():
     image_uri = "dockerhub_account/mlflow-kubernetes-example"
     with pytest.raises(ExecutionException):
         kb.push_image_to_registry(image_uri)
+
+
+def test_submitted_run_get_status_killed():
+    mlflow_run_id = 1
+    job_name = 'job-name'
+    job_namespace = 'job-namespace'
+    with mock.patch("kubernetes.client.BatchV1Api.delete_namespaced_job") as kube_api_mock:
+        submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
+        submitted_run.cancel()
+        assert RunStatus.KILLED == submitted_run.get_status()
+        assert kube_api_mock.call_count == 1
+        args = kube_api_mock.call_args_list
+        assert args[0][1]['name'] == job_name
+        assert args[0][1]['namespace'] == job_namespace
+
+
+def test_submitted_run_get_status_failed():
+    mlflow_run_id = 1
+    job_name = 'job-name'
+    job_namespace = 'job-namespace'
+    job_status = kubernetes.client.models.V1JobStatus(active=1,
+                                                      completion_time=None,
+                                                      conditions=None,
+                                                      failed=1,
+                                                      start_time=None,
+                                                      succeeded=None)
+    job = kubernetes.client.models.V1Job(status=job_status)
+    with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
+        kube_api_mock.return_value = job
+        submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
+        assert RunStatus.FAILED == submitted_run.get_status()
+        assert kube_api_mock.call_count == 1
+        args = kube_api_mock.call_args_list
+        assert args[0][1]['name'] == job_name
+        assert args[0][1]['namespace'] == job_namespace
+
+
+def test_submitted_run_get_status_succeeded():
+    mlflow_run_id = 1
+    job_name = 'job-name'
+    job_namespace = 'job-namespace'
+    job_status = kubernetes.client.models.V1JobStatus(active=None,
+                                                      completion_time=None,
+                                                      conditions=None,
+                                                      failed=None,
+                                                      start_time=None,
+                                                      succeeded=1)
+    job = kubernetes.client.models.V1Job(status=job_status)
+    with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
+        kube_api_mock.return_value = job
+        submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
+        assert RunStatus.FINISHED == submitted_run.get_status()
+        assert kube_api_mock.call_count == 1
+        args = kube_api_mock.call_args_list
+        assert args[0][1]['name'] == job_name
+        assert args[0][1]['namespace'] == job_namespace
+
+
+def test_submitted_run_get_status_running():
+    mlflow_run_id = 1
+    job_name = 'job-name'
+    job_namespace = 'job-namespace'
+    job_status = kubernetes.client.models.V1JobStatus(active=1,
+                                                      completion_time=None,
+                                                      conditions=None,
+                                                      failed=None,
+                                                      start_time=None,
+                                                      succeeded=None)
+    job = kubernetes.client.models.V1Job(status=job_status)
+    with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
+        kube_api_mock.return_value = job
+        submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
+        assert RunStatus.RUNNING == submitted_run.get_status()
+        assert kube_api_mock.call_count == 1
+        args = kube_api_mock.call_args_list
+        assert args[0][1]['name'] == job_name
+        assert args[0][1]['namespace'] == job_namespace

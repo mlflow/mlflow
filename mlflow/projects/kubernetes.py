@@ -137,8 +137,8 @@ class KubernetesSubmittedRun(SubmittedRun):
 
     def cancel(self):
         kube_api = kubernetes.client.BatchV1Api()
-        kube_api.delete_namespaced_job(self._job_name,
-                                       self._job_namespace,
+        kube_api.delete_namespaced_job(name=self._job_name,
+                                       namespace=self._job_namespace,
                                        body=kubernetes.client.V1DeleteOptions(),
                                        pretty=True)
         self._is_killed = True
@@ -147,15 +147,15 @@ class KubernetesSubmittedRun(SubmittedRun):
         if self._is_killed:
             return RunStatus.KILLED
         kube_api = kubernetes.client.BatchV1Api()
-        api_response = kube_api.read_namespaced_job_status(self._job_name,
-                                                           self._job_namespace,
+        api_response = kube_api.read_namespaced_job_status(name=self._job_name,
+                                                           namespace=self._job_namespace,
                                                            pretty=True)
         job_status = api_response.status
         if job_status.failed and job_status.failed >= 1:
             return RunStatus.FAILED
-        elif job_status.succeeded and job_status.succeeded >= 1 :
+        elif job_status.succeeded and job_status.succeeded >= 1 and not job_status.active:
             return RunStatus.FINISHED
-        elif (job_status.active and job_status.active >= 1 and job_status.conditions is None):
+        elif job_status.active and job_status.active >= 1 and job_status.conditions is None:
             return RunStatus.RUNNING
         else:
             return RunStatus.SCHEDULED
