@@ -388,7 +388,6 @@ def test_parse_kubernetes_config_without_context():
         "image-uri": "dockerhub_account/mlflow-kubernetes-example",
         "kube-job-template-path": "kubernetes_job_template.yaml"
     }
-    work_dir = "./examples/docker"
     with pytest.raises(ExecutionException):
         mlflow.projects._parse_kubernetes_config(kubernetes_config)
 
@@ -398,7 +397,6 @@ def test_parse_kubernetes_config_without_image_uri():
         "kube-context": "docker-for-desktop",
         "kube-job-template-path": "kubernetes_job_template.yaml"
     }
-    work_dir = "./examples/docker"
     with pytest.raises(ExecutionException):
         mlflow.projects._parse_kubernetes_config(kubernetes_config)
 
@@ -409,6 +407,5 @@ def test_parse_kubernetes_config_invalid_template_job_file():
         "image-uri": "username/mlflow-kubernetes-example",
         "kube-job-template-path": "file_not_found.yaml"
     }
-    work_dir = "./examples/docker"
     with pytest.raises(ExecutionException):
         mlflow.projects._parse_kubernetes_config(kubernetes_config)
