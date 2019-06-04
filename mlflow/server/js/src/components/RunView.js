@@ -16,7 +16,7 @@ import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
 import NoteEditorView from "./NoteEditorView";
 import NoteShowView from "./NoteShowView";
-import EditableTagsView from './EditableTagsView';
+import EditableTagsTableView from './EditableTagsTableView';
 
 
 const NOTES_KEY = 'notes';
@@ -335,7 +335,7 @@ class RunView extends Component {
             {' '}Tags
           </h2>
           {this.state.showTags ?
-            <EditableTagsView
+            <EditableTagsTableView
               runUuid={runUuid}
               tags={tags}
               tableStyles={tableStyles}

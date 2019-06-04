@@ -6,7 +6,7 @@ import { Form, Input, Button, message } from 'antd';
 import { getUUID, setTagApi } from '../Actions';
 import { EditableFormTable } from './tables/EditableFormTable';
 
-class EditableTagsView extends React.Component {
+class EditableTagsTableView extends React.Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     tableStyles: PropTypes.object.isRequired,
@@ -112,4 +112,4 @@ class EditableTagsView extends React.Component {
 
 const mapDispatchToProps = { setTagApi };
 
-export default connect(undefined, mapDispatchToProps)(Form.create()(EditableTagsView));
+export default connect(undefined, mapDispatchToProps)(Form.create()(EditableTagsTableView));
