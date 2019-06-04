@@ -20,38 +20,31 @@ class EditableCell extends React.Component {
     style: {},
   };
 
-  renderCell = ({ getFieldDecorator }) => {
-    const {
-      editing,
-      dataIndex,
-      title,
-      record,
-      children,
-      ...restProps
-    } = this.props;
-    return (
-      <td {...restProps} className={editing ? 'editing-cell' : ''}>
-        {editing ? (
-          <Form.Item style={{ margin: 0 }}>
-            {getFieldDecorator(dataIndex, {
-              rules: [
-                {
-                  required: true,
-                  message: `Please Input ${title}!`,
-                },
-              ],
-              initialValue: record[dataIndex],
-            })(<Input />)}
-          </Form.Item>
-        ) : (
-          children
-        )}
-      </td>
-    );
-  };
-
   render() {
-    return <EditableContext.Consumer>{this.renderCell}</EditableContext.Consumer>;
+    const { editing, dataIndex, title, record, children, ...restProps } = this.props;
+    return (
+      <EditableContext.Consumer>
+        {({ getFieldDecorator }) => (
+          <td {...restProps} className={editing ? 'editing-cell' : ''}>
+            {editing ? (
+              <Form.Item style={{ margin: 0 }}>
+                {getFieldDecorator(dataIndex, {
+                  rules: [
+                    {
+                      required: true,
+                      message: `Please Input ${title}!`,
+                    },
+                  ],
+                  initialValue: record[dataIndex],
+                })(<Input />)}
+              </Form.Item>
+            ) : (
+              children
+            )}
+          </td>
+        )}
+      </EditableContext.Consumer>
+    );
   }
 }
 
