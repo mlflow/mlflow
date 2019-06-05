@@ -146,7 +146,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                 " compatible with MLeap (i.e does not contain any custom transformers).")
 
     try:
-        training_schema = _get_mleap_schema(sample_input, mleap_datapath_full)
+        training_schema = _get_mleap_schema(sample_input)
     except Py4JError:
         _handle_py4j_error(
                 MLeapSerializationException,
