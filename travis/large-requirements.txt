@@ -10,6 +10,7 @@ mock==2.0.0
 onnx==1.4.1; python_version >= "3.0"
 onnxmltools==1.4.0; python_version >= "3.0"
 onnxruntime==0.3.0; python_version >= "3.0"
+mleap==0.8.1
 pandas<=0.23.4
 pyarrow==0.12.1
 pyspark==2.4.0
