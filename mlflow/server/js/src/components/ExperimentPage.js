@@ -13,7 +13,7 @@ import Utils from "../utils/Utils";
 import ErrorCodes from "../sdk/ErrorCodes";
 import PermissionDeniedView from "./PermissionDeniedView";
 import {Spinner} from "./Spinner";
-
+import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
@@ -21,13 +21,11 @@ export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 class ExperimentPage extends Component {
   constructor(props) {
     super(props);
+    debugger;
     this.onSearch = this.onSearch.bind(this);
     this.getRequestIds = this.getRequestIds.bind(this);
-    const urlState = Utils.getSearchParamsFromUrl(window.location.search);
+    const urlState = Utils.getSearchParamsFromUrl(props.location.search);
 
-    // Load state data persisted in localStorage. If data isn't present in localStorage (e.g. the
-    // first time we construct this component in a browser), the default values in
-    // ExperimentPagePersistedState will take precedence.
     this.state = {
       ...ExperimentPage.getDefaultUnpersistedState(),
       persistedState: urlState,
@@ -37,9 +35,11 @@ class ExperimentPage extends Component {
   static propTypes = {
     experimentId: PropTypes.number.isRequired,
     dispatchSearchRuns: PropTypes.func.isRequired,
+    history: PropTypes.object.isRequired,
+    searchString: PropTypes.string.isRequired
   };
 
-  /** Returns default values for state attributes that aren't persisted in local storage. */
+  /** Returns default values for state attributes that aren't persisted in the URL. */
   static getDefaultUnpersistedState() {
     return {
       // String UUID associated with a GetExperiment API request
@@ -54,8 +54,7 @@ class ExperimentPage extends Component {
   }
 
   snapshotComponentState() {
-    debugger;
-    this.updateUrlWithSearchFilter();
+
   }
 
   componentDidUpdate() {
@@ -89,7 +88,6 @@ class ExperimentPage extends Component {
   }
 
   onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
-
     this.setState({
       persistedState: new ExperimentPagePersistedState({
         paramKeyFilterString,
@@ -98,16 +96,20 @@ class ExperimentPage extends Component {
       }).toJSON(),
       lifecycleFilter: lifecycleFilterInput,
     });
-    const searchRunsRequestId = this.props.dispatchSearchRuns(
-      this.props.experimentId, searchInput, lifecycleFilterInput);
+    const searchRunsRequestId = this.props.dispatchSearchRuns(this.props.experimentId,
+        searchInput, lifecycleFilterInput);
     this.setState({ searchRunsRequestId });
-    //this.updateUrlWithSearchFilter();
+    this.updateUrlWithSearchFilter({
+        paramKeyFilterString,
+        metricKeyFilterString,
+        searchInput,
+      });
   }
 
-  updateUrlWithSearchFilter() {
+  updateUrlWithSearchFilter(state) {
     var stateObj = {};
-    window.history.replaceState(stateObj, "search page",
-        `s?${Utils.getSearchUrlFromState(this.state.persistedState)}`);
+    this.props.history
+        .push(`/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(state)}`);
   }
 
   render() {
@@ -143,7 +145,7 @@ class ExperimentPage extends Component {
               lifecycleFilter={this.state.lifecycleFilter}
               onSearch={this.onSearch}
               searchRunsError={searchRunsError}
-              searchInput={this.state.persistedState.searchInput}
+              searchInput={this.state.persistedState.searchInput==undefined?'':this.state.persistedState.searchInput}
               isLoading={isLoading && !searchRunsError}
             />;
           }}
@@ -177,4 +179,4 @@ const lifecycleFilterToRunViewType = (lifecycleFilter) => {
   }
 };
 
-export default connect(undefined, mapDispatchToProps)(ExperimentPage);
+export default withRouter(connect(undefined, mapDispatchToProps)(ExperimentPage));

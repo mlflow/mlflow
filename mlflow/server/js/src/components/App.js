@@ -13,6 +13,7 @@ import CompareRunPage from './CompareRunPage';
 import AppErrorBoundary from './error-boundaries/AppErrorBoundary';
 import { connect } from 'react-redux';
 import HomePage from './HomePage';
+import ExperimentPage from './ExperimentPage'
 import ErrorModal from './modals/ErrorModal';
 import PageNotFoundView from './PageNotFoundView';
 import { Switch } from 'react-router';
@@ -52,6 +53,7 @@ class App extends Component {
               <Route exact path={Routes.runPageRoute} component={RunPage}/>
               <Route exact path={Routes.metricPageRoute} component={MetricPage}/>
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage}/>
+              <Route path={Routes.experimentPageSearchRoute} component={HomePage}/>
               <Route component={PageNotFoundView}/>
             </Switch>
           </AppErrorBoundary>

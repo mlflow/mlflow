@@ -163,8 +163,6 @@ export class ExperimentView extends Component {
     this.snapshotComponentState();
   }
 
-
-
   static getDerivedStateFromProps(nextProps, prevState) {
     // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
     // prop)
@@ -605,13 +603,10 @@ export class ExperimentView extends Component {
     try {
       this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
         lifecycleFilterInput);
-
     } catch (ex) {
       this.setState({ searchErrorMessage: ex.errorMessage });
     }
   }
-
-
 
   onClear() {
     // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state

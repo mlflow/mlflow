@@ -7,6 +7,8 @@ class Routes {
 
   static experimentPageRoute = "/experiments/:experimentId";
 
+  static experimentPageSearchRoute = "/experiments/:experimentId/:searchString";
+
   static getRunPageRoute(experimentId, runUuid) {
     return `/experiments/${experimentId}/runs/${runUuid}`;
   }
@@ -25,11 +27,6 @@ class Routes {
   }
 
   static compareRunPageRoute = "/compare-runs"
-
-  static getRunSearchPageRoute(paramKeyFilterInput, metricKeyFilterInput, searchInput, lifecycleFilterInput) {
-    return `/s?params=${paramKeyFilterInput}&metrics=${metricKeyFilterInput}`
-            +`&searchInput=${searchInput}&lifecycle=${lifecycleFilterInput}`
-  }
 
 }
 
