@@ -379,25 +379,6 @@ def test_mleap_model_log(spark_model_iris):
 
 
 @pytest.mark.large
-def test_mleap_output_json_format(spark_model_iris, model_path):
-    mlflow_model = Model()
-    mleap.save_model(spark_model=spark_model_iris.model,
-                     path=model_path,
-                     sample_input=spark_model_iris.spark_df,
-                     mlflow_model=mlflow_model)
-    mleap_conf = mlflow_model.flavors[mleap.FLAVOR_NAME]
-    schema_path_sub = mleap_conf["training_schema"]
-    schema_path_full = os.path.join(model_path, schema_path_sub)
-    with open(schema_path_full, "r") as f:
-        json_schema = json.load(f)
-
-    assert "fields" in json_schema.keys()
-    assert len(json_schema["fields"]) > 0
-    assert type(json_schema["fields"][0]) == dict
-    assert "name" in json_schema["fields"][0]
-
-
-@pytest.mark.large
 def test_spark_module_model_save_with_mleap_and_unsupported_transformer_raises_exception(
         spark_model_iris, model_path):
     class CustomTransformer(JavaModel):
