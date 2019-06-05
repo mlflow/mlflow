@@ -94,9 +94,10 @@ def _get_file_store(store_uri, **_):
 
 
 def _is_database_uri(uri):
-    if urllib.parse.urlparse(uri).scheme not in DATABASE_ENGINES:
-        return False
-    return True
+    scheme = urllib.parse.urlparse(uri).scheme
+    if any([scheme.lower().startswith(db) for db in DATABASE_ENGINES]):
+        return True
+    return False
 
 
 def _get_sqlalchemy_store(store_uri, artifact_uri):
