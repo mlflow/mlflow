@@ -13,7 +13,6 @@ import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
 import ml.combust.mleap.runtime.frame.Transformer;
 import ml.combust.mleap.runtime.javadsl.BundleBuilder;
 import ml.combust.mleap.runtime.javadsl.ContextBuilder;
-import ml.combust.mleap.runtime.javadsl.LeapFrameBuilder;
 import ml.combust.mleap.runtime.javadsl.LeapFrameSupport;
 import org.mlflow.utils.SerializationUtils;
 import org.slf4j.Logger;
@@ -37,35 +36,14 @@ public class MLeapPredictor implements Predictor {
    * Constructs an {@link MLeapPredictor}
    *
    * @param modelDataPath The path to the serialized MLeap model
-   * @param trainingSchemaPath The path to JSON-formatted file containing the input schema that the
-   *     model accepts
    */
-  public MLeapPredictor(String modelDataPath, String trainingSchemaPath) {
+  public MLeapPredictor(String modelDataPath) {
     MleapContext mleapContext = new ContextBuilder().createMleapContext();
     BundleBuilder bundleBuilder = new BundleBuilder();
-    MLeapSchemaReader schemaReader = new MLeapSchemaReader();
     this.leapFrameSupport = new LeapFrameSupport();
 
     this.pipelineTransformer = bundleBuilder.load(new File(modelDataPath), mleapContext).root();
-    try {
-      StructType trainingSchema = schemaReader.fromFile(trainingSchemaPath);
-      List<String> requiredFields = this.leapFrameSupport
-                                .getFields(this.pipelineTransformer.inputSchema())
-                                .stream()
-                                .map(field -> field.name())
-                                .collect(Collectors.toList());
-      this.inputSchema = new LeapFrameBuilder().createSchema(this.leapFrameSupport
-              .getFields(trainingSchema)
-              .stream()
-              .filter(field -> requiredFields.contains(field.name()))
-              .collect(Collectors.toList()));
-
-    } catch (Exception e) {
-      logger.error("Could not read the model input schema from the specified path", e);
-      throw new PredictorLoadingException(
-              String.format(
-                  "Failed to load model input schema from specified path: %s", trainingSchemaPath));
-    }
+    this.inputSchema = this.pipelineTransformer.inputSchema();
   }
 
   @Override
