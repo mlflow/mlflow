@@ -164,13 +164,11 @@ def upgrade():
     # in Alembic's ability to reflect CHECK constraints, as described in
     # https://alembic.sqlalchemy.org/en/latest/batch.html#working-in-offline-mode
     with op.batch_alter_table("experiments", copy_from=SqlExperiment.__table__) as batch_op:
-        batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
         batch_op.create_check_constraint(
             constraint_name="experiments_lifecycle_stage",
             condition=column('lifecycle_stage').in_(["active", "deleted"])
         )
     with op.batch_alter_table("runs", copy_from=SqlRun.__table__) as batch_op:
-        batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
         batch_op.create_check_constraint(
             constraint_name="runs_lifecycle_stage",
             condition=column('lifecycle_stage').in_(["active", "deleted"])
