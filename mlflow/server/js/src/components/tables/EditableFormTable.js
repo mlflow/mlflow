@@ -1,5 +1,5 @@
 import React from 'react';
-import { Table, Input, Form } from 'antd';
+import { Table, Input, Form, Icon } from 'antd';
 import PropTypes from 'prop-types';
 
 import './EditableFormTable.css';
@@ -13,7 +13,10 @@ class EditableCell extends React.Component {
     title: PropTypes.string,
     record: PropTypes.object,
     index: PropTypes.number,
-    children: PropTypes.object,
+    children: PropTypes.oneOfType([
+      PropTypes.object,
+      PropTypes.array,
+    ]),
   };
 
   static defaultProps = {
@@ -58,7 +61,7 @@ class EditableTable extends React.Component {
 
   constructor(props) {
     super(props);
-    this.state = { editingKey: '' };
+    this.state = { editingKey: '', isRequestPending: false };
     this.columns = this.initColumns();
   }
 
@@ -82,10 +85,13 @@ class EditableTable extends React.Component {
       dataIndex: 'operation',
       width: 100,
       render: (text, record) => {
-        const { editingKey } = this.state;
-        const editable = this.isEditing(record);
-        return editable ? (
-          <span>
+        const { editingKey, isRequestPending } = this.state;
+        const editing = this.isEditing(record);
+        if (editing && isRequestPending) {
+          return <Icon type="loading" />;
+        }
+        return editing ? (
+            <span>
             <EditableContext.Consumer>
               {(form) => (
                 <a onClick={() => this.save(form, record.key)} style={{ marginRight: 8 }}>
@@ -95,9 +101,9 @@ class EditableTable extends React.Component {
             </EditableContext.Consumer>
             <a onClick={() => this.cancel(record.key)}>Cancel</a>
           </span>
-        ) : (
-          <a disabled={editingKey !== ''} onClick={() => this.edit(record.key)}>
-            Edit
+            ) : (
+            <a disabled={editingKey !== ''} onClick={() => this.edit(record.key)}>
+              Edit
           </a>
         );
       },
@@ -115,9 +121,12 @@ class EditableTable extends React.Component {
       if (!err) {
         const record = this.props.data.find((r) => r.key === key);
         if (record) {
-          this.props.onSaveEdit({ ...record, ...values });
+          this.setState({ isRequestPending: true });
+          this.props.onSaveEdit({ ...record, ...values })
+            .then(() => {
+              this.setState({ editingKey: '', isRequestPending: false });
+            });
         }
-        this.setState({ editingKey: '' });
       }
     });
   };
