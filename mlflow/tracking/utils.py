@@ -12,7 +12,7 @@ from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
-from mlflow.utils import env, rest_utils, file_utils, get_uri_scheme
+from mlflow.utils import env, rest_utils, get_uri_scheme
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
@@ -90,13 +90,7 @@ def _is_databricks_uri(uri):
 
 
 def _get_file_store(store_uri, **_):
-    return FileStore(file_utils.local_file_uri_to_path(store_uri), store_uri)
-
-
-def _is_database_uri(uri):
-    if urllib.parse.urlparse(uri).scheme not in DATABASE_ENGINES:
-        return False
-    return True
+    return FileStore(store_uri, store_uri)
 
 
 def _get_sqlalchemy_store(store_uri, artifact_uri):
