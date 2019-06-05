@@ -11,7 +11,10 @@ def package_files(directory):
     paths = []
     for (path, _, filenames) in os.walk(directory):
         for filename in filenames:
-            paths.append(os.path.join('..', path, filename))
+            # Don't include CSS and JS map files in distributions.
+            # These files are quite large and don't provide much value to endusers.
+            if not filename.endswith('.map'):
+                paths.append(os.path.join('..', path, filename))
     return paths
 
 
