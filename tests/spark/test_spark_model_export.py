@@ -386,7 +386,7 @@ def test_mleap_output_json_format(spark_model_iris, model_path):
                      sample_input=spark_model_iris.spark_df,
                      mlflow_model=mlflow_model)
     mleap_conf = mlflow_model.flavors[mleap.FLAVOR_NAME]
-    schema_path_sub = mleap_conf["input_schema"]
+    schema_path_sub = mleap_conf["training_schema"]
     schema_path_full = os.path.join(model_path, schema_path_sub)
     with open(schema_path_full, "r") as f:
         json_schema = json.load(f)

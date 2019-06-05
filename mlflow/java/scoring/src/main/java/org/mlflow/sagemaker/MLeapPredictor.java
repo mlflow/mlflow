@@ -20,7 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** A {@link org.mlflow.sagemaker.Predictor} implementation for the MLeap model flavor */
-public class MLeapPredictor extends Predictor {
+public class MLeapPredictor implements Predictor {
   private final Transformer pipelineTransformer;
 
   // As in the `pyfunc` wrapper for Spark models, we expect output dataframes
@@ -37,10 +37,10 @@ public class MLeapPredictor extends Predictor {
    * Constructs an {@link MLeapPredictor}
    *
    * @param modelDataPath The path to the serialized MLeap model
-   * @param inputSchemaPath The path to JSON-formatted file containing the input schema that the
+   * @param trainingSchemaPath The path to JSON-formatted file containing the input schema that the
    *     model accepts
    */
-  public MLeapPredictor(String modelDataPath, String inputSchemaPath) {
+  public MLeapPredictor(String modelDataPath, String trainingSchemaPath) {
     MleapContext mleapContext = new ContextBuilder().createMleapContext();
     BundleBuilder bundleBuilder = new BundleBuilder();
     MLeapSchemaReader schemaReader = new MLeapSchemaReader();
@@ -48,7 +48,7 @@ public class MLeapPredictor extends Predictor {
 
     this.pipelineTransformer = bundleBuilder.load(new File(modelDataPath), mleapContext).root();
     try {
-      StructType trainingSchema = schemaReader.fromFile(inputSchemaPath);
+      StructType trainingSchema = schemaReader.fromFile(trainingSchemaPath);
       List<String> requiredFields = this.leapFrameSupport
                                 .getFields(this.pipelineTransformer.inputSchema())
                                 .stream()
@@ -64,12 +64,12 @@ public class MLeapPredictor extends Predictor {
       logger.error("Could not read the model input schema from the specified path", e);
       throw new PredictorLoadingException(
               String.format(
-                  "Failed to load model input schema from specified path: %s", inputSchemaPath));
+                  "Failed to load model input schema from specified path: %s", trainingSchemaPath));
     }
   }
 
   @Override
-  protected PredictorDataWrapper predict(PredictorDataWrapper input)
+  public PredictorDataWrapper predict(PredictorDataWrapper input)
       throws PredictorEvaluationException {
     PandasSplitOrientedDataFrame pandasFrame;
     try {

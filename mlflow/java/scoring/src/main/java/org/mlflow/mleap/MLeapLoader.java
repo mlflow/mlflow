@@ -29,8 +29,8 @@ public class MLeapLoader extends LoaderModule<MLeapFlavor> {
   @Override
   protected MLeapPredictor createPredictor(String modelRootPath, MLeapFlavor flavor) {
     String modelDataPath = FileUtils.join(modelRootPath, flavor.getModelDataPath());
-    String inputSchemaPath = FileUtils.join(modelRootPath, flavor.getInputSchemaPath());
-    return new MLeapPredictor(modelDataPath, inputSchemaPath);
+    String trainingSchemaPath = FileUtils.join(modelRootPath, flavor.getTrainingSchemaPath());
+    return new MLeapPredictor(modelDataPath, trainingSchemaPath);
   }
 
   @Override

@@ -22,7 +22,7 @@ import org.junit.Test;
 import org.mlflow.utils.SerializationUtils;
 
 public class ScoringServerTest {
-  private class TestPredictor extends Predictor {
+  private class TestPredictor implements Predictor {
     private final boolean succeed;
     private final Optional<String> responseContent;
 
@@ -36,7 +36,8 @@ public class ScoringServerTest {
       this.succeed = true;
     }
 
-    protected PredictorDataWrapper predict(PredictorDataWrapper input)
+    @Override
+    public PredictorDataWrapper predict(PredictorDataWrapper input)
         throws PredictorEvaluationException {
       if (succeed) {
         String responseText = this.responseContent.orElse("{ \"Text\" : \"Succeed!\" }");

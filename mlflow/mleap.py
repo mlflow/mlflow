@@ -146,7 +146,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                 " compatible with MLeap (i.e does not contain any custom transformers).")
 
     try:
-        input_schema = _get_mleap_schema(sample_input)
+        training_schema = _get_mleap_schema(sample_input, mleap_datapath_full)
     except Py4JError:
         _handle_py4j_error(
                 MLeapSerializationException,
@@ -159,15 +159,15 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
     mleap_schemapath_sub = os.path.join("mleap", "schema.json")
     mleap_schemapath_full = os.path.join(path, mleap_schemapath_sub)
     with open(mleap_schemapath_full, "w") as out:
-        json.dump(input_schema, out, indent=4)
+        json.dump(training_schema, out, indent=4)
 
     mlflow_model.add_flavor(FLAVOR_NAME,
                             mleap_version=mleap.version.__version__,
                             model_data=mleap_datapath_sub,
-                            input_schema=mleap_schemapath_sub)
+                            training_schema=mleap_schemapath_sub)
 
 
-def _get_mleap_schema(dataframe):
+def _get_mleap_schema(dataframe, serialized_bundle_path):
     """
     :param dataframe: A PySpark dataframe object
 

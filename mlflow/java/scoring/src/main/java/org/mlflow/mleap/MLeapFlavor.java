@@ -13,8 +13,8 @@ public class MLeapFlavor implements Flavor {
   @JsonProperty("model_data")
   private String modelDataPath;
 
-  @JsonProperty("input_schema")
-  private String inputSchemaPath;
+  @JsonProperty("training_schema")
+  private String trainingSchemaPath;
 
   @Override
   public String getName() {
@@ -32,10 +32,10 @@ public class MLeapFlavor implements Flavor {
   }
 
   /**
-   * @return The relative path to the model's serialized input schema. This path is relative to the
-   *     root directory of an MLFlow model
+   * @return The relative path to the model's serialized training schema. This path is relative to
+   *     the root directory of an MLFlow model
    */
-  public String getInputSchemaPath() {
-    return inputSchemaPath;
+  public String getTrainingSchemaPath() {
+    return trainingSchemaPath;
   }
 }
