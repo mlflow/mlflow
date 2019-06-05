@@ -10,7 +10,6 @@ from __future__ import absolute_import
 import os
 import sys
 import traceback
-import json
 from six import reraise
 
 import mlflow
