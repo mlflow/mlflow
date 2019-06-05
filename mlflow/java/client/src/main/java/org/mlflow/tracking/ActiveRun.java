@@ -48,9 +48,12 @@ public class ActiveRun {
         logMetrics(metrics, 0);
     }
 
-    // TODO(andrew): Should this be it's own object in org.mlflow or should it be just the proto object.
+    // TODO(andrew): Should this be it's own object in org.mlflow or should it be just the proto
+    // object.
     public void logMetrics(Iterable<MlflowMetric> metrics, int step) {
-        List<Metric> protoMetrics = StreamSupport.stream(metrics.spliterator(), false).map((metric) ->
+        List<Metric> protoMetrics = StreamSupport
+                .stream(metrics.spliterator(), false)
+                .map((metric) ->
                 Metric.newBuilder()
                         .setKey(metric.key)
                         .setValue(metric.value)

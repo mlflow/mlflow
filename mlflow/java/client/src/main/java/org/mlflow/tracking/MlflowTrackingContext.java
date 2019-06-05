@@ -36,6 +36,9 @@ public class MlflowTrackingContext {
         CreateRun createRunRequest = CreateRun.newBuilder()
                 .setExperimentId(experimentId)
                 .setStartTime(System.currentTimeMillis())
+                .addTags(RunTag.newBuilder().setKey("mlflow.runName").setValue(runName).build())
+                .addTags(RunTag.newBuilder().setKey("mlflow.user")
+                        .setValue(System.getProperty("user.name")).build())
                 .build();
         RunInfo runInfo = client.createRun(createRunRequest);
         ActiveRun activeRun = new ActiveRun(runInfo, client);
