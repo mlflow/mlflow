@@ -11,6 +11,7 @@ import os
 import sys
 import re
 import shutil
+from six.moves import urllib
 import subprocess
 import tempfile
 import logging
@@ -28,6 +29,7 @@ from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.tracking.context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
+from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
     MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
@@ -338,7 +340,6 @@ def _fetch_project(uri, force_tempdir, version=None):
         _logger.info("=== Fetching project from %s into %s ===", uri, dst_dir)
     if _is_zip_uri(parsed_uri):
         if _is_file_uri(parsed_uri):
-            from six.moves import urllib
             parsed_file_uri = urllib.parse.urlparse(urllib.parse.unquote(parsed_uri))
             parsed_uri = os.path.join(parsed_file_uri.netloc, parsed_file_uri.path)
         _unzip_repo(zip_file=(
@@ -625,16 +626,31 @@ def _validate_execution_environment(project, backend):
             "Running docker-based projects on Databricks is not yet supported.")
 
 
+def _get_local_uri_or_none(uri):
+    if uri == "databricks":
+        return None, None
+    parsed_uri = urllib.parse.urlparse(uri)
+    if not parsed_uri.netloc and parsed_uri.scheme in ("", "file", "sqlite"):
+        path = urllib.request.url2pathname(parsed_uri.path)
+        if parsed_uri.scheme == "sqlite":
+            uri = path_to_local_sqlite_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
+        else:
+            uri = path_to_local_file_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
+        return path, uri
+    else:
+        return None, None
+
+
 def _get_docker_command(image, active_run):
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
     env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
                                  experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
-    if tracking.utils._is_local_uri(tracking_uri):
-        path = file_utils.local_file_uri_to_path(tracking_uri)
-        cmd += ["-v", "%s:%s" % (path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = _MLFLOW_DOCKER_TRACKING_DIR_PATH
+    local_path, container_tracking_uri = _get_local_uri_or_none(tracking_uri)
+    if local_path is not None:
+        cmd += ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
+        env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
     if tracking.utils._is_databricks_uri(tracking_uri):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)

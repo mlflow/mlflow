@@ -34,9 +34,9 @@ class MlflowClient(object):
     def get_run(self, run_id):
         """
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
-        contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
-        as well as a collection of run parameters, tags, and metrics -
-        :py:class`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
+        contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
+        as well as a collection of run parameters, tags, and metrics --
+        :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
         same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
         the most recently logged value at the largest step for each metric.
 
@@ -154,8 +154,8 @@ class MlflowClient(object):
 
     def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
-        Log a metric against the run ID. If timestamp is not provided, uses
-        the current timestamp. The metric's step defaults to 0 if unspecified.
+        Log a metric against the run ID. The timestamp defaults to the current timestamp.
+        The step defaults to 0.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
         step = step if step is not None else 0
@@ -271,14 +271,14 @@ class MlflowClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string,
+    def search_runs(self, experiment_ids, filter_string="",
                     run_view_type=ViewType.ACTIVE_ONLY,
                     max_results=SEARCH_MAX_RESULTS_DEFAULT):
         """
         Search experiments that fit the search criteria.
 
-        :param experiment_ids: List of experiment IDs
-        :param filter_string: Filter query string.
+        :param experiment_ids: List of experiment IDs, or a single int or string id.
+        :param filter_string: Filter query string, defaults to searching all runs.
         :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                               defined in :py:class:`mlflow.entities.ViewType`.
         :param max_results: Maximum number of runs desired.
@@ -286,6 +286,8 @@ class MlflowClient(object):
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
         """
+        if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
+            experiment_ids = [experiment_ids]
         return self.store.search_runs(experiment_ids=experiment_ids,
                                       search_filter=SearchFilter(filter_string=filter_string),
                                       run_view_type=run_view_type,
