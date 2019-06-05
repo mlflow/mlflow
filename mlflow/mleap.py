@@ -167,7 +167,7 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                             training_schema=mleap_schemapath_sub)
 
 
-def _get_mleap_schema(dataframe, serialized_bundle_path):
+def _get_mleap_schema(dataframe):
     """
     :param dataframe: A PySpark DataFrame object
 
