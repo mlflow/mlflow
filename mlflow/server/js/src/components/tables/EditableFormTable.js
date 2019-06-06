@@ -14,10 +14,22 @@ class EditableCell extends React.Component {
     record: PropTypes.object,
     index: PropTypes.number,
     children: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
+    save: PropTypes.func,
+    cancel: PropTypes.func,
+    recordKey: PropTypes.string,
   };
 
   static defaultProps = {
     style: {},
+  };
+
+  handleKeyPress = (event) => {
+    const { save, recordKey, cancel } = this.props;
+    if (event.key === 'Enter') {
+      save(recordKey);
+    } else if (event.key === 'Escape') {
+      cancel();
+    }
   };
 
   render() {
@@ -36,7 +48,7 @@ class EditableCell extends React.Component {
                     },
                   ],
                   initialValue: record[dataIndex],
-                })(<Input />)}
+                })(<Input onKeyDown={this.handleKeyPress} />)}
               </Form.Item>
             ) : (
               children
@@ -67,12 +79,15 @@ class EditableTable extends React.Component {
       col.editable
         ? {
           ...col,
-          // onCell returns props to be added to EditableCell
+          // `onCell` returns props to be added to EditableCell
           onCell: (record) => ({
             record,
             dataIndex: col.dataIndex,
             title: col.title,
             editing: this.isEditing(record),
+            save: this.save,
+            cancel: this.cancel,
+            recordKey: record.key,
           }),
         }
         : col,
@@ -89,13 +104,9 @@ class EditableTable extends React.Component {
         }
         return editing ? (
           <span>
-            <EditableContext.Consumer>
-              {(form) => (
-                <a onClick={() => this.save(form, record.key)} style={{ marginRight: 10 }}>
-                  Save
-                </a>
-              )}
-            </EditableContext.Consumer>
+            <a onClick={() => this.save(record.key)} style={{ marginRight: 10 }}>
+              Save
+            </a>
             <a onClick={() => this.cancel(record.key)}>Cancel</a>
           </span>
         ) : (
@@ -113,8 +124,8 @@ class EditableTable extends React.Component {
     this.setState({ editingKey: '' });
   };
 
-  save = (form, key) => {
-    form.validateFields((err, values) => {
+  save = (key) => {
+    this.props.form.validateFields((err, values) => {
       if (!err) {
         const record = this.props.data.find((r) => r.key === key);
         if (record) {
