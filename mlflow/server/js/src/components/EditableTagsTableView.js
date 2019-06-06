@@ -33,14 +33,15 @@ class EditableTagsTableView extends React.Component {
 
   requestId = getUUID();
 
-  getData = () => {
-    const { tags } = this.props;
-    return Utils.getVisibleTagValues(tags).map((values) => ({
-      key: values[0],
-      name: values[0],
-      value: values[1],
-    }));
-  };
+  getData = () => Utils.getVisibleTagValues(this.props.tags).map((values) => ({
+    key: values[0],
+    name: values[0],
+    value: values[1],
+  }));
+
+  getTagNamesAsSet = () => new Set(
+    Utils.getVisibleTagValues(this.props.tags).map((values) => values[0])
+  );
 
   handleAddTag = (e) => {
     e.preventDefault();
@@ -71,6 +72,11 @@ class EditableTagsTableView extends React.Component {
       });
   };
 
+  tagNameValidator = (rule, value, callback) => {
+    const tagNamesSet = this.getTagNamesAsSet();
+    callback(tagNamesSet.has(value) ? `Tag "${value}" already exists.` : undefined);
+  };
+
   render() {
     const { form } = this.props;
     const { getFieldDecorator } = form;
@@ -88,7 +94,10 @@ class EditableTagsTableView extends React.Component {
           <Form layout='inline' onSubmit={this.handleAddTag} style={styles.addTagForm.form}>
             <Form.Item>
               {getFieldDecorator('name', {
-                rules: [{ required: true, message: 'Name is required.'}]
+                rules: [
+                  { required: true, message: 'Name is required.'},
+                  { validator: this.tagNameValidator },
+                ],
               })(
                 <Input placeholder='Name' style={styles.addTagForm.nameInput}/>
               )}
