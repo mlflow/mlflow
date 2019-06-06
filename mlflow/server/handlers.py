@@ -8,7 +8,6 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.entities import Metric, Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -17,7 +16,8 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch
 from mlflow.store.artifact_repository_registry import get_artifact_repository
-from mlflow.tracking.utils import TrackingStoreRegistry
+from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
+from mlflow.tracking.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_batch_log_api_req
@@ -48,11 +48,7 @@ def _get_store(backend_store_uri=None, default_artifact_root=None):
     if _store is None:
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
-        try:
-            _store = _tracking_store_registry.get_store(store_uri, artifact_root)
-        except MlflowException:
-            raise MlflowException("Unexpected URI type '{}' for backend store. "
-                                  "Expected local file or database type.".format(store_uri))
+        _store = _tracking_store_registry.get_store(store_uri, artifact_root)
     return _store
 
 
