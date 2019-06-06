@@ -3,7 +3,6 @@ import warnings
 import entrypoints
 
 from mlflow.exceptions import MlflowException
-from mlflow.tracking import utils
 from mlflow.utils import get_uri_scheme
 
 
@@ -53,6 +52,7 @@ class TrackingStoreRegistry:
         :return: An instance of `mlflow.store.AbstractStore` that fulfills the store URI
                  requirements.
         """
+        from mlflow.tracking import utils
         store_uri = store_uri if store_uri is not None else utils.get_tracking_uri()
         scheme = store_uri if store_uri == "databricks" else get_uri_scheme(store_uri)
 
