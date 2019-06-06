@@ -56,7 +56,7 @@ class EditableCell extends React.Component {
   }
 }
 
-class EditableTable extends React.Component {
+export class EditableTable extends React.Component {
   static propTypes = {
     columns: PropTypes.arrayOf(Object).isRequired,
     data: PropTypes.arrayOf(Object).isRequired,
