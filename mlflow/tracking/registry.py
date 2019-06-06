@@ -3,6 +3,7 @@ import warnings
 import entrypoints
 
 from mlflow.exceptions import MlflowException
+from mlflow.tracking import utils
 from mlflow.utils import get_uri_scheme
 
 
@@ -52,7 +53,7 @@ class TrackingStoreRegistry:
         :return: An instance of `mlflow.store.AbstractStore` that fulfills the store URI
                  requirements.
         """
-        store_uri = store_uri if store_uri is not None else get_tracking_uri()
+        store_uri = store_uri if store_uri is not None else utils.get_tracking_uri()
         scheme = store_uri if store_uri == "databricks" else get_uri_scheme(store_uri)
 
         try:
@@ -60,5 +61,5 @@ class TrackingStoreRegistry:
         except KeyError:
             raise MlflowException(
                 "Unexpected URI scheme '{}' for tracking store. "
-                "Valid schemes are: ".format(store_uri, list(self._registry.keys())))
+                "Valid schemes are: {}".format(store_uri, list(self._registry.keys())))
         return store_builder(store_uri=store_uri, artifact_uri=artifact_uri)
