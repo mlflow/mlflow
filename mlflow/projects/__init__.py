@@ -129,7 +129,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             image = _build_docker_image(work_dir=work_dir,
                                         image_uri=project.name,
                                         base_image=project.docker_env.get('image'),
-                                        active_run=active_run)
+                                        run_id=active_run.info.run_id)
             command += _get_docker_command(image=image, active_run=active_run)
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
@@ -157,16 +157,18 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_EXECUTION_MODE,
                                         "kubernetes")
-        _validate_docker_env(project, "kubernetes")
+        _validate_docker_env(project)
         _validate_docker_installation()
         kube_config = _parse_kubernetes_config(backend_config)
         image = _build_docker_image(work_dir=work_dir,
                                     image_uri=kube_config["image-uri"],
                                     base_image=project.docker_env.get('image'),
-                                    active_run=active_run)
-        kb.push_image_to_registry(image)
-        submitted_run = kb.run_kubernetes_job(active_run,
+                                    run_id=active_run.info.run_id)
+        image_digest = kb.push_image_to_registry(image)
+        submitted_run = kb.run_kubernetes_job(project.name,
+                                              active_run,
                                               image,
+                                              image_digest,
                                               _get_entry_point_command(project, entry_point,
                                                                        parameters, storage_dir),
                                               _get_run_env_vars(
@@ -266,6 +268,7 @@ def _wait_for(submitted_run_obj):
     """Wait on the passed-in submitted run, reporting its status to the tracking server."""
     run_id = submitted_run_obj.run_id
     active_run = None
+    import ipdb;ipdb.set_trace()
     # Note: there's a small chance we fail to report the run's status to the tracking server if
     # we're interrupted before we reach the try block below
     try:
@@ -685,7 +688,7 @@ def _get_docker_command(image, active_run):
 
     for key, value in env_vars.items():
         cmd += ["-e", "{key}={value}".format(key=key, value=value)]
-    cmd += [image]
+    cmd += [image.tags[0]]
     return cmd
 
 
@@ -702,8 +705,8 @@ def _validate_docker_installation():
                                  "at https://docs.docker.com/install/overview/.")
 
 
-def _validate_docker_env(project, backend="local"):
-    if backend == "local" and not project.name:
+def _validate_docker_env(project):
+    if not project.name:
         raise ExecutionException("Project name in MLProject must be specified when using docker "
                                  "for image tagging.")
     if not project.docker_env.get('image'):
@@ -718,20 +721,18 @@ def _parse_kubernetes_config(backend_config):
     if not backend_config:
         raise ExecutionException("Backend_config file not found.")
     kube_config = backend_config.copy()
-    if 'kube-job-template-path' in backend_config.keys():
-        kube_job_template = backend_config['kube-job-template-path']
-        if os.path.exists(kube_job_template):
-            yaml_obj = {}
-            with open(kube_job_template, 'r') as job_template:
-                yaml_obj = yaml.safe_load(job_template.read())
-            kube_job_template = yaml_obj
-            kube_config['kube-job-template'] = kube_job_template
-        else:
-            raise ExecutionException("Could not find 'kube-job-template-path' file:{}".format(
-                kube_job_template))
+    if 'kube-job-template-path' not in backend_config.keys():
+        raise ExecutionException("'kube-job-template-path' attribute must be specified in "
+                                 "backend_config.")
+    kube_job_template = backend_config['kube-job-template-path']
+    if os.path.exists(kube_job_template):
+        with open(kube_job_template, 'r') as job_template:
+            yaml_obj = yaml.safe_load(job_template.read())
+        kube_job_template = yaml_obj
+        kube_config['kube-job-template'] = kube_job_template
     else:
-        raise ExecutionException("Please specify 'kube-job-template-path' attribute in "
-                                 " backend_config.")
+        raise ExecutionException("Could not find 'kube-job-template-path': {}".format(
+            kube_job_template))
     if 'kube-context' not in backend_config.keys():
         raise ExecutionException("Could not find kube-context in backend_config.")
     if 'image-uri' not in backend_config.keys():
@@ -758,7 +759,7 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     return result_path
 
 
-def _build_docker_image(work_dir, image_uri, base_image, active_run):
+def _build_docker_image(work_dir, image_uri, base_image, run_id):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
     """
@@ -774,7 +775,7 @@ def _build_docker_image(work_dir, image_uri, base_image, active_run):
     with open(build_ctx_path, 'rb') as docker_build_ctx:
         _logger.info("=== Building docker image %s ===", tag_name)
         client = docker.from_env()
-        image = client.images.build(
+        image, _ = client.images.build(
             tag=tag_name, forcerm=True,
             dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
             fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
@@ -782,13 +783,13 @@ def _build_docker_image(work_dir, image_uri, base_image, active_run):
         os.remove(build_ctx_path)
     except Exception:  # pylint: disable=broad-except
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
-    tracking.MlflowClient().set_tag(active_run.info.run_id,
+    tracking.MlflowClient().set_tag(run_id,
                                     MLFLOW_DOCKER_IMAGE_NAME,
                                     tag_name)
-    tracking.MlflowClient().set_tag(active_run.info.run_id,
+    tracking.MlflowClient().set_tag(run_id,
                                     MLFLOW_DOCKER_IMAGE_ID,
-                                    image[0].id)
-    return tag_name
+                                    image.id)
+    return image
 
 
 def _get_docker_tag_name(imagename, work_dir):
