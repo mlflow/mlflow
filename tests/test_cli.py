@@ -31,7 +31,7 @@ def test_server_default_artifact_root_validation():
 
 
 @pytest.mark.parametrize("command", [server, ui])
-def test_tracking_uri_validation(command):
+def test_tracking_uri_validation_failure(command):
     handlers._store = None
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
         # SQLAlchemy expects postgresql:// not postgres://
@@ -39,6 +39,18 @@ def test_tracking_uri_validation(command):
                            ["--backend-store-uri", "postgres://user:pwd@host:5432/mydb",
                             "--default-artifact-root", "./mlruns"])
         run_server_mock.assert_not_called()
+
+
+@pytest.mark.parametrize("command", [server, ui])
+def test_tracking_uri_validation_sql_driver_uris(command):
+    handlers._store = None
+    with mock.patch("mlflow.cli._run_server") as run_server_mock,\
+            mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore") as sql_store:
+        CliRunner().invoke(command,
+                           ["--backend-store-uri", "mysql+pymysql://user:pwd@host:5432/mydb",
+                            "--default-artifact-root", "./mlruns"])
+        sql_store.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb", "./mlruns")
+        run_server_mock.assert_called()
 
 
 def test_mlflow_run():

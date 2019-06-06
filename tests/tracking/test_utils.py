@@ -8,9 +8,10 @@ from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking.registry import TrackingStoreRegistry
 from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
     _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR, \
-    get_db_profile_from_uri, TrackingStoreRegistry
+    get_db_profile_from_uri
 
 
 def test_get_store_file_store(tmp_wkdir):
@@ -277,7 +278,7 @@ def test_get_store_for_unregistered_scheme():
     tracking_store = TrackingStoreRegistry()
 
     with pytest.raises(mlflow.exceptions.MlflowException,
-                       match="Could not find a registered tracking store"):
+                       match="Unexpected URI scheme"):
         tracking_store.get_store("unknown-scheme://")
 
 
