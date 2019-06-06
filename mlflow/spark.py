@@ -402,12 +402,8 @@ class _PyFuncModelWrapper(object):
         """
         from pyspark.ml.linalg import Vector
         spark_df = self.spark.createDataFrame(pandas_df)
-        predictions = [
-            x.prediction 
-            for x in self.spark_model.transform(spark_df).select("prediction").collect()
-        ]
-        return (
-            list(map(list, predictions)) 
-            if predictions and isinstance(predictions[0], Vector) 
-            else predictions
-        )
+        prediction_rows = self.spark_model.transform(spark_df).select("prediction").collect()
+        predictions = (row["prediction"] for row in prediction_rows)
+        if prediction_rows and isinstance(prediction_rows[0]["prediction"], Vector):
+            predictions = map(list, predictions)
+        return list(predictions)
