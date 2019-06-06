@@ -298,7 +298,9 @@ class RunView extends Component {
             </span>
             {!this.state.showNotes || !this.state.showNotesEditor ?
               <span>{' '}
-                <Icon type="form" onClick={this.handleExposeNotesEditorClick} />
+                <a onClick={this.handleExposeNotesEditorClick} >
+                  <Icon type="form" />
+                </a>
               </span>
               :
               null

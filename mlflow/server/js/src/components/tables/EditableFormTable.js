@@ -13,10 +13,7 @@ class EditableCell extends React.Component {
     title: PropTypes.string,
     record: PropTypes.object,
     index: PropTypes.number,
-    children: PropTypes.oneOfType([
-      PropTypes.object,
-      PropTypes.array,
-    ]),
+    children: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
   };
 
   static defaultProps = {
@@ -66,20 +63,20 @@ class EditableTable extends React.Component {
   }
 
   initColumns = () => [
-    ...this.props.columns.map((col) => (
+    ...this.props.columns.map((col) =>
       col.editable
-      ? {
-        ...col,
-        // onCell returns props to be added to EditableCell
-        onCell: (record) => ({
-          record,
-          dataIndex: col.dataIndex,
-          title: col.title,
-          editing: this.isEditing(record),
-        }),
-      }
-      : col
-    )),
+        ? {
+          ...col,
+          // onCell returns props to be added to EditableCell
+          onCell: (record) => ({
+            record,
+            dataIndex: col.dataIndex,
+            title: col.title,
+            editing: this.isEditing(record),
+          }),
+        }
+        : col,
+    ),
     {
       title: 'Actions',
       dataIndex: 'operation',
@@ -88,7 +85,7 @@ class EditableTable extends React.Component {
         const { editingKey, isRequestPending } = this.state;
         const editing = this.isEditing(record);
         if (editing && isRequestPending) {
-          return <Icon type="loading" />;
+          return <Icon type='loading' />;
         }
         return editing ? (
           <span>
@@ -102,7 +99,9 @@ class EditableTable extends React.Component {
             <a onClick={() => this.cancel(record.key)}>Cancel</a>
           </span>
         ) : (
-          <Icon type="edit" disabled={editingKey !== ''} onClick={() => this.edit(record.key)}/>
+          <a disabled={editingKey !== ''} onClick={() => this.edit(record.key)}>
+            <Icon type='edit' />
+          </a>
         );
       },
     },
@@ -120,10 +119,9 @@ class EditableTable extends React.Component {
         const record = this.props.data.find((r) => r.key === key);
         if (record) {
           this.setState({ isRequestPending: true });
-          this.props.onSaveEdit({ ...record, ...values })
-            .then(() => {
-              this.setState({ editingKey: '', isRequestPending: false });
-            });
+          this.props.onSaveEdit({ ...record, ...values }).then(() => {
+            this.setState({ editingKey: '', isRequestPending: false });
+          });
         }
       }
     });
