@@ -76,7 +76,7 @@ class EditableTable extends React.Component {
 
   initColumns = () => [
     ...this.props.columns.map((col) =>
-      col.editable
+      (col.editable
         ? {
           ...col,
           // `onCell` returns props to be added to EditableCell
@@ -90,7 +90,7 @@ class EditableTable extends React.Component {
             recordKey: record.key,
           }),
         }
-        : col,
+        : col),
     ),
     {
       title: 'Actions',
