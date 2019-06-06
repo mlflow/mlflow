@@ -17,6 +17,7 @@ import RenameRunModal from "./modals/RenameRunModal";
 import NoteEditorView from "./NoteEditorView";
 import NoteShowView from "./NoteShowView";
 import EditableTagsTableView from './EditableTagsTableView';
+import { Icon } from 'antd';
 
 
 const NOTES_KEY = 'notes';
@@ -297,9 +298,7 @@ class RunView extends Component {
             </span>
             {!this.state.showNotes || !this.state.showNotesEditor ?
               <span>{' '}
-                <a onClick={this.handleExposeNotesEditorClick}>
-                  <i className={`fa fa-edit`}/>
-                </a>
+                <Icon type="form" onClick={this.handleExposeNotesEditorClick} />
               </span>
               :
               null

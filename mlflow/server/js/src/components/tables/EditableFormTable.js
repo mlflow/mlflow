@@ -35,7 +35,7 @@ class EditableCell extends React.Component {
                   rules: [
                     {
                       required: true,
-                      message: `Please Input ${title}!`,
+                      message: `${title} is required.`,
                     },
                   ],
                   initialValue: record[dataIndex],
@@ -81,7 +81,7 @@ class EditableTable extends React.Component {
       : col
     )),
     {
-      title: 'Operation',
+      title: 'Actions',
       dataIndex: 'operation',
       width: 100,
       render: (text, record) => {
@@ -91,20 +91,18 @@ class EditableTable extends React.Component {
           return <Icon type="loading" />;
         }
         return editing ? (
-            <span>
+          <span>
             <EditableContext.Consumer>
               {(form) => (
-                <a onClick={() => this.save(form, record.key)} style={{ marginRight: 8 }}>
+                <a onClick={() => this.save(form, record.key)} style={{ marginRight: 10 }}>
                   Save
                 </a>
               )}
             </EditableContext.Consumer>
             <a onClick={() => this.cancel(record.key)}>Cancel</a>
           </span>
-            ) : (
-            <a disabled={editingKey !== ''} onClick={() => this.edit(record.key)}>
-              Edit
-          </a>
+        ) : (
+          <Icon type="edit" disabled={editingKey !== ''} onClick={() => this.edit(record.key)}/>
         );
       },
     },
