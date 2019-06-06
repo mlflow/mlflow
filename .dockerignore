@@ -3,8 +3,8 @@ mlruns
 docs
 apidocs
 mlflow.Rcheck
-outputs
 examples
+outputs
 node_modules
 coverage
 build
