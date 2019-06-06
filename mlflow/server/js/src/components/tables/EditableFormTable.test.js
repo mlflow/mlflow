@@ -4,7 +4,6 @@ import { EditableTable } from './EditableFormTable';
 
 describe('unit tests', () => {
   let wrapper;
-  let instance;
   const minimalProps = {
     columns: [
       {
