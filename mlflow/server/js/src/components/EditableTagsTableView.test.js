@@ -11,6 +11,7 @@ describe('unit tests', () => {
       tag1: { getKey: () => 'tag1', getValue: () => 'value1' },
       tag2: { getKey: () => 'tag2', getValue: () => 'value2' },
     },
+    // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn(opts => c => c) },
     setTagApi: () => {},
   };
@@ -26,5 +27,5 @@ describe('unit tests', () => {
     const validationCallback = jest.fn();
     instance.tagNameValidator(undefined, 'tag1', validationCallback);
     expect(validationCallback).toBeCalledWith('Tag "tag1" already exists.');
-  })
+  });
 });
