@@ -19,10 +19,6 @@ class EditableCell extends React.Component {
     recordKey: PropTypes.string,
   };
 
-  static defaultProps = {
-    style: {},
-  };
-
   handleKeyPress = (event) => {
     const { save, recordKey, cancel } = this.props;
     if (event.key === 'Enter') {

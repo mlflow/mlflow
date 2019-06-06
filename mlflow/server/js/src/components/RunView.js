@@ -339,7 +339,6 @@ class RunView extends Component {
             <EditableTagsTableView
               runUuid={runUuid}
               tags={tags}
-              tableStyles={tableStyles}
             /> : null
           }
         </div>

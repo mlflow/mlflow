@@ -6,10 +6,9 @@ import { Form, Input, Button, message } from 'antd';
 import { getUUID, setTagApi } from '../Actions';
 import { EditableFormTable } from './tables/EditableFormTable';
 
-class EditableTagsTableView extends React.Component {
+export class EditableTagsTableView extends React.Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
-    tableStyles: PropTypes.object.isRequired,
     tags: PropTypes.object.isRequired,
     form: PropTypes.object.isRequired,
     setTagApi: PropTypes.func.isRequired,
