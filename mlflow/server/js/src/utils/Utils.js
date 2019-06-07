@@ -350,15 +350,21 @@ class Utils {
 
   static getSearchParamsFromUrl(search) {
     const params = qs.parse(search, {ignoreQueryPrefix: true});
-    var str =  JSON.stringify(params, function (key, value) {return (value === undefined) ? "" : value});
+    const str = JSON.stringify(params,
+      function replaceUndefined(key, value) {
+        return (value === undefined) ? "" : value;
+      });
 
     return params ? JSON.parse(str) : [];
   }
 
   static getSearchUrlFromState(state) {
-    for (var key in state) {
+    const replaced = {};
+    for (const key in state) {
       if (state[key] === undefined) {
-        state[key] = '';
+        replaced[key] = '';
+      } else {
+        replaced[key] = state[key];
       }
     }
     return qs.stringify(state);

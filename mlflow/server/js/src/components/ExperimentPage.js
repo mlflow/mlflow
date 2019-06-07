@@ -7,14 +7,12 @@ import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
 import KeyFilter from '../utils/KeyFilter';
 import { ViewType } from '../sdk/MlflowEnums';
-import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentPagePersistedState } from "../sdk/MlflowLocalStorageMessages";
 import Utils from "../utils/Utils";
 import ErrorCodes from "../sdk/ErrorCodes";
 import PermissionDeniedView from "./PermissionDeniedView";
 import {Spinner} from "./Spinner";
 import { withRouter } from 'react-router-dom';
-import Routes from '../Routes';
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 
@@ -35,6 +33,7 @@ class ExperimentPage extends Component {
     dispatchSearchRuns: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     searchString: PropTypes.string.isRequired,
+    location: PropTypes.object,
   };
 
   /** Returns default values for state attributes that aren't persisted in the URL. */
@@ -69,7 +68,7 @@ class ExperimentPage extends Component {
     if (props.experimentId !== state.lastExperimentId) {
       const newState = {
         ...ExperimentPage.getDefaultUnpersistedState(),
-        persistedState: state.lastExperimentId == undefined ?
+        persistedState: state.lastExperimentId === undefined ?
             state.persistedState : (new ExperimentPagePersistedState()).toJSON(),
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
@@ -98,14 +97,13 @@ class ExperimentPage extends Component {
       this.props.experimentId, searchInput, lifecycleFilterInput);
     this.setState({ searchRunsRequestId });
     this.updateUrlWithSearchFilter({
-        paramKeyFilterString,
-        metricKeyFilterString,
-        searchInput,
-      });
+      paramKeyFilterString,
+      metricKeyFilterString,
+      searchInput,
+    });
   }
 
   updateUrlWithSearchFilter(state) {
-    var stateObj = {};
     this.props.history
         .push(`/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(state)}`);
   }

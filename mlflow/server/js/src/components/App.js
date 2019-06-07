@@ -13,7 +13,6 @@ import CompareRunPage from './CompareRunPage';
 import AppErrorBoundary from './error-boundaries/AppErrorBoundary';
 import { connect } from 'react-redux';
 import HomePage from './HomePage';
-import ExperimentPage from './ExperimentPage'
 import ErrorModal from './modals/ErrorModal';
 import PageNotFoundView from './PageNotFoundView';
 import { Switch } from 'react-router';
