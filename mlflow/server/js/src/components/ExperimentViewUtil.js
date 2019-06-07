@@ -280,7 +280,7 @@ export default class ExperimentViewUtil {
       const sortValue = (sortState.isMetric ? metricsMap : paramsMap)[sortState.key];
       return (sortValue === undefined ? undefined : sortValue.value);
     } else if (sortState.key === 'user_id') {
-      return Utils.formatUser(runInfo, tags);
+      return Utils.formatUser(Utils.getUser(runInfo, tags));
     } else if (sortState.key === 'source') {
       return Utils.formatSource(runInfo, tags);
     } else if (sortState.key === 'run_name') {
