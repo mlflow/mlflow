@@ -469,4 +469,3 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
         mleap.save_model(spark_model=unsupported_model,
                          path=model_path,
                          sample_input=spark_model_iris.spark_df)
-
