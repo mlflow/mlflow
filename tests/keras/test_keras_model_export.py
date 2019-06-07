@@ -18,7 +18,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
-from mlflow.tracking.artifact_utils import _get_model_log_dir
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -157,7 +157,7 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
 
 @pytest.mark.large
 def test_model_save_accepts_conda_env_as_dict(model, model_path):
-    conda_env = dict(mlflow.keras.DEFAULT_CONDA_ENV)
+    conda_env = dict(mlflow.keras.get_default_conda_env())
     conda_env["dependencies"].append("pytest")
     mlflow.keras.save_model(keras_model=model, path=model_path, conda_env=conda_env)
 
@@ -176,8 +176,8 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(model,
     with mlflow.start_run():
         mlflow.keras.log_model(
             keras_model=model, artifact_path=artifact_path, conda_env=keras_custom_env)
-        run_id = mlflow.active_run().info.run_id
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     saved_conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
@@ -200,7 +200,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.keras.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.keras.get_default_conda_env()
 
 
 @pytest.mark.large
@@ -209,15 +209,15 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.keras.log_model(keras_model=model, artifact_path=artifact_path, conda_env=None)
-        run_id = mlflow.active_run().info.run_id
-    model_path = _get_model_log_dir(artifact_path, run_id)
+        model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path))
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
     conda_env_path = os.path.join(model_path, pyfunc_conf[pyfunc.ENV])
     with open(conda_env_path, "r") as f:
         conda_env = yaml.safe_load(f)
 
-    assert conda_env == mlflow.keras.DEFAULT_CONDA_ENV
+    assert conda_env == mlflow.keras.get_default_conda_env()
 
 
 @pytest.mark.large

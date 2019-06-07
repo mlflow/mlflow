@@ -8,7 +8,7 @@ import json
 import click
 
 import mlflow.azureml
-from mlflow.utils import cli_args
+from mlflow.utils import cli_args, experimental
 
 
 @click.group("azureml")
@@ -42,8 +42,9 @@ def commands():
 @click.option("--tags", "-t", default=None,
               help=("A collection of tags, represented as a JSON-formatted dictionary of string"
                     " key-value pairs, to associate with the Azure Container Image and the Azure"
-                    " Model that are created. These tags will be added to a set of default tags"
+                    " Model that are created. These tags are added to a set of default tags"
                     " that include the model path, the model run id (if specified), and more."))
+@experimental
 def build_image(model_uri, workspace_name, subscription_id, image_name, model_name,
                 mlflow_home, description, tags):
     """

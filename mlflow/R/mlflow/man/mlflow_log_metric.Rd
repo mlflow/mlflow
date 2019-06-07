@@ -4,48 +4,29 @@
 \alias{mlflow_log_metric}
 \title{Log Metric}
 \usage{
-mlflow_log_metric(key, value, timestamp = NULL, run_id = NULL,
-  client = NULL)
+mlflow_log_metric(key, value, timestamp = NULL, step = NULL,
+  run_id = NULL, client = NULL)
 }
 \arguments{
 \item{key}{Name of the metric.}
 
 \item{value}{Float value for the metric being logged.}
 
-\item{timestamp}{Unix timestamp in milliseconds at the time metric was logged.}
+\item{timestamp}{Timestamp at which to log the metric. Timestamp is rounded to the nearest
+integer. If unspecified, the number of milliseconds since the Unix epoch is used.}
+
+\item{step}{Step at which to log the metric. Step is rounded to the nearest integer. If
+unspecified, the default value of zero is used.}
 
 \item{run_id}{Run ID.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Logs a metric for a run. Metrics key-value pair that records a single float measure.
   During a single execution of a run, a particular metric can be logged several times.
-  Backend will keep track of historical values along with timestamps.
+  The MLflow Backend keeps track of historical metric values along two axes: timestamp and step.
 }
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
-}
-\seealso{
-Other tracking functions: \code{\link{mlflow_create_experiment}},
-  \code{\link{mlflow_delete_experiment}},
-  \code{\link{mlflow_delete_run}},
-  \code{\link{mlflow_download_artifacts}},
-  \code{\link{mlflow_end_run}},
-  \code{\link{mlflow_get_experiment}},
-  \code{\link{mlflow_get_metric_history}},
-  \code{\link{mlflow_get_run}},
-  \code{\link{mlflow_list_artifacts}},
-  \code{\link{mlflow_list_experiments}},
-  \code{\link{mlflow_list_run_infos}},
-  \code{\link{mlflow_log_artifact}},
-  \code{\link{mlflow_log_batch}},
-  \code{\link{mlflow_log_param}},
-  \code{\link{mlflow_rename_experiment}},
-  \code{\link{mlflow_restore_experiment}},
-  \code{\link{mlflow_restore_run}},
-  \code{\link{mlflow_search_runs}},
-  \code{\link{mlflow_set_tag}},
-  \code{\link{mlflow_start_run}}
-}
-\concept{tracking functions}

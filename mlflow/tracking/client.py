@@ -4,7 +4,6 @@ This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and 
 exposed in the :py:mod:`mlflow.tracking` module.
 """
 
-import os
 import time
 from six import iteritems
 
@@ -15,8 +14,7 @@ from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _v
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
-
-_DEFAULT_USER_ID = "unknown"
+from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 
 class MlflowClient(object):
@@ -36,9 +34,9 @@ class MlflowClient(object):
     def get_run(self, run_id):
         """
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
-        contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
-        as well as a collection of run parameters, tags, and metrics -
-        :py:class`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
+        contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
+        as well as a collection of run parameters, tags, and metrics --
+        :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
         same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
         the most recently logged value at the largest step for each metric.
 
@@ -61,7 +59,7 @@ class MlflowClient(object):
         """
         return self.store.get_metric_history(run_id=run_id, metric_key=key)
 
-    def create_run(self, experiment_id, user_id=None, start_time=None, tags=None):
+    def create_run(self, experiment_id, start_time=None, tags=None):
         """
         Create a :py:class:`mlflow.entities.Run` object that can be associated with
         metrics, parameters, artifacts, etc.
@@ -69,7 +67,7 @@ class MlflowClient(object):
         Unlike :py:func:`mlflow.start_run`, does not change the "active run" used by
         :py:func:`mlflow.log_param`.
 
-        :param user_id: If not provided, use the current user as a default.
+        :param experiment_id: The ID of then experiment to create a run in.
         :param start_time: If not provided, use the current timestamp.
         :param tags: A dictionary of key-value pairs that are converted into
                      :py:class:`mlflow.entities.RunTag` objects.
@@ -78,9 +76,14 @@ class MlflowClient(object):
 
         tags = tags if tags else {}
 
+        # Extract user from tags
+        # This logic is temporary; the user_id attribute of runs is deprecated and will be removed
+        # in a later release.
+        user_id = tags.get(MLFLOW_USER, "unknown")
+
         return self.store.create_run(
             experiment_id=experiment_id,
-            user_id=user_id if user_id is not None else _get_user_id(),
+            user_id=user_id,
             start_time=start_time or int(time.time() * 1000),
             tags=[RunTag(key, value) for (key, value) in iteritems(tags)]
         )
@@ -151,8 +154,8 @@ class MlflowClient(object):
 
     def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
-        Log a metric against the run ID. If timestamp is not provided, uses
-        the current timestamp. The metric's step defaults to 0 if unspecified.
+        Log a metric against the run ID. The timestamp defaults to the current timestamp.
+        The step defaults to 0.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
         step = step if step is not None else 0
@@ -268,14 +271,14 @@ class MlflowClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string,
+    def search_runs(self, experiment_ids, filter_string="",
                     run_view_type=ViewType.ACTIVE_ONLY,
                     max_results=SEARCH_MAX_RESULTS_DEFAULT):
         """
         Search experiments that fit the search criteria.
 
-        :param experiment_ids: List of experiment IDs
-        :param filter_string: Filter query string.
+        :param experiment_ids: List of experiment IDs, or a single int or string id.
+        :param filter_string: Filter query string, defaults to searching all runs.
         :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                               defined in :py:class:`mlflow.entities.ViewType`.
         :param max_results: Maximum number of runs desired.
@@ -283,16 +286,9 @@ class MlflowClient(object):
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
         """
+        if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
+            experiment_ids = [experiment_ids]
         return self.store.search_runs(experiment_ids=experiment_ids,
                                       search_filter=SearchFilter(filter_string=filter_string),
                                       run_view_type=run_view_type,
                                       max_results=max_results)
-
-
-def _get_user_id():
-    """Get the ID of the user for the current run."""
-    try:
-        import pwd
-        return pwd.getpwuid(os.getuid())[0]
-    except ImportError:
-        return _DEFAULT_USER_ID

@@ -39,6 +39,28 @@ class LocalArtifactRepository(ArtifactRepository):
             mkdir(artifact_dir)
         dir_util.copy_tree(src=local_dir, dst=artifact_dir)
 
+    def download_artifacts(self, artifact_path, dst_path=None):
+        """
+        Artifacts tracked by ``LocalArtifactRepository`` already exist on the local filesystem.
+        If ``dst_path`` is ``None``, the absolute filesystem path of the specified artifact is
+        returned. If ``dst_path`` is not ``None``, the local artifact is copied to ``dst_path``.
+
+        :param artifact_path: Relative source path to the desired artifacts.
+        :param dst_path: Absolute path of the local filesystem destination directory to which to
+                         download the specified artifacts. This directory must already exist. If
+                         unspecified, the absolute path of the local artifact will be returned.
+
+        :return: Absolute path of the local filesystem location containing the desired artifacts.
+        """
+        if dst_path:
+            return super(LocalArtifactRepository, self).download_artifacts(artifact_path, dst_path)
+        # NOTE: The artifact_path is expected to be in posix format.
+        # Posix paths work fine on windows but just in case we normalize it here.
+        local_artifact_path = os.path.join(self.artifact_dir, os.path.normpath(artifact_path))
+        if not os.path.exists(local_artifact_path):
+            raise IOError('No such file or directory: \'{}\''.format(local_artifact_path))
+        return os.path.abspath(local_artifact_path)
+
     def list_artifacts(self, path=None):
         # NOTE: The path is expected to be in posix format.
         # Posix paths work fine on windows but just in case we normalize it here.

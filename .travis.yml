@@ -1,5 +1,7 @@
 language: python
 
+dist: trusty
+
 services:
   - docker
 
@@ -31,11 +33,13 @@ matrix:
         - pip install -r travis/small-requirements.txt
         - pip install -e .
       script:
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --ignore tests/projects tests
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --ignore tests/onnx --ignore tests/projects tests
     - language: r
       name: "R"
       cache: packages
       before_install:
+        # cache packages dramatically decreases build time, but it must not include mlflow
+        - rm -rf /home/travis/R/Library/mlflow
         - export NOT_CRAN=true
         - cd mlflow/R/mlflow
         - Rscript -e 'install.packages("devtools")'
@@ -45,10 +49,12 @@ matrix:
         - source ./travis/install-common-deps.sh
       script:
         - cd mlflow/R/mlflow
+        # Building the package here populates the /home/travis/R/Library cache,
+        # and is also used when python forks into R (e.g., rfunc via models CLI).
         - R CMD build .
         - R CMD check --no-build-vignettes --no-manual --no-tests mlflow*tar.gz
-        - cd tests
         - export LINTR_COMMENT_BOT=false
+        - cd tests
         - Rscript ../.travis.R
       after_success:
         - export COVR_RUNNING=true

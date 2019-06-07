@@ -11,7 +11,9 @@ tracking, and model APIs.
 Prerequisites
 ~~~~~~~~~~~~~
 
-We recommend installing MLflow in its own conda environment for development, as follows:
+First, install the Python MLflow package from source - this is required for developing & testing
+changes across all languages and APIs. We recommend installing MLflow in its own conda environment
+by running the following from your checkout of MLflow:
 
 .. code-block:: bash
 
@@ -25,6 +27,16 @@ We recommend installing MLflow in its own conda environment for development, as 
 ``npm`` is required to run the Javascript dev server.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
+
+If contributing to MLflow's R APIs, install `R <https://cloud.r-project.org/>`_. For changes to R
+documentation, also install `pandoc <https://pandoc.org/installing.html>`_ 2.2.1 or above,
+verifying the version of your installation via ``pandoc --version``. If using Mac OSX, note that
+the homebrew installation of pandoc may be out of date - you can find newer pandoc versions at
+https://github.com/jgm/pandoc/releases.
+
+If contributing to MLflow's Java APIs or modifying Java documentation,
+install `Java <https://www.java.com/>`_ and `Apache Maven <https://maven.apache.org/download.cgi>`_.
+
 
 Install Node Modules
 ~~~~~~~~~~~~~~~~~~~~
@@ -57,6 +69,10 @@ and `install <https://maven.apache.org/install.html>`_ Maven. You can then build
 
   cd mlflow/java
   mvn compile test
+
+If opening a PR that makes API changes, please regenerate API documentation as described in
+`Writing Docs`_ and commit the updated docs to your PR branch.
+
 
 R
 -
@@ -103,6 +119,9 @@ Run linter:
   Rscript -e 'lintr::lint_package()'
 
 
+If opening a PR that makes API changes, please regenerate API documentation as described in
+`Writing Docs`_ and commit the updated docs to your PR branch.
+
 When developing, you can make Python changes available in R by running (from mlflow/R/mlflow):
 
 .. code-block:: bash
@@ -138,6 +157,7 @@ run tests annotated with @pytest.mark.large. For example, to run all pyfunc test
 (including large tests), you can run:
 
 .. code-block:: bash
+
     pytest tests/pyfunc --large
 
 Note: Certain model tests are not well-isolated (can result in OOMs when run in the same Python
@@ -152,6 +172,9 @@ exclude:
     localhost be enabled, and can be run via ``pytest --requires-ssh``.
   - Tests marked with @pytest.mark.release. These tests can be run via ``pytest --release``.
 
+If opening a PR that changes or adds new APIs, please update or add Python documentation as
+described in `Writing Docs`_ and commit the docs to your PR branch.
+
 
 Building Protobuf Files
 -----------------------
@@ -165,19 +188,19 @@ MLflow's Tracking component supports storing experiment and run data in a SQL ba
 make changes to the tracking database schema, run the following from your
 checkout of MLflow:
 
-```
-# starting at the root of the project
-$ pwd
-~/mlflow
-$ cd mlflow
-# MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
-$ alembic revision -m "add new field to db"
-  Generating ~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py
+.. code-block:: bash
 
-```
+    # starting at the root of the project
+    $ pwd
+    ~/mlflow
+    $ cd mlflow
+    # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
+    $ alembic revision -m "add new field to db"
+      Generating ~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py
+
 
 These commands generate a new migration script (e.g. at
-~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py) that you should then edit to add
+``~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py``) that you should then edit to add
 migration logic.
 
 
@@ -229,9 +252,46 @@ Build a pip-installable wheel in ``dist/``:
 
 Writing Docs
 ------------
-Install the necessary Python dependencies via ``pip install -r dev-requirements.txt``. Then run
+First, install dependencies for building docs as described in `Prerequisites`_.
+
+To generate a live preview of Python & other rst documentation, run the following snippet. Note
+that R & Java API docs must be regenerated separately after each change and are not live-updated;
+see subsequent sections for instructions on generating R and Java docs.
 
 .. code-block:: bash
 
    cd docs
    make livehtml
+
+
+Generate R API rst doc files via:
+
+.. code-block:: bash
+
+  cd docs
+  make rdocs
+
+Generate Java API rst doc files via:
+
+.. code-block:: bash
+
+  cd docs
+  make javadocs
+
+
+Generate API docs for all languages via:
+
+.. code-block:: bash
+
+  cd docs
+  make html
+
+
+If changing existing Python APIs or adding new APIs under existing modules, ensure that references
+to the modified APIs are updated in existing docs under ``docs/source``. Note that the Python doc
+generation process will automatically produce updated API docs, but you should still audit for
+usages of the modified APIs in guides and examples.
+
+If adding a new public Python module, create a corresponding doc file for the module under
+``docs/source/python_api`` - `see here <https://github.com/mlflow/mlflow/blob/v0.9.1/docs/source/python_api/mlflow.tracking.rst#mlflowtracking>`_
+for an example.

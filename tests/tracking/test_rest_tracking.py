@@ -4,10 +4,12 @@ and ensures we can use the tracking API to communicate with it.
 """
 
 import mock
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen
 import os
 import sys
+import posixpath
 import pytest
+from six.moves import urllib
 import socket
 import shutil
 from threading import Thread
@@ -16,15 +18,14 @@ import tempfile
 
 import mlflow.experiments
 from mlflow.entities import RunStatus, Metric, Param, RunTag, ViewType
-from mlflow.protos.service_pb2 import LOCAL as SOURCE_TYPE_LOCAL
-from mlflow.server import app, BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, MLFLOW_SOURCE_TYPE, \
-    MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
+from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, \
+    MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
 from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
 from tests.integration.utils import invoke_cli_runner
 
-LOCALHOST = '127.0.0.1'
+from tests.helper_functions import LOCALHOST, get_safe_port
 
 
 def _await_server_up_or_die(port, timeout=60):
@@ -71,7 +72,7 @@ def _init_server(backend_uri, root_artifact_uri):
              server process (a multiprocessing.Process object).
     """
     mlflow.set_tracking_uri(None)
-    server_port = _get_safe_port()
+    server_port = get_safe_port()
     env = {
         BACKEND_STORE_URI_ENV_VAR: backend_uri,
         ARTIFACT_ROOT_ENV_VAR: path_to_local_file_uri(
@@ -88,15 +89,6 @@ def _init_server(backend_uri, root_artifact_uri):
     url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
     print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))
     return url, process
-
-
-def _get_safe_port():
-    """Returns an ephemeral port that is very likely to be free to bind to."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind((LOCALHOST, 0))
-    port = sock.getsockname()[1]
-    sock.close()
-    return port
 
 
 # Root directory for all stores (backend or artifact stores) created during this suite
@@ -207,12 +199,15 @@ def test_delete_restore_experiment(mlflow_client):
 
 def test_delete_restore_experiment_cli(mlflow_client, cli_env):
     experiment_name = "DeleteriousCLI"
-    invoke_cli_runner(mlflow.experiments.commands, ['create', experiment_name], env=cli_env)
+    invoke_cli_runner(mlflow.experiments.commands,
+                      ['create', '--experiment-name', experiment_name], env=cli_env)
     experiment_id = mlflow_client.get_experiment_by_name(experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
-    invoke_cli_runner(mlflow.experiments.commands, ['delete', str(experiment_id)], env=cli_env)
+    invoke_cli_runner(mlflow.experiments.commands, ['delete', '-x', str(experiment_id)],
+                      env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'deleted'
-    invoke_cli_runner(mlflow.experiments.commands, ['restore', str(experiment_id)], env=cli_env)
+    invoke_cli_runner(mlflow.experiments.commands, ['restore', '-x', str(experiment_id)],
+                      env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == 'active'
 
 
@@ -227,24 +222,27 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     bad_experiment_name = "CLIBadName"
     good_experiment_name = "CLIGoodName"
 
-    invoke_cli_runner(mlflow.experiments.commands, ['create', bad_experiment_name], env=cli_env)
+    invoke_cli_runner(mlflow.experiments.commands, ['create', '-n', bad_experiment_name],
+                      env=cli_env)
     experiment_id = mlflow_client.get_experiment_by_name(bad_experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
     invoke_cli_runner(
         mlflow.experiments.commands,
-        ['rename', str(experiment_id), good_experiment_name], env=cli_env)
+        ['rename', '--experiment-id', str(experiment_id), '--new-name', good_experiment_name],
+        env=cli_env)
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
 
 
 @pytest.mark.parametrize("parent_run_id_kwarg", [None, "my-parent-id"])
 def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
+    user = "username"
     source_name = "Hello"
     entry_point = "entry"
     source_version = "abc"
     create_run_kwargs = {
-        "user_id": "123",
         "start_time": 456,
         "tags": {
+            MLFLOW_USER: user,
             MLFLOW_SOURCE_TYPE: "LOCAL",
             MLFLOW_SOURCE_NAME: source_name,
             MLFLOW_PROJECT_ENTRY_POINT: entry_point,
@@ -260,17 +258,19 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
     created_run = mlflow_client.create_run(experiment_id, **create_run_kwargs)
     run_id = created_run.info.run_id
     print("Run id=%s" % run_id)
-    run = mlflow_client.get_run(run_id)
-    assert run.info.run_id == run_id
-    assert run.info.run_uuid == run_id
-    assert run.info.experiment_id == experiment_id
-    assert run.info.user_id == create_run_kwargs["user_id"]
-    assert run.info.start_time == create_run_kwargs["start_time"]
-    for tag in create_run_kwargs["tags"]:
-        assert tag in run.data.tags
-    assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
-    assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
-    assert mlflow_client.list_run_infos(experiment_id) == [run.info]
+    fetched_run = mlflow_client.get_run(run_id)
+    for run in [created_run, fetched_run]:
+        assert run.info.run_id == run_id
+        assert run.info.run_uuid == run_id
+        assert run.info.experiment_id == experiment_id
+        assert run.info.user_id == user
+        assert run.info.start_time == create_run_kwargs["start_time"]
+        for tag in create_run_kwargs["tags"]:
+            assert tag in run.data.tags
+        assert run.data.tags.get(MLFLOW_USER) == user
+        assert run.data.tags.get(MLFLOW_RUN_NAME) == "my name"
+        assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
+        assert mlflow_client.list_run_infos(experiment_id) == [run.info]
 
 
 def test_create_run_defaults(mlflow_client):
@@ -280,7 +280,7 @@ def test_create_run_defaults(mlflow_client):
     run = mlflow_client.get_run(run_id)
     assert run.info.run_id == run_id
     assert run.info.experiment_id == experiment_id
-    assert run.info.user_id is not None  # we should pick some default
+    assert run.info.user_id == "unknown"
 
 
 def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
@@ -337,10 +337,10 @@ def test_set_terminated_defaults(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Terminator 1')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'RUNNING'
+    assert mlflow_client.get_run(run_id).info.status == 'RUNNING'
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id)
-    assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'FINISHED'
+    assert mlflow_client.get_run(run_id).info.status == 'FINISHED'
     assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 
@@ -348,16 +348,23 @@ def test_set_terminated_status(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Terminator 2')
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'RUNNING'
+    assert mlflow_client.get_run(run_id).info.status == 'RUNNING'
     assert mlflow_client.get_run(run_id).info.end_time is None
     mlflow_client.set_terminated(run_id, 'FAILED')
-    assert RunStatus.to_string(mlflow_client.get_run(run_id).info.status) == 'FAILED'
+    assert mlflow_client.get_run(run_id).info.status == 'FAILED'
     assert mlflow_client.get_run(run_id).info.end_time <= int(time.time() * 1000)
 
 
 def test_artifacts(mlflow_client):
     experiment_id = mlflow_client.create_experiment('Art In Fact')
+    experiment_info = mlflow_client.get_experiment(experiment_id)
+    assert experiment_info.artifact_location.startswith(
+        path_to_local_file_uri(SUITE_ARTIFACT_ROOT_DIR))
+    artifact_path = urllib.parse.urlparse(experiment_info.artifact_location).path
+    assert posixpath.split(artifact_path)[-1] == experiment_id
+
     created_run = mlflow_client.create_run(experiment_id)
+    assert created_run.info.artifact_uri.startswith(experiment_info.artifact_location)
     run_id = created_run.info.run_id
     src_dir = tempfile.mkdtemp('test_artifacts_src')
     src_file = os.path.join(src_dir, 'my.file')

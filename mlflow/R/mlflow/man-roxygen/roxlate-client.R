@@ -1,3 +1,4 @@
-#' @param client (Optional) An `mlflow_client` object.
-#' @family tracking functions
-#' @details When `client` is not specified, these functions attempt to infer the current active client.
+#' @param client (Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+#' If specified, MLflow will use the tracking server associated with the passed-in client. If
+#' unspecified (the common case),
+#' MLflow will use the tracking server associated with the current tracking URI.

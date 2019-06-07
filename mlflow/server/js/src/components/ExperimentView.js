@@ -324,7 +324,7 @@ export class ExperimentView extends Component {
             <div className="ExperimentView-search-inputs">
               <div className="ExperimentView-search">
                 <div className="ExperimentView-search-input">
-                  <label className="filter-label">Search Runs:</label>
+                  <label className="filter-label">Search Expression:</label>
                   <div className="filter-wrapper">
                     <input
                       className="ExperimentView-searchInput"
@@ -376,7 +376,7 @@ export class ExperimentView extends Component {
               </div>
               <div className="ExperimentView-keyFilters">
                 <div className="ExperimentView-paramKeyFilter">
-                  <label className="filter-label">Filter Params:</label>
+                  <label className="filter-label">Params:</label>
                   <div className="filter-wrapper">
                     <input type="text"
                            placeholder="alpha, lr"
@@ -386,7 +386,7 @@ export class ExperimentView extends Component {
                   </div>
                 </div>
                 <div className="ExperimentView-metricKeyFilter">
-                  <label className="filter-label">Filter Metrics:</label>
+                  <label className="filter-label">Metrics:</label>
                   <div className="filter-wrapper">
                     <input type="text"
                            placeholder="rmse, r2"
@@ -714,7 +714,7 @@ export class ExperimentView extends Component {
         Utils.getRunName(tagsList[index]), // add run name to csv export row
         Utils.getSourceType(tagsList[index]),
         Utils.getSourceName(tagsList[index]),
-        runInfo.user_id,
+        Utils.getUser(runInfo, tagsList[index]),
         runInfo.status,
       ];
 

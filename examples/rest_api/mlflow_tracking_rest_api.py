@@ -26,11 +26,12 @@ class MLFlowTrackingRestApi:
 	def create_run(self):
 		"""Create a new run for tracking."""
 		url = self.base_url + '/runs/create'
+		# user_id is deprecated and will be removed from the API in a future release  
 		payload = {'experiment_id': self.experiment_id, 'start_time': int(time.time() * 1000), 'user_id': _get_user_id()}
 		r = requests.post(url, json=payload)
 		run_id = None
 		if r.status_code == 200:
-			run_id = r.json()['run']['info']['run_id']
+			run_id = r.json()['run']['info']['run_uuid']
 		else:
 			print("Creating run failed!")
 		return run_id
@@ -47,14 +48,14 @@ class MLFlowTrackingRestApi:
 	def log_param(self, param):
 		"""Log a parameter dict for the given run."""
 		url = self.base_url + '/runs/log-parameter'
-		payload = {'run_id': self.run_id, 'key': param['key'], 'value': param['value']}
+		payload = {'run_uuid': self.run_id, 'key': param['key'], 'value': param['value']}
 		r = requests.post(url, json=payload)
 		return r.status_code
 
 	def log_metric(self, metric):
 		"""Log a metric dict for the given run."""
 		url = self.base_url + '/runs/log-metric'
-		payload = {'run_id': self.run_id, 'key': metric['key'], 'value': metric['value']}
+		payload = {'run_uuid': self.run_id, 'key': metric['key'], 'value': metric['value']}
 		r = requests.post(url, json=payload)
 		return r.status_code
 

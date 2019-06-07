@@ -4,18 +4,13 @@ The ``mlflow.sagemaker`` module provides an API for deploying MLflow models to A
 from __future__ import print_function
 
 import os
-import sys
 from subprocess import Popen, PIPE, STDOUT
 from six.moves import urllib
+import sys
 import tarfile
-import uuid
-import shutil
 import logging
 import time
 
-import base64
-import boto3
-import yaml
 import mlflow
 import mlflow.version
 from mlflow import pyfunc, mleap
@@ -24,13 +19,12 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils import get_unique_resource_id
-from mlflow.utils.file_utils import TempDir, _copy_project
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.logging_utils import eprint
-from mlflow.sagemaker.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
-from mlflow.sagemaker.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
+from mlflow.models.container import SUPPORTED_FLAVORS as SUPPORTED_DEPLOYMENT_FLAVORS
+from mlflow.models.container import DEPLOYMENT_CONFIG_KEY_FLAVOR_NAME
 
 DEFAULT_IMAGE_NAME = "mlflow-pyfunc"
-
 DEPLOYMENT_MODE_ADD = "add"
 DEPLOYMENT_MODE_REPLACE = "replace"
 DEPLOYMENT_MODE_CREATE = "create"
@@ -41,130 +35,68 @@ DEPLOYMENT_MODES = [
     DEPLOYMENT_MODE_REPLACE
 ]
 
-IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
+IMAGE_NAME_ENV_VAR = "MLFLOW_SAGEMAKER_DEPLOY_IMG_URL"
+# Deprecated as of MLflow 1.0.
+DEPRECATED_IMAGE_NAME_ENV_VAR = "SAGEMAKER_DEPLOY_IMG_URL"
 
 DEFAULT_BUCKET_NAME_PREFIX = "mlflow-sagemaker"
 
 DEFAULT_SAGEMAKER_INSTANCE_TYPE = "ml.m4.xlarge"
 DEFAULT_SAGEMAKER_INSTANCE_COUNT = 1
 
-_DOCKERFILE_TEMPLATE = """
-# Build an image that can serve pyfunc model in SageMaker
-FROM ubuntu:16.04
-
-RUN apt-get -y update && apt-get install -y --no-install-recommends \
-         wget \
-         curl \
-         nginx \
-         ca-certificates \
-         bzip2 \
-         build-essential \
-         cmake \
-         openjdk-8-jdk \
-         git-core \
-         maven \
-    && rm -rf /var/lib/apt/lists/*
-
-# Download and setup miniconda
-RUN curl https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh >> miniconda.sh
-RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
-ENV PATH="/miniconda/bin:${PATH}"
-ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-
-RUN conda install gunicorn;\
-    conda install gevent;\
-
-%s
-
-# Set up the program in the image
-WORKDIR /opt/mlflow
-
-# start mlflow scoring
-ENTRYPOINT ["python", "-c", "import sys; from mlflow.sagemaker import container as C; \
-C._init(sys.argv[1])"]
-"""
-
 _logger = logging.getLogger(__name__)
 
-
-def _docker_ignore(mlflow_root):
-    docker_ignore = os.path.join(mlflow_root, '.dockerignore')
-
-    def strip_slash(x):
-        if x.startswith("/"):
-            x = x[1:]
-        if x.endswith('/'):
-            x = x[:-1]
-        return x
-
-    if os.path.exists(docker_ignore):
-        with open(docker_ignore, "r") as f:
-            patterns = [x.strip() for x in f.readlines()]
-            patterns = [strip_slash(x)
-                        for x in patterns if not x.startswith("#")]
-
-    def ignore(_, names):
-        import fnmatch
-        res = set()
-        for p in patterns:
-            res.update(set(fnmatch.filter(names, p)))
-        return list(res)
-
-    return ignore
-
-
-def build_image(name=DEFAULT_IMAGE_NAME, mlflow_home=None):
-    """
-    Build an MLflow Docker image.
-    The image is built locally and it requires Docker to run.
-
-    :param name: Docker image name.
-    :param mlflow_home: Path to a local copy of the MLflow GitHub repository. If specified, the
-                        image will install MLflow from this directory. Otherwise, it will install
-                        MLflow from pip.
-    """
-    with TempDir() as tmp:
-        cwd = tmp.path()
-        if mlflow_home:
-            mlflow_dir = _copy_project(
-                src_path=mlflow_home, dst_path=cwd)
-            install_mlflow = (
-                "COPY {mlflow_dir} /opt/mlflow\n"
-                "RUN pip install /opt/mlflow\n"
-                "RUN cd /opt/mlflow/mlflow/java/scoring &&"
-                " mvn --batch-mode package -DskipTests &&"
-                " mkdir -p /opt/java/jars &&"
-                " mv /opt/mlflow/mlflow/java/scoring/target/"
-                "mlflow-scoring-*-with-dependencies.jar /opt/java/jars\n"
-            ).format(mlflow_dir=mlflow_dir)
-        else:
-            install_mlflow = (
-                "RUN pip install mlflow=={version}\n"
-                "RUN mvn --batch-mode dependency:copy"
-                " -Dartifact=org.mlflow:mlflow-scoring:{version}:pom"
-                " -DoutputDirectory=/opt/java\n"
-                "RUN mvn --batch-mode dependency:copy"
-                " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-                " -DoutputDirectory=/opt/java/jars\n"
-                "RUN cd /opt/java && mv mlflow-scoring-{version}.pom pom.xml &&"
-                " mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
-                "RUN rm /opt/java/pom.xml\n"
-            ).format(version=mlflow.version.VERSION)
-
-        with open(os.path.join(cwd, "Dockerfile"), "w") as f:
-            f.write(_DOCKERFILE_TEMPLATE % install_mlflow)
-        _logger.info("building docker image")
-        os.system('find {cwd}/'.format(cwd=cwd))
-        proc = Popen(["docker", "build", "-t", name, "-f", "Dockerfile", "."],
-                     cwd=cwd,
-                     stdout=PIPE,
-                     stderr=STDOUT,
-                     universal_newlines=True)
-        for x in iter(proc.stdout.readline, ""):
-            eprint(x, end='')
-
-
 _full_template = "{account}.dkr.ecr.{region}.amazonaws.com/{image}:{version}"
+
+
+def _get_preferred_deployment_flavor(model_config):
+    """
+    Obtains the flavor that MLflow would prefer to use when deploying the model.
+    If the model does not contain any supported flavors for deployment, an exception
+    will be thrown.
+
+    :param model_config: An MLflow model object
+    :return: The name of the preferred deployment flavor for the specified model
+    """
+    if mleap.FLAVOR_NAME in model_config.flavors:
+        return mleap.FLAVOR_NAME
+    elif pyfunc.FLAVOR_NAME in model_config.flavors:
+        return pyfunc.FLAVOR_NAME
+    else:
+        raise MlflowException(
+            message=(
+                "The specified model does not contain any of the supported flavors for"
+                " deployment. The model contains the following flavors: {model_flavors}."
+                " Supported flavors: {supported_flavors}".format(
+                    model_flavors=model_config.flavors.keys(),
+                    supported_flavors=SUPPORTED_DEPLOYMENT_FLAVORS)),
+            error_code=RESOURCE_DOES_NOT_EXIST)
+
+
+def _validate_deployment_flavor(model_config, flavor):
+    """
+    Checks that the specified flavor is a supported deployment flavor
+    and is contained in the specified model. If one of these conditions
+    is not met, an exception is thrown.
+
+    :param model_config: An MLflow Model object
+    :param flavor: The deployment flavor to validate
+    """
+    if flavor not in SUPPORTED_DEPLOYMENT_FLAVORS:
+        raise MlflowException(
+            message=(
+                "The specified flavor: `{flavor_name}` is not supported for deployment."
+                " Please use one of the supported flavors: {supported_flavor_names}".format(
+                    flavor_name=flavor,
+                    supported_flavor_names=SUPPORTED_DEPLOYMENT_FLAVORS)),
+            error_code=INVALID_PARAMETER_VALUE)
+    elif flavor not in model_config.flavors:
+        raise MlflowException(
+            message=("The specified model does not contain the specified deployment flavor:"
+                     " `{flavor_name}`. Please use one of the following deployment flavors"
+                     " that the model contains: {model_flavors}".format(
+                        flavor_name=flavor, model_flavors=model_config.flavors.keys())),
+            error_code=RESOURCE_DOES_NOT_EXIST)
 
 
 def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
@@ -175,6 +107,7 @@ def push_image_to_ecr(image=DEFAULT_IMAGE_NAME):
 
     :param image: Docker image name.
     """
+    import boto3
     _logger.info("Pushing image to ECR")
     client = boto3.client("sts")
     caller_id = client.get_caller_identity()
@@ -216,17 +149,17 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
     :ref:`MLflow deployment tools documentation <sagemaker_deployment>`.
 
     :param app_name: Name of the deployed application.
-    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker,
-                      for example:
+    :param model_uri: The location, in URI format, of the MLflow model to deploy to SageMaker.
+                      For example:
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param execution_role_arn: The name of an IAM role granting the SageMaker service permissions to
                                access the specified Docker image and S3 bucket containing MLflow
@@ -241,8 +174,9 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                                https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html.
     :param bucket: S3 bucket where model artifacts will be stored. Defaults to a
                    SageMaker-compatible bucket name.
-    :param image: Name of the Docker image to be used. if not specified, uses a
-                  publicly-available pre-built image.
+    :param image_url: URL of the ECR-hosted Docker image the model should be deployed into, produced
+                      by ``mlflow sagemaker build-and-push-container``. This parameter can also
+                      be specified by the environment variable ``MLFLOW_SAGEMAKER_DEPLOY_IMG_URL``.
     :param region_name: Name of the AWS region to which to deploy the application.
     :param mode: The mode in which to deploy the application. Must be one of the following:
 
@@ -301,19 +235,20 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
                    a flavor is automatically selected from the model's available flavors. If the
                    specified flavor is not present or not supported for deployment, an exception
                    will be thrown.
-    :param synchronous: If `True`, this function will block until the deployment process succeeds
-                        or encounters an irrecoverable failure. If `False`, this function will
+    :param synchronous: If ``True``, this function will block until the deployment process succeeds
+                        or encounters an irrecoverable failure. If ``False``, this function will
                         return immediately after starting the deployment process. It will not wait
                         for the deployment process to complete; in this case, the caller is
                         responsible for monitoring the health and status of the pending deployment
                         via native SageMaker APIs or the AWS console.
-    :param timeout_seconds: If `synchronous` is `True`, the deployment process will return after the
-                            specified number of seconds if no definitive result (success or failure)
-                            is achieved. Once the function returns, the caller is responsible
-                            for monitoring the health and status of the pending deployment via
-                            native SageMaker APIs or the AWS console. If `synchronous` is False,
-                            this parameter is ignored.
+    :param timeout_seconds: If ``synchronous`` is ``True``, the deployment process will return after
+                            the specified number of seconds if no definitive result (success or
+                            failure) is achieved. Once the function returns, the caller is
+                            responsible for monitoring the health and status of the pending
+                            deployment using native SageMaker APIs or the AWS console. If
+                            ``synchronous`` is ``False``, this parameter is ignored.
     """
+    import boto3
     if (not archive) and (not synchronous):
         raise MlflowException(
             message=(
@@ -402,56 +337,6 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
             deployment_operation.clean_up()
 
 
-def _get_preferred_deployment_flavor(model_config):
-    """
-    Obtains the flavor that MLflow would prefer to use when deploying the model.
-    If the model does not contain any supported flavors for deployment, an exception
-    will be thrown.
-
-    :param model_config: An MLflow model object
-    :return: The name of the preferred deployment flavor for the specified model
-    """
-    if mleap.FLAVOR_NAME in model_config.flavors:
-        return mleap.FLAVOR_NAME
-    elif pyfunc.FLAVOR_NAME in model_config.flavors:
-        return pyfunc.FLAVOR_NAME
-    else:
-        raise MlflowException(
-                message=(
-                    "The specified model does not contain any of the supported flavors for"
-                    " deployment. The model contains the following flavors: {model_flavors}."
-                    " Supported flavors: {supported_flavors}".format(
-                        model_flavors=model_config.flavors.keys(),
-                        supported_flavors=SUPPORTED_DEPLOYMENT_FLAVORS)),
-                error_code=RESOURCE_DOES_NOT_EXIST)
-
-
-def _validate_deployment_flavor(model_config, flavor):
-    """
-    Checks that the specified flavor is a supported deployment flavor
-    and is contained in the specified model. If one of these conditions
-    is not met, an exception is thrown.
-
-    :param model_config: An MLflow Model object
-    :param flavor: The deployment flavor to validate
-    """
-    if flavor not in SUPPORTED_DEPLOYMENT_FLAVORS:
-        raise MlflowException(
-                message=(
-                    "The specified flavor: `{flavor_name}` is not supported for deployment."
-                    " Please use one of the supported flavors: {supported_flavor_names}".format(
-                        flavor_name=flavor,
-                        supported_flavor_names=SUPPORTED_DEPLOYMENT_FLAVORS)),
-                error_code=INVALID_PARAMETER_VALUE)
-    elif flavor not in model_config.flavors:
-        raise MlflowException(
-                message=("The specified model does not contain the specified deployment flavor:"
-                         " `{flavor_name}`. Please use one of the following deployment flavors"
-                         " that the model contains: {model_flavors}".format(
-                             flavor_name=flavor, model_flavors=model_config.flavors.keys())),
-                error_code=RESOURCE_DOES_NOT_EXIST)
-
-
 def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, timeout_seconds=300):
     """
     Delete a SageMaker application.
@@ -476,6 +361,7 @@ def delete(app_name, region_name="us-west-2", archive=False, synchronous=True, t
                             APIs or the AWS console. If `synchronous` is False, this parameter
                             is ignored.
     """
+    import boto3
     if (not archive) and (not synchronous):
         raise MlflowException(
             message=(
@@ -544,9 +430,9 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :param port: Local port.
     :param image: Name of the Docker image to be used.
@@ -573,7 +459,7 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
         cmd += ["-e", "{key}={value}".format(key=key, value=value)]
     cmd += ["--rm", image, "serve"]
     _logger.info('executing: %s', ' '.join(cmd))
-    proc = Popen(cmd, stdout=PIPE, stderr=STDOUT, universal_newlines=True)
+    proc = Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, universal_newlines=True)
 
     def _sigterm_handler(*_):
         _logger.info("received termination signal => killing docker process")
@@ -581,13 +467,19 @@ def run_local(model_uri, port=5000, image=DEFAULT_IMAGE_NAME, flavor=None):
 
     import signal
     signal.signal(signal.SIGTERM, _sigterm_handler)
-    for x in iter(proc.stdout.readline, ""):
-        eprint(x, end='')
+    proc.wait()
 
 
 def _get_default_image_url(region_name):
+    import boto3
     env_img = os.environ.get(IMAGE_NAME_ENV_VAR)
     if env_img:
+        return env_img
+
+    env_img = os.environ.get(DEPRECATED_IMAGE_NAME_ENV_VAR)
+    if env_img:
+        _logger.warning("Environment variable '%s' is deprecated, please use '%s' instead",
+                        DEPRECATED_IMAGE_NAME_ENV_VAR, IMAGE_NAME_ENV_VAR)
         return env_img
 
     ecr_client = boto3.client("ecr", region_name=region_name)
@@ -597,6 +489,7 @@ def _get_default_image_url(region_name):
 
 
 def _get_account_id():
+    import boto3
     sess = boto3.Session()
     sts_client = sess.client("sts")
     identity_info = sts_client.get_caller_identity()
@@ -608,6 +501,7 @@ def _get_assumed_role_arn():
     """
     :return: ARN of the user's current IAM role.
     """
+    import boto3
     sess = boto3.Session()
     sts_client = sess.client("sts")
     identity_info = sts_client.get_caller_identity()
@@ -619,6 +513,7 @@ def _get_assumed_role_arn():
 
 
 def _get_default_s3_bucket(region_name):
+    import boto3
     # create bucket if it does not exist
     sess = boto3.Session()
     account_id = _get_account_id()
@@ -668,6 +563,7 @@ def _upload_s3(local_model_path, bucket, prefix, region_name, s3_client):
     :param s3_client: A boto3 client for S3.
     :return: S3 path of the uploaded artifact.
     """
+    import boto3
     sess = boto3.Session(region_name=region_name)
     with TempDir() as tmp:
         model_data_file = tmp.path("model.tar.gz")
@@ -987,7 +883,7 @@ def _find_endpoint(endpoint_name, sage_client):
 
     :param sage_client: A boto3 client for SageMaker.
     :return: If the endpoint exists, a dictionary of endpoint attributes. If the endpoint does not
-             exist, `None`.
+             exist, ``None``.
     """
     endpoints_page = sage_client.list_endpoints(
         MaxResults=100, NameContains=endpoint_name)

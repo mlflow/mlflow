@@ -13,36 +13,14 @@ The syntax is a subset of SQL which allows only ANDing together binary operation
 
 \item{run_view_type}{Run view type.}
 
-\item{experiment_ids}{List of experiment IDs to search over. Attempts to use active experiment if not specified.}
+\item{experiment_ids}{List of string experiment IDs (or a single string experiment ID) to search
+over. Attempts to use active experiment if not specified.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
 Search for runs that satisfy expressions. Search expressions can use Metric and Param keys.
 }
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
-}
-\seealso{
-Other tracking functions: \code{\link{mlflow_create_experiment}},
-  \code{\link{mlflow_delete_experiment}},
-  \code{\link{mlflow_delete_run}},
-  \code{\link{mlflow_download_artifacts}},
-  \code{\link{mlflow_end_run}},
-  \code{\link{mlflow_get_experiment}},
-  \code{\link{mlflow_get_metric_history}},
-  \code{\link{mlflow_get_run}},
-  \code{\link{mlflow_list_artifacts}},
-  \code{\link{mlflow_list_experiments}},
-  \code{\link{mlflow_list_run_infos}},
-  \code{\link{mlflow_log_artifact}},
-  \code{\link{mlflow_log_batch}},
-  \code{\link{mlflow_log_metric}},
-  \code{\link{mlflow_log_param}},
-  \code{\link{mlflow_rename_experiment}},
-  \code{\link{mlflow_restore_experiment}},
-  \code{\link{mlflow_restore_run}},
-  \code{\link{mlflow_set_tag}},
-  \code{\link{mlflow_start_run}}
-}
-\concept{tracking functions}
