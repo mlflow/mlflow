@@ -130,7 +130,7 @@ class KubernetesSubmittedRun(SubmittedRun):
     def wait(self):
         self._monitor_job()
         while self.get_status() in (RunStatus.SCHEDULED, RunStatus.RUNNING):
-            self._monitor_pods()
+            time.sleep(self.POLL_STATUS_INTERVAL)
         return self.get_status() == RunStatus.FINISHED
 
     def cancel(self):
