@@ -91,7 +91,7 @@ export class ExperimentView extends Component {
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
     searchRunsError: PropTypes.string,
-    isLoading: PropTypes.bool.isRequired
+    isLoading: PropTypes.bool.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */

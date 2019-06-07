@@ -21,11 +21,9 @@ export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 class ExperimentPage extends Component {
   constructor(props) {
     super(props);
-    debugger;
     this.onSearch = this.onSearch.bind(this);
     this.getRequestIds = this.getRequestIds.bind(this);
     const urlState = Utils.getSearchParamsFromUrl(props.location.search);
-
     this.state = {
       ...ExperimentPage.getDefaultUnpersistedState(),
       persistedState: urlState,
@@ -36,7 +34,7 @@ class ExperimentPage extends Component {
     experimentId: PropTypes.number.isRequired,
     dispatchSearchRuns: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
-    searchString: PropTypes.string.isRequired
+    searchString: PropTypes.string.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in the URL. */
@@ -96,8 +94,8 @@ class ExperimentPage extends Component {
       }).toJSON(),
       lifecycleFilter: lifecycleFilterInput,
     });
-    const searchRunsRequestId = this.props.dispatchSearchRuns(this.props.experimentId,
-        searchInput, lifecycleFilterInput);
+    const searchRunsRequestId = this.props.dispatchSearchRuns(
+      this.props.experimentId, searchInput, lifecycleFilterInput);
     this.setState({ searchRunsRequestId });
     this.updateUrlWithSearchFilter({
         paramKeyFilterString,
@@ -145,7 +143,7 @@ class ExperimentPage extends Component {
               lifecycleFilter={this.state.lifecycleFilter}
               onSearch={this.onSearch}
               searchRunsError={searchRunsError}
-              searchInput={this.state.persistedState.searchInput==undefined?'':this.state.persistedState.searchInput}
+              searchInput={this.state.persistedState.searchInput}
               isLoading={isLoading && !searchRunsError}
             />;
           }}

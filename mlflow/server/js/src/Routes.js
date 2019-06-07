@@ -27,7 +27,6 @@ class Routes {
   }
 
   static compareRunPageRoute = "/compare-runs"
-
 }
 
 export default Routes;
