@@ -274,22 +274,12 @@ def test_log_artifact_reuse_ftp_client(ftp_mock, tmpdir):
     repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
     d = tmpdir.mkdir("data")
-    file1 = d.join("test1.txt")
-    file1.write("hello world!")
-    fpath1 = d + '/test1.txt'
-    fpath1 = fpath1.strpath
+    file = d.join("test.txt")
+    file.write("hello world!")
+    fpath = file.strpath
 
-    ftp_mock.cwd = MagicMock(side_effect=[
-        ftplib.error_perm,
-        None,
-        ftplib.error_perm,
-        None,
-        None,
-        None
-    ])
-
-    repo.log_artifact(fpath1)
-    repo.log_artifact(fpath1, "subdir1/subdir2")
-    repo.log_artifact(fpath1, "subdir3")
+    repo.log_artifact(fpath)
+    repo.log_artifact(fpath, "subdir1/subdir2")
+    repo.log_artifact(fpath, "subdir3")
 
     assert repo.get_ftp_client.call_count == 3
