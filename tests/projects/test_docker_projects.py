@@ -119,9 +119,3 @@ def test_docker_invalid_project_backend_local():
     project.name = None
     with pytest.raises(ExecutionException):
         mlflow.projects._validate_docker_env(project)
-
-
-def test_docker_valid_project_backend_kubernetes():
-    work_dir = "./examples/docker"
-    project = _project_spec.load_project(work_dir)
-    mlflow.projects._validate_docker_env(project, "kubernetes")
