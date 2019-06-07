@@ -13,8 +13,10 @@ EXAMPLES_DIR = 'examples'
 
 
 @pytest.mark.parametrize("directory, params", [
+    ('sklearn_logistic_regression',[]),
     ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
     (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
+    ('h2o',[]),
 ])
 def test_mlflow_run_example(tracking_uri_mock, directory, params):
     cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
@@ -22,8 +24,6 @@ def test_mlflow_run_example(tracking_uri_mock, directory, params):
 
 
 @pytest.mark.parametrize("directory, command", [
-    ('sklearn_logistic_regression', ['python', 'train.py']),
-    ('h2o', ['python', 'random_forest.py']),
     ('quickstart', ['python', 'mlflow_tracking.py']),
 ])
 def test_command_example(tmpdir, directory, command):
