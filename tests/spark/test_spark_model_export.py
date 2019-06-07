@@ -472,15 +472,3 @@ def test_mleap_module_model_save_with_unsupported_transformer_raises_serializati
                          path=model_path,
                          sample_input=spark_model_iris.spark_df)
 
-
-@pytest.mark.large
-def test_save_with_sample_input_containing_unsupported_data_type_raises_serialization_exception(
-        spark_context, model_path):
-    sql_context = SQLContext(spark_context)
-    unsupported_df = sql_context.createDataFrame([(1, "2016-09-30"), (2, "2017-02-27")])
-    unsupported_df = unsupported_df.withColumn("_2", unsupported_df._2.cast(DateType()))
-    pipeline = Pipeline(stages=[])
-    model = pipeline.fit(unsupported_df)
-    # The Spark `DateType` is not supported by MLeap, so we expect serialization to fail.
-    with pytest.raises(mleap.MLeapSerializationException):
-        sparkm.save_model(spark_model=model, path=model_path, sample_input=unsupported_df)
