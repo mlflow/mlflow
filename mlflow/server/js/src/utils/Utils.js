@@ -367,7 +367,7 @@ class Utils {
         replaced[key] = state[key];
       }
     }
-    return qs.stringify(state);
+    return qs.stringify(replaced);
   }
 
   static compareByTimestamp(history1, history2) {
