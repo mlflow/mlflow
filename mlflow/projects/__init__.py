@@ -164,10 +164,10 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                     image_uri=kube_config["image-uri"],
                                     base_image=project.docker_env.get('image'),
                                     run_id=active_run.info.run_id)
-        image_digest = kb.push_image_to_registry(image)
+        image_digest = kb.push_image_to_registry(image.tags[0])
         submitted_run = kb.run_kubernetes_job(project.name,
                                               active_run,
-                                              image,
+                                              image.tags[0],
                                               image_digest,
                                               _get_entry_point_command(project, entry_point,
                                                                        parameters, storage_dir),
@@ -268,7 +268,6 @@ def _wait_for(submitted_run_obj):
     """Wait on the passed-in submitted run, reporting its status to the tracking server."""
     run_id = submitted_run_obj.run_id
     active_run = None
-    import ipdb;ipdb.set_trace()
     # Note: there's a small chance we fail to report the run's status to the tracking server if
     # we're interrupted before we reach the try block below
     try:
