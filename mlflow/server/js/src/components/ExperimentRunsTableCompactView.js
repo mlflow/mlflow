@@ -10,7 +10,7 @@ import BaggedCell from "./BaggedCell";
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import 'react-virtualized/styles.css';
 
-const NUM_RUN_METADATA_COLS = 7;
+const NUM_RUN_METADATA_COLS = 8;
 const TABLE_HEADER_HEIGHT = 40;
 const UNBAGGED_COL_WIDTH = 125;
 const BAGGED_COL_WIDTH = 250;
@@ -393,6 +393,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 120, // 'Run Name' column width
                 100, // 'Source' column width
                 80, // 'Version' column width
+                120, // 'Tags' column width
               ];
               const showBaggedParams = this.shouldShowBaggedColumn(true);
               const showBaggedMetrics = this.shouldShowBaggedColumn(false);

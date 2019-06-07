@@ -82,6 +82,17 @@ export default class ExperimentViewUtil {
           {Utils.renderVersion(tags)}
         </div>
       </CellComponent>,
+      <CellComponent className="run-table-container" key="meta-tags">
+        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
+          {
+            Utils.getVisibleTagValues(tags).map((entry) => {
+              const tagName = entry[0];
+              const value = entry[1];
+              return <div key={tagName}>{tagName}:{value}</div>
+            })
+          }
+        </div>
+      </CellComponent>,
     ];
   }
 
@@ -134,6 +145,7 @@ export default class ExperimentViewUtil {
       getHeaderCell("run_name", <span>{"Run Name"}</span>),
       getHeaderCell("source", <span>{"Source"}</span>),
       getHeaderCell("source_version", <span>{"Version"}</span>),
+      getHeaderCell("tags", <span>Tags</span>),
     ];
   }
 
