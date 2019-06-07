@@ -24,7 +24,11 @@ class ExperimentPage extends Component {
     const urlState = Utils.getSearchParamsFromUrl(props.location.search);
     this.state = {
       ...ExperimentPage.getDefaultUnpersistedState(),
-      persistedState: urlState,
+      persistedState: {
+        paramKeyFilterString: urlState['params'],
+        metricKeyFilterString: urlState['metrics'],
+        searchInput: urlState['search'],
+      },
     };
   }
 
@@ -97,9 +101,9 @@ class ExperimentPage extends Component {
       this.props.experimentId, searchInput, lifecycleFilterInput);
     this.setState({ searchRunsRequestId });
     this.updateUrlWithSearchFilter({
-      paramKeyFilterString,
-      metricKeyFilterString,
-      searchInput,
+      params: paramKeyFilterString,
+      metrics: metricKeyFilterString,
+      search: searchInput,
     });
   }
 
