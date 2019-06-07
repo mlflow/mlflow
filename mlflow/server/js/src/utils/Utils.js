@@ -348,6 +348,29 @@ class Utils {
     return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
   }
 
+  static getSearchParamsFromUrl(search) {
+    const params = qs.parse(search, {ignoreQueryPrefix: true});
+
+    const str = JSON.stringify(params,
+      function replaceUndefined(key, value) {
+        return (value === undefined) ? "" : value;
+      });
+
+    return params ? JSON.parse(str) : [];
+  }
+
+  static getSearchUrlFromState(state) {
+    const replaced = {};
+    for (const key in state) {
+      if (state[key] === undefined) {
+        replaced[key] = '';
+      } else {
+        replaced[key] = state[key];
+      }
+    }
+    return qs.stringify(replaced);
+  }
+
   static compareByTimestamp(history1, history2) {
     return history1.timestamp - history2.timestamp;
   }
