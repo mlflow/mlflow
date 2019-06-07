@@ -163,14 +163,21 @@ def upgrade():
     # Also, we directly pass the schema of the table we're modifying to circumvent shortcomings
     # in Alembic's ability to reflect CHECK constraints, as described in
     # https://alembic.sqlalchemy.org/en/latest/batch.html#working-in-offline-mode
+    bind = op.get_bind()
     with op.batch_alter_table("experiments", copy_from=SqlExperiment.__table__) as batch_op:
-        batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
+        # We skip running drop_constraint for mysql, because it creates an invalid statement
+        # in alembic<=1.0.10
+        if bind.engine.name != 'mysql':
+            batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
         batch_op.create_check_constraint(
             constraint_name="experiments_lifecycle_stage",
             condition=column('lifecycle_stage').in_(["active", "deleted"])
         )
     with op.batch_alter_table("runs", copy_from=SqlRun.__table__) as batch_op:
-        batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
+        # We skip running drop_constraint for mysql, because it creates an invalid statement
+        # in alembic<=1.0.10
+        if bind.engine.name != 'mysql':
+            batch_op.drop_constraint(constraint_name='lifecycle_stage', type_="check")
         batch_op.create_check_constraint(
             constraint_name="runs_lifecycle_stage",
             condition=column('lifecycle_stage').in_(["active", "deleted"])
