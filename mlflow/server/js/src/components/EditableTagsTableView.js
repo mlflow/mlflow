@@ -5,6 +5,7 @@ import PropTypes from 'prop-types';
 import { Form, Input, Button, message } from 'antd';
 import { getUUID, setTagApi } from '../Actions';
 import { EditableFormTable } from './tables/EditableFormTable';
+import _ from 'lodash';
 
 export class EditableTagsTableView extends React.Component {
   static propTypes = {
@@ -32,11 +33,11 @@ export class EditableTagsTableView extends React.Component {
 
   requestId = getUUID();
 
-  getData = () => Utils.getVisibleTagValues(this.props.tags).map((values) => ({
+  getData = () => _.sortBy(Utils.getVisibleTagValues(this.props.tags).map((values) => ({
     key: values[0],
     name: values[0],
     value: values[1],
-  }));
+  })), 'name');
 
   getTagNamesAsSet = () => new Set(
     Utils.getVisibleTagValues(this.props.tags).map((values) => values[0])
