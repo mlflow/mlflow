@@ -25,9 +25,9 @@ class ExperimentPage extends Component {
     this.state = {
       ...ExperimentPage.getDefaultUnpersistedState(),
       persistedState: {
-        paramKeyFilterString: urlState['params'],
-        metricKeyFilterString: urlState['metrics'],
-        searchInput: urlState['search'],
+        paramKeyFilterString: urlState.params,
+        metricKeyFilterString: urlState.metrics,
+        searchInput: urlState.search,
       },
     };
   }
