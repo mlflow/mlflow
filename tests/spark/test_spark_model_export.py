@@ -10,8 +10,6 @@ from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.pipeline import Pipeline
 from pyspark.ml.wrapper import JavaModel
 from pyspark.version import __version__ as pyspark_version
-from pyspark.sql import SQLContext
-from pyspark.sql.types import DateType
 import pytest
 from sklearn import datasets
 import shutil
