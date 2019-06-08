@@ -7,6 +7,8 @@ class Routes {
 
   static experimentPageRoute = "/experiments/:experimentId";
 
+  static experimentPageSearchRoute = "/experiments/:experimentId/:searchString";
+
   static getRunPageRoute(experimentId, runUuid) {
     return `/experiments/${experimentId}/runs/${runUuid}`;
   }
