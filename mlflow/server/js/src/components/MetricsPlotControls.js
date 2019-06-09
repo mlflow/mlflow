@@ -1,6 +1,6 @@
 import React from 'react';
 import _ from 'lodash';
-import { Radio, Switch, TreeSelect } from 'antd';
+import { Radio, Switch, TreeSelect, Icon, Tooltip } from 'antd';
 import PropTypes from 'prop-types';
 import { CHART_TYPE_LINE } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';
@@ -39,6 +39,8 @@ export class MetricsPlotControls extends React.Component {
 
   render() {
     const { chartType } = this.props;
+    const lineSmoothnessTooltipText =
+      'Sets the amount of smoothing. "0" corresponds to no smoothing (equivalent to a "linear" shape).';
     return (
       <div className='plot-controls'>
         {chartType === CHART_TYPE_LINE ? (
@@ -50,7 +52,12 @@ export class MetricsPlotControls extends React.Component {
               unCheckedChildren='Off'
               onChange={this.props.handleShowPointChange}
             />
-            <h3>Line Smoothness</h3>
+            <h3>
+              Line Smoothness {' '}
+              <Tooltip title={lineSmoothnessTooltipText}>
+                <Icon type='question-circle' />
+              </Tooltip>
+            </h3>
             <LineSmoothSlider
               className='smoothness-toggle'
               min={0}
