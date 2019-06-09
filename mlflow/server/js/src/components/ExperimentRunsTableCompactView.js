@@ -128,8 +128,13 @@ class ExperimentRunsTableCompactView extends PureComponent {
         hasExpander, expanderOpen, () => onExpand(
           runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "div")
-      .forEach((col) => rowContents.push(col));
+    ExperimentViewUtil.getRunInfoCellsForRow(
+      runInfo,
+      tagsList[idx],
+      isParent,
+      "div",
+      this.handleCellToggle,
+    ).forEach((col) => rowContents.push(col));
 
     const unbaggedParamSet = new Set(unbaggedParams);
     const unbaggedMetricSet = new Set(unbaggedMetrics);
@@ -321,6 +326,11 @@ class ExperimentRunsTableCompactView extends PureComponent {
     }
     return columns;
   }
+
+  handleCellToggle = () => {
+    this._cache.clearAll();
+    this.forceUpdate();
+  };
 
   _cache = new CellMeasurerCache({
     fixedWidth: true,

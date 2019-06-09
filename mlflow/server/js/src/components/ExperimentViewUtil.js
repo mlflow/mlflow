@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 import { SEARCH_MAX_RESULTS } from '../Actions';
-import { TagsCell } from './TagsCell';
+import { TogglableTagsCell } from './TogglableTagsCell';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -42,7 +42,7 @@ export default class ExperimentViewUtil {
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
    * the display row for a run.
    */
-  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType) {
+  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType, handleCellToggle) {
     const CellComponent = `${cellType}`;
     const user = Utils.formatUser(Utils.getUser(runInfo, tags));
     const queryParams = window.location && window.location.search ? window.location.search : "";
@@ -85,7 +85,7 @@ export default class ExperimentViewUtil {
       </CellComponent>,
       <CellComponent className="run-table-container" key="meta-tags">
         <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
-          <TagsCell tags={tags}/>
+          <TogglableTagsCell tags={tags} onToggle={handleCellToggle}/>
         </div>
       </CellComponent>,
     ];
