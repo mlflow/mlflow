@@ -40,7 +40,8 @@ export class MetricsPlotControls extends React.Component {
   render() {
     const { chartType } = this.props;
     const lineSmoothnessTooltipText =
-      'Sets the amount of smoothing. "0" corresponds to no smoothing (equivalent to a "linear" shape).';
+      'Sets the amount of smoothing. ' +
+      '"0" corresponds to no smoothing (equivalent to a "linear" shape).';
     return (
       <div className='plot-controls'>
         {chartType === CHART_TYPE_LINE ? (
