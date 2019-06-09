@@ -41,7 +41,6 @@ export class MetricsPlotControls extends React.Component {
     const { chartType } = this.props;
     return (
       <div className='plot-controls'>
-        <h2>Plot Settings</h2>
         {chartType === CHART_TYPE_LINE ? (
           <div>
             <h3>Points:</h3>
