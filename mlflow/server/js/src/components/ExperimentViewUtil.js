@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 import { SEARCH_MAX_RESULTS } from '../Actions';
+import { TagsCell } from './TagsCell';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -84,11 +85,7 @@ export default class ExperimentViewUtil {
       </CellComponent>,
       <CellComponent className="run-table-container" key="meta-tags">
         <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
-          {Utils.getVisibleTagValues(tags).map((entry) => {
-            const tagName = entry[0];
-            const value = entry[1];
-            return <div key={tagName}>{tagName}:{value}</div>
-          })}
+          <TagsCell tags={tags}/>
         </div>
       </CellComponent>,
     ];
