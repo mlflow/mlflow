@@ -33,7 +33,7 @@ export class CollapsibleTagsCell extends React.Component {
           const tagName = entry[0];
           const value = entry[1];
           return (
-            <div className='tag-cell-item' key={tagName}>
+            <div className='tag-cell-item truncate-text single-line' key={tagName}>
               {tagName}:{value}
             </div>
           );

@@ -84,7 +84,7 @@ export default class ExperimentViewUtil {
         </div>
       </CellComponent>,
       <CellComponent className="run-table-container" key="meta-tags">
-        <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
+        <div style={ExperimentViewUtil.styles.runInfoCell}>
           <CollapsibleTagsCell tags={tags} onToggle={handleCellToggle}/>
         </div>
       </CellComponent>,
