@@ -403,7 +403,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 120, // 'Run Name' column width
                 100, // 'Source' column width
                 80, // 'Version' column width
-                120, // 'Tags' column width
+                180, // 'Tags' column width
               ];
               const showBaggedParams = this.shouldShowBaggedColumn(true);
               const showBaggedMetrics = this.shouldShowBaggedColumn(false);
@@ -456,7 +456,14 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     key={'column-' + colIdx}
                     width={runMetadataColWidths[colIdx]}
                     headerRenderer={() => headerCells[colIdx]}
-                    style={styles.columnStyle}
+                    style={{
+                      ...styles.columnStyle,
+                      // show left boarder for run tags column
+                      ...(colIdx === NUM_RUN_METADATA_COLS - 1
+                        ? { borderLeft: BORDER_STYLE }
+                        : undefined
+                      ),
+                    }}
                     cellRenderer={({ rowIndex, rowData, parent, dataKey }) => (
                       <CellMeasurer
                         cache={this._cache}
