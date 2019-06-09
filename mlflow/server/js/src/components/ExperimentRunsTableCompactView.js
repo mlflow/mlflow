@@ -403,7 +403,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 120, // 'Run Name' column width
                 100, // 'Source' column width
                 80, // 'Version' column width
-                180, // 'Tags' column width
+                250, // 'Tags' column width
               ];
               const showBaggedParams = this.shouldShowBaggedColumn(true);
               const showBaggedMetrics = this.shouldShowBaggedColumn(false);
