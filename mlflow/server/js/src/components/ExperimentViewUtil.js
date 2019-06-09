@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 import { SEARCH_MAX_RESULTS } from '../Actions';
-import { TogglableTagsCell } from './TogglableTagsCell';
+import { CollapsibleTagsCell } from './CollapsibleTagsCell';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -85,7 +85,7 @@ export default class ExperimentViewUtil {
       </CellComponent>,
       <CellComponent className="run-table-container" key="meta-tags">
         <div className="truncate-text" style={ExperimentViewUtil.styles.runInfoCell}>
-          <TogglableTagsCell tags={tags} onToggle={handleCellToggle}/>
+          <CollapsibleTagsCell tags={tags} onToggle={handleCellToggle}/>
         </div>
       </CellComponent>,
     ];

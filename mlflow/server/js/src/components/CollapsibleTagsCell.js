@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import Utils from '../utils/Utils';
 
-export class TogglableTagsCell extends React.Component {
+export class CollapsibleTagsCell extends React.Component {
   static propTypes = {
     tags: PropTypes.object.isRequired,
     onToggle: PropTypes.func,
