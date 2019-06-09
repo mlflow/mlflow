@@ -447,9 +447,16 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     width={runMetadataColWidths[colIdx]}
                     headerRenderer={() => headerCells[colIdx]}
                     style={styles.columnStyle}
-                    cellRenderer={({rowData}) => {
-                      return rowData.contents[colIdx];
-                    }}
+                    cellRenderer={({ columnIndex, rowIndex, rowData, parent, dataKey }) => (
+                      <CellMeasurer
+                        cache={this._cache}
+                        columnIndex={colIdx}
+                        key={dataKey}
+                        parent={parent}
+                        rowIndex={rowIndex}>
+                        {rowData.contents[colIdx]}
+                      </CellMeasurer>
+                    )}
                   />;
                 })}
                 {unbaggedParams.map((unbaggedParam, idx) => {
@@ -479,14 +486,15 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     // Add extra padding to last row so that we can render dropdowns for bagged
                     // param key-value pairs in that row
                     const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
+                    const colIdx = NUM_RUN_METADATA_COLS + unbaggedParams.length;
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={0}
+                      columnIndex={colIdx}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
                       <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
-                        {rowData.contents[NUM_RUN_METADATA_COLS + unbaggedParams.length]}
+                        {rowData.contents[colIdx]}
                       </div>
                     </CellMeasurer>);
                   }}
@@ -525,7 +533,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={0 + showBaggedParams}
+                      columnIndex={colIdx}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
