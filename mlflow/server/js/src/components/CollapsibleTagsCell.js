@@ -2,7 +2,8 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import Utils from '../utils/Utils';
 
-const NUM_VISIBLE_TAGS_WHEN_COLLAPSED = 3;
+// Number of tags shown when cell is collapsed
+export const NUM_TAGS_ON_COLLAPSED = 3;
 
 export class CollapsibleTagsCell extends React.Component {
   static propTypes = {
@@ -15,15 +16,16 @@ export class CollapsibleTagsCell extends React.Component {
   };
 
   handleToggleCollapse = () => {
-    const { onToggle } = this.props;
     this.setState((prevState) => ({ collapsed: !prevState.collapsed }));
-    onToggle && onToggle();
+    if (this.props.onToggle) {
+      this.props.onToggle();
+    }
   };
 
   render() {
     const visibleTags = Utils.getVisibleTagValues(this.props.tags);
     const tagsToDisplay = this.state.collapsed
-      ? visibleTags.slice(0, NUM_VISIBLE_TAGS_WHEN_COLLAPSED)
+      ? visibleTags.slice(0, NUM_TAGS_ON_COLLAPSED)
       : visibleTags;
     return (
       <div>
@@ -31,15 +33,15 @@ export class CollapsibleTagsCell extends React.Component {
           const tagName = entry[0];
           const value = entry[1];
           return (
-            <div key={tagName}>
+            <div className='tag-cell-item' key={tagName}>
               {tagName}:{value}
             </div>
           );
         })}
         {visibleTags.length > 3 ? (
-          <a onClick={this.handleToggleCollapse}>
+          <a className='tag-cell-toggle-link' onClick={this.handleToggleCollapse}>
             {this.state.collapsed
-              ? `${visibleTags.length - NUM_VISIBLE_TAGS_WHEN_COLLAPSED} more`
+              ? `${visibleTags.length - NUM_TAGS_ON_COLLAPSED} more`
               : `Show less`}
           </a>
         ) : null}

@@ -5,7 +5,7 @@ import { Table } from 'react-bootstrap';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import classNames from 'classnames';
 import { RunInfo } from '../sdk/MlflowMessages';
-import { NUM_RUN_METADATA_COLS } from './ExperimentRunsTableCompactView'
+import { NUM_RUN_METADATA_COLS } from './ExperimentRunsTableCompactView';
 
 /**
  * Table view for displaying runs associated with an experiment. Renders each metric and param

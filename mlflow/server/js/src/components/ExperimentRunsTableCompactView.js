@@ -457,7 +457,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     width={runMetadataColWidths[colIdx]}
                     headerRenderer={() => headerCells[colIdx]}
                     style={styles.columnStyle}
-                    cellRenderer={({ columnIndex, rowIndex, rowData, parent, dataKey }) => (
+                    cellRenderer={({ rowIndex, rowData, parent, dataKey }) => (
                       <CellMeasurer
                         cache={this._cache}
                         columnIndex={colIdx}
