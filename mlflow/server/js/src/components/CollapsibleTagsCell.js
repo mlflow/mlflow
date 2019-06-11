@@ -34,7 +34,7 @@ export class CollapsibleTagsCell extends React.Component {
           const value = entry[1];
           return (
             <div className='tag-cell-item truncate-text single-line' key={tagName}>
-              {tagName}:{value}
+              <span style={styles.tagKey}>{tagName}:</span>{value}
             </div>
           );
         })}
@@ -49,3 +49,10 @@ export class CollapsibleTagsCell extends React.Component {
     );
   }
 }
+
+const styles = {
+  tagKey: {
+    color: '#888',
+    paddingRight: 10,
+  }
+};
