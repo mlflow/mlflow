@@ -29,11 +29,11 @@ class EditableCell extends React.Component {
   };
 
   render() {
-    const { editing, dataIndex, title, record, children, ...restProps } = this.props;
+    const { editing, dataIndex, title, record, children } = this.props;
     return (
       <EditableContext.Consumer>
         {({ getFieldDecorator }) => (
-          <td {...restProps} className={editing ? 'editing-cell' : ''}>
+          <td className={editing ? 'editing-cell' : ''}>
             {editing ? (
               <Form.Item style={{ margin: 0 }}>
                 {getFieldDecorator(dataIndex, {

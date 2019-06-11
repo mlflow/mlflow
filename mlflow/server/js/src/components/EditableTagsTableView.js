@@ -56,8 +56,8 @@ export class EditableTagsTableView extends React.Component {
           })
           .catch((ex) => {
             this.setState({ isRequestPending: false });
-            console.error(ex);
-            message.error('Failed to add tag.');
+            console.error(err);
+            message.error('Failed to add tag. Error: ' + err.getUserVisibleError());
           });
       }
     });
@@ -66,9 +66,9 @@ export class EditableTagsTableView extends React.Component {
   handleSaveEdit = ({ name, value }) => {
     const { runUuid, setTagApi: setTag } = this.props;
     return setTag(runUuid, name, value, this.requestId)
-      .catch((e) => {
-        console.error(e);
-        message.error('Failed to set tag.');
+      .catch((err) => {
+        console.error(err);
+        message.error('Failed to set tag. Error: ' + err.getUserVisibleError());
       });
   };
 
