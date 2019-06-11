@@ -54,10 +54,10 @@ export class EditableTagsTableView extends React.Component {
             this.setState({ isRequestPending: false });
             form.resetFields();
           })
-          .catch((err) => {
+          .catch((ex) => {
             this.setState({ isRequestPending: false });
-            console.error(err);
-            message.error('Failed to add tag. Error: ' + err.getUserVisibleError());
+            console.error(ex);
+            message.error('Failed to add tag. Error: ' + ex.getUserVisibleError());
           });
       }
     });
@@ -66,9 +66,9 @@ export class EditableTagsTableView extends React.Component {
   handleSaveEdit = ({ name, value }) => {
     const { runUuid, setTagApi: setTag } = this.props;
     return setTag(runUuid, name, value, this.requestId)
-      .catch((err) => {
-        console.error(err);
-        message.error('Failed to set tag. Error: ' + err.getUserVisibleError());
+      .catch((ex) => {
+        console.error(ex);
+        message.error('Failed to set tag. Error: ' + ex.getUserVisibleError());
       });
   };
 
