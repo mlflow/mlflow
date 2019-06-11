@@ -2,7 +2,7 @@ import json
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INVALID_STATE, \
-    ENDPOINT_NOT_FOUND, INTERNAL_ERROR, RESOURCE_ALREADY_EXISTS
+    ENDPOINT_NOT_FOUND, INTERNAL_ERROR, RESOURCE_ALREADY_EXISTS, IO_ERROR
 
 
 class TestMlflowException(object):
@@ -21,6 +21,8 @@ class TestMlflowException(object):
 
     def test_get_http_status_code(self):
         assert MlflowException('test default').get_http_status_code() == 500
+        assert MlflowException('code not in map', error_code=IO_ERROR).get_http_status_code() \
+            == 500
         assert MlflowException('test', error_code=INVALID_STATE).get_http_status_code() \
             == 500
         assert MlflowException('test', error_code=ENDPOINT_NOT_FOUND).get_http_status_code() \

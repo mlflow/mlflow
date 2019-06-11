@@ -50,8 +50,7 @@ class MlflowException(Exception):
         return json.dumps(exception_dict)
 
     def get_http_status_code(self):
-        default_error_code = 500
-        return ERROR_CODE_TO_HTTP_STATUS.get(self.error_code, default_error_code)
+        return ERROR_CODE_TO_HTTP_STATUS.get(self.error_code, 500)
 
 
 class RestException(MlflowException):
