@@ -54,7 +54,7 @@ export class EditableTagsTableView extends React.Component {
             this.setState({ isRequestPending: false });
             form.resetFields();
           })
-          .catch((ex) => {
+          .catch((err) => {
             this.setState({ isRequestPending: false });
             console.error(err);
             message.error('Failed to add tag. Error: ' + err.getUserVisibleError());
