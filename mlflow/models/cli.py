@@ -39,9 +39,10 @@ def serve(model_uri, port, host, socket, workers, no_conda=False, install_mlflow
     """
     return _get_flavor_backend(model_uri,
                                no_conda=no_conda,
+                               socket=socket,
                                workers=workers,
                                install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
-                                                                    host=host, socket=socket)
+                                                                    host=host)
 
 
 @commands.command("predict")

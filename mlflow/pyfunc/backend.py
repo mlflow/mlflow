@@ -21,9 +21,11 @@ class PyFuncBackend(FlavorBackend):
         Flavor backend implementation for the generic python models.
     """
 
-    def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
+    def __init__(self, config, workers=1, socket=None, no_conda=False, install_mlflow=False,
+                 **kwargs):
         super(PyFuncBackend, self).__init__(config=config, **kwargs)
         self._nworkers = workers
+        self._socket = socket
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow
 
@@ -45,17 +47,17 @@ class PyFuncBackend(FlavorBackend):
                        'content_type={content_type}, '
                        'json_format={json_format})"'
                        ).format(
-                         model_uri=repr(local_uri),
-                         input_path=repr(input_path),
-                         output_path=repr(output_path),
-                         content_type=repr(content_type),
-                         json_format=repr(json_format))
+                model_uri=repr(local_uri),
+                input_path=repr(input_path),
+                output_path=repr(output_path),
+                content_type=repr(content_type),
+                json_format=repr(json_format))
             return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type,
                                     json_format)
 
-    def serve(self, model_uri, port, host, socket):
+    def serve(self, model_uri, port, host):
         """
         Serve pyfunc model locally.
         """
@@ -63,14 +65,13 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
-        if socket:
-            bind_address = "unix:{socket}".format(socket=socket)
+        if self._socket:
+            bind_address = "unix:{socket}".format(socket=self._socket)
         else:
             bind_address = "{host}:{port}".format(host=host, port=port)
         command = ("gunicorn --timeout 60 -b {bind_address} -w {nworkers} "
                    "mlflow.pyfunc.scoring_server.wsgi:app").format(
-                     bind_address=bind_address,
-                     nworkers=self._nworkers)
+            bind_address=bind_address, nworkers=self._nworkers)
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
         if not self._no_conda and ENV in self._config:
