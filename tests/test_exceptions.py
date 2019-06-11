@@ -20,8 +20,9 @@ class TestMlflowException(object):
         assert deserialized['error_code'] == 'INTERNAL_ERROR'
 
     def test_get_http_status_code(self):
+        assert MlflowException('test default').get_http_status_code() == 500
         assert MlflowException('test', error_code=INVALID_STATE).get_http_status_code() \
-             == 500
+            == 500
         assert MlflowException('test', error_code=ENDPOINT_NOT_FOUND).get_http_status_code() \
             == 404
         assert MlflowException('test', error_code=INVALID_PARAMETER_VALUE).get_http_status_code() \
