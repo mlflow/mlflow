@@ -1,6 +1,8 @@
 import json
 
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, ErrorCode
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE, \
+    ENDPOINT_NOT_FOUND, PERMISSION_DENIED, REQUEST_LIMIT_EXCEEDED, BAD_REQUEST, \
+    INVALID_PARAMETER_VALUE, ErrorCode
 
 
 class MlflowException(Exception):
@@ -32,6 +34,19 @@ class MlflowException(Exception):
         exception_dict = {'error_code': self.error_code, 'message': self.message}
         exception_dict.update(self.json_kwargs)
         return json.dumps(exception_dict)
+
+    def get_http_status_code(self):
+        http_error_map = {
+            ErrorCode.Name(INTERNAL_ERROR): 500,
+            ErrorCode.Name(TEMPORARILY_UNAVAILABLE): 503,
+            ErrorCode.Name(ENDPOINT_NOT_FOUND): 404,
+            ErrorCode.Name(PERMISSION_DENIED): 403,
+            ErrorCode.Name(REQUEST_LIMIT_EXCEEDED): 429,
+            ErrorCode.Name(BAD_REQUEST): 400,
+            ErrorCode.Name(INVALID_PARAMETER_VALUE): 400
+        }
+        default_error_code = 500
+        return http_error_map.get(self.error_code, default_error_code)
 
 
 class RestException(MlflowException):
