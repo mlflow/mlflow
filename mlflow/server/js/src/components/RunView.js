@@ -11,12 +11,13 @@ import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
-import { MLFLOW_INTERNAL_PREFIX } from "../utils/TagUtils";
 import { NoteInfo } from "../utils/NoteUtils";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
 import NoteEditorView from "./NoteEditorView";
 import NoteShowView from "./NoteShowView";
+import EditableTagsTableView from './EditableTagsTableView';
+import { Icon } from 'antd';
 
 
 const NOTES_KEY = 'notes';
@@ -36,7 +37,7 @@ class RunView extends Component {
     this.handleSubmittedNote = this.handleSubmittedNote.bind(this);
     this.handleNoteEditorViewCancel = this.handleNoteEditorViewCancel.bind(this);
     this.renderNoteSection = this.renderNoteSection.bind(this);
-    this.state.showTags = getVisibleTagValues(props.tags).length > 0;
+    this.state.showTags = Utils.getVisibleTagValues(props.tags).length > 0;
   }
 
   static propTypes = {
@@ -166,7 +167,7 @@ class RunView extends Component {
   }
 
   render() {
-    const { run, params, tags, latestMetrics, getMetricPagePath } = this.props;
+    const { runUuid, run, params, tags, latestMetrics, getMetricPagePath } = this.props;
     const noteInfo = NoteInfo.fromRunTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
@@ -206,7 +207,7 @@ class RunView extends Component {
              </Dropdown.Menu>
           </Dropdown>
           <RenameRunModal
-            runUuid={this.props.runUuid}
+            runUuid={runUuid}
             experimentId={this.props.experimentId}
             onClose={this.hideRenameRunModal}
             runName={this.props.runName}
@@ -219,7 +220,7 @@ class RunView extends Component {
           </div>
           <div className="run-info">
             <span className="metadata-header">Run ID: </span>
-            <span className="metadata-info">{run.getRunUuid()}</span>
+            <span className="metadata-info">{runUuid}</span>
           </div>
           <div className="run-info">
             <span className="metadata-header">Source: </span>
@@ -297,8 +298,8 @@ class RunView extends Component {
             </span>
             {!this.state.showNotes || !this.state.showNotesEditor ?
               <span>{' '}
-                <a onClick={this.handleExposeNotesEditorClick}>
-                  <i className={`fa fa-edit`}/>
+                <a onClick={this.handleExposeNotesEditorClick} >
+                  <Icon type="form" />
                 </a>
               </span>
               :
@@ -335,12 +336,10 @@ class RunView extends Component {
             {' '}Tags
           </h2>
           {this.state.showTags ?
-            <HtmlTableView
-              columns={["Name", "Value"]}
-              values={getVisibleTagValues(tags)}
-              styles={tableStyles}
-            /> :
-            null
+            <EditableTagsTableView
+              runUuid={runUuid}
+              tags={tags}
+            /> : null
           }
         </div>
           <div>
@@ -349,7 +348,7 @@ class RunView extends Component {
               {' '}Artifacts
             </h2>
             {this.state.showArtifacts ?
-              <ArtifactPage runUuid={this.props.runUuid} isHydrated/> :
+              <ArtifactPage runUuid={runUuid} isHydrated/> :
               null
             }
           </div>
@@ -386,15 +385,6 @@ export default connect(mapStateToProps)(RunView);
 const getParamValues = (params) => {
   return Object.values(params).sort().map((p) =>
     [p.getKey(), p.getValue()]
-  );
-};
-
-const getVisibleTagValues = (tags) => {
-  // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
-  return Object.values(tags).map((t) =>
-    [t.getKey(), t.getValue()]
-  ).filter(t =>
-    !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
   );
 };
 
