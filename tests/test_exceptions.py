@@ -1,8 +1,8 @@
 import json
 
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, TEMPORARILY_UNAVAILABLE, \
-    ENDPOINT_NOT_FOUND, INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INVALID_STATE, \
+    ENDPOINT_NOT_FOUND, INTERNAL_ERROR, RESOURCE_ALREADY_EXISTS
 
 
 class TestMlflowException(object):
@@ -20,11 +20,13 @@ class TestMlflowException(object):
         assert deserialized['error_code'] == 'INTERNAL_ERROR'
 
     def test_get_http_status_code(self):
-        assert MlflowException('text', error_code=TEMPORARILY_UNAVAILABLE).get_http_status_code() \
-             == 503
-        assert MlflowException('text', error_code=ENDPOINT_NOT_FOUND).get_http_status_code() \
+        assert MlflowException('test', error_code=INVALID_STATE).get_http_status_code() \
+             == 500
+        assert MlflowException('test', error_code=ENDPOINT_NOT_FOUND).get_http_status_code() \
             == 404
         assert MlflowException('test', error_code=INVALID_PARAMETER_VALUE).get_http_status_code() \
             == 400
         assert MlflowException('test', error_code=INTERNAL_ERROR).get_http_status_code() \
             == 500
+        assert MlflowException('test', error_code=RESOURCE_ALREADY_EXISTS).get_http_status_code() \
+            == 400
