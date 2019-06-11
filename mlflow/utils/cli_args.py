@@ -40,3 +40,5 @@ PORT = click.option("--port", "-p", default=5000,
                     help="The port to listen on (default: 5000).")
 WORKERS = click.option("--workers", "-w", default=4,
                        help="Number of gunicorn worker processes to handle requests (default: 4).")
+SOCKET = click.option("--socket", "-s", default=None,
+                    help="If a unix socket is prefered instead of a TCP host:port tuple")

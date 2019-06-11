@@ -55,7 +55,7 @@ class PyFuncBackend(FlavorBackend):
             scoring_server._predict(local_uri, input_path, output_path, content_type,
                                     json_format)
 
-    def serve(self, model_uri, port, host):
+    def serve(self, model_uri, port, host, socket):
         """
         Serve pyfunc model locally.
         """
@@ -63,10 +63,13 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
-        command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} "
+        if socket:
+            bind_address = "unix:{socket}".format(socket=socket)
+        else:
+            bind_address = "{host}:{port}".format(host=host, port=port)
+        command = ("gunicorn --timeout 60 -b {bind_address} -w {nworkers} "
                    "mlflow.pyfunc.scoring_server.wsgi:app").format(
-                     host=host,
-                     port=port,
+                     bind_address=bind_address,
                      nworkers=self._nworkers)
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
