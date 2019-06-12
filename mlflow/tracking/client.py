@@ -282,7 +282,8 @@ class MlflowClient(object):
         :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                               defined in :py:class:`mlflow.entities.ViewType`.
         :param max_results: Maximum number of runs desired.
-        :param order_by: List of keys to order by.
+        :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
+                         ordering is to sort by start_time DESC, then run_id.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
