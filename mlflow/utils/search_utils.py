@@ -178,6 +178,24 @@ class SearchUtils(object):
         return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, Comparison)]
 
     @classmethod
+    def _parse_search_filter(cls, filter_string):
+        if not filter_string:
+            return []
+        try:
+            parsed = sqlparse.parse(filter_string)
+        except Exception:
+            raise MlflowException("Error on parsing filter '%s'" % filter_string,
+                                  error_code=INVALID_PARAMETER_VALUE)
+        if len(parsed) == 0 or not isinstance(parsed[0], Statement):
+            raise MlflowException("Invalid filter '%s'. Could not be parsed." %
+                                  filter_string, error_code=INVALID_PARAMETER_VALUE)
+        elif len(parsed) > 1:
+            raise MlflowException("Search filter contained multiple expression '%s'. "
+                                  "Provide AND-ed expression list." % filter_string,
+                                  error_code=INVALID_PARAMETER_VALUE)
+        return SearchUtils._process_statement(parsed[0])
+
+    @classmethod
     def _does_run_match_clause(cls, run, sed):
         key_type = sed.get('type')
         key = sed.get('key')
@@ -227,24 +245,6 @@ class SearchUtils(object):
             return lhs < value
         else:
             return False
-
-    @classmethod
-    def _parse_search_filter(cls, filter_string):
-        if not filter_string:
-            return []
-        try:
-            parsed = sqlparse.parse(filter_string)
-        except Exception:
-            raise MlflowException("Error on parsing filter '%s'" % filter_string,
-                                  error_code=INVALID_PARAMETER_VALUE)
-        if len(parsed) == 0 or not isinstance(parsed[0], Statement):
-            raise MlflowException("Invalid filter '%s'. Could not be parsed." %
-                                  filter_string, error_code=INVALID_PARAMETER_VALUE)
-        elif len(parsed) > 1:
-            raise MlflowException("Search filter contained multiple expression '%s'. "
-                                  "Provide AND-ed expression list." % filter_string,
-                                  error_code=INVALID_PARAMETER_VALUE)
-        return SearchUtils._process_statement(parsed[0])
 
     @classmethod
     def filter(cls, runs, filter_string):
