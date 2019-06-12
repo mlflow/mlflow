@@ -1,4 +1,3 @@
-import collections
 import sqlparse
 from sqlparse.sql import Identifier, Token, Comparison, Statement
 from sqlparse.tokens import Token as TokenType
@@ -53,7 +52,7 @@ class SearchUtils(object):
         Values of type strings are expected to have quotes.
         Keys containing special characters are also expected to be enclose in quotes.
         """
-        if cls._is_quoted(value, "'") or cls._is_quoted(value, '"') or cls._is_quoted(value, '`'):
+        if cls._is_quoted(value, "'") or cls._is_quoted(value, '"'):
             return cls._trim_ends(value)
         elif expect_quoted_value:
             raise MlflowException("Parameter value is either not quoted or unidentified quote "
@@ -92,7 +91,7 @@ class SearchUtils(object):
                                   "'param.'." % identifier,
                                   error_code=INVALID_PARAMETER_VALUE)
         identifier = cls._valid_entity_type(entity_type)
-        key = cls._strip_quotes(key)
+        key = cls._trim_backticks(cls._strip_quotes(key))
         if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in cls.VALID_ATTRIBUTE_KEYS:
             raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
                                   " are '{}'".format(key, cls.VALID_ATTRIBUTE_KEYS))
@@ -280,12 +279,13 @@ class SearchUtils(object):
             is_ascending = False
             token_value = token_value[0:-len(" desc")]
         elif token_value.lower().endswith(" asc"):
-            token_value = token_value[0:-len(" false")]
-        identifier = cls._get_identifier(token_value)
+            token_value = token_value[0:-len(" asc")]
+        identifier = cls._get_identifier(token_value.strip())
         return (identifier["type"], identifier["key"], is_ascending)
 
     @classmethod
-    def _get_sort_key(cls, run, key_type, key, ascending):
+    def _get_value_for_sort(cls, run, key_type, key, ascending):
+        """Returns a tuple suitable to be used as a sort key for runs."""
         sort_value = None
         if key_type == cls._METRIC_IDENTIFIER:
             sort_value = run.data.metrics.get(key)
@@ -296,7 +296,7 @@ class SearchUtils(object):
         elif key_type == cls._ATTRIBUTE_IDENTIFIER:
             sort_value = getattr(run.info, key)
         else:
-            raise MlflowException("Invalid order_by attribute type '%s'" % key_type,
+            raise MlflowException("Invalid order_by entity type '%s'" % key_type,
                                   error_code=INVALID_PARAMETER_VALUE)
 
         # Return a key such that None values are always at the end.
@@ -316,6 +316,7 @@ class SearchUtils(object):
         # the ordering conditions in reverse order.
         for order_by_clause in reversed(order_by_list):
             (key_type, key, ascending) = cls._parse_order_by(order_by_clause)
-            runs = sorted(runs, key=lambda run: cls._get_sort_key(run, key_type, key, ascending),
+            # pylint: disable=cell-var-from-loop
+            runs = sorted(runs, key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
                           reverse=not ascending)
         return runs

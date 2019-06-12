@@ -464,7 +464,7 @@ class SqlAlchemyStore(AbstractStore):
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
     def search_runs(self, experiment_ids, filter_string, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_THRESHOLD, order_by=[]):
+                    max_results=SEARCH_MAX_RESULTS_THRESHOLD, order_by=None):
         # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "

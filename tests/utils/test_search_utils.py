@@ -137,6 +137,7 @@ def test_error_comparison_clauses(filter_string, error_message):
 @pytest.mark.parametrize("filter_string, error_message", [
     ("params.acc = LR", "value is either not quoted or unidentified quote types"),
     ("tags.acc = LR", "value is either not quoted or unidentified quote types"),
+    ("params.acc = `LR`", "value is either not quoted or unidentified quote types"),
     ("params.'acc = LR", "Invalid clause(s) in filter string"),
     ("params.acc = 'LR", "Invalid clause(s) in filter string"),
     ("params.acc = LR'", "Invalid clause(s) in filter string"),
@@ -235,15 +236,15 @@ def test_correct_filtering(filter_string, matching_runs):
     ([], [2, 1, 0]),
     (["tags.noSuchTag"], [2, 1, 0]),
     (["attributes.status"], [2, 0, 1]),
-    (["metrics.key1"], [0, 1, 2]),
-    (["metrics.\"key1\" DESC"], [2, 1, 0]),
+    (["metrics.key1 asc"], [0, 1, 2]),
+    (["metrics.\"key1\"  desc"], [2, 1, 0]),
     (["params.my_param"], [1, 0, 2]),
-    (["params.my_param", "attributes.status"], [0, 1, 2]),
+    (["params.my_param aSc", "attributes.status  ASC"], [0, 1, 2]),
     (["params.my_param", "attributes.status DESC"], [1, 0, 2]),
-    (["params.my_param DESC", "attributes.status DESC"], [2, 1, 0]),
+    (["params.my_param DESC", "attributes.status   DESC"], [2, 1, 0]),
     (["params.`my_param` DESC", "attributes.status DESC"], [2, 1, 0]),
     (["tags.tag1"], [1, 2, 0]),
-    (["tags.tag1 DESC"], [2, 1, 0]),
+    (["tags.tag1    DESC"], [2, 1, 0]),
 ])
 def test_correct_sorting(order_bys, matching_runs):
     runs = [
@@ -293,6 +294,7 @@ def test_correct_sorting(order_bys, matching_runs):
     ("attribute.run_id", "Invalid attribute key"),
     ("attribute.experiment_id", "Invalid attribute key"),
     ("metrics.A != 1", "Invalid order_by clause"),
+    ("params.my_param ", "Invalid order_by clause"),
 ])
 def test_invalid_order_by(order_by, error_message):
     with pytest.raises(MlflowException) as e:

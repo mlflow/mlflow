@@ -273,7 +273,7 @@ class MlflowClient(object):
     def search_runs(self, experiment_ids, filter_string="",
                     run_view_type=ViewType.ACTIVE_ONLY,
                     max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                    order_by=[]):
+                    order_by=None):
         """
         Search experiments that fit the search criteria.
 
