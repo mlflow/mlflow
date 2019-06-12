@@ -43,7 +43,7 @@ class AbstractStoreTestImpl(AbstractStore):
     def get_metric_history(self, run_id, metric_key):
         raise NotImplementedError()
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type,
+    def search_runs(self, experiment_ids, filter_string, run_view_type,
                     max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None):
         raise NotImplementedError()
 

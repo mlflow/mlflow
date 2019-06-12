@@ -74,7 +74,8 @@ def test_client_search_runs_defaults(mock_store):
     mock_store.search_runs.assert_called_once_with(experiment_ids=[1, 2, 3],
                                                    filter_string="",
                                                    run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None)
 
 
 def test_client_search_runs_filter(mock_store):
@@ -82,7 +83,8 @@ def test_client_search_runs_filter(mock_store):
     mock_store.search_runs.assert_called_once_with(experiment_ids=["a", "b", "c"],
                                                    filter_string="my filter",
                                                    run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None)
 
 
 def test_client_search_runs_view_type(mock_store):
@@ -90,7 +92,8 @@ def test_client_search_runs_view_type(mock_store):
     mock_store.search_runs.assert_called_once_with(experiment_ids=["a", "b", "c"],
                                                    filter_string="my filter",
                                                    run_view_type=ViewType.DELETED_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None)
 
 
 def test_client_search_runs_max_results(mock_store):
@@ -98,7 +101,8 @@ def test_client_search_runs_max_results(mock_store):
     mock_store.search_runs.assert_called_once_with(experiment_ids=[5],
                                                    filter_string="my filter",
                                                    run_view_type=ViewType.ALL,
-                                                   max_results=2876)
+                                                   max_results=2876,
+                                                   order_by=None)
 
 
 def test_client_search_runs_int_experiment_id(mock_store):
@@ -106,7 +110,8 @@ def test_client_search_runs_int_experiment_id(mock_store):
     mock_store.search_runs.assert_called_once_with(experiment_ids=[123],
                                                    filter_string="",
                                                    run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None)
 
 
 def test_client_search_runs_string_experiment_id(mock_store):
@@ -114,4 +119,14 @@ def test_client_search_runs_string_experiment_id(mock_store):
     mock_store.search_runs.assert_called_once_with(experiment_ids=["abc"],
                                                    filter_string="",
                                                    run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None)
+
+
+def test_client_search_runs_order_by(mock_store):
+    MlflowClient().search_runs([5], order_by=["a", "b"])
+    mock_store.search_runs.assert_called_once_with(experiment_ids=[5],
+                                                   filter_string="",
+                                                   run_view_type=ViewType.ACTIVE_ONLY,
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=["a", "b"])
