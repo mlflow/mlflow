@@ -808,11 +808,6 @@ message SearchRuns {
   // ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
   //
   // Supported operators are ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-  //
-  // You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-  // error will be returned if both are specified.
-  // If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-  // 
   optional string filter = 4;
 
   // Whether to display only active, only deleted, or all runs.
