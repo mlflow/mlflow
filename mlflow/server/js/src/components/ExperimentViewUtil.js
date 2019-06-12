@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
 import { SEARCH_MAX_RESULTS } from '../Actions';
+import { CollapsibleTagsCell } from './CollapsibleTagsCell';
 
 export default class ExperimentViewUtil {
   /** Returns checkbox cell for a row. */
@@ -41,7 +42,7 @@ export default class ExperimentViewUtil {
    * Returns table cells describing run metadata (i.e. not params/metrics) comprising part of
    * the display row for a run.
    */
-  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType) {
+  static getRunInfoCellsForRow(runInfo, tags, isParent, cellType, handleCellToggle) {
     const CellComponent = `${cellType}`;
     const user = Utils.formatUser(Utils.getUser(runInfo, tags));
     const queryParams = window.location && window.location.search ? window.location.search : "";
@@ -82,6 +83,11 @@ export default class ExperimentViewUtil {
           {Utils.renderVersion(tags)}
         </div>
       </CellComponent>,
+      <CellComponent className="run-table-container" key="meta-tags">
+        <div style={ExperimentViewUtil.styles.runInfoCell}>
+          <CollapsibleTagsCell tags={tags} onToggle={handleCellToggle}/>
+        </div>
+      </CellComponent>,
     ];
   }
 
@@ -116,7 +122,7 @@ export default class ExperimentViewUtil {
    */
   static getRunMetadataHeaderCells(onSortBy, sortState, cellType) {
     const CellComponent = `${cellType}`;
-    const getHeaderCell = (key, text) => {
+    const getHeaderCell = (key, text, sortable = true) => {
       const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, false, key);
       return (
         <CellComponent
@@ -125,7 +131,7 @@ export default class ExperimentViewUtil {
           onClick={() => onSortBy(false, false, key)}
         >
           <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
-          <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>
+          {sortable && <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>}
         </CellComponent>);
     };
     return [
@@ -134,6 +140,7 @@ export default class ExperimentViewUtil {
       getHeaderCell("run_name", <span>{"Run Name"}</span>),
       getHeaderCell("source", <span>{"Source"}</span>),
       getHeaderCell("source_version", <span>{"Version"}</span>),
+      getHeaderCell("tags", <span>Tags</span>, false),
     ];
   }
 
