@@ -107,7 +107,6 @@ class ExperimentPage extends Component {
   }
 
   updateUrlWithSearchFilter(state) {
-    console.log(this.props.history);
     const newUrl = `/experiments/${this.props.experimentId}` +
       `/s?${Utils.getSearchUrlFromState(state)}`;
     if (newUrl !== (this.props.history.location.pathname
