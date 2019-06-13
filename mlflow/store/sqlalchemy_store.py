@@ -408,7 +408,7 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
             self._get_or_create(model=SqlMetric, run_uuid=run_id, key=metric.key,
-                                value=metric.value, timestamp=metric.timestamp, step=metric.step,
+                                value=str(metric.value), timestamp=metric.timestamp, step=str(metric.step),
                                 session=session)
 
     def get_metric_history(self, run_id, metric_key):
