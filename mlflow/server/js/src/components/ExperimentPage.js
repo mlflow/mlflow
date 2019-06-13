@@ -25,9 +25,9 @@ class ExperimentPage extends Component {
     this.state = {
       ...ExperimentPage.getDefaultUnpersistedState(),
       persistedState: {
-        paramKeyFilterString: urlState.params,
-        metricKeyFilterString: urlState.metrics,
-        searchInput: urlState.search,
+        paramKeyFilterString: urlState.params === undefined ? "" : urlState.params,
+        metricKeyFilterString: urlState.metrics === undefined ? "" : urlState.metrics,
+        searchInput: urlState.search === undefined ? "" : urlState.search,
       },
     };
   }
@@ -36,7 +36,7 @@ class ExperimentPage extends Component {
     experimentId: PropTypes.number.isRequired,
     dispatchSearchRuns: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
-    searchString: PropTypes.string.isRequired,
+    //searchString: PropTypes.string.isRequired,
     location: PropTypes.object,
   };
 
@@ -108,8 +108,11 @@ class ExperimentPage extends Component {
   }
 
   updateUrlWithSearchFilter(state) {
-    this.props.history
-        .push(`/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(state)}`);
+    console.log(this.props.history);
+    const newUrl = `/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(state)}`;
+    if (newUrl !== (this.props.history.location.pathname + this.props.history.location.search)) {
+      this.props.history.push(`/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(state)}`);
+    }
   }
 
   render() {
