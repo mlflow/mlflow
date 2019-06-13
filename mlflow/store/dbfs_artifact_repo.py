@@ -19,6 +19,7 @@ DOWNLOAD_CHUNK_SIZE = 1024
 
 
 class DbfsArtifactRepository(ArtifactRepository):
+
     """
     Stores artifacts on DBFS.
 
@@ -48,7 +49,7 @@ class DbfsArtifactRepository(ArtifactRepository):
 
 class DbfsRestArtifactRepository(ArtifactRepository):
     """
-    Stores artifacts on DBFS.
+    Stores artifacts on DBFS using the DBFS REST API.
 
     This repository is used with URIs of the form ``dbfs:/<path>``. The repository can only be used
     together with the RestStore.
