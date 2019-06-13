@@ -23,8 +23,9 @@ by running the following from your checkout of MLflow:
     pip install -r test-requirements.txt
     pip install -e .  # installs mlflow from current checkout
 
+Ensure `Docker <https://www.docker.com/>`_ is installed.
 
-``npm`` is required to run the Javascript dev server.
+``npm`` is required to run the Javascript dev server and the tracking UI.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
 
