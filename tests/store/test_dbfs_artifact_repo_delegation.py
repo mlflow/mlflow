@@ -8,7 +8,7 @@ from mlflow.store.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.utils.rest_utils import MlflowHostCreds
 
 
-@mock.patch('mlflow.utils.databricks_utils.is_in_databricks_notebook')
+@mock.patch('mlflow.utils.databricks_utils.is_dbfs_fuse_available')
 def test_dbfs_artifact_repo_delegates_to_correct_repo(is_in_databricks_notebook):
     is_in_databricks_notebook.return_value = True
     artifact_uri = "dbfs:/my/absolute/dbfs/path"

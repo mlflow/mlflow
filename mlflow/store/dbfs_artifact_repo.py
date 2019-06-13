@@ -29,7 +29,7 @@ class DbfsArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         cleaned_artifact_uri = artifact_uri.rstrip('/')
         super(DbfsArtifactRepository, self).__init__(cleaned_artifact_uri)
-        if mlflow.utils.databricks_utils.is_in_databricks_notebook():
+        if mlflow.utils.databricks_utils.is_dbfs_fuse_available():
             self.repo = DbfsFuseArtifactRepository(cleaned_artifact_uri)
         else:
             self.repo = DbfsRestArtifactRepository(cleaned_artifact_uri)
