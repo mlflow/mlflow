@@ -221,7 +221,6 @@ class AbstractStore:
         runs, token = self._search_runs(experiment_ids, search_filter, run_view_type, max_results)
         return ListWithToken(runs, token)
 
-    # TODO: modify once https://github.com/mlflow/mlflow/pull/1437 is merged
     @abstractmethod
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by):
         """
