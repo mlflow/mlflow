@@ -17,7 +17,7 @@ Install `mlflow` followed by installing the `mlflow` runtime as follows:
 
 ``` r
 devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
-mlflow::mlflow_install()
+mlflow::install_mlflow()
 ```
 
 Notice also that [Anaconda](https://www.anaconda.com/download/) or
@@ -36,7 +36,7 @@ Then install the latest released `mlflow` runtime.
 
 ``` r
 # Install latest released version
-mlflow::mlflow_install()
+mlflow::install_mlflow()
 ```
 
 However, currently, the development runtime of `mlflow` is also
