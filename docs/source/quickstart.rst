@@ -6,24 +6,37 @@ Quickstart
 Installing MLflow
 -----------------
 
-You install MLflow by running:
+You install MLflow with extra dependencies by running:
 
-.. code-section::
+.. plain-section::
+  
+  .. container:: python
   
     .. code-block:: python
 
-        pip install mlflow
+      pip install mlflow[extras]
+      
+    where the extra dependencies are:
 
+    - ``scikit-learn`` when Python version >= '3.5'
+    - ``scikit-learn`` == 0.20 when Python version < '3.5'
+    - ``boto3`` >= 1.7.12
+    - ``mleap`` >= 0.8.1
+    - ``azure-storage``
+    - ``google-cloud-storage``
+  
+    .. note::
+
+        You cannot install MLflow on the MacOS system installation of Python. We recommend installing
+        Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
+        ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow[extras]``).
+
+  .. container:: R
+  
     .. code-block:: R
 
-        install.packages("mlflow")
-        mlflow::install_mlflow()
-
-.. note::
-
-    You cannot install MLflow on the MacOS system installation of Python. We recommend installing
-    Python 3 through the `Homebrew <https://brew.sh/>`_ package manager using
-    ``brew install python``. (In this case, installing MLflow is now ``pip3 install mlflow``).
+      install.packages("mlflow")
+      mlflow::install_mlflow()
 
 At this point we recommend you follow the :doc:`tutorial` for a walk-through on how you
 can leverage MLflow in your daily workflow.

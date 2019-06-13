@@ -347,11 +347,11 @@ useful if you quickly want to test a project in your existing shell environment.
 Run a project on Databricks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Support for running projects remotely on Databricks is in public preview. To use this feature, you must have an enterprise Databricks account (Community Edition is not supported) and you must have set up the `Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions in the Databricks docs (`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_, `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview of how to use the feature is as follows:
+You can run a project remotely on Databricks. To use this feature, you must have an enterprise Databricks account (Community Edition is not supported) and you must have set up the `Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions in the Databricks docs (`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_, `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview of how to use the feature is as follows:
 
 .. important::
 
-  Remote execution for MLflow projects with Docker environments is *not* currently supported.
+  Remote execution for MLflow projects with Docker environments is *not* supported.
 
 Create a JSON file containing the 
 `cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
