@@ -92,7 +92,7 @@ def catch_mlflow_exception(func):
         except MlflowException as e:
             response = Response(mimetype='application/json')
             response.set_data(e.serialize_as_json())
-            response.status_code = 500
+            response.status_code = e.get_http_status_code()
             return response
     return wrapper
 
