@@ -21,6 +21,7 @@ def dbfs_artifact_repo():
         get_creds_mock.return_value = lambda: MlflowHostCreds('http://host')
         return DbfsArtifactRepository('dbfs:/test/')
 
+
 TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
 TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
 TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
