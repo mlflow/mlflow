@@ -7,9 +7,9 @@ from mock import PropertyMock
 
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
 
-TEST_FILE_1_CONTENT = u"Hello 🍆🍔"
-TEST_FILE_2_CONTENT = u"World 🍆🍔🍆"
-TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!"
+TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
+TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
+TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
 
 
 @pytest.fixture()
@@ -42,18 +42,18 @@ def files_dir(tmpdir):
 @pytest.fixture()
 def test_file(files_dir):
     p = files_dir.join("test.txt")
-    with open(p.strpath, 'w') as f:
+    with open(p.strpath, 'wb') as f:
         f.write(TEST_FILE_1_CONTENT)
     return p
 
 
 @pytest.fixture()
 def test_dir(files_dir):
-    with open(files_dir.mkdir('subdir').join('test.txt').strpath, 'w') as f:
+    with open(files_dir.mkdir('subdir').join('test.txt').strpath, 'wb') as f:
         f.write(TEST_FILE_2_CONTENT)
-    with open(files_dir.join('test.txt').strpath, 'w') as f:
+    with open(files_dir.join('test.txt').strpath, 'wb') as f:
         f.write(TEST_FILE_3_CONTENT)
-    with open(files_dir.join('empty-file').strpath, 'w'):
+    with open(files_dir.join('empty-file').strpath, 'wb'):
         pass
     return files_dir
 
@@ -70,16 +70,16 @@ class TestDbfsFuseArtifactRepository(object):
         expected_file_path = os.path.join(
             artifact_dir,
             artifact_path if artifact_path else '', os.path.basename(test_file.strpath))
-        with open(expected_file_path, 'r') as handle:
+        with open(expected_file_path, 'rb') as handle:
             data = handle.read()
         assert data == TEST_FILE_1_CONTENT
 
     def test_log_artifact_empty_file(self, dbfs_fuse_artifact_repo, test_dir, artifact_dir):
         dbfs_fuse_artifact_repo.log_artifact(os.path.join(test_dir.strpath, "empty-file"))
         expected_file_path = os.path.join(artifact_dir, "empty-file")
-        with open(expected_file_path, 'r') as handle:
+        with open(expected_file_path, 'rb') as handle:
             data = handle.read()
-        assert data == ""
+        assert data == "".encode("utf-8")
 
     @pytest.mark.parametrize("artifact_path", [
         None,
@@ -94,10 +94,10 @@ class TestDbfsFuseArtifactRepository(object):
         expected_contents = {
             "subdir/test.txt": TEST_FILE_2_CONTENT,
             "test.txt": TEST_FILE_3_CONTENT,
-            "empty-file": "",
+            "empty-file": "".encode("utf-8"),
         }
         for filename, contents in expected_contents.items():
-            with open(os.path.join(artifact_dst_path, filename), 'r') as handle:
+            with open(os.path.join(artifact_dst_path, filename), 'rb') as handle:
                 assert handle.read() == contents
 
     def test_list_artifacts(self, dbfs_fuse_artifact_repo, test_dir):
@@ -121,8 +121,8 @@ class TestDbfsFuseArtifactRepository(object):
         expected_contents = {
             "subdir/test.txt": TEST_FILE_2_CONTENT,
             "test.txt": TEST_FILE_3_CONTENT,
-            "empty-file": "",
+            "empty-file": "".encode("utf-8"),
         }
         for filename, contents in expected_contents.items():
-            with open(os.path.join(local_download_dir, filename), 'r') as handle:
+            with open(os.path.join(local_download_dir, filename), 'rb') as handle:
                 assert handle.read() == contents

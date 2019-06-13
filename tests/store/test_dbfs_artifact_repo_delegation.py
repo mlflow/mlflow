@@ -1,3 +1,4 @@
+import os
 import mock
 
 from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
@@ -14,7 +15,8 @@ def test_dbfs_artifact_repo_delegates_to_correct_repo(is_in_databricks_notebook)
     repo = DbfsArtifactRepository(artifact_uri)
     child_repo = repo.repo
     assert isinstance(child_repo, DbfsFuseArtifactRepository)
-    assert child_repo.artifact_dir == "/dbfs/my/absolute/dbfs/path"
+    assert child_repo.artifact_dir == os.path.join(
+        os.path.sep, "dbfs", "my", "absolute", "dbfs", "path")
     is_in_databricks_notebook.return_value = False
     with mock.patch('mlflow.store.dbfs_artifact_repo._get_host_creds_from_default_store') \
             as get_creds_mock:
