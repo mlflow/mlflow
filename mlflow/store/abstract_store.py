@@ -209,7 +209,7 @@ class AbstractStore:
 
         :param experiment_ids: List of experiment ids to scope the search
         :param filter_string: A search filter string.
-        :param run_view_type: ACTIVE, DELETED, or ALL runs
+        :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
         :param max_results: Maximum number of runs desired.
         :param order_by: List of order_by clauses.
 
@@ -221,17 +221,16 @@ class AbstractStore:
         runs, token = self._search_runs(experiment_ids, search_filter, run_view_type, max_results)
         return ListWithToken(runs, token)
 
+    # TODO: modify once https://github.com/mlflow/mlflow/pull/1437 is merged
     @abstractmethod
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by):
         """
-        Return runs that match the given list of search expressions within the experiments.
-        Given multiple search expressions, all these expressions are ANDed together for search.
+        Return runs that match the given list of search expressions within the experiments, as
+        well as a pagination token (indicating where the next page should start). Subclasses of
+        ``AbstractStore`` should implement this method to support pagination instead of
+        ``search_runs``.
 
-        :param experiment_ids: List of experiment ids to scope the search
-        :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
-            search expression or filter string
-        :param run_view_type: ACTIVE, DELETED, or ALL runs
-        :param max_results: Maximum number of runs desired.
+        See ``search_runs`` for parameter descriptions.
 
         :return: A tuple of ``runs`` and ``token`` where ``runs`` is a list of
             :py:class:`mlflow.entities.Run` objects that satisfy the search expressions,

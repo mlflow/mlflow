@@ -7,7 +7,7 @@ from alembic.script import ScriptDirectory
 import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
+from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD, SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
 from mlflow.store.dbmodels.db_types import MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
 from mlflow.entities import RunStatus, SourceType, Experiment
@@ -476,8 +476,7 @@ class SqlAlchemyStore(AbstractStore):
                     for run in self._list_runs(session, exp, run_view_type)]
             filtered = SearchUtils.filter(runs, filter_string)
             runs = SearchUtils.sort(filtered, order_by)[:max_results]
-            token = "PAGINATION_TOKEN_NOT_IMPLEMENTED"
-            return runs, token
+            return runs, SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(

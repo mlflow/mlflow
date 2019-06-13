@@ -1,6 +1,6 @@
 import json
 
-from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
+from mlflow.store import SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
 from mlflow.store.abstract_store import AbstractStore
 
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
@@ -230,12 +230,11 @@ class RestStore(AbstractStore):
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]
-        # TODO: once we have the proto files with token, return the token along with runs in a tuple.
-        #       also add tests for working with a valid token
+        # TODO: once we have the proto files with token, return the token along with runs in a
+        #       tuple. also add tests for working with a valid token
         # Perhaps returning None (instead of this arbitrary string) would be easier for the user
         # to work with.
-        token = "PAGINATION_TOKEN_NOT_IMPLEMENTED"
-        return (runs, token)
+        return runs, SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
 
     def delete_run(self, run_id):
         req_body = message_to_json(DeleteRun(run_id=run_id))

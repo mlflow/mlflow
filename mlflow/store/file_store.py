@@ -13,7 +13,8 @@ from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
-from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
+from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD, \
+    SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
     _validate_tag_name, _validate_experiment_id, \
@@ -545,8 +546,7 @@ class FileStore(AbstractStore):
             runs.extend(self.get_run(r.run_id) for r in run_infos)
         filtered = SearchUtils.filter(runs, filter_string)
         runs = SearchUtils.sort(filtered, order_by)[:max_results]
-        token = "PAGINATION_TOKEN_NOT_IMPLEMENTED"
-        return (runs, token)
+        return runs, SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
 
     def log_metric(self, run_id, metric):
         _validate_run_id(run_id)
