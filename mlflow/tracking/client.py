@@ -17,7 +17,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 
 class MlflowClient(object):
-    """Client of an MLflow Tracking Server that creates and manages experiments and runs.
+    """
+    Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
 
     def __init__(self, tracking_uri=None):
@@ -286,7 +287,8 @@ class MlflowClient(object):
                          ordering is to sort by start_time DESC, then run_id.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions
+            expressions. If the underlying tracking store supports pagination, the token for
+            the next page may be obtained via the ``token`` attribute of the returned object.
         """
         if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
             experiment_ids = [experiment_ids]

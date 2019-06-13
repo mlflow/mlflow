@@ -4,6 +4,13 @@ from mlflow.entities import ViewType
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 
 
+class ListWithToken(list):
+
+    def __init__(self, items, token):
+        super(ListWithToken, self).__init__(items)
+        self.token = token
+
+
 class AbstractStore:
     """
     Abstract class for Backend Storage.
@@ -195,7 +202,6 @@ class AbstractStore:
         """
         pass
 
-    @abstractmethod
     def search_runs(self, experiment_ids, filter_string, run_view_type,
                     max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None):
         """
@@ -208,7 +214,28 @@ class AbstractStore:
         :param order_by: List of order_by clauses.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions
+            expressions. The pagination token for the next page can be obtained via the ``token``
+            attribute of the object; however, some store implementations may not support pagination
+            and thus the returned token would not be meaningful in such cases.
+        """
+        runs, token = self._search_runs(experiment_ids, search_filter, run_view_type, max_results)
+        return ListWithToken(runs, token)
+
+    @abstractmethod
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by):
+        """
+        Return runs that match the given list of search expressions within the experiments.
+        Given multiple search expressions, all these expressions are ANDed together for search.
+
+        :param experiment_ids: List of experiment ids to scope the search
+        :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
+            search expression or filter string
+        :param run_view_type: ACTIVE, DELETED, or ALL runs
+        :param max_results: Maximum number of runs desired.
+
+        :return: A tuple of ``runs`` and ``token`` where ``runs`` is a list of
+            :py:class:`mlflow.entities.Run` objects that satisfy the search expressions,
+            and ``token`` is the pagination token for the next page of results.
         """
         pass
 
