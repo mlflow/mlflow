@@ -30,27 +30,22 @@ DBFS_ARTIFACT_REPOSITORY_PACKAGE = 'mlflow.store.dbfs_artifact_repo.DbfsRestArti
 
 
 @pytest.fixture()
-def files_dir(tmpdir):
-    return tmpdir.mkdir("files")
-
-
-@pytest.fixture()
-def test_file(files_dir):
-    p = files_dir.join("test.txt")
+def test_file(tmpdir):
+    p = tmpdir.join("test.txt")
     with open(p.strpath, 'wb') as f:
         f.write(TEST_FILE_1_CONTENT)
     return p
 
 
 @pytest.fixture()
-def test_dir(files_dir):
-    with open(files_dir.mkdir('subdir').join('test.txt').strpath, 'wb') as f:
+def test_dir(tmpdir):
+    with open(tmpdir.mkdir('subdir').join('test.txt').strpath, 'wb') as f:
         f.write(TEST_FILE_2_CONTENT)
-    with open(files_dir.join('test.txt').strpath, 'wb') as f:
+    with open(tmpdir.join('test.txt').strpath, 'wb') as f:
         f.write(bytes(TEST_FILE_3_CONTENT))
-    with open(files_dir.join('empty-file').strpath, 'w'):
+    with open(tmpdir.join('empty-file').strpath, 'w'):
         pass
-    return files_dir
+    return tmpdir
 
 
 LIST_ARTIFACTS_RESPONSE = {
