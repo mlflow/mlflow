@@ -36,7 +36,6 @@ class ExperimentPage extends Component {
     experimentId: PropTypes.number.isRequired,
     dispatchSearchRuns: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
-    //searchString: PropTypes.string.isRequired,
     location: PropTypes.object,
   };
 
@@ -109,9 +108,11 @@ class ExperimentPage extends Component {
 
   updateUrlWithSearchFilter(state) {
     console.log(this.props.history);
-    const newUrl = `/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(state)}`;
-    if (newUrl !== (this.props.history.location.pathname + this.props.history.location.search)) {
-      this.props.history.push(`/experiments/${this.props.experimentId}/s?${Utils.getSearchUrlFromState(state)}`);
+    const newUrl = `/experiments/${this.props.experimentId}` +
+      `/s?${Utils.getSearchUrlFromState(state)}`;
+    if (newUrl !== (this.props.history.location.pathname
+      + this.props.history.location.search)) {
+      this.props.history.push(newUrl);
     }
   }
 

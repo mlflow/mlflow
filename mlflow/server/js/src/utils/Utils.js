@@ -351,7 +351,6 @@ class Utils {
 
   static getSearchParamsFromUrl(search) {
     const params = qs.parse(search, {ignoreQueryPrefix: true});
-    debugger;
     const str = JSON.stringify(params,
       function replaceUndefined(key, value) {
         return (value === undefined) ? "" : value;
