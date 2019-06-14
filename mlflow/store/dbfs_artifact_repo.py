@@ -20,13 +20,13 @@ USE_FUSE_ENV_VAR = "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO"
 
 
 class DbfsArtifactRepository(ArtifactRepository):
-
     """
     Stores artifacts on DBFS.
 
     This repository is used with URIs of the form ``dbfs:/<path>``. The repository can only be used
     together with the RestStore.
     """
+
     def __init__(self, artifact_uri):
         cleaned_artifact_uri = artifact_uri.rstrip('/')
         super(DbfsArtifactRepository, self).__init__(cleaned_artifact_uri)

@@ -1,5 +1,5 @@
-import os
 import logging
+import subprocess
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -40,8 +40,7 @@ def is_in_databricks_notebook():
 
 
 def is_dbfs_fuse_available():
-    code = os.system("mountpoint /dbfs")
-    return code == 0
+    return subprocess.call(["mountpoint", "/dbfs"]) == 0
 
 
 def get_notebook_id():
