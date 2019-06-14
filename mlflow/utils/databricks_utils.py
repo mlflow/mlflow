@@ -37,7 +37,7 @@ def _get_property_from_spark_context_or_none(property):
         task_context = TaskContext.get()
         if task_context:
             return task_context.getLocalProperty(property)
-    except ImportError:
+    except Exception:  # pylint: disable=broad-except
         return None
 
 
