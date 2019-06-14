@@ -16,6 +16,7 @@ import mlflow.utils.databricks_utils
 LIST_API_ENDPOINT = '/api/2.0/dbfs/list'
 GET_STATUS_ENDPOINT = '/api/2.0/dbfs/get-status'
 DOWNLOAD_CHUNK_SIZE = 1024
+USE_FUSE_ENV_VAR = "MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO"
 
 
 class DbfsArtifactRepository(ArtifactRepository):
@@ -29,7 +30,8 @@ class DbfsArtifactRepository(ArtifactRepository):
     def __init__(self, artifact_uri):
         cleaned_artifact_uri = artifact_uri.rstrip('/')
         super(DbfsArtifactRepository, self).__init__(cleaned_artifact_uri)
-        if mlflow.utils.databricks_utils.is_dbfs_fuse_available():
+        if mlflow.utils.databricks_utils.is_dbfs_fuse_available() \
+                and os.environ.get(USE_FUSE_ENV_VAR, "").lower() != "false":
             self.repo = DbfsFuseArtifactRepository(cleaned_artifact_uri)
         else:
             self.repo = DbfsRestArtifactRepository(cleaned_artifact_uri)
