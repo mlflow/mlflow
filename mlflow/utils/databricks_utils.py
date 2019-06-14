@@ -31,7 +31,7 @@ def _get_extra_context(context_key):
     return java_dbutils.notebook().getContext().extraContext().get(context_key).get()
 
 
-def _get_property_from_spark_context_or_none(property):
+def _get_property_from_spark_context(property):
     try:
         from pyspark import TaskContext  # pylint: disable=import-error
         task_context = TaskContext.get()
