@@ -30545,10 +30545,6 @@ public final class Service {
      * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
      * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
      * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-     * error will be returned if both are specified.
-     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -30563,10 +30559,6 @@ public final class Service {
      * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
      * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
      * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-     * error will be returned if both are specified.
-     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -30581,10 +30573,6 @@ public final class Service {
      * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
      * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
      * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-     * error will be returned if both are specified.
-     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -30627,6 +30615,57 @@ public final class Service {
      * <code>optional int32 max_results = 5 [default = 1000];</code>
      */
     int getMaxResults();
+
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    java.util.List<java.lang.String>
+        getOrderByList();
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    int getOrderByCount();
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    java.lang.String getOrderBy(int index);
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    com.google.protobuf.ByteString
+        getOrderByBytes(int index);
   }
   /**
    * Protobuf type {@code mlflow.SearchRuns}
@@ -30645,6 +30684,7 @@ public final class Service {
       filter_ = "";
       runViewType_ = 1;
       maxResults_ = 1000;
+      orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
@@ -30703,6 +30743,15 @@ public final class Service {
               maxResults_ = input.readInt32();
               break;
             }
+            case 50: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
+                orderBy_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000010;
+              }
+              orderBy_.add(bs);
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -30720,6 +30769,9 @@ public final class Service {
       } finally {
         if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
           experimentIds_ = experimentIds_.getUnmodifiableView();
+        }
+        if (((mutable_bitField0_ & 0x00000010) == 0x00000010)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -31689,10 +31741,6 @@ public final class Service {
      * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
      * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
      * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-     * error will be returned if both are specified.
-     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -31709,10 +31757,6 @@ public final class Service {
      * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
      * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
      * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-     * error will be returned if both are specified.
-     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -31740,10 +31784,6 @@ public final class Service {
      * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
      * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
      * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-     * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-     * error will be returned if both are specified.
-     * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-     * 
      * </pre>
      *
      * <code>optional string filter = 4;</code>
@@ -31812,6 +31852,67 @@ public final class Service {
       return maxResults_;
     }
 
+    public static final int ORDER_BY_FIELD_NUMBER = 6;
+    private com.google.protobuf.LazyStringList orderBy_;
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    public com.google.protobuf.ProtocolStringList
+        getOrderByList() {
+      return orderBy_;
+    }
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    public int getOrderByCount() {
+      return orderBy_.size();
+    }
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    public java.lang.String getOrderBy(int index) {
+      return orderBy_.get(index);
+    }
+    /**
+     * <pre>
+     * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+     * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+     * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+     * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+     * (and this is the default ordering criterion if order_by is not provided).
+     * </pre>
+     *
+     * <code>repeated string order_by = 6;</code>
+     */
+    public com.google.protobuf.ByteString
+        getOrderByBytes(int index) {
+      return orderBy_.getByteString(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -31837,6 +31938,9 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         output.writeInt32(5, maxResults_);
+      }
+      for (int i = 0; i < orderBy_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, orderBy_.getRaw(i));
       }
       unknownFields.writeTo(output);
     }
@@ -31865,6 +31969,14 @@ public final class Service {
       if (((bitField0_ & 0x00000004) == 0x00000004)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(5, maxResults_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < orderBy_.size(); i++) {
+          dataSize += computeStringSizeNoTag(orderBy_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getOrderByList().size();
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -31898,6 +32010,8 @@ public final class Service {
         result = result && (getMaxResults()
             == other.getMaxResults());
       }
+      result = result && getOrderByList()
+          .equals(other.getOrderByList());
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -31924,6 +32038,10 @@ public final class Service {
       if (hasMaxResults()) {
         hash = (37 * hash) + MAX_RESULTS_FIELD_NUMBER;
         hash = (53 * hash) + getMaxResults();
+      }
+      if (getOrderByCount() > 0) {
+        hash = (37 * hash) + ORDER_BY_FIELD_NUMBER;
+        hash = (53 * hash) + getOrderByList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -32066,6 +32184,8 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000004);
         maxResults_ = 1000;
         bitField0_ = (bitField0_ & ~0x00000008);
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
 
@@ -32111,6 +32231,11 @@ public final class Service {
           to_bitField0_ |= 0x00000004;
         }
         result.maxResults_ = maxResults_;
+        if (((bitField0_ & 0x00000010) == 0x00000010)) {
+          orderBy_ = orderBy_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000010);
+        }
+        result.orderBy_ = orderBy_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -32180,6 +32305,16 @@ public final class Service {
         }
         if (other.hasMaxResults()) {
           setMaxResults(other.getMaxResults());
+        }
+        if (!other.orderBy_.isEmpty()) {
+          if (orderBy_.isEmpty()) {
+            orderBy_ = other.orderBy_;
+            bitField0_ = (bitField0_ & ~0x00000010);
+          } else {
+            ensureOrderByIsMutable();
+            orderBy_.addAll(other.orderBy_);
+          }
+          onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -32350,10 +32485,6 @@ public final class Service {
        * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
        * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
        * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-       * error will be returned if both are specified.
-       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32370,10 +32501,6 @@ public final class Service {
        * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
        * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
        * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-       * error will be returned if both are specified.
-       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32401,10 +32528,6 @@ public final class Service {
        * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
        * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
        * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-       * error will be returned if both are specified.
-       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32431,10 +32554,6 @@ public final class Service {
        * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
        * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
        * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-       * error will be returned if both are specified.
-       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32458,10 +32577,6 @@ public final class Service {
        * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
        * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
        * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-       * error will be returned if both are specified.
-       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32481,10 +32596,6 @@ public final class Service {
        * You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
        * ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
        * Supported operators are ``=``, ``!=``, ``&gt;``, ``&gt;=``, ``&lt;``, and ``&lt;=``.
-       * You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-       * error will be returned if both are specified.
-       * If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-       * 
        * </pre>
        *
        * <code>optional string filter = 4;</code>
@@ -32601,6 +32712,171 @@ public final class Service {
       public Builder clearMaxResults() {
         bitField0_ = (bitField0_ & ~0x00000008);
         maxResults_ = 1000;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureOrderByIsMutable() {
+        if (!((bitField0_ & 0x00000010) == 0x00000010)) {
+          orderBy_ = new com.google.protobuf.LazyStringArrayList(orderBy_);
+          bitField0_ |= 0x00000010;
+         }
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public com.google.protobuf.ProtocolStringList
+          getOrderByList() {
+        return orderBy_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public int getOrderByCount() {
+        return orderBy_.size();
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public java.lang.String getOrderBy(int index) {
+        return orderBy_.get(index);
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public com.google.protobuf.ByteString
+          getOrderByBytes(int index) {
+        return orderBy_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder setOrderBy(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder addOrderBy(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder addAllOrderBy(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureOrderByIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, orderBy_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder clearOrderBy() {
+        orderBy_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000010);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * List of columns to be ordered by, including attributes, params, metrics, and tags with an
+       * optional "DESC" or "ASC" annotation, where "ASC" is the default.
+       * Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+       * Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+       * (and this is the default ordering criterion if order_by is not provided).
+       * </pre>
+       *
+       * <code>repeated string order_by = 6;</code>
+       */
+      public Builder addOrderByBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureOrderByIsMutable();
+        orderBy_.add(value);
         onChanged();
         return this;
       }
@@ -40539,113 +40815,114 @@ public final class Service {
       "}\n\006GetRun\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\002 " +
       "\001(\t\032$\n\010Response\022\030\n\003run\030\001 \001(\0132\013.mlflow.Ru" +
       "n:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
-      "ponse]\"\331\001\n\nSearchRuns\022\026\n\016experiment_ids\030" +
+      "ponse]\"\353\001\n\nSearchRuns\022\026\n\016experiment_ids\030" +
       "\001 \003(\t\022\016\n\006filter\030\004 \001(\t\0224\n\rrun_view_type\030\003" +
       " \001(\0162\020.mlflow.ViewType:\013ACTIVE_ONLY\022\031\n\013m" +
-      "ax_results\030\005 \001(\005:\0041000\032%\n\010Response\022\031\n\004ru" +
-      "ns\030\001 \003(\0132\013.mlflow.Run:+\342?(\n&com.databric" +
-      "ks.rpc.RPC[$this.Response]\"\253\001\n\rListArtif" +
-      "acts\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\003 \001(\t\022\014" +
-      "\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010root_uri\030\001 \001" +
-      "(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileInfo:+\342?(" +
-      "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030\002 \001" +
-      "(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020GetMetricHisto" +
-      "ry\022\020\n\010run_uuid\030\001 \001(\t\022\016\n\006run_id\030\003 \001(\t\022\030\n\n" +
-      "metric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Response\022\037\n\007me" +
-      "trics\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n&com.da" +
-      "tabricks.rpc.RPC[$this.Response]\"\261\001\n\010Log" +
-      "Batch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(\0132\016" +
-      ".mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r.mlflow." +
-      "Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032\n\n\010R" +
-      "esponse:+\342?(\n&com.databricks.rpc.RPC[$th" +
-      "is.Response]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020" +
-      "\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceTy" +
-      "pe\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t" +
-      "\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007" +
-      "RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n" +
-      "\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\214\031\n\rMlflowService" +
-      "\022\306\001\n\020createExperiment\022\030.mlflow.CreateExp" +
-      "eriment\032!.mlflow.CreateExperiment.Respon" +
-      "se\"u\362\206\031q\n0\n\004POST\022\"/preview/mlflow/experi" +
-      "ments/create\032\004\010\002\020\000\n(\n\004POST\022\032/mlflow/expe" +
-      "riments/create\032\004\010\002\020\000\020\001*\021Create Experimen" +
-      "t\022\274\001\n\017listExperiments\022\027.mlflow.ListExper" +
-      "iments\032 .mlflow.ListExperiments.Response" +
-      "\"n\362\206\031j\n-\n\003GET\022 /preview/mlflow/experimen" +
-      "ts/list\032\004\010\002\020\000\n%\n\003GET\022\030/mlflow/experiment" +
-      "s/list\032\004\010\002\020\000\020\001*\020List Experiments\022\262\001\n\rget" +
-      "Experiment\022\025.mlflow.GetExperiment\032\036.mlfl" +
-      "ow.GetExperiment.Response\"j\362\206\031f\n,\n\003GET\022\037" +
-      "/preview/mlflow/experiments/get\032\004\010\002\020\000\n$\n" +
-      "\003GET\022\027/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016G" +
-      "et Experiment\022\306\001\n\020deleteExperiment\022\030.mlf" +
-      "low.DeleteExperiment\032!.mlflow.DeleteExpe" +
-      "riment.Response\"u\362\206\031q\n0\n\004POST\022\"/preview/" +
-      "mlflow/experiments/delete\032\004\010\002\020\000\n(\n\004POST\022" +
-      "\032/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021Del" +
-      "ete Experiment\022\314\001\n\021restoreExperiment\022\031.m" +
-      "lflow.RestoreExperiment\032\".mlflow.Restore" +
-      "Experiment.Response\"x\362\206\031t\n1\n\004POST\022#/prev" +
-      "iew/mlflow/experiments/restore\032\004\010\002\020\000\n)\n\004" +
-      "POST\022\033/mlflow/experiments/restore\032\004\010\002\020\000\020" +
-      "\001*\022Restore Experiment\022\306\001\n\020updateExperime" +
-      "nt\022\030.mlflow.UpdateExperiment\032!.mlflow.Up" +
-      "dateExperiment.Response\"u\362\206\031q\n0\n\004POST\022\"/" +
-      "preview/mlflow/experiments/update\032\004\010\002\020\000\n" +
-      "(\n\004POST\022\032/mlflow/experiments/update\032\004\010\002\020" +
-      "\000\020\001*\021Update Experiment\022\234\001\n\tcreateRun\022\021.m" +
-      "lflow.CreateRun\032\032.mlflow.CreateRun.Respo" +
-      "nse\"`\362\206\031\\\n)\n\004POST\022\033/preview/mlflow/runs/" +
-      "create\032\004\010\002\020\000\n!\n\004POST\022\023/mlflow/runs/creat" +
-      "e\032\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\tupdateRun\022\021.ml" +
-      "flow.UpdateRun\032\032.mlflow.UpdateRun.Respon" +
-      "se\"`\362\206\031\\\n)\n\004POST\022\033/preview/mlflow/runs/u" +
-      "pdate\032\004\010\002\020\000\n!\n\004POST\022\023/mlflow/runs/update" +
-      "\032\004\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\tdeleteRun\022\021.mlf" +
-      "low.DeleteRun\032\032.mlflow.DeleteRun.Respons" +
-      "e\"`\362\206\031\\\n)\n\004POST\022\033/preview/mlflow/runs/de" +
-      "lete\032\004\010\002\020\000\n!\n\004POST\022\023/mlflow/runs/delete\032" +
-      "\004\010\002\020\000\020\001*\nDelete Run\022\242\001\n\nrestoreRun\022\022.mlf" +
-      "low.RestoreRun\032\033.mlflow.RestoreRun.Respo" +
-      "nse\"c\362\206\031_\n*\n\004POST\022\034/preview/mlflow/runs/" +
-      "restore\032\004\010\002\020\000\n\"\n\004POST\022\024/mlflow/runs/rest" +
-      "ore\032\004\010\002\020\000\020\001*\013Restore Run\022\244\001\n\tlogMetric\022\021" +
-      ".mlflow.LogMetric\032\032.mlflow.LogMetric.Res" +
-      "ponse\"h\362\206\031d\n-\n\004POST\022\037/preview/mlflow/run" +
-      "s/log-metric\032\004\010\002\020\000\n%\n\004POST\022\027/mlflow/runs" +
-      "/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logP" +
-      "aram\022\020.mlflow.LogParam\032\031.mlflow.LogParam" +
-      ".Response\"m\362\206\031i\n0\n\004POST\022\"/preview/mlflow" +
-      "/runs/log-parameter\032\004\010\002\020\000\n(\n\004POST\022\032/mlfl" +
-      "ow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param" +
-      "\022\222\001\n\006setTag\022\016.mlflow.SetTag\032\027.mlflow.Set" +
-      "Tag.Response\"_\362\206\031[\n*\n\004POST\022\034/preview/mlf" +
-      "low/runs/set-tag\032\004\010\002\020\000\n\"\n\004POST\022\024/mlflow/" +
-      "runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\210\001\n\006getRun" +
-      "\022\016.mlflow.GetRun\032\027.mlflow.GetRun.Respons" +
-      "e\"U\362\206\031Q\n%\n\003GET\022\030/preview/mlflow/runs/get" +
-      "\032\004\010\002\020\000\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*" +
-      "\007Get Run\022\314\001\n\nsearchRuns\022\022.mlflow.SearchR" +
-      "uns\032\033.mlflow.SearchRuns.Response\"\214\001\362\206\031\207\001" +
-      "\n)\n\004POST\022\033/preview/mlflow/runs/search\032\004\010" +
-      "\002\020\000\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\n(" +
-      "\n\003GET\022\033/preview/mlflow/runs/search\032\004\010\002\020\000" +
-      "\020\001*\013Search Runs\022\260\001\n\rlistArtifacts\022\025.mlfl" +
-      "ow.ListArtifacts\032\036.mlflow.ListArtifacts." +
-      "Response\"h\362\206\031d\n+\n\003GET\022\036/preview/mlflow/a" +
-      "rtifacts/list\032\004\010\002\020\000\n#\n\003GET\022\026/mlflow/arti" +
-      "facts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\307\001\n\020g" +
-      "etMetricHistory\022\030.mlflow.GetMetricHistor" +
-      "y\032!.mlflow.GetMetricHistory.Response\"v\362\206" +
-      "\031r\n0\n\003GET\022#/preview/mlflow/metrics/get-h" +
-      "istory\032\004\010\002\020\000\n(\n\003GET\022\033/mlflow/metrics/get" +
-      "-history\032\004\010\002\020\000\020\001*\022Get Metric History\022\236\001\n" +
-      "\010logBatch\022\020.mlflow.LogBatch\032\031.mlflow.Log" +
-      "Batch.Response\"e\362\206\031a\n,\n\004POST\022\036/preview/m" +
-      "lflow/runs/log-batch\032\004\010\002\020\000\n$\n\004POST\022\026/mlf" +
-      "low/runs/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036\n" +
-      "\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      "ax_results\030\005 \001(\005:\0041000\022\020\n\010order_by\030\006 \003(\t" +
+      "\032%\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflow.Run:" +
+      "+\342?(\n&com.databricks.rpc.RPC[$this.Respo" +
+      "nse]\"\253\001\n\rListArtifacts\022\020\n\010run_uuid\030\001 \001(\t" +
+      "\022\016\n\006run_id\030\003 \001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Respon" +
+      "se\022\020\n\010root_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.ml" +
+      "flow.FileInfo:+\342?(\n&com.databricks.rpc.R" +
+      "PC[$this.Response]\";\n\010FileInfo\022\014\n\004path\030\001" +
+      " \001(\t\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"" +
+      "\250\001\n\020GetMetricHistory\022\020\n\010run_uuid\030\001 \001(\t\022\016" +
+      "\n\006run_id\030\003 \001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001" +
+      "\032+\n\010Response\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.M" +
+      "etric:+\342?(\n&com.databricks.rpc.RPC[$this" +
+      ".Response]\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022" +
+      "\037\n\007metrics\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006para" +
+      "ms\030\003 \003(\0132\r.mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016." +
+      "mlflow.RunTag\032\n\n\010Response:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]*6\n\010ViewTy" +
+      "pe\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n" +
+      "\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JO" +
+      "B\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350" +
+      "\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED" +
+      "\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\005" +
+      "2\214\031\n\rMlflowService\022\306\001\n\020createExperiment\022" +
+      "\030.mlflow.CreateExperiment\032!.mlflow.Creat" +
+      "eExperiment.Response\"u\362\206\031q\n0\n\004POST\022\"/pre" +
+      "view/mlflow/experiments/create\032\004\010\002\020\000\n(\n\004" +
+      "POST\022\032/mlflow/experiments/create\032\004\010\002\020\000\020\001" +
+      "*\021Create Experiment\022\274\001\n\017listExperiments\022" +
+      "\027.mlflow.ListExperiments\032 .mlflow.ListEx" +
+      "periments.Response\"n\362\206\031j\n-\n\003GET\022 /previe" +
+      "w/mlflow/experiments/list\032\004\010\002\020\000\n%\n\003GET\022\030" +
+      "/mlflow/experiments/list\032\004\010\002\020\000\020\001*\020List E" +
+      "xperiments\022\262\001\n\rgetExperiment\022\025.mlflow.Ge" +
+      "tExperiment\032\036.mlflow.GetExperiment.Respo" +
+      "nse\"j\362\206\031f\n,\n\003GET\022\037/preview/mlflow/experi" +
+      "ments/get\032\004\010\002\020\000\n$\n\003GET\022\027/mlflow/experime" +
+      "nts/get\032\004\010\002\020\000\020\001*\016Get Experiment\022\306\001\n\020dele" +
+      "teExperiment\022\030.mlflow.DeleteExperiment\032!" +
+      ".mlflow.DeleteExperiment.Response\"u\362\206\031q\n" +
+      "0\n\004POST\022\"/preview/mlflow/experiments/del" +
+      "ete\032\004\010\002\020\000\n(\n\004POST\022\032/mlflow/experiments/d" +
+      "elete\032\004\010\002\020\000\020\001*\021Delete Experiment\022\314\001\n\021res" +
+      "toreExperiment\022\031.mlflow.RestoreExperimen" +
+      "t\032\".mlflow.RestoreExperiment.Response\"x\362" +
+      "\206\031t\n1\n\004POST\022#/preview/mlflow/experiments" +
+      "/restore\032\004\010\002\020\000\n)\n\004POST\022\033/mlflow/experime" +
+      "nts/restore\032\004\010\002\020\000\020\001*\022Restore Experiment\022" +
+      "\306\001\n\020updateExperiment\022\030.mlflow.UpdateExpe" +
+      "riment\032!.mlflow.UpdateExperiment.Respons" +
+      "e\"u\362\206\031q\n0\n\004POST\022\"/preview/mlflow/experim" +
+      "ents/update\032\004\010\002\020\000\n(\n\004POST\022\032/mlflow/exper" +
+      "iments/update\032\004\010\002\020\000\020\001*\021Update Experiment" +
+      "\022\234\001\n\tcreateRun\022\021.mlflow.CreateRun\032\032.mlfl" +
+      "ow.CreateRun.Response\"`\362\206\031\\\n)\n\004POST\022\033/pr" +
+      "eview/mlflow/runs/create\032\004\010\002\020\000\n!\n\004POST\022\023" +
+      "/mlflow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022" +
+      "\234\001\n\tupdateRun\022\021.mlflow.UpdateRun\032\032.mlflo" +
+      "w.UpdateRun.Response\"`\362\206\031\\\n)\n\004POST\022\033/pre" +
+      "view/mlflow/runs/update\032\004\010\002\020\000\n!\n\004POST\022\023/" +
+      "mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022\234" +
+      "\001\n\tdeleteRun\022\021.mlflow.DeleteRun\032\032.mlflow" +
+      ".DeleteRun.Response\"`\362\206\031\\\n)\n\004POST\022\033/prev" +
+      "iew/mlflow/runs/delete\032\004\010\002\020\000\n!\n\004POST\022\023/m" +
+      "lflow/runs/delete\032\004\010\002\020\000\020\001*\nDelete Run\022\242\001" +
+      "\n\nrestoreRun\022\022.mlflow.RestoreRun\032\033.mlflo" +
+      "w.RestoreRun.Response\"c\362\206\031_\n*\n\004POST\022\034/pr" +
+      "eview/mlflow/runs/restore\032\004\010\002\020\000\n\"\n\004POST\022" +
+      "\024/mlflow/runs/restore\032\004\010\002\020\000\020\001*\013Restore R" +
+      "un\022\244\001\n\tlogMetric\022\021.mlflow.LogMetric\032\032.ml" +
+      "flow.LogMetric.Response\"h\362\206\031d\n-\n\004POST\022\037/" +
+      "preview/mlflow/runs/log-metric\032\004\010\002\020\000\n%\n\004" +
+      "POST\022\027/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\nL" +
+      "og Metric\022\246\001\n\010logParam\022\020.mlflow.LogParam" +
+      "\032\031.mlflow.LogParam.Response\"m\362\206\031i\n0\n\004POS" +
+      "T\022\"/preview/mlflow/runs/log-parameter\032\004\010" +
+      "\002\020\000\n(\n\004POST\022\032/mlflow/runs/log-parameter\032" +
+      "\004\010\002\020\000\020\001*\tLog Param\022\222\001\n\006setTag\022\016.mlflow.S" +
+      "etTag\032\027.mlflow.SetTag.Response\"_\362\206\031[\n*\n\004" +
+      "POST\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000" +
+      "\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007" +
+      "Set Tag\022\210\001\n\006getRun\022\016.mlflow.GetRun\032\027.mlf" +
+      "low.GetRun.Response\"U\362\206\031Q\n%\n\003GET\022\030/previ" +
+      "ew/mlflow/runs/get\032\004\010\002\020\000\n\035\n\003GET\022\020/mlflow" +
+      "/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n\nsearchRun" +
+      "s\022\022.mlflow.SearchRuns\032\033.mlflow.SearchRun" +
+      "s.Response\"\214\001\362\206\031\207\001\n)\n\004POST\022\033/preview/mlf" +
+      "low/runs/search\032\004\010\002\020\000\n!\n\004POST\022\023/mlflow/r" +
+      "uns/search\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow" +
+      "/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\022\260\001\n\rli" +
+      "stArtifacts\022\025.mlflow.ListArtifacts\032\036.mlf" +
+      "low.ListArtifacts.Response\"h\362\206\031d\n+\n\003GET\022" +
+      "\036/preview/mlflow/artifacts/list\032\004\010\002\020\000\n#\n" +
+      "\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016Li" +
+      "st Artifacts\022\307\001\n\020getMetricHistory\022\030.mlfl" +
+      "ow.GetMetricHistory\032!.mlflow.GetMetricHi" +
+      "story.Response\"v\362\206\031r\n0\n\003GET\022#/preview/ml" +
+      "flow/metrics/get-history\032\004\010\002\020\000\n(\n\003GET\022\033/" +
+      "mlflow/metrics/get-history\032\004\010\002\020\000\020\001*\022Get " +
+      "Metric History\022\236\001\n\010logBatch\022\020.mlflow.Log" +
+      "Batch\032\031.mlflow.LogBatch.Response\"e\362\206\031a\n," +
+      "\n\004POST\022\036/preview/mlflow/runs/log-batch\032\004" +
+      "\010\002\020\000\n$\n\004POST\022\026/mlflow/runs/log-batch\032\004\010\002" +
+      "\020\000\020\001*\tLog BatchB\036\n\024org.mlflow.api.proto\220" +
+      "\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -40876,7 +41153,7 @@ public final class Service {
     internal_static_mlflow_SearchRuns_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_descriptor,
-        new java.lang.String[] { "ExperimentIds", "Filter", "RunViewType", "MaxResults", });
+        new java.lang.String[] { "ExperimentIds", "Filter", "RunViewType", "MaxResults", "OrderBy", });
     internal_static_mlflow_SearchRuns_Response_descriptor =
       internal_static_mlflow_SearchRuns_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_SearchRuns_Response_fieldAccessorTable = new

@@ -23,7 +23,6 @@ from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import extract_db_type_from_uri
-from mlflow.utils.search_utils import SearchFilter
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
@@ -685,10 +684,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     # Tests for Search API
     def _search(self, experiment_id, filter_string=None,
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
-        search_filter = SearchFilter(filter_string=filter_string)
         exps = [experiment_id] if isinstance(experiment_id, int) else experiment_id
         return [r.info.run_id
-                for r in self.store.search_runs(exps, search_filter, run_view_type, max_results)]
+                for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)]
 
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')

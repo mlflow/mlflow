@@ -19,7 +19,6 @@ from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
 from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
-from mlflow.utils.search_utils import SearchFilter
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
@@ -402,9 +401,8 @@ class TestFileStore(unittest.TestCase):
 
     def _search(self, fs, experiment_id, filter_str=None,
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
-        search_filter = SearchFilter(filter_string=filter_str) if filter_str else None
         return [r.info.run_id
-                for r in fs.search_runs([experiment_id], search_filter, run_view_type, max_results)]
+                for r in fs.search_runs([experiment_id], filter_str, run_view_type, max_results)]
 
     def test_search_runs(self):
         # replace with test with code is implemented

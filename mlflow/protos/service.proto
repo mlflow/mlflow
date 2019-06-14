@@ -808,11 +808,6 @@ message SearchRuns {
   // ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
   //
   // Supported operators are ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-  //
-  // You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``
-  // error will be returned if both are specified.
-  // If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments
-  // 
   optional string filter = 4;
 
   // Whether to display only active, only deleted, or all runs.
@@ -821,6 +816,13 @@ message SearchRuns {
 
   // Maximum number of runs desired. Max threshold is 50000
   optional int32 max_results = 5 [default = 1000];
+
+  // List of columns to be ordered by, including attributes, params, metrics, and tags with an
+  // optional "DESC" or "ASC" annotation, where "ASC" is the default.
+  // Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]
+  // Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time
+  // (and this is the default ordering criterion if order_by is not provided).
+  repeated string order_by = 6;
 
   message Response {
     // Runs that match the search criteria.

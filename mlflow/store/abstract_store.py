@@ -196,17 +196,16 @@ class AbstractStore:
         pass
 
     @abstractmethod
-    def search_runs(self, experiment_ids, search_filter, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT):
+    def search_runs(self, experiment_ids, filter_string, run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None):
         """
         Return runs that match the given list of search expressions within the experiments.
-        Given multiple search expressions, all these expressions are ANDed together for search.
 
         :param experiment_ids: List of experiment ids to scope the search
-        :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
-            search expression or filter string
+        :param filter_string: A search filter string.
         :param run_view_type: ACTIVE, DELETED, or ALL runs
         :param max_results: Maximum number of runs desired.
+        :param order_by: List of order_by clauses.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions
