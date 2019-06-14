@@ -40,7 +40,10 @@ def is_in_databricks_notebook():
 
 
 def is_dbfs_fuse_available():
-    return subprocess.call(["mountpoint", "/dbfs"]) == 0
+    try:
+        return subprocess.call(["mountpoint", "/dbfs"]) == 0
+    except Exception:  # pylint: disable=broad-except
+        return False
 
 
 def get_notebook_id():
