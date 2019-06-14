@@ -52,9 +52,9 @@ def is_in_databricks_notebook():
 
 def get_notebook_id():
     """Should only be called if is_in_databricks_notebook is true"""
-    id = _get_property_from_spark_context("spark.databricks.notebook.id")
-    if id is not None:
-        return id
+    notebook_id = _get_property_from_spark_context("spark.databricks.notebook.id")
+    if notebook_id is not None:
+        return notebook_id
     acl_path = _get_extra_context("aclPathOfAclRoot")
     if acl_path.startswith('/workspace'):
         return acl_path.split('/')[-1]
