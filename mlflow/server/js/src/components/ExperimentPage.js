@@ -28,6 +28,8 @@ class ExperimentPage extends Component {
         paramKeyFilterString: urlState.params === undefined ? "" : urlState.params,
         metricKeyFilterString: urlState.metrics === undefined ? "" : urlState.metrics,
         searchInput: urlState.search === undefined ? "" : urlState.search,
+        orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
+        orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc,
       },
     };
   }
@@ -81,28 +83,49 @@ class ExperimentPage extends Component {
         [props.experimentId],
         newState.persistedState.searchInput,
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
+        [],
         newState.searchRunsRequestId));
       return newState;
     }
     return null;
   }
 
-  onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
+  onSearch(
+      paramKeyFilterString,
+      metricKeyFilterString,
+      searchInput,
+      lifecycleFilterInput,
+      orderByKey,
+      orderByAsc) {
     this.setState({
       persistedState: new ExperimentPagePersistedState({
         paramKeyFilterString,
         metricKeyFilterString,
         searchInput,
+        orderByKey,
+        orderByAsc,
       }).toJSON(),
       lifecycleFilter: lifecycleFilterInput,
     });
+
+    let orderBy = [];
+    if (orderByKey) {
+      if (orderByAsc) {
+        orderBy = [orderByKey + " ASC"];
+      } else {
+        orderBy = [orderByKey + " DESC"];
+      }
+    }
+
     const searchRunsRequestId = this.props.dispatchSearchRuns(
-      this.props.experimentId, searchInput, lifecycleFilterInput);
+      this.props.experimentId, searchInput, lifecycleFilterInput, orderBy);
     this.setState({ searchRunsRequestId });
     this.updateUrlWithSearchFilter({
       params: paramKeyFilterString,
       metrics: metricKeyFilterString,
       search: searchInput,
+      orderByKey: orderByKey,
+      orderByAsc: orderByAsc,
     });
   }
 
@@ -140,6 +163,7 @@ class ExperimentPage extends Component {
             if (getExperimentRequest.active) {
               return <Spinner/>;
             }
+
             return <ExperimentView
               paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
               metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
@@ -150,6 +174,8 @@ class ExperimentPage extends Component {
               searchRunsError={searchRunsError}
               searchInput={this.state.persistedState.searchInput}
               isLoading={isLoading && !searchRunsError}
+              orderByKey={this.state.persistedState.orderByKey}
+              orderByAsc={this.state.persistedState.orderByAsc}
             />;
           }}
         </RequestStateWrapper>
@@ -165,10 +191,10 @@ class ExperimentPage extends Component {
 const mapDispatchToProps = (dispatch) => {
   return {
     dispatch,
-    dispatchSearchRuns: (experimentId, filter, lifecycleFilterInput) => {
+    dispatchSearchRuns: (experimentId, filter, lifecycleFilterInput, orderBy) => {
       const requestId = getUUID();
       dispatch(searchRunsApi([experimentId], filter,
-        lifecycleFilterToRunViewType(lifecycleFilterInput), requestId));
+        lifecycleFilterToRunViewType(lifecycleFilterInput), orderBy, requestId));
       return requestId;
     }
   };

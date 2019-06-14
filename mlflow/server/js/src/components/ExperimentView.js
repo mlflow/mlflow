@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import classNames from 'classnames';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
-import { getApis, getExperiment, getParams, getRunInfos, getRunTags } from '../reducers/Reducers';
+import { getApis, getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
@@ -46,6 +46,7 @@ export class ExperimentView extends Component {
     this.onCheckbox = this.onCheckbox.bind(this);
     this.onCheckAll = this.onCheckAll.bind(this);
     this.setSortBy = this.setSortBy.bind(this);
+    this.initiateSearch = this.initiateSearch.bind(this);
     this.onDeleteRun = this.onDeleteRun.bind(this);
     this.onRestoreRun = this.onRestoreRun.bind(this);
     this.onLifecycleFilterInput = this.onLifecycleFilterInput.bind(this);
@@ -87,6 +88,9 @@ export class ExperimentView extends Component {
 
     // Input to the lifecycleFilter field
     lifecycleFilter: PropTypes.string.isRequired,
+
+    orderByKey: PropTypes.string.isRequired,
+    orderByAsc: PropTypes.bool.isRequired,
 
     // The initial searchInput
     searchInput: PropTypes.string.isRequired,
@@ -137,6 +141,7 @@ export class ExperimentView extends Component {
    * Returns true if search filter text was updated, e.g. if a user entered new text into the
    * param filter, metric filter, or search text boxes.
    */
+  // TODO what are you
   filtersDidUpdate(prevState) {
     return prevState.paramKeyFilterInput !== this.state.paramKeyFilterInput ||
       prevState.metricKeyFilterInput !== this.state.metricKeyFilterInput ||
@@ -456,7 +461,8 @@ export class ExperimentView extends Component {
                   onCheckAll={this.onCheckAll}
                   isAllChecked={this.isAllChecked()}
                   onSortBy={this.onSortBy}
-                  sortState={this.state.persistedState.sort}
+                  orderByKey={this.props.orderByKey}
+                  orderByAsc={this.props.orderByAsc}
                   runsSelected={this.state.runsSelected}
                   runsExpanded={this.state.persistedState.runsExpanded}
                   onExpand={this.onExpand}
@@ -473,7 +479,8 @@ export class ExperimentView extends Component {
                   onCheckAll={this.onCheckAll}
                   isAllChecked={this.isAllChecked()}
                   onSortBy={this.onSortBy}
-                  sortState={this.state.persistedState.sort}
+                  orderByKey={this.props.orderByKey}
+                  orderByAsc={this.props.orderByAsc}
                   runsSelected={this.state.runsSelected}
                   setSortByHandler={this.setSortBy}
                   runsExpanded={this.state.persistedState.runsExpanded}
@@ -490,25 +497,38 @@ export class ExperimentView extends Component {
     );
   }
 
-  onSortBy(isMetric, isParam, key) {
-    const sort = this.state.persistedState.sort;
-    this.setSortBy(isMetric, isParam, key, !sort.ascending);
+  onSortBy(canonicalKeyName, ascending) {
+    this.setSortBy(canonicalKeyName, ascending);
   }
 
-  setSortBy(isMetric, isParam, key, ascending) {
-    const newSortState = {
-      ascending: ascending,
-      key: key,
-      isMetric: isMetric,
-      isParam: isParam
-    };
-    this.setState(
-      {
-        persistedState: new ExperimentViewPersistedState({
-          ...this.state.persistedState,
-          sort: newSortState,
-        }).toJSON(),
-      });
+  setSortBy(newOrderByKey, newOrderByAsc) {
+    this.initiateSearch({newOrderByKey, newOrderByAsc});
+  }
+
+  initiateSearch({
+      paramKeyFilterInput,
+      newMetricKeyFilterInput,
+      newSearchInput,
+      newLifecycleFilterInput,
+      newOrderByKey,
+      newOrderByAsc,
+    }) {
+    paramKeyFilterInput = (paramKeyFilterInput != null ?
+      paramKeyFilterInput : this.state.paramKeyFilterInput);
+    const metricKeyFilterInput = (newMetricKeyFilterInput != null ?
+      newMetricKeyFilterInput : this.state.metricKeyFilterInput);
+    const searchInput = (newSearchInput != null ? newSearchInput : this.state.searchInput);
+    const lifecycleFilterInput = (newLifecycleFilterInput != null ?
+      newLifecycleFilterInput : this.state.lifecycleFilterInput);
+    const orderByKey = (newOrderByKey != null ? newOrderByKey : this.state.orderByKey);
+    const orderByAsc = (newOrderByAsc != null ? newOrderByAsc : this.state.orderByAsc);
+
+    try {
+      this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
+        lifecycleFilterInput, orderByKey, orderByAsc);
+    } catch (ex) {
+      this.setState({ searchErrorMessage: ex.errorMessage });
+    }
   }
 
   onCheckbox(runUuid) {
@@ -600,12 +620,8 @@ export class ExperimentView extends Component {
       searchInput,
       lifecycleFilterInput
     } = this.state;
-    try {
-      this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
-        lifecycleFilterInput);
-    } catch (ex) {
-      this.setState({ searchErrorMessage: ex.errorMessage });
-    }
+    this.initiateSearch({paramKeyFilterInput, metricKeyFilterInput, searchInput,
+      lifecycleFilterInput});
   }
 
   onClear() {
@@ -616,7 +632,8 @@ export class ExperimentView extends Component {
     });
     this.setState({persistedState: newPersistedState.toJSON()}, () => {
       this.snapshotComponentState();
-      this.props.onSearch("", "", "", LIFECYCLE_FILTER.ACTIVE);
+      this.initiateSearch({paramKeyFilterInput: "", metricKeyFilterInput: "",
+        searchInput: "", lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE});
     });
   }
 
@@ -748,14 +765,15 @@ export const mapStateToProps = (state, ownProps) => {
   // The runUuids we should serve.
   let runUuids;
   if (searchRunApi.data && searchRunApi.data.runs) {
-    runUuids = new Set(searchRunApi.data.runs.map((r) => r.info.run_uuid));
+    runUuids = searchRunApi.data.runs.map((r) => r.info.run_uuid);
   } else {
-    runUuids = new Set();
+    runUuids = [];
   }
-  const runInfos = getRunInfos(state).filter((rInfo) =>
-    runUuids.has(rInfo.getRunUuid())
-  ).filter((rInfo) => {
-    if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
+  // const runInfos = getRunInfos(state).filter((rInfo) =>
+    // runUuids.has(rInfo.getRunUuid())
+    const runInfos = runUuids.map((run_id) => getRunInfo(run_id, state))
+    .filter((rInfo) => {
+      if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
       return rInfo.lifecycle_stage === 'active';
     } else {
       return rInfo.lifecycle_stage === 'deleted';
