@@ -38,6 +38,7 @@ def is_in_databricks_notebook():
     except Exception:  # pylint: disable=broad-except
         return False
 
+
 def is_dbfs_fuse_available():
     code = os.system("mountpoint /dbfs")
     return code == 0
