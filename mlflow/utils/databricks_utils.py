@@ -42,7 +42,7 @@ def _get_property_from_spark_context(property):
 
 
 def is_in_databricks_notebook():
-    if _get_property_from_spark_context_or_none("spark.databricks.notebook.id") is not None:
+    if _get_property_from_spark_context("spark.databricks.notebook.id") is not None:
         return True
     try:
         return _get_extra_context("aclPathOfAclRoot").startswith('/workspace')
@@ -52,7 +52,7 @@ def is_in_databricks_notebook():
 
 def get_notebook_id():
     """Should only be called if is_in_databricks_notebook is true"""
-    id = _get_property_from_spark_context_or_none("spark.databricks.notebook.id")
+    id = _get_property_from_spark_context("spark.databricks.notebook.id")
     if id is not None:
         return id
     acl_path = _get_extra_context("aclPathOfAclRoot")
@@ -63,7 +63,7 @@ def get_notebook_id():
 
 def get_notebook_path():
     """Should only be called if is_in_databricks_notebook is true"""
-    path = _get_property_from_spark_context_or_none("spark.databricks.notebook.path")
+    path = _get_property_from_spark_context("spark.databricks.notebook.path")
     if path is not None:
         return path
     return _get_extra_context("notebook_path")
@@ -71,7 +71,7 @@ def get_notebook_path():
 
 def get_webapp_url():
     """Should only be called if is_in_databricks_notebook is true"""
-    url = _get_property_from_spark_context_or_none("spark.databricks.api.url")
+    url = _get_property_from_spark_context("spark.databricks.api.url")
     if url is not None:
         return url
     return _get_extra_context("api_url")
