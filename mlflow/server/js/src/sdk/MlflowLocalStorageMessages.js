@@ -27,7 +27,10 @@ export const ExperimentPagePersistedState = Immutable.Record({
   metricKeyFilterString: "",
   // SQL-like query string used to filter runs, e.g. "params.alpha = '0.5'"
   searchInput: "",
+  // Canonical order_by key like "params.`alpha`". May be null to indicate the table
+  // should use the natural row ordering provided by the server.
   orderByKey: null,
+  // Whether the order imposed by orderByKey should be ascending or descending.
   orderByAsc: false,
 }, 'ExperimentPagePersistedState');
 /**

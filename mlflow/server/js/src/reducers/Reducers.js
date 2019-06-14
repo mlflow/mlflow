@@ -42,51 +42,8 @@ const experimentsById = (state = {}, action) => {
   }
 };
 
-export const getRunInfos = (state) => {
-  return Object.values(state.entities.runInfosByUuid).sort((a, b) => {
-    if (a.start_time < b.start_time) {
-      return 1;
-    } else if (a.start_time > b.start_time) {
-      return -1;
-    } else {
-      return 0;
-    }
-  });
-};
-
 export const getRunInfo = (runUuid, state) => {
   return state.entities.runInfosByUuid[runUuid];
-};
-
-const runInfos = (state = {}, action) => {
-  switch (action.type) {
-    case fulfilled(GET_EXPERIMENT_API): {
-      let newState = [];
-      if (action.payload && action.payload.runs) {
-        action.payload.runs.forEach((rJson) => {
-          const runInfo = RunInfo.fromJs(rJson);
-          newState.push(runInfo);
-        });
-      }
-      return newState;
-    }
-    case fulfilled(GET_RUN_API): {
-      const runInfo = RunInfo.fromJs(action.payload.run.info);
-      return [runInfo];
-    }
-    case fulfilled(SEARCH_RUNS_API): {
-      let newState = [];
-      if (action.payload && action.payload.runs) {
-        action.payload.runs.forEach((rJson) => {
-          const runInfo = RunInfo.fromJs(rJson);
-          newState.push(runInfo);
-        });
-      }
-      return newState;
-    }
-    default:
-      return state;
-  }
 };
 
 const runInfosByUuid = (state = {}, action) => {
@@ -291,7 +248,6 @@ const artifactRootUriByRunUuid = (state = {}, action) => {
 
 const entities = combineReducers({
   experimentsById,
-  runInfos,
   runInfosByUuid,
   metricsByRunUuid,
   latestMetricsByRunUuid,

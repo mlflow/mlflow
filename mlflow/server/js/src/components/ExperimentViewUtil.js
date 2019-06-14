@@ -122,7 +122,7 @@ export default class ExperimentViewUtil {
    */
   static getRunMetadataHeaderCells(onSortBy, curOrderByKey, curOrderByAsc, cellType) {
     const CellComponent = `${cellType}`;
-    const getHeaderCell = (key, text, canonicalSortKey, sortable = true) => {
+    const getHeaderCell = (key, text, canonicalSortKey) => {
       const sortIcon = ExperimentViewUtil.getSortIcon(curOrderByKey, curOrderByAsc,
         canonicalSortKey);
       return (

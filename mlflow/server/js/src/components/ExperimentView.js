@@ -45,7 +45,6 @@ export class ExperimentView extends Component {
     this.isAllChecked = this.isAllChecked.bind(this);
     this.onCheckbox = this.onCheckbox.bind(this);
     this.onCheckAll = this.onCheckAll.bind(this);
-    this.setSortBy = this.setSortBy.bind(this);
     this.initiateSearch = this.initiateSearch.bind(this);
     this.onDeleteRun = this.onDeleteRun.bind(this);
     this.onRestoreRun = this.onRestoreRun.bind(this);
@@ -141,7 +140,6 @@ export class ExperimentView extends Component {
    * Returns true if search filter text was updated, e.g. if a user entered new text into the
    * param filter, metric filter, or search text boxes.
    */
-  // TODO what are you
   filtersDidUpdate(prevState) {
     return prevState.paramKeyFilterInput !== this.state.paramKeyFilterInput ||
       prevState.metricKeyFilterInput !== this.state.metricKeyFilterInput ||
@@ -482,7 +480,6 @@ export class ExperimentView extends Component {
                   orderByKey={this.props.orderByKey}
                   orderByAsc={this.props.orderByAsc}
                   runsSelected={this.state.runsSelected}
-                  setSortByHandler={this.setSortBy}
                   runsExpanded={this.state.persistedState.runsExpanded}
                   onExpand={this.onExpand}
                   unbaggedMetrics={unbaggedMetricKeyList}
@@ -497,31 +494,27 @@ export class ExperimentView extends Component {
     );
   }
 
-  onSortBy(canonicalKeyName, ascending) {
-    this.setSortBy(canonicalKeyName, ascending);
-  }
-
-  setSortBy(newOrderByKey, newOrderByAsc) {
-    this.initiateSearch({newOrderByKey, newOrderByAsc});
+  onSortBy(orderByKey, orderByAsc) {
+    this.initiateSearch({orderByKey, orderByAsc});
   }
 
   initiateSearch({
       paramKeyFilterInput,
-      newMetricKeyFilterInput,
-      newSearchInput,
-      newLifecycleFilterInput,
-      newOrderByKey,
-      newOrderByAsc,
+      metricKeyFilterInput,
+      searchInput,
+      lifecycleFilterInput,
+      orderByKey,
+      orderByAsc,
     }) {
-    paramKeyFilterInput = (paramKeyFilterInput != null ?
+    paramKeyFilterInput = (paramKeyFilterInput !== null ?
       paramKeyFilterInput : this.state.paramKeyFilterInput);
-    const metricKeyFilterInput = (newMetricKeyFilterInput != null ?
-      newMetricKeyFilterInput : this.state.metricKeyFilterInput);
-    const searchInput = (newSearchInput != null ? newSearchInput : this.state.searchInput);
-    const lifecycleFilterInput = (newLifecycleFilterInput != null ?
-      newLifecycleFilterInput : this.state.lifecycleFilterInput);
-    const orderByKey = (newOrderByKey != null ? newOrderByKey : this.state.orderByKey);
-    const orderByAsc = (newOrderByAsc != null ? newOrderByAsc : this.state.orderByAsc);
+    metricKeyFilterInput = (metricKeyFilterInput !== null ?
+      metricKeyFilterInput : this.state.metricKeyFilterInput);
+    searchInput = (searchInput !== null ? searchInput : this.state.searchInput);
+    lifecycleFilterInput = (lifecycleFilterInput != null ?
+      lifecycleFilterInput : this.state.lifecycleFilterInput);
+    orderByKey = (orderByKey !== null ? orderByKey : this.state.orderByKey);
+    orderByAsc = (orderByAsc !== null ? orderByAsc : this.state.orderByAsc);
 
     try {
       this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
@@ -769,9 +762,7 @@ export const mapStateToProps = (state, ownProps) => {
   } else {
     runUuids = [];
   }
-  // const runInfos = getRunInfos(state).filter((rInfo) =>
-    // runUuids.has(rInfo.getRunUuid())
-    const runInfos = runUuids.map((run_id) => getRunInfo(run_id, state))
+  const runInfos = runUuids.map((run_id) => getRunInfo(run_id, state))
     .filter((rInfo) => {
       if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
       return rInfo.lifecycle_stage === 'active';
