@@ -19,6 +19,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.tracking.utils import _is_local_uri
 from mlflow.utils import extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
+from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id, _validate_metric
 from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
@@ -462,8 +463,8 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_THRESHOLD):
+    def search_runs(self, experiment_ids, filter_string, run_view_type,
+                    max_results=SEARCH_MAX_RESULTS_THRESHOLD, order_by=None):
         # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
@@ -474,9 +475,8 @@ class SqlAlchemyStore(AbstractStore):
             runs = [run.to_mlflow_entity()
                     for exp in experiment_ids
                     for run in self._list_runs(session, exp, run_view_type)]
-            filtered = [run for run in runs if not search_filter or search_filter.filter(run)]
-            return sorted(filtered,
-                          key=lambda r: (-r.info.start_time, r.info.run_uuid))[:max_results]
+            filtered = SearchUtils.filter(runs, filter_string)
+            return SearchUtils.sort(filtered, order_by)[:max_results]
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(
