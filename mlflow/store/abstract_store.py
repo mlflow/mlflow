@@ -4,10 +4,10 @@ from mlflow.entities import ViewType
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 
 
-class ListWithToken(list):
+class PagedList(list):
 
     def __init__(self, items, token):
-        super(ListWithToken, self).__init__(items)
+        super(PagedList, self).__init__(items)
         self.token = token
 
 
@@ -218,8 +218,9 @@ class AbstractStore:
             attribute of the object; however, some store implementations may not support pagination
             and thus the returned token would not be meaningful in such cases.
         """
-        runs, token = self._search_runs(experiment_ids, search_filter, run_view_type, max_results)
-        return ListWithToken(runs, token)
+        runs, token = self._search_runs(experiment_ids, filter_string, run_view_type, max_results,
+                                        order_by)
+        return PagedList(runs, token)
 
     @abstractmethod
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by):

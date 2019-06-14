@@ -988,7 +988,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def test_search_runs_pagination_not_implemented(self):
         # Note: It's not too important which type of db we test this with
         exp = self._experiment_factory('test_search_with_deterministic_max_results')
-        result = self.store.search_runs([exp], SearchFilter(filter_string=None), ViewType.ALL)
+        result = self.store.search_runs([exp], None, ViewType.ALL)
         assert result.token == SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
 
     def test_log_batch(self):

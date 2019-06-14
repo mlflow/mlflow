@@ -209,18 +209,6 @@ class RestStore(AbstractStore):
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by):
-        """
-        Return runs that match the given list of search expressions within the experiments.
-        Given multiple search expressions, all these expressions are ANDed together for search.
-
-        :param experiment_ids: List of experiment ids to scope the search
-        :param search_filter: :py:class`mlflow.utils.search_utils.SearchFilter` object to encode
-            search expression or filter string.
-        :param run_view_type: ACTIVE, DELETED, or ALL runs.
-        :param max_results: Maximum number of runs desired.
-
-        :return: A list of Run objects that satisfy the search expressions
-        """
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(experiment_ids=experiment_ids,
                         filter=filter_string,
