@@ -40,8 +40,9 @@ export class MetricsPlotControls extends React.Component {
   render() {
     const { chartType } = this.props;
     const lineSmoothnessTooltipText =
-      'Sets the amount of smoothing. ' +
-      '"0" corresponds to no smoothing (equivalent to a "linear" shape).';
+      'Make the line between points "smoother" based on generalized Catmull-Rom splines. ' +
+      'Smoothing can be useful for displaying the ' +
+      'overall trend when the logging frequency is high.';
     return (
       <div className='plot-controls'>
         {chartType === CHART_TYPE_LINE ? (
