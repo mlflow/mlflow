@@ -1,7 +1,8 @@
 import os
+import pytest
 
 import mlflow
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri, _parse_artifact_uri
 
 
 def test_artifact_can_be_downloaded_from_absolute_uri_successfully(tmpdir):
@@ -45,3 +46,14 @@ def test_download_artifact_from_absolute_uri_persists_data_to_specified_output_d
     with open(os.path.join(
             artifact_output_path, logged_artifact_subdir, artifact_file_name), "r") as f:
         assert f.read() == artifact_text
+
+
+@pytest.mark.parametrize("uri,expected_root_uri,expected_artifact_path", [
+    ('runs:/my_id/file.txt', 'runs:/my_id', 'file.txt'),
+    ('runs:/my_id/nested_dir/file.txt', 'runs:/my_id/nested_dir', 'nested_dir/file.txt'),
+    ('runs:/my_id/more/nested/dir/my_file.txt', 'runs:/my_id/more/nested/dir', 'more/nested/dir/my_file.txt')
+])
+def test_artifact_path_is_correct_for_runs_artifacts_uri(uri, expected_root_uri, expected_artifact_path):
+    outs = _parse_artifact_uri(uri)
+    assert outs[0] == expected_root_uri
+    assert outs[1] == expected_artifact_path
