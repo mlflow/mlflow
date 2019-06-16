@@ -7,5 +7,5 @@ class DbfsFuseArtifactRepository(LocalArtifactRepository):
     DBFS FUSE mount.
     """
     def __init__(self, artifact_uri):
-        file_uri = "file:///dbfs/{}".format(artifact_uri.lstrip("dbfs:/"))
+        file_uri = "file:///dbfs/{}".format(artifact_uri[len("dbfs:/"):])
         super(DbfsFuseArtifactRepository, self).__init__(file_uri)
