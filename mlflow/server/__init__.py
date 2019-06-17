@@ -18,15 +18,16 @@ REL_STATIC_DIR = "js/build"
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
-for http_path, handler, methods in handlers.get_endpoints():
-    app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
-
 
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
         return prefix + route
     return route
+
+
+for http_path, handler, methods in handlers.get_endpoints():
+    app.add_url_rule(_add_static_prefix(http_path), handler.__name__, handler, methods=methods)
 
 
 # Serve the "get-artifact" route.
