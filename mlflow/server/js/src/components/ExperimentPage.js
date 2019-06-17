@@ -150,7 +150,8 @@ class ExperimentPage extends Component {
     if (orderByKey) {
       state['orderByKey'] = orderByKey;
     }
-    if (orderByAsc === true) {
+    // orderByAsc defaults to true, so only encode it if it is false.
+    if (orderByAsc === false) {
       state['orderByAsc'] = orderByAsc;
     }
     const newUrl = `/experiments/${this.props.experimentId}` +
