@@ -88,7 +88,7 @@ export class ExperimentView extends Component {
     // Input to the lifecycleFilter field
     lifecycleFilter: PropTypes.string.isRequired,
 
-    orderByKey: PropTypes.string.isRequired,
+    orderByKey: PropTypes.string,
     orderByAsc: PropTypes.bool.isRequired,
 
     // The initial searchInput
@@ -506,19 +506,19 @@ export class ExperimentView extends Component {
       orderByKey,
       orderByAsc,
     }) {
-    paramKeyFilterInput = (paramKeyFilterInput !== null ?
+    const myParamKeyFilterInput = (paramKeyFilterInput !== undefined ?
       paramKeyFilterInput : this.state.paramKeyFilterInput);
-    metricKeyFilterInput = (metricKeyFilterInput !== null ?
+    const myMetricKeyFilterInput = (metricKeyFilterInput !== undefined ?
       metricKeyFilterInput : this.state.metricKeyFilterInput);
-    searchInput = (searchInput !== null ? searchInput : this.state.searchInput);
-    lifecycleFilterInput = (lifecycleFilterInput != null ?
+    const mySearchInput = (searchInput !== undefined ? searchInput : this.state.searchInput);
+    const myLifecycleFilterInput = (lifecycleFilterInput !== undefined ?
       lifecycleFilterInput : this.state.lifecycleFilterInput);
-    orderByKey = (orderByKey !== null ? orderByKey : this.state.orderByKey);
-    orderByAsc = (orderByAsc !== null ? orderByAsc : this.state.orderByAsc);
+    const myOrderByKey = (orderByKey !== undefined ? orderByKey : this.props.orderByKey);
+    const myOrderByAsc = (orderByAsc !== undefined ? orderByAsc : this.props.orderByAsc);
 
     try {
-      this.props.onSearch(paramKeyFilterInput, metricKeyFilterInput, searchInput,
-        lifecycleFilterInput, orderByKey, orderByAsc);
+      this.props.onSearch(myParamKeyFilterInput, myMetricKeyFilterInput, mySearchInput,
+        myLifecycleFilterInput, myOrderByKey, myOrderByAsc);
     } catch (ex) {
       this.setState({ searchErrorMessage: ex.errorMessage });
     }

@@ -29,7 +29,7 @@ class ExperimentPage extends Component {
         metricKeyFilterString: urlState.metrics === undefined ? "" : urlState.metrics,
         searchInput: urlState.search === undefined ? "" : urlState.search,
         orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
-        orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc,
+        orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === "true",
       },
     };
   }
@@ -79,11 +79,13 @@ class ExperimentPage extends Component {
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
       props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
+      const orderBy = ExperimentPage.getOrderByExpr(newState.persistedState.orderByKey,
+        newState.persistedState.orderByAsc);
       props.dispatch(searchRunsApi(
         [props.experimentId],
         newState.persistedState.searchInput,
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
-        [],
+        orderBy,
         newState.searchRunsRequestId));
       return newState;
     }
@@ -108,15 +110,7 @@ class ExperimentPage extends Component {
       lifecycleFilter: lifecycleFilterInput,
     });
 
-    let orderBy = [];
-    if (orderByKey) {
-      if (orderByAsc) {
-        orderBy = [orderByKey + " ASC"];
-      } else {
-        orderBy = [orderByKey + " DESC"];
-      }
-    }
-
+    const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const searchRunsRequestId = this.props.dispatchSearchRuns(
       this.props.experimentId, searchInput, lifecycleFilterInput, orderBy);
     this.setState({ searchRunsRequestId });
@@ -129,7 +123,36 @@ class ExperimentPage extends Component {
     });
   }
 
-  updateUrlWithSearchFilter(state) {
+  static getOrderByExpr(orderByKey, orderByAsc) {
+    let orderBy = [];
+    if (orderByKey) {
+      if (orderByAsc) {
+        orderBy = [orderByKey + " ASC"];
+      } else {
+        orderBy = [orderByKey + " DESC"];
+      }
+    }
+    return orderBy;
+  }
+
+  updateUrlWithSearchFilter(
+      {paramKeyFilterString, metricKeyFilterString, searchInput, orderByKey, orderByAsc}) {
+    let state = {};
+    if (paramKeyFilterString) {
+      state['params'] = paramKeyFilterString;
+    }
+    if (metricKeyFilterString) {
+      state['metrics'] = metricKeyFilterString;
+    }
+    if (searchInput) {
+      state['search'] = searchInput;
+    }
+    if (orderByKey) {
+      state['orderByKey'] = orderByKey;
+    }
+    if (orderByAsc === true) {
+      state['orderByAsc'] = orderByAsc;
+    }
     const newUrl = `/experiments/${this.props.experimentId}` +
       `/s?${Utils.getSearchUrlFromState(state)}`;
     if (newUrl !== (this.props.history.location.pathname

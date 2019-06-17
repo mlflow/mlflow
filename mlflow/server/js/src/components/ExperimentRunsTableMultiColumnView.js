@@ -33,7 +33,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
     onExpand: PropTypes.func.isRequired,
     isAllChecked: PropTypes.bool.isRequired,
     onSortBy: PropTypes.func.isRequired,
-    orderByKey: PropTypes.string.isRequired,
+    orderByKey: PropTypes.string,
     orderByAsc: PropTypes.bool.isRequired,
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,

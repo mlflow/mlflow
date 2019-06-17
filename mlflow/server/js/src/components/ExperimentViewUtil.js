@@ -1,3 +1,4 @@
+import classNames from 'classnames';
 import React from 'react';
 import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
@@ -125,14 +126,17 @@ export default class ExperimentViewUtil {
     const getHeaderCell = (key, text, canonicalSortKey) => {
       const sortIcon = ExperimentViewUtil.getSortIcon(curOrderByKey, curOrderByAsc,
         canonicalSortKey);
+      const isSortable = canonicalSortKey !== null;
+      const cellClassName = classNames("bottom-row", "run-table-container",
+        {"sortable": isSortable});
       return (
         <CellComponent
           key={"meta-" + key}
-          className="bottom-row sortable run-table-container"
-          onClick={() => onSortBy(canonicalSortKey, !curOrderByAsc)}
+          className={cellClassName}
+          onClick={() => isSortable ? onSortBy(canonicalSortKey, !curOrderByAsc) : null}
         >
           <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
-          {canonicalSortKey !== null && 
+          {isSortable && 
             <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>}
         </CellComponent>);
     };

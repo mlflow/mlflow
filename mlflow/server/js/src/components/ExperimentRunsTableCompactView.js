@@ -79,7 +79,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     onExpand: PropTypes.func.isRequired,
     isAllChecked: PropTypes.bool.isRequired,
     onSortBy: PropTypes.func.isRequired,
-    orderByKey: PropTypes.string.isRequired,
+    orderByKey: PropTypes.string,
     orderByAsc: PropTypes.bool.isRequired,
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,
@@ -151,7 +151,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     // Add bagged params
     const paramsCellContents = baggedParams.map((paramKey) => {
       const keyname = "param-" + paramKey;
-      const sortIcon = ExperimentViewUtil.getSortIcon(orderByKey, orderByAsc, 
+      const sortIcon = ExperimentViewUtil.getSortIcon(orderByKey, orderByAsc,
         ExperimentViewUtil.makeCanonicalKey("params", paramKey));
       return (<BaggedCell
         key={keyname}
