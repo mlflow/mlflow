@@ -724,7 +724,7 @@ def _build_docker_image(work_dir, project, active_run):
     dockerfile = (
         "FROM {imagename}\n"
         "LABEL Name={tag_name}\n"
-        "COPY {build_context_path}/* /mlflow/projects/code/\n"
+        "COPY {build_context_path}/ /mlflow/projects/code/\n"
         "WORKDIR /mlflow/projects/code/\n"
     ).format(imagename=project.docker_env.get('image'), tag_name=tag_name,
              build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
