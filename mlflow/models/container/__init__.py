@@ -6,7 +6,6 @@ To be executed only during the model deployment.
 """
 from __future__ import print_function
 
-import multiprocessing
 import os
 import signal
 import shutil
@@ -128,12 +127,11 @@ def _serve_pyfunc(model):
     # link the log streams to stdout/err so they will be logged to the container logs
     check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
     check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
-    cpu_count = multiprocessing.cpu_count()
+
     os.system("pip -V")
     os.system("python -V")
     os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
-    cmd = ("gunicorn --timeout 60 -k gevent -b unix:/tmp/gunicorn.sock -w {nworkers} " +
-           "mlflow.models.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
+    cmd = "gunicorn ${GUNICORN_CMD_ARGS} mlflow.models.container.scoring_server.wsgi:app"
     bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)])
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))
