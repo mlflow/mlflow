@@ -137,7 +137,7 @@ class ExperimentPage extends Component {
 
   updateUrlWithSearchFilter(
       {paramKeyFilterString, metricKeyFilterString, searchInput, orderByKey, orderByAsc}) {
-    let state = {};
+    const state = {};
     if (paramKeyFilterString) {
       state['params'] = paramKeyFilterString;
     }

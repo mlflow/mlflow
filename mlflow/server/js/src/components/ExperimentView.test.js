@@ -31,6 +31,8 @@ const getExperimentViewMock = () => {
     searchInput={""}
     searchRunsError={''}
     isLoading
+    orderByKey={null}
+    orderByAsc={false}
   />);
 };
 

@@ -765,11 +765,11 @@ export const mapStateToProps = (state, ownProps) => {
   const runInfos = runUuids.map((run_id) => getRunInfo(run_id, state))
     .filter((rInfo) => {
       if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
-      return rInfo.lifecycle_stage === 'active';
-    } else {
-      return rInfo.lifecycle_stage === 'deleted';
-    }
-  });
+        return rInfo.lifecycle_stage === 'active';
+      } else {
+        return rInfo.lifecycle_stage === 'deleted';
+      }
+    });
   const experiment = getExperiment(ownProps.experimentId, state);
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();

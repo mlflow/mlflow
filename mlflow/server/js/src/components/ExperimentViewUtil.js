@@ -133,10 +133,10 @@ export default class ExperimentViewUtil {
         <CellComponent
           key={"meta-" + key}
           className={cellClassName}
-          onClick={() => isSortable ? onSortBy(canonicalSortKey, !curOrderByAsc) : null}
+          onClick={() => (isSortable ? onSortBy(canonicalSortKey, !curOrderByAsc) : null)}
         >
           <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
-          {isSortable && 
+          {isSortable &&
             <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>}
         </CellComponent>);
     };
