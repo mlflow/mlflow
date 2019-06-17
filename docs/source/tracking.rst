@@ -467,7 +467,7 @@ NFS
 ^^^
 
 To store artifacts in an NFS mount, specify a URI as a normal file system path, e.g., ``/mnt/nfs``.
-This path must the same on both the server and the client -- you may need to use symlinks or remount
+This path must be the same on both the server and the client -- you may need to use symlinks or remount
 the client in order to enforce this property.
 
 
