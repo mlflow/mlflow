@@ -73,4 +73,5 @@ class MissingConfigException(MlflowException):
     """Exception thrown when expected configuration file/directory not found"""
     pass
 
+
 MissingConfigException = MlflowException
