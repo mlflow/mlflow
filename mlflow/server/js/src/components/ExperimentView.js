@@ -520,7 +520,11 @@ export class ExperimentView extends Component {
       this.props.onSearch(myParamKeyFilterInput, myMetricKeyFilterInput, mySearchInput,
         myLifecycleFilterInput, myOrderByKey, myOrderByAsc);
     } catch (ex) {
-      this.setState({ searchErrorMessage: ex.errorMessage });
+      if (ex.errorMessage !== undefined) {
+        this.setState({ searchErrorMessage: ex.errorMessage });
+      } else {
+        throw ex;
+      }
     }
   }
 
