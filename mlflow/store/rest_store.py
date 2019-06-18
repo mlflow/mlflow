@@ -215,10 +215,6 @@ class RestStore(AbstractStore):
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]
-        # TODO: once we have the proto files with token, return the token along with runs in a
-        #       tuple. also add tests for working with a valid token
-        # Perhaps returning None (instead of this arbitrary string) would be easier for the user
-        # to work with.
         return runs, response_proto.next_page_token
 
     def delete_run(self, run_id):

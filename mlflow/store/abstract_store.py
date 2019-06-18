@@ -214,7 +214,8 @@ class AbstractStore:
         :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
         :param max_results: Maximum number of runs desired.
         :param order_by: List of order_by clauses.
-        :param page_token: Token for the next page of results
+        :param page_token: Token specifying the next page of results. It should be obtained from
+            a ``search_runs`` call.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions. The pagination token for the next page can be obtained via the ``token``
