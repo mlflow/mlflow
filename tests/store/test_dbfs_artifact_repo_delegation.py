@@ -2,8 +2,8 @@ import os
 import mock
 import pytest
 
-from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
-from mlflow.store.dbfs_fuse_artifact_repo import DbfsFuseArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
+from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.dbfs_artifact_repo import DbfsRestArtifactRepository
 
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -22,16 +22,15 @@ def test_dbfs_artifact_repo_delegates_to_correct_repo(
         is_dbfs_fuse_available, host_creds_mock):  # pylint: disable=unused-argument
     is_dbfs_fuse_available.return_value = True
     artifact_uri = "dbfs:/databricks/my/absolute/dbfs/path"
-    repo = DbfsArtifactRepository(artifact_uri)
-    child_repo = repo.repo
-    assert isinstance(child_repo, DbfsFuseArtifactRepository)
-    assert child_repo.artifact_dir == os.path.join(
+    repo = get_artifact_repository(artifact_uri)
+    assert isinstance(repo, LocalArtifactRepository)
+    assert repo.artifact_dir == os.path.join(
         os.path.sep, "dbfs", "databricks", "my", "absolute", "dbfs", "path")
     with mock.patch.dict(os.environ, {'MLFLOW_ENABLE_DBFS_FUSE_ARTIFACT_REPO': 'false'}):
-        fuse_disabled_repo = DbfsArtifactRepository(artifact_uri)
-    assert isinstance(fuse_disabled_repo.repo, DbfsRestArtifactRepository)
-    assert fuse_disabled_repo.repo.artifact_uri == artifact_uri
+        fuse_disabled_repo = get_artifact_repository(artifact_uri)
+    assert isinstance(fuse_disabled_repo, DbfsRestArtifactRepository)
+    assert fuse_disabled_repo.artifact_uri == artifact_uri
     is_dbfs_fuse_available.return_value = False
-    rest_repo = DbfsArtifactRepository(artifact_uri)
-    assert isinstance(rest_repo.repo, DbfsRestArtifactRepository)
-    assert rest_repo.repo.artifact_uri == artifact_uri
+    rest_repo = get_artifact_repository(artifact_uri)
+    assert isinstance(rest_repo, DbfsRestArtifactRepository)
+    assert rest_repo.artifact_uri == artifact_uri

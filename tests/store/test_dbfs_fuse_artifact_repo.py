@@ -5,7 +5,7 @@ import pytest
 import mock
 from mock import PropertyMock
 
-from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository
+from mlflow.store.artifact_repository_registry import get_artifact_repository
 
 TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
 TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
@@ -20,8 +20,7 @@ def artifact_dir(tmpdir):
 @pytest.fixture()
 def force_dbfs_fuse_repo(artifact_dir):
     in_databricks_mock_path = 'mlflow.utils.databricks_utils.is_dbfs_fuse_available'
-    artifact_dir_mock_path = 'mlflow.store.dbfs_fuse_artifact_repo.' \
-                             'DbfsFuseArtifactRepository.artifact_dir'
+    artifact_dir_mock_path = 'mlflow.store.local_artifact_repo.LocalArtifactRepository.artifact_dir'
     with mock.patch(in_databricks_mock_path) as is_dbfs_fuse_available, \
             mock.patch(artifact_dir_mock_path, new_callable=PropertyMock) as artifact_dir_mock:
         is_dbfs_fuse_available.return_value = True
@@ -31,7 +30,7 @@ def force_dbfs_fuse_repo(artifact_dir):
 
 @pytest.fixture()
 def dbfs_fuse_artifact_repo(force_dbfs_fuse_repo):  # pylint: disable=unused-argument
-    return DbfsArtifactRepository('dbfs:/unused/path/replaced/by/mock')
+    return get_artifact_repository('dbfs:/unused/path/replaced/by/mock')
 
 
 @pytest.fixture()
