@@ -987,9 +987,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_search_runs_pagination_not_implemented(self):
         # Note: It's not too important which type of db we test this with
-        exp = self._experiment_factory('test_search_with_deterministic_max_results')
+        exp = self._experiment_factory('test_search_runs_pagination_not_implemented')
+        # test returned token behavior
         result = self.store.search_runs([exp], None, ViewType.ALL)
         assert result.token is None
+        # test page_token input behavior
+        with self.assertRaises(MlflowException):
+            self.store.search_runs([exp], None, ViewType.ALL, page_token="blah")
+        self.store.search_runs([exp], None, ViewType.ALL, page_token="")  # empty token is ok
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
