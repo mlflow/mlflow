@@ -12,8 +12,10 @@ from __future__ import absolute_import
 
 import os
 import yaml
+import gorilla
 
 import pandas as pd
+from keras.callbacks import Callback
 
 from mlflow import pyfunc
 from mlflow.models import Model
@@ -231,3 +233,41 @@ def load_model(model_uri, **kwargs):
     # `data` key; in this case, we assume the model artifact path to be `model.h5`
     keras_model_artifacts_path = os.path.join(local_model_path, flavor_conf.get("data", "model.h5"))
     return _load_model(model_file=keras_model_artifacts_path, **kwargs)
+
+
+class __MLflowKerasCallback(Callback):
+    """
+    Keras logging callback prototype.
+    Logs training and validation loss to MLFlow after each epoch.
+    """
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def on_epoch_end(self, epoch, logs=None):
+        if not logs:
+            return
+        mlflow.log_metrics(logs, step=epoch)
+
+
+def autolog():
+    import keras
+
+    @gorilla.patch(keras.Model)
+    def fit(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(keras.Model, 'fit')
+        if len(args) >= 6:
+            l = list(args)
+            l[5] = l[5] + [__MLflowKerasCallback()]
+            args = tuple(l)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'] = kwargs['callbacks'] + [__MLflowKerasCallback()]
+        else:
+            kwargs['callbacks'] = [__MLflowKerasCallback()]
+        return original(self, *args, **kwargs)
+    settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    patch = gorilla.Patch(keras.Model, 'fit', fit, settings=settings)
+    gorilla.apply(patch)
