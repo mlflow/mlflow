@@ -292,8 +292,5 @@ class MlflowClient(object):
         """
         if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
             experiment_ids = [experiment_ids]
-        return self.store.search_runs(experiment_ids=experiment_ids,
-                                      filter_string=filter_string,
-                                      run_view_type=run_view_type,
-                                      max_results=max_results,
-                                      order_by=order_by)
+        return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
+                                      run_view_type=run_view_type, max_results=max_results, order_by=order_by)

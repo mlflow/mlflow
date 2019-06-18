@@ -203,15 +203,18 @@ class AbstractStore:
         pass
 
     def search_runs(self, experiment_ids, filter_string, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None):
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
         """
         Return runs that match the given list of search expressions within the experiments.
 
+        :param page_token:
+        :param page_token:
         :param experiment_ids: List of experiment ids to scope the search
         :param filter_string: A search filter string.
         :param run_view_type: ACTIVE_ONLY, DELETED_ONLY, or ALL runs
         :param max_results: Maximum number of runs desired.
         :param order_by: List of order_by clauses.
+        :param page_token: Token for the next page of results
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions. The pagination token for the next page can be obtained via the ``token``
@@ -219,11 +222,12 @@ class AbstractStore:
             and thus the returned token would not be meaningful in such cases.
         """
         runs, token = self._search_runs(experiment_ids, filter_string, run_view_type, max_results,
-                                        order_by)
+                                        order_by, page_token)
         return PagedList(runs, token)
 
     @abstractmethod
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by):
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
+                     page_token):
         """
         Return runs that match the given list of search expressions within the experiments, as
         well as a pagination token (indicating where the next page should start). Subclasses of
@@ -232,6 +236,8 @@ class AbstractStore:
 
         See ``search_runs`` for parameter descriptions.
 
+        :param page_token:
+        :param page_token:
         :return: A tuple of ``runs`` and ``token`` where ``runs`` is a list of
             :py:class:`mlflow.entities.Run` objects that satisfy the search expressions,
             and ``token`` is the pagination token for the next page of results.

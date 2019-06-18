@@ -534,7 +534,8 @@ class FileStore(AbstractStore):
                                 exc_info=True)
         return run_infos
 
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by):
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
+                     page_token):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
