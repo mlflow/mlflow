@@ -536,7 +536,7 @@ class FileStore(AbstractStore):
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
         if page_token:
-            raise MlflowException("SQLAlchemy-backed tracking stores do not yet support pagination" 
+            raise MlflowException("SQLAlchemy-backed tracking stores do not yet support pagination"
                                   "tokens.")
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
