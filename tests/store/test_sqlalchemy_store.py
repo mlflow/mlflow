@@ -16,7 +16,7 @@ import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
-from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
+from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import _get_schema_version
 from mlflow.store.dbmodels import models
 from mlflow import entities
@@ -989,7 +989,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # Note: It's not too important which type of db we test this with
         exp = self._experiment_factory('test_search_with_deterministic_max_results')
         result = self.store.search_runs([exp], None, ViewType.ALL)
-        assert result.token == SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
+        assert result.token is None
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')

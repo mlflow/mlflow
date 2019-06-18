@@ -7,7 +7,7 @@ from alembic.script import ScriptDirectory
 import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD, SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
+from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.dbmodels.db_types import MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
 from mlflow.entities import RunStatus, SourceType, Experiment
@@ -465,6 +465,9 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
+        if page_token:
+            raise MlflowException("SQLAlchemy-backed tracking stores do not yet support pagination"
+                                  "tokens.")
         # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
@@ -477,7 +480,7 @@ class SqlAlchemyStore(AbstractStore):
                     for run in self._list_runs(session, exp, run_view_type)]
             filtered = SearchUtils.filter(runs, filter_string)
             runs = SearchUtils.sort(filtered, order_by)[:max_results]
-            return runs, SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
+            return runs, None
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(

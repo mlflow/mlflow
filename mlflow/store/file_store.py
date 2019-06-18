@@ -13,8 +13,7 @@ from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
-from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD, \
-    SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
+from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
     _validate_tag_name, _validate_experiment_id, \
@@ -536,6 +535,9 @@ class FileStore(AbstractStore):
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
+        if page_token:
+            raise MlflowException("SQLAlchemy-backed tracking stores do not yet support pagination" 
+                                  "tokens.")
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
@@ -547,7 +549,7 @@ class FileStore(AbstractStore):
             runs.extend(self.get_run(r.run_id) for r in run_infos)
         filtered = SearchUtils.filter(runs, filter_string)
         runs = SearchUtils.sort(filtered, order_by)[:max_results]
-        return runs, SEARCH_PAGINATION_NOT_IMPLEMENTED_TOKEN
+        return runs, None
 
     def log_metric(self, run_id, metric):
         _validate_run_id(run_id)
