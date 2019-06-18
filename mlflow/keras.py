@@ -13,6 +13,7 @@ from __future__ import absolute_import
 import os
 import yaml
 import gorilla
+import math
 
 import pandas as pd
 from keras.callbacks import Callback
@@ -241,6 +242,10 @@ class __MLflowKerasCallback(Callback):
     Logs training and validation loss to MLFlow after each epoch.
     """
 
+    def __init__(self):
+        self._best_train_loss = math.inf
+        self._best_model = None
+
     def __enter__(self):
         return self
 
@@ -251,9 +256,18 @@ class __MLflowKerasCallback(Callback):
         if not logs:
             return
         mlflow.log_metrics(logs, step=epoch)
+        if logs['val_loss'] < self._best_train_loss:
+            self._best_train_loss = logs['val_loss']
+            log_model(self.model, None, None)
+
 
 
 def autolog():
+    """
+    Enable automatic logging to MLFlow. After each epoch, logs:
+    training and validation loss; any other metrics specified
+    in model.compile after each epoch; the best model, as an artifact.
+    """
     import keras
 
     @gorilla.patch(keras.Model)
