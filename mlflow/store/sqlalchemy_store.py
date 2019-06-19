@@ -463,8 +463,11 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
-    def search_runs(self, experiment_ids, filter_string, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_THRESHOLD, order_by=None):
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
+                     page_token):
+        if page_token:
+            raise MlflowException("SQLAlchemy-backed tracking stores do not yet support pagination"
+                                  "tokens.")
         # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
@@ -476,7 +479,8 @@ class SqlAlchemyStore(AbstractStore):
                     for exp in experiment_ids
                     for run in self._list_runs(session, exp, run_view_type)]
             filtered = SearchUtils.filter(runs, filter_string)
-            return SearchUtils.sort(filtered, order_by)[:max_results]
+            runs = SearchUtils.sort(filtered, order_by)[:max_results]
+            return runs, None
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(

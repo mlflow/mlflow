@@ -296,8 +296,9 @@ def _search_runs():
     max_results = request_message.max_results
     experiment_ids = request_message.experiment_ids
     order_by = request_message.order_by
+    page_token = request_message.page_token
     run_entities = _get_store().search_runs(experiment_ids, filter_string, run_view_type,
-                                            max_results, order_by)
+                                            max_results, order_by, page_token)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
