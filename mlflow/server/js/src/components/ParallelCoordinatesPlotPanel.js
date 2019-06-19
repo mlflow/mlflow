@@ -13,11 +13,11 @@ class ParallelCoordinatesPlotPanel extends React.Component {
     runUuids: PropTypes.arrayOf(String).isRequired,
     sharedMetrics: PropTypes.arrayOf(String).isRequired,
     metrics: PropTypes.arrayOf(Object).isRequired,
-    // TODO(rzang) remove mock after testing
-    mockMetrics: PropTypes.arrayOf(Object).isRequired,
   };
 
-  state = { selectedMetricKeys: this.props.sharedMetrics };
+  state = {
+    selectedMetricKeys: this.props.sharedMetrics,
+  };
 
   handleMetricsSelectChange = (metricValues) => {
     this.setState({ selectedMetricKeys: metricValues });
@@ -25,10 +25,10 @@ class ParallelCoordinatesPlotPanel extends React.Component {
 
   render() {
     // TODO(rzang) remove mock after testing
-    const { metrics, mockMetrics } = this.props;
+    const { metrics } = this.props;
     const { selectedMetricKeys } = this.state;
     const selectedMetricKeysSet = new Set(selectedMetricKeys);
-    const allMetricKeys = (mockMetrics ? mockMetrics : metrics).map((m) => ({
+    const allMetricKeys = metrics.map((m) => ({
       title: m.label,
       value: m.label,
       key: m.label,
@@ -42,7 +42,6 @@ class ParallelCoordinatesPlotPanel extends React.Component {
         />
         <ParallelCoordinatesPlotView
           metrics={metrics.filter((m) => selectedMetricKeysSet.has(m.label))}
-          mockMetrics={mockMetrics.filter((m) => selectedMetricKeysSet.has(m.label))}
         />
       </div>
     );
@@ -79,17 +78,18 @@ const mapStateToProps = (state, ownProps) => {
   const sharedMetrics = _.intersection(
     ...runUuids.map((runUuid) => Object.keys(latestMetricsByRunUuid[runUuid])),
   ).sort();
-  const metrics = sharedMetrics.map((metricKey) => {
-    const values = runUuids.map((runUuid) => latestMetricsByRunUuid[runUuid][metricKey].value);
-    return {
-      label: metricKey,
-      values,
-      range: [_.min(values), _.max(values)],
-    };
-  });
+  // const metrics = sharedMetrics.map((metricKey) => {
+  //   const values = runUuids.map((runUuid) => latestMetricsByRunUuid[runUuid][metricKey].value);
+  //   return {
+  //     label: metricKey,
+  //     values,
+  //     range: [_.min(values), _.max(values)],
+  //   };
+  // });
+
   // TODO(Zangr) remove mock after testing
-  const mockMetrics = getMockMetrics();
-  return { metrics, mockMetrics, sharedMetrics };
+  const metrics = getMockMetrics();
+  return { metrics, sharedMetrics };
 };
 
 export default connect(mapStateToProps)(ParallelCoordinatesPlotPanel);
