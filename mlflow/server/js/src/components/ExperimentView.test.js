@@ -35,7 +35,18 @@ const getExperimentViewMock = () => {
     orderByAsc={false}
   />);
 };
-
+test(`Clearing filter state calls search handler with correct arguments`, () => {
+  const wrapper = getExperimentViewMock();
+  const experiment = Fixtures.createExperiment();
+  wrapper.instance().onClear();
+  expect(onSearchSpy.mock.calls.length).toBe(1);
+  expect(onSearchSpy.mock.calls[0][0]).toBe('');
+  expect(onSearchSpy.mock.calls[0][1]).toBe('');
+  expect(onSearchSpy.mock.calls[0][2]).toBe('');
+  expect(onSearchSpy.mock.calls[0][3]).toBe(LIFECYCLE_FILTER.ACTIVE);
+  expect(onSearchSpy.mock.calls[0][4]).toBe(null);
+  expect(onSearchSpy.mock.calls[0][5]).toBe(null);
+});
 test('Entering filter input updates component state', () => {
   const wrapper = getExperimentViewMock();
   wrapper.instance().setState = jest.fn();
