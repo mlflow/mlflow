@@ -1,19 +1,14 @@
 import json
 
-from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.abstract_store import AbstractStore
-
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
-
-from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.rest_utils import http_request, verify_rest_response
-
+from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
     UpdateExperiment, LogBatch
-
-from mlflow.protos import databricks_pb2
+from mlflow.store.abstract_store import AbstractStore
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+from mlflow.utils.rest_utils import http_request, verify_rest_response
 
 
 def _get_path(endpoint_path):
@@ -208,17 +203,19 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
 
-    def search_runs(self, experiment_ids, filter_string, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_THRESHOLD, order_by=None):
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
+                     page_token):
         experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
         sr = SearchRuns(experiment_ids=experiment_ids,
                         filter=filter_string,
                         run_view_type=ViewType.to_proto(run_view_type),
                         max_results=max_results,
-                        order_by=order_by)
+                        order_by=order_by,
+                        page_token=page_token)
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
-        return [Run.from_proto(proto_run) for proto_run in response_proto.runs]
+        runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]
+        return runs, response_proto.next_page_token
 
     def delete_run(self, run_id):
         req_body = message_to_json(DeleteRun(run_id=run_id))

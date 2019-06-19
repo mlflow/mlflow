@@ -43,8 +43,8 @@ class AbstractStoreTestImpl(AbstractStore):
     def get_metric_history(self, run_id, metric_key):
         raise NotImplementedError()
 
-    def search_runs(self, experiment_ids, filter_string, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None):
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
+                     page_token):
         raise NotImplementedError()
 
     def log_batch(self, run_id, metrics, params, tags):
@@ -114,3 +114,19 @@ def test_list_run_infos():
         store = AbstractStoreTestImpl()
         assert store.list_run_infos(experiment_id, view_type) == run_infos
         store.search_runs.assert_called_once_with([experiment_id], None, view_type)
+
+
+def test_search_runs():
+    experiment_id = mock.Mock()
+    view_type = mock.Mock()
+    runs = [mock.Mock(), mock.Mock()]
+    token = "adfoiweroh12334kj129318934u"
+
+    with mock.patch.object(AbstractStoreTestImpl, "_search_runs", return_value=(runs, token)):
+        store = AbstractStoreTestImpl()
+        result = store.search_runs([experiment_id], None, view_type)
+        for i in range(len(result)):
+            assert result[i] == runs[i]
+        assert result.token == token
+        store._search_runs.assert_called_once_with([experiment_id], None, view_type,
+                                                   SEARCH_MAX_RESULTS_DEFAULT, None, None)
