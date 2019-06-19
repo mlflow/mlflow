@@ -1,11 +1,16 @@
 import pytest
 import mock
+import pandas as pd
+import numpy as np
+import datetime
 
-from mlflow.entities import RunTag, SourceType, ViewType
+from mlflow.entities import RunTag, SourceType, ViewType, Run, RunData, RunInfo, RunStatus, \
+    LifecycleStage, Metric, Param, RunTag
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
+import time
 
 
 @pytest.fixture
@@ -130,3 +135,35 @@ def test_client_search_runs_order_by(mock_store):
                                                    run_view_type=ViewType.ACTIVE_ONLY,
                                                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
                                                    order_by=["a", "b"])
+
+
+def test_client_runs_to_pandas_run_info():
+    runs = [Run(RunInfo("uuid", "exp_id", "user_id", RunStatus.FINISHED, 0, 0,
+            LifecycleStage.ACTIVE), RunData()),
+            Run(RunInfo("uuid2", "exp_id2", "user_id2", RunStatus.FINISHED, 0, 0,
+                LifecycleStage.ACTIVE), RunData())]
+    pdf = MlflowClient().runs_to_pandas(runs)
+
+    data = {'date': [datetime.datetime.fromtimestamp(0)]*2, 'run_id': ["uuid", "uuid2"],
+            'run_name': [None]*2, 'parent_run_id': [None]*2, 'user_id': ["user_id", "user_id2"]}
+    assert pdf.equals(pd.DataFrame(data))
+
+
+def test_client_runs_to_pandas_run_data():
+    runs = [Run(RunInfo("", "", "", RunStatus.FINISHED, 0, 0, None),
+            RunData(
+                metrics=[Metric("mse", 0.2, 0, 0)],
+                params=[Param("param", "value")],
+                tags=[RunTag("tag", "value")])),
+            Run(RunInfo("", "", "", RunStatus.FINISHED, 0, 0, None),
+                RunData(
+                metrics=[Metric("mse", 0.6, 0, 0), Metric("loss", 1.2, 0, 5)],
+                params=[Param("param2", "val"), Param("k", "v")],
+                tags=[RunTag("tag2", "v2")]))]
+    pdf = MlflowClient().runs_to_pandas(runs)
+    data = {'date': [datetime.datetime.fromtimestamp(0)]*2, 'run_id': [""]*2, 'run_name': [None]*2,
+            'parent_run_id': [None]*2, 'user_id': [""]*2, 'metrics.mse': [0.2, 0.6],
+            'metrics.loss': [np.nan, 1.2], 'params.param': ["value", None],
+            'params.param2': [None, "val"], 'params.k': [None, "v"],
+            'tags.tag': ["value", None], 'tags.tag2': [None, "v2"]}
+    assert pdf.equals(pd.DataFrame(data))
