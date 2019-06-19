@@ -39,8 +39,6 @@ class ParallelCoordinatesPlotPanel extends React.Component {
     // TODO(rzang) remove mock after testing
     const { runUuids, sharedParamKeys, sharedMetricKeys } = this.props;
     const { selectedParamKeys, selectedMetricKeys } = this.state;
-    const selectedParamKeySet = new Set(selectedParamKeys);
-    const selectedMetricKeySet = new Set(selectedMetricKeys);
     return (
       <div className='parallel-coorinates-plot-panel'>
         <ParallelCoordinatesPlotControls
@@ -53,8 +51,8 @@ class ParallelCoordinatesPlotPanel extends React.Component {
         />
         <ParallelCoordinatesPlotView
           runUuids={runUuids}
-          paramKeys={sharedParamKeys.filter((key) => selectedParamKeySet.has(key))}
-          metricKeys={sharedMetricKeys.filter((key) => selectedMetricKeySet.has(key))}
+          paramKeys={selectedParamKeys}
+          metricKeys={selectedMetricKeys}
         />
       </div>
     );
