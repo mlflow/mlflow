@@ -91,34 +91,13 @@ const mockParamKeys = [
 const mockMetricKeys = ['minHW', 'minWD', 'rfBlock'];
 
 // TODO(Zangr) remove mock after testing
-const getMockMetrics = () =>
-  mockMetricKeys.map((metricKey, index) => {
-    const values = rows.map((row) => row[metricKey]);
-    return {
-      label: `metric_${index}`,
-      values,
-      range: mockMetricRanges[metricKey],
-    };
-  });
-
-// TODO(Zangr) remove mock after testing
-const getMockParameters = () =>
-  mockParamKeys.map((metricKey, index) => {
-    const values = rows.map((row) => row[metricKey]);
-    return {
-      label: `param_${index}`,
-      values,
-      range: mockMetricRanges[metricKey],
-    };
-  });
-
-// TODO(Zangr) remove mock after testing
 const injectMockMetricsAndParamsIntoState = (state) => {
   const { latestMetricsByRunUuid, paramsByRunUuid } = state.entities;
   Object.keys(paramsByRunUuid).forEach((runUuid, i) => {
     mockParamKeys.forEach((paramsKey, j) => {
       const value = rows[i][paramsKey];
       paramsByRunUuid[runUuid][`param_${j}`] = {
+        key: `param_${j}`,
         value: _.isNumber(value) ? Number(value) : value,
       };
     });
@@ -127,6 +106,7 @@ const injectMockMetricsAndParamsIntoState = (state) => {
     mockMetricKeys.forEach((metricKey, j) => {
       const value = rows[i][metricKey];
       latestMetricsByRunUuid[runUuid][`metric_${j}`] = {
+        key: `metric_${j}`,
         value: _.isNumber(value) ? Number(value) : value,
       };
     });

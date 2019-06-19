@@ -12,7 +12,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
     handleMetricsSelectChange: PropTypes.func.isRequired,
   };
 
-  handleFilterChange = (text, option) =>
+  static handleFilterChange = (text, option) =>
     option.props.title.toUpperCase().includes(text.toUpperCase());
 
   render() {
@@ -35,7 +35,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           treeCheckable
           treeData={paramKeys.map((k) => ({ title: k, value: k, label: k}))}
           onChange={handleParamsSelectChange}
-          filterTreeNode={this.handleFilterChange}
+          filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />
         {/* TODO(Zangr) remove BR */}
         <br/><br/><br/>
@@ -48,7 +48,7 @@ export class ParallelCoordinatesPlotControls extends React.Component {
           treeCheckable
           treeData={metricKeys.map((k) => ({ title: k, value: k, label: k}))}
           onChange={handleMetricsSelectChange}
-          filterTreeNode={this.handleFilterChange}
+          filterTreeNode={ParallelCoordinatesPlotControls.handleFilterChange}
         />
       </div>
     );
