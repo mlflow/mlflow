@@ -38,7 +38,7 @@ no_conda = ["--no-conda"] if in_travis and sys.platform == "win32" else []
 install_mlflow = ["--install-mlflow"] if not no_conda else []
 
 extra_options = no_conda + install_mlflow
-gunicorn_options = "--timeout 60 -b unix:/tmp/gunicorn.sock -w 5"
+gunicorn_options = "--timeout 60 -w 5"
 
 
 @pytest.fixture(scope="module")
