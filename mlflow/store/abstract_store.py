@@ -237,8 +237,6 @@ class AbstractStore:
 
         See ``search_runs`` for parameter descriptions.
 
-        :param page_token:
-        :param page_token:
         :return: A tuple of ``runs`` and ``token`` where ``runs`` is a list of
             :py:class:`mlflow.entities.Run` objects that satisfy the search expressions,
             and ``token`` is the pagination token for the next page of results.
