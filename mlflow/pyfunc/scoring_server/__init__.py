@@ -45,14 +45,16 @@ _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
-CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
+CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json-pandas-records"
+CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json-pandas-split"
+CONTENT_TYPE_JSON_NUMPY = "application/json-numpy"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_JSON_RECORDS_ORIENTED,
-    CONTENT_TYPE_JSON_SPLIT_ORIENTED
+    CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+    CONTENT_TYPE_JSON_NUMPY
 ]
 
 _logger = logging.getLogger(__name__)
@@ -92,6 +94,26 @@ def parse_csv_input(csv_input):
                 "Failed to parse input as a Pandas DataFrame. Ensure that the input is"
                 " a valid CSV-formatted Pandas DataFrame produced using the"
                 " `pandas.DataFrame.to_csv()` method."),
+            error_code=MALFORMED_REQUEST)
+
+
+def parse_records_oriented_json_input_to_numpy(json_input):
+    """
+    :param json_input: A JSON-formatted string representation of a Pandas DataFrame with records
+                       orient, or a stream containing such a string representation.
+    """
+    # pylint: disable=broad-except
+    try:
+        json_input_list = json.loads(json_input)
+        return np.array([list(d.values()) for d in json_input_list])
+    except Exception:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input as a Numpy. Ensure that the input is"
+                " a valid JSON-formatted Pandas DataFrame with the records orient"
+                " produced using the `pandas.DataFrame.to_json(..., orient='records')`"
+                " method."
+            ),
             error_code=MALFORMED_REQUEST)
 
 
@@ -140,8 +162,8 @@ def init(model):
     def transformation():  # pylint: disable=unused-variable
         """
         Do an inference on a single batch of data. In this sample server,
-        we take data as CSV or json, convert it to a Pandas DataFrame,
-        generate predictions and convert them back to CSV.
+        we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
+        generate predictions and convert them back to CSV/json.
         """
         # Convert from CSV to pandas
         if flask.request.content_type == CONTENT_TYPE_CSV:
@@ -154,6 +176,8 @@ def init(model):
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orient="records")
+        elif flask.request.content_type == CONTENT_TYPE_JSON_NUMPY:
+            data = parse_records_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
         else:
             return flask.Response(
                 response=("This predictor only supports the following content types,"
