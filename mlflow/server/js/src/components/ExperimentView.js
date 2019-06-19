@@ -630,7 +630,8 @@ export class ExperimentView extends Component {
     this.setState({persistedState: newPersistedState.toJSON()}, () => {
       this.snapshotComponentState();
       this.initiateSearch({paramKeyFilterInput: "", metricKeyFilterInput: "",
-        searchInput: "", lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE});
+        searchInput: "", lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
+        orderByKey: null, orderByAsc: true});
     });
   }
 
