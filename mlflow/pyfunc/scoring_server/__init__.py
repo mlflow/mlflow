@@ -133,8 +133,8 @@ def parse_split_oriented_json_input_to_numpy(json_input):
         _handle_serving_error(
             error_message=(
                 "Failed to parse input as a Numpy. Ensure that the input is"
-                " a valid JSON-formatted Pandas DataFrame with the records orient"
-                " produced using the `pandas.DataFrame.to_json(..., orient='records')`"
+                " a valid JSON-formatted Pandas DataFrame with the split orient"
+                " produced using the `pandas.DataFrame.to_json(..., orient='split')`"
                 " method."
             ),
             error_code=MALFORMED_REQUEST)

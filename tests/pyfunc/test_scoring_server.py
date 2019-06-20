@@ -2,7 +2,7 @@ import os
 import json
 import pandas as pd
 import numpy as np
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 import pytest
 import sklearn.datasets as datasets
@@ -219,9 +219,9 @@ def test_parse_json_input_split_oriented():
 @pytest.mark.large
 def test_parse_json_input_records_oriented_to_numpy_array():
     size = 200
-    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
-            "col_z": [random_str(4) for _ in range(size)],
-            "col_a": [random_int() for _ in range(size)]}
+    data = OrderedDict([("col_m", [random_int(0, 1000) for _ in range(size)]),
+                        ("col_z", [random_str(4) for _ in range(size)]),
+                        ("col_a", [random_int() for _ in range(size)])])
     p0 = pd.DataFrame.from_dict(data)
     p1 = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])],
                   dtype=object)
@@ -233,9 +233,9 @@ def test_parse_json_input_records_oriented_to_numpy_array():
 @pytest.mark.large
 def test_parse_json_input_split_oriented_to_numpy_array():
     size = 200
-    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
-            "col_z": [random_str(4) for _ in range(size)],
-            "col_a": [random_int() for _ in range(size)]}
+    data = OrderedDict([("col_m", [random_int(0, 1000) for _ in range(size)]),
+                        ("col_z", [random_str(4) for _ in range(size)]),
+                        ("col_a", [random_int() for _ in range(size)])])
     p0 = pd.DataFrame.from_dict(data)
     p1 = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])],
                   dtype=object)
