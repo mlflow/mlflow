@@ -2,6 +2,7 @@ from __future__ import absolute_import
 import logging
 import docker
 import time
+from threading import RLock
 import kubernetes
 from datetime import datetime
 
@@ -77,83 +78,61 @@ class KubernetesSubmittedRun(SubmittedRun):
         self._mlflow_run_id = mlflow_run_id
         self._job_name = job_name
         self._job_namespace = job_namespace
-        self._is_killed = False
+        self._status = RunStatus.SCHEDULED
+        self._status_lock = RLock()
 
     @property
     def run_id(self):
         return self._mlflow_run_id
 
-    def _monitor_job(self):
-        kube_api = kubernetes.client.BatchV1Api()
+    def wait(self):
+        if self._status in (RunStatus.SCHEDULED, RunStatus.RUNNING):
+            kube_api = kubernetes.client.BatchV1Api()
+
+            while self._update_status(kube_api) in (RunStatus.SCHEDULED, RunStatus.RUNNING):
+                time.sleep(self.POLL_STATUS_INTERVAL)
+
+        return self._status == RunStatus.FINISHED
+
+    def _update_status(self, kube_api):
         api_response = kube_api.read_namespaced_job_status(self._job_name,
                                                            self._job_namespace,
                                                            pretty=True)
-        job_status = api_response.status
-        while api_response.status.start_time is None:
-            _logger.info("Waiting for Job to start")
-            time.sleep(self.POLL_STATUS_INTERVAL)
-            api_response = kube_api.read_namespaced_job_status(self._job_name,
-                                                               self._job_namespace,
-                                                               pretty=True)
-            job_status = api_response.status
-        _logger.info("Job started at %s", job_status.start_time)
+        status = api_response.status
+        with self._status_lock:
+            if self._status == RunStatus.SCHEDULED:
+                if api_response.status.start_time is None:
+                    _logger.info("Waiting for Job to start")
+                    return self._status
+                else:
+                    _logger.info("Job started.")
+                    self._status = RunStatus.RUNNING
 
-    def _monitor_pods(self):
-        kube_api = kubernetes.client.CoreV1Api()
-        pods = kube_api.list_namespaced_pod(self._job_namespace,
-                                            pretty=True,
-                                            label_selector="job-name={0}".format(
-                                                self._job_name))
-        pod = pods.items[0]
-        while pod.status.phase == "Pending":
-            _logger.info("Waiting for pod to start")
-            time.sleep(self.POLL_STATUS_INTERVAL)
-            pod = kube_api.read_namespaced_pod_status(pod.metadata.name,
-                                                      self._job_namespace,
-                                                      pretty=True)
-        container_state = pod.status.container_statuses[0].state
-        if container_state.waiting is not None:
-            _logger.info("Pod %s wating", pod.metadata.name)
-        elif container_state.running is not None:
-            _logger.info("Pod %s running", pod.metadata.name)
-        elif container_state.terminated is not None:
-            reason = container_state.terminated.reason
-            message = container_state.terminated.message
-            _logger.info("Pod %s terminated. Reason: %s", pod.metadata.name, reason)
-            _logger.info("Message: %s", message)
-        for line in kube_api.read_namespaced_pod_log(pod.metadata.name,
-                                                     self._job_namespace,
-                                                     follow=True,
-                                                     _preload_content=False).stream():
-            _logger.info(line.rstrip().decode("utf-8"))
+            if self._status == RunStatus.RUNNING:
+                if status.conditions is not None:
+                    for condition in status.conditions:
+                        if condition.status == "True":
+                            _logger.info(condition.message)
+                            if condition.type == "Failed":
+                                self._status = RunStatus.FAILED
+                            elif condition.type == "Complete":
+                                self._status = RunStatus.FINISHED
+                            else:
+                                raise Exception("Unexpected condition type %s" % condition.type)
+        return self._status
 
-    def wait(self):
-        self._monitor_job()
-        while self.get_status() in (RunStatus.SCHEDULED, RunStatus.RUNNING):
-            time.sleep(self.POLL_STATUS_INTERVAL)
-        return self.get_status() == RunStatus.FINISHED
+    def get_status(self):
+        if self._status in (RunStatus.SCHEDULED, RunStatus.RUNNING):
+            self._update_status(kubernetes.client.BatchV1Api())
+        return self._status
 
     def cancel(self):
+        _logger.info("Cancelling job.")
+        with self._status_lock:
+            self._status = RunStatus.KILLED
         kube_api = kubernetes.client.BatchV1Api()
         kube_api.delete_namespaced_job(name=self._job_name,
                                        namespace=self._job_namespace,
                                        body=kubernetes.client.V1DeleteOptions(),
                                        pretty=True)
-        self._is_killed = True
-
-    def get_status(self):
-        if self._is_killed:
-            return RunStatus.KILLED
-        kube_api = kubernetes.client.BatchV1Api()
-        api_response = kube_api.read_namespaced_job_status(name=self._job_name,
-                                                           namespace=self._job_namespace,
-                                                           pretty=True)
-        job_status = api_response.status
-        if job_status.failed and job_status.failed >= 1:
-            return RunStatus.FAILED
-        elif job_status.succeeded and job_status.succeeded >= 1:
-            return RunStatus.FINISHED
-        elif (job_status.active and job_status.active >= 1 and job_status.conditions is None):
-            return RunStatus.RUNNING
-        else:
-            return RunStatus.SCHEDULED
+        _logger.info("Job cancelled.")
