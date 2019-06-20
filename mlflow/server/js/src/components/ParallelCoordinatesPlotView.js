@@ -3,6 +3,8 @@ import { connect } from 'react-redux';
 import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
 
+const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
+
 export class ParallelCoordinatesPlotView extends React.Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(String).isRequired,
@@ -30,6 +32,19 @@ export class ParallelCoordinatesPlotView extends React.Component {
     ];
   };
 
+  updateAxisLabels = () => {
+    console.log('updateAxisLabels');
+    const { metricDimensions } = this.props;
+    const metricsLabelSet = new Set(metricDimensions.map((dimension) => dimension.label));
+    const axisLabelElements = document.querySelectorAll(AXIS_LABEL_CLS);
+    Array.from(axisLabelElements)
+      .filter((el) => metricsLabelSet.has(el.innerHTML))
+      .forEach((el) => {
+        el.style.fill = 'green';
+        el.style.fontWeight = 'bold';
+      });
+  };
+
   render() {
     return (
       <Plot
@@ -37,6 +52,8 @@ export class ParallelCoordinatesPlotView extends React.Component {
         useResizeHandler
         style={{ width: '100%', height: '100%' }}
         data={this.getData()}
+        onUpdate={this.updateAxisLabels}
+        className='pcp-plot'
       />
     );
   }
