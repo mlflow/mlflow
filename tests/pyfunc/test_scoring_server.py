@@ -166,7 +166,6 @@ def test_scoring_server_successfully_evaluates_correct_records_to_numpy(
     assert response_records_content_type.status_code == 200
 
 
-
 @pytest.mark.large
 def test_scoring_server_successfully_evaluates_correct_split_to_numpy(
         sklearn_model, model_path):
