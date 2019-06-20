@@ -309,10 +309,11 @@ class MlflowClient(object):
 
         Additionally, each unique metric, parameter, and tag will have its own column
         in the DataFrame. Runs that don’t contain that metric, parameter, or tag will
-        have a Nan, None, or None value filled in, respectively.
+        have a Nan, None, or None value filled in, respectively. The order of the columns
+        are not guarenteed.
 
         For example, a metric named ‘loss’ would be accessible under the column
-        ‘Metrics.loss’. Similarly for parameters and tags as ‘params.*’ and ‘tags.*’.
+        ‘metrics.loss’. Similarly for parameters and tags as ‘params.*’ and ‘tags.*’.
 
         :param runs: a list of mlflow.entities.Run objects
         :return: pandas.DataFrame
@@ -324,7 +325,7 @@ class MlflowClient(object):
         PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
         for i, run in enumerate(runs):
             # Break out the mlflow tags:
-            info['date'].append(datetime.datetime.fromtimestamp(run.info.start_time / 1e3))
+            info['date'].append(datetime.datetime.fromtimestamp(int(run.info.start_time / 1e3)))
             info['run_id'].append(run.info.run_id)
             info['run_name'].append(run.data.tags.get('mlflow.runName', None))
             info['parent_run_id'].append(run.data.tags.get('mlflow.parentRunId', None))
