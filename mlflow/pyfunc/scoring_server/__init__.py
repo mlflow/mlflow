@@ -12,6 +12,7 @@ Defines two endpoints:
 """
 from __future__ import print_function
 
+from collections import OrderedDict
 import flask
 import json
 from json import JSONEncoder
@@ -106,7 +107,7 @@ def parse_records_oriented_json_input_to_numpy(json_input):
     """
     # pylint: disable=broad-except
     try:
-        json_input_list = json.loads(json_input)
+        json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
         return np.array([list(d.values()) for d in json_input_list], dtype=object)
     except Exception:
         _handle_serving_error(
@@ -126,7 +127,7 @@ def parse_split_oriented_json_input_to_numpy(json_input):
     """
     # pylint: disable=broad-except
     try:
-        json_input_list = json.loads(json_input)
+        json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
         return np.array(json_input_list['data'], dtype=object)
     except Exception:
         _handle_serving_error(
@@ -199,9 +200,9 @@ def init(model):
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orient="records")
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_NUMPY:
-            data = parse_records_oriented_json_input_to_numpy(flask.request.data)
+            data = parse_records_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
-            data = parse_split_oriented_json_input_to_numpy(flask.request.data)
+            data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
         else:
             return flask.Response(
                 response=("This predictor only supports the following content types,"
