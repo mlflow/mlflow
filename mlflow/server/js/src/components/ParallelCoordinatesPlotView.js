@@ -2,6 +2,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
+import _ from 'lodash';
 
 const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
 
@@ -16,21 +17,41 @@ export class ParallelCoordinatesPlotView extends React.Component {
 
   getData() {
     const { paramDimensions, metricDimensions } = this.props;
+    const dimensionToScale = metricDimensions[metricDimensions.length - 1];
+    const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigs(dimensionToScale);
     return [
       {
         type: 'parcoords',
         line: {
-          showscale: true,
-          reversescale: true,
-          colorscale: 'Jet',
-          cmin: -4000,
-          cmax: -100,
-          color: 1000,
+          ...colorScaleConfigs,
         },
         dimensions: [...paramDimensions, ...metricDimensions],
       },
     ];
   };
+
+  findDimensionToColorScale(metricDimensions) {
+    const axisLabelElements = document.querySelectorAll(AXIS_LABEL_CLS);
+    const { length } = axisLabelElements;
+    const rightMostMetricLabel = length > 0 ? axisLabelElements[length - 1].innerHTML : undefined;
+    if (rightMostMetricLabel) {
+      return metricDimensions.find((d) => d.label === rightMostMetricLabel);
+    }
+    return null;
+  }
+
+  static getColorScaleConfigs(dimension) {
+    if (!dimension) return null;
+    const cmin = _.min(dimension.values);
+    const cmax = _.max(dimension.values);
+    return {
+      showscale: true,
+      colorscale: 'Jet',
+      cmin,
+      cmax,
+      color: dimension.values,
+    }
+  }
 
   updateMetricAxisLabels = () => {
     console.log('updateAxisLabels');
@@ -38,7 +59,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
     const metricsLabelSet = new Set(metricDimensions.map((dimension) => dimension.label));
     const axisLabelElements = document.querySelectorAll(AXIS_LABEL_CLS);
     // Note(Zangr) 2019-06-20 This assumes name uniqueness across params & metrics. Find a way to
-    // make it more deterministic.
+    // make it more deterministic. Ex. Add add different data attributes to indicate axis kind.
     Array.from(axisLabelElements)
       .filter((el) => metricsLabelSet.has(el.innerHTML))
       .forEach((el) => {
