@@ -15,9 +15,13 @@ export class ParallelCoordinatesPlotView extends React.Component {
     metricDimensions: PropTypes.arrayOf(Object).isRequired,
   };
 
+  state = {
+    dimensionToScale: _.last(this.props.metricDimensions),
+  };
+
   getData() {
     const { paramDimensions, metricDimensions } = this.props;
-    const dimensionToScale = metricDimensions[metricDimensions.length - 1];
+    const { dimensionToScale } = this.state;
     const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigs(dimensionToScale);
     return [
       {
@@ -30,7 +34,8 @@ export class ParallelCoordinatesPlotView extends React.Component {
     ];
   };
 
-  findDimensionToColorScale(metricDimensions) {
+  findCurrentDimensionToScale() {
+    const { metricDimensions } = this.props;
     const axisLabelElements = document.querySelectorAll(AXIS_LABEL_CLS);
     const { length } = axisLabelElements;
     const rightMostMetricLabel = length > 0 ? axisLabelElements[length - 1].innerHTML : undefined;
@@ -68,6 +73,18 @@ export class ParallelCoordinatesPlotView extends React.Component {
       });
   };
 
+  maybeUpdateScale = () => {
+    const currentDimensionToScale = this.findCurrentDimensionToScale();
+    if (currentDimensionToScale !== this.state.dimensionToScale) {
+      this.setState({ dimensionToScale: currentDimensionToScale });
+    }
+  };
+
+  handlePlotUpdate = () => {
+    this.updateMetricAxisLabels();
+    this.maybeUpdateScale();
+  };
+
   render() {
     return (
       <Plot
@@ -75,7 +92,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
         useResizeHandler
         style={{ width: '100%', height: '100%' }}
         data={this.getData()}
-        onUpdate={this.updateMetricAxisLabels}
+        onUpdate={this.handlePlotUpdate}
         className='pcp-plot'
         config={{ displayModeBar: false }}
       />
