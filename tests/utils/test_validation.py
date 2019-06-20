@@ -7,7 +7,7 @@ from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
     _validate_tag_name, _validate_run_id, _validate_batch_log_data, \
     _validate_batch_log_limits, _validate_experiment_artifact_location, _validate_db_type_string, \
-    _validate_experiment_name
+    _validate_experiment_name, MAX_EXPERIMENT_NAME_LENGTH, MAX_ARTIFACT_LOCATION_LENGTH
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e.", "a b/c d",
@@ -19,7 +19,7 @@ BAD_METRIC_OR_PARAM_NAMES = [
 def test_validate_experiment_name():
     _validate_experiment_name("good_experiment_name-1")
     with pytest.raises(MlflowException) as e:
-        _validate_experiment_name("x" * 257)
+        _validate_experiment_name("x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 def test_validate_metric_name():
@@ -121,13 +121,13 @@ def test_validate_batch_log_data():
 
 
 def test_validate_experiment_artifact_location():
-    #_validate_experiment_artifact_location('abcde')
-    #_validate_experiment_artifact_location(None)
-    #with pytest.raises(MlflowException) as e:
-    #    _validate_experiment_artifact_location('runs:/blah/bleh/blergh')
-    #assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    _validate_experiment_artifact_location('abcde')
+    _validate_experiment_artifact_location(None)
     with pytest.raises(MlflowException) as e:
-        _validate_experiment_artifact_location("x" * 257)
+        _validate_experiment_artifact_location('runs:/blah/bleh/blergh')
+    assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    with pytest.raises(MlflowException) as e:
+        _validate_experiment_artifact_location("x" * (MAX_ARTIFACT_LOCATION_LENGTH + 1))
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
