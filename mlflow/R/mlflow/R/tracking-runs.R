@@ -253,7 +253,7 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
 #'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
-#' @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+#' @param order_by List of properties to order by. Example: "metrics.acc DESC".
 #'
 #' @export
 mlflow_search_runs <- function(filter = NULL,
