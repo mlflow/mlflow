@@ -154,7 +154,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
 
 
 @pytest.mark.large
-def test_scoring_server_successfully_evaluates_correct_numpy(
+def test_scoring_server_successfully_evaluates_correct_records_to_numpy(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
@@ -162,7 +162,21 @@ def test_scoring_server_successfully_evaluates_correct_numpy(
     response_records_content_type = pyfunc_serve_and_score_model(
             model_uri=os.path.abspath(model_path),
             data=pandas_records_content,
-            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_NUMPY)
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_RECORDS_NUMPY)
+    assert response_records_content_type.status_code == 200
+
+
+
+@pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_split_to_numpy(
+        sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
+    response_records_content_type = pyfunc_serve_and_score_model(
+            model_uri=os.path.abspath(model_path),
+            data=pandas_split_content,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_NUMPY)
     assert response_records_content_type.status_code == 200
 
 
@@ -210,8 +224,22 @@ def test_parse_json_input_records_oriented_to_numpy():
             "col_z": [random_str(4) for _ in range(size)],
             "col_a": [random_int() for _ in range(size)]}
     p0 = pd.DataFrame.from_dict(data)
-    p1 = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])])
+    p1 = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])],
+                  dtype=object)
     p2 = pyfunc_scoring_server.parse_records_oriented_json_input_to_numpy(p0.to_json(orient="records"))
+    np.testing.assert_array_equal(p1, p2)
+
+
+@pytest.mark.large
+def test_parse_json_input_split_oriented_to_numpy():
+    size = 200
+    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
+            "col_z": [random_str(4) for _ in range(size)],
+            "col_a": [random_int() for _ in range(size)]}
+    p0 = pd.DataFrame.from_dict(data)
+    p1 = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])],
+                  dtype=object)
+    p2 = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(p0.to_json(orient="split"))
     np.testing.assert_array_equal(p1, p2)
 
 
@@ -248,24 +276,23 @@ def test_records_oriented_json_to_numpy():
            '{"zip":"95128","cost":12.1,"score":10}' \
            ']'
     df = pyfunc_scoring_server.parse_records_oriented_json_input_to_numpy(jstr)
-    np.testing.assert_array_equal(np.array([["95120", 10.45, 8],
-                                            ["95128", 23.0, 0],
-                                            ["95128", 12.1, 10]], dtype=[['object, float64, int64'],
-                                                                         ['object, float64, int64'],
-                                                                         ['object, float64, int64']]),
+    np.testing.assert_array_equal(np.array([['95120', 10.45, 8],
+                                            ['95128', 23.0, 0],
+                                            ['95128', 12.1, 10]], dtype=object),
                                   df)
 
 
-#@pytest.mark.large
-#def test_split_oriented_json_to_numpy():
+@pytest.mark.large
+def test_split_oriented_json_to_numpy():
     # test that datatype for "zip" column is not converted to "int64"
-#    jstr = '{"columns":["zip","cost","count"],"index":[0,1,2],' \
-#           '"data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]}'
-#    df = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(jstr)
+    jstr = '{"columns":["zip","cost","count"],"index":[0,1,2],' \
+           '"data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]}'
+    df = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(jstr)
 
-#    for lst in [["95120", 10.45, -8], ["95128", 23.0, -1], ["95128", 12.1, 1000]]:
-#        assert lst in list(df)
-#    assert len(df) == 3
+    np.testing.assert_array_equal(np.array([['95120', 10.45, -8],
+                                            ['95128', 23.0, -1],
+                                            ['95128', 12.1, 1000]], dtype=object),
+                                  df)
 
 
 def test_get_jsonnable_obj():

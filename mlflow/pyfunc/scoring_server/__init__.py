@@ -47,14 +47,16 @@ CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
 CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json-pandas-records"
 CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json-pandas-split"
-CONTENT_TYPE_JSON_NUMPY = "application/json-numpy"
+CONTENT_TYPE_JSON_RECORDS_NUMPY = "application/json-numpy-records"
+CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
 
 CONTENT_TYPES = [
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_JSON_RECORDS_ORIENTED,
     CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-    CONTENT_TYPE_JSON_NUMPY
+    CONTENT_TYPE_JSON_RECORDS_NUMPY,
+    CONTENT_TYPE_JSON_SPLIT_NUMPY
 ]
 
 _logger = logging.getLogger(__name__)
@@ -105,7 +107,27 @@ def parse_records_oriented_json_input_to_numpy(json_input):
     # pylint: disable=broad-except
     try:
         json_input_list = json.loads(json_input)
-        return np.array([list(d.values()) for d in json_input_list])
+        return np.array([list(d.values()) for d in json_input_list], dtype=object)
+    except Exception:
+        _handle_serving_error(
+            error_message=(
+                "Failed to parse input as a Numpy. Ensure that the input is"
+                " a valid JSON-formatted Pandas DataFrame with the records orient"
+                " produced using the `pandas.DataFrame.to_json(..., orient='records')`"
+                " method."
+            ),
+            error_code=MALFORMED_REQUEST)
+
+
+def parse_split_oriented_json_input_to_numpy(json_input):
+    """
+    :param json_input: A JSON-formatted string representation of a Pandas DataFrame with split
+                       orient, or a stream containing such a string representation.
+    """
+    # pylint: disable=broad-except
+    try:
+        json_input_list = json.loads(json_input)
+        return np.array(json_input_list['data'], dtype=object)
     except Exception:
         _handle_serving_error(
             error_message=(
@@ -176,8 +198,10 @@ def init(model):
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_ORIENTED:
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orient="records")
-        elif flask.request.content_type == CONTENT_TYPE_JSON_NUMPY:
+        elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_NUMPY:
             data = parse_records_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
+        elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
+            data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
         else:
             return flask.Response(
                 response=("This predictor only supports the following content types,"
