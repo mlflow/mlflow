@@ -1,4 +1,6 @@
+import os
 import logging
+import subprocess
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -48,6 +50,15 @@ def is_in_databricks_notebook():
         return _get_extra_context("aclPathOfAclRoot").startswith('/workspace')
     except Exception:  # pylint: disable=broad-except
         return False
+
+
+def is_dbfs_fuse_available():
+    with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
+        try:
+            return subprocess.call(
+                ["mountpoint", "/dbfs"], stderr=devnull_stderr, stdout=devnull_stdout) == 0
+        except Exception:  # pylint: disable=broad-except
+            return False
 
 
 def get_notebook_id():

@@ -79,7 +79,7 @@ export const restoreRunApi = (runUuid, id = getUUID()) => {
 };
 
 export const SEARCH_RUNS_API = 'SEARCH_RUNS_API';
-export const searchRunsApi = (experimentIds, filter, runViewType, id = getUUID()) => {
+export const searchRunsApi = (experimentIds, filter, runViewType, orderBy, id = getUUID()) => {
   return {
     type: SEARCH_RUNS_API,
     payload: wrapDeferred(MlflowService.searchRuns, {
@@ -87,6 +87,7 @@ export const searchRunsApi = (experimentIds, filter, runViewType, id = getUUID()
       filter: filter,
       run_view_type: runViewType,
       max_results: SEARCH_MAX_RESULTS + 1,
+      order_by: orderBy,
     }),
     meta: { id: id },
   };
