@@ -19,7 +19,6 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_batch_log_api_req
 
 _store = None
@@ -92,7 +91,7 @@ def catch_mlflow_exception(func):
         except MlflowException as e:
             response = Response(mimetype='application/json')
             response.set_data(e.serialize_as_json())
-            response.status_code = 500
+            response.status_code = e.get_http_status_code()
             return response
     return wrapper
 
@@ -293,10 +292,13 @@ def _search_runs():
     run_view_type = ViewType.ACTIVE_ONLY
     if request_message.HasField('run_view_type'):
         run_view_type = ViewType.from_proto(request_message.run_view_type)
-    sf = SearchFilter(filter_string=request_message.filter)
+    filter_string = request_message.filter
     max_results = request_message.max_results
     experiment_ids = request_message.experiment_ids
-    run_entities = _get_store().search_runs(experiment_ids, sf, run_view_type, max_results)
+    order_by = request_message.order_by
+    page_token = request_message.page_token
+    run_entities = _get_store().search_runs(experiment_ids, filter_string, run_view_type,
+                                            max_results, order_by, page_token)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))

@@ -10,7 +10,7 @@ import BaggedCell from "./BaggedCell";
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import 'react-virtualized/styles.css';
 
-const NUM_RUN_METADATA_COLS = 7;
+export const NUM_RUN_METADATA_COLS = 8;
 const TABLE_HEADER_HEIGHT = 40;
 const UNBAGGED_COL_WIDTH = 125;
 const BAGGED_COL_WIDTH = 250;
@@ -128,8 +128,13 @@ class ExperimentRunsTableCompactView extends PureComponent {
         hasExpander, expanderOpen, () => onExpand(
           runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
     ];
-    ExperimentViewUtil.getRunInfoCellsForRow(runInfo, tagsList[idx], isParent, "div")
-      .forEach((col) => rowContents.push(col));
+    ExperimentViewUtil.getRunInfoCellsForRow(
+      runInfo,
+      tagsList[idx],
+      isParent,
+      "div",
+      this.handleCellToggle,
+    ).forEach((col) => rowContents.push(col));
 
     const unbaggedParamSet = new Set(unbaggedParams);
     const unbaggedMetricSet = new Set(unbaggedMetrics);
@@ -322,6 +327,11 @@ class ExperimentRunsTableCompactView extends PureComponent {
     return columns;
   }
 
+  handleCellToggle = () => {
+    this._cache.clearAll();
+    this.forceUpdate();
+  };
+
   _cache = new CellMeasurerCache({
     fixedWidth: true,
     minHeight: 32,
@@ -393,6 +403,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 120, // 'Run Name' column width
                 100, // 'Source' column width
                 80, // 'Version' column width
+                250, // 'Tags' column width
               ];
               const showBaggedParams = this.shouldShowBaggedColumn(true);
               const showBaggedMetrics = this.shouldShowBaggedColumn(false);
@@ -445,10 +456,24 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     key={'column-' + colIdx}
                     width={runMetadataColWidths[colIdx]}
                     headerRenderer={() => headerCells[colIdx]}
-                    style={styles.columnStyle}
-                    cellRenderer={({rowData}) => {
-                      return rowData.contents[colIdx];
+                    style={{
+                      ...styles.columnStyle,
+                      // show left boarder for run tags column
+                      ...(colIdx === NUM_RUN_METADATA_COLS - 1
+                        ? { borderLeft: BORDER_STYLE }
+                        : undefined
+                      ),
                     }}
+                    cellRenderer={({ rowIndex, rowData, parent, dataKey }) => (
+                      <CellMeasurer
+                        cache={this._cache}
+                        columnIndex={colIdx}
+                        key={dataKey}
+                        parent={parent}
+                        rowIndex={rowIndex}>
+                        {rowData.contents[colIdx]}
+                      </CellMeasurer>
+                    )}
                   />;
                 })}
                 {unbaggedParams.map((unbaggedParam, idx) => {
@@ -478,14 +503,15 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     // Add extra padding to last row so that we can render dropdowns for bagged
                     // param key-value pairs in that row
                     const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
+                    const colIdx = NUM_RUN_METADATA_COLS + unbaggedParams.length;
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={0}
+                      columnIndex={colIdx}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
                       <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
-                        {rowData.contents[NUM_RUN_METADATA_COLS + unbaggedParams.length]}
+                        {rowData.contents[colIdx]}
                       </div>
                     </CellMeasurer>);
                   }}
@@ -524,7 +550,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                     const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
                     return (<CellMeasurer
                       cache={this._cache}
-                      columnIndex={0 + showBaggedParams}
+                      columnIndex={colIdx}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
