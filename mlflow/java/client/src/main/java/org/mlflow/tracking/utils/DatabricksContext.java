@@ -48,7 +48,7 @@ public class DatabricksContext {
     return tags;
   }
 
-  private boolean isInDatabricksNotebook() {
+  public boolean isInDatabricksNotebook() {
     String aclPathOfAclRoot = configProvider.get("aclPathOfAclRoot");
     return aclPathOfAclRoot != null && aclPathOfAclRoot.startsWith("/workspace");
   }

@@ -103,7 +103,7 @@ public class MlflowTrackingContext {
 
   private static String getDefaultExperimentId() {
     DatabricksContext databricksContext = DatabricksContext.createIfAvailable();
-    if (databricksContext != null) {
+    if (databricksContext != null && databricksContext.isInDatabricksNotebook()) {
       String notebookId = databricksContext.getNotebookId();
       if (notebookId != null) {
         return notebookId;
