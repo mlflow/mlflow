@@ -32,11 +32,13 @@ export class ParallelCoordinatesPlotView extends React.Component {
     ];
   };
 
-  updateAxisLabels = () => {
+  updateMetricAxisLabels = () => {
     console.log('updateAxisLabels');
     const { metricDimensions } = this.props;
     const metricsLabelSet = new Set(metricDimensions.map((dimension) => dimension.label));
     const axisLabelElements = document.querySelectorAll(AXIS_LABEL_CLS);
+    // Note(Zangr) 2019-06-20 This assumes name uniqueness across params & metrics. Find a way to
+    // make it more deterministic.
     Array.from(axisLabelElements)
       .filter((el) => metricsLabelSet.has(el.innerHTML))
       .forEach((el) => {
@@ -52,8 +54,9 @@ export class ParallelCoordinatesPlotView extends React.Component {
         useResizeHandler
         style={{ width: '100%', height: '100%' }}
         data={this.getData()}
-        onUpdate={this.updateAxisLabels}
+        onUpdate={this.updateMetricAxisLabels}
         className='pcp-plot'
+        config={{ displayModeBar: false }}
       />
     );
   }
