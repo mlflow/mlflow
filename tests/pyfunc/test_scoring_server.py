@@ -217,7 +217,7 @@ def test_parse_json_input_split_oriented():
 
 
 @pytest.mark.large
-def test_parse_json_input_records_oriented_to_numpy():
+def test_parse_json_input_records_oriented_to_numpy_array():
     size = 200
     data = {"col_m": [random_int(0, 1000) for _ in range(size)],
             "col_z": [random_str(4) for _ in range(size)],
@@ -231,7 +231,7 @@ def test_parse_json_input_records_oriented_to_numpy():
 
 
 @pytest.mark.large
-def test_parse_json_input_split_oriented_to_numpy():
+def test_parse_json_input_split_oriented_to_numpy_array():
     size = 200
     data = {"col_m": [random_int(0, 1000) for _ in range(size)],
             "col_z": [random_str(4) for _ in range(size)],
@@ -270,7 +270,7 @@ def test_split_oriented_json_to_df():
 
 
 @pytest.mark.large
-def test_records_oriented_json_to_numpy():
+def test_records_oriented_json_to_numpy_array():
     jstr = '[' \
            '{"zip":"95120","cost":10.45,"score":8},' \
            '{"zip":"95128","cost":23.0,"score":0},' \
@@ -284,7 +284,7 @@ def test_records_oriented_json_to_numpy():
 
 
 @pytest.mark.large
-def test_split_oriented_json_to_numpy():
+def test_split_oriented_json_to_numpy_array():
     # test that datatype for "zip" column is not converted to "int64"
     jstr = '{"columns":["zip","cost","count"],"index":[0,1,2],' \
            '"data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]}'

@@ -185,7 +185,7 @@ def init(model):
         """
         Do an inference on a single batch of data. In this sample server,
         we take data as CSV or json, convert it to a Pandas DataFrame or Numpy,
-        generate predictions and convert them back to CSV/json.
+        generate predictions and convert them back to json.
         """
         # Convert from CSV to pandas
         if flask.request.content_type == CONTENT_TYPE_CSV:
