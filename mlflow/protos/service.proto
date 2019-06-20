@@ -824,9 +824,13 @@ message SearchRuns {
   // (and this is the default ordering criterion if order_by is not provided).
   repeated string order_by = 6;
 
+  optional string page_token = 7;
+
   message Response {
     // Runs that match the search criteria.
     repeated Run runs = 1;
+
+    optional string next_page_token = 2;
   }
 }
 
