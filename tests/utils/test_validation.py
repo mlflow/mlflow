@@ -7,7 +7,8 @@ from mlflow.protos.databricks_pb2 import ErrorCode, INVALID_PARAMETER_VALUE
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, \
     _validate_tag_name, _validate_run_id, _validate_batch_log_data, \
     _validate_batch_log_limits, _validate_experiment_artifact_location, _validate_db_type_string, \
-    _validate_experiment_name, MAX_EXPERIMENT_NAME_LENGTH, MAX_ARTIFACT_LOCATION_LENGTH
+    _validate_experiment_name, MAX_EXPERIMENT_NAME_LENGTH, MAX_ARTIFACT_LOCATION_LENGTH, \
+    MAX_ENTITY_KEY_LENGTH
 
 GOOD_METRIC_OR_PARAM_NAMES = [
     "a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e.", "a b/c d",
