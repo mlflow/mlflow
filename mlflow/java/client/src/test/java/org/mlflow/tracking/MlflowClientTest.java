@@ -13,6 +13,7 @@ import java.util.Stack;
 import java.util.Vector;
 import java.util.LinkedList;
 
+import com.google.common.collect.Lists;
 import org.apache.commons.io.FileUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -249,6 +250,16 @@ public class MlflowClientTest {
     Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "tag.test = 'also works'");
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
+
+    searchResult = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
+      Lists.newArrayList("metrics.accuracy_score"));
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(1).getRunUuid(), runId_2);
+
+    searchResult = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
+      Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC"));
+    Assert.assertEquals(searchResult.get(1).getRunUuid(), runId_1);
     Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
   }
 
