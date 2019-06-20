@@ -88,11 +88,17 @@ const mapStateToProps = (state, ownProps) => {
   const { latestMetricsByRunUuid, paramsByRunUuid } = state.entities;
   const paramDimensions = paramKeys.map((paramKey) => ({
     label: paramKey,
-    values: runUuids.map((runUuid) => paramsByRunUuid[runUuid][paramKey].value),
+    values: runUuids.map((runUuid) => {
+      const { value } = paramsByRunUuid[runUuid][paramKey];
+      return isNaN(value) ? value : Number(value);
+    }),
   }));
   const metricDimensions = metricKeys.map((metricKey) => ({
     label: metricKey,
-    values: runUuids.map((runUuid) => latestMetricsByRunUuid[runUuid][metricKey].value),
+    values: runUuids.map((runUuid) => {
+      const { value } = latestMetricsByRunUuid[runUuid][metricKey];
+      return isNaN(value) ? value : Number(value);
+    }),
   }));
   return { paramDimensions, metricDimensions };
 };
