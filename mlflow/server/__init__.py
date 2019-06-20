@@ -86,5 +86,5 @@ def _run_server(file_store_path, default_artifact_root, host, port, static_prefi
     if sys.platform == 'win32':
         full_command = _build_waitress_command(waitress_opts, host, port)
     else:
-        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers)
+        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4)
     exec_cmd(full_command, env=env_map, stream_output=True)

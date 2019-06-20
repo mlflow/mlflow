@@ -141,23 +141,14 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
         sys.exit(1)
 
 
-def _validate_server_args(static_prefix=None, gunicorn_opts=None, workers=None, waitress_opts=None):
-    server_kwargs = {'static_prefix': static_prefix}
+def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     if sys.platform == "win32":
-        if gunicorn_opts is not None:
-            raise NotImplementedError("waitress replaces gunicorn on Windows, cannot specify --gunicorn-opts")
-        server_kwargs.update({
-            'waitress_opts': waitress_opts
-        })
+        if gunicorn_opts is not None or workers is not None:
+            raise NotImplementedError("waitress replaces gunicorn on Windows, cannot specify --gunicorn-opts or --workers")
     else:
         if waitress_opts is not None:
             raise NotImplementedError(
                 "gunicorn replaces waitress on non-Windows platforms, cannot specify --waitress-opts")
-        server_kwargs.update({
-            'workers': workers if workers else 1,
-            'gunicorn_opts': gunicorn_opts
-        })
-    return server_kwargs
 
 
 @cli.command()
@@ -253,8 +244,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
 
-    _validate_server_args(static_prefix=static_prefix, gunicorn_opts=gunicorn_opts,
-                          workers=workers, waitress_opts=waitress_opts)
+    _validate_server_args(gunicorn_opts=gunicorn_opts, workers=workers, waitress_opts=waitress_opts)
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
