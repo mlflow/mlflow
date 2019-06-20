@@ -27,9 +27,12 @@ export const ExperimentPagePersistedState = Immutable.Record({
   metricKeyFilterString: "",
   // SQL-like query string used to filter runs, e.g. "params.alpha = '0.5'"
   searchInput: "",
+  // Canonical order_by key like "params.`alpha`". May be null to indicate the table
+  // should use the natural row ordering provided by the server.
+  orderByKey: null,
+  // Whether the order imposed by orderByKey should be ascending or descending.
+  orderByAsc: false,
 }, 'ExperimentPagePersistedState');
-
-
 /**
  * This class wraps attributes of the ExperimentPage component's state that should be
  * persisted in / restored from local storage.
@@ -41,17 +44,6 @@ export const ExperimentViewPersistedState = Immutable.Record({
   // Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
   // a run has been expanded (its child runs are visible).
   runsExpanded: {},
-  // Object describing the sort state of the runs table.
-  sort: {
-    // Boolean indicating whether the rows are sorted in ascending order.
-    ascending: false,
-    // If true, the rows are being sorted on a metric, and isParam must be false.
-    isMetric: false,
-    // If true, the rows are being sorted on a param, and isMetric must be false.
-    isParam: false,
-    // Column to sort on (can be a metric or param key, or the name of a run metadata column)
-    key: "start_time"
-  },
   // If true, shows the multi-column table view instead of the compact table view.
   showMultiColumns: false,
   // Arrays of "unbagged", or split-out metric and param keys (strings). We maintain these as lists

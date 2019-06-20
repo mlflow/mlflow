@@ -16,7 +16,7 @@ import { withRouter } from 'react-router-dom';
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 
-class ExperimentPage extends Component {
+export class ExperimentPage extends Component {
   constructor(props) {
     super(props);
     this.onSearch = this.onSearch.bind(this);
@@ -28,13 +28,16 @@ class ExperimentPage extends Component {
         paramKeyFilterString: urlState.params === undefined ? "" : urlState.params,
         metricKeyFilterString: urlState.metrics === undefined ? "" : urlState.metrics,
         searchInput: urlState.search === undefined ? "" : urlState.search,
+        orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
+        orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === "true",
       },
     };
   }
 
   static propTypes = {
     experimentId: PropTypes.number.isRequired,
-    dispatchSearchRuns: PropTypes.func.isRequired,
+    getExperimentApi: PropTypes.func.isRequired,
+    searchRunsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     location: PropTypes.object,
   };
@@ -76,37 +79,83 @@ class ExperimentPage extends Component {
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
-      props.dispatch(getExperimentApi(props.experimentId, newState.getExperimentRequestId));
-      props.dispatch(searchRunsApi(
+      props.getExperimentApi(props.experimentId, newState.getExperimentRequestId);
+      const orderBy = ExperimentPage.getOrderByExpr(newState.persistedState.orderByKey,
+        newState.persistedState.orderByAsc);
+      props.searchRunsApi(
         [props.experimentId],
         newState.persistedState.searchInput,
         lifecycleFilterToRunViewType(newState.lifecycleFilter),
-        newState.searchRunsRequestId));
+        orderBy,
+        newState.searchRunsRequestId);
       return newState;
     }
     return null;
   }
 
-  onSearch(paramKeyFilterString, metricKeyFilterString, searchInput, lifecycleFilterInput) {
+  onSearch(
+      paramKeyFilterString,
+      metricKeyFilterString,
+      searchInput,
+      lifecycleFilterInput,
+      orderByKey,
+      orderByAsc) {
     this.setState({
       persistedState: new ExperimentPagePersistedState({
         paramKeyFilterString,
         metricKeyFilterString,
         searchInput,
+        orderByKey,
+        orderByAsc,
       }).toJSON(),
       lifecycleFilter: lifecycleFilterInput,
     });
-    const searchRunsRequestId = this.props.dispatchSearchRuns(
-      this.props.experimentId, searchInput, lifecycleFilterInput);
+
+    const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
+    const searchRunsRequestId = getUUID();
+    this.props.searchRunsApi([this.props.experimentId], searchInput,
+      lifecycleFilterToRunViewType(lifecycleFilterInput), orderBy, searchRunsRequestId);
     this.setState({ searchRunsRequestId });
     this.updateUrlWithSearchFilter({
-      params: paramKeyFilterString,
-      metrics: metricKeyFilterString,
-      search: searchInput,
+      paramKeyFilterString,
+      metricKeyFilterString,
+      searchInput,
+      orderByKey,
+      orderByAsc,
     });
   }
 
-  updateUrlWithSearchFilter(state) {
+  static getOrderByExpr(orderByKey, orderByAsc) {
+    let orderBy = [];
+    if (orderByKey) {
+      if (orderByAsc) {
+        orderBy = [orderByKey + " ASC"];
+      } else {
+        orderBy = [orderByKey + " DESC"];
+      }
+    }
+    return orderBy;
+  }
+
+  updateUrlWithSearchFilter(
+      {paramKeyFilterString, metricKeyFilterString, searchInput, orderByKey, orderByAsc}) {
+    const state = {};
+    if (paramKeyFilterString) {
+      state['params'] = paramKeyFilterString;
+    }
+    if (metricKeyFilterString) {
+      state['metrics'] = metricKeyFilterString;
+    }
+    if (searchInput) {
+      state['search'] = searchInput;
+    }
+    if (orderByKey) {
+      state['orderByKey'] = orderByKey;
+    }
+    // orderByAsc defaults to true, so only encode it if it is false.
+    if (orderByAsc === false) {
+      state['orderByAsc'] = orderByAsc;
+    }
     const newUrl = `/experiments/${this.props.experimentId}` +
       `/s?${Utils.getSearchUrlFromState(state)}`;
     if (newUrl !== (this.props.history.location.pathname
@@ -140,6 +189,7 @@ class ExperimentPage extends Component {
             if (getExperimentRequest.active) {
               return <Spinner/>;
             }
+
             return <ExperimentView
               paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
               metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
@@ -150,6 +200,8 @@ class ExperimentPage extends Component {
               searchRunsError={searchRunsError}
               searchInput={this.state.persistedState.searchInput}
               isLoading={isLoading && !searchRunsError}
+              orderByKey={this.state.persistedState.orderByKey}
+              orderByAsc={this.state.persistedState.orderByAsc}
             />;
           }}
         </RequestStateWrapper>
@@ -162,16 +214,9 @@ class ExperimentPage extends Component {
   }
 }
 
-const mapDispatchToProps = (dispatch) => {
-  return {
-    dispatch,
-    dispatchSearchRuns: (experimentId, filter, lifecycleFilterInput) => {
-      const requestId = getUUID();
-      dispatch(searchRunsApi([experimentId], filter,
-        lifecycleFilterToRunViewType(lifecycleFilterInput), requestId));
-      return requestId;
-    }
-  };
+const mapDispatchToProps = {
+  getExperimentApi,
+  searchRunsApi,
 };
 
 const lifecycleFilterToRunViewType = (lifecycleFilter) => {

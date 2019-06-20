@@ -2,6 +2,7 @@ import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
 import { Dropdown, MenuItem } from 'react-bootstrap';
 import classNames from 'classnames';
+import ExperimentViewUtil from "./ExperimentViewUtil";
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import EmptyIfClosedMenu from './EmptyIfClosedMenu';
 
@@ -16,7 +17,7 @@ export default class BaggedCell extends PureComponent {
   static propTypes = {
     keyName: PropTypes.string.isRequired,
     value: PropTypes.string.isRequired,
-    setSortByHandler: PropTypes.func.isRequired,
+    onSortBy: PropTypes.func.isRequired,
     isParam: PropTypes.bool.isRequired,
     isMetric: PropTypes.bool.isRequired,
     onRemoveBagged: PropTypes.func.isRequired,
@@ -24,8 +25,9 @@ export default class BaggedCell extends PureComponent {
   };
 
   render() {
-    const { keyName, value, setSortByHandler, isParam, isMetric, onRemoveBagged,
-      sortIcon } = this.props;
+    const { keyName, value, onSortBy, isParam, onRemoveBagged, sortIcon } = this.props;
+    const keyType = (isParam ? "params" : "metrics");
+    const canonicalKey = ExperimentViewUtil.makeCanonicalKey(keyType, keyName);
     const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     return (
       <span
@@ -54,13 +56,13 @@ export default class BaggedCell extends PureComponent {
         <EmptyIfClosedMenu className="mlflow-menu" bsRole="menu">
           <MenuItem
             className="mlflow-menu-item"
-            onClick={() => setSortByHandler(isMetric, isParam, keyName, true)}
+            onClick={() => onSortBy(canonicalKey, true)}
           >
             Sort ascending
           </MenuItem>
           <MenuItem
             className="mlflow-menu-item"
-            onClick={() => setSortByHandler(isMetric, isParam, keyName, false)}
+            onClick={() => onSortBy(canonicalKey, false)}
           >
             Sort descending
           </MenuItem>

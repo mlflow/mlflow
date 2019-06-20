@@ -1,3 +1,4 @@
+import classNames from 'classnames';
 import React from 'react';
 import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
@@ -96,12 +97,12 @@ export default class ExperimentViewUtil {
    * is visible if we're currently sorting by the corresponding column. Otherwise, the icon is
    * invisible but takes up space.
    */
-  static getSortIcon(sortState, isMetric, isParam, key) {
-    if (ExperimentViewUtil.isSortedBy(sortState, isMetric, isParam, key)) {
+  static getSortIcon(curOrderByKey, curOrderByAsc, canonicalKey) {
+    if (curOrderByKey === canonicalKey) {
       return (
         <span>
           <i
-            className={sortState.ascending ? "fas fa-caret-up" : "fas fa-caret-down"}
+            className={curOrderByAsc ? "fas fa-caret-up" : "fas fa-caret-down"}
             style={ExperimentViewUtil.styles.sortIconStyle}
           />
         </span>);
@@ -120,28 +121,37 @@ export default class ExperimentViewUtil {
   /**
    * Returns header-row table cells for columns containing run metadata.
    */
-  static getRunMetadataHeaderCells(onSortBy, sortState, cellType) {
+  static getRunMetadataHeaderCells(onSortBy, curOrderByKey, curOrderByAsc, cellType) {
     const CellComponent = `${cellType}`;
-    const getHeaderCell = (key, text, sortable = true) => {
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, false, false, key);
+    const getHeaderCell = (key, text, canonicalSortKey) => {
+      const sortIcon = ExperimentViewUtil.getSortIcon(curOrderByKey, curOrderByAsc,
+        canonicalSortKey);
+      const isSortable = canonicalSortKey !== null;
+      const cellClassName = classNames("bottom-row", "run-table-container",
+        {"sortable": isSortable});
       return (
         <CellComponent
           key={"meta-" + key}
-          className="bottom-row sortable run-table-container"
-          onClick={() => onSortBy(false, false, key)}
+          className={cellClassName}
+          onClick={() => (isSortable ? onSortBy(canonicalSortKey, !curOrderByAsc) : null)}
         >
           <span style={ExperimentViewUtil.styles.headerCellText}>{text}</span>
-          {sortable && <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>}
+          {isSortable &&
+            <span style={ExperimentViewUtil.styles.sortIconContainer}>{sortIcon}</span>}
         </CellComponent>);
     };
     return [
-      getHeaderCell("start_time", <span>{"Date"}</span>),
-      getHeaderCell("user_id", <span>{"User"}</span>),
-      getHeaderCell("run_name", <span>{"Run Name"}</span>),
-      getHeaderCell("source", <span>{"Source"}</span>),
-      getHeaderCell("source_version", <span>{"Version"}</span>),
-      getHeaderCell("tags", <span>Tags</span>, false),
+      getHeaderCell("start_time", <span>{"Date"}</span>, "attributes.start_time"),
+      getHeaderCell("user_id", <span>{"User"}</span>, "tags.`mlflow.user`"),
+      getHeaderCell("run_name", <span>{"Run Name"}</span>, "tags.`mlflow.runName`"),
+      getHeaderCell("source", <span>{"Source"}</span>, "tags.`mlflow.source.name`"),
+      getHeaderCell("source_version", <span>{"Version"}</span>, "tags.`mlflow.source.git.commit`"),
+      getHeaderCell("tags", <span>Tags</span>, null),
     ];
+  }
+
+  static makeCanonicalKey(keyType, keyName) {
+    return keyType + ".`" + keyName + "`";
   }
 
   static getExpanderHeader(cellType) {
@@ -205,11 +215,6 @@ export default class ExperimentViewUtil {
     } else {
       return <CellComponent className={className} key={keyName}/>;
     }
-  }
-
-  static isSortedBy(sortState, isMetric, isParam, key) {
-    return (sortState.isMetric === isMetric && sortState.isParam === isParam
-      && sortState.key === key);
   }
 
   static computeMetricRanges(metricsByRun) {
@@ -335,8 +340,7 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static getRowRenderMetadata(
-    { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded }) {
+  static getRowRenderMetadata({ runInfos, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
       runIdToIdx[r.run_uuid] = idx;
@@ -376,9 +380,6 @@ export default class ExperimentViewUtil {
         hasExpander = true;
         childrenIds = parentIdToChildren[runId].map((cIdx => runInfos[cIdx].run_uuid));
       }
-      const sortValue = ExperimentViewUtil.computeSortValue(sortState,
-        ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-        ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
       return [{
         idx,
         isParent: true,
@@ -386,10 +387,8 @@ export default class ExperimentViewUtil {
         expanderOpen: ExperimentViewUtil.isExpanderOpen(runsExpanded, runId),
         childrenIds,
         runId,
-        sortValue,
       }];
     });
-    ExperimentViewUtil.sortRows(parentRows, sortState);
     const mergedRows = [];
     parentRows.forEach((r) => {
       const runId = r.runId;
@@ -398,12 +397,8 @@ export default class ExperimentViewUtil {
       if (childrenIdxs) {
         if (ExperimentViewUtil.isExpanderOpen(runsExpanded, runId)) {
           const childrenRows = childrenIdxs.map((idx) => {
-            const sortValue = ExperimentViewUtil.computeSortValue(sortState,
-              ExperimentViewUtil.toMetricsMap(metricsList[idx]),
-              ExperimentViewUtil.toParamsMap(paramsList[idx]), runInfos[idx], tagsList[idx]);
-            return { idx, isParent: false, hasExpander: false, sortValue };
+            return { idx, isParent: false, hasExpander: false };
           });
-          ExperimentViewUtil.sortRows(childrenRows, sortState);
           mergedRows.push(...childrenRows);
         }
       }
@@ -411,9 +406,9 @@ export default class ExperimentViewUtil {
     return mergedRows.slice(0, SEARCH_MAX_RESULTS);
   }
 
-  static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {
+  static getRows({ runInfos, tagsList, runsExpanded, getRow }) {
     const mergedRows = ExperimentViewUtil.getRowRenderMetadata(
-      { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded });
+      { runInfos, tagsList, runsExpanded });
     return mergedRows.map((rowMetadata) => getRow(rowMetadata));
   }
 

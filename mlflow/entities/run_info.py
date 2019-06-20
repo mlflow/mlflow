@@ -24,6 +24,12 @@ class searchable_attribute(property):
     pass
 
 
+class orderable_attribute(property):
+    # Wrapper class over property to designate some of the properties as orderable
+    # run attributes
+    pass
+
+
 class RunInfo(_MLflowObject):
     """
     Metadata about a run.
@@ -99,7 +105,7 @@ class RunInfo(_MLflowObject):
         """
         return self._status
 
-    @property
+    @orderable_attribute
     def start_time(self):
         """Start time of the run, in number of milliseconds since the UNIX epoch."""
         return self._start_time
@@ -149,3 +155,10 @@ class RunInfo(_MLflowObject):
     def get_searchable_attributes(cls):
         return sorted([p for p in cls.__dict__
                        if isinstance(getattr(cls, p), searchable_attribute)])
+
+    @classmethod
+    def get_orderable_attributes(cls):
+        # Note that all searchable attributes are also orderable.
+        return sorted([p for p in cls.__dict__
+                       if isinstance(getattr(cls, p), searchable_attribute) or
+                       isinstance(getattr(cls, p), orderable_attribute)])
