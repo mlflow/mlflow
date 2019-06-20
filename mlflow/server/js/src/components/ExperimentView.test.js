@@ -37,7 +37,6 @@ const getExperimentViewMock = () => {
 };
 test(`Clearing filter state calls search handler with correct arguments`, () => {
   const wrapper = getExperimentViewMock();
-  const experiment = Fixtures.createExperiment();
   wrapper.instance().onClear();
   expect(onSearchSpy.mock.calls.length).toBe(1);
   expect(onSearchSpy.mock.calls[0][0]).toBe('');
@@ -45,7 +44,7 @@ test(`Clearing filter state calls search handler with correct arguments`, () => 
   expect(onSearchSpy.mock.calls[0][2]).toBe('');
   expect(onSearchSpy.mock.calls[0][3]).toBe(LIFECYCLE_FILTER.ACTIVE);
   expect(onSearchSpy.mock.calls[0][4]).toBe(null);
-  expect(onSearchSpy.mock.calls[0][5]).toBe(null);
+  expect(onSearchSpy.mock.calls[0][5]).toBe(true);
 });
 test('Entering filter input updates component state', () => {
   const wrapper = getExperimentViewMock();
