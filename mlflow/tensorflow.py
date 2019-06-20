@@ -14,6 +14,7 @@ import os
 import shutil
 import yaml
 import logging
+import gorilla
 
 import pandas
 
@@ -27,6 +28,7 @@ from mlflow.utils import keyword_only
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
+
 
 FLAVOR_NAME = "tensorflow"
 
@@ -333,3 +335,26 @@ class _TFWrapper(object):
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
             return pandas.DataFrame(data=pred_dict)
+
+def _log_event(event):
+    if event.WhichOneof('what') == 'summary':
+        summary = event.summary
+        for v in summary.value:
+            if v.HasField('simple_value'):
+                print("Just received " + str(v.tag) + ":" + str(v.simple_value))
+                mlflow.log_metric(v.tag, v.simple_value, step=event.step)
+
+
+def enable_autolog():
+    from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
+
+    @gorilla.patch(EventFileWriter)
+    def add_event(self, event):
+        _log_event(event)
+        original = gorilla.get_original_attribute(EventFileWriter, 'add_event')
+        return original(self, event)
+
+    settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    patch = gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings)
+    gorilla.apply(patch)
+
