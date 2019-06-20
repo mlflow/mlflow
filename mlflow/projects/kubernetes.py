@@ -100,16 +100,14 @@ class KubernetesSubmittedRun(SubmittedRun):
                                                            pretty=True)
         status = api_response.status
         with self._status_lock:
-            if self._status == RunStatus.KILLED:
-                return self._status
-
+            if self._status not in (RunStatus.SCHEDULED, RunStatus.RUNNING):
+                return
             if self._status == RunStatus.SCHEDULED:
                 if api_response.status.start_time is None:
                     _logger.info("Waiting for Job to start")
                 else:
                     _logger.info("Job started.")
                     self._status = RunStatus.RUNNING
-
             if status.conditions is not None:
                 for condition in status.conditions:
                     if condition.status == "True":
@@ -118,7 +116,6 @@ class KubernetesSubmittedRun(SubmittedRun):
                             self._status = RunStatus.FAILED
                         elif condition.type == "Complete":
                             self._status = RunStatus.FINISHED
-
         return self._status
 
     def get_status(self):
