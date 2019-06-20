@@ -20,13 +20,13 @@ public class MlflowTrackingContext {
     this(client, getDefaultExperimentId());
   }
 
+  public MlflowTrackingContext(String experimentId) {
+    this(new MlflowClient(), experimentId);
+  }
+
   public MlflowTrackingContext(MlflowClient client, String experimentId) {
     this.client = client;
     this.experimentId = experimentId;
-  }
-
-  public MlflowTrackingContext(String experimentId) {
-    this(new MlflowClient(), experimentId);
   }
 
   public ActiveRun startRun(String runName) {
@@ -36,8 +36,8 @@ public class MlflowTrackingContext {
   public ActiveRun startRun(String runName, boolean nested) {
     if (!nested && !activeRunStack.isEmpty()) {
       String existingRunId = getActiveRun().get().getId();
-      throw new IllegalArgumentException(String.format("Run with ID %s is already active. To start a nested run call " +
-        "startRun with nested=true", existingRunId));
+      throw new IllegalArgumentException(String.format("Run with ID %s is already active. To " +
+        "start a nested run call startRun with nested=true", existingRunId));
     }
     Map<String, String> tags = new HashMap<>();
     tags.put(MlflowTagConstants.RUN_NAME, runName);
