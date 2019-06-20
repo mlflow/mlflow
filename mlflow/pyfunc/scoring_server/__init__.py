@@ -199,9 +199,9 @@ def init(model):
             data = parse_json_input(json_input=flask.request.data.decode('utf-8'),
                                     orient="records")
         elif flask.request.content_type == CONTENT_TYPE_JSON_RECORDS_NUMPY:
-            data = parse_records_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
+            data = parse_records_oriented_json_input_to_numpy(flask.request.data)
         elif flask.request.content_type == CONTENT_TYPE_JSON_SPLIT_NUMPY:
-            data = parse_split_oriented_json_input_to_numpy(flask.request.data.decode('utf-8'))
+            data = parse_split_oriented_json_input_to_numpy(flask.request.data)
         else:
             return flask.Response(
                 response=("This predictor only supports the following content types,"
