@@ -144,11 +144,14 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
 def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
     if sys.platform == "win32":
         if gunicorn_opts is not None or workers is not None:
-            raise NotImplementedError("waitress replaces gunicorn on Windows, cannot specify --gunicorn-opts or --workers")
+            raise NotImplementedError(
+                "waitress replaces gunicorn on Windows, "
+                "cannot specify --gunicorn-opts or --workers")
     else:
         if waitress_opts is not None:
             raise NotImplementedError(
-                "gunicorn replaces waitress on non-Windows platforms, cannot specify --waitress-opts")
+                "gunicorn replaces waitress on non-Windows platforms, "
+                "cannot specify --waitress-opts")
 
 
 @cli.command()
