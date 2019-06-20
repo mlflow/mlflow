@@ -17,7 +17,7 @@ public class FluentExample {
                 new MlflowMetric("MSE", 1.0),
                 new MlflowMetric("MAE", 1.0)
         ));
-        mlflow.endRun();
+        //mlflow.endRun();
 
         mlflow.withActiveRun("apple", (activeRun -> {
             activeRun.logParam("a", "param");

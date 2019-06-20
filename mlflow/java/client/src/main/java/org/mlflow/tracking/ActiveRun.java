@@ -4,25 +4,27 @@ import org.mlflow.MlflowMetric;
 import org.mlflow.MlflowParam;
 import org.mlflow.MlflowTag;
 import org.mlflow.api.proto.Service.*;
+import org.mlflow.tracking.utils.DatabricksContext;
+import org.mlflow.tracking.utils.MlflowTagConstants;
 
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class ActiveRun {
-    protected MlflowClient client;
-    protected RunInfo runInfo;
+    private MlflowClient client;
+    private RunInfo runInfo;
+    private String experimentId;
 
     public String getId() {
         return runInfo.getRunId();
     }
 
-    public ActiveRun(RunInfo runInfo, MlflowClient client) {
+    ActiveRun(RunInfo runInfo, MlflowClient client, String experimentId) {
         this.runInfo = runInfo;
         this.client = client;
+        this.experimentId = experimentId;
     }
 
     /**
@@ -91,5 +93,39 @@ public class ActiveRun {
 
     public String getArtifactUri() {
         return this.runInfo.getArtifactUri();
+    }
+
+    public ActiveRun startChildRun(String runName) {
+        Map<String, String> tags = new HashMap<>();
+        tags.put(MlflowTagConstants.RUN_NAME, runName);
+        tags.put(MlflowTagConstants.USER, System.getProperty("user.name"));
+        tags.put(MlflowTagConstants.SOURCE_TYPE, "LOCAL");
+        tags.put(MlflowTagConstants.PARENT_RUN_ID, getId());
+
+        // Add tags from DatabricksContext if they exist
+        DatabricksContext databricksContext = DatabricksContext.createIfAvailable();
+        if (databricksContext != null) {
+            tags.putAll(databricksContext.getTags());
+        }
+
+        CreateRun.Builder createRunBuilder = CreateRun.newBuilder()
+          .setExperimentId(experimentId)
+          .setStartTime(System.currentTimeMillis());
+        for (Map.Entry<String, String> tag: tags.entrySet()) {
+            createRunBuilder.addTags(
+              RunTag.newBuilder().setKey(tag.getKey()).setValue(tag.getValue()).build());
+        }
+        RunInfo runInfo = client.createRun(createRunBuilder.build());
+
+        return new ActiveRun(runInfo, client, experimentId);
+    }
+
+    public ActiveRun endRun() {
+        return endRun(RunStatus.FINISHED);
+    }
+
+    public ActiveRun endRun(RunStatus status) {
+        client.setTerminated(getId(), status);
+        return this;
     }
 }
