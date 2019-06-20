@@ -260,7 +260,7 @@ test_that("mlflow_search_runs() works", {
   expect_equal(search$metrics[[1]], 10)
   expect_equal(search$metrics[[2]], 20)
 
-  search <- mlflow_search_runs(order_by = ["metrics.test DESC"])
+  search <- mlflow_search_runs(order_by = list("metrics.test DESC"))
   expect_equal(search$metrics[[1]], 20)
   expect_equal(search$metrics[[2]], 10)
 })
