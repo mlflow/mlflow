@@ -13,14 +13,17 @@ GOOD_METRIC_OR_PARAM_NAMES = [
     "a", "Ab-5_", "a/b/c", "a.b.c", ".a", "b.", "a..a/._./o_O/.e.", "a b/c d",
 ]
 BAD_METRIC_OR_PARAM_NAMES = [
-    "", ".", "/", "..", "//", "a//b", "a/./b", "/a", "a/", ":", "\\", "./", "/./", "x" * 251
+    "", ".", "/", "..", "//", "a//b", "a/./b", "/a", "a/", ":", "\\", "./", "/./",
+    "x" * (MAX_ENTITY_KEY_LENGTH + 1)
 ]
+
 
 def test_validate_experiment_name():
     _validate_experiment_name("good_experiment_name-1")
     with pytest.raises(MlflowException) as e:
         _validate_experiment_name("x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
     assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
 
 def test_validate_metric_name():
     for good_name in GOOD_METRIC_OR_PARAM_NAMES:

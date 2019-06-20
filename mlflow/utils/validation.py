@@ -31,9 +31,10 @@ MAX_ARTIFACT_LOCATION_LENGTH = 256
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
 
 _BAD_CHARACTERS_MESSAGE = (
-    "Names must be %d characters or less and only contain alphanumerics, underscores (_), dashes (-), periods (.),"
-    " spaces ( ), and slashes (/)." % MAX_ENTITY_KEY_LENGTH
+    "Names must be %d characters or less and only contain alphanumerics, underscores (_),"
+    " dashes (-), periods (.), spaces ( ), and slashes (/)." % MAX_ENTITY_KEY_LENGTH
 )
+
 
 def bad_path_message(name):
     return (
@@ -193,12 +194,12 @@ def _validate_experiment_name(experiment_name):
         raise MlflowException("Invalid experiment name: '%s'. Expects a string." % experiment_name,
                               error_code=INVALID_PARAMETER_VALUE)
     if len(experiment_name) > MAX_EXPERIMENT_NAME_LENGTH:
-        raise MlflowException("Invalid experiment name: '%s'. Length must be %d characters or less in"
-                              " length." % (experiment_name, MAX_EXPERIMENT_NAME_LENGTH),
+        raise MlflowException("Invalid experiment name: '%s'. Length must be %d characters or less"
+                              " in length." % (experiment_name, MAX_EXPERIMENT_NAME_LENGTH),
                               error_code=INVALID_PARAMETER_VALUE)
 
 
-def _validate_experiment_artifact_location(artifact_location):    
+def _validate_experiment_artifact_location(artifact_location):
     if artifact_location is not None and artifact_location.startswith("runs:"):
         raise MlflowException("Artifact location cannot be a runs:/ URI. Given: '%s'"
                               % artifact_location,
