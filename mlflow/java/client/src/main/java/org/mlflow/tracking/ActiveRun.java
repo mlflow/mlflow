@@ -16,7 +16,7 @@ public class ActiveRun {
     protected MlflowClient client;
     protected RunInfo runInfo;
 
-    protected String getId() {
+    public String getId() {
         return runInfo.getRunId();
     }
 
