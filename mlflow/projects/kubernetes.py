@@ -95,30 +95,30 @@ class KubernetesSubmittedRun(SubmittedRun):
         return self._status == RunStatus.FINISHED
 
     def _update_status(self, kube_api):
-        api_response = kube_api.read_namespaced_job_status(self._job_name,
-                                                           self._job_namespace,
+        api_response = kube_api.read_namespaced_job_status(name=self._job_name,
+                                                           namespace=self._job_namespace,
                                                            pretty=True)
         status = api_response.status
         with self._status_lock:
+            if self._status == RunStatus.KILLED:
+                return self._status
+
             if self._status == RunStatus.SCHEDULED:
                 if api_response.status.start_time is None:
                     _logger.info("Waiting for Job to start")
-                    return self._status
                 else:
                     _logger.info("Job started.")
                     self._status = RunStatus.RUNNING
 
-            if self._status == RunStatus.RUNNING:
-                if status.conditions is not None:
-                    for condition in status.conditions:
-                        if condition.status == "True":
-                            _logger.info(condition.message)
-                            if condition.type == "Failed":
-                                self._status = RunStatus.FAILED
-                            elif condition.type == "Complete":
-                                self._status = RunStatus.FINISHED
-                            else:
-                                raise Exception("Unexpected condition type %s" % condition.type)
+            if status.conditions is not None:
+                for condition in status.conditions:
+                    if condition.status == "True":
+                        _logger.info(condition.message)
+                        if condition.type == "Failed":
+                            self._status = RunStatus.FAILED
+                        elif condition.type == "Complete":
+                            self._status = RunStatus.FINISHED
+
         return self._status
 
     def get_status(self):

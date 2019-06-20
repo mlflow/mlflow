@@ -20,23 +20,23 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     """
     Tests job specification for Kubernetes.
     """
-    custom_template = yaml.load("apiVersion: batch/v1\n"
-                                "kind: Job\n"
-                                "metadata:\n"
-                                "  name: pi-with-ttl\n"
-                                "spec:\n"
-                                "  ttlSecondsAfterFinished: 100\n"
-                                "  template:\n"
-                                "    spec:\n"
-                                "      containers:\n"
-                                "      - name: pi\n"
-                                "        image: perl\n"
-                                "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
-                                "      restartPolicy: Never\n")
+    custom_template = yaml.safe_load("apiVersion: batch/v1\n"
+                                     "kind: Job\n"
+                                     "metadata:\n"
+                                     "  name: pi-with-ttl\n"
+                                     "spec:\n"
+                                     "  ttlSecondsAfterFinished: 100\n"
+                                     "  template:\n"
+                                     "    spec:\n"
+                                     "      containers:\n"
+                                     "      - name: pi\n"
+                                     "        image: perl\n"
+                                     "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
+                                     "      restartPolicy: Never\n")
     project_name = "mlflow-docker-example"
     image_tag = "image_tag"
     image_digest = "5e74a5a"
-    command = ['mlflow',  'run', '.', '--no-conda', '-P', 'alpha=0.5']
+    command = ['mlflow', 'run', '.', '--no-conda', '-P', 'alpha=0.5']
     env_vars = {'RUN_ID': '1'}
     job_definition = kb._get_kubernetes_job_definition(project_name=project_name,
                                                        image_tag=image_tag,
@@ -59,7 +59,7 @@ def test_run_kubernetes_job():
     command = ['python train.py --alpha 0.5 --l1-ratio 0.1']
     env_vars = {'RUN_ID': '1'}
     kube_context = "docker-for-desktop"
-    job_template = yaml.load("apiVersion: batch/v1\n"
+    job_template = yaml.safe_load("apiVersion: batch/v1\n"
                              "kind: Job\n"
                              "metadata:\n"
                              "  name: pi-with-ttl\n"
@@ -124,16 +124,18 @@ def test_submitted_run_get_status_failed():
     mlflow_run_id = 1
     job_name = 'job-name'
     job_namespace = 'job-namespace'
+    condition = kubernetes.client.models.V1JobCondition(type="Failed", status="True")
     job_status = kubernetes.client.models.V1JobStatus(active=1,
                                                       completion_time=None,
-                                                      conditions=None,
+                                                      conditions=[condition],
                                                       failed=1,
-                                                      start_time=None,
+                                                      start_time=1,
                                                       succeeded=None)
     job = kubernetes.client.models.V1Job(status=job_status)
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
         kube_api_mock.return_value = job
         submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
+        print("status", submitted_run.get_status())
         assert RunStatus.FAILED == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
@@ -145,9 +147,10 @@ def test_submitted_run_get_status_succeeded():
     mlflow_run_id = 1
     job_name = 'job-name'
     job_namespace = 'job-namespace'
+    condition = kubernetes.client.models.V1JobCondition(type="Complete", status="True")
     job_status = kubernetes.client.models.V1JobStatus(active=None,
                                                       completion_time=None,
-                                                      conditions=None,
+                                                      conditions=[condition],
                                                       failed=None,
                                                       start_time=None,
                                                       succeeded=1)
@@ -155,6 +158,7 @@ def test_submitted_run_get_status_succeeded():
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
         kube_api_mock.return_value = job
         submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
+        print("status", submitted_run.get_status())
         assert RunStatus.FINISHED == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
@@ -169,9 +173,9 @@ def test_submitted_run_get_status_running():
     job_status = kubernetes.client.models.V1JobStatus(active=1,
                                                       completion_time=None,
                                                       conditions=None,
-                                                      failed=None,
-                                                      start_time=None,
-                                                      succeeded=None)
+                                                      failed=1,
+                                                      start_time=1,
+                                                      succeeded=1)
     job = kubernetes.client.models.V1Job(status=job_status)
     with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
         kube_api_mock.return_value = job
@@ -179,5 +183,6 @@ def test_submitted_run_get_status_running():
         assert RunStatus.RUNNING == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
+        print(args)
         assert args[0][1]['name'] == job_name
         assert args[0][1]['namespace'] == job_namespace
