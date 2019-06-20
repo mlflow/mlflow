@@ -255,6 +255,14 @@ test_that("mlflow_search_runs() works", {
     mlflow_log_metric("new_experiment_metric", 30)
   })
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.new_experiment_metric = 30")), 1)
+
+  search <- mlflow_search_runs(order_by = "metrics.test")
+  expect_equal(search$metrics[[1]], 10)
+  expect_equal(search$metrics[[2]], 20)
+
+  search <- mlflow_search_runs(order_by = ["metrics.test DESC"])
+  expect_equal(search$metrics[[1]], 20)
+  expect_equal(search$metrics[[2]], 10)
 })
 
 test_that("mlflow_list_run_infos() works", {
