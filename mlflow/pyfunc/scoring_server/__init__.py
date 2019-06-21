@@ -23,8 +23,8 @@ import sys
 import traceback
 
 # NB: We need to be careful what we import form mlflow here. Scoring server is used from within
-# model's conda environment. The version of mlflow doing the serving (outside) and the verison of
-# mlflow int the model's conda environment (inside) can differ. We should therefore keep mlflow
+# model's conda environment. The version of mlflow doing the serving (outside) and the version of
+# mlflow in the model's conda environment (inside) can differ. We should therefore keep mlflow
 # dependencies to the minimum here.
 # ALl of the mlfow dependencies below need to be backwards compatible.
 from mlflow.exceptions import MlflowException
