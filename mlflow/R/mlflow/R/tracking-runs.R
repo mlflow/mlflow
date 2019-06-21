@@ -259,7 +259,7 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 mlflow_search_runs <- function(filter = NULL,
                                run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
                                experiment_ids = NULL,
-                               order_by = NULL,
+                               order_by = list(),
                                client = NULL) {
   experiment_ids <- resolve_experiment_id(experiment_ids)
   # If we get back a single experiment ID, e.g. the active experiment ID, convert it to a list
