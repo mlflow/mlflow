@@ -341,8 +341,15 @@ def _log_event(event):
         summary = event.summary
         for v in summary.value:
             if v.HasField('simple_value'):
-                print("Just received " + str(v.tag) + ":" + str(v.simple_value))
                 mlflow.log_metric(v.tag, v.simple_value, step=event.step)
+
+
+def _log_scalar(*args, **kwargs):
+    import tensorflow as tf
+    name = list(args)[0]
+    value = tf.cast((list(args)[1]), tf.float32).numpy()
+    step = kwargs['step'] if 'step' in kwargs else tf.summary.experimental.get_step()
+    mlflow.log_metric(name, value, step=step)
 
 
 def enable_autolog():
@@ -364,15 +371,15 @@ def enable_autolog():
 
     @gorilla.patch(tensorflow.summary)
     def scalar(*args, **kwargs):
-        print("Just received " + str(args))
+        _log_scalar(*args, **kwargs)
         original = gorilla.get_original_attribute(tensorflow.summary, 'scalar')
         return original(*args, **kwargs)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     patch = gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings)
     patchv2 = gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings)
-    patchwrite = gorilla.Patch(tensorflow.summary, 'scalar', scalar, settings=settings)
+    patchscalar = gorilla.Patch(tensorflow.summary, 'scalar', scalar, settings=settings)
     gorilla.apply(patch)
     gorilla.apply(patchv2)
-    gorilla.apply(patchwrite)
+    gorilla.apply(patchscalar)
 

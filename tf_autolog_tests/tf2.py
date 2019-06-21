@@ -67,7 +67,6 @@ for epoch in range(EPOCHS):
     with train_summary_writer.as_default():
         tf.summary.scalar('loss', train_loss.result(), step=epoch)
         tf.summary.scalar('accuracy', train_accuracy.result(), step=epoch)
-        tf.summary.scalar('memes', 3, step=epoch)
 
     for (x_test, y_test) in test_dataset:
         test_step(model, x_test, y_test)
