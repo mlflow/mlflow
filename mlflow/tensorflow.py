@@ -346,7 +346,9 @@ def _log_event(event):
 
 
 def enable_autolog():
+    import tensorflow
     from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
+    from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
 
     @gorilla.patch(EventFileWriter)
     def add_event(self, event):
@@ -354,7 +356,23 @@ def enable_autolog():
         original = gorilla.get_original_attribute(EventFileWriter, 'add_event')
         return original(self, event)
 
+    @gorilla.patch(EventFileWriterV2)
+    def add_eventv2(self, event):
+        _log_event(event)
+        original = gorilla.get_original_attribute(EventFileWriterV2, 'add_event')
+        return original(self, event)
+
+    @gorilla.patch(tensorflow.summary)
+    def scalar(*args, **kwargs):
+        print("Just received " + str(args))
+        original = gorilla.get_original_attribute(tensorflow.summary, 'scalar')
+        return original(*args, **kwargs)
+
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     patch = gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings)
+    patchv2 = gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings)
+    patchwrite = gorilla.Patch(tensorflow.summary, 'scalar', scalar, settings=settings)
     gorilla.apply(patch)
+    gorilla.apply(patchv2)
+    gorilla.apply(patchwrite)
 
