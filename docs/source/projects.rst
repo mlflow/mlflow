@@ -407,11 +407,11 @@ Have in mind that mlflow overwrites the folowing attributes in the job yaml file
 
 - ``metadata.name``;
 
-- ``spec.template.spec.container.name``;
+- ``spec.template.spec.container[0].name``;
 
-- ``spec.template.spec.container.image``;
+- ``spec.template.spec.container[0].image``;
 
-- ``spec.template.spec.container.command``;
+- ``spec.template.spec.container[0].command``;
 
 
 .. code-block:: json
@@ -423,6 +423,7 @@ Have in mind that mlflow overwrites the folowing attributes in the job yaml file
     namespace: mlflow
   spec:
     ttlSecondsAfterFinished: 100
+    backoffLimit: 0
     template:
       spec:
         containers:
