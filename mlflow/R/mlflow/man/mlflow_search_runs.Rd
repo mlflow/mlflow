@@ -5,7 +5,8 @@
 \title{Search Runs}
 \usage{
 mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
-  "DELETED_ONLY", "ALL"), experiment_ids = NULL, client = NULL)
+  "DELETED_ONLY", "ALL"), experiment_ids = NULL, order_by = list(),
+  client = NULL)
 }
 \arguments{
 \item{filter}{A filter expression over params, metrics, and tags, allowing returning a subset of runs.
@@ -15,6 +16,8 @@ The syntax is a subset of SQL which allows only ANDing together binary operation
 
 \item{experiment_ids}{List of string experiment IDs (or a single string experiment ID) to search
 over. Attempts to use active experiment if not specified.}
+
+\item{order_by}{List of properties to order by. Example: "metrics.acc DESC".}
 
 \item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
 If specified, MLflow will use the tracking server associated with the passed-in client. If
