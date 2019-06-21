@@ -250,11 +250,11 @@ test_that("mlflow_search_runs() works", {
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.test < 20", experiment_ids = list("0"))), 1)
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 20", experiment_ids = list("0"))), 0)
 
-  search <- mlflow_search_runs(order_by = "metrics.test")
+  search <- mlflow_search_runs(order_by = "metrics.test", experiment_ids = list("0"))
   expect_equal(search$metrics[[1]]$value[1], 10)
   expect_equal(search$metrics[[2]]$value[1], 20)
 
-  search <- mlflow_search_runs(order_by = list("metrics.test DESC"))
+  search <- mlflow_search_runs(order_by = list("metrics.test DESC"), experiment_ids = list("0"))
   expect_equal(search$metrics[[1]]$value[1], 20)
   expect_equal(search$metrics[[2]]$value[1], 10)
 
