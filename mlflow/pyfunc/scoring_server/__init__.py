@@ -46,8 +46,8 @@ _SERVER_MODEL_PATH = "__pyfunc_model_path__"
 
 CONTENT_TYPE_CSV = "text/csv"
 CONTENT_TYPE_JSON = "application/json"
-CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json-pandas-records"
-CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json-pandas-split"
+CONTENT_TYPE_JSON_RECORDS_ORIENTED = "application/json; format=pandas-records"
+CONTENT_TYPE_JSON_SPLIT_ORIENTED = "application/json; format=pandas-split"
 CONTENT_TYPE_JSON_RECORDS_NUMPY = "application/json-numpy-records"
 CONTENT_TYPE_JSON_SPLIT_NUMPY = "application/json-numpy-split"
 
