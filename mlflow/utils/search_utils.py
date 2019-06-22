@@ -12,7 +12,8 @@ class SearchUtils(object):
     VALID_PARAM_COMPARATORS = set(['!=', '='])
     VALID_TAG_COMPARATORS = set(['!=', '='])
     VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '='])
-    VALID_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
+    VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
@@ -82,7 +83,7 @@ class SearchUtils(object):
             return entity_type
 
     @classmethod
-    def _get_identifier(cls, identifier):
+    def _get_identifier(cls, identifier, valid_attributes):
         try:
             entity_type, key = identifier.split(".", 1)
         except ValueError:
@@ -92,9 +93,9 @@ class SearchUtils(object):
                                   error_code=INVALID_PARAMETER_VALUE)
         identifier = cls._valid_entity_type(entity_type)
         key = cls._trim_backticks(cls._strip_quotes(key))
-        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in cls.VALID_ATTRIBUTE_KEYS:
+        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
-                                  " are '{}'".format(key, cls.VALID_ATTRIBUTE_KEYS))
+                                  " are '{}'".format(key, valid_attributes))
         return {"type": identifier, "key": key}
 
     @classmethod
@@ -151,7 +152,7 @@ class SearchUtils(object):
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
-        comp = cls._get_identifier(stripped_comparison[0].value)
+        comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
         return comp
@@ -280,7 +281,7 @@ class SearchUtils(object):
             token_value = token_value[0:-len(" desc")]
         elif token_value.lower().endswith(" asc"):
             token_value = token_value[0:-len(" asc")]
-        identifier = cls._get_identifier(token_value.strip())
+        identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
         return (identifier["type"], identifier["key"], is_ascending)
 
     @classmethod

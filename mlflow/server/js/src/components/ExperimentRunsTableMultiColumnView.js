@@ -33,7 +33,8 @@ class ExperimentRunsTableMultiColumnView extends Component {
     onExpand: PropTypes.func.isRequired,
     isAllChecked: PropTypes.bool.isRequired,
     onSortBy: PropTypes.func.isRequired,
-    sortState: PropTypes.object.isRequired,
+    orderByKey: PropTypes.string,
+    orderByAsc: PropTypes.bool.isRequired,
     runsSelected: PropTypes.object.isRequired,
     runsExpanded: PropTypes.object.isRequired,
     metricRanges: PropTypes.object.isRequired,
@@ -91,21 +92,21 @@ class ExperimentRunsTableMultiColumnView extends Component {
       paramKeyList,
       metricKeyList,
       onSortBy,
-      sortState
+      orderByKey,
+      orderByAsc,
     } = this.props;
     const numParams = paramKeyList.length;
     const numMetrics = metricKeyList.length;
     const columns = [];
 
-    const getHeaderCell = (isParam, key, i) => {
-      const isMetric = !isParam;
-      const sortIcon = ExperimentViewUtil.getSortIcon(sortState, isMetric, isParam, key);
+    const getHeaderCell = (isParam, key, i, canonicalKey) => {
+      const sortIcon = ExperimentViewUtil.getSortIcon(orderByKey, orderByAsc, canonicalKey);
       const className = classNames("bottom-row", "sortable", { "left-border": i === 0 });
       const elemKey = (isParam ? "param-" : "metric-") + key;
       return (
         <th
           key={elemKey} className={className}
-          onClick={() => onSortBy(isMetric, isParam, key)}
+          onClick={() => onSortBy(canonicalKey, !orderByAsc)}
         >
           <span
             style={styles.metricParamNameContainer}
@@ -118,14 +119,16 @@ class ExperimentRunsTableMultiColumnView extends Component {
     };
 
     paramKeyList.forEach((paramKey, i) => {
-      columns.push(getHeaderCell(true, paramKey, i));
+      columns.push(getHeaderCell(true, paramKey, i,
+        ExperimentViewUtil.makeCanonicalKey("params", paramKey)));
     });
     if (numParams === 0) {
       columns.push(<th key="meta-param-empty" className="bottom-row left-border">(n/a)</th>);
     }
 
     metricKeyList.forEach((metricKey, i) => {
-      columns.push(getHeaderCell(false, metricKey, i));
+      columns.push(getHeaderCell(false, metricKey, i,
+        ExperimentViewUtil.makeCanonicalKey("metrics", metricKey)));
     });
     if (numMetrics === 0) {
       columns.push(<th key="meta-metric-empty" className="bottom-row left-border">(n/a)</th>);
@@ -139,19 +142,15 @@ class ExperimentRunsTableMultiColumnView extends Component {
       onCheckAll,
       isAllChecked,
       onSortBy,
-      sortState,
+      orderByKey,
+      orderByAsc,
       tagsList,
       runsExpanded,
       paramKeyList,
       metricKeyList,
-      paramsList,
-      metricsList
     } = this.props;
     const rows = ExperimentViewUtil.getRows({
       runInfos,
-      sortState,
-      paramsList,
-      metricsList,
       tagsList,
       runsExpanded,
       getRow: this.getRow
@@ -160,7 +159,7 @@ class ExperimentRunsTableMultiColumnView extends Component {
       ExperimentViewUtil.getSelectAllCheckbox(onCheckAll, isAllChecked, "th"),
       ExperimentViewUtil.getExpanderHeader("th"),
     ];
-    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, sortState, "th")
+    ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, orderByKey, orderByAsc, "th")
       .forEach((cell) => columns.push(cell));
     this.getMetricParamHeaderCells().forEach((cell) => columns.push(cell));
     return (<Table className="ExperimentViewMultiColumn" hover>
