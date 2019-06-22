@@ -151,7 +151,30 @@ public class MlflowClient {
   public List<RunInfo> searchRuns(List<String> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType) {
-    SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIds);
+    return searchRuns(experimentIds, searchFilter, runViewType, new ArrayList<>());
+  }
+
+
+  /**
+   * Return runs from provided list of experiments that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs.
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    Defaults to ACTIVE_ONLY.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   *
+   * @return A list of all RunInfos that satisfy search filter.
+   */
+  public List<RunInfo> searchRuns(List<String> experimentIds,
+                                  String searchFilter,
+                                  ViewType runViewType,
+                                  List<String> orderBy) {
+    SearchRuns.Builder builder = SearchRuns.newBuilder()
+      .addAllExperimentIds(experimentIds)
+      .addAllOrderBy(orderBy);
 
     if (searchFilter != null) {
       builder.setFilter(searchFilter);

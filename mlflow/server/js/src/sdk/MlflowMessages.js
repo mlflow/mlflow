@@ -725,9 +725,6 @@ export const SearchRuns = Immutable.Record({
   // repeated INT64
   experiment_ids: Immutable.List(),
 
-  // repeated SearchExpression
-  anded_expressions: Immutable.List(),
-
   // optional ViewType
   run_view_type: 'ACTIVE_ONLY',
 }, 'SearchRuns');
@@ -742,10 +739,6 @@ SearchRuns.fromJsReviver = function fromJsReviver(key, value) {
     case 'experiment_ids':
       return Immutable.List(value);
 
-    case 'anded_expressions':
-      return Immutable.List(value.map((element) =>
-        SearchExpression.fromJs(element)
-      ));
     default:
       return Immutable.fromJS(value);
   }
