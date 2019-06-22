@@ -1227,7 +1227,8 @@ Metric and Param keys.
 .. code:: r
 
    mlflow_search_runs(filter = NULL, run_view_type = c("ACTIVE_ONLY",
-     "DELETED_ONLY", "ALL"), experiment_ids = NULL, client = NULL)
+     "DELETED_ONLY", "ALL"), experiment_ids = NULL, order_by = list(),
+     client = NULL)
 
 .. _arguments-28:
 
@@ -1251,6 +1252,9 @@ Arguments
 |                               | single string experiment ID) to      |
 |                               | search over. Attempts to use active  |
 |                               | experiment if not specified.         |
++-------------------------------+--------------------------------------+
+| ``order_by``                  | List of properties to order by.      |
+|                               | Example: “metrics.acc DESC”.         |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An MLflow client object   |
 |                               | returned from                        |

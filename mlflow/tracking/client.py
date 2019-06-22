@@ -9,7 +9,6 @@ from six import iteritems
 
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import utils
-from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
@@ -18,7 +17,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 
 class MlflowClient(object):
-    """Client of an MLflow Tracking Server that creates and manages experiments and runs.
+    """
+    Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
 
     def __init__(self, tracking_uri=None):
@@ -271,9 +271,8 @@ class MlflowClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string="",
-                    run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT):
+    def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
         """
         Search experiments that fit the search criteria.
 
@@ -282,13 +281,17 @@ class MlflowClient(object):
         :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                               defined in :py:class:`mlflow.entities.ViewType`.
         :param max_results: Maximum number of runs desired.
+        :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
+                         ordering is to sort by start_time DESC, then run_id.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+            a ``search_runs`` call.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions
+            expressions. If the underlying tracking store supports pagination, the token for
+            the next page may be obtained via the ``token`` attribute of the returned object.
         """
         if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
             experiment_ids = [experiment_ids]
-        return self.store.search_runs(experiment_ids=experiment_ids,
-                                      search_filter=SearchFilter(filter_string=filter_string),
-                                      run_view_type=run_view_type,
-                                      max_results=max_results)
+        return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
+                                      run_view_type=run_view_type, max_results=max_results,
+                                      order_by=order_by, page_token=page_token)
