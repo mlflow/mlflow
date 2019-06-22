@@ -26,7 +26,7 @@ Install `mlflow` followed by installing the `mlflow` runtime as follows:
 
 ```{r eval=FALSE}
 devtools::install_github("mlflow/mlflow", subdir = "mlflow/R/mlflow")
-mlflow::mlflow_install()
+mlflow::install_mlflow()
 ```
 
 Notice also that [Anaconda](https://www.anaconda.com/download/) or [Miniconda](https://conda.io/miniconda.html) need to be manually installed.
@@ -43,7 +43,7 @@ Then install the latest released `mlflow` runtime.
 
 ```{r, eval=FALSE}
 # Install latest released version
-mlflow::mlflow_install()
+mlflow::install_mlflow()
 ```
 
 However, currently, the development runtime of `mlflow` is also required; which means you also need to download or clone the `mlflow` GitHub repo:

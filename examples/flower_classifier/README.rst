@@ -85,12 +85,12 @@ run_id ``101``.
 
 - To test REST api scoring do the following two steps:
 
-  1. Deploy the model as a local REST endpoint by running mlflow pyfunc serve:
+  1. Deploy the model as a local REST endpoint by running ``mlflow models serve``:
 
   .. code-block:: bash
 
       # deploy the model to local REST api endpoint
-      mlflow pyfunc serve -p 54321 -r 101 -m model
+      mlflow models serve --model-uri runs:/101/model --port 54321
 
 
   2. Apply the model to new data using the provided score_images_rest.py script:
@@ -98,14 +98,14 @@ run_id ``101``.
   .. code-block:: bash
 
       # score the deployed model
-      python score_images_rest.py --port 54321 http://127.0.0.1 ./my_images_to_score
+      python score_images_rest.py --model-uri runs:/101/model --port 54321 http://127.0.0.1 --data-path /path/to/images/for/scoring
 
 
 - To test batch scoring in Spark, run score_images_spark.py to score the model in Spark like this:
 
 .. code-block:: bash
 
-   python score_images_spark.py ./my_images_to_score model --run-id 101
+   python score_images_spark.py --model-uri runs:/101/model --data-path /path/to/images/for/scoring
 
 
 

@@ -4,43 +4,20 @@
 \alias{mlflow_get_experiment}
 \title{Get Experiment}
 \usage{
-mlflow_get_experiment(name = NULL, experiment_id = NULL,
+mlflow_get_experiment(experiment_id = NULL, name = NULL,
   client = NULL)
 }
 \arguments{
-\item{name}{The experiment name, either this or `experiment_id` should be specified.}
+\item{experiment_id}{Identifer to get an experiment.}
 
-\item{experiment_id}{Identifer to get an experiment. Attempts to obtain the active experiment
-if not provided.}
+\item{name}{The experiment name. Only one of `name` or `experiment_id` should be specified.}
 
-\item{client}{(Optional) An `mlflow_client` object.}
+\item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
+If specified, MLflow will use the tracking server associated with the passed-in client. If
+unspecified (the common case),
+MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
-Gets metadata for an experiment and a list of runs for the experiment.
+Gets metadata for an experiment and a list of runs for the experiment. Attempts to obtain the
+active experiment if both `experiment_id` and `name` are unspecified.
 }
-\details{
-When `client` is not specified, these functions attempt to infer the current active client.
-}
-\seealso{
-Other tracking functions: \code{\link{mlflow_create_experiment}},
-  \code{\link{mlflow_delete_experiment}},
-  \code{\link{mlflow_delete_run}},
-  \code{\link{mlflow_download_artifacts}},
-  \code{\link{mlflow_end_run}},
-  \code{\link{mlflow_get_metric_history}},
-  \code{\link{mlflow_get_run}},
-  \code{\link{mlflow_list_artifacts}},
-  \code{\link{mlflow_list_experiments}},
-  \code{\link{mlflow_list_run_infos}},
-  \code{\link{mlflow_log_artifact}},
-  \code{\link{mlflow_log_batch}},
-  \code{\link{mlflow_log_metric}},
-  \code{\link{mlflow_log_param}},
-  \code{\link{mlflow_rename_experiment}},
-  \code{\link{mlflow_restore_experiment}},
-  \code{\link{mlflow_restore_run}},
-  \code{\link{mlflow_search_runs}},
-  \code{\link{mlflow_set_tag}},
-  \code{\link{mlflow_start_run}}
-}
-\concept{tracking functions}

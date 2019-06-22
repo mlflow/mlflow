@@ -18,12 +18,12 @@ from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
     _validate_tag_name, _validate_experiment_id, \
     _validate_batch_log_limits, _validate_batch_log_data
-
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
                                      read_yaml, find, read_file_lines, read_file,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all, local_file_uri_to_path, path_to_local_file_uri)
+from mlflow.utils.search_utils import SearchUtils
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -48,6 +48,12 @@ def _make_persisted_run_info_dict(run_info):
     run_info_dict = dict(run_info)
     run_info_dict['tags'] = []
     run_info_dict['name'] = ''
+    if 'status' in run_info_dict:
+        # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
+        # Convert from string to enum/int before storing.
+        run_info_dict['status'] = RunStatus.from_string(run_info.status)
+    else:
+        run_info_dict['status'] = RunStatus.RUNNING
     run_info_dict['source_type'] = SourceType.LOCAL
     run_info_dict['source_name'] = ''
     run_info_dict['entry_point_name'] = ''
@@ -59,6 +65,10 @@ def _read_persisted_run_info_dict(run_info_dict):
     dict_copy = run_info_dict.copy()
     if 'lifecycle_stage' not in dict_copy:
         dict_copy['lifecycle_stage'] = LifecycleStage.ACTIVE
+    # 'status' is stored as an integer enum in meta file, but RunInfo.status field is a string.
+    # converting to string before hydrating RunInfo.
+    # If 'status' value not recorded in files, mark it as 'RUNNING' (default)
+    dict_copy['status'] = RunStatus.to_string(run_info_dict.get('status', RunStatus.RUNNING))
 
     # 'experiment_id' was changed from int to string, so we must cast to string
     # when reading legacy run_infos
@@ -180,10 +190,9 @@ class FileStore(AbstractStore):
         return experiments
 
     def _create_experiment_with_id(self, name, experiment_id, artifact_uri):
+        artifact_uri = artifact_uri or posixpath.join(self.artifact_root_uri, str(experiment_id))
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
-        artifact_uri = artifact_uri or path_to_local_file_uri(
-            os.path.join(self.root_directory, str(experiment_id)))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
         return experiment_id
@@ -348,7 +357,8 @@ class FileStore(AbstractStore):
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(run_uuid=run_uuid, run_id=run_uuid, experiment_id=experiment_id,
                            artifact_uri=artifact_uri, user_id=user_id,
-                           status=RunStatus.RUNNING, start_time=start_time, end_time=None,
+                           status=RunStatus.to_string(RunStatus.RUNNING),
+                           start_time=start_time, end_time=None,
                            lifecycle_stage=LifecycleStage.ACTIVE)
         # Persist run metadata and create directories for logging metrics, parameters, artifacts
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
@@ -360,7 +370,7 @@ class FileStore(AbstractStore):
         mkdir(run_dir, FileStore.ARTIFACTS_FOLDER_NAME)
         for tag in tags:
             self.set_tag(run_uuid, tag)
-        return Run(run_info=run_info, run_data=None)
+        return self.get_run(run_id=run_uuid)
 
     def get_run(self, run_id):
         """
@@ -523,8 +533,10 @@ class FileStore(AbstractStore):
                                 exc_info=True)
         return run_infos
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_THRESHOLD):
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
+                     page_token):
+        if page_token:
+            raise MlflowException("FileStore does not yet support pagination tokens.")
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
@@ -534,8 +546,9 @@ class FileStore(AbstractStore):
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self.get_run(r.run_id) for r in run_infos)
-        filtered = [run for run in runs if not search_filter or search_filter.filter(run)]
-        return sorted(filtered, key=lambda r: (-r.info.start_time, r.info.run_id))[:max_results]
+        filtered = SearchUtils.filter(runs, filter_string)
+        runs = SearchUtils.sort(filtered, order_by)[:max_results]
+        return runs, None
 
     def log_metric(self, run_id, metric):
         _validate_run_id(run_id)

@@ -17,17 +17,58 @@ from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment,
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.db.utils import _get_schema_version
 from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils.search_utils import SearchFilter
-from mlflow.store.dbmodels.initial_models import Base as InitialBase
+from mlflow.utils import extract_db_type_from_uri
+from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
 
 DB_URI = 'sqlite:///'
 ARTIFACT_URI = 'artifact_folder'
+
+
+class TestParseDbUri(unittest.TestCase):
+
+    def test_correct_db_type_from_uri(self):
+        # try each the main drivers per supported database type
+        target_db_type_uris = {
+            'sqlite': ('pysqlite', 'pysqlcipher'),
+            'postgresql': ('psycopg2', 'pg8000', 'psycopg2cffi',
+                           'pypostgresql', 'pygresql', 'zxjdbc'),
+            'mysql': ('mysqldb', 'pymysql', 'mysqlconnector', 'cymysql',
+                      'oursql', 'mysqldb', 'gaerdbms', 'pyodbc', 'zxjdbc'),
+            'mssql': ('pyodbc', 'mxodbc', 'pymssql', 'zxjdbc', 'adodbapi')
+        }
+        for target_db_type, drivers in target_db_type_uris.items():
+            # try the driver-less version, which will revert SQLAlchemy to the default driver
+            uri = "%s://..." % target_db_type
+            parsed_db_type = extract_db_type_from_uri(uri)
+            self.assertEqual(target_db_type, parsed_db_type)
+            # try each of the popular drivers (per SQLAlchemy's dialect pages)
+            for driver in drivers:
+                uri = "%s+%s://..." % (target_db_type, driver)
+                parsed_db_type = extract_db_type_from_uri(uri)
+                self.assertEqual(target_db_type, parsed_db_type)
+
+    def _db_uri_error(self, db_uris, expected_message_part):
+        for db_uri in db_uris:
+            with self.assertRaises(MlflowException) as e:
+                extract_db_type_from_uri(db_uri)
+            self.assertIn(expected_message_part, e.exception.message)
+
+    def test_fail_on_unsupported_db_type(self):
+        bad_db_uri_strings = ['oracle://...', 'oracle+cx_oracle://...',
+                              'snowflake://...', '://...', 'abcdefg']
+        self._db_uri_error(bad_db_uri_strings, "Supported database engines are ")
+
+    def test_fail_on_multiple_drivers(self):
+        bad_db_uri_strings = ['mysql+pymsql+pyodbc://...']
+        self._db_uri_error(bad_db_uri_strings,
+                           "mlflow.org/docs/latest/tracking.html#storage for format specifications")
 
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase):
@@ -294,8 +335,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             v2 = getattr(run.info, k)
             if k == 'source_type':
                 self.assertEqual(v, SourceType.to_string(v2))
-            elif k == 'status':
-                self.assertEqual(v, RunStatus.to_string(v2))
             else:
                 self.assertEqual(v, v2)
 
@@ -558,7 +597,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         actual = self.store.update_run_info(run.info.run_id, new_status, endtime)
 
-        self.assertEqual(actual.status, new_status)
+        self.assertEqual(actual.status, RunStatus.to_string(new_status))
         self.assertEqual(actual.end_time, endtime)
 
     def test_restore_experiment(self):
@@ -645,10 +684,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     # Tests for Search API
     def _search(self, experiment_id, filter_string=None,
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
-        search_filter = SearchFilter(filter_string=filter_string)
+        exps = [experiment_id] if isinstance(experiment_id, int) else experiment_id
         return [r.info.run_id
-                for r in self.store.search_runs([experiment_id], search_filter,
-                                                run_view_type, max_results)]
+                for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)]
 
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
@@ -755,7 +793,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                                       filter_string="tags.p_b = 'ABC'"))
 
     def test_search_metrics(self):
-        experiment_id = self._experiment_factory('search_params')
+        experiment_id = self._experiment_factory('search_metric')
         r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
         r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
@@ -832,6 +870,60 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         filter_string = "metrics.m_b = 4.0"
         six.assertCountEqual(self, [r2], self._search(experiment_id, filter_string))
 
+    def test_search_attrs(self):
+        e1 = self._experiment_factory('search_attributes_1')
+        r1 = self._run_factory(self._get_run_configs(experiment_id=e1)).info.run_id
+
+        e2 = self._experiment_factory('search_attrs_2')
+        r2 = self._run_factory(self._get_run_configs(experiment_id=e2)).info.run_id
+
+        filter_string = ""
+        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.status != 'blah'"
+        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.status = '{}'".format(RunStatus.to_string(RunStatus.RUNNING))
+        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+
+        # change status for one of the runs
+        self.store.update_run_info(r2, RunStatus.FAILED, 300)
+
+        filter_string = "attribute.status = 'RUNNING'"
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.status = 'FAILED'"
+        six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.status != 'SCHEDULED'"
+        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.status = 'SCHEDULED'"
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.status = 'KILLED'"
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e1, r1)
+        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+
+        filter_string = "attr.artifact_uri = '{}/{}/{}/artifacts'".format(ARTIFACT_URI, e2, r1)
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri = 'random_artifact_path'"
+        six.assertCountEqual(self, [], self._search([e1, e2], filter_string))
+
+        filter_string = "attribute.artifact_uri != 'random_artifact_path'"
+        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
+
+        for (k, v) in {"experiment_id": e1,
+                       "lifecycle_stage": "ACTIVE",
+                       "run_id": r1,
+                       "run_uuid": r2}.items():
+            with self.assertRaises(MlflowException) as e:
+                self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
+            self.assertIn("Invalid attribute key", e.exception.message)
+
     def test_search_full(self):
         experiment_id = self._experiment_factory('search_params')
         r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
@@ -892,6 +984,17 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(exp, max_results=n))
+
+    def test_search_runs_pagination_not_implemented(self):
+        # Note: It's not too important which type of db we test this with
+        exp = self._experiment_factory('test_search_runs_pagination_not_implemented')
+        # test returned token behavior
+        result = self.store.search_runs([exp], None, ViewType.ALL)
+        assert result.token is None
+        # test page_token input behavior
+        with self.assertRaises(MlflowException):
+            self.store.search_runs([exp], None, ViewType.ALL, page_token="blah")
+        self.store.search_runs([exp], None, ViewType.ALL, page_token="")  # empty token is ok
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
@@ -1037,11 +1140,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.log_batch(run.info.run_id, params=[], metrics=[metric1], tags=[])
         self._verify_logged(run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
 
+    def test_upgrade_cli_idempotence(self):
+        # Repeatedly run `mlflow db upgrade` against our database, verifying that the command
+        # succeeds and that the DB has the latest schema
+        engine = sqlalchemy.create_engine(self.db_url)
+        assert _get_schema_version(engine) == SqlAlchemyStore._get_latest_schema_revision()
+        for _ in range(3):
+            invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
+            assert _get_schema_version(engine) == SqlAlchemyStore._get_latest_schema_revision()
+
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
-    Test case where user has an existing DB with schema generated by InitialBase,
-    then migrates their DB.
+    Test case where user has an existing DB with schema generated before MLflow 1.0,
+    then migrates their DB. TODO: update this test in MLflow 1.1 to use InitialBase from
+    mlflow.store.db.initial_models.
     """
     def setUp(self):
         fd, self.temp_dbfile = tempfile.mkstemp()

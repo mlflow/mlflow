@@ -61,6 +61,24 @@ def test_download_artifacts(local_artifact_repo):
         assert open(dst_path).read() == artifact_text
 
 
+def test_download_artifacts_does_not_copy(local_artifact_repo):
+    """
+    The LocalArtifactRepository.download_artifact function should not copy the artifact if
+    the ``dst_path`` argument is None.
+    """
+    artifact_rel_path = "test.txt"
+    artifact_text = "hello world!"
+    with TempDir(chdr=True) as local_dir:
+        artifact_src_path = local_dir.path(artifact_rel_path)
+        with open(artifact_src_path, "w") as f:
+            f.write(artifact_text)
+        local_artifact_repo.log_artifact(artifact_src_path)
+        dst_path = local_artifact_repo.download_artifacts(artifact_path=artifact_rel_path)
+        assert open(dst_path).read() == artifact_text
+        assert dst_path.startswith(local_artifact_repo.artifact_dir), \
+            'downloaded artifact is not in local_artifact_repo.artifact_dir root'
+
+
 def test_download_artifacts_returns_absolute_paths(local_artifact_repo):
     artifact_rel_path = "test.txt"
     artifact_text = "hello world!"
@@ -76,6 +94,9 @@ def test_download_artifacts_returns_absolute_paths(local_artifact_repo):
             dst_path = local_artifact_repo.download_artifacts(
                 artifact_path=artifact_rel_path,
                 dst_path=dst_dir)
+            if dst_dir is not None:
+                # If dst_dir isn't none, assert we're actually downloading to dst_dir.
+                assert dst_path.startswith(os.path.abspath(dst_dir))
             assert dst_path == os.path.abspath(dst_path)
 
 

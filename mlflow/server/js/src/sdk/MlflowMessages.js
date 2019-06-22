@@ -26,7 +26,7 @@ export const Metric = Immutable.Record({
   timestamp: undefined,
 
   // optional INT64
-  step : undefined,
+  step: undefined,
 }, 'Metric');
 
 /**
@@ -156,9 +156,6 @@ const extended_RunInfo = ModelBuilder.extend(RunInfo, {
   },
   getExperimentId() {
     return this.experiment_id !== undefined ? this.experiment_id : 0;
-  },
-  getUserId() {
-    return this.user_id !== undefined ? this.user_id : '';
   },
   getStatus() {
     return this.status !== undefined ? this.status : 'RUNNING';
@@ -728,9 +725,6 @@ export const SearchRuns = Immutable.Record({
   // repeated INT64
   experiment_ids: Immutable.List(),
 
-  // repeated SearchExpression
-  anded_expressions: Immutable.List(),
-
   // optional ViewType
   run_view_type: 'ACTIVE_ONLY',
 }, 'SearchRuns');
@@ -745,10 +739,6 @@ SearchRuns.fromJsReviver = function fromJsReviver(key, value) {
     case 'experiment_ids':
       return Immutable.List(value);
 
-    case 'anded_expressions':
-      return Immutable.List(value.map((element) =>
-        SearchExpression.fromJs(element)
-      ));
     default:
       return Immutable.fromJS(value);
   }

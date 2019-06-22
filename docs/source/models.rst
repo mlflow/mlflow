@@ -56,12 +56,12 @@ And its ``MLmodel`` file describes two flavors:
         loader_module: mlflow.sklearn
 
 This model can then be used with any tool that supports *either* the ``sklearn`` or
-``python_function`` model flavor. For example, the ``mlflow sklearn`` command can serve a
+``python_function`` model flavor. For example, the ``mlflow models serve`` command can serve a
 model with the ``sklearn`` flavor:
 
 .. code-block:: bash
 
-    mlflow sklearn serve my_model
+    mlflow models serve my_model
 
 In addition, the ``mlflow sagemaker`` command-line tool can package and deploy models to AWS
 SageMaker as long as they support the ``python_function`` flavor:
@@ -147,6 +147,15 @@ The :py:mod:`mlflow.pyfunc` module defines functions for saving and loading MLfl
 For more information, see the :ref:`custom Python models documentation <custom-python-models>`
 and the :mod:`mlflow.pyfunc` documentation.
 
+R Function (``crate``)
+^^^^^^^^^^^^^^^^^^^^^^
+
+The ``crate`` model flavor defines a generic model format for representing aribtrary R prediction
+function as Mlflow model. The prediction function is expected to take a dataframe as input and
+produce a dataframe, a vector or a list with the predictions as output.
+
+This flavor requires R to be installed in order to be used.
+
 H\ :sub:`2`\ O (``h2o``)
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -171,15 +180,17 @@ For more information, see :py:mod:`mlflow.h2o`.
 Keras (``keras``)
 ^^^^^^^^^^^^^^^^^
 
-The ``keras`` model flavor enables logging and loading Keras models. The :py:mod:`mlflow.keras`
-module defines :py:func:`save_model() <mlflow.keras.save_model>` and
-:py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
-in MLflow Model format. These functions serialize Keras models as HDF5 files using the Keras
-library's built-in model persistence functions. MLflow Models produced by these functions
-also contain the ``python_function`` flavor, allowing them to be interpreted as generic
-Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, you can use
-the :py:func:`mlflow.keras.load_model()` function to load MLflow Models with the
-``keras`` flavor as `Keras Model objects <https://keras.io/models/about-keras-models/>`_.
+The ``keras`` model flavor enables logging and loading Keras models. It is available in both Python
+and R clients. The :py:mod:`mlflow.keras` module defines :py:func:`save_model()<mlflow.keras.save_model>`
+and :py:func:`log_model() <mlflow.keras.log_model>` functions that you can use to save Keras models
+in MLflow Model format in Python. Similarly, in R, you can save or log the model using
+`mlflow_save_model <R-api.rst#mlflow-save-model>`__ and `mlflow_log_model <R-api.rst#mlflow-log-model>`__. These functions serialize Keras
+models as HDF5 files using the Keras library's built-in model persistence functions. MLflow Models
+produced by these functions also contain the ``python_function`` flavor, allowing them to be interpreted
+as generic Python functions for inference via :py:func:`mlflow.pyfunc.load_pyfunc()`. Finally, you
+can use the :py:func:`mlflow.keras.load_model()` function in Python or `mlflow_load_model <R-api.rst#mlflow-load-model>`__
+function in R to load MLflow Models with the ``keras`` flavor as
+`Keras Model objects <https://keras.io/models/about-keras-models/>`_.
 
 For more information, see :py:mod:`mlflow.keras`.
 
@@ -275,6 +286,19 @@ flavor as TensorFlow graphs.
 
 For more information, see :py:mod:`mlflow.tensorflow`.
 
+ONNX (``onnx``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The ``onnx`` model flavor enables logging of `ONNX models <http://onnx.ai/>`_ in MLflow format via
+the :py:func:`mlflow.onnx.save_model()` and :py:func:`mlflow.onnx.log_model()` methods. These
+methods also add the ``python_function`` flavor to the MLflow Models that they produce, allowing the
+models to be interpreted as generic Python functions for inference via
+:py:func:`mlflow.pyfunc.load_pyfunc()`. The ``python_function`` representation of an MLflow
+ONNX model uses the `ONNX Runtime execution engine <https://github.com/microsoft/onnxruntime>`_ for
+evaluation Finally, you can use the :py:func:`mlflow.onnx.load_model()` method to load MLflow
+Models with the ``onnx`` flavor in native ONNX format.
+
+For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
+
 Model Customization
 -------------------
 
@@ -331,7 +355,7 @@ instance of this model with ``n = 5`` in MLflow Model format. Finally, it loads 
     # Construct and save the model
     model_path = "add_n_model"
     add5_model = AddN(n=5)
-    mlflow.pyfunc.save_model(dst_path=model_path, python_model=add5_model)
+    mlflow.pyfunc.save_model(path=model_path, python_model=add5_model)
 
     # Load the model in `python_function` format
     loaded_model = mlflow.pyfunc.load_pyfunc(model_path)
@@ -448,23 +472,25 @@ and return a PyTorch model from its serialized representation.
 Built-In Deployment Tools
 -------------------------
 
-MLflow provides tools for deploying models on a local machine and to several production environments.
-Not all deployment methods are available for all model flavors. Deployment is supported for the
-Python Function format and all compatible formats.
+MLflow provides tools for deploying MLflow models on a local machine and to several production environments.
+Not all deployment methods are available for all model flavors.
 
 .. contents:: In this section:
   :local:
   :depth: 1
 
-.. _pyfunc_deployment:
+.. _local_model_deployment:
 
-Deploy a ``python_function`` model as a local REST API endpoint
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Deploy MLflow models
+^^^^^^^^^^^^^^^^^^^^
+MLflow can deploy models locally as local REST API endpoints or to directly score files. In addition,
+MLflow can package models as self contained Docker images with the REST API endpoint. The image can
+be used to safely deploy the model to various environments such as Kubernetes.
 
-MLflow can deploy models locally as local REST API endpoints or to directly score CSV files.
-This functionality is a convenient way of testing models before deploying to a remote model server.
-You deploy the Python Function flavor locally using the CLI interface to the :py:mod:`mlflow.pyfunc` module.
-The local REST API server accepts the following data formats as inputs:
+You deploy MLflow model locally or generate a Docker image using the CLI interface to the
+:py:mod:`mlflow.models` module.
+
+The REST API server accepts the following data formats as inputs:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
   ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
@@ -481,20 +507,25 @@ The local REST API server accepts the following data formats as inputs:
 For more information about serializing pandas DataFrames, see
 `pandas.DataFrame.to_json <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html>`_.
 
-Commands
-~~~~~~~~~
+The predict command accepts the same input formats. The format is specified as command line arguments.
 
-* :py:func:`serve <mlflow.pyfunc.cli.serve>` deploys the model as a local REST API server.
-* :py:func:`predict <mlflow.pyfunc.cli.predict>` uses the model to generate a prediction for a local
-  CSV file.
+Commands
+~~~~~~~~
+
+* :py:func:`serve <mlflow.models.cli.serve>` deploys the model as a local REST API server.
+* :py:func:`build_docker <mlflow.models.cli.build-docker>` packages a REST API endpoint serving the
+            model as a docker image.
+* :py:func:`predict <mlflow.models.cli.predict>` uses the model to generate a prediction for a local
+  CSV or JSON file.
 
 For more info, see:
 
 .. code-block:: bash
 
-    mlflow pyfunc --help
-    mlflow pyfunc serve --help
-    mlflow pyfunc predict --help
+    mlflow models --help
+    mlflow models serve --help
+    mlflow models predict --help
+    mlflow models build-docker --help
 
 .. _azureml_deployment:
 
@@ -536,7 +567,7 @@ accepts the following data formats as input:
                                        exist_okay=True)
 
     # Build an Azure ML container image for deployment
-    azure_image, azure_model = mlflow.azureml.build_image(model_path="<path-to-model>",
+    azure_image, azure_model = mlflow.azureml.build_image(model_uri="<path-to-model>",
                                                           workspace=azure_workspace,
                                                           description="Wine regression model 1",
                                                           synchronous=True)
@@ -644,9 +675,8 @@ MLflow provides a default Docker image definition; however, it is up to you to b
 MLflow includes the utility function ``build_and_push_container`` to perform this step. Once built and uploaded, you can use the MLflow container for all MLflow Models. Model webservers deployed using the :py:mod:`mlflow.sagemaker`
 module accept the following data formats as input, depending on the deployment flavor:
 
-* ``python_function``: For this deployment flavor, the endpoint accepts the same formats
-  as the pyfunc server. These formats are described in the
-  :ref:`pyfunc deployment documentation <pyfunc_deployment>`.
+* ``python_function``: For this deployment flavor, the endpoint accepts the same formats described
+  in the :ref:`local model deployment documentation <local_model_deployment>`.
 
 * ``mleap``: For this deployment flavor, the endpoint accepts `only`
   JSON-serialized pandas DataFrames in the ``split`` orientation. For example,

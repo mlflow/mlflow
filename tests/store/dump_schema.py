@@ -10,26 +10,26 @@ import tempfile
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 
-def dump_db_schema(metadata, dst_file):
-    print("Writing database schema to %s" % dst_file)
+def dump_db_schema(db_url, dst_file):
+    engine = sqlalchemy.create_engine(db_url)
+    created_tables_metadata = MetaData(bind=engine)
+    created_tables_metadata.reflect()
     # Write out table schema as described in
     # https://docs.sqlalchemy.org/en/13/faq/
     # metadata_schema.html#how-can-i-get-the-create-table-drop-table-output-as-a-string
-    schema = "".join([str(CreateTable(ti)) for ti in metadata.sorted_tables])
+    schema = "".join([str(CreateTable(ti)) for ti in created_tables_metadata.sorted_tables])
+    print("Writing database schema to %s" % dst_file)
     with open(dst_file, "w") as handle:
         handle.write(schema)
 
 
 def dump_sqlalchemy_store_schema(dst_file):
     db_tmpdir = tempfile.mkdtemp()
-    path = os.path.join(db_tmpdir, "db_file")
     try:
+        path = os.path.join(db_tmpdir, "db_file")
         db_url = "sqlite:///%s" % path
         SqlAlchemyStore(db_url, db_tmpdir)
-        engine = sqlalchemy.create_engine(db_url)
-        created_tables_metadata = MetaData(bind=engine)
-        created_tables_metadata.reflect()
-        dump_db_schema(created_tables_metadata, dst_file)
+        dump_db_schema(db_url, dst_file)
     finally:
         shutil.rmtree(db_tmpdir)
 

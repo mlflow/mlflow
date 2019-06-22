@@ -3,7 +3,6 @@ from __future__ import print_function
 import os
 import re
 
-import click
 from six.moves import urllib
 
 from mlflow.utils import process
@@ -76,17 +75,3 @@ def download_uri(uri, output_path):
     else:
         raise DownloadException("`uri` must be a DBFS (%s), S3 (%s), or GCS (%s) URI, got "
                                 "%s" % (DBFS_PREFIX, S3_PREFIX, GS_PREFIX, uri))
-
-
-@click.command("download")
-@click.argument("uri")
-@click.option("--output-path", "-o", metavar="PATH",
-              help="Output path into which to download the artifact.")
-def download(uri, output_path):
-    """
-    Download the artifact at the specified DBFS, S3, or GCS URI into the specified local output
-    path, or the current directory if no output path is specified.
-    """
-    if output_path is None:
-        output_path = os.path.basename(uri)
-    download_uri(uri, output_path)

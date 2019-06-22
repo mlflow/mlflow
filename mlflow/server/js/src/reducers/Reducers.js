@@ -42,18 +42,6 @@ const experimentsById = (state = {}, action) => {
   }
 };
 
-export const getRunInfos = (state) => {
-  return Object.values(state.entities.runInfosByUuid).sort((a, b) => {
-    if (a.start_time < b.start_time) {
-      return 1;
-    } else if (a.start_time > b.start_time) {
-      return -1;
-    } else {
-      return 0;
-    }
-  });
-};
-
 export const getRunInfo = (runUuid, state) => {
   return state.entities.runInfosByUuid[runUuid];
 };

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import posixpath
+import random
 import shutil
 import six
 import tempfile
@@ -11,13 +13,12 @@ import uuid
 import mock
 import pytest
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage
+from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, RunStatus, RunData
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, read_yaml
+from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
-from mlflow.utils.search_utils import SearchFilter
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
@@ -55,7 +56,7 @@ class TestFileStore(unittest.TestCase):
                             "run_id": run_id,
                             "experiment_id": exp,
                             "user_id": random_str(random_int(10, 25)),
-                            "status": random_int(1, 5),
+                            "status": random.choice(RunStatus.all_status()),
                             "start_time": random_int(1, 10),
                             "end_time": random_int(20, 30),
                             "tags": [],
@@ -187,6 +188,8 @@ class TestFileStore(unittest.TestCase):
         # get the new experiment (by id) and verify (by name)
         exp1 = fs.get_experiment(created_id)
         self.assertEqual(exp1.name, name)
+        self.assertEqual(exp1.artifact_location,
+                         path_to_local_file_uri(posixpath.join(self.test_root, created_id)))
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)
@@ -269,6 +272,28 @@ class TestFileStore(unittest.TestCase):
         with pytest.raises(Exception):
             fs.create_run(exp_id, 'user', 0, [])
 
+    def test_create_run_returns_expected_run_data(self):
+        fs = FileStore(self.test_root)
+        no_tags_run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user', start_time=0, tags=[])
+        assert isinstance(no_tags_run.data, RunData)
+        assert len(no_tags_run.data.tags) == 0
+
+        tags_dict = {
+            "my_first_tag": "first",
+            "my-second-tag": "2nd",
+        }
+        tags_entities = [
+            RunTag(key, value) for key, value in tags_dict.items()
+        ]
+        tags_run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id='user',
+            start_time=0,
+            tags=tags_entities)
+        assert isinstance(tags_run.data, RunData)
+        assert tags_run.data.tags == tags_dict
+
     def _experiment_id_edit_func(self, old_dict):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
         return old_dict
@@ -280,6 +305,7 @@ class TestFileStore(unittest.TestCase):
         run_info.pop("params", None)
         run_info.pop("tags", None)
         run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
+        run_info['status'] = RunStatus.to_string(run_info['status'])
         self.assertEqual(run_info, dict(run.info))
 
     def test_get_run(self):
@@ -308,6 +334,7 @@ class TestFileStore(unittest.TestCase):
                 dict_run_info.pop("params")
                 dict_run_info.pop("tags")
                 dict_run_info['lifecycle_stage'] = LifecycleStage.ACTIVE
+                dict_run_info['status'] = RunStatus.to_string(dict_run_info['status'])
                 self.assertEqual(dict_run_info, dict(run_info))
 
     def test_log_metric_allows_multiple_values_at_same_step_and_run_data_uses_max_step_value(self):
@@ -374,9 +401,8 @@ class TestFileStore(unittest.TestCase):
 
     def _search(self, fs, experiment_id, filter_str=None,
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
-        search_filter = SearchFilter(filter_string=filter_str) if filter_str else None
         return [r.info.run_id
-                for r in fs.search_runs([experiment_id], search_filter, run_view_type, max_results)]
+                for r in fs.search_runs([experiment_id], filter_str, run_view_type, max_results)]
 
     def test_search_runs(self):
         # replace with test with code is implemented
