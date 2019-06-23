@@ -5,6 +5,8 @@ import PropTypes from 'prop-types';
 import _ from 'lodash';
 
 const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
+const DIM_TYPE_PARAM = 'param';
+const DIM_TYPE_METRIC = 'metric';
 
 export class ParallelCoordinatesPlotView extends React.Component {
   static propTypes = {
@@ -16,36 +18,56 @@ export class ParallelCoordinatesPlotView extends React.Component {
   };
 
   state = {
-    dimensionToScale: _.last(this.props.metricDimensions),
+    dimensions: [...this.props.paramDimensions, ...this.props.metricDimensions],
   };
 
+  static getDerivedStateFromProps(props, state) {
+    console.log('getDerivedStateFromProps state = ', state.dimensions.map(d => d.label).join(','));
+    const dimensionsFromState = state.dimensions.map((dimension) => dimension.label);
+    const dimensionsFromProps = [...props.paramDimensions, ...props.metricDimensions];
+    if (!_.isEqual(new Set(dimensionsFromState), new Set(dimensionsFromProps))) {
+      console.log('set derived state = ', dimensionsFromProps.map(d => d.label).join(','));
+      return { dimensions: dimensionsFromProps };
+    }
+    return null;
+  }
+
   getData() {
-    const { paramDimensions, metricDimensions } = this.props;
-    const { dimensionToScale } = this.state;
-    const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigs(dimensionToScale);
+    const { dimensions } = this.state;
+    const lastMetricDimension = this.findLastMetricDimensionFromState();
+    const colorScaleConfigs =
+      ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(lastMetricDimension);
     return [
       {
         type: 'parcoords',
         line: {
           ...colorScaleConfigs,
         },
-        dimensions: [...paramDimensions, ...metricDimensions],
+        dimensions: _.clone(dimensions), // dimensions will be mutated by plotly
       },
     ];
   };
 
-  findCurrentDimensionToScale() {
-    const { metricDimensions } = this.props;
-    const axisLabelElements = document.querySelectorAll(AXIS_LABEL_CLS);
-    const { length } = axisLabelElements;
-    const rightMostMetricLabel = length > 0 ? axisLabelElements[length - 1].innerHTML : undefined;
-    if (rightMostMetricLabel) {
-      return metricDimensions.find((d) => d.label === rightMostMetricLabel);
-    }
-    return null;
+  static getAllAxisLabelElementsFromDom = () =>
+    Array.from(document.querySelectorAll(AXIS_LABEL_CLS));
+
+  static getSequencedAxisLabelsFromDom = () =>
+    ParallelCoordinatesPlotView.getAllAxisLabelElementsFromDom().map((el) => el.innerHTML);
+
+  findLastMetricDimensionFromState() {
+    const { dimensions } = this.state;
+    const metricsKeySet = new Set(this.props.metricKeys);
+    return _.findLast(dimensions, (dimension) => metricsKeySet.has(dimension.label));
   }
 
-  static getColorScaleConfigs(dimension) {
+  findLastMetricFromDom() {
+    // The source of truth of current label element is in the dom
+    const dimensionLabels = ParallelCoordinatesPlotView.getSequencedAxisLabelsFromDom();
+    const metricsKeySet = new Set(this.props.metricKeys);
+    return _.findLast(dimensionLabels, (label) => metricsKeySet.has(label));
+  }
+
+  static getColorScaleConfigsForDimension(dimension) {
     if (!dimension) return null;
     const cmin = _.min(dimension.values);
     const cmax = _.max(dimension.values);
@@ -74,18 +96,28 @@ export class ParallelCoordinatesPlotView extends React.Component {
   };
 
   maybeUpdateScale = () => {
-    const currentDimensionToScale = this.findCurrentDimensionToScale();
-    if (currentDimensionToScale !== this.state.dimensionToScale) {
-      this.setState({ dimensionToScale: currentDimensionToScale });
+    const lastMetricDimensionFromState = this.findLastMetricDimensionFromState();
+    const lastMetricFromDom = this.findLastMetricFromDom();
+    // If we found diff on the last(right most) metric dimension, set state with dimension sorted
+    // based on current axis label order from DOM
+    if (lastMetricDimensionFromState.label !== lastMetricFromDom) {
+      const labelSequence = _.last(ParallelCoordinatesPlotView.getSequencedAxisLabelsFromDom());
+      const sortedDimensions = [...this.state.dimensions.sort((d1, d2) => {
+        return labelSequence.indexOf(d1.label) - labelSequence.indexOf(d2.label);
+      })];
+      this.setState({ dimensions: sortedDimensions });
     }
   };
 
   handlePlotUpdate = () => {
+    console.log('handlePlotUpdate this = ', this);
+    console.log('handlePlotUpdate state = ', this.state.dimensions.map(d => d.label).join(','));
     this.updateMetricAxisLabels();
     this.maybeUpdateScale();
   };
 
   render() {
+    console.log('render state = ', this.state.dimensions.map(d => d.label).join(','));
     return (
       <Plot
         layout={{ autosize: true }}
@@ -109,6 +141,7 @@ const mapStateToProps = (state, ownProps) => {
       const { value } = paramsByRunUuid[runUuid][paramKey];
       return isNaN(value) ? value : Number(value);
     }),
+    dimType: DIM_TYPE_PARAM,
   }));
   const metricDimensions = metricKeys.map((metricKey) => ({
     label: metricKey,
@@ -116,6 +149,7 @@ const mapStateToProps = (state, ownProps) => {
       const { value } = latestMetricsByRunUuid[runUuid][metricKey];
       return isNaN(value) ? value : Number(value);
     }),
+    dimType: DIM_TYPE_METRIC,
   }));
   return { paramDimensions, metricDimensions };
 };
