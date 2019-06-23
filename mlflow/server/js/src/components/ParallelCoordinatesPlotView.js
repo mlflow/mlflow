@@ -22,12 +22,11 @@ export class ParallelCoordinatesPlotView extends React.Component {
   };
 
   static getDerivedStateFromProps(props, state) {
-    console.log('getDerivedStateFromProps state = ', state.dimensions.map(d => d.label).join(','));
     const dimensionsFromState = state.dimensions.map((dimension) => dimension.label);
-    const dimensionsFromProps = [...props.paramDimensions, ...props.metricDimensions];
-    if (!_.isEqual(new Set(dimensionsFromState), new Set(dimensionsFromProps))) {
-      console.log('set derived state = ', dimensionsFromProps.map(d => d.label).join(','));
-      return { dimensions: dimensionsFromProps };
+    const dimensionsFromProps = [...props.paramKeys, ...props.metricKeys];
+    if (dimensionsFromState.sort().join() !== dimensionsFromProps.sort().join()) {
+      console.log('set derived state = ', [...props.paramKeys, ...props.metricKeys].join(','));
+      return { dimensions: [...props.paramDimensions, ...props.metricDimensions] };
     }
     return null;
   }
@@ -81,7 +80,6 @@ export class ParallelCoordinatesPlotView extends React.Component {
   }
 
   updateMetricAxisLabels = () => {
-    console.log('updateAxisLabels');
     const { metricDimensions } = this.props;
     const metricsLabelSet = new Set(metricDimensions.map((dimension) => dimension.label));
     const axisLabelElements = document.querySelectorAll(AXIS_LABEL_CLS);
@@ -95,29 +93,28 @@ export class ParallelCoordinatesPlotView extends React.Component {
       });
   };
 
-  maybeUpdateScale = () => {
+  maybeUpdateStateForColorScale = () => {
     const lastMetricDimensionFromState = this.findLastMetricDimensionFromState();
     const lastMetricFromDom = this.findLastMetricFromDom();
     // If we found diff on the last(right most) metric dimension, set state with dimension sorted
     // based on current axis label order from DOM
-    if (lastMetricDimensionFromState.label !== lastMetricFromDom) {
-      const labelSequence = _.last(ParallelCoordinatesPlotView.getSequencedAxisLabelsFromDom());
+    if (lastMetricDimensionFromState && lastMetricDimensionFromState.label !== lastMetricFromDom) {
+      const labelSequence = ParallelCoordinatesPlotView.getSequencedAxisLabelsFromDom();
       const sortedDimensions = [...this.state.dimensions.sort((d1, d2) => {
         return labelSequence.indexOf(d1.label) - labelSequence.indexOf(d2.label);
       })];
+      console.log('colorUpdate state = ', sortedDimensions.map(d => d.label).join());
       this.setState({ dimensions: sortedDimensions });
     }
   };
 
   handlePlotUpdate = () => {
-    console.log('handlePlotUpdate this = ', this);
-    console.log('handlePlotUpdate state = ', this.state.dimensions.map(d => d.label).join(','));
     this.updateMetricAxisLabels();
-    this.maybeUpdateScale();
+    this.maybeUpdateStateForColorScale();
   };
 
   render() {
-    console.log('render state = ', this.state.dimensions.map(d => d.label).join(','));
+    console.log('render state = ', this.state.dimensions.map(d => d.label).join());
     return (
       <Plot
         layout={{ autosize: true }}
