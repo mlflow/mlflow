@@ -132,8 +132,8 @@ def _serve_pyfunc(model):
     os.system("pip -V")
     os.system("python -V")
     os.system('python -c"from mlflow.version import VERSION as V; print(V)"')
-    cmd = ("gunicorn --timeout 60 -k gevent -b unix:/tmp/gunicorn.sock -w {nworkers} " +
-           "mlflow.models.container.scoring_server.wsgi:app").format(nworkers=cpu_count)
+    cmd = "gunicorn -w {cpu_count} ".format(cpu_count=cpu_count) + \
+          "${GUNICORN_CMD_ARGS} mlflow.models.container.scoring_server.wsgi:app"
     bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)])
     signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))

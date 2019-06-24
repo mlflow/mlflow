@@ -91,6 +91,23 @@ def pyfunc_serve_from_docker_image(image_name, host_port, extra_args=None):
     return _start_scoring_proc(cmd=scoring_cmd, env=env)
 
 
+def pyfunc_serve_from_docker_image_with_env_override(image_name,
+                                                     host_port,
+                                                     gunicorn_opts,
+                                                     extra_args=None):
+    """
+    Serves a model from a docker container, exposing it as an endpoint at the specified port
+    on the host machine. Returns a handle (Popen object) to the server process.
+    """
+    env = dict(os.environ)
+    env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+    scoring_cmd = ['docker', 'run', "-e", "GUNICORN_CMD_ARGS=%s" % gunicorn_opts,
+                   "-p", "%s:8080" % host_port, image_name]
+    if extra_args is not None:
+        scoring_cmd += extra_args
+    return _start_scoring_proc(cmd=scoring_cmd, env=env)
+
+
 def pyfunc_serve_and_score_model(
         model_uri, data, content_type, activity_polling_timeout_seconds=500, extra_args=None,
         stdout=sys.stdout):
