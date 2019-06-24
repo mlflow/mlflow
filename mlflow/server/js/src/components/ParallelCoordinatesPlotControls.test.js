@@ -14,7 +14,7 @@ describe('unit tests', () => {
       selectedMetricKeys: ['metric_0', 'metric_1'],
       handleParamsSelectChange: jest.fn(),
       handleMetricsSelectChange: jest.fn(),
-    }
+    };
   });
 
   test('should render with minimal props without exploding', () => {

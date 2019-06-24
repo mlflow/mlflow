@@ -11,7 +11,7 @@ describe('unit tests', () => {
       runUuids: ['runUuid_0', 'runUuid_1'],
       sharedParamKeys: ['param_0', 'param_1'],
       sharedMetricKeys: ['metric_0', 'metric_1'],
-    }
+    };
   });
 
   test('should render with minimal props without exploding', () => {
