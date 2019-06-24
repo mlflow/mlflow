@@ -5,7 +5,6 @@ import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
 import { ParallelCoordinatesPlotControls } from './ParallelCoordinatesPlotControls';
 import { getSharedMetricKeysByRunUuids, getSharedParamKeysByRunUuids } from '../reducers/Reducers';
 import rows from '../pcp.json';
-import _ from 'lodash';
 
 import './ParallelCoordinatesPlotPanel.css';
 
@@ -80,7 +79,7 @@ const injectMockMetricsAndParamsIntoState = (state) => {
   Object.keys(paramsByRunUuid).forEach((runUuid, i) => {
     mockParamKeys.forEach((paramsKey, j) => {
       const label = ['Category A', 'Category B', 'Category C', 'Category D'][Math.floor(Math.random() * 4)];
-      const value = j === 3 ? label : rows[i][paramsKey];
+      const value = j === 2 ? label : rows[i][paramsKey];
       paramsByRunUuid[runUuid][`param_${j}`] = {
         key: `param_${j}`,
         value,
@@ -89,7 +88,8 @@ const injectMockMetricsAndParamsIntoState = (state) => {
   });
   Object.keys(latestMetricsByRunUuid).forEach((runUuid, i) => {
     mockMetricKeys.forEach((metricKey, j) => {
-      const value = rows[i][metricKey];
+      const label = ['Category A', 'Category B', 'Category C', 'Category D'][Math.floor(Math.random() * 4)];
+      const value = j === 2 ? label : rows[i][metricKey];
       latestMetricsByRunUuid[runUuid][`metric_${j}`] = {
         key: `metric_${j}`,
         value,

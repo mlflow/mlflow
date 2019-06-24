@@ -5,6 +5,8 @@ import PropTypes from 'prop-types';
 import _ from 'lodash';
 
 const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
+const DIM_TYPE_PARAM = 'param';
+const DIM_TYPE_METRIC = 'metric';
 
 export class ParallelCoordinatesPlotView extends React.Component {
   static propTypes = {
@@ -35,8 +37,9 @@ export class ParallelCoordinatesPlotView extends React.Component {
     const { paramDimensions, metricDimensions } = this.props;
     const lastMetricKey = this.findLastMetricKeyFromState();
     const lastMetricDimension = this.props.metricDimensions.find((d) => d.label === lastMetricKey);
-    const colorScaleConfigs =
-      ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(lastMetricDimension);
+    const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(
+      lastMetricDimension,
+    );
     // This make sure axis order consistency across renders.
     const orderedDimensions = ParallelCoordinatesPlotView.getDimensionsOrderedBySequence(
       [...paramDimensions, ...metricDimensions],
@@ -49,7 +52,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
         dimensions: orderedDimensions,
       },
     ];
-  };
+  }
 
   static getDimensionsOrderedBySequence(dimensions, sequence) {
     return _.sortBy(dimensions, [(dimension) => sequence.indexOf(dimension.label)]);
@@ -80,7 +83,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
       cmin,
       cmax,
       color: dimension.values,
-    }
+    };
   }
 
   updateMetricAxisLabelStyle = () => {
@@ -128,16 +131,6 @@ export class ParallelCoordinatesPlotView extends React.Component {
   }
 }
 
-const inferMeticType = (metricKey, runUuids, state) => {
-  const { latestMetricsByRunUuid } = state.entities;
-  return isNaN(latestMetricsByRunUuid[runUuids[0]][metricKey].value) ? 'string' : 'number';
-};
-
-const inferParamType = (paramKey, runUuids, state) => {
-  const { paramsByRunUuid } = state.entities;
-  return isNaN(paramsByRunUuid[runUuids[0]][paramKey].value) ? 'string' : 'number';
-};
-
 const generateAttributesForCategoricalDimension = (labels) => {
   // Create a lookup from label to its own alphabetical sorted order.
   // Ex. ['A', 'B', 'C'] => { 'A': '0', 'B': '1', 'C': '2' }
@@ -157,36 +150,39 @@ const generateAttributesForCategoricalDimension = (labels) => {
   return attributes;
 };
 
+// TODO(Zangr) scan more values?
+const inferType = (key, runUuids, entryByRunUuid) =>
+  isNaN(entryByRunUuid[runUuids[0]][key].value) ? 'string' : 'number';
+
+const createDimension = (key, runUuids, entryByRunUuid) => {
+  let attributes = {};
+  const dataType = inferType(key, runUuids, entryByRunUuid);
+  if (dataType === 'string') {
+    attributes = generateAttributesForCategoricalDimension(
+      runUuids.map((runUuid) => entryByRunUuid[runUuid][key].value),
+    );
+  } else {
+    attributes.values = runUuids.map((runUuid) => {
+      const { value } = entryByRunUuid[runUuid][key];
+      // TODO(Zangr) Default NaN to zero here, ideally this run should be filtered out earlier
+      return isNaN(value) ? 0 : Number(value);
+    });
+  }
+  return {
+    label: key,
+    ...attributes,
+  };
+};
+
 const mapStateToProps = (state, ownProps) => {
   const { runUuids, paramKeys, metricKeys } = ownProps;
   const { latestMetricsByRunUuid, paramsByRunUuid } = state.entities;
-  const paramDimensions = paramKeys.map((paramKey) => {
-    let attributes = {};
-    const paramType = inferParamType(paramKey, runUuids, state);
-    if (paramType === 'string') {
-      attributes = generateAttributesForCategoricalDimension(
-        runUuids.map((runUuid) => paramsByRunUuid[runUuid][paramKey].value)
-      );
-    } else {
-      attributes.values = runUuids.map((runUuid) => {
-        const { value } = paramsByRunUuid[runUuid][paramKey];
-        // TODO(Zangr) Default NaN to zero here, ideally this run should be filtered out earlier
-        return isNaN(value) ? 0 : Number(value);
-      })
-    }
-    return {
-      label: paramKey,
-      ...attributes,
-    };
-  });
-
-  const metricDimensions = metricKeys.map((metricKey) => ({
-    label: metricKey,
-    values: runUuids.map((runUuid) => {
-      const { value } = latestMetricsByRunUuid[runUuid][metricKey];
-      return isNaN(value) ? value : Number(value);
-    }),
-  }));
+  const paramDimensions = paramKeys.map((paramKey) =>
+    createDimension(paramKey, runUuids, paramsByRunUuid),
+  );
+  const metricDimensions = metricKeys.map((metricKey) =>
+    createDimension(metricKey, runUuids, latestMetricsByRunUuid),
+  );
   return { paramDimensions, metricDimensions };
 };
 
