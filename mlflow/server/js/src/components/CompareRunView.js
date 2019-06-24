@@ -117,14 +117,14 @@ class CompareRunView extends Component {
           </table>
         </div>
         <Tabs>
-          <TabPane tab="Parallel Coordinates Plot" key="1">
-            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids}/>
-          </TabPane>
-          <TabPane tab="Scatter Plot" key="2">
+          <TabPane tab="Scatter Plot" key="1">
             <CompareRunScatter
               runUuids={this.props.runUuids}
               runDisplayNames={this.props.runDisplayNames}
             />
+          </TabPane>
+          <TabPane tab="Parallel Coordinates Plot" key="2">
+            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids}/>
           </TabPane>
         </Tabs>
       </div>

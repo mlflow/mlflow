@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
 import { ParallelCoordinatesPlotControls } from './ParallelCoordinatesPlotControls';
 import { getSharedMetricKeysByRunUuids, getSharedParamKeysByRunUuids } from '../reducers/Reducers';
+import _ from 'lodash';
 import rows from '../pcp.json';
 
 import './ParallelCoordinatesPlotPanel.css';
@@ -48,11 +49,13 @@ class ParallelCoordinatesPlotPanel extends React.Component {
           handleMetricsSelectChange={this.handleMetricsSelectChange}
           handleParamsSelectChange={this.handleParamsSelectChange}
         />
-        <ParallelCoordinatesPlotView
-          runUuids={runUuids}
-          paramKeys={selectedParamKeys}
-          metricKeys={selectedMetricKeys}
-        />
+        {(!_.isEmpty(selectedParamKeys) || !_.isEmpty(selectedMetricKeys)) ? (
+          <ParallelCoordinatesPlotView
+            runUuids={runUuids}
+            paramKeys={selectedParamKeys}
+            metricKeys={selectedMetricKeys}
+          />
+        ) : null}
       </div>
     );
   }
