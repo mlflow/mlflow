@@ -8,7 +8,7 @@ import _ from 'lodash';
 
 import './ParallelCoordinatesPlotPanel.css';
 
-class ParallelCoordinatesPlotPanel extends React.Component {
+export class ParallelCoordinatesPlotPanel extends React.Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(String).isRequired,
     sharedParamKeys: PropTypes.arrayOf(String).isRequired,
