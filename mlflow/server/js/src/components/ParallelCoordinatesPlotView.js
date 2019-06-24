@@ -59,8 +59,10 @@ export class ParallelCoordinatesPlotView extends React.Component {
     return _.sortBy(dimensions, [(dimension) => sequence.indexOf(dimension.label)]);
   }
 
+  static getLabelElementsFromDom = () => Array.from(document.querySelectorAll(AXIS_LABEL_CLS));
+
   static getSequenceFromDom = () =>
-    Array.from(document.querySelectorAll(AXIS_LABEL_CLS)).map((el) => el.innerHTML);
+    ParallelCoordinatesPlotView.getLabelElementsFromDom().map((el) => el.innerHTML);
 
   findLastKeyFromState(keys) {
     const { sequence } = this.state;
@@ -89,10 +91,9 @@ export class ParallelCoordinatesPlotView extends React.Component {
 
   updateMetricAxisLabelStyle = () => {
     const metricsKeySet = new Set(this.props.metricKeys);
-    const axisLabelElements = document.querySelectorAll(AXIS_LABEL_CLS);
     // TODO(Zangr) 2019-06-20 This assumes name uniqueness across params & metrics. Find a way to
     // make it more deterministic. Ex. Add add different data attributes to indicate axis kind.
-    Array.from(axisLabelElements)
+    ParallelCoordinatesPlotView.getLabelElementsFromDom()
       .filter((el) => metricsKeySet.has(el.innerHTML))
       .forEach((el) => {
         el.style.fill = 'green';
@@ -151,7 +152,7 @@ const generateAttributesForCategoricalDimension = (labels) => {
   return attributes;
 };
 
-// TODO(Zangr) scan more values?
+// Infer type with the first run's value
 const inferType = (key, runUuids, entryByRunUuid) =>
   isNaN(entryByRunUuid[runUuids[0]][key].value) ? 'string' : 'number';
 
@@ -165,8 +166,7 @@ const createDimension = (key, runUuids, entryByRunUuid) => {
   } else {
     attributes.values = runUuids.map((runUuid) => {
       const { value } = entryByRunUuid[runUuid][key];
-      // TODO(Zangr) Default NaN to zero here, ideally this run should be filtered out earlier
-      return isNaN(value) ? 0 : Utils.formatMetric(Number(value));
+      return isNaN(value) ? 0 : Utils.formatMetric(Number(value)); // Default NaN to zero here
     });
   }
   return {
