@@ -34,8 +34,8 @@ export class ParallelCoordinatesPlotView extends React.Component {
 
   getData() {
     const { sequence } = this.state;
-    const { paramDimensions, metricDimensions } = this.props;
-    const lastMetricKey = this.findLastMetricKeyFromState();
+    const { paramDimensions, metricDimensions, metricKeys } = this.props;
+    const lastMetricKey = this.findLastKeyFromState(metricKeys);
     const lastMetricDimension = this.props.metricDimensions.find((d) => d.label === lastMetricKey);
     const colorScaleConfigs = ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(
       lastMetricDimension,
@@ -61,10 +61,10 @@ export class ParallelCoordinatesPlotView extends React.Component {
   static getSequenceFromDom = () =>
     Array.from(document.querySelectorAll(AXIS_LABEL_CLS)).map((el) => el.innerHTML);
 
-  findLastMetricKeyFromState() {
+  findLastKeyFromState(keys) {
     const { sequence } = this.state;
-    const metricsKeySet = new Set(this.props.metricKeys);
-    return _.findLast(sequence, (key) => metricsKeySet.has(key));
+    const keySet = new Set(keys);
+    return _.findLast(sequence, (key) => keySet.has(key));
   }
 
   findLastMetricFromDom() {
@@ -100,7 +100,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
   };
 
   maybeUpdateStateForColorScale = () => {
-    const lastMetricKeyFromState = this.findLastMetricKeyFromState();
+    const lastMetricKeyFromState = this.findLastKeyFromState(this.props.metricKeys);
     const lastMetricFromDom = this.findLastMetricFromDom();
     // If we found diff on the last(right most) metric dimension, update sequence and rerender to
     // trigger color scale change.
