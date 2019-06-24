@@ -164,7 +164,7 @@ const createDimension = (key, runUuids, entryByRunUuid) => {
   } else {
     attributes.values = runUuids.map((runUuid) => {
       const { value } = entryByRunUuid[runUuid][key];
-      return isNaN(value) ? 0 : Utils.formatMetric(Number(value)); // Default NaN to zero here
+      return isNaN(value) ? 0 : Number(Utils.formatMetric(value)); // Default NaN to zero here
     });
   }
   return {
