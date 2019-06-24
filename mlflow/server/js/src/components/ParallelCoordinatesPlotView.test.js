@@ -64,4 +64,24 @@ describe('unit tests', () => {
       sequence: ['param_0', 'param_1', 'metric_0', 'metric_1', 'metric_2'],
     });
   });
+
+  test('maybeUpdateStateForColorScale should trigger setState when last metric change', () => {
+    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps}/>);
+    instance = wrapper.instance();
+    instance.findLastMetricFromState = jest.fn(() => 'metric_1');
+    instance.findLastMetricFromDom = jest.fn(() => 'metric_0'); // sequence changed
+    instance.setState = jest.fn();
+    instance.maybeUpdateStateForColorScale();
+    expect(instance.setState).toBeCalled();
+  });
+
+  test('maybeUpdateStateForColorScale should not trigger setState when last metric stays', () => {
+    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps}/>);
+    instance = wrapper.instance();
+    instance.findLastMetricFromState = jest.fn(() => 'metric_1');
+    instance.findLastMetricFromDom = jest.fn(() => 'metric_1'); // sequence changed
+    instance.setState = jest.fn();
+    instance.maybeUpdateStateForColorScale();
+    expect(instance.setState).not.toBeCalled();
+  });
 });
