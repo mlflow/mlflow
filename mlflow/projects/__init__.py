@@ -33,7 +33,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAM
     MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
     LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, \
-    MLFLOW_EXECUTION_MODE
+    MLFLOW_PROJECT_BACKEND
 from mlflow.utils import databricks_utils, file_utils
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
@@ -108,7 +108,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             tracking.MlflowClient().set_tag(active_run.info.run_id, tag, version)
 
     if backend == "databricks":
-        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_EXECUTION_MODE,
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "databricks")
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
@@ -122,8 +122,10 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
-            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
-            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_EXECUTION_MODE, "local")
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
+                                            "docker")
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
+                                            "local")
             _validate_docker_env(project)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
@@ -135,7 +137,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
-            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_EXECUTION_MODE, "local")
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "local")
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
             command += _get_conda_command(conda_env_name)
@@ -155,7 +157,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
     elif backend == "kubernetes":
         from mlflow.projects import kubernetes as kb
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
-        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_EXECUTION_MODE,
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "kubernetes")
         _validate_docker_env(project)
         _validate_docker_installation()
