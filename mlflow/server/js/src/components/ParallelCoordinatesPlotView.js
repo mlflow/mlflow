@@ -86,7 +86,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
   updateMetricAxisLabelStyle = () => {
     const metricsKeySet = new Set(this.props.metricKeys);
     const axisLabelElements = document.querySelectorAll(AXIS_LABEL_CLS);
-    // Note(Zangr) 2019-06-20 This assumes name uniqueness across params & metrics. Find a way to
+    // TODO(Zangr) 2019-06-20 This assumes name uniqueness across params & metrics. Find a way to
     // make it more deterministic. Ex. Add add different data attributes to indicate axis kind.
     Array.from(axisLabelElements)
       .filter((el) => metricsKeySet.has(el.innerHTML))
@@ -128,16 +128,58 @@ export class ParallelCoordinatesPlotView extends React.Component {
   }
 }
 
+const inferMeticType = (metricKey, runUuids, state) => {
+  const { latestMetricsByRunUuid } = state.entities;
+  return isNaN(latestMetricsByRunUuid[runUuids[0]][metricKey].value) ? 'string' : 'number';
+};
+
+const inferParamType = (paramKey, runUuids, state) => {
+  const { paramsByRunUuid } = state.entities;
+  return isNaN(paramsByRunUuid[runUuids[0]][paramKey].value) ? 'string' : 'number';
+};
+
+const generateAttributesForCategoricalDimension = (labels) => {
+  // Create a lookup from label to its own alphabetical sorted order.
+  // Ex. ['A', 'B', 'C'] => { 'A': '0', 'B': '1', 'C': '2' }
+  const sortedUniqLabels = _.uniq(labels).sort();
+  const labelToIndexStr = _.invert(sortedUniqLabels);
+  const attributes = {};
+
+  // Values are assigned to their alphabetical sorted index number
+  attributes.values = labels.map((label) => Number(labelToIndexStr[label]));
+
+  // Default to alphabetical order for categorical axis here. Ex. [0, 1, 2, 3 ...]
+  attributes.tickvals = _.range(sortedUniqLabels.length);
+
+  // Default to alphabetical order for categorical axis here. Ex. ['A', 'B', 'C', 'D' ...]
+  attributes.ticktext = sortedUniqLabels;
+
+  return attributes;
+};
+
 const mapStateToProps = (state, ownProps) => {
   const { runUuids, paramKeys, metricKeys } = ownProps;
   const { latestMetricsByRunUuid, paramsByRunUuid } = state.entities;
-  const paramDimensions = paramKeys.map((paramKey) => ({
-    label: paramKey,
-    values: runUuids.map((runUuid) => {
-      const { value } = paramsByRunUuid[runUuid][paramKey];
-      return isNaN(value) ? value : Number(value);
-    }),
-  }));
+  const paramDimensions = paramKeys.map((paramKey) => {
+    let attributes = {};
+    const paramType = inferParamType(paramKey, runUuids, state);
+    if (paramType === 'string') {
+      attributes = generateAttributesForCategoricalDimension(
+        runUuids.map((runUuid) => paramsByRunUuid[runUuid][paramKey].value)
+      );
+    } else {
+      attributes.values = runUuids.map((runUuid) => {
+        const { value } = paramsByRunUuid[runUuid][paramKey];
+        // TODO(Zangr) Default NaN to zero here, ideally this run should be filtered out earlier
+        return isNaN(value) ? 0 : Number(value);
+      })
+    }
+    return {
+      label: paramKey,
+      ...attributes,
+    };
+  });
+
   const metricDimensions = metricKeys.map((metricKey) => ({
     label: metricKey,
     values: runUuids.map((runUuid) => {

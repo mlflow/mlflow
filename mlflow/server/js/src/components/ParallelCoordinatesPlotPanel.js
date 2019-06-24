@@ -60,20 +60,6 @@ class ParallelCoordinatesPlotPanel extends React.Component {
 }
 
 // TODO(Zangr) remove mock after testing
-const mockMetricRanges = {
-  blockHeight: [32000, 227900],
-  blockWidth: [0, 700000],
-  cycMaterial: undefined,
-  blockMaterial: [-1, 4],
-  totalWeight: [134, 3154],
-  assemblyPW: [9, 19984],
-  HstW: [49000, 568000],
-  minHW: [-28000, 196430],
-  minWD: [98453, 501789],
-  rfBlock: [1417, 107154],
-};
-
-// TODO(Zangr) remove mock after testing
 const mockParamKeys = [
   'blockHeight',
   'blockWidth',
@@ -93,10 +79,11 @@ const injectMockMetricsAndParamsIntoState = (state) => {
   const { latestMetricsByRunUuid, paramsByRunUuid } = state.entities;
   Object.keys(paramsByRunUuid).forEach((runUuid, i) => {
     mockParamKeys.forEach((paramsKey, j) => {
-      const value = rows[i][paramsKey];
+      const label = ['Category A', 'Category B', 'Category C', 'Category D'][Math.floor(Math.random() * 4)];
+      const value = j === 3 ? label : rows[i][paramsKey];
       paramsByRunUuid[runUuid][`param_${j}`] = {
         key: `param_${j}`,
-        value: _.isNumber(value) ? Number(value) : value,
+        value,
       };
     });
   });
@@ -105,7 +92,7 @@ const injectMockMetricsAndParamsIntoState = (state) => {
       const value = rows[i][metricKey];
       latestMetricsByRunUuid[runUuid][`metric_${j}`] = {
         key: `metric_${j}`,
-        value: _.isNumber(value) ? Number(value) : value,
+        value,
       };
     });
   });
