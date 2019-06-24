@@ -130,7 +130,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
   }
 }
 
-const generateAttributesForCategoricalDimension = (labels) => {
+export const generateAttributesForCategoricalDimension = (labels) => {
   // Create a lookup from label to its own alphabetical sorted order.
   // Ex. ['A', 'B', 'C'] => { 'A': '0', 'B': '1', 'C': '2' }
   const sortedUniqLabels = _.uniq(labels).sort();

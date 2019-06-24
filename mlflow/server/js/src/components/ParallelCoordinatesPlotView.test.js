@@ -1,6 +1,9 @@
 import React from 'react';
 import { shallow } from 'enzyme';
-import { ParallelCoordinatesPlotView } from './ParallelCoordinatesPlotView';
+import {
+  ParallelCoordinatesPlotView,
+  generateAttributesForCategoricalDimension,
+} from './ParallelCoordinatesPlotView';
 
 describe('unit tests', () => {
   let wrapper;
@@ -83,5 +86,13 @@ describe('unit tests', () => {
     instance.setState = jest.fn();
     instance.maybeUpdateStateForColorScale();
     expect(instance.setState).not.toBeCalled();
+  });
+
+  test('generateAttributesForCategoricalDimension', () => {
+    expect(generateAttributesForCategoricalDimension(['A', 'B', 'C', 'B', 'C'])).toEqual({
+      values: [0, 1, 2, 1, 2],
+      tickvals: [0, 1, 2],
+      ticktext: ['A', 'B', 'C'],
+    });
   });
 });
