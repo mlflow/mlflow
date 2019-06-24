@@ -26,7 +26,6 @@ MAX_PARAM_VAL_LENGTH = 250
 MAX_TAG_VAL_LENGTH = 250
 MAX_ENTITY_KEY_LENGTH = 250
 MAX_EXPERIMENT_NAME_LENGTH = 256
-MAX_ARTIFACT_LOCATION_LENGTH = 256
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
 
@@ -193,7 +192,7 @@ def _validate_experiment_name(experiment_name):
     if not isinstance(experiment_name, str):
         raise MlflowException("Invalid experiment name: '%s'. Expects a string." % experiment_name,
                               error_code=INVALID_PARAMETER_VALUE)
-    _validate_length_limit("Experiment name", MAX_EXPERIMENT_NAME_LENGTH, experiment_name)   
+    _validate_length_limit("Experiment name", MAX_EXPERIMENT_NAME_LENGTH, experiment_name)
 
 
 def _validate_experiment_artifact_location(artifact_location):
