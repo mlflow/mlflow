@@ -6,8 +6,6 @@ import Utils from '../utils/Utils';
 import _ from 'lodash';
 
 const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
-const DIM_TYPE_PARAM = 'param';
-const DIM_TYPE_METRIC = 'metric';
 
 export class ParallelCoordinatesPlotView extends React.Component {
   static propTypes = {
@@ -90,6 +88,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
   }
 
   updateMetricAxisLabelStyle = () => {
+    /* eslint-disable no-param-reassign */
     const metricsKeySet = new Set(this.props.metricKeys);
     // TODO(Zangr) 2019-06-20 This assumes name uniqueness across params & metrics. Find a way to
     // make it more deterministic. Ex. Add add different data attributes to indicate axis kind.
@@ -121,7 +120,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
     console.log('render state = ', this.state.sequence.join());
     return (
       <Plot
-        layout={{ autosize: true , margin: { t: 50 } }}
+        layout={{ autosize: true, margin: { t: 50 } }}
         useResizeHandler
         style={{ width: '100%', height: '100%' }}
         data={this.getData()}
@@ -153,8 +152,9 @@ const generateAttributesForCategoricalDimension = (labels) => {
 };
 
 // Infer type with the first run's value
-const inferType = (key, runUuids, entryByRunUuid) =>
-  isNaN(entryByRunUuid[runUuids[0]][key].value) ? 'string' : 'number';
+const inferType = (key, runUuids, entryByRunUuid) => {
+  return isNaN(entryByRunUuid[runUuids[0]][key].value) ? 'string' : 'number';
+};
 
 const createDimension = (key, runUuids, entryByRunUuid) => {
   let attributes = {};
