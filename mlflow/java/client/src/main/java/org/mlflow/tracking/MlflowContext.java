@@ -7,28 +7,67 @@ import org.mlflow.tracking.utils.MlflowTagConstants;
 import java.util.*;
 import java.util.function.Consumer;
 
-public class MlflowTrackingContext {
+public class MlflowContext {
+  private static MlflowContext defaultContext;
   private MlflowClient client;
   private String experimentId;
+  private ActiveRun rootRun;
 
-  public MlflowTrackingContext() {
+  public MlflowContext() {
     this(new MlflowClient(), getDefaultExperimentId());
   }
 
-  public MlflowTrackingContext(MlflowClient client) {
+  public MlflowContext(MlflowClient client) {
     this(client, getDefaultExperimentId());
   }
 
-  public MlflowTrackingContext(String experimentId) {
+  public MlflowContext(String experimentId) {
     this(new MlflowClient(), experimentId);
   }
 
-  public MlflowTrackingContext(MlflowClient client, String experimentId) {
+  public static synchronized MlflowContext getOrCreate() {
+    if (defaultContext != null) {
+      return defaultContext;
+    }
+    defaultContext = new MlflowContext();
+    return defaultContext;
+  }
+
+  public MlflowContext(MlflowClient client, String experimentId) {
     this.client = client;
     this.experimentId = experimentId;
   }
 
-  public ActiveRun startRun(String runName) {
+  public synchronized Optional<ActiveRun> getRootRun() {
+    if (rootRun != null && rootRun.isTerminated) {
+      rootRun = null;
+    }
+    return Optional.ofNullable(rootRun);
+  }
+
+  public void setClient(MlflowClient client) {
+    assertRootRunNotDefined();
+    this.client = client;
+  }
+
+  public void setExperimentName(String experimentName) {
+    assertRootRunNotDefined();
+    Optional<Experiment> experimentOpt = client.getExperimentByName(experimentName);
+    if (!experimentOpt.isPresent()) {
+      throw new IllegalArgumentException(String.format("%s is not a valid experiment", experimentName));
+    }
+    experimentId = experimentOpt.get().getExperimentId();
+  }
+
+  public void setExperimentId(String experimentId) {
+    assertRootRunNotDefined();
+    this.experimentId = experimentId;
+  }
+
+  public synchronized ActiveRun startRun(String runName) {
+    if (rootRun != null && !rootRun.isTerminated) {
+      throw new IllegalArgumentException("Root run must be terminated before starting a new run");
+    }
     Map<String, String> tags = new HashMap<>();
     tags.put(MlflowTagConstants.RUN_NAME, runName);
     tags.put(MlflowTagConstants.USER, System.getProperty("user.name"));
@@ -50,7 +89,8 @@ public class MlflowTrackingContext {
     }
     RunInfo runInfo = client.createRun(createRunBuilder.build());
 
-    return new ActiveRun(runInfo, client, experimentId);
+    rootRun = new ActiveRun(runInfo, client, experimentId);
+    return rootRun;
   }
 
   // Context APIs
@@ -74,5 +114,11 @@ public class MlflowTrackingContext {
       }
     }
     return MlflowClient.DEFAULT_EXPERIMENT_ID;
+  }
+
+  private void assertRootRunNotDefined() {
+    if (rootRun != null && !rootRun.isTerminated)  {
+      throw new IllegalArgumentException("Cannot set new client/experiment if root run is still active");
+    }
   }
 }

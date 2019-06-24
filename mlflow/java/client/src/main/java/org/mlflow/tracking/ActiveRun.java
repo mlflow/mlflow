@@ -16,6 +16,7 @@ public class ActiveRun {
     private MlflowClient client;
     private RunInfo runInfo;
     private String experimentId;
+    boolean isTerminated;
 
     public String getId() {
         return runInfo.getRunId();
@@ -25,6 +26,7 @@ public class ActiveRun {
         this.runInfo = runInfo;
         this.client = client;
         this.experimentId = experimentId;
+        this.isTerminated = false;
     }
 
     /**
@@ -126,6 +128,7 @@ public class ActiveRun {
 
     public ActiveRun endRun(RunStatus status) {
         client.setTerminated(getId(), status);
+        this.isTerminated = true;
         return this;
     }
 }

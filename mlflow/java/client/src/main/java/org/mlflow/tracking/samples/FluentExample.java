@@ -2,14 +2,13 @@ package org.mlflow.tracking.samples;
 
 import org.mlflow.MlflowMetric;
 import org.mlflow.tracking.ActiveRun;
-import org.mlflow.tracking.MlflowTrackingContext;
+import org.mlflow.tracking.MlflowContext;
 
 import java.util.Arrays;
-import java.util.Collections;
 
 public class FluentExample {
     public static void main(String[] args) {
-        MlflowTrackingContext mlflow = new MlflowTrackingContext();
+        MlflowContext mlflow = new MlflowContext();
         ActiveRun run = mlflow.startRun("run");
         run.logParam("alpha", "0.0");
         run.logMetric("MSE", 0.0);
