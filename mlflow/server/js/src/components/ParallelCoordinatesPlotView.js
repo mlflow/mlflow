@@ -2,6 +2,7 @@ import React from 'react';
 import { connect } from 'react-redux';
 import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
+import Utils from '../utils/Utils';
 import _ from 'lodash';
 
 const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
@@ -165,7 +166,7 @@ const createDimension = (key, runUuids, entryByRunUuid) => {
     attributes.values = runUuids.map((runUuid) => {
       const { value } = entryByRunUuid[runUuid][key];
       // TODO(Zangr) Default NaN to zero here, ideally this run should be filtered out earlier
-      return isNaN(value) ? 0 : Number(value);
+      return isNaN(value) ? 0 : Utils.formatMetric(Number(value));
     });
   }
   return {
