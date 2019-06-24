@@ -25,7 +25,6 @@ export class ParallelCoordinatesPlotView extends React.Component {
     const keysFromProps = [...props.paramKeys, ...props.metricKeys];
     const keysFromState = state.sequence;
     if (!_.isEqual(_.sortBy(keysFromProps), _.sortBy(keysFromState))) {
-      console.log('set derived state = ', keysFromProps.join(','));
       return { sequence: keysFromProps };
     }
     return null;
@@ -117,7 +116,6 @@ export class ParallelCoordinatesPlotView extends React.Component {
   };
 
   render() {
-    console.log('render state = ', this.state.sequence.join());
     return (
       <Plot
         layout={{ autosize: true, margin: { t: 50 } }}
