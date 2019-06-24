@@ -119,7 +119,7 @@ export class ParallelCoordinatesPlotView extends React.Component {
     console.log('render state = ', this.state.sequence.join());
     return (
       <Plot
-        layout={{ autosize: true }}
+        layout={{ autosize: true , margin: { t: 50 } }}
         useResizeHandler
         style={{ width: '100%', height: '100%' }}
         data={this.getData()}

@@ -22,7 +22,6 @@ class ParallelCoordinatesPlotPanel extends React.Component {
   };
 
   state = {
-    // TODO(Zangr) handle empty cases, show notice to user
     selectedParamKeys: this.props.sharedParamKeys, // default select all parameters
     selectedMetricKeys: this.props.sharedMetricKeys.slice(0, 1),
   };
@@ -61,6 +60,7 @@ class ParallelCoordinatesPlotPanel extends React.Component {
   }
 }
 
+/*
 // TODO(Zangr) remove mock after testing
 const mockParamKeys = [
   'blockHeight',
@@ -100,10 +100,12 @@ const injectMockMetricsAndParamsIntoState = (state) => {
     });
   });
 };
-
+*/
 const mapStateToProps = (state, ownProps) => {
+  /*
   // TODO(Zangr) remove mock after testing
   injectMockMetricsAndParamsIntoState(state);
+  */
 
   const { runUuids } = ownProps;
   const sharedParamKeys = getSharedParamKeysByRunUuids(runUuids, state);
