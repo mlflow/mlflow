@@ -18,6 +18,11 @@ _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
 
 _EXPERIMENT_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,63}$")
 
+_BAD_CHARACTERS_MESSAGE = (
+    "Names may only contain alphanumerics, underscores (_), dashes (-), periods (.),"
+    " spaces ( ), and slashes (/)."
+)
+
 MAX_PARAMS_TAGS_PER_BATCH = 100
 MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
@@ -28,11 +33,6 @@ MAX_ENTITY_KEY_LENGTH = 250
 MAX_EXPERIMENT_NAME_LENGTH = 256
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
-
-_BAD_CHARACTERS_MESSAGE = (
-    "Names must be %d characters or less and only contain alphanumerics, underscores (_),"
-    " dashes (-), periods (.), spaces ( ), and slashes (/)." % MAX_ENTITY_KEY_LENGTH
-)
 
 
 def bad_path_message(name):
