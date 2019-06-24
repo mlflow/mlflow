@@ -121,14 +121,4 @@ public class ActiveRun {
 
         return new ActiveRun(runInfo, client, experimentId);
     }
-
-    public ActiveRun endRun() {
-        return endRun(RunStatus.FINISHED);
-    }
-
-    public ActiveRun endRun(RunStatus status) {
-        client.setTerminated(getId(), status);
-        this.isTerminated = true;
-        return this;
-    }
 }

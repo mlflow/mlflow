@@ -5,13 +5,37 @@ import org.mlflow.tracking.utils.DatabricksContext;
 import org.mlflow.tracking.utils.MlflowTagConstants;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 public class MlflowContext {
-  private static MlflowContext defaultContext;
+  private static AtomicBoolean hasInitialized = new AtomicBoolean();
+
+  private static final ThreadLocal<MlflowContext> defaultContexts = new ThreadLocal<MlflowContext>() {
+    @Override protected MlflowContext initialValue() {
+      // Return a MLflowContext for the first thread which tries to use the defaultContext
+      if (hasInitialized.compareAndSet(false, true)) {
+        return new MlflowContext();
+      }
+      // Otherwise return null
+      return null;
+    }
+  };
+
   private MlflowClient client;
   private String experimentId;
-  private ActiveRun rootRun;
+  private Deque<ActiveRun> runStack;
+
+  public MlflowContext copyMlflowContext() {
+    // Maybe we should be copying the client here?
+    MlflowContext copied = new MlflowContext(client, experimentId);
+    copied.runStack = new ArrayDeque<>(this.runStack);
+    return copied;
+  }
+
+  public static void setDefaultContext(MlflowContext context) {
+    defaultContexts.set(context);
+  }
 
   public MlflowContext() {
     this(new MlflowClient(), getDefaultExperimentId());
@@ -25,33 +49,31 @@ public class MlflowContext {
     this(new MlflowClient(), experimentId);
   }
 
-  public static synchronized MlflowContext getOrCreate() {
-    if (defaultContext != null) {
-      return defaultContext;
-    }
-    defaultContext = new MlflowContext();
-    return defaultContext;
-  }
-
   public MlflowContext(MlflowClient client, String experimentId) {
     this.client = client;
     this.experimentId = experimentId;
   }
 
-  public synchronized Optional<ActiveRun> getRootRun() {
-    if (rootRun != null && rootRun.isTerminated) {
-      rootRun = null;
+  public static MlflowContext getDefault() {
+    MlflowContext context = defaultContexts.get();
+    if (context == null) {
+      throw new IllegalArgumentException("Default not set.");
     }
-    return Optional.ofNullable(rootRun);
+    return context;
+  }
+
+
+  public synchronized Optional<ActiveRun> getActiveRun() {
+    return Optional.ofNullable(runStack.peekFirst());
   }
 
   public void setClient(MlflowClient client) {
-    assertRootRunNotDefined();
+    assertStackEmpty();
     this.client = client;
   }
 
   public void setExperimentName(String experimentName) {
-    assertRootRunNotDefined();
+    assertStackEmpty();
     Optional<Experiment> experimentOpt = client.getExperimentByName(experimentName);
     if (!experimentOpt.isPresent()) {
       throw new IllegalArgumentException(String.format("%s is not a valid experiment", experimentName));
@@ -60,14 +82,11 @@ public class MlflowContext {
   }
 
   public void setExperimentId(String experimentId) {
-    assertRootRunNotDefined();
+    assertStackEmpty();
     this.experimentId = experimentId;
   }
 
   public synchronized ActiveRun startRun(String runName) {
-    if (rootRun != null && !rootRun.isTerminated) {
-      throw new IllegalArgumentException("Root run must be terminated before starting a new run");
-    }
     Map<String, String> tags = new HashMap<>();
     tags.put(MlflowTagConstants.RUN_NAME, runName);
     tags.put(MlflowTagConstants.USER, System.getProperty("user.name"));
@@ -89,8 +108,19 @@ public class MlflowContext {
     }
     RunInfo runInfo = client.createRun(createRunBuilder.build());
 
-    rootRun = new ActiveRun(runInfo, client, experimentId);
-    return rootRun;
+    ActiveRun newRun = new ActiveRun(runInfo, client, experimentId);
+    runStack.addFirst(newRun);
+    return newRun;
+  }
+
+  public ActiveRun endRun() {
+    return endRun(RunStatus.FINISHED);
+  }
+
+  public ActiveRun endRun(RunStatus status) {
+    ActiveRun endedRun = runStack.pop();
+    client.setTerminated(endedRun.getId(), status);
+    return endedRun;
   }
 
   // Context APIs
@@ -99,10 +129,10 @@ public class MlflowContext {
     try {
       activeRunFunction.accept(newRun);
     } catch(Exception e) {
-      newRun.endRun(RunStatus.FAILED);
+      endRun(RunStatus.FAILED);
       return;
     }
-    newRun.endRun(RunStatus.FINISHED);
+    endRun(RunStatus.FINISHED);
   }
 
   private static String getDefaultExperimentId() {
@@ -116,9 +146,9 @@ public class MlflowContext {
     return MlflowClient.DEFAULT_EXPERIMENT_ID;
   }
 
-  private void assertRootRunNotDefined() {
-    if (rootRun != null && !rootRun.isTerminated)  {
-      throw new IllegalArgumentException("Cannot set new client/experiment if root run is still active");
+  private void assertStackEmpty() {
+    if (!runStack.isEmpty())  {
+      throw new IllegalArgumentException("Cannot set new client/experiment if there's an active run");
     }
   }
 }
