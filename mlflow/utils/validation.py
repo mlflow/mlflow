@@ -11,7 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 
-_VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]{1,250}$")
+_VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
 # Regex for valid run IDs: must be an alphanumeric string of length 1 to 256.
 _RUN_ID_REGEX = re.compile(r"^[a-zA-Z0-9][\w\-]{0,255}$")
@@ -128,7 +128,7 @@ def _validate_length_limit(entity_name, limit, value):
     if len(value) > limit:
         raise MlflowException(
             "%s '%s' had length %s, which exceeded length limit of %s" %
-            (entity_name, value, len(value), limit))
+            (entity_name, value, len(value), limit), INVALID_PARAMETER_VALUE)
 
 
 def _validate_run_id(run_id):
@@ -193,20 +193,13 @@ def _validate_experiment_name(experiment_name):
     if not isinstance(experiment_name, str):
         raise MlflowException("Invalid experiment name: '%s'. Expects a string." % experiment_name,
                               error_code=INVALID_PARAMETER_VALUE)
-    if len(experiment_name) > MAX_EXPERIMENT_NAME_LENGTH:
-        raise MlflowException("Invalid experiment name: '%s'. Length must be %d characters or less"
-                              " in length." % (experiment_name, MAX_EXPERIMENT_NAME_LENGTH),
-                              error_code=INVALID_PARAMETER_VALUE)
+    _validate_length_limit("Experiment name", MAX_EXPERIMENT_NAME_LENGTH, experiment_name)   
 
 
 def _validate_experiment_artifact_location(artifact_location):
     if artifact_location is not None and artifact_location.startswith("runs:"):
         raise MlflowException("Artifact location cannot be a runs:/ URI. Given: '%s'"
                               % artifact_location,
-                              error_code=INVALID_PARAMETER_VALUE)
-    if artifact_location is not None and len(artifact_location) > MAX_ARTIFACT_LOCATION_LENGTH:
-        raise MlflowException("Aritfact location must be a string with %d characters or less."
-                              % MAX_ARTIFACT_LOCATION_LENGTH,
                               error_code=INVALID_PARAMETER_VALUE)
 
 
