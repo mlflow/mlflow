@@ -107,7 +107,6 @@ def parse_records_oriented_json_input_to_numpy(json_input):
     """
     # pylint: disable=broad-except
     try:
-        #return pd.read_json(json_input, orient="records", dtype=False, numpy=True)
         json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
         return pd.DataFrame(np.array([list(d.values()) for d in json_input_list], dtype=object))
     except Exception:
