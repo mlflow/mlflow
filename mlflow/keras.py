@@ -258,7 +258,10 @@ class __MLflowKerasCallback(Callback):
         mlflow.log_metrics(logs, step=epoch)
         if logs['val_loss'] < self._best_train_loss:
             self._best_train_loss = logs['val_loss']
-            log_model(self.model, None, None)
+            self._best_model = self.model
+
+    def on_train_end(self, logs=None):
+        log_model(self.model, None, None)
 
 
 
