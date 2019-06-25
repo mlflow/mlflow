@@ -15,6 +15,8 @@ import shutil
 import yaml
 import logging
 import gorilla
+import concurrent.futures
+import warnings
 
 import pandas
 
@@ -33,6 +35,8 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
+
+_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=2)
 
 
 def get_default_conda_env():
@@ -336,12 +340,20 @@ class _TFWrapper(object):
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
             return pandas.DataFrame(data=pred_dict)
 
+
+def log_with_warning(**kwargs):
+    try:
+        mlflow.log_metric(**kwargs)
+    except Exception as e:
+        warnings.warn("Logging to MLflow failed: " + str(e))
+
 def _log_event(event):
     if event.WhichOneof('what') == 'summary':
         summary = event.summary
         for v in summary.value:
             if v.HasField('simple_value'):
-                mlflow.log_metric(v.tag, v.simple_value, step=event.step)
+                _thread_pool.submit(log_with_warning, key=v.tag, value=v.simple_value, step=event.step)
+                #mlflow.log_metric(v.tag, v.simple_value, step=event.step)
 
 
 def _log_scalar(*args, **kwargs):
@@ -349,7 +361,8 @@ def _log_scalar(*args, **kwargs):
     name = list(args)[0]
     value = tf.cast((list(args)[1]), tf.float32).numpy()
     step = kwargs['step'] if 'step' in kwargs else tf.summary.experimental.get_step()
-    mlflow.log_metric(name, value, step=step)
+    _thread_pool.submit(log_with_warning, key=name, value=value, step=step)
+    #mlflow.log_metric(name, value, step=step)
 
 
 def enable_autolog():
