@@ -24,7 +24,7 @@ MLFLOW_DATABRICKS_RUN_URL = "mlflow.databricks.runURL"
 MLFLOW_DATABRICKS_SHELL_JOB_ID = "mlflow.databricks.shellJobID"
 MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID = "mlflow.databricks.shellJobRunID"
 
-MLFLOW_EXECUTION_MODE = "mlflow.backendMode"
+MLFLOW_PROJECT_BACKEND = "mlflow.project.backend"
 
 # The following legacy tags are deprecated and will be removed by MLflow 1.0.
 LEGACY_MLFLOW_GIT_BRANCH_NAME = "mlflow.gitBranchName"  # Replaced with mlflow.source.git.branch

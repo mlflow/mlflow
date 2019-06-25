@@ -5,6 +5,7 @@ metadata:
   namespace: mlflow
 spec:
   ttlSecondsAfterFinished: 100
+  backoffLimit: 0
   template:
     spec:
       containers:

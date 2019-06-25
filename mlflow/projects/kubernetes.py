@@ -34,7 +34,9 @@ def _get_kubernetes_job_definition(project_name, image_tag, image_digest,
     job_template['spec']['template']['spec']['containers'][0]['name'] = project_name
     job_template['spec']['template']['spec']['containers'][0]['image'] = container_image
     job_template['spec']['template']['spec']['containers'][0]['command'] = command
-    job_template['spec']['template']['spec']['containers'][0]['env'] = environment_variables
+    if 'env' not in job_template['spec']['template']['spec']['containers'][0].keys():
+        job_template['spec']['template']['spec']['containers'][0]['env'] = []
+    job_template['spec']['template']['spec']['containers'][0]['env'] += environment_variables
     return job_template
 
 
