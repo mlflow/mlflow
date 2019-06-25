@@ -66,5 +66,5 @@ run = projects.run
 
 
 __all__ = ["ActiveRun", "log_param", "log_metric", "set_tag", "log_artifacts", "log_artifact",
-           "active_run", "start_run", "end_run", "search_runs", "get_artifact_uri", "set_tracking_uri",
-           "create_experiment", "set_experiment", "run"]
+           "active_run", "start_run", "end_run", "search_runs", "get_artifact_uri",
+           "set_tracking_uri", "create_experiment", "set_experiment", "run"]

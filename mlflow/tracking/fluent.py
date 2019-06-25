@@ -14,7 +14,7 @@ import numpy
 import pandas as pd
 import numpy as np
 
-from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store import SEARCH_MAX_RESULTS_PANDAS
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
@@ -293,7 +293,7 @@ def get_artifact_uri(artifact_path=None):
 
 
 def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None):
+                max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None):
     """
     Search experiments that fit the search criteria.
 
@@ -301,10 +301,10 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     :param filter_string: Filter query string, defaults to searching all runs.
     :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                             defined in :py:class:`mlflow.entities.ViewType`.
-    :param max_results: Maximum number of runs desired.
+    :param max_results: Maximum number of runs desired in the dataframe.
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
                         ordering is to sort by start_time DESC, then run_id.
-    
+
     :return: A pandas.DataFrame object of runs, where each metric, parameter, and tag
         are expanded into their own columns named metrics.*, params.*, and tags.*
         respectively. For runs that don't have a particular metric, parameter, or tag, their
@@ -313,11 +313,11 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     if not experiment_ids:
         print("Exp Ids: ", experiment_ids)
         experiment_ids = _get_experiment_id()
-    runs = MlflowClient().search_runs(experiment_ids,filter_string,run_view_type,max_results,order_by)
-    info = {'attributes.status': [], 'attributes.artifact_uri': [], 
-        'attributes.run_id': [], 'attributes.start_time': []}
+    runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type, max_results,
+                                      order_by)
+    info = {'attributes.status': [], 'attributes.artifact_uri': [],
+            'attributes.run_id': [], 'attributes.start_time': []}
     params, metrics, tags = ({}, {}, {})
-    param_keys, metric_keys, tag_keys = (params.keys(), metrics.keys(), tags.keys())
     PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
     for i, run in enumerate(runs):
         info['attributes.status'].append(run.info.status)
@@ -326,45 +326,48 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
         info['attributes.start_time'].append(run.info.start_time)
 
         # Params
+        param_keys = set(params.keys())  # For Python 2 support
         for key in param_keys:
             if key in run.data.params:
                 params[key].append(run.data.params[key])
             else:
                 params[key].append(PARAM_NULL)
-        new_params = run.data.params.keys() - param_keys
+        new_params = set(run.data.params.keys()) - param_keys
         for p in new_params:
             params[p] = [PARAM_NULL]*i  # Fill in null values for all previous runs
             params[p].append(run.data.params[p])
 
         # Metrics
+        metric_keys = set(metrics.keys())
         for key in metric_keys:
             if key in run.data.metrics:
                 metrics[key].append(run.data.metrics[key])
             else:
                 metrics[key].append(METRIC_NULL)
-        new_metrics = run.data.metrics.keys() - metric_keys
+        new_metrics = set(run.data.metrics.keys()) - metric_keys
         for m in new_metrics:
             metrics[m] = [METRIC_NULL]*i
             metrics[m].append(run.data.metrics[m])
 
         # Tags
+        tag_keys = set(tags.keys())
         for key in tag_keys:
             if key in run.data.tags:
                 tags[key].append(run.data.tags[key])
             else:
                 tags[key].append(TAG_NULL)
-        new_tags = run.data.tags.keys() - tag_keys
+        new_tags = set(run.data.tags.keys()) - tag_keys
         for t in new_tags:
             tags[t] = [TAG_NULL]*i
             tags[t].append(run.data.tags[t])
 
     data = {}
     data.update(info)
-    for key in metric_keys:
+    for key in metrics:
         data['metrics.' + key] = metrics[key]
-    for key in param_keys:
+    for key in params:
         data['params.' + key] = params[key]
-    for key in tag_keys:
+    for key in tags:
         data['tags.' + key] = tags[key]
     return pd.DataFrame(data)
 

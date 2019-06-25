@@ -12,7 +12,7 @@ import mlflow
 from mlflow.entities import LifecycleStage, SourceType, Run, RunInfo, RunData, RunStatus, Metric, \
     Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
-from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store import SEARCH_MAX_RESULTS_PANDAS
 from mlflow.tracking.client import MlflowClient
 import mlflow.tracking.fluent
 import mlflow.tracking.context
@@ -41,7 +41,8 @@ class HelperEnv:
             del os.environ[_EXPERIMENT_NAME_ENV_VAR]
 
 
-def mock_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None, tags=None, status=RunStatus.FINISHED, a_uri=None):
+def mock_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None, tags=None,
+             status=RunStatus.FINISHED, a_uri=None):
     return Run(
         RunInfo(
             run_uuid=run_id,
@@ -361,9 +362,9 @@ def test_search_runs_attributes():
     with mock.patch.object(MlflowClient, "search_runs", return_value=runs):
         pdf = search_runs()
         data = {'attributes.status': [RunStatus.FINISHED, RunStatus.SCHEDULED],
-            'attributes.artifact_uri': ["dbfs:/test", "dbfs:/test2"],
-            'attributes.run_id': ['abc','def'],
-            'attributes.start_time': [123,321]}
+                'attributes.artifact_uri': ["dbfs:/test", "dbfs:/test2"],
+                'attributes.run_id': ['abc', 'def'],
+                'attributes.start_time': [123, 321]}
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
@@ -397,15 +398,17 @@ def test_search_runs_data():
 
 
 def test_search_runs_no_arguments():
-    # When no experiment Id is specified, it should try to get the implicit one or create a new experiment
+    # When no experiment ID is specified,
+    # it should try to get the implicit one or create a new experiment
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch(
         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
     )
     with experiment_id_patch, mock.patch.object(MlflowClient, "search_runs", return_value=[]):
         pdf = search_runs()
-        MlflowClient.search_runs.assert_called_once_with(mock_experiment_id, '', 
-            ViewType.ACTIVE_ONLY, SEARCH_MAX_RESULTS_DEFAULT, None)
+        MlflowClient.search_runs.assert_called_once_with(
+            mock_experiment_id, '', ViewType.ACTIVE_ONLY, SEARCH_MAX_RESULTS_PANDAS, None
+        )
 
 
 def test_search_runs_with_arguments():
@@ -416,7 +419,7 @@ def test_search_runs_with_arguments():
     mock_order_by = mock.Mock()
     with mock.patch.object(MlflowClient, "search_runs", return_value=[]):
         pdf = search_runs(mock_experiment_ids, mock_filter_string, mock_view_type,
-            mock_max_results, mock_order_by)
+                          mock_max_results, mock_order_by)
         MlflowClient.search_runs.assert_called_once_with(
             mock_experiment_ids,
             mock_filter_string,
