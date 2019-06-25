@@ -356,6 +356,7 @@ def enable_autolog():
     import tensorflow
     from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
     from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
+    from tensorflow.python.ops import summary_ops_v2
 
     @gorilla.patch(EventFileWriter)
     def add_event(self, event):
@@ -363,23 +364,30 @@ def enable_autolog():
         original = gorilla.get_original_attribute(EventFileWriter, 'add_event')
         return original(self, event)
 
-    @gorilla.patch(EventFileWriterV2)
-    def add_eventv2(self, event):
-        _log_event(event)
-        original = gorilla.get_original_attribute(EventFileWriterV2, 'add_event')
-        return original(self, event)
 
     @gorilla.patch(tensorflow.summary)
-    def scalar(*args, **kwargs):
+    def scalar_summary(*args, **kwargs):
         _log_scalar(*args, **kwargs)
         original = gorilla.get_original_attribute(tensorflow.summary, 'scalar')
+        return original(*args, **kwargs)
+
+    @gorilla.patch(summary_ops_v2)
+    def scalar_keras(*args, **kwargs):
+        _log_scalar(*args, **kwargs)
+        original = gorilla.get_original_attribute(summary_ops_v2, 'scalar')
         return original(*args, **kwargs)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     patch = gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings)
     patchv2 = gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings)
-    patchscalar = gorilla.Patch(tensorflow.summary, 'scalar', scalar, settings=settings)
+
+    patch_scalar_summary = gorilla.Patch(tensorflow.summary, 'scalar', scalar_summary, settings=settings)
+    patch_scalar_keras = gorilla.Patch(summary_ops_v2, 'scalar', scalar_keras, settings=settings)
+
     gorilla.apply(patch)
     gorilla.apply(patchv2)
-    gorilla.apply(patchscalar)
+    if tensorflow.__version__.startswith('2'):
+        gorilla.apply(patch_scalar_summary)
+        gorilla.apply(patch_scalar_keras)
+
 
