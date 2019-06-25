@@ -5,7 +5,6 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import time
-import datetime
 from six import iteritems
 
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
@@ -15,8 +14,6 @@ from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _v
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
-import numpy as np
-import pandas as pd
 
 
 class MlflowClient(object):
@@ -298,86 +295,3 @@ class MlflowClient(object):
         return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
                                       run_view_type=run_view_type, max_results=max_results,
                                       order_by=order_by, page_token=page_token)
-
-    def runs_to_pandas(self, runs):
-        """
-        Creates a pandas DataFrame from a list of :py:class:`mlflow.entities.Run` objects.
-
-        Each run object has its own row in the DataFrame. There is a column for each
-        of the following pieces of metadata:
-        - (see below list)
-
-        Additionally, each unique metric, parameter, and tag will have its own column
-        in the DataFrame. Runs that don’t contain that metric, parameter, or tag will
-        have a Nan, None, or None value filled in, respectively. The order of the columns
-        are not guarenteed.
-
-        For example, a metric named ‘loss’ would be accessible under the column
-        ‘metrics.loss’. Similarly for parameters and tags as ‘params.*’ and ‘tags.*’.
-
-        :param runs: a list of mlflow.entities.Run objects
-        :return: pandas.DataFrame
-
-        """
-        info = {'date': [], 'run_id': [], 'run_name': [], 'parent_run_id': [], 'user_id': []}
-        params, metrics, tags = ({}, {}, {})
-        param_keys, metric_keys, tag_keys = (params.keys(), metrics.keys(), tags.keys())
-        PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
-        for i, run in enumerate(runs):
-            # Break out the mlflow tags:
-            info['date'].append(datetime.datetime.fromtimestamp(int(run.info.start_time / 1e3)))
-            info['run_id'].append(run.info.run_id)
-            info['run_name'].append(run.data.tags.get('mlflow.runName', None))
-            info['parent_run_id'].append(run.data.tags.get('mlflow.parentRunId', None))
-            info['user_id'].append(run.info.user_id)
-
-            # Update params, metrics, and tags with appropriate value or None / np.nan
-            # Check for additional params, metrics, tags that need to be added to the dataset.
-            # Add appropriate null values for preceeding runs
-
-            # Params
-            for key in param_keys:
-                if key in run.data.params:
-                    params[key].append(run.data.params[key])
-                else:
-                    params[key].append(PARAM_NULL)
-            new_params = run.data.params.keys() - param_keys
-            for p in new_params:
-                params[p] = [PARAM_NULL]*i  # Fill in null values for all previous runs
-                params[p].append(run.data.params[p])
-
-            # Metrics
-            for key in metric_keys:
-                if key in run.data.metrics:
-                    metrics[key].append(run.data.metrics[key])
-                else:
-                    metrics[key].append(METRIC_NULL)
-            new_metrics = run.data.metrics.keys() - metric_keys
-            for m in new_metrics:
-                metrics[m] = [METRIC_NULL]*i
-                metrics[m].append(run.data.metrics[m])
-
-            # Tags
-            for key in tag_keys:
-                if key in run.data.tags:
-                    tags[key].append(run.data.tags[key])
-                else:
-                    tags[key].append(TAG_NULL)
-            new_tags = run.data.tags.keys() - tag_keys
-            for t in new_tags:
-                if not t.startswith("mlflow."):
-                    tags[t] = [TAG_NULL]*i
-                    tags[t].append(run.data.tags[t])
-
-        # Create the DataFrame object from all the dictionaries:
-        # Rename columns of metrics, params, and tags to
-        # metrics.<metric key>, params.<param key>, tags.<tag key>
-        data = {}
-        data.update(info)
-        for key in metric_keys:
-            data['metrics.' + key] = metrics[key]
-        for key in param_keys:
-            data['params.' + key] = params[key]
-        for key in tag_keys:
-            data['tags.' + key] = tags[key]
-        return pd.DataFrame(data)
