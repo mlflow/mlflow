@@ -86,22 +86,20 @@ class KubernetesSubmittedRun(SubmittedRun):
         return self._mlflow_run_id
 
     def wait(self):
-        if self._status in (RunStatus.SCHEDULED, RunStatus.RUNNING):
-            kube_api = kubernetes.client.BatchV1Api()
-
-            while self._update_status(kube_api) in (RunStatus.SCHEDULED, RunStatus.RUNNING):
-                time.sleep(self.POLL_STATUS_INTERVAL)
+        kube_api = kubernetes.client.BatchV1Api()
+        while not RunStatus.is_terminated(self._update_status(kube_api)):
+            time.sleep(self.POLL_STATUS_INTERVAL)
 
         return self._status == RunStatus.FINISHED
 
-    def _update_status(self, kube_api):
+    def _update_status(self, kube_api=kubernetes.client.BatchV1Api()):
         api_response = kube_api.read_namespaced_job_status(name=self._job_name,
                                                            namespace=self._job_namespace,
                                                            pretty=True)
         status = api_response.status
         with self._status_lock:
-            if self._status not in (RunStatus.SCHEDULED, RunStatus.RUNNING):
-                return
+            if RunStatus.is_terminated(self._status):
+                return self._status
             if self._status == RunStatus.SCHEDULED:
                 if api_response.status.start_time is None:
                     _logger.info("Waiting for Job to start")
@@ -119,17 +117,19 @@ class KubernetesSubmittedRun(SubmittedRun):
         return self._status
 
     def get_status(self):
-        if self._status in (RunStatus.SCHEDULED, RunStatus.RUNNING):
-            self._update_status(kubernetes.client.BatchV1Api())
-        return self._status
+        status = self._status
+        return status if RunStatus.is_terminated(status) else self._update_status()
 
     def cancel(self):
-        _logger.info("Cancelling job.")
         with self._status_lock:
-            self._status = RunStatus.KILLED
-        kube_api = kubernetes.client.BatchV1Api()
-        kube_api.delete_namespaced_job(name=self._job_name,
-                                       namespace=self._job_namespace,
-                                       body=kubernetes.client.V1DeleteOptions(),
-                                       pretty=True)
-        _logger.info("Job cancelled.")
+            if not RunStatus.is_terminated(self._status):
+                _logger.info("Cancelling job.")
+                kube_api = kubernetes.client.BatchV1Api()
+                kube_api.delete_namespaced_job(name=self._job_name,
+                                               namespace=self._job_namespace,
+                                               body=kubernetes.client.V1DeleteOptions(),
+                                               pretty=True)
+                self._status = RunStatus.KILLED
+                _logger.info("Job cancelled.")
+            else:
+                _logger.info("Attempting to cancel a job that is already terminated.")
