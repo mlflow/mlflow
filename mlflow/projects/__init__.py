@@ -610,13 +610,8 @@ def _invoke_mlflow_run_subprocess(
 
 
 def _get_conda_command(conda_env_name):
-    activate_path = _get_conda_bin_executable("activate")
-    # in case os name is not 'nt', we are not running on windows. It introduces
-    # bash command otherwise.
-    if os.name != "nt":
-        return ["source %s %s" % (activate_path, conda_env_name)]
-    else:
-        return ["conda %s %s" % (activate_path, conda_env_name)]
+    # From conda version 4.4, the recommended way is to just use conda activate
+    return ["conda activate %s" % (conda_env_name)]
 
 
 def _validate_execution_environment(project, backend):
