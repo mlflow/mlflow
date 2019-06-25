@@ -224,7 +224,7 @@ def test_parse_json_input_records_oriented_to_numpy_array():
                         ("col_a", [random_int() for _ in range(size)])])
     p0 = pd.DataFrame.from_dict(data)
     p1 = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])],
-                  dtype=object)
+                  )
     p2 = pyfunc_scoring_server.parse_records_oriented_json_input_to_numpy(
         p0.to_json(orient="records"))
     np.testing.assert_array_equal(p1, p2)
@@ -238,7 +238,7 @@ def test_parse_json_input_split_oriented_to_numpy_array():
                         ("col_a", [random_int() for _ in range(size)])])
     p0 = pd.DataFrame.from_dict(data)
     p1 = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])],
-                  dtype=object)
+                  )
     p2 = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(
         p0.to_json(orient="split"))
     np.testing.assert_array_equal(p1, p2)
@@ -279,7 +279,7 @@ def test_records_oriented_json_to_numpy_array():
     df = pyfunc_scoring_server.parse_records_oriented_json_input_to_numpy(jstr)
     np.testing.assert_array_equal(np.array([['95120', 10.45, 8],
                                             ['95128', 23.0, 0],
-                                            ['95128', 12.1, 10]], dtype=object),
+                                            ['95128', 12.1, 10]]),
                                   df)
 
 
@@ -292,7 +292,7 @@ def test_split_oriented_json_to_numpy_array():
 
     np.testing.assert_array_equal(np.array([['95120', 10.45, -8],
                                             ['95128', 23.0, -1],
-                                            ['95128', 12.1, 1000]], dtype=object),
+                                            ['95128', 12.1, 1000]]),
                                   df)
 
 
