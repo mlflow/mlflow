@@ -315,15 +315,15 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
         experiment_ids = _get_experiment_id()
     runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type, max_results,
                                       order_by)
-    info = {'attributes.status': [], 'attributes.artifact_uri': [],
-            'attributes.run_id': [], 'attributes.start_time': []}
+    info = {'attributes.status': [], 'attributes.artifact_uri': [], 'attributes.run_id': [],
+            'attributes.experiment_id': []}
     params, metrics, tags = ({}, {}, {})
     PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
     for i, run in enumerate(runs):
         info['attributes.status'].append(run.info.status)
         info['attributes.artifact_uri'].append(run.info.artifact_uri)
         info['attributes.run_id'].append(run.info.run_id)
-        info['attributes.start_time'].append(run.info.start_time)
+        info['attributes.experiment_id'].append(run.info.experiment_id)
 
         # Params
         param_keys = set(params.keys())  # For Python 2 support
