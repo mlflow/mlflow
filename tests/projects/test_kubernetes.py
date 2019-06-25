@@ -32,6 +32,9 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
                                      "      - name: pi\n"
                                      "        image: perl\n"
                                      "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
+                                     "        env: \n"
+                                     "        - name: DUMMY\n"
+                                     "          value: \"test_var\"\n"
                                      "      restartPolicy: Never\n")
     project_name = "mlflow-docker-example"
     image_tag = "image_tag"
@@ -47,8 +50,11 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     assert container_spec['name'] == project_name
     assert container_spec['image'] == image_tag + '@' + image_digest
     assert container_spec['command'] == command
-    assert container_spec['env'][0]['name'] == 'RUN_ID'
-    assert container_spec['env'][0]['value'] == '1'
+    assert 2 == len(container_spec['env'])
+    assert container_spec['env'][0]['name'] == 'DUMMY'
+    assert container_spec['env'][0]['value'] == 'test_var'
+    assert container_spec['env'][1]['name'] == 'RUN_ID'
+    assert container_spec['env'][1]['value'] == '1'
 
 
 def test_run_kubernetes_job():
