@@ -33,10 +33,8 @@ get_rest_config <- function(host_creds) {
   if (!is.na(auth_header)) {
     headers$Authorization <- auth_header
   }
-
   headers$`User-Agent` <- paste("mlflow-r-client", utils::packageVersion("mlflow"), sep = "/")
-
-  is_insecure <- list(true = TRUE, false = FALSE)[[tolower(host_creds$insecure)]]
+  is_insecure <- as.logical(host_creds$insecure)
   list(
     headers = headers,
     config = if (is_insecure) {
