@@ -59,7 +59,8 @@ classifier = tf.estimator.DNNClassifier(
     # Two hidden layers of 10 nodes each.
     hidden_units=[30, 10],
     # The model must choose between 3 classes.
-    n_classes=3)
+    n_classes=3,
+    model_dir="temp")
 
 # Train the Model.
 classifier.train(
