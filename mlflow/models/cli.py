@@ -36,7 +36,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     information about the input data formats accepted by the webserver, see the following
     documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
 
-    Requests may be made to ``POST /invocations`` in Pandas split- or record-oriented formats.
+    You can make requests to ``POST /invocations`` in pandas split- or record-oriented formats.
 
     Example:
 

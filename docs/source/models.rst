@@ -490,7 +490,7 @@ be used to safely deploy the model to various environments such as Kubernetes.
 You deploy MLflow model locally or generate a Docker image using the CLI interface to the
 :py:mod:`mlflow.models` module.
 
-The REST API server accepts the following data formats as inputs as a POST to the ``/invocations`` path:
+The REST API server accepts the following data formats as POST input to the ``/invocations`` path:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
   ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
