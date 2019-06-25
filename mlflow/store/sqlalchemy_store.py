@@ -183,7 +183,7 @@ class SqlAlchemyStore(AbstractStore):
         }
 
         def decorate(s):
-            if isinstance(s, str):
+            if isinstance(s, str) or isinstance(s, unicode):
                 return "'{}'".format(s)
             else:
                 return "{}".format(s)
