@@ -11,12 +11,17 @@ import './ParallelCoordinatesPlotPanel.css';
 export class ParallelCoordinatesPlotPanel extends React.Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(String).isRequired,
+    // An array of parameter keys shared by all runs
     sharedParamKeys: PropTypes.arrayOf(String).isRequired,
+    // An array of metric keys shared by all runs
     sharedMetricKeys: PropTypes.arrayOf(String).isRequired,
   };
 
   state = {
-    selectedParamKeys: this.props.sharedParamKeys, // default select all parameters
+    // Default to select all parameters
+    selectedParamKeys: this.props.sharedParamKeys,
+    // Default to select the first metric key.
+    // Note that there will be no color scaling if no metric is selected.
     selectedMetricKeys: this.props.sharedMetricKeys.slice(0, 1),
   };
 
