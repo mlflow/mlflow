@@ -23,7 +23,7 @@ class PyFuncBackend(FlavorBackend):
 
     def __init__(self, config, workers=1, no_conda=False, install_mlflow=False, **kwargs):
         super(PyFuncBackend, self).__init__(config=config, **kwargs)
-        self._nworkers = workers
+        self._nworkers = workers or 1
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow
 
@@ -45,11 +45,11 @@ class PyFuncBackend(FlavorBackend):
                        'content_type={content_type}, '
                        'json_format={json_format})"'
                        ).format(
-                         model_uri=repr(local_uri),
-                         input_path=repr(input_path),
-                         output_path=repr(output_path),
-                         content_type=repr(content_type),
-                         json_format=repr(json_format))
+                model_uri=repr(local_uri),
+                input_path=repr(input_path),
+                output_path=repr(output_path),
+                content_type=repr(content_type),
+                json_format=repr(json_format))
             return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
         else:
             scoring_server._predict(local_uri, input_path, output_path, content_type,
@@ -65,9 +65,9 @@ class PyFuncBackend(FlavorBackend):
         local_uri = path_to_local_file_uri(local_path)
         command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} "
                    "mlflow.pyfunc.scoring_server.wsgi:app").format(
-                     host=host,
-                     port=port,
-                     nworkers=self._nworkers)
+            host=host,
+            port=port,
+            nworkers=self._nworkers)
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
         if not self._no_conda and ENV in self._config:

@@ -1,5 +1,6 @@
 import os
 import shlex
+import sys
 
 from flask import Flask, send_from_directory
 
@@ -48,10 +49,27 @@ def serve():
     return send_from_directory(STATIC_DIR, 'index.html')
 
 
-def _run_server(file_store_path, default_artifact_root, host, port, workers, static_prefix,
-                gunicorn_opts):
+def _build_waitress_command(waitress_opts, host, port):
+    opts = shlex.split(waitress_opts) if waitress_opts else []
+    return ['waitress-serve'] + \
+        opts + [
+            "--host=%s" % host,
+            "--port=%s" % port,
+            "--ident=mlflow",
+            "mlflow.server:app"
+    ]
+
+
+def _build_gunicorn_command(gunicorn_opts, host, port, workers):
+    bind_address = "%s:%s" % (host, port)
+    opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
+    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"]
+
+
+def _run_server(file_store_path, default_artifact_root, host, port, static_prefix=None,
+                workers=None, gunicorn_opts=None, waitress_opts=None):
     """
-    Run the MLflow server, wrapping it in gunicorn
+    Run the MLflow server, wrapping it in gunicorn or waitress on windows
     :param static_prefix: If set, the index.html asset will be served from the path static_prefix.
                           If left None, the index.html asset will be served from the root path.
     :return: None
@@ -63,7 +81,10 @@ def _run_server(file_store_path, default_artifact_root, host, port, workers, sta
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
     if static_prefix:
         env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
-    bind_address = "%s:%s" % (host, port)
-    opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
-    exec_cmd(["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"],
-             env=env_map, stream_output=True)
+
+    # TODO: eventually may want waitress on non-win32
+    if sys.platform == 'win32':
+        full_command = _build_waitress_command(waitress_opts, host, port)
+    else:
+        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4)
+    exec_cmd(full_command, env=env_map, stream_output=True)
