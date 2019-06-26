@@ -64,11 +64,15 @@ javadocs:
 rdocs:
 	./build-rdoc.sh
 
-.PHONY: html
-html: javadocs rdocs
+# Builds only the RST-based documentation (i.e., everything but Java & R docs)
+.PHONY: rsthtml
+rsthtml:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
+
+.PHONY: html
+html: javadocs rdocs rsthtml
 
 .PHONY: dirhtml
 dirhtml:
