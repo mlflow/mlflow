@@ -94,6 +94,29 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
 
 
 @pytest.mark.large
+def test_model_log_load_no_run(sklearn_knn_model, iris_data, tmpdir):
+    sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
+    with open(sk_model_path, "wb") as f:
+        pickle.dump(sklearn_knn_model, f)
+
+    pyfunc_artifact_path = "pyfunc_model"
+    mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                            data_path=sk_model_path,
+                            loader_module=os.path.basename(__file__)[:-3],
+                            code_path=[__file__])
+    pyfunc_model_path = _download_artifact_from_uri("runs:/{run_id}/{artifact_path}".format(
+        run_id=mlflow.active_run().info.run_id, artifact_path=pyfunc_artifact_path))
+
+    model_config = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))
+    assert mlflow.pyfunc.FLAVOR_NAME in model_config.flavors
+    assert mlflow.pyfunc.PY_VERSION in model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
+    reloaded_model = mlflow.pyfunc.load_pyfunc(pyfunc_model_path)
+    np.testing.assert_array_equal(
+        sklearn_knn_model.predict(iris_data[0]), reloaded_model.predict(iris_data[0]))
+    mlflow.end_run()
+
+
+@pytest.mark.large
 def test_save_model_with_unsupported_argument_combinations_throws_exception(model_path):
     with pytest.raises(MlflowException) as exc_info:
         mlflow.pyfunc.save_model(path=model_path,
