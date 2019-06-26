@@ -35,6 +35,19 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     Serve a model saved with MLflow by launching a webserver on the specified host and port. For
     information about the input data formats accepted by the webserver, see the following
     documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
+
+    You can make requests to ``POST /invocations`` in pandas split- or record-oriented formats.
+
+    Example:
+
+    .. code-block:: bash
+
+        $ mlflow models serve -m runs:/my-run-id/model-path &
+
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "columns": ["a", "b", "c"],
+            "data": [[1, 2, 3], [4, 5, 6]]
+        }'
     """
     return _get_flavor_backend(model_uri,
                                no_conda=no_conda,

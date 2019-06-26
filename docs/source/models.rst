@@ -490,7 +490,7 @@ be used to safely deploy the model to various environments such as Kubernetes.
 You deploy MLflow model locally or generate a Docker image using the CLI interface to the
 :py:mod:`mlflow.models` module.
 
-The REST API server accepts the following data formats as inputs:
+The REST API server accepts the following data formats as POST input to the ``/invocations`` path:
 
 * JSON-serialized pandas DataFrames in the ``split`` orientation. For example,
   ``data = pandas_df.to_json(orient='split')``. This format is specified using a ``Content-Type``
@@ -503,6 +503,20 @@ The REST API server accepts the following data formats as inputs:
 
 * CSV-serialized pandas DataFrames. For example, ``data = pandas_df.to_csv()``. This format is
   specified using a ``Content-Type`` request header value of ``text/csv``.
+
+Example requests:
+
+.. code-block:: bash
+
+    # split-oriented
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+        "columns": ["a", "b", "c"],
+        "data": [[1, 2, 3], [4, 5, 6]]
+    }'
+
+    # record-oriented (fine for vector rows, loses ordering for JSON records)
+    curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json; format=pandas-records' -d '[[1, 2, 3], [4, 5, 6]]'
+
 
 For more information about serializing pandas DataFrames, see
 `pandas.DataFrame.to_json <https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html>`_.
