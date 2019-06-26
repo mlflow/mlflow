@@ -2,7 +2,7 @@ import os
 import json
 import pandas as pd
 import numpy as np
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 
 import pytest
 import sklearn.datasets as datasets
@@ -154,6 +154,19 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
 
 
 @pytest.mark.large
+def test_scoring_server_successfully_evaluates_correct_split_to_numpy(
+        sklearn_model, model_path):
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+
+    pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
+    response_records_content_type = pyfunc_serve_and_score_model(
+            model_uri=os.path.abspath(model_path),
+            data=pandas_split_content,
+            content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_NUMPY)
+    assert response_records_content_type.status_code == 200
+
+
+@pytest.mark.large
 def test_scoring_server_responds_to_invalid_content_type_request_with_unsupported_content_type_code(
         sklearn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
@@ -191,6 +204,22 @@ def test_parse_json_input_split_oriented():
 
 
 @pytest.mark.large
+def test_parse_json_input_split_oriented_to_numpy_array():
+    size = 200
+    data = OrderedDict([("col_m", [random_int(0, 1000) for _ in range(size)]),
+                        ("col_z", [random_str(4) for _ in range(size)]),
+                        ("col_a", [random_int() for _ in range(size)])])
+    p0 = pd.DataFrame.from_dict(data)
+    np_array = np.array([[a, b, c] for a, b, c in
+                         zip(data['col_m'], data['col_z'], data['col_a'])],
+                        dtype=object)
+    p1 = pd.DataFrame(np_array).infer_objects()
+    p2 = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(
+        p0.to_json(orient="split"))
+    np.testing.assert_array_equal(p1, p2)
+
+
+@pytest.mark.large
 def test_records_oriented_json_to_df():
     # test that datatype for "zip" column is not converted to "int64"
     jstr = '[' \
@@ -210,6 +239,17 @@ def test_split_oriented_json_to_df():
     jstr = '{"columns":["zip","cost","count"],"index":[0,1,2],' \
            '"data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]}'
     df = pyfunc_scoring_server.parse_json_input(jstr, orient="split")
+
+    assert set(df.columns) == {'zip', 'cost', 'count'}
+    assert set(str(dt) for dt in df.dtypes) == {'object', 'float64', 'int64'}
+
+
+@pytest.mark.large
+def test_split_oriented_json_to_numpy_array():
+    # test that datatype for "zip" column is not converted to "int64"
+    jstr = '{"columns":["zip","cost","count"],"index":[0,1,2],' \
+           '"data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]}'
+    df = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(jstr)
 
     assert set(df.columns) == {'zip', 'cost', 'count'}
     assert set(str(dt) for dt in df.dtypes) == {'object', 'float64', 'int64'}
