@@ -460,7 +460,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 
 
 def save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-               model=Model(), python_model=None, artifacts=None):
+               mlflow_model=Model(), python_model=None, artifacts=None):
     """
     Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
 
@@ -563,11 +563,11 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
                 path=path, loader_module=loader_module, data_path=data_path,
-                code_paths=code_path, conda_env=conda_env, mlflow_model=model)
+                code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path, python_model=python_model, artifacts=artifacts, conda_env=conda_env,
-            code_paths=code_path, mlflow_model=model)
+            code_paths=code_path, mlflow_model=mlflow_model)
 
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
@@ -644,13 +644,14 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
 
                       If ``None``, no artifacts are added to the model.
     """
-    with TempDir() as tmp:
-        local_path = tmp.path(artifact_path)
-        run_id = _get_or_start_run().info.run_id
-        save_model(path=local_path, model=Model(artifact_path=artifact_path, run_id=run_id),
-                   loader_module=loader_module, data_path=data_path, code_path=code_path,
-                   conda_env=conda_env, python_model=python_model, artifacts=artifacts)
-        log_artifacts(local_path, artifact_path)
+    return Model.log(artifact_path=artifact_path,
+                     flavor=mlflow.pyfunc,
+                     loader_module=loader_module,
+                     data_path=data_path,
+                     code_path=code_path,
+                     python_model=python_model,
+                     artifacts=artifacts,
+                     conda_env=conda_env)
 
 
 def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,

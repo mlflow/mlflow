@@ -59,7 +59,7 @@ def test_model_save_load(sklearn_knn_model, iris_data, tmpdir, model_path):
                              data_path=sk_model_path,
                              loader_module=os.path.basename(__file__)[:-3],
                              code_path=[__file__],
-                             model=model_config)
+                             mlflow_model=model_config)
 
     reloaded_model_config = Model.load(os.path.join(model_path, "MLmodel"))
     assert model_config.__dict__ == reloaded_model_config.__dict__
