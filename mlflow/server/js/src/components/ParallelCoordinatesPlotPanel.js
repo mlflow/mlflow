@@ -5,6 +5,7 @@ import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
 import { ParallelCoordinatesPlotControls } from './ParallelCoordinatesPlotControls';
 import { getSharedMetricKeysByRunUuids, getSharedParamKeysByRunUuids } from '../reducers/Reducers';
 import _ from 'lodash';
+import { Empty } from 'antd';
 
 import './ParallelCoordinatesPlotPanel.css';
 
@@ -52,7 +53,7 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
             paramKeys={selectedParamKeys}
             metricKeys={selectedMetricKeys}
           />
-        ) : null}
+        ) : <Empty style={{ width: '100%', height: '100%' }}/>}
       </div>
     );
   }
