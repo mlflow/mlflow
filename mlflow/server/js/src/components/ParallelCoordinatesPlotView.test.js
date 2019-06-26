@@ -72,9 +72,8 @@ describe('unit tests', () => {
     wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps}/>);
     instance = wrapper.instance();
     instance.findLastMetricFromState = jest.fn(() => 'metric_1');
-    instance.findLastMetricFromDom = jest.fn(() => 'metric_0'); // sequence changed
     instance.setState = jest.fn();
-    instance.maybeUpdateStateForColorScale();
+    instance.maybeUpdateStateForColorScale(['metric_1', 'metric_0']); // rightmost metric changes
     expect(instance.setState).toBeCalled();
   });
 
@@ -82,9 +81,8 @@ describe('unit tests', () => {
     wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps}/>);
     instance = wrapper.instance();
     instance.findLastMetricFromState = jest.fn(() => 'metric_1');
-    instance.findLastMetricFromDom = jest.fn(() => 'metric_1'); // sequence changed
     instance.setState = jest.fn();
-    instance.maybeUpdateStateForColorScale();
+    instance.maybeUpdateStateForColorScale(['metric_0', 'metric_1']); // rightmost metric stays
     expect(instance.setState).not.toBeCalled();
   });
 

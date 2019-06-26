@@ -58,19 +58,10 @@ export class ParallelCoordinatesPlotView extends React.Component {
 
   static getLabelElementsFromDom = () => Array.from(document.querySelectorAll(AXIS_LABEL_CLS));
 
-  static getSequenceFromDom = () =>
-    ParallelCoordinatesPlotView.getLabelElementsFromDom().map((el) => el.innerHTML);
-
   findLastKeyFromState(keys) {
     const { sequence } = this.state;
     const keySet = new Set(keys);
     return _.findLast(sequence, (key) => keySet.has(key));
-  }
-
-  findLastMetricFromDom() {
-    const sequence = ParallelCoordinatesPlotView.getSequenceFromDom();
-    const metricsKeySet = new Set(this.props.metricKeys);
-    return _.findLast(sequence, (key) => metricsKeySet.has(key));
   }
 
   static getColorScaleConfigsForDimension(dimension) {
@@ -103,20 +94,23 @@ export class ParallelCoordinatesPlotView extends React.Component {
       });
   };
 
-  maybeUpdateStateForColorScale = () => {
-    const lastMetricKeyFromState = this.findLastKeyFromState(this.props.metricKeys);
-    const lastMetricFromDom = this.findLastMetricFromDom();
-    // If we found diff on the last(right most) metric dimension, update sequence and rerender to
-    // trigger color scale change.
-    if (lastMetricKeyFromState !== lastMetricFromDom) {
-      const sequenceFromDom = ParallelCoordinatesPlotView.getSequenceFromDom();
-      this.setState({ sequence: sequenceFromDom });
+  maybeUpdateStateForColorScale = (currentSequenceFromPlotly) => {
+    const rightmostMetricKeyFromState = this.findLastKeyFromState(this.props.metricKeys);
+    const metricsKeySet = new Set(this.props.metricKeys);
+    const rightmostMetricKeyFromPlotly = _.findLast(
+      currentSequenceFromPlotly,
+      (key) => metricsKeySet.has(key),
+    );
+    // Currently we always render color scale based on the rightmost metric axis, so if that changes
+    // we need to setState with the new axes sequence to trigger a rerender.
+    if (rightmostMetricKeyFromState !== rightmostMetricKeyFromPlotly) {
+      this.setState({ sequence: currentSequenceFromPlotly });
     }
   };
 
-  handlePlotUpdate = () => {
+  handlePlotUpdate = ({ data: [{ dimensions }] }) => {
     this.updateMetricAxisLabelStyle();
-    this.maybeUpdateStateForColorScale();
+    this.maybeUpdateStateForColorScale(dimensions.map((d) => d.label));
   };
 
   render() {
