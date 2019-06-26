@@ -86,6 +86,10 @@ export class ParallelCoordinatesPlotView extends React.Component {
     };
   }
 
+  // Update styles(green & bold) for metric axes.
+  // Note(Zangr) 2019-6-25 this is needed because there is no per axis label setting available. This
+  // needs to be called every time chart updates. More information about currently available label
+  // setting here: https://plot.ly/javascript/reference/#parcoords-labelfont
   updateMetricAxisLabelStyle = () => {
     /* eslint-disable no-param-reassign */
     const metricsKeySet = new Set(this.props.metricKeys);
