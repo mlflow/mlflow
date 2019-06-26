@@ -144,6 +144,19 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
         sys.exit(1)
 
 
+def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
+    if sys.platform == "win32":
+        if gunicorn_opts is not None or workers is not None:
+            raise NotImplementedError(
+                "waitress replaces gunicorn on Windows, "
+                "cannot specify --gunicorn-opts or --workers")
+    else:
+        if waitress_opts is not None:
+            raise NotImplementedError(
+                "gunicorn replaces waitress on non-Windows platforms, "
+                "cannot specify --waitress-opts")
+
+
 @cli.command()
 @click.option("--backend-store-uri", metavar="PATH",
               default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
@@ -165,6 +178,7 @@ def ui(backend_store_uri, default_artifact_root, port):
 
     The UI will be visible at http://localhost:5000 by default.
     """
+
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -184,7 +198,7 @@ def ui(backend_store_uri, default_artifact_root, port):
 
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(backend_store_uri, default_artifact_root, "127.0.0.1", port, 1, None, [])
+        _run_server(backend_store_uri, default_artifact_root, "127.0.0.1", port, None, 1)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
@@ -224,8 +238,10 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="A prefix which will be prepended to the path of all static paths.")
 @click.option("--gunicorn-opts", default=None,
               help="Additional command line options forwarded to gunicorn processes.")
+@click.option("--waitress-opts", default=None,
+              help="Additional command line options for waitress-serve.")
 def server(backend_store_uri, default_artifact_root, host, port,
-           workers, static_prefix, gunicorn_opts):
+           workers, static_prefix, gunicorn_opts, waitress_opts):
     """
     Run the MLflow tracking server.
 
@@ -233,6 +249,8 @@ def server(backend_store_uri, default_artifact_root, host, port,
     the local machine. To let the server accept connections from other machines, you will need to
     pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
     """
+
+    _validate_server_args(gunicorn_opts=gunicorn_opts, workers=workers, waitress_opts=waitress_opts)
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
@@ -254,8 +272,8 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
     try:
-        _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
-                    gunicorn_opts)
+        _run_server(backend_store_uri, default_artifact_root, host, port,
+                    static_prefix, workers, gunicorn_opts, waitress_opts)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)

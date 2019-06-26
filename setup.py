@@ -1,5 +1,6 @@
 import imp
 import os
+import sys
 from setuptools import setup, find_packages
 
 version = imp.load_source(
@@ -33,7 +34,7 @@ setup(
         'databricks-cli>=0.8.7',
         'requests>=2.17.3',
         'six>=1.10.0',
-        'gunicorn',
+        'waitress' if sys.platform == 'win32' else 'gunicorn',
         'Flask',
         'numpy',
         'pandas',
