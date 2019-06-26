@@ -199,7 +199,7 @@ from copy import deepcopy
 import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
-from mlflow.tracking.fluent import _get_or_start_run, log_artifacts
+from mlflow.tracking.fluent import log_artifacts
 from mlflow.models import Model
 from mlflow.pyfunc.model import PythonModel, PythonModelContext, get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
