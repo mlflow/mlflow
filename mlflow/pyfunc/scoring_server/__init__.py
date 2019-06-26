@@ -107,8 +107,8 @@ def parse_split_oriented_json_input_to_numpy(json_input):
     try:
         json_input_list = json.loads(json_input, object_pairs_hook=OrderedDict)
         return pd.DataFrame(index=json_input_list['index'],
-                            data=np.array(json_input_list['data']),
-                            columns=json_input_list['columns'])
+                            data=np.array(json_input_list['data'], dtype=object),
+                            columns=json_input_list['columns']).infer_objects()
     except Exception:
         _handle_serving_error(
             error_message=(

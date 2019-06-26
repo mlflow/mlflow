@@ -197,7 +197,8 @@ def test_parse_json_input_split_oriented_to_numpy_array():
                         ("col_z", [random_str(4) for _ in range(size)]),
                         ("col_a", [random_int() for _ in range(size)])])
     p0 = pd.DataFrame.from_dict(data)
-    p1 = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])])
+    np_array = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])], dtype=object)
+    p1 = pd.DataFrame(np_array).infer_objects()
     p2 = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(
         p0.to_json(orient="split"))
     np.testing.assert_array_equal(p1, p2)
@@ -235,10 +236,8 @@ def test_split_oriented_json_to_numpy_array():
            '"data":[["95120",10.45,-8],["95128",23.0,-1],["95128",12.1,1000]]}'
     df = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(jstr)
 
-    np.testing.assert_array_equal(np.array([['95120', 10.45, -8],
-                                            ['95128', 23.0, -1],
-                                            ['95128', 12.1, 1000]]),
-                                  df)
+    assert set(df.columns) == {'zip', 'cost', 'count'}
+    assert set(str(dt) for dt in df.dtypes) == {'object', 'float64', 'int64'}
 
 
 def test_get_jsonnable_obj():
