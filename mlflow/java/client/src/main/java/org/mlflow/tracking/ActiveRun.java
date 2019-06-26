@@ -13,8 +13,8 @@ public class ActiveRun {
   boolean isTerminated;
 
   public String getId() {
-        return runInfo.getRunId();
-    }
+    return runInfo.getRunId();
+  }
 
   ActiveRun(RunInfo runInfo, MlflowClient client) {
     this.runInfo = runInfo;
