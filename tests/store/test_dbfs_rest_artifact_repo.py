@@ -7,8 +7,9 @@ import mock
 from mock import Mock
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.dbfs_artifact_repo import DbfsArtifactRepository, \
-    _get_host_creds_from_default_store
+from mlflow.store.artifact_repository_registry import get_artifact_repository
+from mlflow.store.dbfs_artifact_repo import _get_host_creds_from_default_store
+from mlflow.store.dbfs_artifact_repo import DbfsRestArtifactRepository
 from mlflow.store.file_store import FileStore
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -19,14 +20,14 @@ def dbfs_artifact_repo():
     with mock.patch('mlflow.store.dbfs_artifact_repo._get_host_creds_from_default_store') \
             as get_creds_mock:
         get_creds_mock.return_value = lambda: MlflowHostCreds('http://host')
-        return DbfsArtifactRepository('dbfs:/test/')
+        return get_artifact_repository('dbfs:/test/')
 
 
 TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
 TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
 TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
 
-DBFS_ARTIFACT_REPOSITORY_PACKAGE = 'mlflow.store.dbfs_artifact_repo.DbfsArtifactRepository'
+DBFS_ARTIFACT_REPOSITORY_PACKAGE = 'mlflow.store.dbfs_artifact_repo.DbfsRestArtifactRepository'
 
 
 @pytest.fixture()
@@ -74,10 +75,10 @@ class TestDbfsArtifactRepository(object):
         with mock.patch('mlflow.store.dbfs_artifact_repo._get_host_creds_from_default_store') \
                 as get_creds_mock:
             get_creds_mock.return_value = lambda: MlflowHostCreds('http://host')
-            repo = DbfsArtifactRepository('dbfs:/test/')
+            repo = get_artifact_repository('dbfs:/test/')
             assert repo.artifact_uri == 'dbfs:/test'
             with pytest.raises(MlflowException):
-                DbfsArtifactRepository('s3://test')
+                DbfsRestArtifactRepository('s3://test')
 
     @pytest.mark.parametrize("artifact_path,expected_endpoint", [
         (None, '/dbfs/test/test.txt'),

@@ -16,29 +16,38 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch
 from mlflow.store.artifact_repository_registry import get_artifact_repository
-from mlflow.tracking.utils import _is_database_uri, _is_local_uri
+from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
+from mlflow.tracking.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_batch_log_api_req
 
 _store = None
+
+
+def _get_file_store(store_uri, artifact_uri):
+    from mlflow.store.file_store import FileStore
+    return FileStore(store_uri, artifact_uri)
+
+
+def _get_sqlalchemy_store(store_uri, artifact_uri):
+    from mlflow.store.sqlalchemy_store import SqlAlchemyStore
+    return SqlAlchemyStore(store_uri, artifact_uri)
+
+
+_tracking_store_registry = TrackingStoreRegistry()
+_tracking_store_registry.register('', _get_file_store)
+_tracking_store_registry.register('file', _get_file_store)
+for scheme in DATABASE_ENGINES:
+    _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
 
 
 def _get_store(backend_store_uri=None, default_artifact_root=None):
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
     global _store
     if _store is None:
-        store_dir = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+        store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
-        if _is_database_uri(store_dir):
-            from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-            _store = SqlAlchemyStore(store_dir, artifact_root)
-        elif _is_local_uri(store_dir):
-            from mlflow.store.file_store import FileStore
-            _store = FileStore(store_dir, artifact_root)
-        else:
-            raise MlflowException("Unexpected URI type '{}' for backend store. "
-                                  "Expext local file or database type.".format(store_dir))
+        _store = _tracking_store_registry.get_store(store_uri, artifact_root)
     return _store
 
 
@@ -82,7 +91,7 @@ def catch_mlflow_exception(func):
         except MlflowException as e:
             response = Response(mimetype='application/json')
             response.set_data(e.serialize_as_json())
-            response.status_code = 500
+            response.status_code = e.get_http_status_code()
             return response
     return wrapper
 
@@ -283,10 +292,13 @@ def _search_runs():
     run_view_type = ViewType.ACTIVE_ONLY
     if request_message.HasField('run_view_type'):
         run_view_type = ViewType.from_proto(request_message.run_view_type)
-    sf = SearchFilter(filter_string=request_message.filter)
+    filter_string = request_message.filter
     max_results = request_message.max_results
     experiment_ids = request_message.experiment_ids
-    run_entities = _get_store().search_runs(experiment_ids, sf, run_view_type, max_results)
+    order_by = request_message.order_by
+    page_token = request_message.page_token
+    run_entities = _get_store().search_runs(experiment_ids, filter_string, run_view_type,
+                                            max_results, order_by, page_token)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
