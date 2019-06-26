@@ -16,7 +16,7 @@ public class ActiveRun {
         return runInfo.getRunId();
     }
 
-  ActiveRun(RunInfo runInfo, MlflowClient client, String experimentId, MlflowContext context) {
+  ActiveRun(RunInfo runInfo, MlflowClient client) {
     this.runInfo = runInfo;
     this.client = client;
   }

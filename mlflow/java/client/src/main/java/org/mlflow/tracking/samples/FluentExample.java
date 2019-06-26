@@ -55,5 +55,6 @@ public class FluentExample {
       }
       run.endRun();
     }
+    executor.shutdown();
   }
 }
