@@ -197,7 +197,9 @@ def test_parse_json_input_split_oriented_to_numpy_array():
                         ("col_z", [random_str(4) for _ in range(size)]),
                         ("col_a", [random_int() for _ in range(size)])])
     p0 = pd.DataFrame.from_dict(data)
-    np_array = np.array([[a, b, c] for a, b, c in zip(data['col_m'], data['col_z'], data['col_a'])], dtype=object)
+    np_array = np.array([[a, b, c] for a, b, c in
+                         zip(data['col_m'], data['col_z'], data['col_a'])],
+                        dtype=object)
     p1 = pd.DataFrame(np_array).infer_objects()
     p2 = pyfunc_scoring_server.parse_split_oriented_json_input_to_numpy(
         p0.to_json(orient="split"))
