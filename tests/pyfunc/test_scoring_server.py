@@ -180,6 +180,19 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
 
 
 @pytest.mark.large
+def test_parse_json_input_records_oriented():
+    size = 20
+    data = {"col_m": [random_int(0, 1000) for _ in range(size)],
+            "col_z": [random_str(4) for _ in range(size)],
+            "col_a": [random_int() for _ in range(size)]}
+    p1 = pd.DataFrame.from_dict(data)
+    p2 = pyfunc_scoring_server.parse_json_input(p1.to_json(orient="records"), orient="records")
+    # "records" orient may shuffle column ordering. Hence comparing each column Series
+    for col in data.keys():
+        assert all(p1[col] == p2[col])
+
+
+@pytest.mark.large
 def test_parse_json_input_split_oriented():
     size = 200
     data = {"col_m": [random_int(0, 1000) for _ in range(size)],
