@@ -4,7 +4,9 @@ import { TreeSelect } from 'antd';
 
 export class ParallelCoordinatesPlotControls extends React.Component {
   static propTypes = {
+    // An array of available parameter keys to select
     paramKeys: PropTypes.arrayOf(String).isRequired,
+    // An array of available metric keys to select
     metricKeys: PropTypes.arrayOf(String).isRequired,
     selectedParamKeys: PropTypes.arrayOf(String).isRequired,
     selectedMetricKeys: PropTypes.arrayOf(String).isRequired,
