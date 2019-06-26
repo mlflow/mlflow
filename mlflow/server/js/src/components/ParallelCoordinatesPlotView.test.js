@@ -3,6 +3,7 @@ import { shallow } from 'enzyme';
 import {
   ParallelCoordinatesPlotView,
   generateAttributesForCategoricalDimension,
+  createDimension,
 } from './ParallelCoordinatesPlotView';
 
 describe('unit tests', () => {
@@ -91,6 +92,42 @@ describe('unit tests', () => {
       values: [0, 1, 2, 1, 2],
       tickvals: [0, 1, 2],
       ticktext: ['A', 'B', 'C'],
+    });
+  });
+
+  test('createDimension should work with numeric dimension', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 1 },
+      },
+      runUuid_1: {
+        metric_0: { value: 2 },
+      },
+    };
+    expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
+      label: 'metric_0',
+      values: [1, 2],
+    });
+  });
+
+  test('createDimension should work with categorical dimension', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 'B' },
+      },
+      runUuid_1: {
+        metric_0: { value: 'A' },
+      },
+    };
+    expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
+      label: 'metric_0',
+      values: [1, 0],
+      tickvals: [0, 1],
+      ticktext: ['A', 'B'],
     });
   });
 });

@@ -152,7 +152,7 @@ const inferType = (key, runUuids, entryByRunUuid) => {
   return isNaN(entryByRunUuid[runUuids[0]][key].value) ? 'string' : 'number';
 };
 
-const createDimension = (key, runUuids, entryByRunUuid) => {
+export const createDimension = (key, runUuids, entryByRunUuid) => {
   let attributes = {};
   const dataType = inferType(key, runUuids, entryByRunUuid);
   if (dataType === 'string') {
