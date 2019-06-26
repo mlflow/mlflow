@@ -148,7 +148,7 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
 
 
 @pytest.mark.large
-def test_pyfunc_model_log_load_no_run(sklearn_knn_model, main_scoped_model_class, iris_data):
+def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model_no_run"
     with mlflow.start_run():
         mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
@@ -160,6 +160,7 @@ def test_pyfunc_model_log_load_no_run(sklearn_knn_model, main_scoped_model_class
         return sk_model.predict(model_input) * 2
 
     pyfunc_artifact_path = "pyfunc_model"
+    assert mlflow.active_run() is None
     mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
                             artifacts={"sk_model": sklearn_model_uri},
                             python_model=main_scoped_model_class(test_predict))

@@ -94,12 +94,13 @@ def test_model_log_load(sklearn_knn_model, iris_data, tmpdir):
 
 
 @pytest.mark.large
-def test_model_log_load_no_run(sklearn_knn_model, iris_data, tmpdir):
+def test_model_log_load_no_active_run(sklearn_knn_model, iris_data, tmpdir):
     sk_model_path = os.path.join(str(tmpdir), "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
 
     pyfunc_artifact_path = "pyfunc_model"
+    assert mlflow.active_run() is None
     mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
                             data_path=sk_model_path,
                             loader_module=os.path.basename(__file__)[:-3],

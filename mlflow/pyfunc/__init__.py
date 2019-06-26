@@ -460,7 +460,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 
 
 def save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-               mlflow_model=Model(), python_model=None, artifacts=None):
+               model=Model(), python_model=None, artifacts=None, **kwargs):
     """
     Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
 
@@ -534,6 +534,8 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
                       If ``None``, no artifacts are added to the model.
     """
+    if 'mlflow_model' in kwargs:
+        model = kwargs['mlflow_model']
     first_argument_set = {
         "loader_module": loader_module,
         "data_path": data_path,
@@ -563,11 +565,11 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
                 path=path, loader_module=loader_module, data_path=data_path,
-                code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
+                code_paths=code_path, conda_env=conda_env, mlflow_model=model)
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path, python_model=python_model, artifacts=artifacts, conda_env=conda_env,
-            code_paths=code_path, mlflow_model=mlflow_model)
+            code_paths=code_path, mlflow_model=model)
 
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
