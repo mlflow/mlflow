@@ -15,11 +15,6 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
     sharedMetricKeys: PropTypes.arrayOf(String).isRequired,
   };
 
-  static defaultProps = {
-    sharedParamKeys: [],
-    sharedMetricKeys: [],
-  };
-
   state = {
     selectedParamKeys: this.props.sharedParamKeys, // default select all parameters
     selectedMetricKeys: this.props.sharedMetricKeys.slice(0, 1),
