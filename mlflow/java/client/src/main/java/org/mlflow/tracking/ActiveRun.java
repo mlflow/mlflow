@@ -1,11 +1,6 @@
 package org.mlflow.tracking;
 
-import org.mlflow.MlflowMetric;
-import org.mlflow.MlflowParam;
-import org.mlflow.MlflowTag;
 import org.mlflow.api.proto.Service.*;
-import org.mlflow.tracking.utils.DatabricksContext;
-import org.mlflow.tracking.utils.MlflowTagConstants;
 
 import java.nio.file.Path;
 import java.util.*;
@@ -15,8 +10,6 @@ import java.util.stream.StreamSupport;
 public class ActiveRun {
   private MlflowClient client;
   private RunInfo runInfo;
-  private String experimentId;
-  private MlflowContext context;
   boolean isTerminated;
 
   public String getId() {
@@ -26,8 +19,6 @@ public class ActiveRun {
   ActiveRun(RunInfo runInfo, MlflowClient client, String experimentId, MlflowContext context) {
     this.runInfo = runInfo;
     this.client = client;
-    this.experimentId = experimentId;
-    this.context = context;
   }
 
   /**
@@ -49,19 +40,16 @@ public class ActiveRun {
     client.logMetric(getId(), key, value, System.currentTimeMillis(), step);
   }
 
-  public void logMetrics(Iterable<MlflowMetric> metrics) {
+  public void logMetrics(Map<String, Double> metrics) {
       logMetrics(metrics, 0);
   }
 
-  // TODO(andrew): Should this be it's own object in org.mlflow or should it be just the proto
-  // object.
-  public void logMetrics(Iterable<MlflowMetric> metrics, int step) {
-    List<Metric> protoMetrics = StreamSupport
-      .stream(metrics.spliterator(), false)
+  public void logMetrics(Map<String, Double> metrics, int step) {
+    List<Metric> protoMetrics = metrics.entrySet().stream()
       .map((metric) ->
         Metric.newBuilder()
-          .setKey(metric.key)
-          .setValue(metric.value)
+          .setKey(metric.getKey())
+          .setValue(metric.getValue())
           .setTimestamp(System.currentTimeMillis())
           .setStep(step)
           .build()
@@ -69,19 +57,19 @@ public class ActiveRun {
     client.logBatch(getId(), protoMetrics, Collections.emptyList(), Collections.emptyList());
   }
 
-  public void logParams(Iterable<MlflowParam> params) {
-    List<Param> protoParams = StreamSupport.stream(params.spliterator(), false).map((param) ->
+  public void logParams(Map<String, String> params) {
+    List<Param> protoParams = params.entrySet().stream().map((param) ->
       Param.newBuilder()
-        .setKey(param.key)
-        .setValue(param.value)
+        .setKey(param.getKey())
+        .setValue(param.getValue())
         .build()
     ).collect(Collectors.toList());
     client.logBatch(getId(), Collections.emptyList(), protoParams, Collections.emptyList());
   }
 
-  public void setTags(Iterable<MlflowTag> tags) {
-    List<RunTag> protoTags = StreamSupport.stream(tags.spliterator(), false).map((tag) ->
-      RunTag.newBuilder().setKey(tag.key).setValue(tag.value).build()
+  public void setTags(Map<String, String> tags) {
+    List<RunTag> protoTags = tags.entrySet().stream().map((tag) ->
+      RunTag.newBuilder().setKey(tag.getKey()).setValue(tag.getValue()).build()
     ).collect(Collectors.toList());
     client.logBatch(getId(), Collections.emptyList(), Collections.emptyList(), protoTags);
   }

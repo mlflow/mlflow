@@ -1,6 +1,5 @@
 package org.mlflow.tracking.samples;
 
-import org.mlflow.MlflowMetric;
 import org.mlflow.tracking.ActiveRun;
 import org.mlflow.tracking.MlflowContext;
 
