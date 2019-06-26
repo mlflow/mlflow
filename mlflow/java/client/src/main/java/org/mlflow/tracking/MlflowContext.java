@@ -11,7 +11,8 @@ public class MlflowContext {
   private static MlflowContext defaultContext;
   private MlflowClient client;
   private String experimentId;
-  private ThreadLocal<Deque<ActiveRun>> perThreadActiveRunStack = ThreadLocal.withInitial(ArrayDeque::new);
+  private ThreadLocal<Deque<ActiveRun>> perThreadActiveRunStack =
+    ThreadLocal.withInitial(ArrayDeque::new);
 
   public MlflowContext() {
     this(new MlflowClient(), getDefaultExperimentId());
@@ -62,7 +63,8 @@ public class MlflowContext {
   public void setExperimentName(String experimentName) {
     Optional<Experiment> experimentOpt = client.getExperimentByName(experimentName);
     if (!experimentOpt.isPresent()) {
-      throw new IllegalArgumentException(String.format("%s is not a valid experiment", experimentName));
+      throw new IllegalArgumentException(
+        String.format("%s is not a valid experiment", experimentName));
     }
     experimentId = experimentOpt.get().getExperimentId();
   }
