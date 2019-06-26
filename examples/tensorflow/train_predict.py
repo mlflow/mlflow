@@ -12,7 +12,7 @@ import tensorflow as tf
 from tensorflow.python.saved_model import tag_constants
 import mlflow.tensorflow
 
-mlflow.tensorflow.enable_autolog()
+mlflow.tensorflow.autolog()
 
 
 def main(argv):

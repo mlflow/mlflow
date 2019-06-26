@@ -6,7 +6,7 @@ from tensorflow.keras.callbacks import TensorBoard
 
 import mlflow.tensorflow
 
-mlflow.tensorflow.enable_autolog()
+mlflow.tensorflow.autolog()
 
 model = tf.keras.Sequential()
 # Adds a densely-connected layer with 64 units to the model:

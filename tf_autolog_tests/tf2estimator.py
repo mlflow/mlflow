@@ -25,7 +25,7 @@ test_y = test.pop('Species')
 # The label column has now been removed from the features.
 train.head()
 
-mlflow.tensorflow.enable_autolog()
+mlflow.tensorflow.autolog()
 
 
 def input_evaluation_set():

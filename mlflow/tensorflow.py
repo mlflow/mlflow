@@ -36,7 +36,7 @@ FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
 
-_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 
 def get_default_conda_env():
@@ -365,7 +365,11 @@ def _log_scalar(*args, **kwargs):
     #mlflow.log_metric(name, value, step=step)
 
 
-def enable_autolog():
+def autolog():
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.set_experiment("/Users/apurva.koti@databricks.com/TestAutologging")
+
     import tensorflow
     from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
     from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2

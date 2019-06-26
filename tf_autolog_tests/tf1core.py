@@ -16,7 +16,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
 
-mlflow.tensorflow.enable_autolog()
+mlflow.tensorflow.autolog()
 
 # Parameters
 learning_rate = 0.01

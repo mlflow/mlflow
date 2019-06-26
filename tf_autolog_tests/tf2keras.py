@@ -12,7 +12,7 @@ import numpy as np
 
 import mlflow.tensorflow
 
-mlflow.tensorflow.enable_autolog()
+mlflow.tensorflow.autolog()
 
 print("TensorFlow version: ", tf.__version__)
 assert version.parse(tf.__version__).release[0] >= 2, \
