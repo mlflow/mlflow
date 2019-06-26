@@ -15,6 +15,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAM
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import build_docker_example_base_image
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
+from mlflow.projects import _project_spec
 
 
 def _build_uri(base_uri, subdirectory):
@@ -45,7 +46,7 @@ def test_docker_project_execution(
     assert run.data.metrics == {"some_key": 3}
     exact_expected_tags = {MLFLOW_PROJECT_ENV: "docker"}
     approx_expected_tags = {
-        MLFLOW_DOCKER_IMAGE_NAME: "mlflow-docker-example",
+        MLFLOW_DOCKER_IMAGE_NAME: "docker-example",
         MLFLOW_DOCKER_IMAGE_ID: "sha256:",
     }
     run_tags = run.data.tags
@@ -94,7 +95,7 @@ def test_docker_uri_mode_validation(tracking_uri_mock):  # pylint: disable=unuse
 def test_docker_tag_name_with_git(get_git_commit_mock):
     get_git_commit_mock.return_value = '1234567890'
     tag_name = _get_docker_tag_name("my_project", "my_workdir")
-    assert tag_name == "mlflow-my_project-1234567"
+    assert tag_name == "my_project:1234567"
     get_git_commit_mock.assert_called_with('my_workdir')
 
 
@@ -102,5 +103,19 @@ def test_docker_tag_name_with_git(get_git_commit_mock):
 def test_docker_tag_name_no_git(get_git_commit_mock):
     get_git_commit_mock.return_value = None
     tag_name = _get_docker_tag_name("my_project", "my_workdir")
-    assert tag_name == "mlflow-my_project"
+    assert tag_name == "my_project"
     get_git_commit_mock.assert_called_with('my_workdir')
+
+
+def test_docker_valid_project_backend_local():
+    work_dir = "./examples/docker"
+    project = _project_spec.load_project(work_dir)
+    mlflow.projects._validate_docker_env(project)
+
+
+def test_docker_invalid_project_backend_local():
+    work_dir = "./examples/docker"
+    project = _project_spec.load_project(work_dir)
+    project.name = None
+    with pytest.raises(ExecutionException):
+        mlflow.projects._validate_docker_env(project)

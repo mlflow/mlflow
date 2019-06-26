@@ -1,6 +1,7 @@
 import os
 import git
 import tempfile
+import yaml
 
 from distutils import dir_util
 
@@ -363,3 +364,48 @@ def test_storage_dir(tmpdir):
     """
     assert os.path.dirname(mlflow.projects._get_storage_dir(tmpdir.strpath)) == tmpdir.strpath
     assert os.path.dirname(mlflow.projects._get_storage_dir(None)) == tempfile.gettempdir()
+
+
+def test_parse_kubernetes_config():
+    work_dir = "./examples/docker"
+    kubernetes_config = {
+        "kube-context": "docker-for-desktop",
+        "kube-job-template-path": os.path.join(work_dir, "kubernetes_job_template.yaml"),
+        "image-uri": "dockerhub_account/mlflow-kubernetes-example"
+    }
+    yaml_obj = None
+    with open(kubernetes_config["kube-job-template-path"], 'r') as job_template:
+        yaml_obj = yaml.safe_load(job_template.read())
+    kube_config = mlflow.projects._parse_kubernetes_config(kubernetes_config)
+    assert kube_config["kube-context"] == kubernetes_config["kube-context"]
+    assert kube_config["kube-job-template-path"] == kubernetes_config["kube-job-template-path"]
+    assert kube_config["image-uri"] == kubernetes_config["image-uri"]
+    assert kube_config["kube-job-template"] == yaml_obj
+
+
+def test_parse_kubernetes_config_without_context():
+    kubernetes_config = {
+        "image-uri": "dockerhub_account/mlflow-kubernetes-example",
+        "kube-job-template-path": "kubernetes_job_template.yaml"
+    }
+    with pytest.raises(ExecutionException):
+        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+
+
+def test_parse_kubernetes_config_without_image_uri():
+    kubernetes_config = {
+        "kube-context": "docker-for-desktop",
+        "kube-job-template-path": "kubernetes_job_template.yaml"
+    }
+    with pytest.raises(ExecutionException):
+        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+
+
+def test_parse_kubernetes_config_invalid_template_job_file():
+    kubernetes_config = {
+        "kube-context": "docker-for-desktop",
+        "image-uri": "username/mlflow-kubernetes-example",
+        "kube-job-template-path": "file_not_found.yaml"
+    }
+    with pytest.raises(ExecutionException):
+        mlflow.projects._parse_kubernetes_config(kubernetes_config)

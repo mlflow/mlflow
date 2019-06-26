@@ -47,6 +47,7 @@ setup(
         'entrypoints',
         'sqlparse',
         'sqlalchemy',
+        'docker>=3.6.0'
     ],
     extras_require={
         'extras':[

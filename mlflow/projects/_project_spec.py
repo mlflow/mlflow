@@ -44,7 +44,7 @@ def load_project(directory):
             raise ExecutionException("Project specified conda environment file %s, but no such "
                                      "file was found." % conda_env_path)
         return Project(conda_env_path=conda_env_path, entry_points=entry_points,
-                       docker_env=docker_env, name=project_name)
+                       docker_env=docker_env, name=project_name,)
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
         return Project(conda_env_path=default_conda_path, entry_points=entry_points,

@@ -7,6 +7,7 @@ from __future__ import print_function
 from distutils import dir_util
 import hashlib
 import json
+import yaml
 import os
 import sys
 import re
@@ -33,7 +34,8 @@ from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
     MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
-    LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID
+    LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, \
+    MLFLOW_PROJECT_BACKEND
 from mlflow.utils import databricks_utils, file_utils
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
@@ -108,6 +110,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             tracking.MlflowClient().set_tag(active_run.info.run_id, tag, version)
 
     if backend == "databricks":
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
+                                        "databricks")
         from mlflow.projects.databricks import run_databricks
         return run_databricks(
             remote_run=active_run,
@@ -120,17 +124,22 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
-            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
-            _validate_docker_env(project.docker_env)
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV,
+                                            "docker")
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
+                                            "local")
+            _validate_docker_env(project)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
-                                        project=project,
-                                        active_run=active_run)
+                                        image_uri=project.name,
+                                        base_image=project.docker_env.get('image'),
+                                        run_id=active_run.info.run_id)
             command += _get_docker_command(image=image, active_run=active_run)
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "conda")
+            tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "local")
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
             command += _get_conda_command(conda_env_name)
@@ -147,7 +156,33 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             work_dir=work_dir, entry_point=entry_point, parameters=parameters,
             experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
-    supported_backends = ["local", "databricks"]
+    elif backend == "kubernetes":
+        from mlflow.projects import kubernetes as kb
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
+        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
+                                        "kubernetes")
+        _validate_docker_env(project)
+        _validate_docker_installation()
+        kube_config = _parse_kubernetes_config(backend_config)
+        image = _build_docker_image(work_dir=work_dir,
+                                    image_uri=kube_config["image-uri"],
+                                    base_image=project.docker_env.get('image'),
+                                    run_id=active_run.info.run_id)
+        image_digest = kb.push_image_to_registry(image.tags[0])
+        submitted_run = kb.run_kubernetes_job(project.name,
+                                              active_run,
+                                              image.tags[0],
+                                              image_digest,
+                                              _get_entry_point_command(project, entry_point,
+                                                                       parameters, storage_dir),
+                                              _get_run_env_vars(
+                                                run_id=active_run.info.run_uuid,
+                                                experiment_id=active_run.info.experiment_id),
+                                              kube_config['kube-context'],
+                                              kube_config['kube-job-template'])
+        return submitted_run
+
+    supported_backends = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (backend, supported_backends))
 
@@ -670,7 +705,7 @@ def _get_docker_command(image, active_run):
 
     for key, value in env_vars.items():
         cmd += ["-e", "{key}={value}".format(key=key, value=value)]
-    cmd += [image]
+    cmd += [image.tags[0]]
     return cmd
 
 
@@ -687,10 +722,39 @@ def _validate_docker_installation():
                                  "at https://docs.docker.com/install/overview/.")
 
 
-def _validate_docker_env(docker_env):
-    if not docker_env.get('image'):
+def _validate_docker_env(project):
+    if not project.name:
+        raise ExecutionException("Project name in MLProject must be specified when using docker "
+                                 "for image tagging.")
+    if not project.docker_env.get('image'):
         raise ExecutionException("Project with docker environment must specify the docker image "
-                                 "to use via an 'image' field under the 'docker_env' field")
+                                 "to use via an 'image' field under the 'docker_env' field.")
+
+
+def _parse_kubernetes_config(backend_config):
+    """
+    Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
+    """
+    if not backend_config:
+        raise ExecutionException("Backend_config file not found.")
+    kube_config = backend_config.copy()
+    if 'kube-job-template-path' not in backend_config.keys():
+        raise ExecutionException("'kube-job-template-path' attribute must be specified in "
+                                 "backend_config.")
+    kube_job_template = backend_config['kube-job-template-path']
+    if os.path.exists(kube_job_template):
+        with open(kube_job_template, 'r') as job_template:
+            yaml_obj = yaml.safe_load(job_template.read())
+        kube_job_template = yaml_obj
+        kube_config['kube-job-template'] = kube_job_template
+    else:
+        raise ExecutionException("Could not find 'kube-job-template-path': {}".format(
+            kube_job_template))
+    if 'kube-context' not in backend_config.keys():
+        raise ExecutionException("Could not find kube-context in backend_config.")
+    if 'image-uri' not in backend_config.keys():
+        raise ExecutionException("Could not find 'image-uri' in backend_config.")
+    return kube_config
 
 
 def _create_docker_build_ctx(work_dir, dockerfile_contents):
@@ -712,27 +776,23 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     return result_path
 
 
-def _build_docker_image(work_dir, project, active_run):
+def _build_docker_image(work_dir, image_uri, base_image, run_id):
     """
-    Build a docker image containing the project in `work_dir`, using the base image and tagging the
-    built image with the project name specified by `project`.
+    Build a docker image containing the project in `work_dir`, using the base image.
     """
-    if not project.name:
-        raise ExecutionException("Project name in MLproject must be specified when using docker "
-                                 "for image tagging.")
-    tag_name = _get_docker_tag_name(project.name, work_dir)
+    tag_name = _get_docker_tag_name(image_uri, work_dir)
     dockerfile = (
         "FROM {imagename}\n"
         "LABEL Name={tag_name}\n"
         "COPY {build_context_path}/ /mlflow/projects/code/\n"
         "WORKDIR /mlflow/projects/code/\n"
-    ).format(imagename=project.docker_env.get('image'), tag_name=tag_name,
+    ).format(imagename=base_image, tag_name=tag_name,
              build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
     with open(build_ctx_path, 'rb') as docker_build_ctx:
         _logger.info("=== Building docker image %s ===", tag_name)
         client = docker.from_env()
-        image = client.images.build(
+        image, _ = client.images.build(
             tag=tag_name, forcerm=True,
             dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
             fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
@@ -740,23 +800,22 @@ def _build_docker_image(work_dir, project, active_run):
         os.remove(build_ctx_path)
     except Exception:  # pylint: disable=broad-except
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
-    tracking.MlflowClient().set_tag(active_run.info.run_id,
-
+    tracking.MlflowClient().set_tag(run_id,
                                     MLFLOW_DOCKER_IMAGE_NAME,
                                     tag_name)
-    tracking.MlflowClient().set_tag(active_run.info.run_id,
+    tracking.MlflowClient().set_tag(run_id,
                                     MLFLOW_DOCKER_IMAGE_ID,
-                                    image[0].id)
-    return tag_name
+                                    image.id)
+    return image
 
 
-def _get_docker_tag_name(project_name, work_dir):
+def _get_docker_tag_name(imagename, work_dir):
     """Returns an appropriate Docker tag for a project based on name and git hash."""
-    project_name = project_name if project_name else "docker-project"
+    imagename = imagename if imagename else "docker-project"
     # Optionally include first 7 digits of git SHA in tag name, if available.
     git_commit = _get_git_commit(work_dir)
-    version_string = "-" + git_commit[:7] if git_commit else ""
-    return "mlflow-" + project_name + version_string
+    version_string = ":" + git_commit[:7] if git_commit else ""
+    return imagename + version_string
 
 
 __all__ = [
