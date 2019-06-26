@@ -104,7 +104,7 @@ public class MlflowContext {
     }
     RunInfo runInfo = client.createRun(createRunBuilder.build());
 
-    ActiveRun newRun = new ActiveRun(runInfo, client, experimentId, this);
+    ActiveRun newRun = new ActiveRun(runInfo, client);
     perThreadActiveRunStack.get().push(newRun);
     return newRun;
   }

@@ -19,11 +19,11 @@ public class DatabricksContext {
   }
 
   public static DatabricksContext createIfAvailable() {
-      Map<String, String> configProvider = getConfigProviderIfAvailable(CONFIG_PROVIDER_CLASS_NAME);
-      if (configProvider == null) {
-        return null;
-      }
-      return new DatabricksContext(configProvider);
+    Map<String, String> configProvider = getConfigProviderIfAvailable(CONFIG_PROVIDER_CLASS_NAME);
+    if (configProvider == null) {
+      return null;
+    }
+    return new DatabricksContext(configProvider);
   }
 
   public Map<String, String> getTags() {

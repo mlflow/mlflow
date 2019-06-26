@@ -17,7 +17,6 @@ public class DatabricksDynamicHostCredsProviderTest {
     }
   }
 
-  /*
   @Test
   public void testUpdatesAfterPut() {
     baseMap.put("host", "hello");
@@ -64,6 +63,5 @@ public class DatabricksDynamicHostCredsProviderTest {
     baseMap.put("shouldIgnoreTlsVerification", "false");
     Assert.assertFalse(provider.getHostCreds().shouldIgnoreTlsVerification());
   }
-  */
 }
 

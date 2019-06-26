@@ -18,8 +18,13 @@ public class DatabricksDynamicHostCredsProvider implements MlflowHostCredsProvid
   }
 
   public static DatabricksDynamicHostCredsProvider createIfAvailable() {
+    return createIfAvailable(DatabricksContext.CONFIG_PROVIDER_CLASS_NAME);
+  }
+
+  @VisibleForTesting
+  static DatabricksDynamicHostCredsProvider createIfAvailable(String className) {
     Map<String, String> configProvider =
-      DatabricksContext.getConfigProviderIfAvailable(DatabricksContext.CONFIG_PROVIDER_CLASS_NAME);
+      DatabricksContext.getConfigProviderIfAvailable(className);
     if (configProvider == null) {
       return null;
     }
