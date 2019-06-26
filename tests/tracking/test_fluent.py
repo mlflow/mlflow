@@ -361,10 +361,10 @@ def test_search_runs_attributes():
             mock_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2", run_id='def', exp_id="321")]
     with mock.patch.object(MlflowClient, "search_runs", return_value=runs):
         pdf = search_runs()
-        data = {'attributes.status': [RunStatus.FINISHED, RunStatus.SCHEDULED],
-                'attributes.artifact_uri': ["dbfs:/test", "dbfs:/test2"],
-                'attributes.run_id': ['abc', 'def'],
-                'attributes.experiment_id': ["123", "321"]}
+        data = {'status': [RunStatus.FINISHED, RunStatus.SCHEDULED],
+                'artifact_uri': ["dbfs:/test", "dbfs:/test2"],
+                'run_id': ['abc', 'def'],
+                'experiment_id': ["123", "321"]}
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
@@ -382,10 +382,10 @@ def test_search_runs_data():
     with mock.patch.object(MlflowClient, "search_runs", return_value=runs):
         pdf = search_runs()
         data = {
-            'attributes.status': [RunStatus.FINISHED]*2,
-            'attributes.artifact_uri': [None]*2,
-            'attributes.run_id': ['']*2,
-            'attributes.experiment_id': [""]*2,
+            'status': [RunStatus.FINISHED]*2,
+            'artifact_uri': [None]*2,
+            'run_id': ['']*2,
+            'experiment_id': [""]*2,
             'metrics.mse': [0.2, 0.6],
             'metrics.loss': [np.nan, 1.2],
             'params.param': ["value", None],

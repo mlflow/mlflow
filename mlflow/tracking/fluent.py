@@ -10,9 +10,8 @@ import os
 import atexit
 import time
 import logging
-import numpy
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from mlflow.store import SEARCH_MAX_RESULTS_PANDAS
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
@@ -301,7 +300,8 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     :param filter_string: Filter query string, defaults to searching all runs.
     :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                             defined in :py:class:`mlflow.entities.ViewType`.
-    :param max_results: Maximum number of runs desired in the dataframe.
+    :param max_results: The maximum number of runs to put in the dataframe. Default is 50,000
+                        to avoid causing out-of-memory issues on the user's machine.
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
                         ordering is to sort by start_time DESC, then run_id.
 
@@ -311,22 +311,21 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
         value will be np.nan, None, or None respectively
     """
     if not experiment_ids:
-        print("Exp Ids: ", experiment_ids)
         experiment_ids = _get_experiment_id()
     runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type, max_results,
                                       order_by)
-    info = {'attributes.status': [], 'attributes.artifact_uri': [], 'attributes.run_id': [],
-            'attributes.experiment_id': []}
+    info = {'run_id': [], 'experiment_id': [],
+            'status': [], 'artifact_uri': [], }
     params, metrics, tags = ({}, {}, {})
     PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
     for i, run in enumerate(runs):
-        info['attributes.status'].append(run.info.status)
-        info['attributes.artifact_uri'].append(run.info.artifact_uri)
-        info['attributes.run_id'].append(run.info.run_id)
-        info['attributes.experiment_id'].append(run.info.experiment_id)
+        info['run_id'].append(run.info.run_id)
+        info['experiment_id'].append(run.info.experiment_id)
+        info['status'].append(run.info.status)
+        info['artifact_uri'].append(run.info.artifact_uri)
 
         # Params
-        param_keys = set(params.keys())  # For Python 2 support
+        param_keys = set(params.keys())
         for key in param_keys:
             if key in run.data.params:
                 params[key].append(run.data.params[key])
