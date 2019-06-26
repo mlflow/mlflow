@@ -1,9 +1,12 @@
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ParallelCoordinatesPlotPanel } from './ParallelCoordinatesPlotPanel';
+import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
+import { Empty } from 'antd';
 
 describe('unit tests', () => {
   let wrapper;
+  let instance;
   let mininumProps;
 
   beforeEach(() => {
@@ -17,5 +20,18 @@ describe('unit tests', () => {
   test('should render with minimal props without exploding', () => {
     wrapper = shallow(<ParallelCoordinatesPlotPanel {...mininumProps}/>);
     expect(wrapper.length).toBe(1);
+  });
+
+  test('should render empty component when no dimension is selected', () => {
+    wrapper = shallow(<ParallelCoordinatesPlotPanel {...mininumProps}/>);
+    instance = wrapper.instance();
+    expect(wrapper.find(ParallelCoordinatesPlotView)).toHaveLength(1);
+    expect(wrapper.find(Empty)).toHaveLength(0);
+    instance.setState({
+      selectedParamKeys: [],
+      selectedMetricKeys: [],
+    });
+    expect(wrapper.find(ParallelCoordinatesPlotView)).toHaveLength(0);
+    expect(wrapper.find(Empty)).toHaveLength(1);
   });
 });
