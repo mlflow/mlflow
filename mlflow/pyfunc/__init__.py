@@ -461,7 +461,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 def save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
                mlflow_model=Model(), python_model=None, artifacts=None, **kwargs):
     """
-    save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
+    save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
                mlflow_model=Model(), python_model=None, artifacts=None)
 
     Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
@@ -505,7 +505,8 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                                 'cloudpickle==0.5.8'
                             ]
                         }
-    :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the pyfunc flavor
+    :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
+                         **python_function** flavor.
     :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
                          serialized using the CloudPickle library. Any dependencies of the class
                          should be included in one of the following locations:
