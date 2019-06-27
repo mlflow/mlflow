@@ -131,7 +131,7 @@ public class MlflowClient {
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
    *
-   * @return A list of all RunInfos that satisfy search filter.
+   * @return A list of all Runs that satisfy search filter.
    */
   public List<Run> searchRuns(List<String> experimentIds, String searchFilter) {
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
@@ -147,7 +147,7 @@ public class MlflowClient {
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
    *                    Defaults to ACTIVE_ONLY.
    *
-   * @return A list of all RunInfos that satisfy search filter.
+   * @return A list of all Runs that satisfy search filter.
    */
   public List<Run> searchRuns(List<String> experimentIds,
                                   String searchFilter,
