@@ -263,7 +263,6 @@ class __MLflowKerasCallback(Callback):
     def on_train_end(self, logs=None):
         mlflow.log_param('learning_rate', keras.backend.eval(self.model.optimizer.lr))
         mlflow.log_param('momentum', keras.backend.eval(self.model.optimizer.momentum))
-        mlflow.log_param('optimizer', self.model.optimizer)
         log_model(self.model, None, None)
 
 

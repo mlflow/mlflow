@@ -23,6 +23,9 @@ import time
 import pandas
 
 import mlflow
+import tensorflow
+import mlflow.keras
+from tensorflow.keras.callbacks import Callback
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -342,6 +345,26 @@ class _TFWrapper(object):
             return pandas.DataFrame(data=pred_dict)
 
 
+class __MLflowTfKerasCallback(Callback):
+    def __init__(self):
+        if mlflow.active_run() is None:
+            mlflow.start_run()
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def on_epoch_end(self, epoch, logs=None):
+        pass
+
+    def on_train_end(self, logs=None):
+        mlflow.log_param('learning_rate', tensorflow.keras.backend.eval(self.model.optimizer.optimizer._lr))
+        mlflow.log_param('epsilon', tensorflow.keras.backend.eval(self.model.optimizer.optimizer._epsilon))
+        mlflow.log_param('optimizer_name', self.model.optimizer.optimizer._name)
+        mlflow.keras.log_model(self.model, None, None)
+
 _metric_queue = []
 
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
@@ -351,7 +374,8 @@ def flush_queue():
     global _metric_queue
     try:
         client = mlflow.tracking.MlflowClient()
-        client.log_batch(mlflow.active_run().info.run_id, metrics=_metric_queue, params=[], tags=[])
+        if mlflow.active_run() is not None:
+            client.log_batch(mlflow.active_run().info.run_id, metrics=_metric_queue, params=[], tags=[])
     except Exception as e:
         warnings.warn("Logging to MLflow failed: " + str(e))
     finally:
@@ -369,6 +393,8 @@ def add_to_queue(key, value, step):
 
 
 def _log_event(event):
+    if mlflow.active_run() is None:
+        mlflow.start_run()
     if event.WhichOneof('what') == 'summary':
         summary = event.summary
         for v in summary.value:
@@ -378,22 +404,43 @@ def _log_event(event):
 
 
 def autolog():
+    import tensorflow
     from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
     from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
 
-    if mlflow.active_run() is None:
-        mlflow.start_run()
+    def contains_tensorboard_callback(lst):
+        for x in lst:
+            if isinstance(x, tensorflow.keras.callbacks.TensorBoard):
+                return True
+
+    @gorilla.patch(tensorflow.keras.Model)
+    def fit(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
+        if len(args) >= 6:
+            l = list(args)
+            if contains_tensorboard_callback(l):
+                l[5] = l[5] + [__MLflowTfKerasCallback()]
+            args = tuple(l)
+        elif 'callbacks' in kwargs:
+            if contains_tensorboard_callback(kwargs['callbacks']):
+                kwargs['callbacks'] = kwargs['callbacks'] + [__MLflowTfKerasCallback()]
+        else:
+            kwargs['callbacks'] = [__MLflowTfKerasCallback()]
+        return original(self, *args, **kwargs)
 
     @gorilla.patch(EventFileWriter)
     def add_event(self, event):
         _log_event(event)
         original = gorilla.get_original_attribute(EventFileWriter, 'add_event')
         return original(self, event)
+
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     patch = gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings)
     patchv2 = gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings)
+    patch_keras = gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings)
 
     gorilla.apply(patch)
     gorilla.apply(patchv2)
+    gorilla.apply(patch_keras)
 
 
