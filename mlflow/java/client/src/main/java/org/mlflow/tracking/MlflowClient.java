@@ -169,7 +169,7 @@ public class MlflowClient {
    *
    * @return A list of all RunInfos that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<String> experimentIds,
+  public List<Run> searchRuns(List<String> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType,
                                   List<String> orderBy) {
@@ -186,8 +186,7 @@ public class MlflowClient {
     SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
-    return mapper.toSearchRunsResponse(ojson).getRunsList().stream()
-      .collect(Collectors.toList());
+    return mapper.toSearchRunsResponse(ojson).getRunsList();
   }
 
   /** @return  A list of all experiments. */
