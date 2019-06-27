@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ""
+  namespace: mlflow
+spec:
+  ttlSecondsAfterFinished: 100
+  backoffLimit: 0
+  template:
+    spec:
+      containers:
+      - name: "name"
+        image: "image"
+        command: ["cmd"]
+      resources:
+        limits:
+          memory: 512Mi
+        requests:
+          memory: 256Mi
+      restartPolicy: Never

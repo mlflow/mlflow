@@ -1,5 +1,6 @@
 import imp
 import os
+import sys
 from setuptools import setup, find_packages
 
 version = imp.load_source(
@@ -30,10 +31,10 @@ setup(
         'alembic',
         'click>=7.0',
         'cloudpickle',
-        'databricks-cli>=0.8.0',
+        'databricks-cli>=0.8.7',
         'requests>=2.17.3',
         'six>=1.10.0',
-        'gunicorn',
+        'waitress' if sys.platform == 'win32' else 'gunicorn',
         'Flask',
         'numpy',
         'pandas',
@@ -47,6 +48,7 @@ setup(
         'entrypoints',
         'sqlparse',
         'sqlalchemy',
+        'docker>=3.6.0'
     ],
     extras_require={
         'extras':[

@@ -29,17 +29,8 @@ To run this tutorial, you'll need to:
 
        - Install MLflow and scikit-learn. There are two options for installing these dependencies:
 
-         - Install MLflow with extra dependencies (``pip install mlflow[extras]``), where the extra dependencies are:
-            
-           - ``scikit-learn`` when Python version >= '3.5'
-           - ``scikit-learn`` == 0.20 when Python version < '3.5'
-           - ``boto3`` >= 1.7.12
-           - ``mleap`` >= 0.8.1
-           - ``azure-storage``
-           - ``google-cloud-storage``
-          
+         - Install MLflow with extra dependencies (``pip install mlflow[extras]``), where the extra dependencies are listed in the :ref:`quickstart`.
          - Install MLflow (``pip install mlflow``) and scikit-learn (``pip install sckit-learn``) separately.
-              
 
        - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
