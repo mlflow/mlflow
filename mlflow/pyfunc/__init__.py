@@ -199,7 +199,6 @@ from copy import deepcopy
 import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
-from mlflow.tracking.fluent import log_artifacts
 from mlflow.models import Model
 from mlflow.pyfunc.model import PythonModel, PythonModelContext, get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -460,8 +459,11 @@ def spark_udf(spark, model_uri, result_type="double"):
 
 
 def save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-               model=Model(), python_model=None, artifacts=None, **kwargs):
+               mlflow_model=Model(), python_model=None, artifacts=None, **kwargs):
     """
+    save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
+               mlflow_model=Model(), python_model=None, artifacts=None)
+
     Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
 
     For information about the workflows that this method supports, please see :ref:`"workflows for
@@ -503,7 +505,7 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                                 'cloudpickle==0.5.8'
                             ]
                         }
-
+    :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the pyfunc flavor
     :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
                          serialized using the CloudPickle library. Any dependencies of the class
                          should be included in one of the following locations:
@@ -534,8 +536,9 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
                       If ``None``, no artifacts are added to the model.
     """
-    if 'mlflow_model' in kwargs:
-        model = kwargs['mlflow_model']
+    mlflow_model = kwargs.pop('model', mlflow_model)
+    if len(kwargs) > 0:
+        raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
     first_argument_set = {
         "loader_module": loader_module,
         "data_path": data_path,
@@ -565,11 +568,11 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
                 path=path, loader_module=loader_module, data_path=data_path,
-                code_paths=code_path, conda_env=conda_env, mlflow_model=model)
+                code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path, python_model=python_model, artifacts=artifacts, conda_env=conda_env,
-            code_paths=code_path, mlflow_model=model)
+            code_paths=code_path, mlflow_model=mlflow_model)
 
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
