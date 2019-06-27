@@ -19,7 +19,12 @@ public class DatabricksContext {
   }
 
   public static DatabricksContext createIfAvailable() {
-    Map<String, String> configProvider = getConfigProviderIfAvailable(CONFIG_PROVIDER_CLASS_NAME);
+    return createIfAvailable(CONFIG_PROVIDER_CLASS_NAME);
+  }
+
+  @VisibleForTesting
+  static DatabricksContext createIfAvailable(String className) {
+    Map<String, String> configProvider = getConfigProviderIfAvailable(className);
     if (configProvider == null) {
       return null;
     }
