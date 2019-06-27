@@ -1,12 +1,14 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import tensorflow as tf
+import numpy as np
 from tensorflow.keras import layers
 from tensorflow.keras.callbacks import TensorBoard
 
 import mlflow.tensorflow
 
 mlflow.tensorflow.autolog()
+
 
 model = tf.keras.Sequential()
 # Adds a densely-connected layer with 64 units to the model:
@@ -45,14 +47,14 @@ model.compile(optimizer=tf.train.AdamOptimizer(0.001),
               loss='categorical_crossentropy',
               metrics=['accuracy'])
 
-import numpy as np
 
 def random_one_hot_labels(shape):
-  n, n_class = shape
-  classes = np.random.randint(0, n_class, n)
-  labels = np.zeros((n, n_class))
-  labels[np.arange(n), classes] = 1
-  return labels
+    n, n_class = shape
+    classes = np.random.randint(0, n_class, n)
+    labels = np.zeros((n, n_class))
+    labels[np.arange(n), classes] = 1
+    return labels
+
 
 data = np.random.random((1000, 32))
 labels = random_one_hot_labels((1000, 10))

@@ -17,6 +17,7 @@ import math
 
 import pandas as pd
 from keras.callbacks import Callback
+import keras.backend
 
 from mlflow import pyfunc
 from mlflow.models import Model
@@ -241,7 +242,6 @@ class __MLflowKerasCallback(Callback):
     Keras logging callback prototype.
     Logs training and validation loss to MLFlow after each epoch.
     """
-
     def __init__(self):
         self._best_train_loss = math.inf
         self._best_model = None
@@ -261,15 +261,15 @@ class __MLflowKerasCallback(Callback):
             self._best_model = self.model
 
     def on_train_end(self, logs=None):
+        mlflow.log_param('learning_rate', keras.backend.eval(self.model.optimizer.lr))
+        mlflow.log_param('momentum', keras.backend.eval(self.model.optimizer.momentum))
+        mlflow.log_param('optimizer', self.model.optimizer)
         log_model(self.model, None, None)
-
 
 
 def autolog():
     """
-    Enable automatic logging to MLFlow. After each epoch, logs:
-    training and validation loss; any other metrics specified
-    in model.compile after each epoch; the best model, as an artifact.
+    Enable automatic logging to MLFlow.
     """
     import keras
 

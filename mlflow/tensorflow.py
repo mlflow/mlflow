@@ -17,6 +17,8 @@ import logging
 import gorilla
 import concurrent.futures
 import warnings
+import atexit
+import time
 
 import pandas
 
@@ -30,13 +32,12 @@ from mlflow.utils import keyword_only
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.entities import Metric
 
 
 FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
-
-_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 
 def get_default_conda_env():
@@ -341,70 +342,58 @@ class _TFWrapper(object):
             return pandas.DataFrame(data=pred_dict)
 
 
-def log_with_warning(**kwargs):
+_metric_queue = []
+
+_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+
+def flush_queue():
+    global _metric_queue
     try:
-        mlflow.log_metric(**kwargs)
+        client = mlflow.tracking.MlflowClient()
+        client.log_batch(mlflow.active_run().info.run_id, metrics=_metric_queue, params=[], tags=[])
     except Exception as e:
         warnings.warn("Logging to MLflow failed: " + str(e))
+    finally:
+        _metric_queue = []
+
+
+atexit.register(flush_queue)
+
+
+def add_to_queue(key, value, step):
+    met = Metric(key=key, value=value, timestamp=int(time.time()*1000), step=step)
+    _metric_queue.append(met)
+    if len(_metric_queue) >= 500:
+        flush_queue()
+
 
 def _log_event(event):
     if event.WhichOneof('what') == 'summary':
         summary = event.summary
         for v in summary.value:
             if v.HasField('simple_value'):
-                _thread_pool.submit(log_with_warning, key=v.tag, value=v.simple_value, step=event.step)
-                #mlflow.log_metric(v.tag, v.simple_value, step=event.step)
-
-
-def _log_scalar(*args, **kwargs):
-    import tensorflow as tf
-    name = list(args)[0]
-    value = tf.cast((list(args)[1]), tf.float32).numpy()
-    step = kwargs['step'] if 'step' in kwargs else tf.summary.experimental.get_step()
-    _thread_pool.submit(log_with_warning, key=name, value=value, step=step)
-    #mlflow.log_metric(name, value, step=step)
+                if event.step % 100 == 0:
+                    _thread_pool.submit(add_to_queue, key=v.tag, value=v.simple_value, step=event.step)
 
 
 def autolog():
-
-    mlflow.set_tracking_uri("databricks")
-    mlflow.set_experiment("/Users/apurva.koti@databricks.com/TestAutologging")
-
-    import tensorflow
     from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
     from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
-    from tensorflow.python.ops import summary_ops_v2
+
+    if mlflow.active_run() is None:
+        mlflow.start_run()
 
     @gorilla.patch(EventFileWriter)
     def add_event(self, event):
         _log_event(event)
         original = gorilla.get_original_attribute(EventFileWriter, 'add_event')
         return original(self, event)
-
-
-    @gorilla.patch(tensorflow.summary)
-    def scalar_summary(*args, **kwargs):
-        _log_scalar(*args, **kwargs)
-        original = gorilla.get_original_attribute(tensorflow.summary, 'scalar')
-        return original(*args, **kwargs)
-
-    @gorilla.patch(summary_ops_v2)
-    def scalar_keras(*args, **kwargs):
-        _log_scalar(*args, **kwargs)
-        original = gorilla.get_original_attribute(summary_ops_v2, 'scalar')
-        return original(*args, **kwargs)
-
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     patch = gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings)
     patchv2 = gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings)
 
-    patch_scalar_summary = gorilla.Patch(tensorflow.summary, 'scalar', scalar_summary, settings=settings)
-    patch_scalar_keras = gorilla.Patch(summary_ops_v2, 'scalar', scalar_keras, settings=settings)
-
     gorilla.apply(patch)
     gorilla.apply(patchv2)
-    if tensorflow.__version__.startswith('2'):
-        gorilla.apply(patch_scalar_summary)
-        gorilla.apply(patch_scalar_keras)
 
 
