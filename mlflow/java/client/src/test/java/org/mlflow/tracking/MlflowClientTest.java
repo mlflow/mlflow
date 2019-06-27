@@ -210,7 +210,7 @@ public class MlflowClientTest {
     List<String> experimentIds = Arrays.asList(expId);
 
     // metrics based searches
-    List<RunInfo> searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0");
+    List<Run> searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0");
     Assert.assertEquals(searchResult.size(), 0);
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0");
@@ -220,10 +220,10 @@ public class MlflowClientTest {
     Assert.assertEquals(searchResult.size(), 0);
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0.5");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0.5");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
+    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_2);
 
     // parameter based searches
     searchResult = client.searchRuns(experimentIds,
@@ -233,23 +233,23 @@ public class MlflowClientTest {
             "params.min_samples_leaf != '" + MIN_SAMPLES_LEAF + "'");
     Assert.assertEquals(searchResult.size(), 0);
     searchResult = client.searchRuns(experimentIds, "params.max_depth = '5'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "params.max_depth = '15'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
+    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_2);
 
     // tag based search
     searchResult = client.searchRuns(experimentIds, "tag.user_email = '" + USER_EMAIL + "'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "tag.user_email != '" + USER_EMAIL + "'");
     Assert.assertEquals(searchResult.size(), 0);
 
     searchResult = client.searchRuns(experimentIds, "tag.test = 'works'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "tag.test = 'also works'");
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
+    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_2);
   }
 
   @Test

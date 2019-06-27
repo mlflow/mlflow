@@ -119,7 +119,8 @@ public class MlflowClient {
   public List<RunInfo> listRunInfos(String experimentId) {
     List<String> experimentIds = new ArrayList<>();
     experimentIds.add(experimentId);
-    return searchRuns(experimentIds, null);
+    return searchRuns(experimentIds, null).stream().map(Run::getInfo)
+      .collect(Collectors.toList());
   }
 
   /**
@@ -132,7 +133,7 @@ public class MlflowClient {
    *
    * @return A list of all RunInfos that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<String> experimentIds, String searchFilter) {
+  public List<Run> searchRuns(List<String> experimentIds, String searchFilter) {
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
   }
 
@@ -148,7 +149,7 @@ public class MlflowClient {
    *
    * @return A list of all RunInfos that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<String> experimentIds,
+  public List<Run> searchRuns(List<String> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType) {
     SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIds);
@@ -162,7 +163,7 @@ public class MlflowClient {
     SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
-    return mapper.toSearchRunsResponse(ojson).getRunsList().stream().map(Run::getInfo)
+    return mapper.toSearchRunsResponse(ojson).getRunsList().stream()
       .collect(Collectors.toList());
   }
 
