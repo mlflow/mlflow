@@ -111,7 +111,8 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     from py4j.protocol import Py4JJavaError
 
     _validate_model(spark_model)
-    if isinstance(spark_model, Estimator) or isinstance(spark_model, Transformer):
+    from pyspark.ml import PipelineModel
+    if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
@@ -252,14 +253,14 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
 
 
 def _validate_model(spark_model):
-    from pyspark.ml.pipeline import PipelineModel
-    from pyspark.ml import Estimator
-    from pyspark.ml import Transformer
-    if not isinstance(spark_model, PipelineModel)
-       and not isinstance(spark_model, Estimator)
-       and not isinstance(spark_model, Transformer):
-        raise MlflowException("Not a PipelineModel. SparkML can only save PipelineModels.",
-                              INVALID_PARAMETER_VALUE)
+    from pyspark.ml import Model
+    from pyspark.ml.util import MLReadable, MLWritable
+    if not isinstance(spark_model, Model) \
+            or not isinstance(spark_model, MLReadable) \
+            or not isinstance(spark_model, MLWritable):
+        raise MlflowException(
+                "Not a descendant of pyspark.Model. SparkML can only save descendants of pyspark.Model that implement MLWritable and MLReadable.", 
+                INVALID_PARAMETER_VALUE)
 
 
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
@@ -308,7 +309,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
     >>> mlflow.spark.save_model(model, "spark-model")
     """
     _validate_model(spark_model)
-    if isinstance(spark_model, Estimator) or isinstance(spark_model, Transformer):
+    from pyspark.ml import PipelineModel
+    if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
