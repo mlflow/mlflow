@@ -111,6 +111,8 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     from py4j.protocol import Py4JJavaError
 
     _validate_model(spark_model)
+    if isinstance(spark_model, Estimator) or isinstance(spark_model, Transformer):
+        spark_model = PipelineModel([spark_model])
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
     # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model,
@@ -251,8 +253,11 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
 
 def _validate_model(spark_model):
     from pyspark.ml.pipeline import PipelineModel
-
-    if not isinstance(spark_model, PipelineModel):
+    from pyspark.ml import Estimator
+    from pyspark.ml import Transformer
+    if not isinstance(spark_model, PipelineModel)
+       and not isinstance(spark_model, Estimator)
+       and not isinstance(spark_model, Transformer):
         raise MlflowException("Not a PipelineModel. SparkML can only save PipelineModels.",
                               INVALID_PARAMETER_VALUE)
 
@@ -303,6 +308,8 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
     >>> mlflow.spark.save_model(model, "spark-model")
     """
     _validate_model(spark_model)
+    if isinstance(spark_model, Estimator) or isinstance(spark_model, Transformer):
+        spark_model = PipelineModel([spark_model])
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:
