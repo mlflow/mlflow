@@ -148,7 +148,7 @@ export const generateAttributesForCategoricalDimension = (labels) => {
 };
 
 // Infer type with the first run's value
-const inferType = (key, runUuids, entryByRunUuid) => {
+export const inferType = (key, runUuids, entryByRunUuid) => {
   return isNaN(entryByRunUuid[runUuids[0]][key].value) ? 'string' : 'number';
 };
 

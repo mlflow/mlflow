@@ -4,6 +4,7 @@ import {
   ParallelCoordinatesPlotView,
   generateAttributesForCategoricalDimension,
   createDimension,
+  inferType,
 } from './ParallelCoordinatesPlotView';
 
 describe('unit tests', () => {
@@ -95,6 +96,34 @@ describe('unit tests', () => {
     });
   });
 
+  test('inferType works with numeric dimension', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 1 },
+      },
+      runUuid_1: {
+        metric_0: { value: 2 },
+      },
+    };
+    expect(inferType(key, runUuids, entryByRunUuid)).toBe('number');
+  });
+
+  test('inferType works with categorical dimension', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: 'B' },
+      },
+      runUuid_1: {
+        metric_0: { value: 'A' },
+      },
+    };
+    expect(inferType(key, runUuids, entryByRunUuid)).toBe('string');
+  });
+
   test('createDimension should work with numeric dimension', () => {
     const key = 'metric_0';
     const runUuids = ['runUuid_0', 'runUuid_1'];
@@ -128,6 +157,22 @@ describe('unit tests', () => {
       values: [1, 0],
       tickvals: [0, 1],
       ticktext: ['A', 'B'],
+    });
+  });
+
+  test('getColorScaleConfigsForDimension', () => {
+    wrapper = shallow(<ParallelCoordinatesPlotView {...mininumProps}/>);
+    instance = wrapper.instance();
+    const dimension = {
+      label: 'metric_0',
+      values: [3, 1, 2, 3, 0, 2],
+    };
+    expect(ParallelCoordinatesPlotView.getColorScaleConfigsForDimension(dimension)).toEqual({
+      showscale: true,
+      colorscale: 'Jet',
+      cmin: 0,
+      cmax: 3,
+      color: [3, 1, 2, 3, 0, 2],
     });
   });
 });
