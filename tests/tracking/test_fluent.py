@@ -41,7 +41,7 @@ class HelperEnv:
             del os.environ[_EXPERIMENT_NAME_ENV_VAR]
 
 
-def mock_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None, tags=None,
+def create_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None, tags=None,
              status=RunStatus.FINISHED, a_uri=None):
     return Run(
         RunInfo(
@@ -357,8 +357,8 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
 
 
 def test_search_runs_attributes():
-    runs = [mock_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id='abc', exp_id="123"),
-            mock_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2", run_id='def', exp_id="321")]
+    runs = [create_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id='abc', exp_id="123"),
+            create_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2", run_id='def', exp_id="321")]
     with mock.patch.object(MlflowClient, "search_runs", return_value=runs):
         pdf = search_runs()
         data = {'status': [RunStatus.FINISHED, RunStatus.SCHEDULED],
@@ -371,11 +371,11 @@ def test_search_runs_attributes():
 
 def test_search_runs_data():
     runs = [
-        mock_run(
+        create_run(
             metrics=[Metric("mse", 0.2, 0, 0)],
             params=[Param("param", "value")],
             tags=[RunTag("tag", "value")]),
-        mock_run(
+        create_run(
             metrics=[Metric("mse", 0.6, 0, 0), Metric("loss", 1.2, 0, 5)],
             params=[Param("param2", "val"), Param("k", "v")],
             tags=[RunTag("tag2", "v2")])]
