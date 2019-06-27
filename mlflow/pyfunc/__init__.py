@@ -436,10 +436,10 @@ def spark_udf(spark, model_uri, result_type="double"):
             result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
 
         elif type(elem_type) == FloatType:
-            result = result.select_dtypes(include=np.number).astype(np.float32)
+            result = result.select_dtypes(include=(np.number,)).astype(np.float32)
 
         elif type(elem_type) == DoubleType:
-            result = result.select_dtypes(include=np.number).astype(np.float64)
+            result = result.select_dtypes(include=(np.number,)).astype(np.float64)
 
         if len(result.columns) == 0:
             raise MlflowException(

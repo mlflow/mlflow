@@ -9,6 +9,7 @@ import {
 import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
+import _ from 'lodash';
 
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
@@ -40,18 +41,6 @@ const experimentsById = (state = {}, action) => {
     default:
       return state;
   }
-};
-
-export const getRunInfos = (state) => {
-  return Object.values(state.entities.runInfosByUuid).sort((a, b) => {
-    if (a.start_time < b.start_time) {
-      return 1;
-    } else if (a.start_time > b.start_time) {
-      return -1;
-    } else {
-      return 0;
-    }
-  });
 };
 
 export const getRunInfo = (runUuid, state) => {
@@ -268,6 +257,16 @@ const entities = combineReducers({
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
 });
+
+export const getSharedParamKeysByRunUuids = (runUuids, state) =>
+  _.intersection(
+    ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+  );
+
+export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
+  _.intersection(
+    ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+  );
 
 export const getApis = (requestIds, state) => {
   return requestIds.map((id) => (

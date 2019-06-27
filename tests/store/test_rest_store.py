@@ -5,13 +5,13 @@ import mock
 import six
 
 import mlflow
+from mlflow.entities import Param, Metric, RunTag, SourceType, ViewType
 from mlflow.exceptions import MlflowException
-from mlflow.entities import Param, Metric, RunTag, SourceType
-from mlflow.protos.service_pb2 import DeleteExperiment, RestoreExperiment, LogParam, LogMetric, \
-    SetTag, DeleteRun, RestoreRun, CreateRun, RunTag as ProtoRunTag, LogBatch
+from mlflow.protos.service_pb2 import CreateRun, DeleteExperiment, DeleteRun, LogBatch, \
+    LogMetric, LogParam, RestoreExperiment, RestoreRun, RunTag as ProtoRunTag, SearchRuns, \
+    SetTag
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
-
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
 
 
@@ -209,6 +209,20 @@ class TestRestStore(unittest.TestCase):
                                   "experiments/restore", "POST",
                                   message_to_json(RestoreExperiment(experiment_id="0")))
 
+        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+            response = mock.MagicMock
+            response.text = '{"runs": ["1a", "2b", "3c"], "next_page_token": "67890fghij"}'
+            mock_http.return_value = response
+            result = store.search_runs(["0", "1"], "params.p1 = 'a'", ViewType.ACTIVE_ONLY,
+                                       max_results=10, order_by=["a"], page_token="12345abcde")
+
+            expected_message = SearchRuns(experiment_ids=["0", "1"], filter="params.p1 = 'a'",
+                                          run_view_type=ViewType.to_proto(ViewType.ACTIVE_ONLY),
+                                          max_results=10, order_by=["a"], page_token="12345abcde")
+            self._verify_requests(mock_http, creds,
+                                  "runs/search", "POST",
+                                  message_to_json(expected_message))
+            assert result.token == "67890fghij"
 
 if __name__ == '__main__':
     unittest.main()
