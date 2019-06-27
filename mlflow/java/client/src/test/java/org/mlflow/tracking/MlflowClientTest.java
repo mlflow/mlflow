@@ -221,15 +221,15 @@ public class MlflowClientTest {
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0.5");
     Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
-    Assert.assertEquals(searchResult.get(0).getData().getMetricsList().size(), 2);
-    Assert.assertEquals(searchResult.get(0).getData().getParamsList().size(), 2)
-    Assert.assertEquals(searchResult.get(0).getData().getTagsList().size(), 2)
+    Assert.assertEquals(searchResult.get(0).getData().getMetricsList().size(), 1);
+    Assert.assertEquals(searchResult.get(0).getData().getParamsList().size(), 2);
+    Assert.assertEquals(searchResult.get(0).getData().getTagsList().size(), 2);
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0.5");
     Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_2);
     Assert.assertEquals(searchResult.get(0).getData().getMetricsList().size(), 1);
-    Assert.assertEquals(searchResult.get(0).getData().getParamsList().size(), 2)
-    Assert.assertEquals(searchResult.get(0).getData().getTagsList().size(), 1)
+    Assert.assertEquals(searchResult.get(0).getData().getParamsList().size(), 2);
+    Assert.assertEquals(searchResult.get(0).getData().getTagsList().size(), 1);
 
     // parameter based searches
     searchResult = client.searchRuns(experimentIds,
