@@ -5,7 +5,7 @@ set -x
 err=0
 trap 'err=1' ERR
 
-
+export MLFLOW_HOME=$(pwd)
 # TODO(czumar): Re-enable container building and associated SageMaker tests once the container
 # build process is no longer hanging
 # - SAGEMAKER_OUT=$(mktemp)
