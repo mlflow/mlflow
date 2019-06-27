@@ -154,8 +154,7 @@ test_that("mlflow can read databricks env congfig", {
   )
   env <- list(DATABRICKS_HOST = "envhost",
               DATABRICKS_USERNAME = "envusername",
-              DATABRICKS_TOKEN = "envtoken",
-              DATABRICKS_INSECURE = "False")
+              DATABRICKS_TOKEN = "envtoken")
 
   with_envvar(env, {
     envprofile <- mlflow:::get_databricks_config_from_env()

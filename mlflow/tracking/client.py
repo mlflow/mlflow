@@ -17,7 +17,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 
 class MlflowClient(object):
-    """Client of an MLflow Tracking Server that creates and manages experiments and runs.
+    """
+    Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
 
     def __init__(self, tracking_uri=None):
@@ -233,19 +234,24 @@ class MlflowClient(object):
         artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.list_artifacts(path)
 
-    def download_artifacts(self, run_id, path):
+    def download_artifacts(self, run_id, path, dst_path=None):
         """
         Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
 
         :param run_id: The run to download artifacts from.
         :param path: Relative source path to the desired artifact.
+        :param dst_path: Absolute path of the local filesystem destination directory to which to
+                         download the specified artifacts. This directory must already exist.
+                         If unspecified, the artifacts will either be downloaded to a new
+                         uniquely-named directory on the local filesystem or will be returned
+                         directly in the case of the LocalArtifactRepository.
         :return: Local path of desired artifact.
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
         artifact_repo = get_artifact_repository(artifact_root)
-        return artifact_repo.download_artifacts(path)
+        return artifact_repo.download_artifacts(path, dst_path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
@@ -270,10 +276,8 @@ class MlflowClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string="",
-                    run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
-                    order_by=None):
+    def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
         """
         Search experiments that fit the search criteria.
 
@@ -284,14 +288,15 @@ class MlflowClient(object):
         :param max_results: Maximum number of runs desired.
         :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
                          ordering is to sort by start_time DESC, then run_id.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+            a ``search_runs`` call.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions
+            expressions. If the underlying tracking store supports pagination, the token for
+            the next page may be obtained via the ``token`` attribute of the returned object.
         """
         if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
             experiment_ids = [experiment_ids]
-        return self.store.search_runs(experiment_ids=experiment_ids,
-                                      filter_string=filter_string,
-                                      run_view_type=run_view_type,
-                                      max_results=max_results,
-                                      order_by=order_by)
+        return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
+                                      run_view_type=run_view_type, max_results=max_results,
+                                      order_by=order_by, page_token=page_token)
