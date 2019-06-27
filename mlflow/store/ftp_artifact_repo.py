@@ -121,4 +121,4 @@ class FTPArtifactRepository(ArtifactRepository):
             if remote_file_path else self.path
         with self.get_ftp_client() as ftp:
             with open(local_path, 'wb') as f:
-                ftp.retrbinary('RETR ' + remote_full_path, f)
+                ftp.retrbinary('RETR ' + remote_full_path, f.write)
