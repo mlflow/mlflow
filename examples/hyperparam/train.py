@@ -28,8 +28,6 @@ from sklearn.model_selection import train_test_split
 import mlflow
 import mlflow.keras
 
-mlflow.keras.autolog()
-
 
 def eval_and_log_metrics(prefix, actual, pred, epoch):
     rmse = np.sqrt(mean_squared_error(actual, pred))
@@ -139,34 +137,35 @@ def run(training_data, epochs, batch_size, learning_rate, momentum, seed):
             eval_and_log_metrics("val", valid_y, np.ones(len(valid_y)) * np.mean(valid_y), epoch=-1)
             eval_and_log_metrics("test", test_y, np.ones(len(test_y)) * np.mean(test_y), epoch=-1)
         else:
-            model = Sequential()
-            model.add(Lambda(get_standardize_f(train_x)))
-            model.add(Dense(train_x.shape[1],
-                            activation='relu',
-                            kernel_initializer='normal',
-                            input_shape=(train_x.shape[1],)))
-            model.add(Dense(16,
-                            activation='relu',
-                            kernel_initializer='normal'))
-            model.add(Dense(16,
-                            activation='relu',
-                            kernel_initializer='normal'))
-            model.add(Dense(1,
-                            kernel_initializer='normal',
-                            activation='linear'))
-            model.compile(loss='mean_squared_error',
-                          optimizer=SGD(
-                              lr=learning_rate,
-                              momentum=momentum
-                          ),
-                          metrics=[])
+            with MLflowCheckpoint(test_x, test_y) as mlflow_logger:
+                model = Sequential()
+                model.add(Lambda(get_standardize_f(train_x)))
+                model.add(Dense(train_x.shape[1],
+                                activation='relu',
+                                kernel_initializer='normal',
+                                input_shape=(train_x.shape[1],)))
+                model.add(Dense(16,
+                                activation='relu',
+                                kernel_initializer='normal'))
+                model.add(Dense(16,
+                                activation='relu',
+                                kernel_initializer='normal'))
+                model.add(Dense(1,
+                                kernel_initializer='normal',
+                                activation='linear'))
+                model.compile(loss='mean_squared_error',
+                              optimizer=SGD(
+                                  lr=learning_rate,
+                                  momentum=momentum
+                              ),
+                              metrics=[])
 
-            model.fit(train_x, train_y,
-                      batch_size=batch_size,
-                      epochs=epochs,
-                      verbose=1,
-                      validation_data=(valid_x, valid_y),
-                      callbacks=[])
+                model.fit(train_x, train_y,
+                          batch_size=batch_size,
+                          epochs=epochs,
+                          verbose=1,
+                          validation_data=(valid_x, valid_y),
+                          callbacks=[mlflow_logger])
 
 
 if __name__ == '__main__':
