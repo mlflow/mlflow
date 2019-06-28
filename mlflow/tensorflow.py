@@ -42,6 +42,9 @@ FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
 
+_MAX_METRIC_QUEUE_SIZE = 500
+_LOG_EVERY_N_STEPS = 100
+
 
 def get_default_conda_env():
     """
@@ -389,7 +392,7 @@ atexit.register(flush_queue)
 def add_to_queue(key, value, step):
     met = Metric(key=key, value=value, timestamp=int(time.time()*1000), step=step)
     _metric_queue.append(met)
-    if len(_metric_queue) >= 500:
+    if len(_metric_queue) >= _MAX_METRIC_QUEUE_SIZE:
         flush_queue()
 
 
@@ -400,7 +403,7 @@ def _log_event(event):
         summary = event.summary
         for v in summary.value:
             if v.HasField('simple_value'):
-                if event.step % 1 == 0:
+                if event.step % _LOG_EVERY_N_STEPS == 0:
                     _thread_pool.submit(add_to_queue, key=v.tag, value=v.simple_value, step=event.step)
 
 
