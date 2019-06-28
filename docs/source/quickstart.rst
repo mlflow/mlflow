@@ -104,6 +104,13 @@ and view it at `<http://localhost:5000>`_.
 .. note::
     If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.
 
+.. note::
+    If you want to install and run mlflow on one machine and view its ui from another machine, on the machine you have installed mlflow you need to run
+
+    mlflow server --host 0.0.0.0
+
+    and you can view the ui using http://<ip address of machine running mlflow>:5000
+
 Alternatively, you can configure MLflow to :ref:`log runs to a remote server<tracking>` to manage
 your results centrally or share them across a team.
 
