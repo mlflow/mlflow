@@ -377,18 +377,26 @@ class __MLflowTfKerasCallback(Callback):
         # TODO: Fix for keras log_model not saving TF optimizers
         mlflow.keras.log_model(self.model, artifact_path='model')
 
-
+# List of (metric, run_id) tuples
 _metric_queue = []
 
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+
+def _assoc_list_to_map(lst):
+    d = {}
+    for metric, run_id in lst:
+        d[run_id] = d[run_id] + [metric] if run_id in d else [metric]
+    return d
 
 
 def flush_queue():
     global _metric_queue
     try:
         client = mlflow.tracking.MlflowClient()
-        if mlflow.active_run() is not None:
-            client.log_batch(mlflow.active_run().info.run_id, metrics=_metric_queue, params=[], tags=[])
+        dic = _assoc_list_to_map(_metric_queue)
+        for key in dic:
+            client.log_batch(key, metrics=dic[key], params=[], tags=[])
     except Exception as e:
         warnings.warn("Logging to MLflow failed: " + str(e))
     finally:
@@ -398,9 +406,9 @@ def flush_queue():
 atexit.register(flush_queue)
 
 
-def add_to_queue(key, value, step):
+def add_to_queue(key, value, step, run_id):
     met = Metric(key=key, value=value, timestamp=int(time.time()*1000), step=step)
-    _metric_queue.append(met)
+    _metric_queue.append((met, run_id))
     if len(_metric_queue) >= _MAX_METRIC_QUEUE_SIZE:
         flush_queue()
 
@@ -413,7 +421,8 @@ def _log_event(event):
         for v in summary.value:
             if v.HasField('simple_value'):
                 if event.step % _LOG_EVERY_N_STEPS == 0:
-                    _thread_pool.submit(add_to_queue, key=v.tag, value=v.simple_value, step=event.step)
+                    _thread_pool.submit(add_to_queue, key=v.tag, value=v.simple_value, step=event.step,
+                                        run_id=mlflow.active_run().info.run_id)
 
 
 def _get_tensorboard_callback(lst):
