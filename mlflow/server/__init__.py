@@ -4,14 +4,13 @@ import shlex
 from flask import Flask, send_from_directory
 
 from mlflow.server import handlers
-from mlflow.server.handlers import get_artifact_handler
+from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix
 from mlflow.utils.process import exec_cmd
 
 # NB: These are intenrnal environment variables used for communication between
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
-STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 REL_STATIC_DIR = "js/build"
 
@@ -19,15 +18,8 @@ app = Flask(__name__, static_folder=REL_STATIC_DIR)
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
 
-def _add_static_prefix(route):
-    prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
-    if prefix:
-        return prefix + route
-    return route
-
-
 for http_path, handler, methods in handlers.get_endpoints():
-    app.add_url_rule(_add_static_prefix(http_path), handler.__name__, handler, methods=methods)
+    app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
 
 # Serve the "get-artifact" route.

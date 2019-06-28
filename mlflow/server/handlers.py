@@ -22,6 +22,14 @@ from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_batch_log_api_req
 
 _store = None
+STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
+
+
+def _add_static_prefix(route):
+    prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
+    if prefix:
+        return prefix + route
+    return route
 
 
 def _get_store(backend_store_uri=None, default_artifact_root=None):
@@ -360,7 +368,7 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/preview/mlflow/experiment and
     /ajax-api/2.0/preview/mlflow/experiment in the Flask router.
     """
-    return ['/api/2.0{}'.format(base_path), '/ajax-api/2.0{}'.format(base_path)]
+    return ['/api/2.0{}'.format(base_path), _add_static_prefix('/ajax-api/2.0{}'.format(base_path))]
 
 
 def get_endpoints():
