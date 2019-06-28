@@ -51,6 +51,7 @@ log_artifact = mlflow.tracking.fluent.log_artifact
 active_run = mlflow.tracking.fluent.active_run
 start_run = mlflow.tracking.fluent.start_run
 end_run = mlflow.tracking.fluent.end_run
+search_runs = mlflow.tracking.fluent.search_runs
 get_artifact_uri = mlflow.tracking.fluent.get_artifact_uri
 set_tracking_uri = tracking.set_tracking_uri
 get_tracking_uri = tracking.get_tracking_uri
@@ -65,5 +66,5 @@ run = projects.run
 
 
 __all__ = ["ActiveRun", "log_param", "log_metric", "set_tag", "log_artifacts", "log_artifact",
-           "active_run", "start_run", "end_run", "get_artifact_uri", "set_tracking_uri",
-           "create_experiment", "set_experiment", "run"]
+           "active_run", "start_run", "end_run", "search_runs", "get_artifact_uri",
+           "set_tracking_uri", "create_experiment", "set_experiment", "run"]
