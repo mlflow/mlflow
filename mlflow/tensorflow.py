@@ -19,13 +19,14 @@ import concurrent.futures
 import warnings
 import atexit
 import time
+import tempfile
 
 import pandas
 
 import mlflow
 import tensorflow
 import mlflow.keras
-from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.callbacks import Callback, TensorBoard
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -373,8 +374,9 @@ class __MLflowTfKerasCallback(Callback):
         self.model.summary(print_fn=(lambda x: l.append(x)))
         summary = '\n'.join(l)
         mlflow.set_tag('summary', summary)
-        #TODO: Fix for keras log_model not saving TF optimizers
-        mlflow.keras.log_model(self.model, None, None)
+        # TODO: Fix for keras log_model not saving TF optimizers
+        mlflow.keras.log_model(self.model, artifact_path='model')
+
 
 _metric_queue = []
 
@@ -414,8 +416,23 @@ def _log_event(event):
                     _thread_pool.submit(add_to_queue, key=v.tag, value=v.simple_value, step=event.step)
 
 
-def _checkpoint_model(model_path):
-    mlflow.log_artifact(model_path)
+def _get_tensorboard_callback(lst):
+    for x in lst:
+        if isinstance(x, tensorflow.keras.callbacks.TensorBoard):
+            return x
+    return None
+
+
+def setup_callbacks(lst):
+    tb = _get_tensorboard_callback(lst)
+    if tb is None:
+        log_dir = 'tensorboard_logs'
+        l = lst + [TensorBoard(log_dir)]
+    else:
+        log_dir = tb.log_dir
+        l = lst
+    l += [__MLflowTfKerasCallback()]
+    return l, log_dir
 
 
 def autolog():
@@ -423,10 +440,6 @@ def autolog():
     from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
     from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
 
-    def contains_tensorboard_callback(lst):
-        for x in lst:
-            if isinstance(x, tensorflow.keras.callbacks.TensorBoard):
-                return True
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):
@@ -456,14 +469,13 @@ def autolog():
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
         if len(args) >= 6:
             l = list(args)
-            if contains_tensorboard_callback(l):
-                l[5] = l[5] + [__MLflowTfKerasCallback()]
+            l[5], log_dir = setup_callbacks(l[5])
             args = tuple(l)
         elif 'callbacks' in kwargs:
-            if contains_tensorboard_callback(kwargs['callbacks']):
-                kwargs['callbacks'] = kwargs['callbacks'] + [__MLflowTfKerasCallback()]
+            kwargs['callbacks'], log_dir = setup_callbacks(kwargs['callbacks'])
         else:
-            kwargs['callbacks'] = [__MLflowTfKerasCallback()]
+            kwargs['callbacks'], log_dir = setup_callbacks([])
+        atexit.register(mlflow.log_artifacts, local_dir=log_dir, artifact_path='tensorboard_logs')
         return original(self, *args, **kwargs)
 
 

@@ -272,7 +272,7 @@ class __MLflowKerasCallback(Callback):
         summary = '\n'.join(l)
         mlflow.set_tag('summary', summary)
 
-        log_model(self.model, None, None)
+        log_model(self.model, artifact_path='model')
 
 
 def autolog():
@@ -286,10 +286,10 @@ def autolog():
         original = gorilla.get_original_attribute(keras.Model, 'fit')
         if len(args) >= 6:
             l = list(args)
-            l[5] = l[5] + [__MLflowKerasCallback()]
+            l[5] += [__MLflowKerasCallback()]
             args = tuple(l)
         elif 'callbacks' in kwargs:
-            kwargs['callbacks'] = kwargs['callbacks'] + [__MLflowKerasCallback()]
+            kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
         return original(self, *args, **kwargs)
