@@ -79,6 +79,8 @@ class S3ArtifactRepository(ArtifactRepository):
             # Objects listed directly will be files
             for obj in result.get('Contents', []):
                 file_path = obj.get("Key")
+                if file_path.endswith('/'):
+                    continue
                 self._verify_listed_object_contains_artifact_path_prefix(
                     listed_object_path=file_path, artifact_path=artifact_path)
                 file_rel_path = posixpath.relpath(path=file_path, start=artifact_path)
