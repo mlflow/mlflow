@@ -239,8 +239,9 @@ def load_model(model_uri, **kwargs):
 
 class __MLflowKerasCallback(Callback):
     """
-    Keras logging callback prototype.
-    Logs training and validation loss to MLFlow after each epoch.
+    Callback for auto-logging metrics and parameters.
+    Records available logs after each epoch.
+    Records model structural information as params after training finishes.
     """
     def __init__(self):
         self._best_train_loss = math.inf
@@ -267,17 +268,16 @@ class __MLflowKerasCallback(Callback):
             mlflow.log_param('learning_rate', keras.backend.eval(self.model.optimizer.lr))
         if hasattr(self.model.optimizer, 'epsilon'):
             mlflow.log_param('epsilon', keras.backend.eval(self.model.optimizer.epsilon))
-        l = []
-        self.model.summary(print_fn=(lambda x: l.append(x)))
-        summary = '\n'.join(l)
+        sum_list = []
+        self.model.summary(print_fn=(lambda x: sum_list.append(x)))
+        summary = '\n'.join(sum_list)
         mlflow.set_tag('summary', summary)
-
         log_model(self.model, artifact_path='model')
 
 
 def autolog():
     """
-    Enable automatic logging to MLFlow.
+    Enable auto-logging from Keras to MLflow.
     """
     import keras
 

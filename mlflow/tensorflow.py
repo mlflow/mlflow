@@ -19,7 +19,6 @@ import concurrent.futures
 import warnings
 import atexit
 import time
-import tempfile
 
 import pandas
 
@@ -44,7 +43,12 @@ FLAVOR_NAME = "tensorflow"
 _logger = logging.getLogger(__name__)
 
 _MAX_METRIC_QUEUE_SIZE = 500
+
 _LOG_EVERY_N_STEPS = 100
+
+_metric_queue = []
+
+_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 
 def get_default_conda_env():
@@ -350,6 +354,10 @@ class _TFWrapper(object):
 
 
 class __MLflowTfKerasCallback(Callback):
+    """
+        Callback for auto-logging parameters (we rely on TensorBoard for metrics).
+        Records model structural information as params after training finishes.
+    """
     def __init__(self):
         if mlflow.active_run() is None:
             mlflow.start_run()
@@ -377,20 +385,22 @@ class __MLflowTfKerasCallback(Callback):
         # TODO: Fix for keras log_model not saving TF optimizers
         mlflow.keras.log_model(self.model, artifact_path='model')
 
-# List of (metric, run_id) tuples
-_metric_queue = []
-
-_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-
 
 def _assoc_list_to_map(lst):
+    """
+    Convert an association list to a dictionary
+    """
     d = {}
-    for metric, run_id in lst:
+    for run_id, metric in lst:
         d[run_id] = d[run_id] + [metric] if run_id in d else [metric]
     return d
 
 
 def flush_queue():
+    """
+    Flush the metric queue and log contents in batches to MLflow.
+    Queue is divided into batches according to run id.
+    """
     global _metric_queue
     try:
         client = mlflow.tracking.MlflowClient()
@@ -406,14 +416,21 @@ def flush_queue():
 atexit.register(flush_queue)
 
 
-def add_to_queue(key, value, step, run_id):
+def _add_to_queue(key, value, step, run_id):
+    """
+    Add a metric to the metric queue. Flush the queue if it exceeds
+    max size.
+    """
     met = Metric(key=key, value=value, timestamp=int(time.time()*1000), step=step)
-    _metric_queue.append((met, run_id))
-    if len(_metric_queue) >= _MAX_METRIC_QUEUE_SIZE:
+    _metric_queue.append((run_id, met))
+    if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
         flush_queue()
 
 
 def _log_event(event):
+    """
+    Extracts metric information from the event protobuf
+    """
     if mlflow.active_run() is None:
         mlflow.start_run()
     if event.WhichOneof('what') == 'summary':
@@ -421,7 +438,7 @@ def _log_event(event):
         for v in summary.value:
             if v.HasField('simple_value'):
                 if event.step % _LOG_EVERY_N_STEPS == 0:
-                    _thread_pool.submit(add_to_queue, key=v.tag, value=v.simple_value, step=event.step,
+                    _thread_pool.submit(_add_to_queue, key=v.tag, value=v.simple_value, step=event.step,
                                         run_id=mlflow.active_run().info.run_id)
 
 
@@ -433,6 +450,10 @@ def _get_tensorboard_callback(lst):
 
 
 def setup_callbacks(lst):
+    """
+    Adds TensorBoard and MlfLowTfKeras callbacks to the
+    input list, and returns the new list and appropriate log directory.
+    """
     tb = _get_tensorboard_callback(lst)
     if tb is None:
         log_dir = 'tensorboard_logs'
@@ -445,6 +466,9 @@ def setup_callbacks(lst):
 
 
 def autolog():
+    """
+    Enable autologging from TensorFlow to MLflow.
+    """
     import tensorflow
     from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
     from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
