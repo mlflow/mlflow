@@ -10,6 +10,7 @@ import os
 import atexit
 import time
 import logging
+from functools import partial
 
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -217,8 +218,38 @@ def log_params(params):
     :returns: None
     """
     run_id = _get_or_start_run().info.run_id
-    params_arr = [Param(key, str(value)) for key, value in params.items()]
+    params_arr = dict_to_list(params)
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
+
+def dict_to_list(params_dict, key_prefix=''):
+    """
+    Parse dictionary of string-value paris into Params array, resolving 
+    :param key_prefix:      Prefix used for each item in given dictionary
+    :param params_dict:     Dictionary of string value paris to array'fy
+    :return:                List of Params summarizing partial definition
+    """
+    params_arr = []
+    for key, value in params_dict.items():
+        if type(value) is dict:
+            params_arr.extend(dict_to_list(value, f'{key_prefix}{key}'))
+        elif type(value) is partial:
+            params_arr.extend(partial_to_list(value, f'{key_prefix}{key}'))
+        else:
+            params_arr.append(Param(f'{key_prefix}{key}', str(value)))
+    return params_arr
+
+
+def partial_to_list(partial_def: partial, key_prefix: str):
+    """
+    Parse partial definition to list based itemization of function and arguments with predefined naming convention
+    :param partial_def: Partial definition object
+    :param key_prefix:  Prefix to use across all keys in partial definition
+    :return:            List of Params summarizing partial definition
+    """
+    params_arr = [Param(f'{key_prefix}.func', str(partial_def.func))]
+    params_arr.extend(dict_to_list(partial_def.keywords, f'{key_prefix}.kw.'))
+    return params_arr
 
 
 def set_tags(tags):
