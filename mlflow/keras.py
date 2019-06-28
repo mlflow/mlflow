@@ -45,7 +45,7 @@ def get_default_conda_env():
         additional_conda_channels=None)
 
 
-def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
+def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_objects=None):
     """
     Save a Keras model to a path on the local file system.
 
@@ -89,7 +89,15 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
     os.makedirs(path)
     model_data_subpath = "model.h5"
     keras_model.save(os.path.join(path, model_data_subpath))
-
+    if custom_objects is not None:
+        custom_objects_subpath = _save_custom_objects(path, custom_objects)
+        mlflow_model.add_flavor(FLAVOR_NAME,
+                                pickled_custom_objects=custom_objects_subpath,
+                                keras_version=keras.__version__,
+                                serialization_format='cloudpickle',
+                                data=model_data_subpath)
+    else:
+        mlflow_model.add_flavor(FLAVOR_NAME, keras_version=keras.__version__, data=model_data_subpath)
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
         conda_env = get_default_conda_env()
@@ -101,11 +109,10 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model()):
 
     pyfunc.add_to_model(mlflow_model, loader_module="mlflow.keras",
                         data=model_data_subpath, env=conda_env_subpath)
-    mlflow_model.add_flavor(FLAVOR_NAME, keras_version=keras.__version__, data=model_data_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
+def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
@@ -144,24 +151,35 @@ def log_model(keras_model, artifact_path, conda_env=None, **kwargs):
     >>>   mlflow.keras.log_model(keras_model, "models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
-              keras_model=keras_model, conda_env=conda_env, **kwargs)
+              keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects, **kwargs)
 
+def _save_custom_objects(path, custom_objects):
+    custom_objects_subpath = "custom_objects.cloudpickle"
+    import cloudpickle
+    custom_objects_path = os.path.join(path, custom_objects_subpath)
+    with open(custom_objects_path, "wb") as out_f:
+        cloudpickle.dump(custom_objects, out_f)
+    return custom_objects_subpath
 
 def _load_model(model_file, **kwargs):
     import keras
     import keras.models
     import h5py
-
+    custom_objects = None
+    custom_objects_path = kwargs.pop('custom_objects_path', None)
+    if custom_objects_path is not None:
+        import cloudpickle
+        with open(custom_objects_path, "rb") as in_f:
+            custom_objects = cloudpickle.load(in_f)
     from distutils.version import StrictVersion
-
     if StrictVersion(keras.__version__.split('-')[0]) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead
         # of string to avoid issues.
         with h5py.File(os.path.abspath(model_file), "r") as model_file:
-            return keras.models.load_model(model_file, **kwargs)
+            return keras.models.load_model(model_file, custom_objects=custom_objects, **kwargs)
     else:
         # NOTE: Older versions of Keras only handle filepath.
-        return keras.models.load_model(model_file, **kwargs)
+        return keras.models.load_model(model_file, custom_objects=custom_objects, **kwargs)
 
 
 class _KerasModelWrapper:
@@ -186,7 +204,11 @@ def _load_pyfunc(path):
     """
     import keras.backend as K
     import tensorflow as tf
-
+    mlmodel_path = os.path.split(path)[0]
+    flavor_conf = _get_flavor_configuration(model_path=mlmodel_path, flavor_name=FLAVOR_NAME)
+    keras_custom_objects_path = None
+    if 'pickled_custom_objects' in flavor_conf:
+        keras_custom_objects_path = os.path.join(mlmodel_path, flavor_conf['pickled_custom_objects'])
     if K._BACKEND == 'tensorflow':
         graph = tf.Graph()
         sess = tf.Session(graph=graph)
@@ -196,7 +218,7 @@ def _load_pyfunc(path):
         with graph.as_default():
             with sess.as_default():  # pylint:disable=not-context-manager
                 K.set_learning_phase(0)
-                m = _load_model(path, compile=False)
+                m = _load_model(path, custom_objects_path=keras_custom_objects_path, compile=False)
         return _KerasModelWrapper(m, graph, sess)
     else:
         raise Exception("Unsupported backend '%s'" % K._BACKEND)
@@ -230,4 +252,7 @@ def load_model(model_uri, **kwargs):
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.h5`
     keras_model_artifacts_path = os.path.join(local_model_path, flavor_conf.get("data", "model.h5"))
-    return _load_model(model_file=keras_model_artifacts_path, **kwargs)
+    keras_custom_objects_path = None
+    if 'pickled_custom_objects' in flavor_conf:
+        keras_custom_objects_path = os.path.join(local_model_path, flavor_conf['pickled_custom_objects'])
+    return _load_model(model_file=keras_model_artifacts_path, custom_objects_path=keras_custom_objects_path, **kwargs)
