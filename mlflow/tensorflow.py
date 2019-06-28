@@ -400,7 +400,7 @@ def _log_event(event):
         summary = event.summary
         for v in summary.value:
             if v.HasField('simple_value'):
-                if event.step % 100 == 0:
+                if event.step % 1 == 0:
                     _thread_pool.submit(add_to_queue, key=v.tag, value=v.simple_value, step=event.step)
 
 
@@ -423,6 +423,17 @@ def autolog():
         from tensorflow.python.saved_model import tag_constants
 
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, 'export_saved_model')
+        serialized = original(self, *args, **kwargs)
+        log_model(tf_saved_model_dir=serialized.decode('utf-8'), tf_meta_graph_tags=[tag_constants.SERVING],
+                  tf_signature_def_key='predict',
+                  artifact_path='model')
+        return serialized
+
+    @gorilla.patch(tensorflow.estimator.Estimator)
+    def export_savedmodel(self, *args, **kwargs):
+        from tensorflow.python.saved_model import tag_constants
+
+        original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, 'export_savedmodel')
         serialized = original(self, *args, **kwargs)
         log_model(tf_saved_model_dir=serialized.decode('utf-8'), tf_meta_graph_tags=[tag_constants.SERVING],
                   tf_signature_def_key='predict',
@@ -453,15 +464,17 @@ def autolog():
         return original(self, event)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    patch = gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings)
-    patchv2 = gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings)
-    patch_keras = gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings)
-    patch_export = gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
-                               export_saved_model, settings=settings)
+    patches = [
+        gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings),
+        gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings),
+        gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
+        gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
+                      export_saved_model, settings=settings),
+        gorilla.Patch(tensorflow.estimator.Estimator, 'export_savedmodel',
+                      export_savedmodel, settings=settings),
+        ]
 
-    gorilla.apply(patch)
-    gorilla.apply(patchv2)
-    gorilla.apply(patch_keras)
-    gorilla.apply(patch_export)
+    for x in patches:
+        gorilla.apply(x)
 
 
