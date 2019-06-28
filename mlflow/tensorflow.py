@@ -363,9 +363,16 @@ class __MLflowTfKerasCallback(Callback):
         pass
 
     def on_train_end(self, logs=None):
-        mlflow.log_param('learning_rate', tensorflow.keras.backend.eval(self.model.optimizer.optimizer._lr))
-        mlflow.log_param('epsilon', tensorflow.keras.backend.eval(self.model.optimizer.optimizer._epsilon))
-        mlflow.log_param('optimizer_name', self.model.optimizer.optimizer._name)
+        mlflow.log_param('optimizer_name', type(self.model.optimizer.optimizer).__name__)
+        op = self.model.optimizer.optimizer
+        if hasattr(op, '_lr'):
+            mlflow.log_param('learning_rate', tensorflow.keras.backend.eval(self.model.optimizer.optimizer._lr))
+        if hasattr(op, '_epsilon'):
+            mlflow.log_param('epsilon', tensorflow.keras.backend.eval(self.model.optimizer.optimizer._epsilon))
+        l = []
+        self.model.summary(print_fn=(lambda x: l.append(x)))
+        summary = '\n'.join(l)
+        mlflow.set_tag('summary', summary)
         #TODO: Fix for keras log_model not saving TF optimizers
         mlflow.keras.log_model(self.model, None, None)
 

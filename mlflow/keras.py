@@ -261,8 +261,17 @@ class __MLflowKerasCallback(Callback):
             self._best_model = self.model
 
     def on_train_end(self, logs=None):
-        mlflow.log_param('learning_rate', keras.backend.eval(self.model.optimizer.lr))
-        mlflow.log_param('momentum', keras.backend.eval(self.model.optimizer.momentum))
+        mlflow.log_param('num_layers', len(self.model.layers))
+        mlflow.log_param('optimizer_name', type(self.model.optimizer).__name__)
+        if hasattr(self.model.optimizer, 'lr'):
+            mlflow.log_param('learning_rate', keras.backend.eval(self.model.optimizer.lr))
+        if hasattr(self.model.optimizer, 'epsilon'):
+            mlflow.log_param('epsilon', keras.backend.eval(self.model.optimizer.epsilon))
+        l = []
+        self.model.summary(print_fn=(lambda x: l.append(x)))
+        summary = '\n'.join(l)
+        mlflow.set_tag('summary', summary)
+
         log_model(self.model, None, None)
 
 
