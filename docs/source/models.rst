@@ -429,7 +429,7 @@ evaluate test data.
     # Save the MLflow Model
     mlflow_pyfunc_model_path = "xgb_mlflow_pyfunc"
     mlflow.pyfunc.save_model(
-            dst_path=mlflow_pyfunc_model_path, python_model=XGBWrapper(), artifacts=artifacts,
+            path=mlflow_pyfunc_model_path, python_model=XGBWrapper(), artifacts=artifacts,
             conda_env=conda_env)
 
     # Load the model in `python_function` format
