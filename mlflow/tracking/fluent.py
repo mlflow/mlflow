@@ -10,8 +10,11 @@ import os
 import atexit
 import time
 import logging
+import numpy as np
+import pandas as pd
 
-from mlflow.entities import Run, RunStatus, Param, RunTag, Metric
+from mlflow.store import SEARCH_MAX_RESULTS_PANDAS
+from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
@@ -286,6 +289,86 @@ def get_artifact_uri(artifact_path=None):
     """
     return artifact_utils.get_artifact_uri(run_id=_get_or_start_run().info.run_id,
                                            artifact_path=artifact_path)
+
+
+def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
+                max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None):
+    """
+    Search experiments that fit the search criteria.
+
+    :param experiment_ids: List of experiment IDs. None will default to the active experiment.
+    :param filter_string: Filter query string, defaults to searching all runs.
+    :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+                            defined in :py:class:`mlflow.entities.ViewType`.
+    :param max_results: The maximum number of runs to put in the dataframe. Default is 50,000
+                        to avoid causing out-of-memory issues on the user's machine.
+    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
+                        ordering is to sort by start_time DESC, then run_id.
+
+    :return: A pandas.DataFrame object of runs, where each metric, parameter, and tag
+        are expanded into their own columns named metrics.*, params.*, and tags.*
+        respectively. For runs that don't have a particular metric, parameter, or tag, their
+        value will be np.nan, None, or None respectively
+    """
+    if not experiment_ids:
+        experiment_ids = _get_experiment_id()
+    runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type, max_results,
+                                      order_by)
+    info = {'run_id': [], 'experiment_id': [],
+            'status': [], 'artifact_uri': [], }
+    params, metrics, tags = ({}, {}, {})
+    PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
+    for i, run in enumerate(runs):
+        info['run_id'].append(run.info.run_id)
+        info['experiment_id'].append(run.info.experiment_id)
+        info['status'].append(run.info.status)
+        info['artifact_uri'].append(run.info.artifact_uri)
+
+        # Params
+        param_keys = set(params.keys())
+        for key in param_keys:
+            if key in run.data.params:
+                params[key].append(run.data.params[key])
+            else:
+                params[key].append(PARAM_NULL)
+        new_params = set(run.data.params.keys()) - param_keys
+        for p in new_params:
+            params[p] = [PARAM_NULL]*i  # Fill in null values for all previous runs
+            params[p].append(run.data.params[p])
+
+        # Metrics
+        metric_keys = set(metrics.keys())
+        for key in metric_keys:
+            if key in run.data.metrics:
+                metrics[key].append(run.data.metrics[key])
+            else:
+                metrics[key].append(METRIC_NULL)
+        new_metrics = set(run.data.metrics.keys()) - metric_keys
+        for m in new_metrics:
+            metrics[m] = [METRIC_NULL]*i
+            metrics[m].append(run.data.metrics[m])
+
+        # Tags
+        tag_keys = set(tags.keys())
+        for key in tag_keys:
+            if key in run.data.tags:
+                tags[key].append(run.data.tags[key])
+            else:
+                tags[key].append(TAG_NULL)
+        new_tags = set(run.data.tags.keys()) - tag_keys
+        for t in new_tags:
+            tags[t] = [TAG_NULL]*i
+            tags[t].append(run.data.tags[t])
+
+    data = {}
+    data.update(info)
+    for key in metrics:
+        data['metrics.' + key] = metrics[key]
+    for key in params:
+        data['params.' + key] = params[key]
+    for key in tags:
+        data['tags.' + key] = tags[key]
+    return pd.DataFrame(data)
 
 
 def _get_or_start_run():
