@@ -13,7 +13,6 @@ from __future__ import absolute_import
 import os
 import yaml
 import gorilla
-import math
 
 import pandas as pd
 from keras.callbacks import Callback
@@ -188,10 +187,9 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``keras`` flavor.
     """
-    import keras.backend as K
     import tensorflow as tf
 
-    if K._BACKEND == 'tensorflow':
+    if keras.backend._BACKEND == 'tensorflow':
         graph = tf.Graph()
         sess = tf.Session(graph=graph)
         # By default tf backed models depend on the global graph and session.
@@ -199,11 +197,11 @@ def _load_pyfunc(path):
         # This way the model is independent on the global state.
         with graph.as_default():
             with sess.as_default():  # pylint:disable=not-context-manager
-                K.set_learning_phase(0)
+                keras.backend.set_learning_phase(0)
                 m = _load_model(path, compile=False)
         return _KerasModelWrapper(m, graph, sess)
     else:
-        raise Exception("Unsupported backend '%s'" % K._BACKEND)
+        raise Exception("Unsupported backend '%s'" % keras.backend._BACKEND)
 
 
 def load_model(model_uri, **kwargs):
@@ -243,9 +241,6 @@ class __MLflowKerasCallback(Callback):
     Records available logs after each epoch.
     Records model structural information as params after training finishes.
     """
-    def __init__(self):
-        self._best_train_loss = math.inf
-        self._best_model = None
 
     def __enter__(self):
         return self
@@ -257,9 +252,6 @@ class __MLflowKerasCallback(Callback):
         if not logs:
             return
         mlflow.log_metrics(logs, step=epoch)
-        if logs['val_loss'] < self._best_train_loss:
-            self._best_train_loss = logs['val_loss']
-            self._best_model = self.model
 
     def on_train_end(self, logs=None):
         mlflow.log_param('num_layers', len(self.model.layers))
@@ -269,7 +261,7 @@ class __MLflowKerasCallback(Callback):
         if hasattr(self.model.optimizer, 'epsilon'):
             mlflow.log_param('epsilon', keras.backend.eval(self.model.optimizer.epsilon))
         sum_list = []
-        self.model.summary(print_fn=(lambda x: sum_list.append(x)))
+        self.model.summary(print_fn=sum_list.append)
         summary = '\n'.join(sum_list)
         mlflow.set_tag('summary', summary)
         log_model(self.model, artifact_path='model')

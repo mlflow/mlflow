@@ -375,9 +375,11 @@ class __MLflowTfKerasCallback(Callback):
         mlflow.log_param('optimizer_name', type(self.model.optimizer.optimizer).__name__)
         op = self.model.optimizer.optimizer
         if hasattr(op, '_lr'):
-            mlflow.log_param('learning_rate', tensorflow.keras.backend.eval(self.model.optimizer.optimizer._lr))
+            mlflow.log_param('learning_rate',
+                             tensorflow.keras.backend.eval(self.model.optimizer.optimizer._lr))
         if hasattr(op, '_epsilon'):
-            mlflow.log_param('epsilon', tensorflow.keras.backend.eval(self.model.optimizer.optimizer._epsilon))
+            mlflow.log_param('epsilon',
+                             tensorflow.keras.backend.eval(self.model.optimizer.optimizer._epsilon))
         l = []
         self.model.summary(print_fn=(lambda x: l.append(x)))
         summary = '\n'.join(l)
@@ -438,7 +440,8 @@ def _log_event(event):
         for v in summary.value:
             if v.HasField('simple_value'):
                 if event.step % _LOG_EVERY_N_STEPS == 0:
-                    _thread_pool.submit(_add_to_queue, key=v.tag, value=v.simple_value, step=event.step,
+                    _thread_pool.submit(_add_to_queue, key=v.tag,
+                                        value=v.simple_value, step=event.step,
                                         run_id=mlflow.active_run().info.run_id)
 
 
@@ -473,14 +476,15 @@ def autolog():
     from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
     from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
 
-
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):
         from tensorflow.python.saved_model import tag_constants
 
-        original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, 'export_saved_model')
+        original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
+                                                  'export_saved_model')
         serialized = original(self, *args, **kwargs)
-        log_model(tf_saved_model_dir=serialized.decode('utf-8'), tf_meta_graph_tags=[tag_constants.SERVING],
+        log_model(tf_saved_model_dir=serialized.decode('utf-8'),
+                  tf_meta_graph_tags=[tag_constants.SERVING],
                   tf_signature_def_key='predict',
                   artifact_path='model')
         return serialized
@@ -489,13 +493,14 @@ def autolog():
     def export_savedmodel(self, *args, **kwargs):
         from tensorflow.python.saved_model import tag_constants
 
-        original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, 'export_savedmodel')
+        original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
+                                                  'export_savedmodel')
         serialized = original(self, *args, **kwargs)
-        log_model(tf_saved_model_dir=serialized.decode('utf-8'), tf_meta_graph_tags=[tag_constants.SERVING],
+        log_model(tf_saved_model_dir=serialized.decode('utf-8'),
+                  tf_meta_graph_tags=[tag_constants.SERVING],
                   tf_signature_def_key='predict',
                   artifact_path='model')
         return serialized
-
 
     @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
@@ -510,7 +515,6 @@ def autolog():
             kwargs['callbacks'], log_dir = setup_callbacks([])
         atexit.register(mlflow.log_artifacts, local_dir=log_dir, artifact_path='tensorboard_logs')
         return original(self, *args, **kwargs)
-
 
     @gorilla.patch(EventFileWriter)
     def add_event(self, event):
@@ -531,5 +535,3 @@ def autolog():
 
     for x in patches:
         gorilla.apply(x)
-
-
