@@ -14,12 +14,12 @@ class Param(_MLflowObject):
     @property
     def key(self):
         """String key corresponding to the parameter name."""
-        return self._key
+        return str(self._key)
 
     @property
     def value(self):
         """String value of the parameter."""
-        return self._value
+        return str(self._value)
 
     def to_proto(self):
         param = ProtoParam()
