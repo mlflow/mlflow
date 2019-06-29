@@ -32,7 +32,7 @@ _logger = logging.getLogger(__name__)
 class SqlAlchemyStore(AbstractStore):
     """
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
-    supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+    supports the database dialects ``mysql``, ``mssql``, ``sqlite``, ``splicemachinesa`` and ``postgresql``.
     As specified in the
     `SQLAlchemy docs <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_ ,
     the database URI is expected in the format
@@ -62,7 +62,7 @@ class SqlAlchemyStore(AbstractStore):
                        the `SQLAlchemy docs
                        <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
                        for format specifications. Mlflow supports the dialects ``mysql``,
-                       ``mssql``, ``sqlite``, and ``postgresql``.
+                       ``mssql``, ``sqlite``, ``splicemachinesa`` and ``postgresql``.
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
@@ -223,7 +223,8 @@ class SqlAlchemyStore(AbstractStore):
         return instance, created
 
     def _get_artifact_location(self, experiment_id):
-        return posixpath.join(self.artifact_root_uri, str(experiment_id))
+        # python2.7 unicode strings are not decorated properly in SQL
+        return str(posixpath.join(self.artifact_root_uri, str(experiment_id)))
 
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':

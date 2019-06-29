@@ -6,10 +6,12 @@ POSTGRES = 'postgresql'
 MYSQL = 'mysql'
 SQLITE = 'sqlite'
 MSSQL = 'mssql'
+SPLICE = 'splicemachinesa'
 
 DATABASE_ENGINES = [
     POSTGRES,
     MYSQL,
     SQLITE,
-    MSSQL
+    MSSQL,
+    SPLICE
 ]
