@@ -13,6 +13,7 @@ from __future__ import absolute_import
 import os
 import yaml
 import gorilla
+import warnings
 
 import pandas as pd
 from keras.callbacks import Callback
@@ -251,20 +252,26 @@ class __MLflowKerasCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
         if not logs:
             return
-        mlflow.log_metrics(logs, step=epoch)
+        try:
+            mlflow.log_metrics(logs, step=epoch)
+        except mlflow.exceptions.MlflowException as e:
+            warnings.warn("Logging to MLflow failed: " + str(e))
 
     def on_train_end(self, logs=None):
-        mlflow.log_param('num_layers', len(self.model.layers))
-        mlflow.log_param('optimizer_name', type(self.model.optimizer).__name__)
-        if hasattr(self.model.optimizer, 'lr'):
-            mlflow.log_param('learning_rate', keras.backend.eval(self.model.optimizer.lr))
-        if hasattr(self.model.optimizer, 'epsilon'):
-            mlflow.log_param('epsilon', keras.backend.eval(self.model.optimizer.epsilon))
-        sum_list = []
-        self.model.summary(print_fn=sum_list.append)
-        summary = '\n'.join(sum_list)
-        mlflow.set_tag('summary', summary)
-        log_model(self.model, artifact_path='model')
+        try:
+            mlflow.log_param('num_layers', len(self.model.layers))
+            mlflow.log_param('optimizer_name', type(self.model.optimizer).__name__)
+            if hasattr(self.model.optimizer, 'lr'):
+                mlflow.log_param('learning_rate', keras.backend.eval(self.model.optimizer.lr))
+            if hasattr(self.model.optimizer, 'epsilon'):
+                mlflow.log_param('epsilon', keras.backend.eval(self.model.optimizer.epsilon))
+            sum_list = []
+            self.model.summary(print_fn=sum_list.append)
+            summary = '\n'.join(sum_list)
+            mlflow.set_tag('summary', summary)
+            log_model(self.model, artifact_path='model')
+        except mlflow.exceptions.MlflowException as e:
+            warnings.warn("Logging to Mlflow failed: " + str(e))
 
 
 def autolog():

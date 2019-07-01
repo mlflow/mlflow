@@ -381,9 +381,15 @@ class __MLflowTfKerasCallback(Callback):
         mlflow.keras.log_model(self.model, artifact_path='model')
 
 
+def _log_artifacts_with_warning(**kwargs):
+    try:
+        mlflow.log_artifacts(**kwargs)
+    except MlflowException as e:
+        warnings.warn("Logging to MLflow failed: " + str(e))
+
 def _assoc_list_to_map(lst):
     """
-    Convert an association list to a dictionary
+    Convert an association list to a dictionary.
     """
     d = {}
     for run_id, metric in lst:
@@ -466,19 +472,26 @@ def autolog():
     """
     Enable autologging from TensorFlow to MLflow.
     """
-    from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
-    from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
-    from tensorflow.python.saved_model import tag_constants
+    try:
+        from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
+        from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
+        from tensorflow.python.saved_model import tag_constants
+    except ImportError:
+        warnings.warn("Could not autolog to Mlflow. Only TensorFlow versions <= 1.1x are supported.")
+        return
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_saved_model')
         serialized = original(self, *args, **kwargs)
-        log_model(tf_saved_model_dir=serialized.decode('utf-8'),
-                  tf_meta_graph_tags=[tag_constants.SERVING],
-                  tf_signature_def_key='predict',
-                  artifact_path='model')
+        try:
+            log_model(tf_saved_model_dir=serialized.decode('utf-8'),
+                      tf_meta_graph_tags=[tag_constants.SERVING],
+                      tf_signature_def_key='predict',
+                      artifact_path='model')
+        except MlflowException as e:
+            warnings.warn("Logging to MLflow failed: " + str(e))
         return serialized
 
     @gorilla.patch(tensorflow.estimator.Estimator)
@@ -486,10 +499,13 @@ def autolog():
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
         serialized = original(self, *args, **kwargs)
-        log_model(tf_saved_model_dir=serialized.decode('utf-8'),
-                  tf_meta_graph_tags=[tag_constants.SERVING],
-                  tf_signature_def_key='predict',
-                  artifact_path='model')
+        try:
+            log_model(tf_saved_model_dir=serialized.decode('utf-8'),
+                      tf_meta_graph_tags=[tag_constants.SERVING],
+                      tf_signature_def_key='predict',
+                      artifact_path='model')
+        except MlflowException as e:
+            warnings.warn("Logging to MLflow failed: " + str(e))
         return serialized
 
     @gorilla.patch(tensorflow.keras.Model)
@@ -503,7 +519,7 @@ def autolog():
             kwargs['callbacks'], log_dir = setup_callbacks(kwargs['callbacks'])
         else:
             kwargs['callbacks'], log_dir = setup_callbacks([])
-        atexit.register(mlflow.log_artifacts, local_dir=log_dir, artifact_path='tensorboard_logs')
+        atexit.register(_log_artifacts_with_warning, local_dir=log_dir, artifact_path='tensorboard_logs')
         return original(self, *args, **kwargs)
 
     @gorilla.patch(EventFileWriter)
