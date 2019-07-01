@@ -388,6 +388,13 @@ class Utils {
       !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
     );
   }
+
+  static getAjaxUrl(relativeUrl) {
+    if (process.env.USE_ABSOLUTE_AJAX_URLS === "true") {
+      return '/' + relativeUrl;
+    }
+    return relativeUrl;
+  }
 }
 
 export default Utils;
