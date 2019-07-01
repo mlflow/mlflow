@@ -25,7 +25,7 @@ import pandas
 import mlflow
 import tensorflow
 import mlflow.keras
-from tensorflow.keras.callbacks import Callback, TensorBoard
+from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=import-error
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -56,10 +56,9 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import tensorflow as tf
     return _mlflow_conda_env(
         additional_conda_deps=[
-            "tensorflow={}".format(tf.__version__),
+            "tensorflow={}".format(tensorflow.__version__),
         ],
         additional_pip_deps=None,
         additional_conda_channels=None)
@@ -185,10 +184,8 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     Validate the TensorFlow SavedModel by attempting to load it in a new TensorFlow graph.
     If the loading process fails, any exceptions thrown by TensorFlow are propagated.
     """
-    import tensorflow as tf
-
-    validation_tf_graph = tf.Graph()
-    validation_tf_sess = tf.Session(graph=validation_tf_graph)
+    validation_tf_graph = tensorflow.Graph()
+    validation_tf_sess = tensorflow.Session(graph=validation_tf_graph)
     with validation_tf_graph.as_default():
         _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir,
                                      tf_sess=validation_tf_sess,
@@ -260,9 +257,7 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags
              ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines input and
              output tensors within the specified metagraph for inference.
     """
-    import tensorflow as tf
-
-    meta_graph_def = tf.saved_model.loader.load(
+    meta_graph_def = tensorflow.saved_model.loader.load(
             sess=tf_sess,
             tags=tf_meta_graph_tags,
             export_dir=tf_saved_model_dir)
@@ -299,13 +294,11 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     """
-    import tensorflow as tf
-
     tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key =\
         _get_and_parse_flavor_configuration(model_path=path)
 
-    tf_graph = tf.Graph()
-    tf_sess = tf.Session(graph=tf_graph)
+    tf_graph = tensorflow.Graph()
+    tf_sess = tensorflow.Session(graph=tf_graph)
     with tf_graph.as_default():
         signature_def = _load_tensorflow_saved_model(
             tf_saved_model_dir=tf_saved_model_dir, tf_sess=tf_sess,
@@ -371,7 +364,7 @@ class __MLflowTfKerasCallback(Callback):
     def on_epoch_end(self, epoch, logs=None):
         pass
 
-    def on_train_end(self, logs=None):
+    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         mlflow.log_param('optimizer_name', type(self.model.optimizer.optimizer).__name__)
         op = self.model.optimizer.optimizer
         if hasattr(op, '_lr'):
@@ -381,7 +374,7 @@ class __MLflowTfKerasCallback(Callback):
             mlflow.log_param('epsilon',
                              tensorflow.keras.backend.eval(self.model.optimizer.optimizer._epsilon))
         l = []
-        self.model.summary(print_fn=(lambda x: l.append(x)))
+        self.model.summary(print_fn=l.append)
         summary = '\n'.join(l)
         mlflow.set_tag('summary', summary)
         # TODO: Fix for keras log_model not saving TF optimizers
@@ -409,7 +402,7 @@ def flush_queue():
         dic = _assoc_list_to_map(_metric_queue)
         for key in dic:
             client.log_batch(key, metrics=dic[key], params=[], tags=[])
-    except Exception as e:
+    except MlflowException as e:
         warnings.warn("Logging to MLflow failed: " + str(e))
     finally:
         _metric_queue = []
@@ -469,17 +462,16 @@ def setup_callbacks(lst):
 
 
 def autolog():
+    # pylint: disable=E0611
     """
     Enable autologging from TensorFlow to MLflow.
     """
-    import tensorflow
     from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
     from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
+    from tensorflow.python.saved_model import tag_constants
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):
-        from tensorflow.python.saved_model import tag_constants
-
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_saved_model')
         serialized = original(self, *args, **kwargs)
@@ -491,8 +483,6 @@ def autolog():
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_savedmodel(self, *args, **kwargs):
-        from tensorflow.python.saved_model import tag_constants
-
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
         serialized = original(self, *args, **kwargs)
