@@ -203,12 +203,6 @@ def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_
     m = pyfunc.load_pyfunc(model_path)
     preds2 = m.predict(spark_model_estimator.spark_df.toPandas())
     assert spark_model_estimator.predictions == preds2
-    # 3. score and compare reloaded pyfunc Spark udf
-    my_pandas_df = spark_model_estimator.pandas_df
-    print(spark_model_estimator.spark_df.toPandas())
-    preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_estimator.spark_df.toPandas())
-    assert spark_model_estimator.predictions == preds3
-    assert os.path.exists(sparkm.DFS_TMP)
 
 
 @pytest.mark.large
