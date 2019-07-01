@@ -6,3 +6,6 @@ sphinx-click==2.1.0
 nose
 codecov
 coverage
+scikit-learn
+scipy
+kubernetes

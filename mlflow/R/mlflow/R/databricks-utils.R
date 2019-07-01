@@ -28,6 +28,9 @@ databricks_config_as_env <- function(config) {
   if (config$config_source != "cfgfile") { # pass the auth info via environment vars
     res <- config[!is.na(config)]
     res$config_source <- NULL
+    if (!as.logical(res$insecure)) {
+      res$insecure <- NULL
+    }
     names(res) <- lapply(names(res), function (x) config_variable_map[[x]])
     res
   } else if (!is.na(Sys.getenv(DATABRICKS_CONFIG_FILE, NA))) {
