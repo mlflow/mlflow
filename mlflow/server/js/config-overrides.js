@@ -44,7 +44,9 @@ module.exports = {
         'HIDE_EXPERIMENT_LIST':
           process.env.HIDE_EXPERIMENT_LIST ? JSON.stringify('true') : JSON.stringify('false'),
         'SHOW_GDPR_PURGING_MESSAGES':
-          process.env.SHOW_GDPR_PURGING_MESSAGES ? JSON.stringify('true') : JSON.stringify('false')
+          process.env.SHOW_GDPR_PURGING_MESSAGES ? JSON.stringify('true') : JSON.stringify('false'),
+        'USE_ABSOLUTE_AJAX_URLS':
+            process.env.USE_ABSOLUTE_AJAX_URLS ? JSON.stringify('true') : JSON.stringify('false'),
       }
     });
     return config;
