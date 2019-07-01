@@ -97,15 +97,11 @@ def save_model(
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
-    os.makedirs(path)
+    data_subpath = "data"
+    data_path = os.path.join(path, data_subpath)
+    os.makedirs(data_path)
     if custom_objects is not None:
-        data_subpath = "data"
-        data_path = os.path.join(path, data_subpath)
-        os.makedirs(data_path)
         _save_custom_objects(data_path, custom_objects)
-    else:
-        data_subpath = ''
-        data_path = os.path.join(path, _MODEL_SAVE_PATH)
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
     keras_model.save(os.path.join(path, model_subpath), **kwargs)
     mlflow_model.add_flavor(FLAVOR_NAME, keras_version=keras.__version__, data=data_subpath)

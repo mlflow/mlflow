@@ -5,6 +5,7 @@ from __future__ import print_function
 import os
 import json
 import pytest
+import shutil
 from keras.models import Sequential
 from keras.layers import Layer, Dense
 from keras import backend as K
@@ -305,6 +306,10 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
     mlflow.keras.save_model(keras_model=model, path=model_path)
+    print(model_path)
+    shutil.copyfile(
+            os.path.join(model_path, 'data', 'model.h5'),
+            os.path.join(model_path, 'model.h5'))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
