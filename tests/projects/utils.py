@@ -31,6 +31,8 @@ def validate_exit_status(status_str, expected):
 
 def assert_dirs_equal(expected, actual):
     dir_comparison = filecmp.dircmp(expected, actual)
+    if len(dir_comparison.left_only) != 0:
+        print(dir_comparison.left_only)
     assert len(dir_comparison.left_only) == 0
     assert len(dir_comparison.right_only) == 0
     assert len(dir_comparison.diff_files) == 0

@@ -6,4 +6,3 @@ sphinx-click==2.1.0
 nose
 codecov
 coverage
-pypi-publisher

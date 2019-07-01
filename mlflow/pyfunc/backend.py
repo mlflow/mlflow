@@ -8,7 +8,7 @@ from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
 from mlflow.pyfunc import ENV
 from mlflow.pyfunc import scoring_server
 
-from mlflow.projects import _get_or_create_conda_env, _get_conda_bin_executable
+from mlflow.utils.conda_utils import _get_or_create_conda_env, _get_conda_command
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.version import VERSION
@@ -127,20 +127,22 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
         command_env = os.environ
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
     conda_env_name = _get_or_create_conda_env(conda_env_path, env_id=env_id)
-    activate_path = _get_conda_bin_executable("activate")
-    activate_conda_env = ["source {0} {1} 1>&2".format(activate_path, conda_env_name)]
+    activate_conda_env = [_get_conda_command(conda_env_name)]
 
     if install_mlflow:
         if "MLFLOW_HOME" in os.environ:  # dev version
-            install_mlflow = "pip install -e {} 1>&2".format(os.environ["MLFLOW_HOME"])
+            install_mlflow = "pip install -e {}".format(os.environ["MLFLOW_HOME"])
         else:
-            install_mlflow = "pip install mlflow=={} 1>&2".format(VERSION)
+            install_mlflow = "pip install mlflow=={}".format(VERSION)
 
         activate_conda_env += [install_mlflow]
 
     command = " && ".join(activate_conda_env + [command])
     _logger.info("=== Running command '%s'", command)
-    child = subprocess.Popen(["bash", "-c", command], close_fds=True, env=command_env)
+    with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
+        child = subprocess.Popen(
+            ["bash", "-c", command], close_fds=True, env=command_env, stderr=devnull_stderr,
+            stdout=devnull_stdout)
     rc = child.wait()
     if rc != 0:
         raise Exception("Command '{0}' returned non zero return code. Return code = {1}".format(
