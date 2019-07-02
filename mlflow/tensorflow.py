@@ -365,12 +365,14 @@ class __MLflowTfKerasCallback(Callback):
         pass
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        mlflow.log_param('optimizer_name', type(self.model.optimizer.optimizer).__name__)
-        op = self.model.optimizer.optimizer
-        if hasattr(op, '_lr'):
+        opt = self.model.optimizer
+        if hasattr(opt, 'optimizer'):
+            opt = opt.optimizer
+        mlflow.log_param('optimizer_name', type(opt).__name__)
+        if hasattr(opt, '_lr'):
             mlflow.log_param('learning_rate',
-                             tensorflow.keras.backend.eval(self.model.optimizer.optimizer._lr))
-        if hasattr(op, '_epsilon'):
+                             tensorflow.keras.backend.eval(opt._lr))
+        if hasattr(opt, '_epsilon'):
             mlflow.log_param('epsilon',
                              tensorflow.keras.backend.eval(self.model.optimizer.optimizer._epsilon))
         l = []
@@ -468,11 +470,14 @@ def setup_callbacks(lst):
     return l, log_dir
 
 
-def autolog():
+def autolog(log_every_n_steps=100):
     # pylint: disable=E0611
     """
     Enable autologging from TensorFlow to MLflow.
     """
+    global _LOG_EVERY_N_STEPS
+    _LOG_EVERY_N_STEPS = log_every_n_steps
+
     try:
         from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
         from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
