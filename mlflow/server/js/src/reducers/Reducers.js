@@ -1,10 +1,18 @@
 import { combineReducers } from 'redux';
 import {
   CLOSE_ERROR_MODAL,
-  fulfilled, GET_EXPERIMENT_API, GET_RUN_API, isFulfilledApi, isPendingApi,
+  fulfilled,
+  GET_EXPERIMENT_API,
+  GET_RUN_API,
+  isFulfilledApi,
+  isPendingApi,
   isRejectedApi,
   LIST_ARTIFACTS_API,
-  LIST_EXPERIMENTS_API, OPEN_ERROR_MODAL, SEARCH_RUNS_API, SET_TAG_API,
+  LIST_EXPERIMENTS_API,
+  OPEN_ERROR_MODAL,
+  SEARCH_RUNS_API,
+  LOAD_MORE_RUNS_API,
+  SET_TAG_API,
 } from '../Actions';
 import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
@@ -63,7 +71,8 @@ const runInfosByUuid = (state = {}, action) => {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
       return amendRunInfosByUuid(state, runInfo);
     }
-    case fulfilled(SEARCH_RUNS_API): {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
       let newState = { ...state };
       if (action.payload && action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
@@ -109,7 +118,8 @@ const paramsByRunUuid = (state = {}, action) => {
       newState[runUuid] = paramArrToObject(params);
       return newState;
     }
-    case fulfilled(SEARCH_RUNS_API): {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
       const runs = action.payload.runs;
       const newState = { ...state };
       if (runs) {
@@ -151,7 +161,8 @@ const tagsByRunUuid = (state = {}, action) => {
       newState[runUuid] = tagArrToObject(tags);
       return newState;
     }
-    case fulfilled(SEARCH_RUNS_API): {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
       const runs = action.payload.runs;
       const newState = { ...state };
       if (runs) {

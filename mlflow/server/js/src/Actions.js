@@ -1,7 +1,7 @@
 import { MlflowService } from './sdk/MlflowService';
 import ErrorCodes from './sdk/ErrorCodes';
 
-export const SEARCH_MAX_RESULTS = 1000;
+export const SEARCH_MAX_RESULTS = 5;
 
 export const isPendingApi = (action) => {
   return action.type.endsWith("_PENDING");
@@ -92,6 +92,16 @@ export const searchRunsApi = (experimentIds, filter, runViewType, orderBy, id = 
     meta: { id: id },
   };
 };
+
+export const LOAD_MORE_RUNS_API = 'LOAD_MORE_RUNS_API';
+export const loadMoreRuns = (experimentIds, pageToken) => ({
+  type: LOAD_MORE_RUNS_API,
+  payload: wrapDeferred(MlflowService.searchRuns, {
+    experiment_ids: experimentIds,
+    page_token: pageToken,
+    max_results: SEARCH_MAX_RESULTS + 1,
+  }),
+});
 
 export const LIST_ARTIFACTS_API = 'LIST_ARTIFACTS_API';
 export const listArtifactsApi = (runUuid, path, id = getUUID()) => {
