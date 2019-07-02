@@ -59,6 +59,7 @@ export class ExperimentView extends Component {
     this.state = {
       ...ExperimentView.getDefaultUnpersistedState(),
       persistedState: persistedState.toJSON(),
+      isAtScrollBottom: false,
     };
   }
 
@@ -491,10 +492,11 @@ export class ExperimentView extends Component {
                   onAddBagged={this.addBagged}
                   onRemoveBagged={this.removeBagged}
                   nextPageToken={this.props.nextPageToken}
+                  handleScrollBottomChange={this.handleScrollBottomChange}
                 />
             )
           }
-          {this.props.nextPageToken ? (
+          {this.props.nextPageToken && this.state.isAtScrollBottom ? (
             <div className='load-more-row'>
               <AntdButton
                 type='primary'
@@ -778,6 +780,10 @@ export class ExperimentView extends Component {
     });
 
     return ExperimentView.tableToCsv(columns, data);
+  }
+
+  handleScrollBottomChange = (isAtScrollBottom) => {
+    this.setState({ isAtScrollBottom });
   }
 }
 

@@ -8,6 +8,8 @@ import { Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import BaggedCell from "./BaggedCell";
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
+import _ from 'lodash';
+
 import 'react-virtualized/styles.css';
 
 export const NUM_RUN_METADATA_COLS = 8;
@@ -96,7 +98,9 @@ class ExperimentRunsTableCompactView extends PureComponent {
     unbaggedParams: PropTypes.arrayOf(String).isRequired,
     // Array of keys corresponding to unbagged metrics
     unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
+
     nextPageToken: PropTypes.string,
+    handleScrollBottomChange: PropTypes.func.isRequired,
   };
 
 
@@ -409,6 +413,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 cellMeasurerProps.rowHeight = 32;
               }
               return (<Table
+                onScroll={this.handleScroll}
                 {...cellMeasurerProps}
                 width={
                   Math.max(width, tableMinWidth)
@@ -554,6 +559,13 @@ class ExperimentRunsTableCompactView extends PureComponent {
       </div>
     );
   }
+
+  handleScroll = _.debounce(({ clientHeight, scrollHeight, scrollTop }) => {
+    const isAtScrollBottom = clientHeight + scrollTop === scrollHeight;
+    console.log('isAtScrollBottom = ', isAtScrollBottom);
+    this.props.handleScrollBottomChange(isAtScrollBottom);
+  }, 100);
+
 }
 
 const mapStateToProps = (state, ownProps) => {
