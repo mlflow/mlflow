@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import './ExperimentPage.css';
 import PropTypes from 'prop-types';
-import { getExperimentApi, getUUID, searchRunsApi } from '../Actions';
+import { getExperimentApi, getUUID, searchRunsApi, loadMoreRunsApi } from '../Actions';
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
@@ -57,10 +57,23 @@ export class ExperimentPage extends Component {
       });
   }
 
+  static loadMoreRunReqestId = getUUID();
+
+  handleLoadMoreRuns = (nextPageToken) => {
+    const { loadMoreRunsApi, experimentId } = this.props;
+    loadMoreRunsApi([experimentId], nextPageToken, ExperimentPage.loadMoreRunReqestId)
+      .then(({ value }) => {
+        if (value && value.next_page_token) {
+          this.setState({ nextPageToken: value.next_page_token });
+        }
+      });
+  };
+
   static propTypes = {
     experimentId: PropTypes.number.isRequired,
     getExperimentApi: PropTypes.func.isRequired,
     searchRunsApi: PropTypes.func.isRequired,
+    loadMoreRunsApi: PropTypes.func.isRequired,
     history: PropTypes.object.isRequired,
     location: PropTypes.object,
   };
@@ -216,6 +229,7 @@ export class ExperimentPage extends Component {
               orderByKey={this.state.persistedState.orderByKey}
               orderByAsc={this.state.persistedState.orderByAsc}
               nextPageToken={this.state.nextPageToken}
+              handleLoadMoreRuns={this.handleLoadMoreRuns}
             />;
           }}
         </RequestStateWrapper>
@@ -231,6 +245,7 @@ export class ExperimentPage extends Component {
 const mapDispatchToProps = {
   getExperimentApi,
   searchRunsApi,
+  loadMoreRunsApi,
 };
 
 const lifecycleFilterToRunViewType = (lifecycleFilter) => {

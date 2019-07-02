@@ -403,7 +403,7 @@ export default class ExperimentViewUtil {
         }
       }
     });
-    return mergedRows.slice(0, SEARCH_MAX_RESULTS);
+    return mergedRows.slice(0);
   }
 
   static getRows({ runInfos, tagsList, runsExpanded, getRow }) {

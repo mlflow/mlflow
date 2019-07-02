@@ -21,7 +21,7 @@ import RestoreRunModal from './modals/RestoreRunModal';
 
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
-import { Icon, Popover } from 'antd';
+import { Icon, Popover, Button as AntdButton } from 'antd';
 
 import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
@@ -95,6 +95,9 @@ export class ExperimentView extends Component {
     searchInput: PropTypes.string.isRequired,
     searchRunsError: PropTypes.string,
     isLoading: PropTypes.bool.isRequired,
+
+    nextPageToken: PropTypes.string.isRequired,
+    handleLoadMoreRuns: PropTypes.func.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -490,11 +493,26 @@ export class ExperimentView extends Component {
                 />
             )
           }
-          <div className='load-more-row'><button>Load more...</button></div>
+          {this.props.nextPageToken ? (
+            <div className='load-more-row'>
+              <AntdButton
+                type='primary'
+                htmlType='button'
+                onClick={this.loadMoreRuns}
+              >
+                Load more...
+              </AntdButton>
+            </div>
+          ) : null}
         </div>
       </div>
     );
   }
+
+  loadMoreRuns = () => {
+    const { handleLoadMoreRuns, nextPageToken } = this.props;
+    handleLoadMoreRuns(nextPageToken);
+  };
 
   onSortBy(orderByKey, orderByAsc) {
     this.initiateSearch({orderByKey, orderByAsc});
@@ -762,13 +780,13 @@ export class ExperimentView extends Component {
 export const mapStateToProps = (state, ownProps) => {
   const { lifecycleFilter, searchRunsRequestId } = ownProps;
   const searchRunApi = getApis([searchRunsRequestId], state)[0];
+
   // The runUuids we should serve.
-  let runUuids;
-  if (searchRunApi.data && searchRunApi.data.runs) {
-    runUuids = searchRunApi.data.runs.map((r) => r.info.run_uuid);
-  } else {
-    runUuids = [];
-  }
+  const { runInfosByUuid } = state.entities;
+  const runUuids = Object.values(runInfosByUuid)
+    .filter((r) => r.experiment_id === ownProps.experimentId.toString())
+    .map((r) => r.run_uuid);
+
   const runInfos = runUuids.map((run_id) => getRunInfo(run_id, state))
     .filter((rInfo) => {
       if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
