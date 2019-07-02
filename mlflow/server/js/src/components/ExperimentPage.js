@@ -1,7 +1,13 @@
 import React, { Component } from 'react';
 import './ExperimentPage.css';
 import PropTypes from 'prop-types';
-import { getExperimentApi, getUUID, searchRunsApi, loadMoreRunsApi } from '../Actions';
+import {
+  getExperimentApi,
+  getUUID,
+  searchRunsApi,
+  loadMoreRunsApi,
+  SEARCH_MAX_RESULTS
+} from '../Actions';
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
 import RequestStateWrapper from './RequestStateWrapper';
@@ -66,8 +72,9 @@ export class ExperimentPage extends Component {
     loadMoreRunsApi([experimentId], nextPageToken, ExperimentPage.loadMoreRunReqestId)
       .then(({ value }) => {
         if (value && value.next_page_token) {
+          const isLastPage = value.runs && value.runs.length !== SEARCH_MAX_RESULTS + 1;
           this.setState({
-            nextPageToken: value.next_page_token,
+            nextPageToken: isLastPage ? null : value.next_page_token,
             loadingMore: false,
           });
         }
