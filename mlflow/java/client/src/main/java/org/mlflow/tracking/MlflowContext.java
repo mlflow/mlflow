@@ -1,5 +1,6 @@
 package org.mlflow.tracking;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.utils.DatabricksContext;
 import org.mlflow.tracking.utils.MlflowTagConstants;
@@ -8,7 +9,12 @@ import java.util.*;
 import java.util.function.Consumer;
 
 public class MlflowContext {
-  private static MlflowContext defaultContext;
+  @VisibleForTesting
+  static MlflowContext defaultContext;
+
+  @VisibleForTesting
+  static Map<String, MlflowContext> defaultContextByReplId = new HashMap<>();
+
   private MlflowClient client;
   private String experimentId;
   private ThreadLocal<Deque<ActiveRun>> perThreadActiveRunStack =
@@ -44,11 +50,24 @@ public class MlflowContext {
   }
 
   private static synchronized MlflowContext getOrCreate(MlflowClient client, String experimentId) {
-    if (defaultContext != null) {
+    DatabricksContext databricksContext = DatabricksContext.createIfAvailable();
+    String replId = databricksContext.getReplId();
+    if (replId == null) {
+      if (defaultContext != null) {
+        return defaultContext;
+      }
+      defaultContext = new MlflowContext(client, experimentId);
       return defaultContext;
+    } else {
+      MlflowContext contextForReplId = defaultContextByReplId.get(replId);
+      if (contextForReplId != null) {
+        return defaultContextByReplId.get(replId);
+      } else {
+        contextForReplId = new MlflowContext(client, experimentId);
+        defaultContextByReplId.put(replId, contextForReplId);
+        return contextForReplId;
+      }
     }
-    defaultContext = new MlflowContext(client, experimentId);
-    return defaultContext;
   }
 
   public synchronized Optional<ActiveRun> activeRun() {
@@ -58,6 +77,10 @@ public class MlflowContext {
 
   public void setClient(MlflowClient client) {
     this.client = client;
+  }
+
+  public MlflowClient getClient() {
+    return this.client;
   }
 
   public void setExperimentName(String experimentName) {
@@ -71,6 +94,10 @@ public class MlflowContext {
 
   public void setExperimentId(String experimentId) {
     this.experimentId = experimentId;
+  }
+
+  public String getExperimentId() {
+    return this.experimentId;
   }
 
   public ActiveRun startRun(String runName) {

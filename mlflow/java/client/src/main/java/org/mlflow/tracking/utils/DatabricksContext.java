@@ -31,6 +31,14 @@ public class DatabricksContext {
     return new DatabricksContext(configProvider);
   }
 
+  /**
+   * May return null if replId was not set on the configProvider. This will happen with DBR
+   * @return
+   */
+  public String getReplId() {
+    return configProvider.get("replId");
+  }
+
   public Map<String, String> getTags() {
     Map<String, String> tags = new HashMap<>();
     if (!isInDatabricksNotebook()) {
@@ -54,25 +62,14 @@ public class DatabricksContext {
   }
 
   public boolean isInDatabricksNotebook() {
-    String aclPathOfAclRoot = configProvider.get("aclPathOfAclRoot");
-    return aclPathOfAclRoot != null && aclPathOfAclRoot.startsWith("/workspace");
+    return configProvider.get("notebookId") != null;
   }
 
   /**
    * Should only be called if isInDatabricksNotebook() is true.
    */
   public String getNotebookId() {
-    if (!isInDatabricksNotebook()) {
-      throw new IllegalArgumentException(
-        "getNotebookId() should not be called when isInDatabricksNotebook() is false"
-      );
-    };
-    String aclPathOfAclRoot = configProvider.get("aclPathOfAclRoot");
-    String[] paths = aclPathOfAclRoot.split("/");
-    if (paths.length == 0) {
-      return null;
-    }
-    return paths[paths.length-1];
+    return configProvider.get("notebookId");
   }
 
   /**

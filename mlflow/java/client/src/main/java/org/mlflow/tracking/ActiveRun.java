@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class ActiveRun {
-  private MlflowClient client;
+  private transient MlflowClient client;
   private RunInfo runInfo;
   boolean isTerminated;
 
