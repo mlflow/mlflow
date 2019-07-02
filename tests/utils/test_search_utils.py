@@ -352,3 +352,15 @@ def test_pagination(page_token, max_results, matching_runs, expected_next_page_t
     if next_page_token:
         decoded_next_page_token = json.loads(base64.b64decode(next_page_token))
     assert decoded_next_page_token == expected_next_page_token
+
+
+@pytest.mark.parametrize("page_token, error_message", [
+    (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
+    (base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")), "Invalid page token"),
+    (base64.b64encode("not json".encode("utf-8")), "Invalid page token"),
+    ("not base64", "Invalid page token"),
+])
+def test_invalid_page_tokens(page_token, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchUtils.paginate([], page_token, 1)
+    assert error_message in e.value.message

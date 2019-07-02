@@ -338,12 +338,18 @@ class SearchUtils(object):
         except TypeError:
             raise MlflowException("Invalid page token, could not base64-decode",
                                   error_code=INVALID_PARAMETER_VALUE)
+        except base64.binascii.Error:
+            raise MlflowException("Invalid page token, could not base64-decode",
+                                  error_code=INVALID_PARAMETER_VALUE)
 
         try:
             parsed_token = json.loads(decoded_token)
-        except TypeError:
+        except ValueError:
             raise MlflowException("Invalid page token, decoded value=%s" % decoded_token,
                                   error_code=INVALID_PARAMETER_VALUE)
+        # except json.decoder.JSONDecodeError:
+        #     raise MlflowException("Invalid page token, decoded value=%s" % decoded_token,
+        #                           error_code=INVALID_PARAMETER_VALUE)
 
         offset_str = parsed_token.get("offset")
         if not offset_str:
