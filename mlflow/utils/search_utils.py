@@ -358,6 +358,10 @@ class SearchUtils(object):
 
     @classmethod
     def paginate(cls, runs, page_token, max_results):
+        """Paginates a set of runs based on an offset encoded into the page_token and a max
+        results limit. Returns a pair containing the set of paginated runs, followed by
+        an optional next_page_token if there are further results that need to be returned.
+        """
         initial_offset = cls._parse_offset_from_page_token(page_token)
         final_offset = initial_offset + max_results
 
