@@ -32,6 +32,7 @@ export class ExperimentPage extends Component {
         orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === "true",
       },
       nextPageToken: null,
+      loadingMore: false,
     };
     this.initLoad();
   }
@@ -61,11 +62,19 @@ export class ExperimentPage extends Component {
 
   handleLoadMoreRuns = (nextPageToken) => {
     const { loadMoreRunsApi, experimentId } = this.props;
+    this.setState({ loadingMore: true });
     loadMoreRunsApi([experimentId], nextPageToken, ExperimentPage.loadMoreRunReqestId)
       .then(({ value }) => {
         if (value && value.next_page_token) {
-          this.setState({ nextPageToken: value.next_page_token });
+          this.setState({
+            nextPageToken: value.next_page_token,
+            loadingMore: false,
+          });
         }
+      })
+      .catch((e) => {
+        console.log(e);
+        this.setState({ loadingMore: false });
       });
   };
 
@@ -230,6 +239,7 @@ export class ExperimentPage extends Component {
               orderByAsc={this.state.persistedState.orderByAsc}
               nextPageToken={this.state.nextPageToken}
               handleLoadMoreRuns={this.handleLoadMoreRuns}
+              loadingMore={this.state.loadingMore}
             />;
           }}
         </RequestStateWrapper>

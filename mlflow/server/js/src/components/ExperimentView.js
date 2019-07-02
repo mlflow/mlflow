@@ -96,8 +96,9 @@ export class ExperimentView extends Component {
     searchRunsError: PropTypes.string,
     isLoading: PropTypes.bool.isRequired,
 
-    nextPageToken: PropTypes.string.isRequired,
+    nextPageToken: PropTypes.string,
     handleLoadMoreRuns: PropTypes.func.isRequired,
+    loadingMore: PropTypes.bool.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -500,7 +501,10 @@ export class ExperimentView extends Component {
                 htmlType='button'
                 onClick={this.loadMoreRuns}
               >
-                Load more...
+                {this.props.loadingMore ? (
+                  <Icon type='loading' />
+                ) : null}
+                {this.props.loadingMore ? 'Loading more...' : 'Load more'}
               </AntdButton>
             </div>
           ) : null}
