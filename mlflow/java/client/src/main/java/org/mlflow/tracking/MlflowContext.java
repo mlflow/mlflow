@@ -8,11 +8,8 @@ import java.util.*;
 import java.util.function.Consumer;
 
 public class MlflowContext {
-
   private MlflowClient client;
   private String experimentId;
-  private ThreadLocal<Deque<ActiveRun>> perThreadActiveRunStack =
-    ThreadLocal.withInitial(ArrayDeque::new);
 
   public MlflowContext() {
     this(new MlflowClient());
@@ -81,7 +78,6 @@ public class MlflowContext {
     RunInfo runInfo = client.createRun(createRunBuilder.build());
 
     ActiveRun newRun = new ActiveRun(runInfo, client);
-    perThreadActiveRunStack.get().push(newRun);
     return newRun;
   }
 
