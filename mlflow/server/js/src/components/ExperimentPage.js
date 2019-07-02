@@ -31,7 +31,30 @@ export class ExperimentPage extends Component {
         orderByKey: urlState.orderByKey === undefined ? null : urlState.orderByKey,
         orderByAsc: urlState.orderByAsc === undefined ? true : urlState.orderByAsc === "true",
       },
+      nextPageToken: null,
     };
+    this.initLoad();
+  }
+
+  initLoad() {
+    const {
+      getExperimentRequestId,
+      persistedState,
+      searchRunsRequestId,
+      lifecycleFilter,
+    } = this.state;
+    const { experimentId, searchRunsApi, getExperimentApi } = this.props;
+    const { orderByKey, orderByAsc, searchInput } = persistedState;
+    const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
+    const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
+
+    getExperimentApi(experimentId, getExperimentRequestId);
+    searchRunsApi([experimentId], searchInput, viewType, orderBy, searchRunsRequestId)
+      .then(({ value }) => {
+        if (value && value.next_page_token) {
+          this.setState({ nextPageToken: value.next_page_token });
+        }
+      });
   }
 
   static propTypes = {
@@ -60,37 +83,27 @@ export class ExperimentPage extends Component {
 
   }
 
+  maybeReloadData() {
+    if (this.props.experimentId !== this.state.lastExperimentId) {
+      console.log('TODO: call init load');
+      // this.setState({
+      //   persistedState: state.lastExperimentId === undefined ?
+      //     state.persistedState : (new ExperimentPagePersistedState()).toJSON(),
+      //   lastExperimentId: props.experimentId,
+      //   lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
+      // });
+    }
+  }
+
   componentDidUpdate() {
     this.snapshotComponentState();
+    this.maybeReloadData();
   }
 
   componentWillUnmount() {
     // Snapshot component state on unmounts to ensure we've captured component state in cases where
     // componentDidUpdate doesn't fire.
     this.snapshotComponentState();
-  }
-
-  static getDerivedStateFromProps(props, state) {
-    if (props.experimentId !== state.lastExperimentId) {
-      const newState = {
-        ...ExperimentPage.getDefaultUnpersistedState(),
-        persistedState: state.lastExperimentId === undefined ?
-            state.persistedState : (new ExperimentPagePersistedState()).toJSON(),
-        lastExperimentId: props.experimentId,
-        lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
-      };
-      props.getExperimentApi(props.experimentId, newState.getExperimentRequestId);
-      const orderBy = ExperimentPage.getOrderByExpr(newState.persistedState.orderByKey,
-        newState.persistedState.orderByAsc);
-      props.searchRunsApi(
-        [props.experimentId],
-        newState.persistedState.searchInput,
-        lifecycleFilterToRunViewType(newState.lifecycleFilter),
-        orderBy,
-        newState.searchRunsRequestId);
-      return newState;
-    }
-    return null;
   }
 
   onSearch(
@@ -202,6 +215,7 @@ export class ExperimentPage extends Component {
               isLoading={isLoading && !searchRunsError}
               orderByKey={this.state.persistedState.orderByKey}
               orderByAsc={this.state.persistedState.orderByAsc}
+              nextPageToken={this.state.nextPageToken}
             />;
           }}
         </RequestStateWrapper>

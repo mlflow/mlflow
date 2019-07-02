@@ -486,9 +486,11 @@ export class ExperimentView extends Component {
                   unbaggedParams={unbaggedParamKeyList}
                   onAddBagged={this.addBagged}
                   onRemoveBagged={this.removeBagged}
+                  nextPageToken={this.props.nextPageToken}
                 />
             )
           }
+          <div className='load-more-row'><button>Load more...</button></div>
         </div>
       </div>
     );

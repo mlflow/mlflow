@@ -96,6 +96,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     unbaggedParams: PropTypes.arrayOf(String).isRequired,
     // Array of keys corresponding to unbagged metrics
     unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
+    nextPageToken: PropTypes.string,
   };
 
 
@@ -341,7 +342,9 @@ class ExperimentRunsTableCompactView extends PureComponent {
       runsExpanded,
       unbaggedMetrics,
       unbaggedParams,
+      nextPageToken,
     } = this.props;
+    console.log('nextPageToken', nextPageToken);
 
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
