@@ -308,6 +308,8 @@ def _search_runs():
     run_entities = _get_store().search_runs(experiment_ids, filter_string, run_view_type,
                                             max_results, order_by, page_token)
     response_message.runs.extend([r.to_proto() for r in run_entities])
+    if run_entities.token:
+        response_message.next_page_token = run_entities.token
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response

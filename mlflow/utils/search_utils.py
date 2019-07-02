@@ -1,3 +1,5 @@
+import base64
+import json
 import sqlparse
 from sqlparse.sql import Identifier, Token, Comparison, Statement
 from sqlparse.tokens import Token as TokenType
@@ -322,3 +324,38 @@ class SearchUtils(object):
                           key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
                           reverse=not ascending)
         return runs
+
+    @classmethod
+    def _parse_offset_from_page_token(cls, page_token):
+        if not page_token:
+            return 0
+
+        try:
+            decoded_token = base64.b64decode(page_token)
+        except TypeError:
+            raise MlflowException("Invalid page token, could not base64-decode",
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        try:
+            parsed_token = json.loads(decoded_token)
+        except TypeError:
+            raise MlflowException("Invalid page token, decoded value=%s" % decoded_token,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        offset_str = parsed_token.get("offset")
+        if not offset_str:
+            raise MlflowException("Invalid page token, parsed value=%s" % parsed_token,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        return int(offset_str)
+
+    @classmethod
+    def paginate(cls, runs, page_token, max_results):
+        initial_offset = cls._parse_offset_from_page_token(page_token)
+        final_offset = initial_offset + max_results
+
+        paginated_runs = runs[initial_offset:final_offset]
+        next_page_token = None
+        if final_offset < len(runs):
+            next_page_token = base64.b64encode(json.dumps({"offset": final_offset}).encode("utf-8"))
+        return (paginated_runs, next_page_token)
