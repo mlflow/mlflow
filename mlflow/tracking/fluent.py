@@ -18,7 +18,8 @@ from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking import artifact_utils, context
+from mlflow.tracking import artifact_utils
+from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -134,7 +135,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         if run_name is not None:
             user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
-        tags = context.resolve_tags(user_specified_tags)
+        tags = context_registry.resolve_tags(user_specified_tags)
 
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,

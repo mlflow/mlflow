@@ -28,7 +28,7 @@ MOCK_USER = "janebloggs"
 
 @pytest.fixture
 def patch_user():
-    with mock.patch("mlflow.tracking.context._get_user", return_value=MOCK_USER):
+    with mock.patch("mlflow.projects._get_user", return_value=MOCK_USER):
         yield
 
 

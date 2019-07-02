@@ -21,13 +21,13 @@ import docker
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
-import mlflow.tracking.context as context
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.entities import RunStatus, SourceType
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.tracking.context import _get_git_commit
+from mlflow.tracking.context.default_context import _get_user
+from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
@@ -604,7 +604,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
         parent_run_id = None
 
     tags = {
-        MLFLOW_USER: context._get_user(),
+        MLFLOW_USER: _get_user(),
         MLFLOW_SOURCE_NAME: source_name,
         MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PROJECT),
         MLFLOW_PROJECT_ENTRY_POINT: entry_point

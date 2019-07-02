@@ -15,7 +15,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.store import SEARCH_MAX_RESULTS_PANDAS
 from mlflow.tracking.client import MlflowClient
 import mlflow.tracking.fluent
-import mlflow.tracking.context
+import mlflow.tracking.context.registry
 from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experiment_id_from_env, \
     search_runs, _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR
 from mlflow.utils.file_utils import TempDir
@@ -73,9 +73,9 @@ def reset_experiment_id():
 
 
 @pytest.fixture(autouse=True)
-def reload_context_module():
-    """Reload the context module to clear caches."""
-    reload(mlflow.tracking.context)
+def reload_context_registry():
+    """Reload the context registry module to clear caches."""
+    reload(mlflow.tracking.context.registry)
 
 
 def test_get_experiment_id_from_env():
@@ -186,18 +186,18 @@ def test_start_run_defaults(empty_active_run_stack):
     )
     mock_user = mock.Mock()
     user_patch = mock.patch(
-        "mlflow.tracking.context._get_user", return_value=mock_user
+        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
     )
     mock_source_name = mock.Mock()
     source_name_patch = mock.patch(
-        "mlflow.tracking.context._get_source_name", return_value=mock_source_name
+        "mlflow.tracking.context.default_context._get_source_name", return_value=mock_source_name
     )
     source_type_patch = mock.patch(
-        "mlflow.tracking.context._get_source_type", return_value=SourceType.NOTEBOOK
+        "mlflow.tracking.context.default_context._get_source_type", return_value=SourceType.NOTEBOOK
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.context._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
     )
 
     expected_tags = {
@@ -230,11 +230,11 @@ def test_start_run_defaults_databricks_notebook(empty_active_run_stack):
     )
     mock_user = mock.Mock()
     user_patch = mock.patch(
-        "mlflow.tracking.context._get_user", return_value=mock_user
+        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
     )
     mock_source_version = mock.Mock()
     source_version_patch = mock.patch(
-        "mlflow.tracking.context._get_source_version", return_value=mock_source_version
+        "mlflow.tracking.context.git_context._get_source_version", return_value=mock_source_version
     )
     mock_notebook_id = mock.Mock()
     notebook_id_patch = mock.patch(
@@ -285,10 +285,10 @@ def test_start_run_with_parent():
     )
     mock_user = mock.Mock()
     user_patch = mock.patch(
-        "mlflow.tracking.context._get_user", return_value=mock_user
+        "mlflow.tracking.context.default_context._get_user", return_value=mock_user
     )
     source_name_patch = mock.patch(
-        "mlflow.tracking.context._get_source_name", return_value=mock_source_name
+        "mlflow.tracking.context.default_context._get_source_name", return_value=mock_source_name
     )
 
     expected_tags = {
