@@ -65,7 +65,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
     MLlib persistence format and produces an MLflow Model with the Spark flavor.
 
-    :param spark_model: Spark model to be saved - MLFlow can only save descendants of 
+    :param spark_model: Spark model to be saved - MLFlow can only save descendants of
                         pyspark.ml.Model which implement MLReadable and MLWritable.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -273,7 +273,7 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
     Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
     is also serialized in MLeap format and the MLeap flavor is added.
 
-    :param spark_model: Spark model to be saved - MLFlow can only save descendants of 
+    :param spark_model: Spark model to be saved - MLFlow can only save descendants of
                         pyspark.ml.Model which implement MLReadable and MLWritable.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
