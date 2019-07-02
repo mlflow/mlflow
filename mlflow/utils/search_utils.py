@@ -327,6 +327,9 @@ class SearchUtils(object):
 
     @classmethod
     def _parse_offset_from_page_token(cls, page_token):
+        # Note: the page_token is expected to be a base64-encoded JSON that looks like
+        # { "offset": xxx }. However, this format is not stable, so it should not be
+        # relied upon outside of this method.
         if not page_token:
             return 0
 
@@ -350,6 +353,10 @@ class SearchUtils(object):
         return int(offset_str)
 
     @classmethod
+    def _create_page_token(cls, offset):
+        return base64.b64encode(json.dumps({"offset": offset}).encode("utf-8"))
+
+    @classmethod
     def paginate(cls, runs, page_token, max_results):
         initial_offset = cls._parse_offset_from_page_token(page_token)
         final_offset = initial_offset + max_results
@@ -357,5 +364,5 @@ class SearchUtils(object):
         paginated_runs = runs[initial_offset:final_offset]
         next_page_token = None
         if final_offset < len(runs):
-            next_page_token = base64.b64encode(json.dumps({"offset": final_offset}).encode("utf-8"))
+            next_page_token = cls._create_page_token(final_offset)
         return (paginated_runs, next_page_token)
