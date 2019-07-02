@@ -387,6 +387,7 @@ def _log_artifacts_with_warning(**kwargs):
     except MlflowException as e:
         warnings.warn("Logging to MLflow failed: " + str(e))
 
+
 def _assoc_list_to_map(lst):
     """
     Convert an association list to a dictionary.
@@ -477,7 +478,8 @@ def autolog():
         from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
         from tensorflow.python.saved_model import tag_constants
     except ImportError:
-        warnings.warn("Could not autolog to Mlflow. Only TensorFlow versions <= 1.1x are supported.")
+        warnings.warn("Could not autolog to Mlflow. " +
+                      "Only TensorFlow versions <= 1.1x are supported.")
         return
 
     @gorilla.patch(tensorflow.estimator.Estimator)
@@ -519,7 +521,8 @@ def autolog():
             kwargs['callbacks'], log_dir = setup_callbacks(kwargs['callbacks'])
         else:
             kwargs['callbacks'], log_dir = setup_callbacks([])
-        atexit.register(_log_artifacts_with_warning, local_dir=log_dir, artifact_path='tensorboard_logs')
+        atexit.register(_log_artifacts_with_warning,
+                        local_dir=log_dir, artifact_path='tensorboard_logs')
         return original(self, *args, **kwargs)
 
     @gorilla.patch(EventFileWriter)
