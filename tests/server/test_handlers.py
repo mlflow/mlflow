@@ -8,6 +8,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
     _search_runs, _log_batch, catch_mlflow_exception
+from mlflow.store.abstract_store import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 
@@ -80,6 +81,7 @@ def test_search_runs_default_view_type(mock_get_request_message, mock_store):
     Search Runs default view type is filled in as ViewType.ACTIVE_ONLY
     """
     mock_get_request_message.return_value = SearchRuns(experiment_ids=["0"])
+    mock_store.search_runs.return_value = PagedList([], None)
     _search_runs()
     args, _ = mock_store.search_runs.call_args
     assert args[2] == ViewType.ACTIVE_ONLY
