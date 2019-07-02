@@ -23,7 +23,9 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "keras"
+# File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
+# File name to which keras model is saved
 _MODEL_SAVE_PATH = "model.h5"
 
 
@@ -50,13 +52,8 @@ def get_default_conda_env(include_cloudpickle=False):
         additional_conda_channels=None)
 
 
-def save_model(
-        keras_model,
-        path,
-        conda_env=None,
-        mlflow_model=Model(),
-        custom_objects=None,
-        **kwargs):
+def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_objects=None,
+               **kwargs):
     """
     Save a Keras model to a path on the local file system.
 
@@ -132,8 +129,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, *
                       contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`mlflow.keras.get_default_conda_env()` environment is added to
                       the model. The following is an *example* dictionary representation of a
-                      Conda environment::
-
+                      Conda environment:
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
@@ -162,19 +158,23 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, *
 
 
 def _save_custom_objects(path, custom_objects):
+    """
+    Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
+
+    :param path: An absolute path that that points to the data directory within /path/to/model.
+    :param custom_objects: A dictionary that maps layer names to layer definitions
+    """
     import cloudpickle
-    custom_objects_subpath = _CUSTOM_OBJECTS_SAVE_PATH
-    custom_objects_path = os.path.join(path, custom_objects_subpath)
+    custom_objects_path = os.path.join(path, _CUSTOM_OBJECTS_SAVE_PATH)
     with open(custom_objects_path, "wb") as out_f:
         cloudpickle.dump(custom_objects, out_f)
-    return custom_objects_subpath
 
 
 def _load_model(model_path, **kwargs):
     import keras
     import keras.models
     import h5py
-    custom_objects = kwargs.get("custom_objects", {})
+    custom_objects = kwargs.pop("custom_objects", {})
     custom_objects_path = None
     if os.path.isdir(model_path):
         if os.path.isfile(os.path.join(model_path, _CUSTOM_OBJECTS_SAVE_PATH)):
@@ -184,7 +184,8 @@ def _load_model(model_path, **kwargs):
         import cloudpickle
         with open(custom_objects_path, "rb") as in_f:
             pickled_custom_objects = cloudpickle.load(in_f)
-            custom_objects.update(pickled_custom_objects)
+            pickled_custom_objects.update(custom_objects)
+            custom_objects = pickled_custom_objects
     from distutils.version import StrictVersion
     if StrictVersion(keras.__version__.split('-')[0]) >= StrictVersion("2.2.3"):
         # NOTE: Keras 2.2.3 does not work with unicode paths in python2. Pass in h5py.File instead

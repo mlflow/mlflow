@@ -176,6 +176,17 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
         np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)), decimal=4)
 
 
+def test_custom_model_save_respects_user_custom_objects(custom_model, custom_layer, model_path):
+    class DifferentCustomLayer():
+        def __init__(self):
+            pass
+    incorrect_custom_objects = {'MyDense': DifferentCustomLayer()}
+    correct_custom_objects = {'MyDense': custom_layer}
+    mlflow.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
+    model_loaded = mlflow.keras.load_model(model_path, custom_objects=correct_custom_objects)
+    assert model_loaded is not None
+
+
 @pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):
     x, _ = data
@@ -306,8 +317,7 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
     mlflow.keras.save_model(keras_model=model, path=model_path)
-    print(model_path)
-    shutil.copyfile(
+    shutil.move(
             os.path.join(model_path, 'data', 'model.h5'),
             os.path.join(model_path, 'model.h5'))
     model_conf_path = os.path.join(model_path, "MLmodel")
