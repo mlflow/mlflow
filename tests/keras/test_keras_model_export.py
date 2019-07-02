@@ -185,6 +185,8 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
     mlflow.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
     model_loaded = mlflow.keras.load_model(model_path, custom_objects=correct_custom_objects)
     assert model_loaded is not None
+    with pytest.raises(TypeError):
+        model_loaded = mlflow.keras.load_model(model_path)
 
 
 @pytest.mark.large

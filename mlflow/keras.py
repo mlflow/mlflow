@@ -129,7 +129,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, *
                       contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`mlflow.keras.get_default_conda_env()` environment is added to
                       the model. The following is an *example* dictionary representation of a
-                      Conda environment:
+                      Conda environment::
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
@@ -161,7 +161,7 @@ def _save_custom_objects(path, custom_objects):
     """
     Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
 
-    :param path: An absolute path that that points to the data directory within /path/to/model.
+    :param path: An absolute path that points to the data directory within /path/to/model.
     :param custom_objects: A dictionary that maps layer names to layer definitions
     """
     import cloudpickle
