@@ -9,7 +9,7 @@ import java.util.concurrent.Executors;
 
 public class FluentExample {
   public static void main(String[] args) {
-    MlflowContext mlflow = MlflowContext.getOrCreate();
+    MlflowContext mlflow = new MlflowContext();
     ExecutorService executor = Executors.newFixedThreadPool(10);
 
     // Vanilla usage
@@ -35,7 +35,7 @@ public class FluentExample {
     {
       ActiveRun run = mlflow.startRun("parent run");
       for (int i = 0; i <= 5; i++) {
-        ActiveRun childRun = mlflow.startRun("child run");
+        ActiveRun childRun = mlflow.startRun("child run", run.getId());
         childRun.logParam("iteration", Integer.toString(i));
         childRun.endRun();
       }

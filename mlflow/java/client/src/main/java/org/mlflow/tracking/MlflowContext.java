@@ -1,6 +1,5 @@
 package org.mlflow.tracking;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.utils.DatabricksContext;
 import org.mlflow.tracking.utils.MlflowTagConstants;
@@ -9,11 +8,6 @@ import java.util.*;
 import java.util.function.Consumer;
 
 public class MlflowContext {
-  @VisibleForTesting
-  static MlflowContext defaultContext;
-
-  @VisibleForTesting
-  static Map<String, MlflowContext> defaultContextByReplId = new HashMap<>();
 
   private MlflowClient client;
   private String experimentId;
@@ -21,58 +15,16 @@ public class MlflowContext {
     ThreadLocal.withInitial(ArrayDeque::new);
 
   public MlflowContext() {
-    this(new MlflowClient(), getDefaultExperimentId());
+    this(new MlflowClient());
+  }
+
+  public MlflowContext(String trackingUri) {
+    this(new MlflowClient(trackingUri));
   }
 
   public MlflowContext(MlflowClient client) {
-    this(client, getDefaultExperimentId());
-  }
-
-  public MlflowContext(String experimentId) {
-    this(new MlflowClient(), experimentId);
-  }
-
-  public MlflowContext(MlflowClient client, String experimentId) {
     this.client = client;
-    this.experimentId = experimentId;
-  }
-
-  public static synchronized MlflowContext getOrCreate() {
-    return getOrCreate(new MlflowClient(), getDefaultExperimentId());
-  }
-
-  public static synchronized MlflowContext getOrCreate(String trackingUri) {
-    return getOrCreate(trackingUri, getDefaultExperimentId());
-  }
-
-  public static synchronized MlflowContext getOrCreate(String trackingUri, String experimentId) {
-    return getOrCreate(new MlflowClient(trackingUri), experimentId);
-  }
-
-  private static synchronized MlflowContext getOrCreate(MlflowClient client, String experimentId) {
-    DatabricksContext databricksContext = DatabricksContext.createIfAvailable();
-    String replId = databricksContext.getReplId();
-    if (replId == null) {
-      if (defaultContext != null) {
-        return defaultContext;
-      }
-      defaultContext = new MlflowContext(client, experimentId);
-      return defaultContext;
-    } else {
-      MlflowContext contextForReplId = defaultContextByReplId.get(replId);
-      if (contextForReplId != null) {
-        return defaultContextByReplId.get(replId);
-      } else {
-        contextForReplId = new MlflowContext(client, experimentId);
-        defaultContextByReplId.put(replId, contextForReplId);
-        return contextForReplId;
-      }
-    }
-  }
-
-  public synchronized Optional<ActiveRun> activeRun() {
-    cleanupActiveRunStack();
-    return Optional.ofNullable(perThreadActiveRunStack.get().peekFirst());
+    this.experimentId = getDefaultExperimentId();
   }
 
   public void setClient(MlflowClient client) {
@@ -105,15 +57,12 @@ public class MlflowContext {
   }
 
   public ActiveRun startRun(String runName, String parentRunId) {
-    cleanupActiveRunStack();
     Map<String, String> tags = new HashMap<>();
     tags.put(MlflowTagConstants.RUN_NAME, runName);
     tags.put(MlflowTagConstants.USER, System.getProperty("user.name"));
     tags.put(MlflowTagConstants.SOURCE_TYPE, "LOCAL");
     if (parentRunId != null) {
       tags.put(MlflowTagConstants.PARENT_RUN_ID, parentRunId);
-    } else if (activeRun().isPresent()){
-      tags.put(MlflowTagConstants.PARENT_RUN_ID, activeRun().get().getId());
     }
 
     // Add tags from DatabricksContext if they exist
@@ -157,14 +106,5 @@ public class MlflowContext {
       }
     }
     return MlflowClient.DEFAULT_EXPERIMENT_ID;
-  }
-
-  private void cleanupActiveRunStack() {
-    Deque<ActiveRun> activeRunStack = perThreadActiveRunStack.get();
-    ActiveRun lastActiveRun = activeRunStack.peekFirst();
-    while (lastActiveRun != null && lastActiveRun.isTerminated) {
-      activeRunStack.pop();
-      lastActiveRun = activeRunStack.peekFirst();
-    }
   }
 }

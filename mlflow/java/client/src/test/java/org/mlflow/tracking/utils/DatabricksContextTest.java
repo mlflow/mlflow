@@ -26,38 +26,24 @@ public class DatabricksContextTest {
 
   @Test
   public void testIsInDatabricksNotebook() {
-    baseMap.put("aclPathOfAclRoot", "/workspace/1");
+    baseMap.put("notebookId", "1");
     DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
     Assert.assertTrue(context.isInDatabricksNotebook());
   }
 
   @Test
   public void testGetNotebookId() {
-    {
-      baseMap.put("aclPathOfAclRoot", "/workspace/1");
-      DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
-      Assert.assertEquals(context.getNotebookId(), "1");
-    }
-
-    // Will throw IllegalArgumentException if not in databricks notebook
-    {
-      baseMap = new HashMap<>();
-      baseMap.put("aclPathOfAclRoot", "");
-      DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
-      Assert.assertFalse(context.isInDatabricksNotebook());
-      try {
-        context.getNotebookId();
-        Assert.fail("getNotebookId should have thrown an exception");
-      } catch (IllegalArgumentException expected) {
-      }
-    }
+    baseMap.put("notebookId", "1");
+    DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
+    Assert.assertEquals(context.getNotebookId(), "1");
   }
 
   @Test
   public void testGetTags() {
     // Will return empty map if not in Databricks notebook.
     {
-      baseMap.put("aclPathOfAclRoot", "");
+      baseMap.put("notebookId", null);
+      baseMap.put("notebookPath", null);
       DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
       Assert.assertFalse(context.isInDatabricksNotebook());
       Assert.assertEquals(context.getTags(), Maps.newHashMap());
@@ -71,7 +57,7 @@ public class DatabricksContextTest {
         MlflowTagConstants.DATABRICKS_NOTEBOOK_PATH, "test-path",
         MlflowTagConstants.SOURCE_TYPE, "NOTEBOOK",
         MlflowTagConstants.SOURCE_NAME, "test-path");
-      baseMap.put("aclPathOfAclRoot", "/workspace/1");
+      baseMap.put("notebookId", "1");
       baseMap.put("notebookPath", "test-path");
       DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
       Assert.assertEquals(context.getTags(), expectedTags);
@@ -82,7 +68,8 @@ public class DatabricksContextTest {
       baseMap = new HashMap<>();
       Map<String, String> expectedTags = ImmutableMap.of(
         MlflowTagConstants.DATABRICKS_NOTEBOOK_ID, "1");
-      baseMap.put("aclPathOfAclRoot", "/workspace/1");
+      baseMap.put("notebookId", "1");
+      baseMap.put("notebookPath", null);
       DatabricksContext context = DatabricksContext.createIfAvailable(MyDynamicProvider.class.getName());
       Assert.assertEquals(context.getTags(), expectedTags);
     }

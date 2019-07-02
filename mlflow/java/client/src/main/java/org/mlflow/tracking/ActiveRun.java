@@ -8,9 +8,8 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 public class ActiveRun {
-  private transient MlflowClient client;
+  private MlflowClient client;
   private RunInfo runInfo;
-  boolean isTerminated;
 
   public String getId() {
     return runInfo.getRunId();
@@ -91,7 +90,6 @@ public class ActiveRun {
   }
 
   public ActiveRun endRun(RunStatus status) {
-    isTerminated = true;
     client.setTerminated(getId(), status);
     return this;
   }
