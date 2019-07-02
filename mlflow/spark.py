@@ -255,7 +255,8 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
 
 def _validate_model(spark_model):
     from pyspark.ml.util import MLReadable, MLWritable
-    if not isinstance(spark_model, Model) \
+    from pyspark.ml import Model as PySparkModel
+    if not isinstance(spark_model, PySparkModel) \
             or not isinstance(spark_model, MLReadable) \
             or not isinstance(spark_model, MLWritable):
         raise MlflowException(
