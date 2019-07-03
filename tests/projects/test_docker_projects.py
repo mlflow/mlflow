@@ -118,3 +118,23 @@ def test_docker_invalid_project_backend_local():
     project.name = None
     with pytest.raises(ExecutionException):
         mlflow.projects._validate_docker_env(project)
+
+
+@pytest.mark.parametrize("artifact_uri, expected_path, should_be_mount", [
+    ("/tmp/mlruns/fake_run_id/artifacts", "/tmp/mlruns/fake_run_id/artifacts", True),
+    ("s3://my_bucket", None, False),
+    ("file:///tmp/mlruns/fake_run_id/artifacts", "/tmp/mlruns/fake_run_id/artifacts", True)
+])
+def test_docker_mount_local_artifact_uri(tracking_uri_mock, artifact_uri, expected_path, should_be_mount):
+    active_run = mock.MagicMock()
+    run_info = mock.MagicMock()
+    run_info.run_id = "fake_run_id"
+    run_info.experiment_id = "fake_experiment_id"
+    run_info.artifact_uri = artifact_uri
+    active_run.info = run_info
+    image = mock.MagicMock()
+    image.tags = ["image:tag"]
+
+    docker_command = mlflow.projects._get_docker_command(image, active_run)
+
+    assert (f"-v {expected_path}:{expected_path}" in " ".join(docker_command)) == should_be_mount

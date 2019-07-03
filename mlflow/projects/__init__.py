@@ -30,7 +30,7 @@ from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
-from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
+from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri, local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
@@ -698,6 +698,9 @@ def _get_docker_command(image, active_run):
     if local_path is not None:
         cmd += ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
+    if tracking.utils._is_local_uri(active_run.info.artifact_uri):
+        artifact_uri_local_path = local_file_uri_to_path(active_run.info.artifact_uri)
+        cmd += ["-v", "%s:%s" % (artifact_uri_local_path, artifact_uri_local_path)]
     if tracking.utils._is_databricks_uri(tracking_uri):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)
