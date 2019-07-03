@@ -116,10 +116,9 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
         elif _is_tf_keras(keras_module):
             keras_module = importlib.import_module("tensorflow.keras")
         else:
-            raise Exception("Unable to infer keras module from class '{clazz}' "
-                            "and module '{module}', please specify which keras module "
-                            "('keras' or 'tensorflow.keras') is to be used to save and load the "
-                            "model.".format(clazz=clazz, module=clazz.__module__))
+            raise Exception("Unable to infer keras module from the model, please specify which "
+                            "keras module ('keras' or 'tensorflow.keras') is to be used to "
+                            "save and load the model.")
     elif type(keras_module) == str:
         keras_module = importlib.import_module(keras_module)
 
