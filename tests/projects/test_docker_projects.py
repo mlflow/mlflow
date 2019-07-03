@@ -123,7 +123,8 @@ def test_docker_invalid_project_backend_local():
 @pytest.mark.parametrize("artifact_uri, expected_path, should_be_mount", [
     ("/tmp/mlruns/fake_run_id/artifacts", "/tmp/mlruns/fake_run_id/artifacts", True),
     ("s3://my_bucket", None, False),
-    ("file:///tmp/mlruns/fake_run_id/artifacts", "/tmp/mlruns/fake_run_id/artifacts", True)
+    ("file:///tmp/mlruns/fake_run_id/artifacts", "/tmp/mlruns/fake_run_id/artifacts", True),
+    ("./mlruns", os.path.abspath("./mlruns"), True)
 ])
 def test_docker_mount_local_artifact_uri(tracking_uri_mock, artifact_uri, expected_path, should_be_mount):
     active_run = mock.MagicMock()
