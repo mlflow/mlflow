@@ -5,8 +5,10 @@ from __future__ import print_function
 import os
 import json
 import pytest
+import shutil
 from keras.models import Sequential
-from keras.layers import Dense
+from keras.layers import Layer, Dense
+from keras import backend as K
 import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
@@ -55,6 +57,49 @@ def predicted(model, data):
     return model.predict(data[0])
 
 
+@pytest.fixture(scope='module')
+def custom_layer():
+    class MyDense(Layer):
+        def __init__(self, output_dim, **kwargs):
+            self.output_dim = output_dim
+            super(MyDense, self).__init__(**kwargs)
+
+        def build(self, input_shape):
+            self.kernel = self.add_weight(name='kernel',
+                                          shape=(input_shape[1], self.output_dim),
+                                          initializer='uniform',
+                                          trainable=True)
+            super(MyDense, self).build(input_shape)
+
+        def call(self, x):
+            return K.dot(x, self.kernel)
+
+        def compute_output_shape(self, input_shape):
+            return (input_shape[0], self.output_dim)
+
+        def get_config(self):
+            return {'output_dim': self.output_dim}
+
+    return MyDense
+
+
+@pytest.fixture(scope='module')
+def custom_model(data, custom_layer):
+    x, y = data
+    x, y = x.values, y.values
+    model = Sequential()
+    model.add(custom_layer(6))
+    model.add(Dense(1))
+    model.compile(loss='mean_squared_error', optimizer='SGD')
+    model.fit(x, y, epochs=1)
+    return model
+
+
+@pytest.fixture(scope='module')
+def custom_predicted(custom_model, data):
+    return custom_model.predict(data[0])
+
+
 @pytest.fixture
 def model_path(tmpdir):
     return os.path.join(tmpdir.strpath, "model")
@@ -87,8 +132,11 @@ def test_model_save_load(model, model_path, data, predicted):
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
-               == predicted)
+    assert np.allclose(
+            pd.read_json(scoring_response.content, orient="records").values.astype(np.float32),
+            predicted,
+            rtol=1e-5,
+            atol=1e-9)
 
     # test spark udf
     spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
@@ -96,6 +144,49 @@ def test_model_save_load(model, model_path, data, predicted):
                                          result_type="float")
     np.testing.assert_array_almost_equal(
         np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=4)
+
+
+@pytest.mark.large
+def test_custom_model_save_load(custom_model, custom_layer, data, custom_predicted, model_path):
+    x, _ = data
+    custom_objects = {'MyDense': custom_layer}
+    mlflow.keras.save_model(custom_model, model_path, custom_objects=custom_objects)
+
+    # Loading Keras model
+    model_loaded = mlflow.keras.load_model(model_path)
+    assert all(model_loaded.predict(x) == custom_predicted)
+    # pyfunc serve
+    scoring_response = pyfunc_serve_and_score_model(
+        model_uri=os.path.abspath(model_path),
+        data=pd.DataFrame(x),
+        content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+    assert np.allclose(
+            pd.read_json(scoring_response.content, orient="records").values.astype(np.float32),
+            custom_predicted,
+            rtol=1e-5,
+            atol=1e-9)
+    # Loading pyfunc model
+    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    assert all(pyfunc_loaded.predict(x).values == custom_predicted)
+    # test spark udf
+    spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
+                                         pandas_df=pd.DataFrame(x),
+                                         result_type="float")
+    np.testing.assert_array_almost_equal(
+        np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)), decimal=4)
+
+
+def test_custom_model_save_respects_user_custom_objects(custom_model, custom_layer, model_path):
+    class DifferentCustomLayer():
+        def __init__(self):
+            pass
+    incorrect_custom_objects = {'MyDense': DifferentCustomLayer()}
+    correct_custom_objects = {'MyDense': custom_layer}
+    mlflow.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
+    model_loaded = mlflow.keras.load_model(model_path, custom_objects=correct_custom_objects)
+    assert model_loaded is not None
+    with pytest.raises(TypeError):
+        model_loaded = mlflow.keras.load_model(model_path)
 
 
 @pytest.mark.large
@@ -228,7 +319,9 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     can be loaded successfully. These models are missing the `data` flavor configuration key.
     """
     mlflow.keras.save_model(keras_model=model, path=model_path)
-
+    shutil.move(
+            os.path.join(model_path, 'data', 'model.h5'),
+            os.path.join(model_path, 'model.h5'))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
