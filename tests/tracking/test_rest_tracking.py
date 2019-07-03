@@ -385,3 +385,18 @@ def test_artifacts(mlflow_client):
 
     dir_artifacts = mlflow_client.download_artifacts(run_id, 'dir')
     assert open('%s/my.file' % dir_artifacts, 'r').read() == 'Hello, World!'
+
+
+def test_search_pagination(mlflow_client, backend_store_uri):
+    experiment_id = mlflow_client.create_experiment('search_pagination')
+    runs = [mlflow_client.create_run(experiment_id, start_time=1).info.run_id for _ in range(0, 10)]
+    runs = sorted(runs)
+    result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=None)
+    assert [r.info.run_id for r in result] == runs[0:4]
+    assert result.token is not None
+    result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=result.token)
+    assert [r.info.run_id for r in result] == runs[4:8]
+    assert result.token is not None
+    result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=result.token)
+    assert [r.info.run_id for r in result] == runs[8:]
+    assert result.token is None

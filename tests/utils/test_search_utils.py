@@ -1,3 +1,5 @@
+import base64
+import json
 import pytest
 
 from mlflow.entities import RunInfo, RunData, Run, LifecycleStage, RunStatus, Metric, Param, RunTag
@@ -299,4 +301,67 @@ def test_correct_sorting(order_bys, matching_runs):
 def test_invalid_order_by(order_by, error_message):
     with pytest.raises(MlflowException) as e:
         SearchUtils._parse_order_by(order_by)
+    assert error_message in e.value.message
+
+
+@pytest.mark.parametrize("page_token, max_results, matching_runs, expected_next_page_token", [
+    (None, 1, [0], {"offset": 1}),
+    (None, 2, [0, 1], {"offset": 2}),
+    (None, 3, [0, 1, 2], None),
+    (None, 5, [0, 1, 2], None),
+    ({"offset": 1}, 1, [1], {"offset": 2}),
+    ({"offset": 1}, 2, [1, 2], None),
+    ({"offset": 1}, 3, [1, 2], None),
+    ({"offset": 2}, 1, [2], None),
+    ({"offset": 2}, 2, [2], None),
+    ({"offset": 2}, 0, [], {"offset": 2}),
+    ({"offset": 3}, 1, [], None),
+])
+def test_pagination(page_token, max_results, matching_runs, expected_next_page_token):
+    runs = [
+        Run(run_info=RunInfo(
+            run_uuid="0", run_id="0", experiment_id=0,
+            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_data=RunData([], [], [])),
+        Run(run_info=RunInfo(
+            run_uuid="1", run_id="1", experiment_id=0,
+            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_data=RunData([], [], [])),
+        Run(run_info=RunInfo(
+            run_uuid="2", run_id="2", experiment_id=0,
+            user_id="user-id", status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_data=RunData([], [], []))
+    ]
+    encoded_page_token = None
+    if page_token:
+        encoded_page_token = base64.b64encode(json.dumps(page_token).encode("utf-8"))
+    paginated_runs, next_page_token = SearchUtils.paginate(runs, encoded_page_token, max_results)
+
+    paginated_run_indices = []
+    for run in paginated_runs:
+        for i, r in enumerate(runs):
+            if r == run:
+                paginated_run_indices.append(i)
+                break
+    assert paginated_run_indices == matching_runs
+
+    decoded_next_page_token = None
+    if next_page_token:
+        decoded_next_page_token = json.loads(base64.b64decode(next_page_token))
+    assert decoded_next_page_token == expected_next_page_token
+
+
+@pytest.mark.parametrize("page_token, error_message", [
+    (base64.b64encode(json.dumps({}).encode("utf-8")), "Invalid page token"),
+    (base64.b64encode(json.dumps({"offset": "a"}).encode("utf-8")), "Invalid page token"),
+    (base64.b64encode(json.dumps({"offsoot": 7}).encode("utf-8")), "Invalid page token"),
+    (base64.b64encode("not json".encode("utf-8")), "Invalid page token"),
+    ("not base64", "Invalid page token"),
+])
+def test_invalid_page_tokens(page_token, error_message):
+    with pytest.raises(MlflowException) as e:
+        SearchUtils.paginate([], page_token, 1)
     assert error_message in e.value.message
