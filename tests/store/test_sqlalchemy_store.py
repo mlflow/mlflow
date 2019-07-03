@@ -985,16 +985,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(exp, max_results=n))
 
-    def test_search_runs_pagination_not_implemented(self):
-        # Note: It's not too important which type of db we test this with
-        exp = self._experiment_factory('test_search_runs_pagination_not_implemented')
+    def test_search_runs_pagination(self):
+        exp = self._experiment_factory('test_search_runs_pagination')
         # test returned token behavior
-        result = self.store.search_runs([exp], None, ViewType.ALL)
+        runs = sorted([self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
+                       for r in range(10)])
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4)
+        assert [r.info.run_id for r in result] == runs[0:4]
+        assert result.token is not None
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                        page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[4:8]
+        assert result.token is not None
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                        page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
-        # test page_token input behavior
-        with self.assertRaises(MlflowException):
-            self.store.search_runs([exp], None, ViewType.ALL, page_token="blah")
-        self.store.search_runs([exp], None, ViewType.ALL, page_token="")  # empty token is ok
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
