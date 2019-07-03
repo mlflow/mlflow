@@ -370,11 +370,13 @@ class __MLflowTfKerasCallback(Callback):
             opt = opt.optimizer
         mlflow.log_param('optimizer_name', type(opt).__name__)
         if hasattr(opt, '_lr'):
-            mlflow.log_param('learning_rate',
-                             tensorflow.keras.backend.eval(opt._lr))
+            lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
+            mlflow.log_param('learning_rate', lr)
         if hasattr(opt, '_epsilon'):
+            lr = opt._epsilon if type(opt._epsilon) is float \
+                else tensorflow.keras.backend.eval(opt._epsilon)
             mlflow.log_param('epsilon',
-                             tensorflow.keras.backend.eval(self.model.optimizer.optimizer._epsilon))
+                             tensorflow.keras.backend.eval(opt._epsilon))
         l = []
         self.model.summary(print_fn=l.append)
         summary = '\n'.join(l)
