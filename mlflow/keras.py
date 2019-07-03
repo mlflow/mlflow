@@ -144,8 +144,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                             data=data_subpath)
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = get_default_conda_env(keras_module,
-                                          include_cloudpickle=custom_objects is not None)
+        conda_env = get_default_conda_env(include_cloudpickle=custom_objects is not None,
+                                          keras_module=keras_module)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
