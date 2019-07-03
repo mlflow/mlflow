@@ -314,7 +314,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
     runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
-                                      order_by)
+                               order_by)
     info = {'run_id': [], 'experiment_id': [],
             'status': [], 'artifact_uri': [], }
     params, metrics, tags = ({}, {}, {})
@@ -380,13 +380,12 @@ def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_result
         runs_to_get = max_results-len(all_runs)
         if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
             runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
-                                              runs_to_get, order_by, page_token=next_page_token)
+                                              runs_to_get, order_by, next_page_token)
         else:
             runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
-                                              NUM_RUNS_PER_PAGE_PANDAS, order_by,
-                                              page_token=next_page_token)
+                                              NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
         all_runs.extend(runs)
-        if runs.token and runs.token != '':
+        if hasattr(runs, 'token') and runs.token != '':
             next_page_token = runs.token
         else:
             break
