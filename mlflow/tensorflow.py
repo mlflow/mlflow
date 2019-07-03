@@ -470,13 +470,13 @@ def setup_callbacks(lst):
     return l, log_dir
 
 
-def autolog(log_every_n_steps=100):
+def autolog(metrics_every_n_steps=100):
     # pylint: disable=E0611
     """
     Enable autologging from TensorFlow to MLflow.
     """
     global _LOG_EVERY_N_STEPS
-    _LOG_EVERY_N_STEPS = log_every_n_steps
+    _LOG_EVERY_N_STEPS = metrics_every_n_steps
 
     try:
         from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
