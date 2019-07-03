@@ -31,14 +31,6 @@ public class DatabricksContext {
     return new DatabricksContext(configProvider);
   }
 
-  /**
-   * May return null if replId was not set on the configProvider. This will happen with DBR
-   * @return
-   */
-  public String getReplId() {
-    return configProvider.get("replId");
-  }
-
   public Map<String, String> getTags() {
     Map<String, String> tags = new HashMap<>();
     if (!isInDatabricksNotebook()) {

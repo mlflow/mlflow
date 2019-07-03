@@ -66,6 +66,20 @@ public class MlflowContextTest {
     Assert.assertTrue(tags.contains(createRunTag(MlflowTagConstants.PARENT_RUN_ID, "parent-run-id")));
   }
 
+  @Test
+  public void testWithActiveRun() {
+    // Sets the appropriate tags
+    MlflowContext mlflow = setupMlflowContext();
+    mlflow.setExperimentId("123");
+    when(mockClient.createRun(any(CreateRun.class)))
+      .thenReturn(RunInfo.newBuilder().setRunId("test-id").build());
+    mlflow.withActiveRun("apple", activeRun -> {
+      Assert.assertEquals(activeRun.getId(), "test-id");
+    });
+    verify(mockClient).createRun(any(CreateRun.class));
+    verify(mockClient).setTerminated(any(), any());
+  }
+
   private static RunTag createRunTag(String key, String value) {
     return RunTag.newBuilder().setKey(key).setValue(value).build();
   }

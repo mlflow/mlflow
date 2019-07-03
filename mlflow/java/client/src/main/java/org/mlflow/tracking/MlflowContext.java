@@ -13,7 +13,7 @@ import java.util.function.Consumer;
  * default tags on runs which are created through {@code MlflowContext}
  *
  * On construction, MlflowContext will choose a default experiment ID to log to depending on your
- * environment. To log to a different experiment, use {@link #setExperimentId(String)}} or
+ * environment. To log to a different experiment, use {@link #setExperimentId(String)} or
  * {@link #setExperimentName(String)}
  */
 public class MlflowContext {
@@ -88,10 +88,21 @@ public class MlflowContext {
   }
 
   /**
+   * Starts a MLflow run without a name. To log data to newly created MLflow run see the methods on
+   * {@link ActiveRun}. MLflow runs should be ended using {@link ActiveRun#endRun()}
+   *
+   * @return An {@code ActiveRun} object to log data to.
+   */
+  public ActiveRun startRun() {
+    return startRun(null);
+  }
+
+  /**
    * Starts a MLflow run. To log data to newly created MLflow run see the methods on
    * {@link ActiveRun}. MLflow runs should be ended using {@link ActiveRun#endRun()}
    *
-   * @param runName The name of this run.
+   * @param runName The name of this run. For display purposes only and is stored in the
+   *                mlflow.runName tag.
    * @return An {@code ActiveRun} object to log data to.
    */
   public ActiveRun startRun(String runName) {
@@ -102,13 +113,16 @@ public class MlflowContext {
    * Like {@link #startRun(String)} but sets the {@code mlflow.parentRunId} tag in order to create
    * nested runs.
    *
-   * @param runName The name of this run.
+   * @param runName The name of this run. For display purposes only and is stored in the
+   *                mlflow.runName tag.
    * @param parentRunId The ID of this run's parent
    * @return An {@code ActiveRun} object to log data to.
    */
   public ActiveRun startRun(String runName, String parentRunId) {
     Map<String, String> tags = new HashMap<>();
-    tags.put(MlflowTagConstants.RUN_NAME, runName);
+    if (runName != null) {
+      tags.put(MlflowTagConstants.RUN_NAME, runName);
+    }
     tags.put(MlflowTagConstants.USER, System.getProperty("user.name"));
     tags.put(MlflowTagConstants.SOURCE_TYPE, "LOCAL");
     if (parentRunId != null) {
@@ -138,7 +152,31 @@ public class MlflowContext {
    * Like {@link #startRun(String)} but will terminate the run after the activeRunFunction is
    * executed.
    *
-   * @param runName The name of this run.
+   * For example
+   *   <pre>
+   *   mlflowContext.withActiveRun((activeRun -&gt; {
+   *     activeRun.logParam("layers", "4");
+   *   }));
+   *   </pre>
+   *
+   * @param activeRunFunction A function which takes an {@code ActiveRun} and logs data to it.
+   */
+  public void withActiveRun(Consumer<ActiveRun> activeRunFunction) {
+    ActiveRun newRun = startRun();
+    try {
+      activeRunFunction.accept(newRun);
+    } catch(Exception e) {
+      newRun.endRun(RunStatus.FAILED);
+      return;
+    }
+    newRun.endRun(RunStatus.FINISHED);
+  }
+
+  /**
+   * Like {@link #withActiveRun(Consumer)} with an explicity run name.
+   *
+   * @param runName The name of this run. For display purposes only and is stored in the
+   *                mlflow.runName tag.
    * @param activeRunFunction A function which takes an {@code ActiveRun} and logs data to it.
    */
   public void withActiveRun(String runName, Consumer<ActiveRun> activeRunFunction) {
