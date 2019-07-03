@@ -51,6 +51,19 @@ def model(data):
 
 
 @pytest.fixture(scope='module')
+def tf_keras_model(data):
+    x, y = data
+    from tensorflow.keras.models import Sequential as TfSequential
+    from tensorflow.keras.layers import Dense as TfDense
+    model = TfSequential()
+    model.add(TfDense(3, input_dim=4))
+    model.add(TfDense(1))
+    model.compile(loss='mean_squared_error', optimizer='SGD')
+    model.fit(x, y)
+    return model
+
+
+@pytest.fixture(scope='module')
 def predicted(model, data):
     return model.predict(data[0])
 
@@ -69,18 +82,23 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
-@pytest.mark.large
-def test_model_save_load(model, model_path, data, predicted):
+@pytest.mark.parametrize("build_model", [model, tf_keras_model])
+def test_model_save_load(build_model, model_path, data):
     x, _ = data
-    mlflow.keras.save_model(model, model_path)
-
+    keras_model = build_model(data)
+    if build_model == tf_keras_model:
+        model_path = os.path.join(model_path, "tf")
+    else:
+        model_path = os.path.join(model_path, "plain")
+    expected = keras_model.predict(x)
+    mlflow.keras.save_model(keras_model, model_path)
     # Loading Keras model
     model_loaded = mlflow.keras.load_model(model_path)
-    assert all(model_loaded.predict(x) == predicted)
-
+    assert type(keras_model) == type(model_loaded)
+    assert all(expected == model_loaded.predict(x))
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
-    assert all(pyfunc_loaded.predict(x).values == predicted)
+    assert all(pyfunc_loaded.predict(x).values == expected)
 
     # pyfunc serve
     scoring_response = pyfunc_serve_and_score_model(
@@ -88,14 +106,14 @@ def test_model_save_load(model, model_path, data, predicted):
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
-               == predicted)
+               == expected)
 
     # test spark udf
     spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
                                          pandas_df=pd.DataFrame(x),
                                          result_type="float")
     np.testing.assert_array_almost_equal(
-        np.array(spark_udf_preds), predicted.reshape(len(spark_udf_preds)), decimal=4)
+        np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)), decimal=4)
 
 
 @pytest.mark.large
