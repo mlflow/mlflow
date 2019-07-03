@@ -12,12 +12,13 @@ import mlflow
 from mlflow.entities import LifecycleStage, SourceType, Run, RunInfo, RunData, RunStatus, Metric, \
     Param, RunTag, ViewType
 from mlflow.exceptions import MlflowException
-from mlflow.store import SEARCH_MAX_RESULTS_PANDAS
+from mlflow.store.abstract_store import PagedList
 from mlflow.tracking.client import MlflowClient
 import mlflow.tracking.fluent
 import mlflow.tracking.context
 from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experiment_id_from_env, \
-    search_runs, _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR
+    search_runs, _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR, \
+    _get_paginated_runs, NUM_RUNS_PER_PAGE_PANDAS
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils import mlflow_tags
 
@@ -359,7 +360,7 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
 def test_search_runs_attributes():
     runs = [create_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id='abc', exp_id="123"),
             create_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2", run_id='def', exp_id="321")]
-    with mock.patch.object(MlflowClient, "search_runs", return_value=runs):
+    with mock.patch('mlflow.tracking.fluent._get_paginated_runs', return_value=runs):
         pdf = search_runs()
         data = {'status': [RunStatus.FINISHED, RunStatus.SCHEDULED],
                 'artifact_uri': ["dbfs:/test", "dbfs:/test2"],
@@ -379,7 +380,7 @@ def test_search_runs_data():
             metrics=[Metric("mse", 0.6, 0, 0), Metric("loss", 1.2, 0, 5)],
             params=[Param("param2", "val"), Param("k", "v")],
             tags=[RunTag("tag2", "v2")])]
-    with mock.patch.object(MlflowClient, "search_runs", return_value=runs):
+    with mock.patch('mlflow.tracking.fluent._get_paginated_runs', return_value=runs):
         pdf = search_runs()
         data = {
             'status': [RunStatus.FINISHED]*2,
@@ -397,33 +398,86 @@ def test_search_runs_data():
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
 
-def test_search_runs_no_arguments():
-    # When no experiment ID is specified,
-    # it should try to get the implicit one or create a new experiment
-    mock_experiment_id = mock.Mock()
-    experiment_id_patch = mock.patch(
-        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
-    )
-    with experiment_id_patch, mock.patch.object(MlflowClient, "search_runs", return_value=[]):
-        pdf = search_runs()
-        MlflowClient.search_runs.assert_called_once_with(
-            mock_experiment_id, '', ViewType.ACTIVE_ONLY, SEARCH_MAX_RESULTS_PANDAS, None
-        )
+# def test_search_runs_no_arguments():
+#     # When no experiment ID is specified,
+#     # it should try to get the implicit one or create a new experiment
+#     mock_experiment_id = mock.Mock()
+#     experiment_id_patch = mock.patch(
+#         "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
+#     )
+#     with experiment_id_patch, mock.patch.object(MlflowClient, 'search_runs', return_value=[]):
+#         pdf = search_runs()
+#         MlflowClient.search_runs.assert_called_once_with(
+#             mock_experiment_id, '', ViewType.ACTIVE_ONLY, NUM_RUNS_PER_PAGE_PANDAS, None
+#         )
 
 
-def test_search_runs_with_arguments():
-    mock_experiment_ids = mock.Mock()
-    mock_filter_string = mock.Mock()
-    mock_view_type = mock.Mock()
-    mock_max_results = mock.Mock()
-    mock_order_by = mock.Mock()
-    with mock.patch.object(MlflowClient, "search_runs", return_value=[]):
-        pdf = search_runs(mock_experiment_ids, mock_filter_string, mock_view_type,
-                          mock_max_results, mock_order_by)
-        MlflowClient.search_runs.assert_called_once_with(
-            mock_experiment_ids,
-            mock_filter_string,
-            mock_view_type,
-            mock_max_results,
-            mock_order_by
-        )
+# def test_search_runs_with_arguments():
+#     mock_experiment_ids = mock.Mock()
+#     mock_filter_string = mock.Mock()
+#     mock_view_type = mock.Mock(return_value=NUM_RUNS_PER_PAGE_PANDAS-1)
+#     mock_max_results = mock.Mock()
+#     mock_order_by = mock.Mock()
+#     with mock.patch.object(MlflowClient, 'search_runs', return_value=[]):
+#         pdf = search_runs(mock_experiment_ids, mock_filter_string, mock_view_type,
+#                           mock_max_results, mock_order_by)
+#         MlflowClient.search_runs.assert_called_once_with(
+#             mock_experiment_ids,
+#             mock_filter_string,
+#             mock_view_type,
+#             mock_max_results,
+#             mock_order_by
+#         )
+
+ORIGINAL_RUNS_PER_PAGE_PANDAS = mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS
+def set_runs_per_page_pandas(num):
+    ORIGINAL_RUNS_PER_PAGE_PANDAS = mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS
+    mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS = num
+
+def reset_runs_per_page_pandas():
+    mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS = ORIGINAL_RUNS_PER_PAGE_PANDAS
+
+def test_get_paginated_runs_lt_maxresults():
+    runs = [create_run() for i in range(5)]
+    tokenized_runs = PagedList(runs, "") # No token passed back
+    max_results = 50
+    set_runs_per_page_pandas(10)
+    with mock.patch.object(MlflowClient, "search_runs", return_value=tokenized_runs):
+        paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+        MlflowClient.search_runs.assert_called_once()
+        assert len(paginated_runs) == 5
+    reset_runs_per_page_pandas()
+        
+
+def test_get_paginated_runs_eq_maxresults():
+    # Currently we can't test runs = maxresults for runs > NUM_RUNS_PER_PAGE_PANDAS
+    # because the return value to search_runs would have to change dynamically to 
+    # include / exclude token
+    runs = [create_run() for i in range(10)]
+    tokenized_runs = PagedList(runs, "")
+    max_results = 10
+    set_runs_per_page_pandas(10)
+    with mock.patch.object(MlflowClient, "search_runs", return_value=tokenized_runs):
+        paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+        MlflowClient.search_runs.assert_called_once()
+        assert len(paginated_runs) == 10
+
+
+def test_get_paginated_runs_gt_maxresults():
+    runs = [create_run() for i in range(10)]
+    tokenized_runs = PagedList(runs, "abc")
+    max_results = 20
+    set_runs_per_page_pandas(10)
+    with mock.patch.object(MlflowClient, "search_runs", return_value=tokenized_runs):
+        paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+        assert len(paginated_runs) == 20
+
+
+def test_get_paginated_maxresults_lt_runs_per_page():
+    runs = [create_run() for i in range(10)]
+    tokenized_runs = PagedList(runs, "")
+    max_results = 10
+    set_runs_per_page_pandas(20)
+    with mock.patch.object(MlflowClient, "search_runs", return_value=tokenized_runs):
+        paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+        assert len(paginated_runs) == 10

@@ -13,7 +13,6 @@ import logging
 import numpy as np
 import pandas as pd
 
-from mlflow.store import SEARCH_MAX_RESULTS_PANDAS
 from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
@@ -30,6 +29,8 @@ _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
 
+SEARCH_MAX_RESULTS_PANDAS = 100000
+NUM_RUNS_PER_PAGE_PANDAS = 10000
 
 _logger = logging.getLogger(__name__)
 
@@ -300,7 +301,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     :param filter_string: Filter query string, defaults to searching all runs.
     :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                             defined in :py:class:`mlflow.entities.ViewType`.
-    :param max_results: The maximum number of runs to put in the dataframe. Default is 50,000
+    :param max_results: The maximum number of runs to put in the dataframe. Default is 100,000
                         to avoid causing out-of-memory issues on the user's machine.
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
                         ordering is to sort by start_time DESC, then run_id.
@@ -312,7 +313,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
-    runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type, max_results,
+    runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
                                       order_by)
     info = {'run_id': [], 'experiment_id': [],
             'status': [], 'artifact_uri': [], }
@@ -369,6 +370,27 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     for key in tags:
         data['tags.' + key] = tags[key]
     return pd.DataFrame(data)
+
+
+def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
+                        order_by):
+    all_runs = []
+    next_page_token = None
+    while(len(all_runs) < max_results):
+        runs_to_get = max_results-len(all_runs)
+        if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
+            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+                                              runs_to_get, order_by, page_token=next_page_token)
+        else:
+            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+                                              NUM_RUNS_PER_PAGE_PANDAS, order_by,
+                                              page_token=next_page_token)
+        all_runs.extend(runs)
+        if runs.token and runs.token != '':
+            next_page_token = runs.token
+        else:
+            break
+    return all_runs
 
 
 def _get_or_start_run():
