@@ -27,7 +27,6 @@ public class ActiveRun {
     return runInfo.getRunId();
   }
 
-
   /**
    * Log a parameter under this run.
    *
