@@ -442,7 +442,6 @@ def _log_event(event):
         for v in summary.value:
             if v.HasField('simple_value'):
                 if event.step % _LOG_EVERY_N_STEPS == 0:
-                    print('logging a metric')
                     _thread_pool.submit(_add_to_queue, key=v.tag,
                                         value=v.simple_value, step=event.step,
                                         run_id=mlflow.active_run().info.run_id)
@@ -527,10 +526,9 @@ def autolog(metrics_every_n_steps=100):
             kwargs['callbacks'], log_dir = setup_callbacks(kwargs['callbacks'])
         else:
             kwargs['callbacks'], log_dir = setup_callbacks([])
-        atexit.register(_log_artifacts_with_warning,
-                        local_dir=log_dir, artifact_path='tensorboard_logs')
         result = original(self, *args, **kwargs)
         flush_queue()
+        _log_artifacts_with_warning(log_dir=log_dir, artifact_path='tensorboard_logs')
         return result
 
     @gorilla.patch(EventFileWriter)
