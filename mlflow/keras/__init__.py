@@ -294,4 +294,4 @@ def load_model(model_uri, **kwargs):
     keras_model_artifacts_path = os.path.join(
         local_model_path,
         flavor_conf.get("data", _MODEL_SAVE_PATH))
-    return _load_model(model_file=keras_model_artifacts_path, keras_module=keras_module, **kwargs)
+    return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, **kwargs)
