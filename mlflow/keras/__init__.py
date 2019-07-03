@@ -54,8 +54,8 @@ def get_default_conda_env(keras_module, include_cloudpickle=False):
         additional_conda_channels=None)
 
 
-def save_model(keras_model, path, conda_env=None, keras_module=None, mlflow_model=Model(),
-               custom_objects=None, **kwargs):
+def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_objects=None,
+               keras_module=None, **kwargs):
     """
     Save a Keras model to a path on the local file system.
 
