@@ -789,7 +789,7 @@ export class ExperimentView extends Component {
 
 export const mapStateToProps = (state, ownProps) => {
   const { lifecycleFilter, searchRunsRequestId } = ownProps;
-  const searchRunApi = getApis([searchRunsRequestId], state)[0];
+  // const searchRunApi = getApis([searchRunsRequestId], state)[0];
 
   // The runUuids we should serve.
   const { runInfosByUuid } = state.entities;
