@@ -19,6 +19,7 @@ import pandas as pd
 from mlflow import pyfunc
 from mlflow.models import Model
 import mlflow.tracking
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -31,13 +32,16 @@ _KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 _MODEL_SAVE_PATH = "model.h5"
 
 
-def get_default_conda_env(keras_module, include_cloudpickle=False):
+def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     """
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
     import tensorflow as tf
     keras_dependency = []  # if we use tf.keras we only need to declare dependency on tensorflow
+    if keras_module is None:
+        import keras
+        keras_module = keras
     if keras_module.__name__ == "keras":
         keras_dependency = ["keras=={}".format(keras_module.__version__)]
     pip_deps = None
@@ -116,7 +120,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
         elif _is_tf_keras(keras_model):
             keras_module = importlib.import_module("tensorflow.keras")
         else:
-            raise Exception("Unable to infer keras module from the model, please specify which "
+            raise MlflowException("Unable to infer keras module from the model, please specify which "
                             "keras module ('keras' or 'tensorflow.keras') is to be used to "
                             "save and load the model.")
     elif type(keras_module) == str:
@@ -124,7 +128,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
 
     path = os.path.abspath(path)
     if os.path.exists(path):
-        raise Exception("Path '{}' already exists".format(path))
+        raise MlflowException("Path '{}' already exists".format(path))
     data_subpath = "data"
     data_path = os.path.join(path, data_subpath)
     os.makedirs(data_path)
@@ -273,7 +277,7 @@ def _load_pyfunc(path):
                 m = _load_model(path, keras_module=keras_module, compile=False)
         return _KerasModelWrapper(m, graph, sess)
     else:
-        raise Exception("Unsupported backend '%s'" % K._BACKEND)
+        raise MlflowException("Unsupported backend '%s'" % K._BACKEND)
 
 
 def load_model(model_uri, **kwargs):
