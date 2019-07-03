@@ -70,25 +70,60 @@ def spark_context():
 
 
 @pytest.fixture(scope="session")
-def spark_model_iris(spark_context):
+def iris_df(spark_context):
     iris = datasets.load_iris()
     X = iris.data  # we only take the first two features.
     y = iris.target
     feature_names = ["0", "1", "2", "3"]
-    pandas_df = pd.DataFrame(X, columns=feature_names)  # to make spark_udf work
-    pandas_df['label'] = pd.Series(y)
+    iris_pandas_df = pd.DataFrame(X, columns=feature_names)  # to make spark_udf work
+    iris_pandas_df['label'] = pd.Series(y)
     spark_session = pyspark.sql.SparkSession(spark_context)
-    spark_df = spark_session.createDataFrame(pandas_df)
+    iris_spark_df = spark_session.createDataFrame(iris_pandas_df)
+    return feature_names, iris_pandas_df, iris_spark_df
+
+
+@pytest.fixture(scope="session")
+def spark_model_iris(iris_df):
+    feature_names, iris_pandas_df, iris_spark_df = iris_df
     assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
     lr = LogisticRegression(maxIter=50, regParam=0.1, elasticNetParam=0.8)
     pipeline = Pipeline(stages=[assembler, lr])
     # Fit the model
-    model = pipeline.fit(spark_df)
-    preds_df = model.transform(spark_df)
+    model = pipeline.fit(iris_spark_df)
+    preds_df = model.transform(iris_spark_df)
     preds = [x.prediction for x in preds_df.select("prediction").collect()]
     return SparkModelWithData(model=model,
-                              spark_df=spark_df,
-                              pandas_df=pandas_df,
+                              spark_df=iris_spark_df,
+                              pandas_df=iris_pandas_df,
+                              predictions=preds)
+
+
+@pytest.fixture(scope="session")
+def spark_model_transformer(iris_df):
+    feature_names, iris_pandas_df, iris_spark_df = iris_df
+    assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
+    # Fit the model
+    preds_df = assembler.transform(iris_spark_df)
+    preds = [x.features for x in preds_df.select("features").collect()]
+    return SparkModelWithData(model=assembler,
+                              spark_df=iris_spark_df,
+                              pandas_df=iris_pandas_df,
+                              predictions=preds)
+
+
+@pytest.fixture(scope="session")
+def spark_model_estimator(iris_df, spark_context):
+    feature_names, iris_pandas_df, iris_spark_df = iris_df
+    assembler = VectorAssembler(inputCols=feature_names, outputCol="features")
+    features_df = assembler.transform(iris_spark_df)
+    lr = LogisticRegression(maxIter=50, regParam=0.1, elasticNetParam=0.8)
+    # Fit the model
+    model = lr.fit(features_df)
+    preds_df = model.transform(features_df)
+    preds = [x.prediction for x in preds_df.select("prediction").collect()]
+    return SparkModelWithData(model=model,
+                              spark_df=features_df,
+                              pandas_df=iris_pandas_df,
                               predictions=preds)
 
 
@@ -154,6 +189,30 @@ def test_model_export(spark_model_iris, model_path, spark_custom_env):
     preds3 = score_model_as_udf(model_uri=model_path, pandas_df=spark_model_iris.pandas_df)
     assert spark_model_iris.predictions == preds3
     assert os.path.exists(sparkm.DFS_TMP)
+
+
+@pytest.mark.large
+def test_estimator_model_export(spark_model_estimator, model_path, spark_custom_env):
+    sparkm.save_model(spark_model_estimator.model, path=model_path, conda_env=spark_custom_env)
+    # score and compare the reloaded sparkml model
+    reloaded_model = sparkm.load_model(model_uri=model_path)
+    preds_df = reloaded_model.transform(spark_model_estimator.spark_df)
+    preds = [x.prediction for x in preds_df.select("prediction").collect()]
+    assert spark_model_estimator.predictions == preds
+    # 2. score and compare reloaded pyfunc
+    m = pyfunc.load_pyfunc(model_path)
+    preds2 = m.predict(spark_model_estimator.spark_df.toPandas())
+    assert spark_model_estimator.predictions == preds2
+
+
+@pytest.mark.large
+def test_transformer_model_export(spark_model_transformer, model_path, spark_custom_env):
+    with pytest.raises(MlflowException) as e:
+        sparkm.save_model(
+                spark_model_transformer.model,
+                path=model_path,
+                conda_env=spark_custom_env)
+    assert "Cannot serialize this model" in e.value.message
 
 
 # TODO(czumar): Remark this test as "large" instead of "release" after SageMaker docker
@@ -241,6 +300,52 @@ def test_sparkml_model_log(tmpdir, spark_model_iris):
 
 
 @pytest.mark.large
+def test_sparkml_estimator_model_log(tmpdir, spark_model_estimator):
+    # Print the coefficients and intercept for multinomial logistic regression
+    old_tracking_uri = mlflow.get_tracking_uri()
+    cnt = 0
+    # should_start_run tests whether or not calling log_model() automatically starts a run.
+    for should_start_run in [False, True]:
+        for dfs_tmp_dir in [None, os.path.join(str(tmpdir), "test")]:
+            print("should_start_run =", should_start_run, "dfs_tmp_dir =", dfs_tmp_dir)
+            try:
+                tracking_dir = os.path.abspath(str(tmpdir.join("mlruns")))
+                mlflow.set_tracking_uri("file://%s" % tracking_dir)
+                if should_start_run:
+                    mlflow.start_run()
+                artifact_path = "model%d" % cnt
+                cnt += 1
+                sparkm.log_model(
+                        artifact_path=artifact_path,
+                        spark_model=spark_model_estimator.model,
+                        dfs_tmpdir=dfs_tmp_dir)
+                model_uri = "runs:/{run_id}/{artifact_path}".format(
+                    run_id=mlflow.active_run().info.run_id,
+                    artifact_path=artifact_path)
+
+                # test reloaded model
+                reloaded_model = sparkm.load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmp_dir)
+                preds_df = reloaded_model.transform(spark_model_estimator.spark_df)
+                preds = [x.prediction for x in preds_df.select("prediction").collect()]
+                assert spark_model_estimator.predictions == preds
+            finally:
+                mlflow.end_run()
+                mlflow.set_tracking_uri(old_tracking_uri)
+                x = dfs_tmp_dir or sparkm.DFS_TMP
+                shutil.rmtree(x)
+                shutil.rmtree(tracking_dir)
+
+
+@pytest.mark.large
+def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
+    with pytest.raises(MlflowException) as e:
+        sparkm.log_model(
+            spark_model=spark_model_transformer.model,
+            artifact_path="model0")
+    assert "Cannot serialize this model" in e.value.message
+
+
+@pytest.mark.large
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
     sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
 
@@ -273,15 +378,6 @@ def test_sparkml_model_save_persists_specified_conda_env_in_mlflow_model_directo
     with open(saved_conda_env_path, "r") as f:
         saved_conda_env_parsed = yaml.safe_load(f)
     assert saved_conda_env_parsed == spark_custom_env_parsed
-
-
-@pytest.mark.large
-def test_sparkml_model_log_invalid_args(spark_model_iris, model_path):
-    with pytest.raises(MlflowException) as e:
-        sparkm.log_model(
-            spark_model=spark_model_iris.model.stages[0],
-            artifact_path="model0")
-        assert e.message.contains("SparkML can only save PipelineModels")
 
 
 @pytest.mark.large
