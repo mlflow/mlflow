@@ -26,6 +26,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 FLAVOR_NAME = "keras"
 # File name to which custom objects cloudpickle is saved - used during save and load
 _CUSTOM_OBJECTS_SAVE_PATH = "custom_objects.cloudpickle"
+_KERAS_MODULE_SPEC_PATH = "keras_module.txt"
 # File name to which keras model is saved
 _MODEL_SAVE_PATH = "model.h5"
 
@@ -97,23 +98,22 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
         def _is_plain_keras(model):
             try:
                 # NB: Network is the first parent with save method
-                from keras.engine import Network
-                return isinstance(model, Network)
+                import keras.engine.network
+                return isinstance(model, keras.engine.network.Network)
             except ImportError:
                 return False
 
         def _is_tf_keras(model):
             try:
                 # NB: Network is not exposed in tf.keras, we check for Model instead.
-                import tensorflow.keras.models.Model
-                from tensorflow.keras.models import Model
-                return isinstance(model, Model)
+                import tensorflow.keras.models
+                return isinstance(model, tensorflow.keras.models.Model)
             except ImportError:
                 return False
 
         if _is_plain_keras(keras_model):
             keras_module = importlib.import_module("keras")
-        elif _is_tf_keras(keras_module):
+        elif _is_tf_keras(keras_model):
             keras_module = importlib.import_module("tensorflow.keras")
         else:
             raise Exception("Unable to infer keras module from the model, please specify which "
@@ -121,15 +121,6 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                             "save and load the model.")
     elif type(keras_module) == str:
         keras_module = importlib.import_module(keras_module)
-
-    if keras_module.__name__ == "keras":
-        loader_module = "mlflow.keras"
-    elif keras_module.__name__ == "tensorflow.keras":
-        loader_module = "mlflow.keras._load_tf_keras"
-    else:
-        raise Exception("Unexpected keras module '{}', "
-                        "please specify one of "
-                        "('keras' or 'tensorflow.keras').".format(keras_module))
 
     path = os.path.abspath(path)
     if os.path.exists(path):
@@ -139,6 +130,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
     os.makedirs(data_path)
     if custom_objects is not None:
         _save_custom_objects(data_path, custom_objects)
+    with open(os.path.join(data_path, _KERAS_MODULE_SPEC_PATH), "w") as f:
+        f.write(keras_module.__name__)
     model_subpath = os.path.join(data_subpath, _MODEL_SAVE_PATH)
     keras_model.save(os.path.join(path, model_subpath), **kwargs)
     mlflow_model.add_flavor(FLAVOR_NAME,
@@ -154,7 +147,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
             conda_env = yaml.safe_load(f)
     with open(os.path.join(path, conda_env_subpath), "w") as f:
         yaml.safe_dump(conda_env, stream=f, default_flow_style=False)
-    pyfunc.add_to_model(mlflow_model, loader_module=loader_module,
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.keras",
                         data=data_subpath, env=conda_env_subpath)
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
@@ -253,13 +246,16 @@ class _KerasModelWrapper:
         return predicted
 
 
-def _load_pyfunc(path, keras_module=None):
+def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
 
     :param path: Local filesystem path to the MLflow Model with the ``keras`` flavor.
     """
-    if keras_module is None:
+    if os.path.isfile(os.path.join(path, _KERAS_MODULE_SPEC_PATH)):
+        with open(os.path.join(path, _KERAS_MODULE_SPEC_PATH), "r") as f:
+            keras_module = importlib.import_module(f.read())
+    else:
         import keras
         keras_module = keras
 
