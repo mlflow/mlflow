@@ -8,19 +8,21 @@ import java.util.*;
 import java.util.function.Consumer;
 
 /**
- * Main entrypoint used to start MLflow runs to log to. This is a higher level interface than {@code MlflowClient}
- * and provides convenience methods to keep track of active runs and to set default tags on runs which are created
- * through {@code MlflowContext}
+ * Main entrypoint used to start MLflow runs to log to. This is a higher level interface than
+ * {@code MlflowClient} and provides convenience methods to keep track of active runs and to set
+ * default tags on runs which are created through {@code MlflowContext}
  *
- * On construction, MlflowContext will choose a default experiment ID to log to depending on your environment.
- * To log to a different experiment, use {@link #setExperimentId(String)}} or {@link #setExperimentName(String)}
+ * On construction, MlflowContext will choose a default experiment ID to log to depending on your
+ * environment. To log to a different experiment, use {@link #setExperimentId(String)}} or
+ * {@link #setExperimentName(String)}
  */
 public class MlflowContext {
   private MlflowClient client;
   private String experimentId;
 
   /**
-   * Constructs a {@code MlflowContext} with a MlflowClient based on the MLFLOW_TRACKING_URI environment variable.
+   * Constructs a {@code MlflowContext} with a MlflowClient based on the MLFLOW_TRACKING_URI
+   * environment variable.
    */
   public MlflowContext() {
     this(new MlflowClient());
@@ -86,8 +88,8 @@ public class MlflowContext {
   }
 
   /**
-   * Starts a MLflow run. To log data to newly created MLflow run see the methods on {@link ActiveRun}. MLflow runs
-   * should be ended using {@link ActiveRun#endRun()}
+   * Starts a MLflow run. To log data to newly created MLflow run see the methods on
+   * {@link ActiveRun}. MLflow runs should be ended using {@link ActiveRun#endRun()}
    *
    * @param runName The name of this run.
    * @return An {@code ActiveRun} object to log data to.
@@ -97,7 +99,8 @@ public class MlflowContext {
   }
 
   /**
-   * Like {@link #startRun(String)} but sets the {@code mlflow.parentRunId} tag in order to create nested runs.
+   * Like {@link #startRun(String)} but sets the {@code mlflow.parentRunId} tag in order to create
+   * nested runs.
    *
    * @param runName The name of this run.
    * @param parentRunId The ID of this run's parent
@@ -132,7 +135,8 @@ public class MlflowContext {
   }
 
   /**
-   * Like {@link #startRun(String)} but will terminate the run after the activeRunFunction is executed.
+   * Like {@link #startRun(String)} but will terminate the run after the activeRunFunction is
+   * executed.
    *
    * @param runName The name of this run.
    * @param activeRunFunction A function which takes an {@code ActiveRun} and logs data to it.

@@ -85,12 +85,11 @@ public class ActiveRun {
     return this.runInfo.getArtifactUri();
   }
 
-  public ActiveRun endRun() {
-    return endRun(RunStatus.FINISHED);
+  public void endRun() {
+    endRun(RunStatus.FINISHED);
   }
 
-  public ActiveRun endRun(RunStatus status) {
+  public void endRun(RunStatus status) {
     client.setTerminated(getId(), status);
-    return this;
   }
 }
