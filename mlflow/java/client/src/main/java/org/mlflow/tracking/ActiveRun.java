@@ -7,6 +7,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
+/**
+ * Represents an active MLflow run and contains APIs to log data to the run.
+ */
 public class ActiveRun {
   private MlflowClient client;
   private RunInfo runInfo;
@@ -20,9 +23,6 @@ public class ActiveRun {
     this.client = client;
   }
 
-  /**
-   * Synchronous and will throw MlflowClientException on failures.
-   */
   public void logParam(String key, String value) {
     client.logParam(getId(), key, value);
   }
