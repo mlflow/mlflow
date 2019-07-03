@@ -401,7 +401,7 @@ def _assoc_list_to_map(lst):
     return d
 
 
-def flush_queue():
+def _flush_queue():
     """
     Flush the metric queue and log contents in batches to MLflow.
     Queue is divided into batches according to run id.
@@ -418,7 +418,7 @@ def flush_queue():
         _metric_queue = []
 
 
-atexit.register(flush_queue)
+atexit.register(_flush_queue)
 
 
 def _add_to_queue(key, value, step, run_id):
@@ -429,7 +429,7 @@ def _add_to_queue(key, value, step, run_id):
     met = Metric(key=key, value=value, timestamp=int(time.time()*1000), step=step)
     _metric_queue.append((run_id, met))
     if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
-        flush_queue()
+        _flush_queue()
 
 
 def _log_event(event):
@@ -455,7 +455,7 @@ def _get_tensorboard_callback(lst):
     return None
 
 
-def setup_callbacks(lst):
+def _setup_callbacks(lst):
     """
     Adds TensorBoard and MlfLowTfKeras callbacks to the
     input list, and returns the new list and appropriate log directory.
@@ -528,7 +528,7 @@ def autolog(metrics_every_n_steps=100):
         else:
             kwargs['callbacks'], log_dir = setup_callbacks([])
         result = original(self, *args, **kwargs)
-        flush_queue()
+        _flush_queue()
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
         return result
 
