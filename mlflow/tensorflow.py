@@ -528,7 +528,7 @@ def autolog(metrics_every_n_steps=100):
             kwargs['callbacks'], log_dir = setup_callbacks([])
         result = original(self, *args, **kwargs)
         flush_queue()
-        _log_artifacts_with_warning(log_dir=log_dir, artifact_path='tensorboard_logs')
+        _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
         return result
 
     @gorilla.patch(EventFileWriter)
