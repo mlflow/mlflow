@@ -126,7 +126,8 @@ def test_docker_invalid_project_backend_local():
     ("file:///tmp/mlruns/fake_run_id/artifacts", "/tmp/mlruns/fake_run_id/artifacts", True),
     ("./mlruns", os.path.abspath("./mlruns"), True)
 ])
-def test_docker_mount_local_artifact_uri(tracking_uri_mock, artifact_uri, expected_path, should_be_mount):
+def test_docker_mount_local_artifact_uri(tracking_uri_mock, artifact_uri, expected_path,
+                                         should_be_mount):
     active_run = mock.MagicMock()
     run_info = mock.MagicMock()
     run_info.run_id = "fake_run_id"
@@ -138,4 +139,5 @@ def test_docker_mount_local_artifact_uri(tracking_uri_mock, artifact_uri, expect
 
     docker_command = mlflow.projects._get_docker_command(image, active_run)
 
-    assert (f"-v {expected_path}:{expected_path}" in " ".join(docker_command)) == should_be_mount
+    docker_volume_expected = "-v {}".format(expected_path)
+    assert (docker_volume_expected in " ".join(docker_command)) == should_be_mount
