@@ -70,7 +70,7 @@ def save_model(keras_model, path, conda_env=None, keras_module=None, mlflow_mode
                             ]
                         }
     :param keras_module: Keras module to be used to save / load the model. If not provided, mlflow
-    will attempt to infer Keras module matching the given model.
+    will attempt to infer Keras module based on the given model.
     :param mlflow_model: MLflow model config this flavor is being added to.
 
     >>> import mlflow
@@ -85,7 +85,6 @@ def save_model(keras_model, path, conda_env=None, keras_module=None, mlflow_mode
     """
     if keras_module is None:
         clazz = type(keras_model)
-
         if clazz.__module__.startswith("keras"):
             keras_module = importlib.import_module("keras")
         elif clazz.__module__.startswith("tensorflow"):
@@ -95,6 +94,9 @@ def save_model(keras_model, path, conda_env=None, keras_module=None, mlflow_mode
                             "and module '{module}', please specify which keras module "
                             "('keras' or 'tensorflow.keras') is to be used to save and load the "
                             "model.".format(clazz=clazz, module=clazz.__module__))
+    elif type(keras_module) == str:
+        keras_module = importlib.import_module(keras_module)
+
     if keras_module.__name__ == "keras":
         loader_module = "mlflow.keras"
     elif keras_module.__name__ == "tensorflow.keras":
