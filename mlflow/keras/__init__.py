@@ -94,10 +94,26 @@ def save_model(keras_model, path, conda_env=None, keras_module=None, mlflow_mode
     >>> mlflow.keras.save_model(keras_model, keras_model_path)
     """
     if keras_module is None:
-        clazz = type(keras_model)
-        if clazz.__module__.startswith("keras"):
+        def _is_plain_keras(model):
+            try:
+                # NB: Network is the first parent with save method
+                from keras.engine import Network
+                return isinstance(model, Network)
+            except ImportError:
+                return False
+
+        def _is_tf_keras(model):
+            try:
+                # NB: Network is not exposed in tf.keras, we check for Model instead.
+                import tensorflow.keras.models.Model
+                from tensorflow.keras.models import Model
+                return isinstance(model, Model)
+            except ImportError:
+                return False
+
+        if _is_plain_keras(keras_model):
             keras_module = importlib.import_module("keras")
-        elif clazz.__module__.startswith("tensorflow"):
+        elif _is_tf_keras(keras_module):
             keras_module = importlib.import_module("tensorflow.keras")
         else:
             raise Exception("Unable to infer keras module from class '{clazz}' "
