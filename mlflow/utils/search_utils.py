@@ -356,7 +356,13 @@ class SearchUtils(object):
             raise MlflowException("Invalid page token, parsed value=%s" % parsed_token,
                                   error_code=INVALID_PARAMETER_VALUE)
 
-        return int(offset_str)
+        try:
+            offset = int(offset_str)
+        except ValueError:
+            raise MlflowException("Invalid page token, not stringable %s" % offset_str,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        return offset
 
     @classmethod
     def _create_page_token(cls, offset):
