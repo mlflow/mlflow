@@ -126,7 +126,7 @@ def test_docker_invalid_project_backend_local():
     ("file:///tmp/mlruns/fake_run_id/artifacts", "/tmp/mlruns/fake_run_id/artifacts", True),
     ("./mlruns", os.path.abspath("./mlruns"), True)
 ])
-def test_docker_mount_local_artifact_uri(tracking_uri_mock, artifact_uri, expected_path,
+def test_docker_mount_local_artifact_uri(artifact_uri, expected_path,
                                          should_be_mount):
     active_run = mock.MagicMock()
     run_info = mock.MagicMock()
