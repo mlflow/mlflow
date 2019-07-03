@@ -392,8 +392,6 @@ def test_search_pagination(mlflow_client, backend_store_uri):
     runs = [mlflow_client.create_run(experiment_id, start_time=1).info.run_id for _ in range(0, 10)]
     runs = sorted(runs)
     result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=None)
-    print("Runs1: %s" % [r.info.run_id for r in result])
-    print("Runs2: %s" % runs[0:4])
     assert [r.info.run_id for r in result] == runs[0:4]
     assert result.token is not None
     result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=result.token)
