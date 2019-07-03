@@ -347,9 +347,6 @@ class SearchUtils(object):
         except ValueError:
             raise MlflowException("Invalid page token, decoded value=%s" % decoded_token,
                                   error_code=INVALID_PARAMETER_VALUE)
-        # except json.decoder.JSONDecodeError:
-        #     raise MlflowException("Invalid page token, decoded value=%s" % decoded_token,
-        #                           error_code=INVALID_PARAMETER_VALUE)
 
         offset_str = parsed_token.get("offset")
         if not offset_str:
