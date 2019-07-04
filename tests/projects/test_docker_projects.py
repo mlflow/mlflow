@@ -139,5 +139,5 @@ def test_docker_mount_local_artifact_uri(artifact_uri, expected_path,
 
     docker_command = mlflow.projects._get_docker_command(image, active_run)
 
-    docker_volume_expected = "-v {}".format(expected_path)
+    docker_volume_expected = "-v {}:{}".format(expected_path, expected_path)
     assert (docker_volume_expected in " ".join(docker_command)) == should_be_mount
