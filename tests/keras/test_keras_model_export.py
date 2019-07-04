@@ -157,7 +157,6 @@ def test_that_keras_module_arg_works(model_path):
         else:
             return importlib.import_module(name, **kwargs)
 
-
     with mock.patch("importlib.import_module") as import_module_mock:
         import_module_mock.side_effect = _import_module
         x = MyModel("x123")
@@ -181,7 +180,6 @@ def test_that_keras_module_arg_works(model_path):
             mlflow.keras.log_model(x, "model1", keras_module=FakeKerasModule.__name__)
             b = mlflow.keras.load_model("runs:/{}/model1".format(active_run.info.run_id))
             assert x == b
-
 
 
 @pytest.mark.parametrize("build_model", [model, tf_keras_model])
