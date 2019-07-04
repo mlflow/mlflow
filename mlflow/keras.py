@@ -83,8 +83,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                                 'tensorflow=1.8.0'
                             ]
                         }
-    :param keras_module: Keras module to be used to save / load the model. If not provided, mlflow
-    will attempt to infer Keras module based on the given model.
+    :param keras_module: Keras module to be used to save / load the model. If not provided, MLflow
+    will attempt to infer the Keras module based on the given model.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
