@@ -666,7 +666,7 @@ def _get_conda_command(conda_env_name):
 
     # in case os name is not 'nt', we are not running on windows. It introduces
     # bash command otherwise.
-    if os.name != "nt" and (conda_env_version_major == 4 and conda_env_version_minor < 7):
+    if os.name != "nt" and (conda_env_version_major == 4 and conda_env_version_minor < 6):
         return ["source %s %s" % (activate_path, conda_env_name)]
     else:
         return ["conda %s %s" % (activate_path, conda_env_name)]
