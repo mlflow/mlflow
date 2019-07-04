@@ -156,7 +156,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, **kwargs):
+def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
+              **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
@@ -194,7 +195,8 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, *
     >>>   mlflow.keras.log_model(keras_model, "models")
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
-              keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects, **kwargs)
+              keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
+              keras_module=keras_module, **kwargs)
 
 
 def _save_custom_objects(path, custom_objects):

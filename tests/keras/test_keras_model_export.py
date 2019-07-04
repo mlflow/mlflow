@@ -2,10 +2,12 @@
 
 from __future__ import print_function
 
+import h5py
 import os
 import json
 import pytest
 import shutil
+import importlib
 from keras.models import Sequential
 from keras.layers import Layer, Dense
 from keras import backend as K
@@ -13,11 +15,13 @@ import sklearn.datasets as datasets
 import pandas as pd
 import numpy as np
 import yaml
+import mock
 
 import mlflow
 import mlflow.keras
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -127,6 +131,59 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
+def test_that_keras_module_arg_works(model_path):
+    class MyModel(object):
+        def __init__(self, x):
+            self._x = x
+
+        def __eq__(self, other):
+            return self._x == other._x
+
+        def save(self, path, **kwargs):
+            with h5py.File(path, "w") as f:
+                f.create_dataset(name="x", data=self._x)
+
+    class FakeKerasModule(object):
+        __name__ = "some.test.keras.module"
+        __version__ = "42.42.42"
+
+        @staticmethod
+        def load_model(file, **kwars):
+            return MyModel(file.get("x").value)
+
+    def _import_module(name, **kwargs):
+        if name.startswith(FakeKerasModule.__name__):
+            return FakeKerasModule
+        else:
+            return importlib.import_module(name, **kwargs)
+
+
+    with mock.patch("importlib.import_module") as import_module_mock:
+        import_module_mock.side_effect = _import_module
+        x = MyModel("x123")
+        path0 = os.path.join(model_path, "0")
+        with pytest.raises(MlflowException):
+            mlflow.keras.save_model(x, path0)
+        mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule)
+        y = mlflow.keras.load_model(path0)
+        assert x == y
+        path1 = os.path.join(model_path, "1")
+        mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__)
+        z = mlflow.keras.load_model(path1)
+        assert x == z
+        # Tets model log
+        with mlflow.start_run() as active_run:
+            with pytest.raises(MlflowException):
+                mlflow.keras.log_model(x, "model0")
+            mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule)
+            a = mlflow.keras.load_model("runs:/{}/model0".format(active_run.info.run_id))
+            assert x == a
+            mlflow.keras.log_model(x, "model1", keras_module=FakeKerasModule.__name__)
+            b = mlflow.keras.load_model("runs:/{}/model1".format(active_run.info.run_id))
+            assert x == b
+
+
+
 @pytest.mark.parametrize("build_model", [model, tf_keras_model])
 @pytest.mark.large
 def test_model_save_load(build_model, model_path, data):
@@ -176,10 +233,10 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert np.allclose(
-            pd.read_json(scoring_response.content, orient="records").values.astype(np.float32),
-            custom_predicted,
-            rtol=1e-5,
-            atol=1e-9)
+        pd.read_json(scoring_response.content, orient="records").values.astype(np.float32),
+        custom_predicted,
+        rtol=1e-5,
+        atol=1e-9)
     # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
     assert all(pyfunc_loaded.predict(x).values == custom_predicted)
@@ -195,6 +252,7 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
     class DifferentCustomLayer():
         def __init__(self):
             pass
+
     incorrect_custom_objects = {'MyDense': DifferentCustomLayer()}
     correct_custom_objects = {'MyDense': custom_layer}
     mlflow.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
@@ -335,8 +393,8 @@ def test_model_load_succeeds_with_missing_data_key_when_data_exists_at_default_p
     """
     mlflow.keras.save_model(keras_model=model, path=model_path)
     shutil.move(
-            os.path.join(model_path, 'data', 'model.h5'),
-            os.path.join(model_path, 'model.h5'))
+        os.path.join(model_path, 'data', 'model.h5'),
+        os.path.join(model_path, 'model.h5'))
     model_conf_path = os.path.join(model_path, "MLmodel")
     model_conf = Model.load(model_conf_path)
     flavor_conf = model_conf.flavors.get(mlflow.keras.FLAVOR_NAME, None)
