@@ -421,12 +421,12 @@ def _flush_queue():
 atexit.register(_flush_queue)
 
 
-def _add_to_queue(key, value, step, run_id):
+def _add_to_queue(key, value, step, time, run_id):
     """
     Add a metric to the metric queue. Flush the queue if it exceeds
     max size.
     """
-    met = Metric(key=key, value=value, timestamp=int(time.time()*1000), step=step)
+    met = Metric(key=key, value=value, timestamp=time, step=step)
     _metric_queue.append((run_id, met))
     if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
         _flush_queue()
@@ -445,6 +445,7 @@ def _log_event(event):
                 if event.step % _LOG_EVERY_N_STEPS == 0:
                     _thread_pool.submit(_add_to_queue, key=v.tag,
                                         value=v.simple_value, step=event.step,
+                                        time=int(time.time())*1000,
                                         run_id=mlflow.active_run().info.run_id)
 
 
