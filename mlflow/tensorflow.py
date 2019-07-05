@@ -521,12 +521,12 @@ def autolog(metrics_every_n_steps=100):
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
         if len(args) >= 6:
             l = list(args)
-            l[5], log_dir = setup_callbacks(l[5])
+            l[5], log_dir = _setup_callbacks(l[5])
             args = tuple(l)
         elif 'callbacks' in kwargs:
-            kwargs['callbacks'], log_dir = setup_callbacks(kwargs['callbacks'])
+            kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
         else:
-            kwargs['callbacks'], log_dir = setup_callbacks([])
+            kwargs['callbacks'], log_dir = _setup_callbacks([])
         result = original(self, *args, **kwargs)
         _flush_queue()
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
