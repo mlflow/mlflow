@@ -34,7 +34,7 @@ class TestRestStore(unittest.TestCase):
             assert kwargs == {
                 'method': 'GET',
                 'params': {'view_type': 'ACTIVE_ONLY'},
-                'url': 'https://hello/api/2.0/preview/mlflow/experiments/list',
+                'url': 'https://hello/api/2.0/mlflow/experiments/list',
                 'headers': _DEFAULT_HEADERS,
                 'verify': True,
             }
@@ -95,7 +95,7 @@ class TestRestStore(unittest.TestCase):
 
     def _args(self, host_creds, endpoint, method, json_body):
         return {'host_creds': host_creds,
-                'endpoint': "/api/2.0/preview/mlflow/%s" % endpoint,
+                'endpoint': "/api/2.0/mlflow/%s" % endpoint,
                 'method': method,
                 'json': json.loads(json_body)}
 

@@ -23,11 +23,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/experiments/create"
+        path: "/mlflow/experiments/create"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/experiments/create"
+        path: "/preview/mlflow/experiments/create"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -41,11 +41,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/preview/mlflow/experiments/list"
+        path: "/mlflow/experiments/list"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/mlflow/experiments/list"
+        path: "/preview/mlflow/experiments/list"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -59,11 +59,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/preview/mlflow/experiments/get"
+        path: "/mlflow/experiments/get"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/mlflow/experiments/get"
+        path: "/preview/mlflow/experiments/get"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -78,11 +78,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/experiments/delete"
+        path: "/mlflow/experiments/delete"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/experiments/delete"
+        path: "/preview/mlflow/experiments/delete"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -100,11 +100,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/experiments/restore"
+        path: "/mlflow/experiments/restore"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/experiments/restore"
+        path: "/preview/mlflow/experiments/restore"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -118,11 +118,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/experiments/update"
+        path: "/mlflow/experiments/update"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/experiments/update"
+        path: "/preview/mlflow/experiments/update"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -138,11 +138,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/create"
+        path: "/mlflow/runs/create"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/create"
+        path: "/preview/mlflow/runs/create"
         since { major: 2, minor: 0 },
       }],
 
@@ -157,11 +157,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/update"
+        path: "/mlflow/runs/update"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/update"
+        path: "/preview/mlflow/runs/update"
         since { major: 2, minor: 0 },
       }],
 
@@ -175,11 +175,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/delete"
+        path: "/mlflow/runs/delete"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/delete"
+        path: "/preview/mlflow/runs/delete"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -192,11 +192,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/restore"
+        path: "/mlflow/runs/restore"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/restore"
+        path: "/preview/mlflow/runs/restore"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -212,11 +212,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/log-metric"
+        path: "/mlflow/runs/log-metric"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/log-metric"
+        path: "/preview/mlflow/runs/log-metric"
         since { major: 2, minor: 0 },
       }],
 
@@ -233,11 +233,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/log-parameter"
+        path: "/mlflow/runs/log-parameter"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/log-parameter"
+        path: "/preview/mlflow/runs/log-parameter"
         since { major: 2, minor: 0 },
       }],
 
@@ -253,11 +253,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/set-tag"
+        path: "/mlflow/runs/set-tag"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/set-tag"
+        path: "/preview/mlflow/runs/set-tag"
         since { major: 2, minor: 0 },
       }],
 
@@ -273,11 +273,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/preview/mlflow/runs/get"
+        path: "/mlflow/runs/get"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/mlflow/runs/get"
+        path: "/preview/mlflow/runs/get"
         since { major: 2, minor: 0 },
       }],
 
@@ -293,11 +293,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/search"
+        path: "/mlflow/runs/search"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/search"
+        path: "/preview/mlflow/runs/search"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
@@ -316,11 +316,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/preview/mlflow/artifacts/list"
+        path: "/mlflow/artifacts/list"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/mlflow/artifacts/list"
+        path: "/preview/mlflow/artifacts/list"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -334,17 +334,18 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/preview/mlflow/metrics/get-history"
+        path: "/mlflow/metrics/get-history"
         since { major: 2, minor: 0 },
       }, {
         method: "GET",
-        path: "/mlflow/metrics/get-history"
+        path: "/preview/mlflow/metrics/get-history"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
       rpc_doc_title: "Get Metric History",
     };
   }
+
 
   // Log a batch of metrics, params, and tags for a run.
   // If any data failed to be persisted, the server will respond with an error (non-200 status code).
@@ -399,11 +400,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/log-batch"
+        path: "/mlflow/runs/log-batch"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/log-batch"
+        path: "/preview/mlflow/runs/log-batch"
         since { major: 2, minor: 0 },
       }],
       visibility: PUBLIC,
@@ -513,12 +514,12 @@ message RunTag {
 
 // Metadata of a single run.
 message RunInfo {
+  // Unique identifier for the run.
+  optional string run_id = 15;
+
   // [Deprecated, use run_id instead] Unique identifier for the run. This field will
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
-
-  // Unique identifier for the run.
-  optional string run_id = 15;
 
   // The experiment ID.
   optional string experiment_id = 2;
@@ -672,12 +673,12 @@ message CreateRun {
 message UpdateRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // ID of the run to update. Must be provided.
+  optional string run_id = 4;
+
   // [Deprecated, use run_id instead] ID of the run to update.. This field will
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
-
-  // ID of the run to update. Must be provided.
-  optional string run_id = 4;
 
   // Updated status of the run.
   optional RunStatus status = 2;
@@ -709,15 +710,16 @@ message RestoreRun {
   message Response {}
 }
 
+
 message LogMetric {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run under which to log the metric. Must be provided.
+  optional string run_id = 6;
 
   // [Deprecated, use run_id instead] ID of the run under which to log the metric. This field will
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
-
-  // ID of the run under which to log the metric. Must be provided.
-  optional string run_id = 6;
 
   // Name of the metric.
   optional string key = 2 [(validate_required) = true];
@@ -731,19 +733,18 @@ message LogMetric {
   // Step at which to log the metric
   optional int64 step = 5 [default = 0];
 
-  message Response {
-  }
+  message Response {}
 }
 
 message LogParam {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // ID of the run under which to log the param. Must be provided.
+  optional string run_id = 4;
+
   // [Deprecated, use run_id instead] ID of the run under which to log the param. This field will
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
-
-  // ID of the run under which to log the param. Must be provided.
-  optional string run_id = 4;
 
   // Name of the param. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
@@ -758,12 +759,12 @@ message LogParam {
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // ID of the run under which to log the tag. Must be provided.
+  optional string run_id = 4;
+
   // [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
-
-  // ID of the run under which to log the tag. Must be provided.
-  optional string run_id = 4;
 
   // Name of the tag. Maximum size is 255 bytes.
   optional string key = 2 [(validate_required) = true];
@@ -778,12 +779,12 @@ message SetTag {
 message GetRun {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // ID of the run to fetch. Must be provided.
+  optional string run_id = 2;
+
   // [Deprecated, use run_id instead] ID of the run to fetch. This field will
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
-
-  // ID of he run to fetch. Must be provided.
-  optional string run_id = 2;
 
   message Response {
     // Run metadata (name, start time, etc) and data (metrics, params, and tags).
@@ -802,7 +803,6 @@ message SearchRuns {
   // between a param, metric, or tag and a constant.
   //
   // Example: ``metrics.rmse < 1 and params.model_class = 'LogisticRegression'``
-  //
   //
   // You can select columns with special characters (hyphen, space, period, etc.) by using double quotes:
   // ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``
@@ -829,7 +829,6 @@ message SearchRuns {
   message Response {
     // Runs that match the search criteria.
     repeated Run runs = 1;
-
     optional string next_page_token = 2;
   }
 }
@@ -837,12 +836,12 @@ message SearchRuns {
 message ListArtifacts {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // ID of the run whose artifacts to list. Must be provided.
+  optional string run_id = 3;
+
   // [Deprecated, use run_id instead] ID of the run whose artifacts to list. This field will
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
-
-  // ID of the run whose artifacts to list. Must be provided.
-  optional string run_id = 3;
 
   // Filter artifacts matching this path (a relative path from the root artifact directory).
   optional string path = 2;
@@ -871,12 +870,12 @@ message FileInfo {
 message GetMetricHistory {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
+  // ID of the run from which to fetch metric values. Must be provided.
+  optional string run_id = 3;
+
   // [Deprecated, use run_id instead] ID of the run from which to fetch metric values. This field
   // will be removed in a future MLflow version.
   optional string run_uuid = 1;
-
-  // ID of the run from which to fetch metric values. Must be provided.
-  optional string run_id = 3;
 
   // Name of the metric.
   optional string metric_key = 2 [(validate_required) = true];
