@@ -3,6 +3,7 @@ import os
 import docker
 from docker.errors import BuildError, APIError
 
+import mock
 import pytest
 
 import mlflow
@@ -18,6 +19,7 @@ TEST_PROJECT_NAME = "example_project"
 TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
 SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
+from mlflow.server import ARTIFACT_ROOT_ENV_VAR
 
 
 def load_project():
@@ -58,6 +60,7 @@ def build_docker_example_base_image():
 def tracking_uri_mock(tmpdir):
     try:
         mlflow.set_tracking_uri(path_to_local_sqlite_uri(os.path.join(tmpdir.strpath, 'mlruns')))
-        yield tmpdir
+        with mock.patch.dict(os.environ, {ARTIFACT_ROOT_ENV_VAR: tmpdir.join('artifacts').strpath}):
+            yield tmpdir
     finally:
         mlflow.set_tracking_uri(None)

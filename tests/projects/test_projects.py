@@ -159,18 +159,6 @@ def test_invalid_run_mode(tracking_uri_mock):  # pylint: disable=unused-argument
         mlflow.projects.run(uri=TEST_PROJECT_DIR, backend="some unsupported mode")
 
 
-def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
-    """ Verify that we correctly handle the `use_conda` argument."""
-    # Verify we throw an exception when conda is unavailable
-    old_path = os.environ["PATH"]
-    env.unset_variable("PATH")
-    try:
-        with pytest.raises(ExecutionException):
-            mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
-    finally:
-        os.environ["PATH"] = old_path
-
-
 def test_is_valid_branch_name(local_git_repo):
     assert mlflow.projects._is_valid_branch_name(local_git_repo, "master")
     assert not mlflow.projects._is_valid_branch_name(local_git_repo, "dev")

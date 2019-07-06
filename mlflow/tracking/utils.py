@@ -141,8 +141,11 @@ for scheme in DATABASE_ENGINES:
 _tracking_store_registry.register_entrypoints()
 
 
-def _get_store(store_uri=None, artifact_uri=None):
-    return _tracking_store_registry.get_store(store_uri, artifact_uri)
+def _get_store(backend_store_uri=None, default_artifact_root=None):
+    from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+    store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+    artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
+    return _tracking_store_registry.get_store(store_uri, artifact_root)
 
 
 # TODO(sueann): move to a projects utils module

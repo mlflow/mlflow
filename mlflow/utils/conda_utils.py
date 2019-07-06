@@ -25,8 +25,6 @@ def _is_conda_46_or_above():
 
 def _get_conda_command(conda_env_name):
     activate_path = _get_conda_bin_executable("activate")
-    if os.name == "nt" or _is_conda_46_or_above():
-        return "conda %s %s" % (activate_path, conda_env_name)
     return "source %s %s" % (activate_path, conda_env_name)
 
 
@@ -43,6 +41,18 @@ def _get_conda_bin_executable(executable_name):
     conda_home = os.environ.get(MLFLOW_CONDA_HOME)
     if conda_home:
         return os.path.join(conda_home, "bin/%s" % executable_name)
+    if executable_name == "activate" and _is_conda_46_or_above():
+        # Special-case activate in newer condas, since it's not on the PATH by default. We find it
+        # by activating another environment & then identifying the path to 'activate'. Note that
+        # this probably doesn't work on Windows (`which` isn't a valid command). Alternatively,
+        # we could consider just invoking `conda activate` for newer condas, but this is problematic
+        # as it requires running a shell in interactive mode, which on Linux requires running
+        # the process in its own pgroup, which prevents cancellation signals from reaching the
+        # project.
+        (_, _, activate_path) = process.exec_cmd(
+            [os.environ["SHELL"], "-ic", "conda activate && which activate 1>&2"],
+            preexec_fn=os.setsid)
+        return activate_path.strip()
     return executable_name
 
 
@@ -80,8 +90,6 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
     # bash function otherwise
     (_, _, stderr) = process.exec_cmd(
         [os.environ["SHELL"], "-ic", "%s env list --json 1>&2" % conda_path])
-    import pdb
-    pdb.set_trace()
     env_names = [os.path.basename(env) for env in json.loads(stderr)['envs']]
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:

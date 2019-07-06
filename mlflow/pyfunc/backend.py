@@ -139,10 +139,7 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
 
     command = " && ".join(activate_conda_env + [command])
     _logger.info("=== Running command '%s'", command)
-    with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
-        child = subprocess.Popen(
-            [os.environ["SHELL"], "-ic", command], close_fds=True, env=command_env, stderr=devnull_stderr,
-            stdout=devnull_stdout)
+    child = subprocess.Popen(["bash", "-c", command], close_fds=True, env=command_env)
     rc = child.wait()
     if rc != 0:
         raise Exception("Command '{0}' returned non zero return code. Return code = {1}".format(
