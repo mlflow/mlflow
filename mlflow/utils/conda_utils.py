@@ -16,10 +16,8 @@ _logger = logging.getLogger(__name__)
 def _is_conda_46_or_above():
     with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
         try:
-            # TODO: unfortunately 'conda activate' doesn't seem work in shells, as described in
-            # https://stackoverflow.com/questions/34534513/calling-conda-source-activate-from-bash-script
-            # https://stackoverflow.com/questions/51819719/using-subprocess-in-anaconda-environment
-            return subprocess.call(["conda", "activate"], stderr=devnull_stderr,
+            return subprocess.call([os.environ["SHELL"], "-ic", "conda activate && which python"],
+                                   stderr=devnull_stderr,
                                    stdout=devnull_stdout) == 0
         except Exception:  # pylint: disable=broad-except
             return False
@@ -68,7 +66,8 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
     """
     conda_path = _get_conda_bin_executable("conda")
     try:
-        process.exec_cmd([conda_path, "--help"], throw_on_error=False)
+        process.exec_cmd([os.environ["SHELL"], "-ic", "%s --help" % conda_path],
+                         throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException("Could not find Conda executable at {0}. "
                                  "Ensure Conda is installed as per the instructions "
@@ -76,15 +75,25 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
                                  "also configure MLflow to look for a specific Conda executable "
                                  "by setting the {1} environment variable to the path of the Conda "
                                  "executable".format(conda_path, MLFLOW_CONDA_HOME))
-    (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
-    env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
+    # The approach here is to directly run the user's conda executable (e.g. on Databricks or other
+    # environments where MLFLOW_CONDA_HOME is set), and set up the shell to detect the conda
+    # bash function otherwise
+    (_, _, stderr) = process.exec_cmd(
+        [os.environ["SHELL"], "-ic", "%s env list --json 1>&2" % conda_path])
+    import pdb
+    pdb.set_trace()
+    env_names = [os.path.basename(env) for env in json.loads(stderr)['envs']]
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
         _logger.info('=== Creating conda environment %s ===', project_env_name)
         if conda_env_path:
-            process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
-                              conda_env_path], stream_output=True)
+            create_env_cmd = "{conda_path} env create -n {project_env_name} " \
+                             "--file {conda_env_path}".format(
+                conda_path=conda_path, project_env_name=project_env_name,
+                conda_env_path=conda_env_path)
         else:
-            process.exec_cmd(
-                [conda_path, "create", "-n", project_env_name, "python"], stream_output=True)
+            create_env_cmd = "{conda_path} env create -n {project_env_name} python".format(
+                conda_path=conda_path, project_env_name=project_env_name)
+        process.exec_cmd([os.environ["SHELL"], "-ic", create_env_cmd], stream_output=True)
+
     return project_env_name

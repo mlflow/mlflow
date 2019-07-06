@@ -141,7 +141,7 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
     _logger.info("=== Running command '%s'", command)
     with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
         child = subprocess.Popen(
-            ["bash", "-c", command], close_fds=True, env=command_env, stderr=devnull_stderr,
+            [os.environ["SHELL"], "-ic", command], close_fds=True, env=command_env, stderr=devnull_stderr,
             stdout=devnull_stdout)
     rc = child.wait()
     if rc != 0:

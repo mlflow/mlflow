@@ -482,12 +482,8 @@ def _run_entry_point(command, work_dir, experiment_id, run_id):
     env = os.environ.copy()
     env.update(_get_run_env_vars(run_id, experiment_id))
     _logger.info("=== Running command '%s' in run with ID '%s' === ", command, run_id)
-    # in case os name is not 'nt', we are not running on windows. It introduces
-    # bash command otherwise.
-    if os.name != "nt":
-        process = subprocess.Popen(["bash", "-c", command], close_fds=True, cwd=work_dir, env=env)
-    else:
-        process = subprocess.Popen(command, close_fds=True, cwd=work_dir, env=env)
+    process = subprocess.Popen([os.environ["SHELL"], "-ic", command], close_fds=True,
+                               cwd=work_dir, env=env)
     return LocalSubmittedRun(run_id, process)
 
 
