@@ -1,5 +1,4 @@
 import mock
-import pytest
 
 from mlflow.utils.conda_utils import MLFLOW_CONDA_HOME, _get_conda_bin_executable
 
