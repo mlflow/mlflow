@@ -14,6 +14,10 @@ from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 
+# NB: These are internal environment variables used for communication between
+# the MLflow server cli and the forked gunicorn processes. The tracking client also honors
+BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
+ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
 _LOCAL_FS_URI_PREFIX = "file:///"
 _REMOTE_URI_PREFIX = "http://"
@@ -141,11 +145,10 @@ for scheme in DATABASE_ENGINES:
 _tracking_store_registry.register_entrypoints()
 
 
-def _get_store(backend_store_uri=None, default_artifact_root=None):
-    from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
-    store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
-    artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
-    return _tracking_store_registry.get_store(store_uri, artifact_root)
+def _get_store(store_uri=None, artifact_uri=None):
+    store_uri = store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
+    artifact_uri = artifact_uri or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
+    return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
 # TODO(sueann): move to a projects utils module

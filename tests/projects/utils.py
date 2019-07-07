@@ -10,6 +10,7 @@ import mlflow
 from mlflow.entities import RunStatus
 from mlflow.projects import _project_spec
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
+from mlflow.server import ARTIFACT_ROOT_ENV_VAR
 
 
 TEST_DIR = "tests"
@@ -19,7 +20,6 @@ TEST_PROJECT_NAME = "example_project"
 TEST_NO_SPEC_PROJECT_DIR = os.path.join(TEST_DIR, "resources", "example_project_no_spec")
 GIT_PROJECT_URI = "https://github.com/mlflow/mlflow-example"
 SSH_PROJECT_URI = "git@github.com:mlflow/mlflow-example.git"
-from mlflow.server import ARTIFACT_ROOT_ENV_VAR
 
 
 def load_project():

@@ -13,12 +13,12 @@ MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
 _logger = logging.getLogger(__name__)
 
 
-def _is_conda_46_or_above():
+def _can_run_conda_activate():
     with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
         try:
-            return subprocess.call([os.environ["SHELL"], "-ic", "conda activate && which python"],
+            return subprocess.call([os.environ["SHELL"], "-ic", "conda activate"],
                                    stderr=devnull_stderr,
-                                   stdout=devnull_stdout) == 0
+                                   stdout=devnull_stdout, preexec_fn=os.setsid) == 0
         except Exception:  # pylint: disable=broad-except
             return False
 
@@ -41,7 +41,7 @@ def _get_conda_bin_executable(executable_name):
     conda_home = os.environ.get(MLFLOW_CONDA_HOME)
     if conda_home:
         return os.path.join(conda_home, "bin/%s" % executable_name)
-    if executable_name == "activate" and _is_conda_46_or_above():
+    if executable_name == "activate" and _can_run_conda_activate():
         # Special-case activate in newer condas, since it's not on the PATH by default. We find it
         # by activating another environment & then identifying the path to 'activate'. Note that
         # this probably doesn't work on Windows (`which` isn't a valid command). Alternatively,
@@ -95,10 +95,10 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
     if project_env_name not in env_names:
         _logger.info('=== Creating conda environment %s ===', project_env_name)
         if conda_env_path:
-            create_env_cmd = "{conda_path} env create -n {project_env_name} " \
-                             "--file {conda_env_path}".format(
-                conda_path=conda_path, project_env_name=project_env_name,
-                conda_env_path=conda_env_path)
+            create_env_cmd =\
+                "{conda_path} env create -n {project_env_name} --file {conda_env_path}".format(
+                    conda_path=conda_path, project_env_name=project_env_name,
+                    conda_env_path=conda_env_path)
         else:
             create_env_cmd = "{conda_path} env create -n {project_env_name} python".format(
                 conda_path=conda_path, project_env_name=project_env_name)
