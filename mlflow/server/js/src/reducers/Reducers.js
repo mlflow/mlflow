@@ -12,7 +12,7 @@ import {
   OPEN_ERROR_MODAL,
   SEARCH_RUNS_API,
   LOAD_MORE_RUNS_API,
-  SET_TAG_API,
+  SET_TAG_API, rejected,
 } from '../Actions';
 import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
@@ -71,6 +71,9 @@ const runInfosByUuid = (state = {}, action) => {
         return newState;
       }
       return state;
+    }
+    case rejected(SEARCH_RUNS_API): {
+      return {};
     }
     case fulfilled(LOAD_MORE_RUNS_API): {
       let newState = { ...state };

@@ -575,9 +575,12 @@ const isRunsListShort = () => {
   console.log('>>> isRunsListShort');
   const table = document.querySelector('.ReactVirtualized__Grid.ReactVirtualized__Table__Grid');
   const runs = document.querySelector('.ReactVirtualized__Grid__innerScrollContainer');
-  console.log(`table.clientHeight = ${table.clientHeight} runs.clientHeight = ${runs.clientHeight}`);
-  console.log('<<< isRunsListShort');
-  return table.clientHeight > runs.clientHeight;
+  if (table && runs) {
+    console.log(`table.clientHeight = ${table.clientHeight} runs.clientHeight = ${runs.clientHeight}`);
+    console.log('<<< isRunsListShort');
+    return table.clientHeight > runs.clientHeight;
+  }
+  return false;
 };
 
 const mapStateToProps = (state, ownProps) => {
