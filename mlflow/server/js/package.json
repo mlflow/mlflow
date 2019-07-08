@@ -44,7 +44,7 @@
     "sanitize-html": "^1.18.5",
     "showdown": "^1.8.6",
     "url-parse": "1.4.3",
-    "yup": "^0.26.3",
+    "yup": "^0.26.3"
   },
   "devDependencies": {
     "babel-eslint": "8.2.2",
