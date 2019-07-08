@@ -36,7 +36,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAM
     LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, \
     MLFLOW_PROJECT_BACKEND
 from mlflow.utils import databricks_utils, file_utils
-from mlflow.utils.conda_utils import _get_conda_command, _get_or_create_conda_env
+from mlflow.utils.conda_utils import _activate_conda_env_command, _get_or_create_conda_env
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -139,7 +139,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "local")
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
-            command.append(_get_conda_command(conda_env_name))
+            command.append(_activate_conda_env_command(conda_env_name))
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be
         # persisted to the tracking server if interrupted

@@ -2,7 +2,6 @@ import hashlib
 import json
 import logging
 import os
-import subprocess
 from mlflow.utils import process
 
 from mlflow.exceptions import ExecutionException
@@ -13,17 +12,7 @@ MLFLOW_CONDA_HOME = "MLFLOW_CONDA_HOME"
 _logger = logging.getLogger(__name__)
 
 
-def _can_run_conda_activate():
-    with open(os.devnull, 'w') as devnull_stderr, open(os.devnull, 'w') as devnull_stdout:
-        try:
-            return subprocess.call([os.environ["SHELL"], "-ic", "conda activate"],
-                                   stderr=devnull_stderr,
-                                   stdout=devnull_stdout, preexec_fn=os.setsid) == 0
-        except Exception:  # pylint: disable=broad-except
-            return False
-
-
-def _get_conda_command(conda_env_name):
+def _activate_conda_env_command(conda_env_name):
     activate_path = _get_conda_bin_executable("activate")
     return "source %s %s" % (activate_path, conda_env_name)
 
@@ -41,18 +30,10 @@ def _get_conda_bin_executable(executable_name):
     conda_home = os.environ.get(MLFLOW_CONDA_HOME)
     if conda_home:
         return os.path.join(conda_home, "bin/%s" % executable_name)
-    if executable_name == "activate" and _can_run_conda_activate():
-        # Special-case activate in newer condas, since it's not on the PATH by default. We find it
-        # by activating another environment & then identifying the path to 'activate'. Note that
-        # this probably doesn't work on Windows (`which` isn't a valid command). Alternatively,
-        # we could consider just invoking `conda activate` for newer condas, but this is problematic
-        # as it requires running a shell in interactive mode, which on Linux requires running
-        # the process in its own pgroup, which prevents cancellation signals from reaching the
-        # project.
-        (_, _, activate_path) = process.exec_cmd(
-            [os.environ["SHELL"], "-ic", "conda activate && which activate 1>&2"],
-            preexec_fn=os.setsid)
-        return activate_path.strip()
+    # Use CONDA_EXE as per https://github.com/conda/conda/issues/7126
+    if "CONDA_EXE" in os.environ:
+        conda_bin_dir = os.path.dirname(os.environ["CONDA_EXE"])
+        return os.path.join(conda_bin_dir, executable_name)
     return executable_name
 
 
@@ -76,8 +57,7 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
     """
     conda_path = _get_conda_bin_executable("conda")
     try:
-        process.exec_cmd([os.environ["SHELL"], "-ic", "%s --help" % conda_path],
-                         throw_on_error=False)
+        process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException("Could not find Conda executable at {0}. "
                                  "Ensure Conda is installed as per the instructions "
@@ -88,20 +68,15 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
     # The approach here is to directly run the user's conda executable (e.g. on Databricks or other
     # environments where MLFLOW_CONDA_HOME is set), and set up the shell to detect the conda
     # bash function otherwise
-    (_, _, stderr) = process.exec_cmd(
-        [os.environ["SHELL"], "-ic", "%s env list --json 1>&2" % conda_path])
-    env_names = [os.path.basename(env) for env in json.loads(stderr)['envs']]
+    (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
+    env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
     if project_env_name not in env_names:
         _logger.info('=== Creating conda environment %s ===', project_env_name)
         if conda_env_path:
-            create_env_cmd =\
-                "{conda_path} env create -n {project_env_name} --file {conda_env_path}".format(
-                    conda_path=conda_path, project_env_name=project_env_name,
-                    conda_env_path=conda_env_path)
+            process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "--file",
+                              conda_env_path], stream_output=True)
         else:
-            create_env_cmd = "{conda_path} env create -n {project_env_name} python".format(
-                conda_path=conda_path, project_env_name=project_env_name)
-        process.exec_cmd([os.environ["SHELL"], "-ic", create_env_cmd], stream_output=True)
-
+            process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "python"],
+                             stream_output=True)
     return project_env_name
