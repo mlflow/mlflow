@@ -28,6 +28,12 @@ public class MlflowContextTest {
   }
 
   @Test
+  public void testGetClient() {
+    MlflowContext mlflow = setupMlflowContext();
+    Assert.assertEquals(mlflow.getClient(), mockClient);
+  }
+
+  @Test
   public void testSetExperimentName() {
     // Will throw if there is no experiment with the same name.
     {
@@ -51,6 +57,13 @@ public class MlflowContextTest {
   }
 
   @Test
+  public void testSetAndGetExperimentId() {
+      MlflowContext mlflow = setupMlflowContext();
+      mlflow.setExperimentId("apple");
+      Assert.assertEquals(mlflow.getExperimentId(), "apple");
+  }
+
+  @Test
   public void testStartRun() {
     // Sets the appropriate tags
     ArgumentCaptor<CreateRun> createRunArgument = ArgumentCaptor.forClass(CreateRun.class);
@@ -67,6 +80,18 @@ public class MlflowContextTest {
   }
 
   @Test
+  public void testStartRunWithNoRunName() {
+    // Sets the appropriate tags
+    ArgumentCaptor<CreateRun> createRunArgument = ArgumentCaptor.forClass(CreateRun.class);
+    MlflowContext mlflow = setupMlflowContext();
+    mlflow.startRun();
+    verify(mockClient).createRun(createRunArgument.capture());
+    List<RunTag> tags = createRunArgument.getValue().getTagsList();
+    Assert.assertFalse(
+      tags.stream().anyMatch(tag -> tag.getKey().equals(MlflowTagConstants.RUN_NAME)));
+  }
+
+  @Test
   public void testWithActiveRun() {
     // Sets the appropriate tags
     MlflowContext mlflow = setupMlflowContext();
@@ -79,6 +104,21 @@ public class MlflowContextTest {
     verify(mockClient).createRun(any(CreateRun.class));
     verify(mockClient).setTerminated(any(), any());
   }
+
+  @Test
+  public void testWithActiveRunNoRunName() {
+    // Sets the appropriate tags
+    MlflowContext mlflow = setupMlflowContext();
+    mlflow.setExperimentId("123");
+    when(mockClient.createRun(any(CreateRun.class)))
+      .thenReturn(RunInfo.newBuilder().setRunId("test-id").build());
+    mlflow.withActiveRun(activeRun -> {
+      Assert.assertEquals(activeRun.getId(), "test-id");
+    });
+    verify(mockClient).createRun(any(CreateRun.class));
+    verify(mockClient).setTerminated(any(), any());
+  }
+
 
   private static RunTag createRunTag(String key, String value) {
     return RunTag.newBuilder().setKey(key).setValue(value).build();
