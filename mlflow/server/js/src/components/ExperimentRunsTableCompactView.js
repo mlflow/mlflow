@@ -561,6 +561,13 @@ class ExperimentRunsTableCompactView extends PureComponent {
     );
   }
 
+  componentDidUpdate(prevProps, prevState, snapshot) {
+    if (prevProps.loadingMore === true && this.props.loadingMore === false) {
+      const isAtScrollBottom = false;
+      this.props.handleScrollBottomChange(isAtScrollBottom);
+    }
+  }
+
   handleScroll = _.debounce(({ clientHeight, scrollHeight, scrollTop }) => {
     console.log('>>> handleScroll');
     const isAtScrollBottom = isRunsListShort() || (clientHeight + scrollTop === scrollHeight);

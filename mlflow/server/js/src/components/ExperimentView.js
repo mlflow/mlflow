@@ -496,6 +496,7 @@ export class ExperimentView extends Component {
                   onRemoveBagged={this.removeBagged}
                   nextPageToken={this.props.nextPageToken}
                   handleScrollBottomChange={this.handleScrollBottomChange}
+                  loadingMore={loadingMore}
                 />
             )
           }
