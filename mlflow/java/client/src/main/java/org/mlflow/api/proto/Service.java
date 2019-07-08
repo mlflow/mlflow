@@ -42503,9 +42503,9 @@ public final class Service {
       "flow/runs/set-tag\032\004\010\002\020\000\n*\n\004POST\022\034/previe" +
       "w/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\244" +
       "\001\n\tdeleteTag\022\021.mlflow.DeleteTag\032\032.mlflow" +
-      ".DeleteTag.Response\"h\362\206\031d\n-\n\004POST\022\037/prev" +
-      "iew/mlflow/runs/delete-tag\032\004\010\002\020\000\n%\n\004POST" +
-      "\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelet" +
+      ".DeleteTag.Response\"h\362\206\031d\n%\n\004POST\022\027/mlfl" +
+      "ow/runs/delete-tag\032\004\010\002\020\000\n-\n\004POST\022\037/previ" +
+      "ew/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelet" +
       "e Tag\022\210\001\n\006getRun\022\016.mlflow.GetRun\032\027.mlflo" +
       "w.GetRun.Response\"U\362\206\031Q\n\035\n\003GET\022\020/mlflow/" +
       "runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/preview/mlflow/r" +

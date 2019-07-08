@@ -570,7 +570,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         with pytest.raises(MlflowException):
             self.store.delete_tag(run.info.run_id, k1)
 
-
     def test_get_metric_history(self):
         run = self._run_factory()
 

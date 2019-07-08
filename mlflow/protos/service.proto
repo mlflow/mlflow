@@ -273,11 +273,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/preview/mlflow/runs/delete-tag"
+        path: "/mlflow/runs/delete-tag"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/mlflow/runs/delete-tag"
+        path: "/preview/mlflow/runs/delete-tag"
         since { major: 2, minor: 0 },
       }],
 
