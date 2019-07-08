@@ -71,13 +71,11 @@ export class ExperimentPage extends Component {
     this.setState({ loadingMore: true });
     loadMoreRunsApi([experimentId], nextPageToken, ExperimentPage.loadMoreRunReqestId)
       .then(({ value }) => {
-        if (value && value.next_page_token) {
-          const isLastPage = value.runs && value.runs.length !== SEARCH_MAX_RESULTS + 1;
-          this.setState({
-            nextPageToken: isLastPage ? null : value.next_page_token,
-            loadingMore: false,
-          });
+        let nextPageToken = null;
+        if (value) {
+          nextPageToken = value.next_page_token;
         }
+        this.setState({ nextPageToken, loadingMore: false });
       })
       .catch((e) => {
         console.log(e);
