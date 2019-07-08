@@ -12,4 +12,3 @@ Several constants are used by multiple backend store implementations.
 DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH = "./mlruns"
 SEARCH_MAX_RESULTS_DEFAULT = 1000
 SEARCH_MAX_RESULTS_THRESHOLD = 50000
-SEARCH_MAX_RESULTS_PANDAS = 50000
