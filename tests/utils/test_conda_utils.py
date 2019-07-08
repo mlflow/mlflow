@@ -8,5 +8,6 @@ def test_conda_path():
     with mock.patch.dict("os.environ", {MLFLOW_CONDA_HOME: "/some/dir/"}):
         assert _get_conda_bin_executable("conda") == "/some/dir/bin/conda"
         assert _get_conda_bin_executable("activate") == "/some/dir/bin/activate"
-    with mock.patch.dict("os.environ", {}):
+    with mock.patch.dict("os.environ", {}, clear=True):
         assert _get_conda_bin_executable("conda") == "conda"
+        assert _get_conda_bin_executable("activate") == "activate"
