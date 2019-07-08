@@ -167,7 +167,7 @@ public class MlflowClient {
    *                    Defaults to ACTIVE_ONLY.
    * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
    *
-   * @return A list of all RunInfos that satisfy search filter.
+   * @return A list of all Runs that satisfy search filter.
    */
   public List<Run> searchRuns(List<String> experimentIds,
                                   String searchFilter,
