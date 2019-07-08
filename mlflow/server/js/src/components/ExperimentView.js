@@ -163,6 +163,15 @@ export class ExperimentView extends Component {
     if (!this.filtersDidUpdate(prevState)) {
       this.snapshotComponentState();
     }
+    // Eagerly toggle `isAtScrollBottom` off when load-more starts.
+    // This will:
+    // 1. Prevent `load more` button from hanging around after load more finishes.
+    // 2. Prevent a UI flickering caused by a render with
+    // (loadingMore === false && isAtScrollBottom === true), which makes it better than setting it
+    // after load more finishes.
+    if (prevProps.loadingMore === false && this.props.loadingMore === true) {
+      this.setState({ isAtScrollBottom: false });
+    }
   }
 
   componentWillUnmount() {
@@ -266,6 +275,7 @@ export class ExperimentView extends Component {
       runInfos,
       paramKeyFilter,
       metricKeyFilter,
+      isLoading,
       loadingMore,
       nextPageToken,
     } = this.props;
@@ -500,26 +510,31 @@ export class ExperimentView extends Component {
                 />
             )
           }
-          <div
-            className='load-more-row'
-            style={{
-              visibility: (nextPageToken && isAtScrollBottom) || loadingMore ? 'visible' : 'hidden',
-            }}
-          >
-            {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
-            {this.props.loadingMore ? (
-              <div><Icon type='loading' style={{ fontSize: 20 }} /></div>
-            ) : (
-              <AntdButton
-                type='primary'
-                htmlType='button'
-                onClick={this.loadMoreRuns}
-                disabled={loadingMore}
-              >
-                Load more
-              </AntdButton>
-            )}
-          </div>
+          { console.log(`=== render nextPageToken = ${nextPageToken}, isAtScrollBottom = ${isAtScrollBottom}, loadingMore=${loadingMore}`) }
+          {isLoading ? null : (
+            <div
+              className='load-more-row'
+              style={{
+                visibility: (nextPageToken && isAtScrollBottom) || loadingMore ? 'visible' : 'hidden',
+              }}
+            >
+              {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
+              {loadingMore ? (
+                <div>
+                  <Icon type='sync' spin style={{ fontSize: 20 }}/>
+                </div>
+              ) : (
+                <AntdButton
+                  type='primary'
+                  htmlType='button'
+                  onClick={this.loadMoreRuns}
+                  disabled={loadingMore}
+                >
+                  Load more
+                </AntdButton>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -799,8 +814,7 @@ export class ExperimentView extends Component {
 
 export const mapStateToProps = (state, ownProps) => {
   console.log('state.entities.runInfosByUuid', state.entities.runInfosByUuid);
-  const { lifecycleFilter, searchRunsRequestId } = ownProps;
-  // const searchRunApi = getApis([searchRunsRequestId], state)[0];
+  const { lifecycleFilter } = ownProps;
 
   // The runUuids we should serve.
   const { runInfosByUuid } = state.entities;

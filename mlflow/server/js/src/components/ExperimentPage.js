@@ -56,20 +56,13 @@ export class ExperimentPage extends Component {
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
 
     getExperimentApi(experimentId, getExperimentRequestId);
-    searchRunsApi([experimentId], searchInput, viewType, orderBy, searchRunsRequestId)
-      .then(({ value }) => {
-        if (value && value.next_page_token) {
-          this.setState({ nextPageToken: value.next_page_token });
-        }
-      });
+    this.withRunsUpdateHandling(
+      searchRunsApi([experimentId], searchInput, viewType, orderBy, searchRunsRequestId),
+    );
   }
 
-  static loadMoreRunReqestId = getUUID();
-
-  handleLoadMoreRuns = (nextPageToken) => {
-    const { loadMoreRunsApi, experimentId } = this.props;
-    this.setState({ loadingMore: true });
-    loadMoreRunsApi([experimentId], nextPageToken, ExperimentPage.loadMoreRunReqestId)
+  withRunsUpdateHandling(promise) {
+    promise
       .then(({ value }) => {
         let nextPageToken = null;
         if (value) {
@@ -79,8 +72,18 @@ export class ExperimentPage extends Component {
       })
       .catch((e) => {
         console.log(e);
-        this.setState({ loadingMore: false });
+        this.setState({ nextPageToken: null, loadingMore: false });
       });
+  }
+
+  static loadMoreRunReqestId = getUUID();
+
+  handleLoadMoreRuns = (nextPageToken) => {
+    const { loadMoreRunsApi, experimentId } = this.props;
+    this.setState({ loadingMore: true });
+    this.withRunsUpdateHandling(
+      loadMoreRunsApi([experimentId], nextPageToken, ExperimentPage.loadMoreRunReqestId)
+    );
   };
 
   static propTypes = {
@@ -110,21 +113,8 @@ export class ExperimentPage extends Component {
 
   }
 
-  maybeReloadData() {
-    if (this.props.experimentId !== this.state.lastExperimentId) {
-      console.log('TODO: call init load');
-      // this.setState({
-      //   persistedState: state.lastExperimentId === undefined ?
-      //     state.persistedState : (new ExperimentPagePersistedState()).toJSON(),
-      //   lastExperimentId: props.experimentId,
-      //   lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
-      // });
-    }
-  }
-
   componentDidUpdate() {
     this.snapshotComponentState();
-    this.maybeReloadData();
   }
 
   componentWillUnmount() {
@@ -153,8 +143,16 @@ export class ExperimentPage extends Component {
 
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const searchRunsRequestId = getUUID();
-    this.props.searchRunsApi([this.props.experimentId], searchInput,
-      lifecycleFilterToRunViewType(lifecycleFilterInput), orderBy, searchRunsRequestId);
+    this.withRunsUpdateHandling(
+      this.props.searchRunsApi(
+        [this.props.experimentId],
+        searchInput,
+        lifecycleFilterToRunViewType(lifecycleFilterInput),
+        orderBy,
+        searchRunsRequestId,
+      ),
+    );
+
     this.setState({ searchRunsRequestId });
     this.updateUrlWithSearchFilter({
       paramKeyFilterString,
