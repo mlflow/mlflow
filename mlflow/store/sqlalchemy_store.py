@@ -463,6 +463,17 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
+    def delete_tag(self, run_id, tag_name):
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            filtered_tags = session.query(SqlTag).filter_by(key=tag_name).all()
+            if len(filtered_tags) == 0:
+                raise MlflowException("No tag with name: {} in run with id {}".format(tag_name, run_id))
+            elif len(filtered_tags) > 1:
+                raise MlflowException("Bad data - tag with multiple value entries. Please file an issue.")
+            session.delete(filtered_tags[0])
+
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
         # TODO: push search query into backend database layer
