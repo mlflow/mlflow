@@ -70,7 +70,7 @@ const runInfosByUuid = (state = {}, action) => {
         });
         return newState;
       }
-      return state;
+      return {};
     }
     case rejected(SEARCH_RUNS_API): {
       return {};
