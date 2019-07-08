@@ -34,7 +34,7 @@ class TestRestStore(unittest.TestCase):
             assert kwargs == {
                 'method': 'GET',
                 'params': {'view_type': 'ACTIVE_ONLY'},
-                'url': 'https://hello/api/2.0/preview/mlflow/experiments/list',
+                'url': 'https://hello/api/2.0/mlflow/experiments/list',
                 'headers': _DEFAULT_HEADERS,
                 'verify': True,
             }
@@ -95,7 +95,7 @@ class TestRestStore(unittest.TestCase):
 
     def _args(self, host_creds, endpoint, method, json_body):
         return {'host_creds': host_creds,
-                'endpoint': "/api/2.0/preview/mlflow/%s" % endpoint,
+                'endpoint': "/api/2.0/mlflow/%s" % endpoint,
                 'method': method,
                 'json': json.loads(json_body)}
 
@@ -116,14 +116,16 @@ class TestRestStore(unittest.TestCase):
         source_name = "rest test"
 
         source_name_patch = mock.patch(
-            "mlflow.tracking.context._get_source_name", return_value=source_name
+            "mlflow.tracking.context.default_context._get_source_name", return_value=source_name
         )
         source_type_patch = mock.patch(
-            "mlflow.tracking.context._get_source_type", return_value=SourceType.LOCAL
+            "mlflow.tracking.context.default_context._get_source_type",
+            return_value=SourceType.LOCAL
         )
         with mock.patch('mlflow.store.rest_store.http_request') as mock_http, \
                 mock.patch('mlflow.tracking.utils._get_store', return_value=store), \
-                mock.patch('mlflow.tracking.context._get_user', return_value=user_name), \
+                mock.patch('mlflow.tracking.context.default_context._get_user',
+                           return_value=user_name), \
                 mock.patch('time.time', return_value=13579), \
                 source_name_patch, source_type_patch:
             with mlflow.start_run(experiment_id="43"):

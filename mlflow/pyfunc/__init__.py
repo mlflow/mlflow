@@ -464,7 +464,8 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
                mlflow_model=Model(), python_model=None, artifacts=None)
 
-    Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
+    Save a Pyfunc model with custom inference logic and optional data dependencies to a path on the
+    local filesystem.
 
     For information about the workflows that this method supports, please see :ref:`"workflows for
     creating custom pyfunc models" <pyfunc-create-custom-workflows>` and
@@ -579,7 +580,8 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
               python_model=None, artifacts=None):
     """
-    Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
+    Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
+    artifact for the current run.
 
     For information about the workflows that this method supports, see :ref:`Workflows for
     creating custom pyfunc models <pyfunc-create-custom-workflows>` and
