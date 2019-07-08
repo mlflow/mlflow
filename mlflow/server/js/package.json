@@ -17,6 +17,7 @@
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
     "lodash": "^4.17.11",
     "merge": "1.2.1",
+    "@nteract/notebook-preview": "11.0.4-alpha.0",
     "plotly.js": "1.42.5",
     "prop-types": "15.6.1",
     "qs": "6.5.2",
@@ -44,9 +45,6 @@
     "showdown": "^1.8.6",
     "url-parse": "1.4.3",
     "yup": "^0.26.3",
-    "@nteract/notebook-preview": "11.0.4-alpha.0",
-    "@nteract/commutable": "7.1.2",
-    "react-notebook": "0.1.0"
   },
   "devDependencies": {
     "babel-eslint": "8.2.2",
