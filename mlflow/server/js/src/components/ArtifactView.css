@@ -26,7 +26,6 @@
 }
 
 div.artifact-view {
-  height: 558px;
   border: solid 1px #ccc;
   display: flex;
 }
