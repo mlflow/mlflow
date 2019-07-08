@@ -561,15 +561,6 @@ class ExperimentRunsTableCompactView extends PureComponent {
     );
   }
 
-  // componentDidMount() {
-  //   // TODO(Zangr) comment or call at a location which guarantee table rendering finished.
-  //   setTimeout(() => {
-  //     if (isRunsListShort()) {
-  //       this.props.handleScrollBottomChange(true);
-  //     }
-  //   }, 500);
-  // }
-
   handleScroll = _.debounce(({ clientHeight, scrollHeight, scrollTop }) => {
     console.log('>>> handleScroll');
     const isAtScrollBottom = isRunsListShort() || (clientHeight + scrollTop === scrollHeight);

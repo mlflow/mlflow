@@ -506,16 +506,18 @@ export class ExperimentView extends Component {
             }}
           >
             {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
-            <AntdButton
-              type='primary'
-              htmlType='button'
-              onClick={this.loadMoreRuns}
-            >
-              {this.props.loadingMore ? (
-                <Icon type='loading' />
-              ) : null}
-              {this.props.loadingMore ? 'Loading more...' : 'Load more'}
-            </AntdButton>
+            {this.props.loadingMore ? (
+              <div><Icon type='loading' style={{ fontSize: 20 }} /></div>
+            ) : (
+              <AntdButton
+                type='primary'
+                htmlType='button'
+                onClick={this.loadMoreRuns}
+                disabled={loadingMore}
+              >
+                Load more
+              </AntdButton>
+            )}
           </div>
         </div>
       </div>

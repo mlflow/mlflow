@@ -287,7 +287,7 @@ span.error-message {
   position: relative;
   width: calc(100% - 2px); /* -2px for margin */
   min-width: 1398px;
-  top: -74px;
+  top: -71px;
   align-items: center;
   margin: 0 1px; /* update calc with after changing this */
   border-top: 1px solid #ccc;
