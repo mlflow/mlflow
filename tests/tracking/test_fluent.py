@@ -399,8 +399,10 @@ def test_search_runs_data():
 
 
 def test_search_runs_no_arguments():
-    # When no experiment ID is specified,
-    # it should try to get the implicit one or create a new experiment
+    """"
+    When no experiment ID is specified, it should try to get the implicit one or
+    create a new experiment
+    """
     mock_experiment_id = mock.Mock()
     experiment_id_patch = mock.patch("mlflow.tracking.fluent._get_experiment_id",
                                      return_value=mock_experiment_id)
@@ -413,8 +415,11 @@ def test_search_runs_no_arguments():
         )
 
 
-def test_get_paginated_runs_lt_maxresults_blanktoken():
-    # num runs is less than max_results, only one page
+def test_get_paginated_runs_lt_maxresults_onepage():
+    """"
+    Number of runs is less than max_results and fits on one page,
+    so we only need to fetch one page.
+    """
     runs = [create_run() for i in range(5)]
     tokenized_runs = PagedList(runs, "")
     max_results = 50
@@ -425,20 +430,10 @@ def test_get_paginated_runs_lt_maxresults_blanktoken():
             assert len(paginated_runs) == 5
 
 
-def test_get_paginated_runs_lt_maxresults_notoken():
-    # num runs is less than max_results, only one page
-    # the list returned is not a PagedList, no token attribute
-    runs = [create_run() for i in range(5)]
-    max_results = 50
-    with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
-        with mock.patch.object(MlflowClient, "search_runs", return_value=runs):
-            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
-            MlflowClient.search_runs.assert_called_once()
-            assert len(paginated_runs) == 5
-
-
 def test_get_paginated_runs_lt_maxresults_multipage():
-    # num runs is less than max_results, but multiple pages
+    """"
+    Number of runs is less than max_results, but multiple pages are necessary to get all runs
+    """
     tokenized_runs = PagedList([create_run() for i in range(10)], "token")
     no_token_runs = PagedList([create_run()], "")
     max_results = 50
@@ -452,6 +447,12 @@ def test_get_paginated_runs_lt_maxresults_multipage():
 
 
 def test_get_paginated_runs_eq_maxresults_blanktoken():
+    """
+    Runs returned are equal to max_results which are equal to a full number of pages.
+    The server might send a token back, or they might not (depending on if they know if
+    more runs exist). In this example, no token is sent back.
+    Expected behavior is to NOT query for more pages.
+    """
     # runs returned equal to max_results, blank token
     runs = [create_run() for i in range(10)]
     tokenized_runs = PagedList(runs, "")
@@ -466,7 +467,12 @@ def test_get_paginated_runs_eq_maxresults_blanktoken():
 
 
 def test_get_paginated_runs_eq_maxresults_token():
-    # runs returned equal to max_results, token appended which if used will result in no runs
+    """
+    Runs returned are equal to max_results which are equal to a full number of pages.
+    The server might send a token back, or they might not (depending on if they know if
+    more runs exist). In this example, a toke IS sent back.
+    Expected behavior is to NOT query for more pages.
+    """
     runs = [create_run() for i in range(10)]
     tokenized_runs = PagedList(runs, "abc")
     blank_runs = PagedList([], "")
@@ -479,7 +485,11 @@ def test_get_paginated_runs_eq_maxresults_token():
             assert len(paginated_runs) == 10
 
 
-def test_get_paginated_runs_gt_maxresults():
+def test_get_paginated_runs_gt_maxresults_multipage():
+    """
+    Number of runs that fit search criteria is greater than max_results. Multiple pages expected.
+    Expected to only get max_results number of results back.
+    """
     # should ask for and return the correct number of max_results
     full_page_runs = PagedList([create_run() for i in range(8)], "abc")
     partial_page = PagedList([create_run() for i in range(4)], "def")
@@ -495,8 +505,11 @@ def test_get_paginated_runs_gt_maxresults():
             assert len(paginated_runs) == 20
 
 
-def test_get_paginated_maxresults_lt_runs_per_page():
-    # should only get max_result number of runs, should only call search_runs once
+def test_get_paginated_runs_gt_maxresults_onepage():
+    """"
+    Number of runs that fit search criteria is greater than max_results. Only one page expected.
+    Expected to only get max_results number of results back.
+    """
     runs = [create_run() for i in range(10)]
     tokenized_runs = PagedList(runs, "abc")
     max_results = 10
