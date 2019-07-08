@@ -367,6 +367,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
       <div id="autosizer-container" className="runs-table-flex-container">
           <AutoSizer>
             {({width, height}) => {
+              console.log(`width = ${width}, height=${height}`);
               if (this._lastRenderedWidth !== width) {
                 this._lastRenderedWidth = width;
                 this._cache.clearAll();
@@ -560,13 +561,33 @@ class ExperimentRunsTableCompactView extends PureComponent {
     );
   }
 
+  // componentDidMount() {
+  //   // TODO(Zangr) comment or call at a location which guarantee table rendering finished.
+  //   setTimeout(() => {
+  //     if (isRunsListShort()) {
+  //       this.props.handleScrollBottomChange(true);
+  //     }
+  //   }, 500);
+  // }
+
   handleScroll = _.debounce(({ clientHeight, scrollHeight, scrollTop }) => {
-    const isAtScrollBottom = clientHeight + scrollTop === scrollHeight;
+    console.log('>>> handleScroll');
+    const isAtScrollBottom = isRunsListShort() || (clientHeight + scrollTop === scrollHeight);
+    console.log(`clientHeight = ${clientHeight}, scrollHeight=${scrollHeight}, scrollTop=${scrollTop}`);
     console.log('isAtScrollBottom = ', isAtScrollBottom);
     this.props.handleScrollBottomChange(isAtScrollBottom);
+    console.log('<<< handleScroll');
   }, 100);
-
 }
+
+const isRunsListShort = () => {
+  console.log('>>> isRunsListShort');
+  const table = document.querySelector('.ReactVirtualized__Grid.ReactVirtualized__Table__Grid');
+  const runs = document.querySelector('.ReactVirtualized__Grid__innerScrollContainer');
+  console.log(`table.clientHeight = ${table.clientHeight} runs.clientHeight = ${runs.clientHeight}`);
+  console.log('<<< isRunsListShort');
+  return table.clientHeight > runs.clientHeight;
+};
 
 const mapStateToProps = (state, ownProps) => {
   const { metricsList } = ownProps;

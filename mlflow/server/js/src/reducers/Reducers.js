@@ -57,21 +57,21 @@ export const getRunInfo = (runUuid, state) => {
 
 const runInfosByUuid = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(GET_EXPERIMENT_API): {
-      let newState = { ...state };
-      if (action.payload && action.payload.runs) {
-        action.payload.runs.forEach((rJson) => {
-          const runInfo = RunInfo.fromJs(rJson);
-          newState = amendRunInfosByUuid(newState, runInfo);
-        });
-      }
-      return newState;
-    }
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
       return amendRunInfosByUuid(state, runInfo);
     }
-    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(SEARCH_RUNS_API): {
+      if (action.payload && action.payload.runs) {
+        const newState = {};
+        action.payload.runs.forEach((rJson) => {
+          const runInfo = RunInfo.fromJs(rJson.info);
+          newState[runInfo.getRunUuid()] = runInfo;
+        });
+        return newState;
+      }
+      return state;
+    }
     case fulfilled(LOAD_MORE_RUNS_API): {
       let newState = { ...state };
       if (action.payload && action.payload.runs) {

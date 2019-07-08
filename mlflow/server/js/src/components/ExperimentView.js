@@ -266,7 +266,10 @@ export class ExperimentView extends Component {
       runInfos,
       paramKeyFilter,
       metricKeyFilter,
+      loadingMore,
+      nextPageToken,
     } = this.props;
+    const { isAtScrollBottom } = this.state;
 
     // Apply our parameter and metric key filters to just pass the filtered, sorted lists
     // of parameter and metric names around later
@@ -496,20 +499,24 @@ export class ExperimentView extends Component {
                 />
             )
           }
-          {this.props.nextPageToken && this.state.isAtScrollBottom ? (
-            <div className='load-more-row'>
-              <AntdButton
-                type='primary'
-                htmlType='button'
-                onClick={this.loadMoreRuns}
-              >
-                {this.props.loadingMore ? (
-                  <Icon type='loading' />
-                ) : null}
-                {this.props.loadingMore ? 'Loading more...' : 'Load more'}
-              </AntdButton>
-            </div>
-          ) : null}
+          <div
+            className='load-more-row'
+            style={{
+              visibility: (nextPageToken && isAtScrollBottom) || loadingMore ? 'visible' : 'hidden',
+            }}
+          >
+            {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
+            <AntdButton
+              type='primary'
+              htmlType='button'
+              onClick={this.loadMoreRuns}
+            >
+              {this.props.loadingMore ? (
+                <Icon type='loading' />
+              ) : null}
+              {this.props.loadingMore ? 'Loading more...' : 'Load more'}
+            </AntdButton>
+          </div>
         </div>
       </div>
     );
@@ -788,6 +795,7 @@ export class ExperimentView extends Component {
 }
 
 export const mapStateToProps = (state, ownProps) => {
+  console.log('state.entities.runInfosByUuid', state.entities.runInfosByUuid);
   const { lifecycleFilter, searchRunsRequestId } = ownProps;
   // const searchRunApi = getApis([searchRunsRequestId], state)[0];
 
@@ -809,7 +817,8 @@ export const mapStateToProps = (state, ownProps) => {
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
   const metricsList = runInfos.map((runInfo) => {
-    const metrics = Object.values(getLatestMetrics(runInfo.getRunUuid(), state));
+    const metricsByRunUuid = getLatestMetrics(runInfo.getRunUuid(), state);
+    const metrics = Object.values(metricsByRunUuid || {});
     metrics.forEach((metric) => {
       metricKeysSet.add(metric.key);
     });
