@@ -295,7 +295,7 @@ def get_artifact_uri(artifact_path=None):
 def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
                 max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None):
     """
-    Search experiments that fit the search criteria.
+    Get a pandas DataFrame of runs that fit the search criteria.
 
     :param experiment_ids: List of experiment IDs. None will default to the active experiment.
     :param filter_string: Filter query string, defaults to searching all runs.
@@ -306,10 +306,10 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
                         ordering is to sort by start_time DESC, then run_id.
 
-    :return: A pandas.DataFrame object of runs, where each metric, parameter, and tag
+    :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
         are expanded into their own columns named metrics.*, params.*, and tags.*
         respectively. For runs that don't have a particular metric, parameter, or tag, their
-        value will be np.nan, None, or None respectively
+        value will be (Numpy) Nan, None, or None respectively
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
