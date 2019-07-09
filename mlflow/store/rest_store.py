@@ -189,13 +189,13 @@ class RestStore(AbstractStore):
             run_uuid=run_id, run_id=run_id, key=tag.key, value=tag.value))
         self._call_endpoint(SetTag, req_body)
 
-    def delete_tag(self, run_id, tag_name):
+    def delete_tag(self, run_id, key):
         """
         Delete a tag for the specified run with the specified tag key.
         :param run_id:
         :param tag_name
         """
-        req_body = message_to_json(DeleteTag(run_id=run_id, name=tag_name))
+        req_body = message_to_json(DeleteTag(run_id=run_id, key=key))
         self._call_endpoint(DeleteTag, req_body)
 
     def get_metric_history(self, run_id, metric_key):

@@ -803,7 +803,7 @@ message DeleteTag {
   optional string run_id = 2;
 
   // Name of the tag. Maximum size is 255 bytes.
-  optional string name = 1 [(validate_required) = true];
+  optional string key = 1 [(validate_required) = true];
 
   message Response {
   }

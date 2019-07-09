@@ -168,7 +168,7 @@ class TestRestStore(unittest.TestCase):
 
         with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
             store.delete_tag("some_uuid", "t1")
-            body = message_to_json(DeleteTag(run_id="some_uuid", name="t1"))
+            body = message_to_json(DeleteTag(run_id="some_uuid", key="t1"))
             self._verify_requests(mock_http, creds,
                                   "runs/delete-tag", "POST", body)
 

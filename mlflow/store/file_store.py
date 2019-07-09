@@ -585,13 +585,13 @@ class FileStore(AbstractStore):
         # Don't add trailing newline
         write_to(tag_path, self._writeable_value(tag.value))
 
-    def delete_tag(self, run_id, tag_name):
+    def delete_tag(self, run_id, key):
         _validate_run_id(run_id)
         run = self.get_run(run_id)
         check_run_is_active(run.info)
-        if tag_name not in run.data.tags.keys():
-            raise MlflowException("No tag with name: {} in run with id {}".format(tag_name, run_id))
-        tag_path = self._get_tag_path(run.info.experiment_id, run_id, tag_name)
+        if key not in run.data.tags.keys():
+            raise MlflowException("No tag with name: {} in run with id {}".format(key, run_id))
+        tag_path = self._get_tag_path(run.info.experiment_id, run_id, key)
         mv(tag_path, self.trash_folder)
 
     def _overwrite_run_info(self, run_info):
