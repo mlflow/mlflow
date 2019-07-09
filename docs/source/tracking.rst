@@ -133,6 +133,17 @@ an optional ``artifact_path``.
 logged to.
 
 
+Automatic logging
+------------------
+MLflow supports automatic logging from TensorFlow without the need for explicit log
+statements. You can enable this feature by calling :py:func:`mlflow.tensorflow.autolog`
+before your training code.
+
+:py:func:`mlflow.tensorflow.autolog` enables auto-logging from TensorFlow, optionally taking
+a ``metrics_every_n_steps`` argument to specify the frequency with which metrics should be
+logged to MLflow.
+
+
 Launching Multiple Runs in One Program
 --------------------------------------
 
