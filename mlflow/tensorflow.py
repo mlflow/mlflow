@@ -475,10 +475,26 @@ def _setup_callbacks(lst):
 def autolog(metrics_every_n_steps=100):
     # pylint: disable=E0611
     """
-    Enable autologging from TensorFlow to MLflow.
+    Enable automatic logging from TensorFlow to MLflow. If applicable,
+    model checkpoints are logged as artifacts to a 'models' directory, along
+    with any TensorBoard log data.
+
+    Refer to the tracking documentation for
+    information on what is logged with different TensorFlow workflows.
+    :param metrics_every_n_steps: The frequency with which metrics should be logged.
+                                  Defaults to 100. Ex: a value of 100 will log every
+                                  100th metric.
     """
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = metrics_every_n_steps
+
+    from distutils.version import StrictVersion
+
+    if StrictVersion(tensorflow.__version__) < StrictVersion('1.12') \
+        or StrictVersion(tensorflow.__version__) > StrictVersion('2'):
+        warnings.warn("Could not log to MLflow. Only TensorFlow versions" +
+                      "1.12 <= v < 2.0.0 are supported.")
+
 
     try:
         from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
@@ -486,8 +502,8 @@ def autolog(metrics_every_n_steps=100):
         from tensorflow.python.saved_model import tag_constants
         from tensorflow.python.summary.writer.writer import FileWriter
     except ImportError:
-        warnings.warn("Could not autolog to Mlflow. " +
-                      "Only TensorFlow versions <= 1.1x are supported.")
+        warnings.warn("Could not log to MLflow. Only TensorFlow versions" +
+                      "1.12 <= v < 2.0.0 are supported.")
         return
 
     @gorilla.patch(tensorflow.estimator.Estimator)
