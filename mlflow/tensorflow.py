@@ -492,7 +492,7 @@ def autolog(metrics_every_n_steps=100):
     from distutils.version import StrictVersion
 
     if StrictVersion(tensorflow.__version__) < StrictVersion('1.12') \
-        or StrictVersion(tensorflow.__version__) > StrictVersion('2'):
+        or StrictVersion(tensorflow.__version__) >= StrictVersion('2.0'):
         warnings.warn("Could not log to MLflow. Only TensorFlow versions" +
                       "1.12 <= v < 2.0.0 are supported.")
         return
