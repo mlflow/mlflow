@@ -143,6 +143,18 @@ before your training code.
 a ``metrics_every_n_steps`` argument to specify the frequency with which metrics should be
 logged to MLflow.
 
+The following table details auto-logging capabilities for different TensorFlow workflows:
+
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-----------------------------------+
+| Framework        | Metrics                                                | Parameters                                               | Tags          | Checkpoints                       |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-----------------------------------+
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | On training end                   |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-----------------------------------+
+| ``tf.estimator`` | TensorBoard metrics                                    | --                                                       | --            | On call to ``export_saved_model`` |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-----------------------------------+
+| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-----------------------------------+
+
 
 Launching Multiple Runs in One Program
 --------------------------------------

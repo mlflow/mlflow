@@ -481,9 +481,10 @@ def autolog(metrics_every_n_steps=100):
 
     Refer to the tracking documentation for
     information on what is logged with different TensorFlow workflows.
+
     :param metrics_every_n_steps: The frequency with which metrics should be logged.
-                                  Defaults to 100. Ex: a value of 100 will log every
-                                  100th metric.
+                                  Defaults to 100. Ex: a value of 100 will log every 100th metric.
+
     """
     global _LOG_EVERY_N_STEPS
     _LOG_EVERY_N_STEPS = metrics_every_n_steps
