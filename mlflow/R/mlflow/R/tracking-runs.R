@@ -192,7 +192,6 @@ mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
 #'  after a run completes.
 #'
 #' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
-#' @param value String value of the tag being logged. Maximum size is 500 bytes. This field is required.
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export

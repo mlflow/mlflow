@@ -15,8 +15,6 @@ mlflow_delete_tag(key, run_id = NULL, client = NULL)
 If specified, MLflow will use the tracking server associated with the passed-in client. If
 unspecified (the common case),
 MLflow will use the tracking server associated with the current tracking URI.}
-
-\item{value}{String value of the tag being logged. Maximum size is 500 bytes. This field is required.}
 }
 \description{
 Deletes a tag on a run. Tags are run metadata that can be updated during a run and
