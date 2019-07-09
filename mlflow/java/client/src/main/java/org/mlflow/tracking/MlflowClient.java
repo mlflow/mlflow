@@ -296,6 +296,13 @@ public class MlflowClient {
   }
 
   /**
+   * Delete a tag against the given run, given a String key.
+   */
+  public void deleteTag(String runId, String key) {
+    sendPost("runs/delete-tag", mapper.makeDeleteTag(runId, key));
+  }
+
+  /**
    * Log multiple metrics, params, and/or tags against a given run (argument runId).
    * Argument metrics, params, and tag iterables can be nulls.
    */
