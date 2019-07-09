@@ -15,6 +15,18 @@ import java.util.function.Consumer;
  * On construction, MlflowContext will choose a default experiment ID to log to depending on your
  * environment. To log to a different experiment, use {@link #setExperimentId(String)} or
  * {@link #setExperimentName(String)}
+ *
+ * <p>
+ * For example:
+ *   <pre>
+ *   // Uses the URI set in the MLFLOW_TRACKING_URI environment variable.
+ *   // To use your own tracking uri set it in the call to "new MlflowContext("tracking-uri")"
+ *   MlflowContext mlflow = new MlflowContext();
+ *   ActiveRun run = mlflow.startRun("run-name");
+ *   run.logParam("alpha", "0.5");
+ *   run.logMetric("MSE", 0.0);
+ *   run.endRun();
+ *   </pre>
  */
 public class MlflowContext {
   private MlflowClient client;
@@ -61,21 +73,23 @@ public class MlflowContext {
    * @param experimentName the name of the experiment to log runs to.
    * @throws IllegalArgumentException if the experiment name does not match an existing experiment
    */
-  public void setExperimentName(String experimentName) throws IllegalArgumentException {
+  public MlflowContext setExperimentName(String experimentName) throws IllegalArgumentException {
     Optional<Experiment> experimentOpt = client.getExperimentByName(experimentName);
     if (!experimentOpt.isPresent()) {
       throw new IllegalArgumentException(
         String.format("%s is not a valid experiment", experimentName));
     }
     experimentId = experimentOpt.get().getExperimentId();
+    return this;
   }
 
   /**
    * Sets the experiment to log runs to by ID.
    * @param experimentId the id of the experiment to log runs to.
    */
-  public void setExperimentId(String experimentId) {
+  public MlflowContext setExperimentId(String experimentId) {
     this.experimentId = experimentId;
+    return this;
   }
 
   /**
