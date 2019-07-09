@@ -314,11 +314,7 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
 
 
 def test_delete_tag(mlflow_client, backend_store_uri):
-<<<<<<< HEAD
     experiment_id = mlflow_client.create_experiment('DeleteTagExperiment')
-=======
-    experiment_id = mlflow_client.create_experiment('Oh My')
->>>>>>> fix R test, add rest tracking tests, fix fluent
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
     mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789, step=2)
