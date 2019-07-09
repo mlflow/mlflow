@@ -186,6 +186,9 @@ def set_tag(key, value):
     run_id = _get_or_start_run().info.run_id
     MlflowClient().set_tag(run_id, key, value)
 
+def delete_tag(key):
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient.delete_tag(run_id, key)
 
 def log_metric(key, value, step=None):
     """
