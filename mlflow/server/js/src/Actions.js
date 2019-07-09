@@ -94,15 +94,26 @@ export const searchRunsApi = (experimentIds, filter, runViewType, orderBy, id = 
 };
 
 export const LOAD_MORE_RUNS_API = 'LOAD_MORE_RUNS_API';
-export const loadMoreRunsApi = (experimentIds, pageToken, id=getUUID()) => ({
+export const loadMoreRunsApi = (
+  experimentIds,
+  filter,
+  runViewType,
+  orderBy,
+  pageToken,
+  id = getUUID(),
+) => ({
   type: LOAD_MORE_RUNS_API,
   payload: wrapDeferred(MlflowService.searchRuns, {
     experiment_ids: experimentIds,
-    page_token: pageToken,
+    filter: filter,
+    run_view_type: runViewType,
     max_results: SEARCH_MAX_RESULTS + 1,
+    order_by: orderBy,
+    page_token: pageToken,
   }),
   meta: { id },
 });
+
 
 export const LIST_ARTIFACTS_API = 'LIST_ARTIFACTS_API';
 export const listArtifactsApi = (runUuid, path, id = getUUID()) => {

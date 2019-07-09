@@ -6,7 +6,6 @@ import {
   getUUID,
   searchRunsApi,
   loadMoreRunsApi,
-  SEARCH_MAX_RESULTS
 } from '../Actions';
 import { connect } from 'react-redux';
 import ExperimentView from './ExperimentView';
@@ -80,9 +79,20 @@ export class ExperimentPage extends Component {
 
   handleLoadMoreRuns = (nextPageToken) => {
     const { loadMoreRunsApi, experimentId } = this.props;
+    const { persistedState, lifecycleFilter } = this.state;
+    const { orderByKey, orderByAsc, searchInput } = persistedState;
+    const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
+    const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     this.setState({ loadingMore: true });
     this.withRunsUpdateHandling(
-      loadMoreRunsApi([experimentId], nextPageToken, ExperimentPage.loadMoreRunReqestId)
+      loadMoreRunsApi(
+        [experimentId],
+        searchInput,
+        viewType,
+        orderBy,
+        nextPageToken,
+        ExperimentPage.loadMoreRunReqestId
+      ),
     );
   };
 
