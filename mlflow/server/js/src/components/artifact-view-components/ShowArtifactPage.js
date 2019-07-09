@@ -1,7 +1,9 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 
-import { getExtension, IMAGE_EXTENSIONS, TEXT_EXTENSIONS, NB_EXTENSIONS } from '../../utils/FileUtils';
+import {
+    getExtension, IMAGE_EXTENSIONS, TEXT_EXTENSIONS, NB_EXTENSIONS
+} from '../../utils/FileUtils';
 import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactNbView from './ShowArtifactNbView';

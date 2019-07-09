@@ -18,6 +18,7 @@
     "lodash": "^4.17.11",
     "merge": "1.2.1",
     "@nteract/notebook-preview": "11.0.4-alpha.0",
+    "@nteract/commutable": "7.1.2",
     "plotly.js": "1.42.5",
     "prop-types": "15.6.1",
     "qs": "6.5.2",
