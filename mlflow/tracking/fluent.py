@@ -194,7 +194,7 @@ def delete_tag(key):
     :param key: Tag name (string)
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient.delete_tag(run_id, key)
+    MlflowClient().delete_tag(run_id, key)
 
 
 def log_metric(key, value, step=None):
