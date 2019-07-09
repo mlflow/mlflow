@@ -203,10 +203,6 @@ Arguments
 |                               | the tracking server associated with  |
 |                               | the current tracking URI.            |
 +-------------------------------+--------------------------------------+
-| ``value``                     | String value of the tag being        |
-|                               | logged. Maximum size is 500 bytes.   |
-|                               | This field is required.              |
-+-------------------------------+--------------------------------------+
 
 ``mlflow_download_artifacts``
 =============================
