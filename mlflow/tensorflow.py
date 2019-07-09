@@ -484,6 +484,7 @@ def autolog(metrics_every_n_steps=100):
         from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
         from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
         from tensorflow.python.saved_model import tag_constants
+        from tensorflow.python.summary.writer.writer import FileWriter
     except ImportError:
         warnings.warn("Could not autolog to Mlflow. " +
                       "Only TensorFlow versions <= 1.1x are supported.")
@@ -539,6 +540,13 @@ def autolog(metrics_every_n_steps=100):
         original = gorilla.get_original_attribute(EventFileWriter, 'add_event')
         return original(self, event)
 
+    @gorilla.patch(FileWriter)
+    def add_summary(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(FileWriter, 'add_summary')
+        result = original(self, *args, **kwargs)
+        _flush_queue()
+        return result
+
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     patches = [
         gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings),
@@ -548,6 +556,7 @@ def autolog(metrics_every_n_steps=100):
                       export_saved_model, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_savedmodel',
                       export_savedmodel, settings=settings),
+        gorilla.Patch(FileWriter, 'add_summary', add_summary, settings=settings),
         ]
 
     for x in patches:
