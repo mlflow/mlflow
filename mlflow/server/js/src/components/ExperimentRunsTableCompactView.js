@@ -65,6 +65,8 @@ class ExperimentRunsTableCompactView extends PureComponent {
   constructor(props) {
     super(props);
     this.getRow = this.getRow.bind(this);
+    this.tableRef = React.createRef();
+    this.state = { expanding: false };
   }
 
   static propTypes = {
@@ -131,8 +133,10 @@ class ExperimentRunsTableCompactView extends PureComponent {
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), "div"),
       ExperimentViewUtil.getExpander(
-        hasExpander, expanderOpen, () => onExpand(
-          runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
+        hasExpander, expanderOpen, () => {
+          onExpand(runInfo.run_uuid, childrenIds);
+          this.setState({ expanding: true });
+        }, runInfo.run_uuid, "div")
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(
       runInfo,
@@ -414,6 +418,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
                 cellMeasurerProps.rowHeight = 32;
               }
               return (<Table
+                ref={this.tableRef}
                 onScroll={this.handleScroll}
                 {...cellMeasurerProps}
                 width={
@@ -561,27 +566,31 @@ class ExperimentRunsTableCompactView extends PureComponent {
     );
   }
 
-  handleScroll = _.debounce(({ clientHeight, scrollHeight, scrollTop }) => {
-    console.log('>>> handleScroll');
-    const isAtScrollBottom = isRunsListShort() || (clientHeight + scrollTop === scrollHeight);
-    console.log(`clientHeight = ${clientHeight}, scrollHeight=${scrollHeight}, scrollTop=${scrollTop}`);
-    console.log('isAtScrollBottom = ', isAtScrollBottom);
+  componentDidUpdate() {
+    this.maybeHandleScroll();
+  }
+
+  maybeHandleScroll = () => {
+    if (this.state.expanding) {
+      this.handleScroll();
+      this.setState({ expanding: false });
+    }
+  };
+
+  handleScroll = _.debounce((input) => {
+    // Getting clientHeight, scrollHeight and scrollTop from inner grid directly here because
+    // corresponding inputs provided by onScroll are wrong at mounting phase and upon toggling
+    const grid = this.tableRef.current.Grid;
+    const { clientHeight, scrollHeight, scrollTop } = {
+      clientHeight: grid.props.height,
+      scrollHeight: grid.getTotalRowsHeight(),
+      scrollTop: grid.state.scrollTop,
+    };
+    const isRunsListShort = scrollHeight < clientHeight;
+    const isAtScrollBottom = isRunsListShort || (clientHeight + scrollTop === scrollHeight);
     this.props.handleScrollBottomChange(isAtScrollBottom);
-    console.log('<<< handleScroll');
   }, 200);
 }
-
-const isRunsListShort = () => {
-  console.log('>>> isRunsListShort');
-  const table = document.querySelector('.ReactVirtualized__Grid.ReactVirtualized__Table__Grid');
-  const runs = document.querySelector('.ReactVirtualized__Grid__innerScrollContainer');
-  if (table && runs) {
-    console.log(`table.clientHeight = ${table.clientHeight} runs.clientHeight = ${runs.clientHeight}`);
-    console.log('<<< isRunsListShort');
-    return table.clientHeight > runs.clientHeight;
-  }
-  return false;
-};
 
 const mapStateToProps = (state, ownProps) => {
   const { metricsList } = ownProps;

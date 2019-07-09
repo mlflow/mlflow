@@ -510,7 +510,15 @@ export class ExperimentView extends Component {
                 />
             )
           }
-          { console.log(`=== render nextPageToken = ${nextPageToken}, isAtScrollBottom = ${isAtScrollBottom}, loadingMore=${loadingMore}`) }
+          {/*
+            "Load more" row for user to click and load more runs. This row is currently built
+            outside of the Table component as we are following a minimum invasive way of building
+            this feature. Ideally, this row can be build-in inside the Table as a special row by
+            rewriting table rendering inside a custom rowRenderer, that way, we don't need to handle
+            scrolling position manually. We should consider doing this refactor while implement
+            multi-level nested runs.
+            TODO(Zangr) rewrite the table with rowRenderer to allow a built-in load-more row
+          */}
           {isLoading ? null : (
             <div
               className='load-more-row'
