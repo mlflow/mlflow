@@ -192,8 +192,8 @@ class RestStore(AbstractStore):
     def delete_tag(self, run_id, key):
         """
         Delete a tag for the specified run with the specified tag key.
-        :param run_id:
-        :param tag_name
+        :param run_id: String id for the run
+        :param key: name of the tag to delete
         """
         req_body = message_to_json(DeleteTag(run_id=run_id, key=key))
         self._call_endpoint(DeleteTag, req_body)

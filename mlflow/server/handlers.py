@@ -14,7 +14,8 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
+    DeleteTag
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import TrackingStoreRegistry
@@ -283,6 +284,16 @@ def _set_tag():
 
 
 @catch_mlflow_exception
+def _delete_tag():
+    request_message = _get_request_message(DeleteTag())
+    _get_store().delete_tag(request_message.run_id, request_message.key)
+    response_message = DeleteTag.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _get_run():
     request_message = _get_request_message(GetRun())
     response_message = GetRun.Response()
@@ -413,6 +424,7 @@ HANDLERS = {
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetTag: _set_tag,
+    DeleteTag: _delete_tag,
     LogBatch: _log_batch,
     GetRun: _get_run,
     SearchRuns: _search_runs,

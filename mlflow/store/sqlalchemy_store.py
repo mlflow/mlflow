@@ -464,16 +464,23 @@ class SqlAlchemyStore(AbstractStore):
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
     def delete_tag(self, run_id, key):
+        """
+        Delete a tag from a run.
+        :param run_id: ID of the run that contains the tag to delete
+        :param key: name of the tag to delete
+        """
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             filtered_tags = session.query(SqlTag).filter_by(key=key).all()
             if len(filtered_tags) == 0:
                 raise MlflowException(
-                    "No tag with name: {} in run with id {}".format(key, run_id))
+                    "No tag with name: {} in run with id {}".format(key, run_id),
+                    error_code=RESOURCE_DOES_NOT_EXIST)
             elif len(filtered_tags) > 1:
                 raise MlflowException(
-                    "Bad data - tag with multiple value entries. Please file an issue.")
+                    "Bad data - tag with multiple value entries. Please file an issue.",
+                    error_code=INVALID_STATE)
             session.delete(filtered_tags[0])
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
