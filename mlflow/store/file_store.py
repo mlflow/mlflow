@@ -598,7 +598,7 @@ class FileStore(AbstractStore):
             raise MlflowException("No tag with name: {} in run with id {}".format(key, run_id),
                                   error_code=RESOURCE_DOES_NOT_EXIST)
         tag_path = self._get_tag_path(run.info.experiment_id, run_id, key)
-        mv(tag_path, self.trash_folder)
+        os.remove(tag_path)
 
     def _overwrite_run_info(self, run_info):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
