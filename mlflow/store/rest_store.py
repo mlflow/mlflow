@@ -215,7 +215,11 @@ class RestStore(AbstractStore):
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]
-        return runs, response_proto.next_page_token
+        # If next_page_token is not set, we will see it as "". We need to convert this to None.
+        next_page_token = None
+        if response_proto.next_page_token:
+            next_page_token = response_proto.next_page_token
+        return runs, next_page_token
 
     def delete_run(self, run_id):
         req_body = message_to_json(DeleteRun(run_id=run_id))

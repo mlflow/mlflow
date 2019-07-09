@@ -480,6 +480,24 @@ class TestFileStore(unittest.TestCase):
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(fs, exp, max_results=n))
 
+    def test_search_runs_pagination(self):
+        fs = FileStore(self.test_root)
+        exp = fs.create_experiment("test_search_runs_pagination")
+        # test returned token behavior
+        runs = sorted([fs.create_run(exp, 'user', 1000, []).info.run_id
+                       for r in range(10)])
+        result = fs.search_runs([exp], None, ViewType.ALL, max_results=4)
+        assert [r.info.run_id for r in result] == runs[0:4]
+        assert result.token is not None
+        result = fs.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[4:8]
+        assert result.token is not None
+        result = fs.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[8:]
+        assert result.token is None
+
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)

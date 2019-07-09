@@ -10,12 +10,15 @@ import os
 import atexit
 import time
 import logging
+import numpy as np
+import pandas as pd
 
-from mlflow.entities import Run, RunStatus, Param, RunTag, Metric
+from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking import artifact_utils, context
+from mlflow.tracking import artifact_utils
+from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -27,6 +30,8 @@ _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
 
+SEARCH_MAX_RESULTS_PANDAS = 100000
+NUM_RUNS_PER_PAGE_PANDAS = 10000
 
 _logger = logging.getLogger(__name__)
 
@@ -131,7 +136,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         if run_name is not None:
             user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
-        tags = context.resolve_tags(user_specified_tags)
+        tags = context_registry.resolve_tags(user_specified_tags)
 
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
@@ -235,7 +240,7 @@ def set_tags(tags):
 
 def log_artifact(local_path, artifact_path=None):
     """
-    Log a local file or directory as an artifact of the currently active run.
+    Log a local file as an artifact of the currently active run.
 
     :param local_path: Path to the file to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
@@ -286,6 +291,106 @@ def get_artifact_uri(artifact_path=None):
     """
     return artifact_utils.get_artifact_uri(run_id=_get_or_start_run().info.run_id,
                                            artifact_path=artifact_path)
+
+
+def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
+                max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None):
+    """
+    Get a pandas DataFrame of runs that fit the search criteria.
+
+    :param experiment_ids: List of experiment IDs. None will default to the active experiment.
+    :param filter_string: Filter query string, defaults to searching all runs.
+    :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+                            defined in :py:class:`mlflow.entities.ViewType`.
+    :param max_results: The maximum number of runs to put in the dataframe. Default is 100,000
+                        to avoid causing out-of-memory issues on the user's machine.
+    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
+                        ordering is to sort by start_time DESC, then run_id.
+
+    :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
+        are expanded into their own columns named metrics.*, params.*, and tags.*
+        respectively. For runs that don't have a particular metric, parameter, or tag, their
+        value will be (Numpy) Nan, None, or None respectively
+    """
+    if not experiment_ids:
+        experiment_ids = _get_experiment_id()
+    runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
+                               order_by)
+    info = {'run_id': [], 'experiment_id': [],
+            'status': [], 'artifact_uri': [], }
+    params, metrics, tags = ({}, {}, {})
+    PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
+    for i, run in enumerate(runs):
+        info['run_id'].append(run.info.run_id)
+        info['experiment_id'].append(run.info.experiment_id)
+        info['status'].append(run.info.status)
+        info['artifact_uri'].append(run.info.artifact_uri)
+
+        # Params
+        param_keys = set(params.keys())
+        for key in param_keys:
+            if key in run.data.params:
+                params[key].append(run.data.params[key])
+            else:
+                params[key].append(PARAM_NULL)
+        new_params = set(run.data.params.keys()) - param_keys
+        for p in new_params:
+            params[p] = [PARAM_NULL]*i  # Fill in null values for all previous runs
+            params[p].append(run.data.params[p])
+
+        # Metrics
+        metric_keys = set(metrics.keys())
+        for key in metric_keys:
+            if key in run.data.metrics:
+                metrics[key].append(run.data.metrics[key])
+            else:
+                metrics[key].append(METRIC_NULL)
+        new_metrics = set(run.data.metrics.keys()) - metric_keys
+        for m in new_metrics:
+            metrics[m] = [METRIC_NULL]*i
+            metrics[m].append(run.data.metrics[m])
+
+        # Tags
+        tag_keys = set(tags.keys())
+        for key in tag_keys:
+            if key in run.data.tags:
+                tags[key].append(run.data.tags[key])
+            else:
+                tags[key].append(TAG_NULL)
+        new_tags = set(run.data.tags.keys()) - tag_keys
+        for t in new_tags:
+            tags[t] = [TAG_NULL]*i
+            tags[t].append(run.data.tags[t])
+
+    data = {}
+    data.update(info)
+    for key in metrics:
+        data['metrics.' + key] = metrics[key]
+    for key in params:
+        data['params.' + key] = params[key]
+    for key in tags:
+        data['tags.' + key] = tags[key]
+    return pd.DataFrame(data)
+
+
+def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
+                        order_by):
+    all_runs = []
+    next_page_token = None
+    while(len(all_runs) < max_results):
+        runs_to_get = max_results-len(all_runs)
+        if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
+            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+                                              runs_to_get, order_by, next_page_token)
+        else:
+            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+                                              NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
+        all_runs.extend(runs)
+        if hasattr(runs, 'token') and runs.token != '':
+            next_page_token = runs.token
+        else:
+            break
+    return all_runs
 
 
 def _get_or_start_run():

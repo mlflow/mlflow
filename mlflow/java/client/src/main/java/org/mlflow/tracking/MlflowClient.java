@@ -119,7 +119,8 @@ public class MlflowClient {
   public List<RunInfo> listRunInfos(String experimentId) {
     List<String> experimentIds = new ArrayList<>();
     experimentIds.add(experimentId);
-    return searchRuns(experimentIds, null);
+    return searchRuns(experimentIds, null).stream().map(Run::getInfo)
+      .collect(Collectors.toList());
   }
 
   /**
@@ -130,9 +131,9 @@ public class MlflowClient {
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
    *
-   * @return A list of all RunInfos that satisfy search filter.
+   * @return A list of all Runs that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<String> experimentIds, String searchFilter) {
+  public List<Run> searchRuns(List<String> experimentIds, String searchFilter) {
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
   }
 
@@ -146,9 +147,9 @@ public class MlflowClient {
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
    *                    Defaults to ACTIVE_ONLY.
    *
-   * @return A list of all RunInfos that satisfy search filter.
+   * @return A list of all Runs that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<String> experimentIds,
+  public List<Run> searchRuns(List<String> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType) {
     return searchRuns(experimentIds, searchFilter, runViewType, new ArrayList<>());
@@ -168,7 +169,7 @@ public class MlflowClient {
    *
    * @return A list of all RunInfos that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<String> experimentIds,
+  public List<Run> searchRuns(List<String> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType,
                                   List<String> orderBy) {
@@ -185,8 +186,7 @@ public class MlflowClient {
     SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
-    return mapper.toSearchRunsResponse(ojson).getRunsList().stream().map(Run::getInfo)
-      .collect(Collectors.toList());
+    return mapper.toSearchRunsResponse(ojson).getRunsList();
   }
 
   /** @return  A list of all experiments. */
