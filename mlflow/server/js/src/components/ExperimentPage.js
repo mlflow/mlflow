@@ -77,9 +77,9 @@ export class ExperimentPage extends Component {
 
   static loadMoreRunReqestId = getUUID();
 
-  handleLoadMoreRuns = (nextPageToken) => {
+  handleLoadMoreRuns = () => {
     const { loadMoreRunsApi, experimentId } = this.props;
-    const { persistedState, lifecycleFilter } = this.state;
+    const { persistedState, lifecycleFilter, nextPageToken } = this.state;
     const { orderByKey, orderByAsc, searchInput } = persistedState;
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);

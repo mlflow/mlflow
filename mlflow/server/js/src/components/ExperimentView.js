@@ -59,7 +59,6 @@ export class ExperimentView extends Component {
     this.state = {
       ...ExperimentView.getDefaultUnpersistedState(),
       persistedState: persistedState.toJSON(),
-      isAtScrollBottom: false,
     };
   }
 
@@ -162,15 +161,6 @@ export class ExperimentView extends Component {
     // in ExperimentPage
     if (!this.filtersDidUpdate(prevState)) {
       this.snapshotComponentState();
-    }
-    // Eagerly toggle `isAtScrollBottom` off when load-more starts.
-    // This will:
-    // 1. Prevent `load more` button from hanging around after load more finishes.
-    // 2. Prevent a UI flickering caused by a render with
-    // (loadingMore === false && isAtScrollBottom === true), which makes it better than setting it
-    // after load more finishes.
-    if (prevProps.loadingMore === false && this.props.loadingMore === true) {
-      this.setState({ isAtScrollBottom: false });
     }
   }
 
@@ -278,8 +268,8 @@ export class ExperimentView extends Component {
       isLoading,
       loadingMore,
       nextPageToken,
+      handleLoadMoreRuns,
     } = this.props;
-    const { isAtScrollBottom } = this.state;
 
     // Apply our parameter and metric key filters to just pass the filtered, sorted lists
     // of parameter and metric names around later
@@ -463,7 +453,7 @@ export class ExperimentView extends Component {
                 </ButtonGroup>
             </span>
           </div>
-          {this.props.isLoading ?
+          {isLoading ?
             <Spinner showImmediately/> :
             (this.state.persistedState.showMultiColumns ?
                 <ExperimentRunsTableMultiColumnView
@@ -504,54 +494,16 @@ export class ExperimentView extends Component {
                   unbaggedParams={unbaggedParamKeyList}
                   onAddBagged={this.addBagged}
                   onRemoveBagged={this.removeBagged}
-                  nextPageToken={this.props.nextPageToken}
-                  handleScrollBottomChange={this.handleScrollBottomChange}
+                  nextPageToken={nextPageToken}
+                  handleLoadMoreRuns={handleLoadMoreRuns}
                   loadingMore={loadingMore}
                 />
             )
           }
-          {/*
-            "Load more" row for user to click and load more runs. This row is currently built
-            outside of the Table component as we are following a minimum-invasive way of building
-            this feature to avoid massive refactor on current implementation. Ideally, this row
-            can be built inside the Table as a special row by rewriting table rendering with a
-            custom `rowRenderer`. That way, we don't need to handle scrolling position manually.
-            We can consider doing this refactor while we implement the multi-level nested runs.
-            TODO(Zangr) rewrite the table with rowRenderer to allow a built-in load-more row
-          */}
-          {isLoading ? null : (
-            <div
-              className='load-more-row'
-              style={{
-                visibility: (nextPageToken && isAtScrollBottom) || loadingMore ? 'visible' : 'hidden',
-              }}
-            >
-              {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
-              {loadingMore ? (
-                <div>
-                  <Icon type='sync' spin style={{ fontSize: 20 }}/>
-                </div>
-              ) : (
-                <AntdButton
-                  type='primary'
-                  htmlType='button'
-                  onClick={this.loadMoreRuns}
-                  disabled={loadingMore}
-                >
-                  Load more
-                </AntdButton>
-              )}
-            </div>
-          )}
         </div>
       </div>
     );
   }
-
-  loadMoreRuns = () => {
-    const { handleLoadMoreRuns, nextPageToken } = this.props;
-    handleLoadMoreRuns(nextPageToken);
-  };
 
   onSortBy(orderByKey, orderByAsc) {
     this.initiateSearch({orderByKey, orderByAsc});
@@ -813,10 +765,6 @@ export class ExperimentView extends Component {
     });
 
     return ExperimentView.tableToCsv(columns, data);
-  }
-
-  handleScrollBottomChange = (isAtScrollBottom) => {
-    this.setState({ isAtScrollBottom });
   }
 }
 

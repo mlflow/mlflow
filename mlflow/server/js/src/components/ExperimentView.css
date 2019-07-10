@@ -284,10 +284,10 @@ span.error-message {
   justify-content: center;
   background: white;
   height: 50px;
-  position: relative;
+  position: absolute;
   width: calc(100% - 2px); /* -2px for margin */
   min-width: 1398px;
-  top: -71px;
+  bottom: 22px;
   align-items: center;
   margin: 0 1px; /* update calc with after changing this */
   border-top: 1px solid #ccc;

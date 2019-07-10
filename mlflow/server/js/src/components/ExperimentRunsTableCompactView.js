@@ -1,4 +1,4 @@
-import React, { PureComponent } from 'react';
+import React from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ExperimentViewUtil from "./ExperimentViewUtil";
@@ -11,6 +11,7 @@ import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react
 import _ from 'lodash';
 
 import 'react-virtualized/styles.css';
+import { Button as AntdButton, Icon } from 'antd';
 
 export const NUM_RUN_METADATA_COLS = 8;
 const TABLE_HEADER_HEIGHT = 40;
@@ -61,12 +62,15 @@ const styles = {
  * Compact table view for displaying runs associated with an experiment. Renders metrics/params in
  * a single table cell per run (as opposed to one cell per metric/param).
  */
-class ExperimentRunsTableCompactView extends PureComponent {
+class ExperimentRunsTableCompactView extends React.Component {
   constructor(props) {
     super(props);
     this.getRow = this.getRow.bind(this);
     this.tableRef = React.createRef();
-    this.state = { expanding: false };
+    this.state = {
+      expanding: false,
+      isAtScrollBottom: false,
+    };
   }
 
   static propTypes = {
@@ -102,7 +106,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
 
     nextPageToken: PropTypes.string,
-    handleScrollBottomChange: PropTypes.func.isRequired,
+    handleLoadMoreRuns: PropTypes.func.isRequired,
   };
 
 
@@ -351,6 +355,9 @@ class ExperimentRunsTableCompactView extends PureComponent {
       unbaggedMetrics,
       unbaggedParams,
       nextPageToken,
+      isLoading,
+      loadingMore,
+      handleLoadMoreRuns
     } = this.props;
     console.log('nextPageToken', nextPageToken);
 
@@ -562,23 +569,71 @@ class ExperimentRunsTableCompactView extends PureComponent {
               </Table>);
             }}
           </AutoSizer>
+          {/*
+            "Load more" row for user to click and load more runs. This row is currently built
+            outside of the Table component as we are following a minimum-invasive way of building
+            this feature to avoid massive refactor on current implementation. Ideally, this row
+            can be built inside the Table as a special row by rewriting table rendering with a
+            custom `rowRenderer`. That way, we don't need to handle scrolling position manually.
+            We can consider doing this refactor while we implement the multi-level nested runs.
+            TODO(Zangr) rewrite the table with rowRenderer to allow a built-in load-more row
+          */}
+          {isLoading ? null : (
+            <div
+              className='load-more-row'
+              style={{
+                visibility: (nextPageToken && this.state.isAtScrollBottom) || this.props.loadingMore
+                  ? 'visible'
+                  : 'hidden',
+              }}
+            >
+              {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
+              {loadingMore ? (
+                <div>
+                  <Icon type='sync' spin style={{ fontSize: 20 }}/>
+                </div>
+              ) : (
+                <AntdButton
+                  type='primary'
+                  htmlType='button'
+                  onClick={handleLoadMoreRuns}
+                  disabled={loadingMore}
+                >
+                  Load more
+                </AntdButton>
+              )}
+            </div>
+          )}
       </div>
     );
   }
 
-  componentDidUpdate() {
+  componentDidUpdate(prevProps, prevState, snapshot) {
     this.maybeHandleScroll();
+    this.maybeHandleLoadingMoreFinish(prevProps);
   }
 
-  maybeHandleScroll = () => {
+  maybeHandleLoadingMoreFinish(prevProps) {
+    // Eagerly toggle `isAtScrollBottom` off when load-more starts.
+    // This will:
+    // 1. Prevent `load more` button from hanging around after load more finishes.
+    // 2. Prevent a UI flickering caused by a render with
+    // (loadingMore === false && isAtScrollBottom === true), which makes it better than setting it
+    // after load more finishes.
+    if (prevProps.loadingMore === false && this.props.loadingMore === true) {
+      this.setState({ isAtScrollBottom: false });
+    }
+  }
+
+  maybeHandleScroll() {
     if (this.state.expanding) {
       this.handleScroll();
       this.setState({ expanding: false });
     }
   };
 
-  handleScroll = _.debounce((input) => {
-    // Getting clientHeight, scrollHeight and scrollTop from inner grid directly here because
+  handleScroll = _.debounce(() => {
+    // Getting clientHeight, scrollHeight and scrollTop from the Grid instance directly here because
     // corresponding inputs provided by onScroll are wrong at mounting phase and upon toggling
     const grid = this.tableRef.current.Grid;
     const { clientHeight, scrollHeight, scrollTop } = {
@@ -588,7 +643,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     };
     const isRunsListShort = scrollHeight < clientHeight;
     const isAtScrollBottom = isRunsListShort || (clientHeight + scrollTop === scrollHeight);
-    this.props.handleScrollBottomChange(isAtScrollBottom);
+    this.setState({ isAtScrollBottom });
   }, 200);
 }
 
