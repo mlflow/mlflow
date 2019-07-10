@@ -9,9 +9,9 @@ import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import BaggedCell from "./BaggedCell";
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import _ from 'lodash';
+import { LoadMoreRow } from './LoadMoreRow';
 
 import 'react-virtualized/styles.css';
-import { Button as AntdButton, Icon } from 'antd';
 
 export const NUM_RUN_METADATA_COLS = 8;
 const TABLE_HEADER_HEIGHT = 40;
@@ -567,42 +567,14 @@ class ExperimentRunsTableCompactView extends React.Component {
                   }}
                 />}
               </Table>,
-              /*
-                "Load more" row for user to click and load more runs. This row is currently built
-                outside of the Table component as we are following a minimum-invasive way of building
-                this feature to avoid massive refactor on current implementation. Ideally, this row
-                can be built inside the Table as a special row by rewriting table rendering with a
-                custom `rowRenderer`. That way, we don't need to handle scrolling position manually.
-                We can consider doing this refactor while we implement the multi-level nested runs.
-                TODO(Zangr) rewrite the table with rowRenderer to allow a built-in load-more row
-              */
               showLoadMore ? (
-                <div
-                  key='load-more-row'
-                  className='load-more-row'
-                  style={{
-                    height: LOAD_MORE_ROW_HEIGHT,
-                    width: tableWidth,
-                    border: BORDER_STYLE
-                  }}
-                >
-                  {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
-                  {loadingMore ? (
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <Icon type='sync' spin style={{ fontSize: 20 }}/>
-                    </div>
-                  ) : (
-                    <AntdButton
-                      type='primary'
-                      htmlType='button'
-                      onClick={handleLoadMoreRuns}
-                      disabled={loadingMore}
-                      size='small'
-                    >
-                      Load more
-                    </AntdButton>
-                  )}
-                </div>
+                <LoadMoreRow
+                  height={LOAD_MORE_ROW_HEIGHT}
+                  width={tableWidth}
+                  borderStyle={BORDER_STYLE}
+                  loadingMore={loadingMore}
+                  onLoadMore={handleLoadMoreRuns}
+                />
               ) : null];
             }}
           </AutoSizer>
