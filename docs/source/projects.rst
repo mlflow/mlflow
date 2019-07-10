@@ -327,7 +327,7 @@ Deployment Mode
     any other computing infrastructure of your choice using the local version of the ``mlflow run``
     command (for example, submit a script that does ``mlflow run`` to a standard job queueing system).
     
-    It's also possible to launch projects remotely in `Kubernetes <https://kubernetes.io/>`_ clusters 
+    It's also possible to launch projects remotely in `Kubernetes <https://Kubernetes.io/>`_ clusters 
     using command-line (see :ref:`Run a project on Kubernetes <kubernetes_execution>`).
 
 Environment
@@ -371,37 +371,37 @@ where ``<uri>`` is a Git repository URI or a folder.
 .. _kubernetes_execution:
 
 Run a project on Kubernetes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-MLflow projects can be executed in kubernetes clusters. Basically it uses the image created to run 
-projects in :ref:`Docker environment <project-docker-container-environments>`  and pushes it to an 
+You can run MLflow projects in Kubernetes clusters. MLflow uses an image to run 
+projects in :ref:`Docker environment <project-docker-container-environments>`  and pushes the image to an 
 image repository, so you need to configure MLproject with ``docker_env`` section. After that it 
-creates a Kubernetes Job that uses this published image and runs the MLflow project on kubernetes.
-A brief overview of how to configure and use this feature is as follows:
+creates a Kubernetes job that uses this published image and runs the MLflow project on Kubernetes.
+To configure and use this feature:
 
-In project folder you need to create a ``backend_config.json`` with the following attributes:
+#. In project folder create a ``backend_config.json`` with the following attributes:
 
-.. code-block:: json
+   .. code-block:: json
 
-{
-  "kube-context": "docker-for-desktop",
-  
-  "image-uri": "username/mlflow-kubernetes-example",
+    {
+      "kube-context": "docker-for-desktop",  
+      "image-uri": "username/mlflow-Kubernetes-example",
+      "kube-job-template-path": "kubernetes_job_template.yaml"
+    }
 
-  "kube-job-template-path": "kubernetes_job_template.yaml"
-}
+  where 
 
-The ``kube-context`` attribute is the kubernetes context where mlflow will run the Job. ``image-uri`` points to the 
-registry/repository/image where the image will be pushed so kubernetes can download it and run. Remeber that mlflow 
-expects that login credentials are already stored for both kubernetes context and docker repository to push images.
+  - ``kube-context`` attribute is the Kubernetes context where MLflow will run the job. ``image-uri`` points to the 
+registry, repository, or image where the image will be pushed so Kubernetes can download it and run. Remember that MLflow 
+expects that login credentials are already stored for both Kubernetes context and Docker repository to push images.
+  - ``kube-job-template-path`` points to a YAML file with the Kubernetes Job/Batch specification to run the training on 
+Kubernetes. 
 
-The ``kube-job-template-path`` points to a yaml file with the kubernetes Job/Batch specification to run the traning on 
-kubernetes. 
-See below the example available in the Docker example project. For more information about specification options please see 
+See below the example available in the Docker example project. For more information about specification options, see 
 Kubernetes docs:
 `Jobs - Run to Completion <https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/>`_
 
-Have in mind that mlflow overwrites the folowing attributes in the job yaml file so it can handle jobs creation and monitor its status:
+Have in mind that mlflow overwrites the following attributes in the job YAML file so it can handle jobs creation and monitor its status:
 
 - ``metadata.name``;
 
@@ -411,6 +411,10 @@ Have in mind that mlflow overwrites the folowing attributes in the job yaml file
 
 - ``spec.template.spec.container[0].command``;
 
+- ``metadata.name``
+- ``spec.template.spec.container.name``
+- ``spec.template.spec.container.image``
+- ``spec.template.spec.container.command``
 
 .. code-block:: json
 
@@ -435,13 +439,13 @@ Have in mind that mlflow overwrites the folowing attributes in the job yaml file
             memory: 256Mi
         restartPolicy: Never
 
-To run your project just use the command:
+To run your project, use the command:
 
 .. code-block:: bash
 
-  mlflow run <uri> --backend kubernetes --backend-config examples/docker/kubernetes_config.json
+  mlflow run <uri> --backend Kubernetes --backend-config examples/docker/kubernetes_config.json
 
-Where ``<uri>`` is a Git repository URI or a folder.
+where ``<uri>`` is a Git repository URI or a folder.
 
 To see it in action, you can use the `Docker example <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_ 
 with the ``kubernetes_backend.json`` and ``kubernetes_job_template.yaml`` files.
