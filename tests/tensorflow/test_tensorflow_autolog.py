@@ -124,9 +124,11 @@ def tf_estimator_random_data_run():
         SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
         train_path = tf.keras.utils.get_file(
-            "iris_training.csv", "https://storage.googleapis.com/download.tensorflow.org/data/iris_training.csv")
+            "iris_training.csv", "https://storage.googleapis.com/download"
+                                 ".tensorflow.org/data/iris_training.csv")
         test_path = tf.keras.utils.get_file(
-            "iris_test.csv", "https://storage.googleapis.com/download.tensorflow.org/data/iris_test.csv")
+            "iris_test.csv", "https://storage.googleapis.com/download"
+                             ".tensorflow.org/data/iris_test.csv")
 
         train = pd.read_csv(train_path, names=CSV_COLUMN_NAMES, header=0)
         test = pd.read_csv(test_path, names=CSV_COLUMN_NAMES, header=0)
@@ -186,7 +188,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_
     assert 'model' in artifacts
     session = tf.Session()
     model = mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id +
-                                        "/model", session)
+                                         "/model", session)
 
 
 @pytest.fixture
@@ -196,6 +198,7 @@ def duplicate_autolog_tf_estimator_run():
     return run  # should be autologged every 4 steps
 
 
+@pytest.mark.large
 def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
     metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)

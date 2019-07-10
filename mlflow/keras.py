@@ -13,12 +13,7 @@ from __future__ import absolute_import
 import importlib
 import os
 import yaml
-import gorilla
-import warnings
-
 import pandas as pd
-from keras.callbacks import Callback
-import keras.backend
 
 from mlflow import pyfunc
 from mlflow.models import Model
