@@ -173,8 +173,8 @@ Arguments
 
 Delete Tag
 
-Deletes a tag on a run. Tags are run metadata that can be updated during
-a run and after a run completes.
+Deletes a tag on a run. This is irreversible. Tags are run metadata that
+can be updated during a run and after a run completes.
 
 .. code:: r
 
