@@ -73,7 +73,7 @@ test_that("logging functionality", {
   mlflow_delete_tag("tag_key", run_id)
   run <- mlflow_get_run()
   tags <- run$tags[[1]]
-  expect_true(length(tags) == 0)
+  expect_false("tag_key" %in% tags$key)
 
   mlflow_end_run()
   end_time_upper_bound <- Sys.time()
