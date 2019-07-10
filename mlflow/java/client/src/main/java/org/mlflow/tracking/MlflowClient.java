@@ -290,6 +290,9 @@ public class MlflowClient {
 
   /**
    * Log a new tag against the given run, as a key-value pair.
+   * @param runId The ID of the run on which to set the tag
+   * @param key The key used to identify the tag.
+   * @param value The value of the tag.
    */
   public void setTag(String runId, String key, String value) {
     sendPost("runs/set-tag", mapper.makeSetTag(runId, key, value));
@@ -297,6 +300,8 @@ public class MlflowClient {
 
   /**
    * Delete a tag against the given run, given a String key.
+   * @param runId The ID of the run in which the tag exists to delete.
+   * @param key The key of the tag.
    */
   public void deleteTag(String runId, String key) {
     sendPost("runs/delete-tag", mapper.makeDeleteTag(runId, key));
