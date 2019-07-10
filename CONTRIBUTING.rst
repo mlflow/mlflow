@@ -196,7 +196,7 @@ checkout of MLflow:
     ~/mlflow
     $ cd mlflow
     # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
-    $  alembic -c mlflow/store/db_migrations/alembic.ini revision -m "add new field to db"
+    $ alembic -c mlflow/store/db_migrations/alembic.ini revision -m "add new field to db"
       Generating ~/mlflow/mlflow/store/db_migrations/versions/b446d3984cfa_add_new_field_to_db.py
 
 
