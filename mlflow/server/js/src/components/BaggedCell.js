@@ -1,10 +1,9 @@
 import React, { PureComponent } from 'react';
 import PropTypes from 'prop-types';
-import { Dropdown, MenuItem } from 'react-bootstrap';
+import { Menu, Dropdown } from 'antd';
 import classNames from 'classnames';
 import ExperimentViewUtil from "./ExperimentViewUtil";
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
-import EmptyIfClosedMenu from './EmptyIfClosedMenu';
 
 const styles = {
   metricParamCellContent: {
@@ -33,48 +32,46 @@ export default class BaggedCell extends PureComponent {
       <span
         className={cellClass}
       >
-      <Dropdown id="dropdown-custom-1" style={{width: 250}}>
-        <ExperimentRunsSortToggle
-          bsRole="toggle"
-          className={"metric-param-sort-toggle"}
+        <Dropdown
+          overlay={(
+            <Menu>
+              <Menu.Item onClick={() => onSortBy(canonicalKey, true)}>
+                Sort ascending
+              </Menu.Item>
+              <Menu.Item onClick={() => onSortBy(canonicalKey, false)}>
+                Sort descending
+              </Menu.Item>
+              <Menu.Item onClick={() => onRemoveBagged(isParam, keyName)}>
+                Display in own column
+              </Menu.Item>
+            </Menu>
+          )}
+          trigger='click'
         >
+          <span>
+            <ExperimentRunsSortToggle
+                bsRole="toggle"
+                className={"metric-param-sort-toggle"}
+              >
               <span
-                className="run-table-container underline-on-hover"
+                className="run-table-container underline-on-hover metric-param-sort-toggle"
                 style={styles.metricParamCellContent}
                 title={keyName}
               >
                 {sortIcon}
                 {keyName}:
               </span>
-        </ExperimentRunsSortToggle>
-        <span
-          className="metric-param-value run-table-container"
-          style={styles.metricParamCellContent}
-        >
-              {value}
-        </span>
-        <EmptyIfClosedMenu className="mlflow-menu" bsRole="menu">
-          <MenuItem
-            className="mlflow-menu-item"
-            onClick={() => onSortBy(canonicalKey, true)}
-          >
-            Sort ascending
-          </MenuItem>
-          <MenuItem
-            className="mlflow-menu-item"
-            onClick={() => onSortBy(canonicalKey, false)}
-          >
-            Sort descending
-          </MenuItem>
-          <MenuItem
-            className="mlflow-menu-item"
-            onClick={() => onRemoveBagged(isParam, keyName)}
-          >
-            Display in own column
-          </MenuItem>
-        </EmptyIfClosedMenu>
-      </Dropdown>
+            </ExperimentRunsSortToggle>
+            <span
+              className="metric-param-value run-table-container"
+              style={styles.metricParamCellContent}
+            >
+                  {value}
+            </span>
+          </span>
+        </Dropdown>
       </span>
     );
   }
 }
+
