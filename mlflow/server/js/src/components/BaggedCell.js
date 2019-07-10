@@ -3,7 +3,6 @@ import PropTypes from 'prop-types';
 import { Menu, Dropdown } from 'antd';
 import classNames from 'classnames';
 import ExperimentViewUtil from "./ExperimentViewUtil";
-import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 
 const styles = {
   metricParamCellContent: {
@@ -23,10 +22,27 @@ export default class BaggedCell extends PureComponent {
     sortIcon: PropTypes.node,
   };
 
-  render() {
-    const { keyName, value, onSortBy, isParam, onRemoveBagged, sortIcon } = this.props;
+  handleSortAscending = () => {
+    const { isParam, keyName, onSortBy } = this.props;
     const keyType = (isParam ? "params" : "metrics");
     const canonicalKey = ExperimentViewUtil.makeCanonicalKey(keyType, keyName);
+    onSortBy(canonicalKey, true);
+  };
+
+  handleSortDescending = () => {
+    const { isParam, keyName, onSortBy } = this.props;
+    const keyType = (isParam ? "params" : "metrics");
+    const canonicalKey = ExperimentViewUtil.makeCanonicalKey(keyType, keyName);
+    onSortBy(canonicalKey, false);
+  };
+
+  handleRemoveBagged = () => {
+    const { isParam, keyName, onRemoveBagged } = this.props;
+    onRemoveBagged(isParam, keyName);
+  };
+
+  render() {
+    const { keyName, value, sortIcon } = this.props;
     const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     return (
       <span
@@ -35,38 +51,33 @@ export default class BaggedCell extends PureComponent {
         <Dropdown
           overlay={(
             <Menu>
-              <Menu.Item onClick={() => onSortBy(canonicalKey, true)}>
+              <Menu.Item onClick={this.handleSortAscending}>
                 Sort ascending
               </Menu.Item>
-              <Menu.Item onClick={() => onSortBy(canonicalKey, false)}>
+              <Menu.Item onClick={this.handleSortDescending}>
                 Sort descending
               </Menu.Item>
-              <Menu.Item onClick={() => onRemoveBagged(isParam, keyName)}>
+              <Menu.Item onClick={this.handleRemoveBagged}>
                 Display in own column
               </Menu.Item>
             </Menu>
           )}
-          trigger='click'
+          trigger={['click']}
         >
           <span>
-            <ExperimentRunsSortToggle
-                bsRole="toggle"
-                className={"metric-param-sort-toggle"}
-              >
-              <span
-                className="run-table-container underline-on-hover metric-param-sort-toggle"
-                style={styles.metricParamCellContent}
-                title={keyName}
-              >
-                {sortIcon}
-                {keyName}:
-              </span>
-            </ExperimentRunsSortToggle>
+            <span
+              className="run-table-container underline-on-hover metric-param-sort-toggle"
+              style={styles.metricParamCellContent}
+              title={keyName}
+            >
+              {sortIcon}
+              {keyName}:
+            </span>
             <span
               className="metric-param-value run-table-container"
               style={styles.metricParamCellContent}
             >
-                  {value}
+              {value}
             </span>
           </span>
         </Dropdown>
@@ -74,4 +85,3 @@ export default class BaggedCell extends PureComponent {
     );
   }
 }
-
