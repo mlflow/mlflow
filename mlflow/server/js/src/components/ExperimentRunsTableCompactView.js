@@ -612,17 +612,12 @@ class ExperimentRunsTableCompactView extends React.Component {
 
   componentDidUpdate(prevProps, prevState, snapshot) {
     this.maybeHandleScroll();
-    this.maybeHandleLoadingMoreFinish(prevProps);
+    this.maybeHandleLoadMoreFinish(prevProps);
   }
 
-  maybeHandleLoadingMoreFinish(prevProps) {
-    // Eagerly toggle `isAtScrollBottom` off when load-more starts.
-    // This will:
-    // 1. Prevent `load more` button from hanging around after load more finishes.
-    // 2. Prevent a UI flickering caused by a render with
-    // (loadingMore === false && isAtScrollBottom === true), which makes it better than setting it
-    // after load more finishes.
-    if (prevProps.loadingMore === false && this.props.loadingMore === true) {
+  maybeHandleLoadMoreFinish(prevProps) {
+    const loadMoreJustFinished = prevProps.loadingMore === false && this.props.loadingMore === true;
+    if (loadMoreJustFinished) {
       this.setState({ isAtScrollBottom: false });
     }
   }
