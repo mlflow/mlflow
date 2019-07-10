@@ -30,7 +30,7 @@ def random_train_data():
 
 @pytest.fixture
 def tf_keras_random_data_run(random_train_data):
-    mlflow.tensorflow.autolog(metrics_every_n_steps=2)
+    mlflow.tensorflow.autolog(metrics_every_n_steps=5)
 
     def random_one_hot_labels(shape):
         n, n_class = shape
@@ -68,6 +68,8 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert 'summary' in tf_keras_random_data_run.data.tags
     assert 'Model: "sequential"' in tf_keras_random_data_run.data.tags['summary']
     assert 'Total params: 6,922' in tf_keras_random_data_run.data.tags['summary']
+    all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'epoch_acc')
+    assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
 
 
 @pytest.mark.large
@@ -83,7 +85,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
 
 @pytest.fixture
 def tf_core_random_tensors():
-    mlflow.tensorflow.autolog(metrics_every_n_steps=1)
+    mlflow.tensorflow.autolog(metrics_every_n_steps=4)
     with mlflow.start_run() as run:
         sess = tf.Session()
         a = tf.constant(3.0, dtype=tf.float32)
@@ -94,9 +96,10 @@ def tf_core_random_tensors():
         merged = tf.summary.merge_all()
         dir = tempfile.mkdtemp()
         writer = tf.summary.FileWriter(dir, sess.graph)
-        with sess.as_default():
-            summary, _ = sess.run([merged, total])
-        writer.add_summary(summary)
+        for i in range(40):
+            with sess.as_default():
+                summary, _ = sess.run([merged, total])
+            writer.add_summary(summary, global_step=i)
         shutil.rmtree(dir)
         writer.close()
 
@@ -108,11 +111,13 @@ def test_tf_core_autolog_logs_scalars(tf_core_random_tensors):
     assert tf_core_random_tensors.data.metrics['a'] == 3.0
     assert 'b' in tf_core_random_tensors.data.metrics
     assert tf_core_random_tensors.data.metrics['b'] == 4.0
+    all_a = client.get_metric_history(tf_core_random_tensors.info.run_id, 'a')
+    assert all((x.step - 1) % 4 == 0 for x in all_a)
 
 
 @pytest.fixture
 def tf_estimator_random_data_run():
-    mlflow.tensorflow.autolog(metrics_every_n_steps=1)
+    mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
         dir = tempfile.mkdtemp()
         CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
@@ -168,9 +173,10 @@ def tf_estimator_random_data_run():
 
 
 @pytest.mark.large
-def test_tf_estimator_autolog_logs_metrics_artifacts(tf_estimator_random_data_run):
-    metrics = tf_estimator_random_data_run.data.metrics
-    assert len(metrics) > 0
+def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
+    assert 'loss' in tf_estimator_random_data_run.data.metrics
+    metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, 'loss')
+    assert all((x.step-1) % 100 == 0 for x in metrics)
 
 
 @pytest.mark.large
@@ -181,3 +187,15 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_
     session = tf.Session()
     model = mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id +
                                         "/model", session)
+
+
+@pytest.fixture
+def duplicate_autolog_tf_estimator_run():
+    mlflow.tensorflow.autolog(metrics_every_n_steps=23)  # 23 is prime; no false positives in test
+    run = tf_estimator_random_data_run()
+    return run  # should be autologged every 4 steps
+
+
+def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
+    metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
+    assert all((x.step - 1) % 4 == 0 for x in metrics)

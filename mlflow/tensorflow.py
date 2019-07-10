@@ -442,7 +442,7 @@ def _log_event(event):
         summary = event.summary
         for v in summary.value:
             if v.HasField('simple_value'):
-                if event.step % _LOG_EVERY_N_STEPS == 0:
+                if (event.step-1) % _LOG_EVERY_N_STEPS == 0:
                     _thread_pool.submit(_add_to_queue, key=v.tag,
                                         value=v.simple_value, step=event.step,
                                         time=int(time.time())*1000,
