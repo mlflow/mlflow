@@ -91,7 +91,7 @@ export class ExperimentPage extends Component {
         viewType,
         orderBy,
         nextPageToken,
-        ExperimentPage.loadMoreRunReqestId
+        ExperimentPage.loadMoreRunReqestId,
       ),
     );
   };
