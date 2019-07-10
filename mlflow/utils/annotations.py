@@ -29,7 +29,7 @@ def deprecated(alternative=None, since=None):
         if alternative is not None and alternative.strip():
             notice += " Use ``%s`` instead." % alternative
         func.__doc__ = notice + "\n" + func.__doc__
-        warnings.warn(notice)
+        warnings.warn(notice, stacklevel=2)
         return func
     return deprecated_func
 
