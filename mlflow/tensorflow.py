@@ -19,6 +19,7 @@ import concurrent.futures
 import warnings
 import atexit
 import time
+import tempfile
 
 import pandas
 
@@ -380,7 +381,6 @@ class __MLflowTfKerasCallback(Callback):
         self.model.summary(print_fn=l.append)
         summary = '\n'.join(l)
         mlflow.set_tag('summary', summary)
-        # TODO: Fix for keras log_model not saving TF optimizers
         mlflow.keras.log_model(self.model, artifact_path='model')
 
 
@@ -463,7 +463,7 @@ def _setup_callbacks(lst):
     """
     tb = _get_tensorboard_callback(lst)
     if tb is None:
-        log_dir = 'tensorboard_logs'
+        log_dir = tempfile.mkdtemp()
         l = lst + [TensorBoard(log_dir)]
     else:
         log_dir = tb.log_dir
@@ -550,6 +550,7 @@ def autolog(metrics_every_n_steps=100):
         result = original(self, *args, **kwargs)
         _flush_queue()
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
+        shutil.rmtree(log_dir)
         return result
 
     @gorilla.patch(EventFileWriter)

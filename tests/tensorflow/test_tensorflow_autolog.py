@@ -167,21 +167,19 @@ def tf_estimator_random_data_run():
 
         classifier.train(
             input_fn=lambda: input_fn(train, train_y, training=True),
-            steps=5000)
+            steps=500)
         classifier.export_saved_model(dir, receiver_fn)
 
     shutil.rmtree(dir)
     return client.get_run(run.info.run_id)
 
 
-@pytest.mark.large
 def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
     assert 'loss' in tf_estimator_random_data_run.data.metrics
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, 'loss')
     assert all((x.step-1) % 100 == 0 for x in metrics)
 
 
-@pytest.mark.large
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
@@ -198,7 +196,6 @@ def duplicate_autolog_tf_estimator_run():
     return run  # should be autologged every 4 steps
 
 
-@pytest.mark.large
 def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
     metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)

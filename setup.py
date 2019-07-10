@@ -49,7 +49,7 @@ setup(
         'sqlparse',
         'sqlalchemy',
         'docker>=3.6.0',
-        'gorilla'
+        'gorilla',
     ],
     extras_require={
         'extras':[
