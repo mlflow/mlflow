@@ -188,7 +188,7 @@ mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
 
 #' Delete Tag
 #'
-#' Deletes a tag on a run. Tags are run metadata that can be updated during a run and
+#' Deletes a tag on a run. This is irreversible. Tags are run metadata that can be updated during a run and
 #'  after a run completes.
 #'
 #' @param key Name of the tag. Maximum size is 255 bytes. This field is required.

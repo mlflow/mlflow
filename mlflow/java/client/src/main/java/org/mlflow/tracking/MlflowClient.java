@@ -299,7 +299,7 @@ public class MlflowClient {
   }
 
   /**
-   * Delete a tag against the given run, given a String key.
+   * Delete a tag against the given run, given a String key. This is irreversible.
    * @param runId The ID of the run in which the tag exists to delete.
    * @param key The key of the tag.
    */

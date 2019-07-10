@@ -189,7 +189,7 @@ def set_tag(key, value):
 
 def delete_tag(key):
     """
-    Delete a tag under the current run, if it exists.
+    Delete a tag under the current run, if it exists. This is irreversible.
 
     :param key: Tag name (string)
     """

@@ -191,7 +191,7 @@ class RestStore(AbstractStore):
 
     def delete_tag(self, run_id, key):
         """
-        Delete a tag for the specified run with the specified tag key.
+        Delete a tag for the specified run with the specified tag key. This is irreversible.
         :param run_id: String id for the run
         :param key: name of the tag to delete
         """
