@@ -18,6 +18,7 @@ const TABLE_HEADER_HEIGHT = 40;
 const UNBAGGED_COL_WIDTH = 125;
 const BAGGED_COL_WIDTH = 250;
 const BORDER_STYLE = "1px solid #e2e2e2";
+const LOAD_MORE_ROW_HEIGHT = 37;
 
 const styles = {
   sortArrow: {
@@ -380,7 +381,6 @@ class ExperimentRunsTableCompactView extends React.Component {
       <div id="autosizer-container" className="runs-table-flex-container">
           <AutoSizer>
             {({width, height}) => {
-              console.log(`width = ${width}, height=${height}`);
               if (this._lastRenderedWidth !== width) {
                 this._lastRenderedWidth = width;
                 this._cache.clearAll();
@@ -417,6 +417,7 @@ class ExperimentRunsTableCompactView extends React.Component {
               const tableMinWidth = (BAGGED_COL_WIDTH * (showBaggedParams + showBaggedMetrics))
                 + runMetadataWidth +
                 (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length));
+              const tableWidth = Math.max(width, tableMinWidth);
               // If we aren't showing bagged metrics or params (bagged metrics & params are the
               // only cols that use the CellMeasurer component), set the row height statically
               const cellMeasurerProps = {};
@@ -426,180 +427,189 @@ class ExperimentRunsTableCompactView extends React.Component {
               } else {
                 cellMeasurerProps.rowHeight = 32;
               }
-              return (<Table
-                ref={this.tableRef}
-                onScroll={this.handleScroll}
-                {...cellMeasurerProps}
-                width={
-                  Math.max(width, tableMinWidth)
-                }
-                height={Math.max(height - TABLE_HEADER_HEIGHT, 200) + 20}
-                headerHeight={TABLE_HEADER_HEIGHT}
-                overscanRowCount={2}
-                rowCount={rows.length}
-                gridStyle={{
-                  borderLeft: BORDER_STYLE,
-                  borderBottom: BORDER_STYLE,
-                  borderRight: BORDER_STYLE,
-                }}
-                rowGetter={({index}) => this.getRow(rows[index])}
-                rowStyle={({index}) => {
-                  const base = {alignItems: "stretch", borderBottom: BORDER_STYLE,
-                    overflow: "visible"};
-                  if (index === - 1) {
-                    return {
-                      ...base,
-                      backgroundColor: "#fafafa",
-                      borderTop: BORDER_STYLE,
+              return (
+                <div>
+                  <Table
+                    ref={this.tableRef}
+                    onScroll={this.handleScroll}
+                    {...cellMeasurerProps}
+                    width={tableWidth}
+                    height={Math.max(height - TABLE_HEADER_HEIGHT, 200) + 20}
+                    headerHeight={TABLE_HEADER_HEIGHT}
+                    overscanRowCount={2}
+                    rowCount={rows.length}
+                    gridStyle={{
                       borderLeft: BORDER_STYLE,
+                      borderBottom: BORDER_STYLE,
                       borderRight: BORDER_STYLE,
-                    };
-                  }
-                  return base;
-                }}
-              >
-                {[...Array(NUM_RUN_METADATA_COLS).keys()].map((colIdx) => {
-                  return <Column
-                    dataKey={'column-' + colIdx}
-                    key={'column-' + colIdx}
-                    width={runMetadataColWidths[colIdx]}
-                    headerRenderer={() => headerCells[colIdx]}
-                    style={{
-                      ...styles.columnStyle,
-                      // show left boarder for run tags column
-                      ...(colIdx === NUM_RUN_METADATA_COLS - 1
-                        ? { borderLeft: BORDER_STYLE }
-                        : undefined
-                      ),
                     }}
-                    cellRenderer={({ rowIndex, rowData, parent, dataKey }) => (
-                      <CellMeasurer
-                        cache={this._cache}
-                        columnIndex={colIdx}
-                        key={dataKey}
-                        parent={parent}
-                        rowIndex={rowIndex}>
-                        {rowData.contents[colIdx]}
-                      </CellMeasurer>
-                    )}
-                  />;
-                })}
-                {unbaggedParams.map((unbaggedParam, idx) => {
-                  return <Column
-                    key={"param-" + unbaggedParam}
-                    dataKey={"param-" + unbaggedParam}
-                    width={UNBAGGED_COL_WIDTH}
-                    headerRenderer={() => headerCells[NUM_RUN_METADATA_COLS + idx]}
-                    style={styles.columnStyle}
-                    cellRenderer={({rowData}) => rowData.contents[NUM_RUN_METADATA_COLS + idx]}
-                  />;
-                })}
-                {showBaggedParams && <Column
-                  width={BAGGED_COL_WIDTH}
-                  flexShrink={0}
-                  label='Parameters'
-                  dataKey='params'
-                  headerRenderer={() => {
-                    return <div
-                      style={{...styles.unbaggedMetricParamColHeader, leftBorder: BORDER_STYLE}}
+                    rowGetter={({index}) => this.getRow(rows[index])}
+                    rowStyle={({index}) => {
+                      const base = {alignItems: "stretch", borderBottom: BORDER_STYLE,
+                        overflow: "visible"};
+                      if (index === - 1) {
+                        return {
+                          ...base,
+                          backgroundColor: "#fafafa",
+                          borderTop: BORDER_STYLE,
+                          borderLeft: BORDER_STYLE,
+                          borderRight: BORDER_STYLE,
+                        };
+                      }
+                      return base;
+                    }}
+                  >
+                    {[...Array(NUM_RUN_METADATA_COLS).keys()].map((colIdx) => {
+                      return <Column
+                        dataKey={'column-' + colIdx}
+                        key={'column-' + colIdx}
+                        width={runMetadataColWidths[colIdx]}
+                        headerRenderer={() => headerCells[colIdx]}
+                        style={{
+                          ...styles.columnStyle,
+                          // show left boarder for run tags column
+                          ...(colIdx === NUM_RUN_METADATA_COLS - 1
+                              ? { borderLeft: BORDER_STYLE }
+                              : undefined
+                          ),
+                        }}
+                        cellRenderer={({ rowIndex, rowData, parent, dataKey }) => {
+                          return (
+                            <CellMeasurer
+                              cache={this._cache}
+                              columnIndex={colIdx}
+                              key={dataKey}
+                              parent={parent}
+                              rowIndex={rowIndex}>
+                              {rowData.contents[colIdx]}
+                            </CellMeasurer>
+                          );
+                        }}
+                      />;
+                    })}
+                    {unbaggedParams.map((unbaggedParam, idx) => {
+                      return <Column
+                        key={"param-" + unbaggedParam}
+                        dataKey={"param-" + unbaggedParam}
+                        width={UNBAGGED_COL_WIDTH}
+                        headerRenderer={() => headerCells[NUM_RUN_METADATA_COLS + idx]}
+                        style={styles.columnStyle}
+                        cellRenderer={({rowData}) => rowData.contents[NUM_RUN_METADATA_COLS + idx]}
+                      />;
+                    })}
+                    {showBaggedParams && <Column
+                      width={BAGGED_COL_WIDTH}
+                      flexShrink={0}
+                      label='Parameters'
+                      dataKey='params'
+                      headerRenderer={() => {
+                        return <div
+                          style={{...styles.unbaggedMetricParamColHeader, leftBorder: BORDER_STYLE}}
+                        >
+                          Parameters
+                        </div>;
+                      }}
+                      style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
+                      cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
+                        const colIdx = NUM_RUN_METADATA_COLS + unbaggedParams.length;
+                        // Add extra padding for load more
+                        const paddingOpt = rowIndex === rows.length - 1
+                          ? { paddingBottom: LOAD_MORE_ROW_HEIGHT * 2 }
+                          : {};
+                        return (<CellMeasurer
+                          cache={this._cache}
+                          columnIndex={colIdx}
+                          key={dataKey}
+                          parent={parent}
+                          rowIndex={rowIndex}>
+                          <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
+                            {rowData.contents[colIdx]}
+                          </div>
+                        </CellMeasurer>);
+                      }}
+                    />}
+                    {unbaggedMetrics.map((unbaggedMetric, idx) => {
+                      const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
+                        unbaggedParams.length + idx;
+                      return <Column
+                        key={"metric-" + unbaggedMetric}
+                        label='Version'
+                        dataKey={"metric-" + unbaggedMetric}
+                        width={UNBAGGED_COL_WIDTH}
+                        headerRenderer={() => headerCells[colIdx]}
+                        style={styles.columnStyle}
+                        cellRenderer={({rowData}) => rowData.contents[colIdx]}
+                      />;
+                    })}
+                    {showBaggedMetrics && <Column
+                      width={BAGGED_COL_WIDTH}
+                      flexShrink={0}
+                      label='Metrics'
+                      dataKey='metrics'
+                      headerRenderer={() => {
+                        return <div
+                          style={{...styles.unbaggedMetricParamColHeader, leftBorder: BORDER_STYLE}}
+                        >
+                          Metrics
+                        </div>;
+                      }}
+                      style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
+                      cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
+                        const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
+                          unbaggedParams.length + unbaggedMetrics.length;
+                        return (<CellMeasurer
+                          cache={this._cache}
+                          columnIndex={colIdx}
+                          key={dataKey}
+                          parent={parent}
+                          rowIndex={rowIndex}>
+                          <div style={{ ...styles.baggedCellContainer }}>
+                            {rowData.contents[colIdx]}
+                          </div>
+                        </CellMeasurer>);
+                      }}
+                    />}
+                  </Table>
+                  {/*
+                    "Load more" row for user to click and load more runs. This row is currently built
+                    outside of the Table component as we are following a minimum-invasive way of building
+                    this feature to avoid massive refactor on current implementation. Ideally, this row
+                    can be built inside the Table as a special row by rewriting table rendering with a
+                    custom `rowRenderer`. That way, we don't need to handle scrolling position manually.
+                    We can consider doing this refactor while we implement the multi-level nested runs.
+                    TODO(Zangr) rewrite the table with rowRenderer to allow a built-in load-more row
+                  */}
+                  {showLoadMore ? (
+                    <div
+                      className='load-more-row'
+                      style={{
+                        height: LOAD_MORE_ROW_HEIGHT,
+                        width: tableWidth,
+                        border: BORDER_STYLE
+                      }}
                     >
-                      Parameters
-                    </div>;
-                  }}
-                  style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
-                  cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
-                    // Add extra padding for load more
-                    const paddingOpt = rowIndex === rows.length - 1 ? { paddingBottom: 74 } : {};
-                    const colIdx = NUM_RUN_METADATA_COLS + unbaggedParams.length;
-                    return (<CellMeasurer
-                      cache={this._cache}
-                      columnIndex={colIdx}
-                      key={dataKey}
-                      parent={parent}
-                      rowIndex={rowIndex}>
-                      <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
-                        {rowData.contents[colIdx]}
-                      </div>
-                    </CellMeasurer>);
-                  }}
-                />}
-                {unbaggedMetrics.map((unbaggedMetric, idx) => {
-                  const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
-                    unbaggedParams.length + idx;
-                  return <Column
-                    key={"metric-" + unbaggedMetric}
-                    label='Version'
-                    dataKey={"metric-" + unbaggedMetric}
-                    width={UNBAGGED_COL_WIDTH}
-                    headerRenderer={() => headerCells[colIdx]}
-                    style={styles.columnStyle}
-                    cellRenderer={({rowData}) => rowData.contents[colIdx]}
-                  />;
-                })}
-                {showBaggedMetrics && <Column
-                  width={BAGGED_COL_WIDTH}
-                  flexShrink={0}
-                  label='Metrics'
-                  dataKey='metrics'
-                  headerRenderer={() => {
-                    return <div
-                      style={{...styles.unbaggedMetricParamColHeader, leftBorder: BORDER_STYLE}}
-                    >
-                      Metrics
-                    </div>;
-                  }}
-                  style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
-                  cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
-                    const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
-                      unbaggedParams.length + unbaggedMetrics.length;
-                    // Add extra padding for load more
-                    const paddingOpt = rowIndex === rows.length - 1 ? { paddingBottom: 74 } : {};
-                    return (<CellMeasurer
-                      cache={this._cache}
-                      columnIndex={colIdx}
-                      key={dataKey}
-                      parent={parent}
-                      rowIndex={rowIndex}>
-                      <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
-                        {rowData.contents[colIdx]}
-                      </div>
-                    </CellMeasurer>);
-                  }}
-                />}
-              </Table>);
+                      {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
+                      {loadingMore ? (
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <Icon type='sync' spin style={{ fontSize: 20 }}/>
+                        </div>
+                      ) : (
+                        <AntdButton
+                          type='primary'
+                          htmlType='button'
+                          onClick={handleLoadMoreRuns}
+                          disabled={loadingMore}
+                          size='small'
+                        >
+                          Load more
+                        </AntdButton>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              );
             }}
           </AutoSizer>
-          {/*
-            "Load more" row for user to click and load more runs. This row is currently built
-            outside of the Table component as we are following a minimum-invasive way of building
-            this feature to avoid massive refactor on current implementation. Ideally, this row
-            can be built inside the Table as a special row by rewriting table rendering with a
-            custom `rowRenderer`. That way, we don't need to handle scrolling position manually.
-            We can consider doing this refactor while we implement the multi-level nested runs.
-            TODO(Zangr) rewrite the table with rowRenderer to allow a built-in load-more row
-          */}
-          {showLoadMore ? (
-            <div
-              className='load-more-row'
-            >
-              {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
-              {loadingMore ? (
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <Icon type='sync' spin style={{ fontSize: 20 }}/>
-                </div>
-              ) : (
-                <AntdButton
-                  type='primary'
-                  htmlType='button'
-                  onClick={handleLoadMoreRuns}
-                  disabled={loadingMore}
-                  size='small'
-                >
-                  Load more
-                </AntdButton>
-              )}
-            </div>
-          ) : null}
       </div>
     );
   }

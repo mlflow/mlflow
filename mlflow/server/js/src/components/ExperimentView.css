@@ -283,13 +283,10 @@ span.error-message {
   display: flex;
   justify-content: center;
   background: white;
-  height: 37px;
   position: absolute;
-  width: calc(100% - 2px); /* -2px for margin */
   min-width: 1398px;
   bottom: 20px;
   align-items: center;
-  margin: 0 1px; /* update calc with after changing this */
   border-top: 1px solid #ccc;
   border-bottom: 1px solid #ccc;
 }
