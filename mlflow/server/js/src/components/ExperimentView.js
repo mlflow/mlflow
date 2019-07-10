@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
 import { getApis, getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
@@ -12,7 +11,6 @@ import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 
-import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
@@ -21,7 +19,7 @@ import RestoreRunModal from './modals/RestoreRunModal';
 
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
-import { Icon, Popover, Button as AntdButton } from 'antd';
+import { Icon, Popover } from 'antd';
 
 import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
@@ -191,15 +189,6 @@ export class ExperimentView extends Component {
       lifecycleFilterInput: lifecycleFilter,
       runsSelected: newRunsSelected,
     };
-  }
-
-  setShowMultiColumns(value) {
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        showMultiColumns: value,
-      }).toJSON(),
-    });
   }
 
   onDeleteRun() {
@@ -434,70 +423,34 @@ export class ExperimentView extends Component {
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
-            <span style={{cursor: "pointer"}}>
-                <ButtonGroup style={styles.tableToggleButtonGroup}>
-                <Button
-                  onClick={() => this.setShowMultiColumns(false)}
-                  title="Compact view"
-                  className={classNames({ "active": !this.state.persistedState.showMultiColumns })}
-                >
-                  <i className={"fas fa-list"}/>
-                </Button>
-                <Button
-                  onClick={() => this.setShowMultiColumns(true)}
-                  title="Grid view"
-                  className={classNames({ "active": this.state.persistedState.showMultiColumns })}
-                >
-                  <i className={"fas fa-table"}/>
-                </Button>
-                </ButtonGroup>
-            </span>
           </div>
           {isLoading ?
-            <Spinner showImmediately/> :
-            (this.state.persistedState.showMultiColumns ?
-                <ExperimentRunsTableMultiColumnView
-                  onCheckbox={this.onCheckbox}
-                  runInfos={this.props.runInfos}
-                  paramsList={this.props.paramsList}
-                  metricsList={this.props.metricsList}
-                  tagsList={this.props.tagsList}
-                  paramKeyList={paramKeyList}
-                  metricKeyList={metricKeyList}
-                  onCheckAll={this.onCheckAll}
-                  isAllChecked={this.isAllChecked()}
-                  onSortBy={this.onSortBy}
-                  orderByKey={this.props.orderByKey}
-                  orderByAsc={this.props.orderByAsc}
-                  runsSelected={this.state.runsSelected}
-                  runsExpanded={this.state.persistedState.runsExpanded}
-                  onExpand={this.onExpand}
-                /> :
-                <ExperimentRunsTableCompactView
-                  onCheckbox={this.onCheckbox}
-                  runInfos={this.props.runInfos}
-                  // Bagged param and metric keys
-                  paramKeyList={paramKeyList}
-                  metricKeyList={metricKeyList}
-                  paramsList={this.props.paramsList}
-                  metricsList={this.props.metricsList}
-                  tagsList={this.props.tagsList}
-                  onCheckAll={this.onCheckAll}
-                  isAllChecked={this.isAllChecked()}
-                  onSortBy={this.onSortBy}
-                  orderByKey={this.props.orderByKey}
-                  orderByAsc={this.props.orderByAsc}
-                  runsSelected={this.state.runsSelected}
-                  runsExpanded={this.state.persistedState.runsExpanded}
-                  onExpand={this.onExpand}
-                  unbaggedMetrics={unbaggedMetricKeyList}
-                  unbaggedParams={unbaggedParamKeyList}
-                  onAddBagged={this.addBagged}
-                  onRemoveBagged={this.removeBagged}
-                  nextPageToken={nextPageToken}
-                  handleLoadMoreRuns={handleLoadMoreRuns}
-                  loadingMore={loadingMore}
-                />
+            <Spinner showImmediately/> : (
+              <ExperimentRunsTableCompactView
+                onCheckbox={this.onCheckbox}
+                runInfos={this.props.runInfos}
+                // Bagged param and metric keys
+                paramKeyList={paramKeyList}
+                metricKeyList={metricKeyList}
+                paramsList={this.props.paramsList}
+                metricsList={this.props.metricsList}
+                tagsList={this.props.tagsList}
+                onCheckAll={this.onCheckAll}
+                isAllChecked={this.isAllChecked()}
+                onSortBy={this.onSortBy}
+                orderByKey={this.props.orderByKey}
+                orderByAsc={this.props.orderByAsc}
+                runsSelected={this.state.runsSelected}
+                runsExpanded={this.state.persistedState.runsExpanded}
+                onExpand={this.onExpand}
+                unbaggedMetrics={unbaggedMetricKeyList}
+                unbaggedParams={unbaggedParamKeyList}
+                onAddBagged={this.addBagged}
+                onRemoveBagged={this.removeBagged}
+                nextPageToken={nextPageToken}
+                handleLoadMoreRuns={handleLoadMoreRuns}
+                loadingMore={loadingMore}
+              />
             )
           }
         </div>
@@ -635,9 +588,7 @@ export class ExperimentView extends Component {
   onClear() {
     // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
     // attributes to their default values.
-    const newPersistedState = new ExperimentViewPersistedState({
-      showMultiColumns: this.state.persistedState.showMultiColumns,
-    });
+    const newPersistedState = new ExperimentViewPersistedState();
     this.setState({persistedState: newPersistedState.toJSON()}, () => {
       this.snapshotComponentState();
       this.initiateSearch({paramKeyFilterInput: "", metricKeyFilterInput: "",
@@ -823,9 +774,6 @@ const styles = {
   },
   lifecycleButtonFilterWrapper: {
     marginLeft: '48px',
-  },
-  tableToggleButtonGroup: {
-    marginLeft: '16px',
   },
 };
 
