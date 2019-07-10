@@ -1,7 +1,7 @@
 import { MlflowService } from './sdk/MlflowService';
 import ErrorCodes from './sdk/ErrorCodes';
 
-export const SEARCH_MAX_RESULTS = 50;
+export const SEARCH_MAX_RESULTS = 100;
 
 export const isPendingApi = (action) => {
   return action.type.endsWith("_PENDING");
