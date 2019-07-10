@@ -39,10 +39,10 @@ export class ExperimentPage extends Component {
       nextPageToken: null,
       loadingMore: false,
     };
-    this.initLoad();
+    this.loadData();
   }
 
-  initLoad() {
+  loadData() {
     const {
       getExperimentRequestId,
       persistedState,
@@ -119,18 +119,14 @@ export class ExperimentPage extends Component {
     };
   }
 
-  snapshotComponentState() {
-
+  componentDidUpdate(prevProps, prevState, snapshot) {
+    this.maybeReloadData(prevProps);
   }
 
-  componentDidUpdate() {
-    this.snapshotComponentState();
-  }
-
-  componentWillUnmount() {
-    // Snapshot component state on unmounts to ensure we've captured component state in cases where
-    // componentDidUpdate doesn't fire.
-    this.snapshotComponentState();
+  maybeReloadData(prevProps) {
+    if (this.props.experimentId !== prevProps.experimentId) {
+      this.loadData();
+    }
   }
 
   onSearch(
