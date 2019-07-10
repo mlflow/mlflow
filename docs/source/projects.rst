@@ -443,7 +443,7 @@ To run your project, use the command:
 
 .. code-block:: bash
 
-  mlflow run <uri> --backend Kubernetes --backend-config examples/docker/kubernetes_config.json
+  mlflow run <uri> --backend kubernetes --backend-config examples/docker/kubernetes_config.json
 
 where ``<uri>`` is a Git repository URI or a folder.
 
