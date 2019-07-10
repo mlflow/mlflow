@@ -32,7 +32,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import keyword_only
+from mlflow.utils import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -472,6 +472,7 @@ def _setup_callbacks(lst):
     return l, log_dir
 
 
+@experimental
 def autolog(metrics_every_n_steps=100):
     # pylint: disable=E0611
     """
