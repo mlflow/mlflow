@@ -637,6 +637,7 @@ class ExperimentRunsTableCompactView extends React.Component {
   handleScroll = _.debounce(() => {
     // Getting clientHeight, scrollHeight and scrollTop from the Grid instance directly here because
     // corresponding inputs provided by onScroll are wrong at mounting phase and upon toggling
+    if (!this.tableRef.current) return;
     const grid = this.tableRef.current.Grid;
     const { clientHeight, scrollHeight, scrollTop } = {
       clientHeight: grid.props.height,
@@ -646,7 +647,7 @@ class ExperimentRunsTableCompactView extends React.Component {
     const isRunsListShort = scrollHeight < clientHeight;
     const isAtScrollBottom = isRunsListShort || (clientHeight + scrollTop === scrollHeight);
     this.setState({ isAtScrollBottom });
-  }, 200);
+  }, 100);
 }
 
 const mapStateToProps = (state, ownProps) => {
