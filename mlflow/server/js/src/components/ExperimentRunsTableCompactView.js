@@ -569,6 +569,7 @@ class ExperimentRunsTableCompactView extends React.Component {
               </Table>,
               showLoadMore ? (
                 <LoadMoreRow
+                  key='load-more-row'
                   height={LOAD_MORE_ROW_HEIGHT}
                   width={tableWidth}
                   borderStyle={BORDER_STYLE}

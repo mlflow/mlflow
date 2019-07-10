@@ -25,11 +25,9 @@ export class LoadMoreRow extends React.PureComponent {
     const { height, width, borderStyle, loadingMore, onLoadMore } = this.props;
     return (
       <div
-        key='load-more-row'
         className='load-more-row'
         style={{ height, width, border: borderStyle }}
       >
-        {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
         {loadingMore ? (
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <Icon type='sync' spin style={{ fontSize: 20 }}/>
