@@ -28973,7 +28973,7 @@ public final class Service {
      * ID of the run that the tag was logged under. Must be provided.
      * </pre>
      *
-     * <code>optional string run_id = 2;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasRunId();
     /**
@@ -28981,7 +28981,7 @@ public final class Service {
      * ID of the run that the tag was logged under. Must be provided.
      * </pre>
      *
-     * <code>optional string run_id = 2;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getRunId();
     /**
@@ -28989,33 +28989,33 @@ public final class Service {
      * ID of the run that the tag was logged under. Must be provided.
      * </pre>
      *
-     * <code>optional string run_id = 2;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getRunIdBytes();
 
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
      * </pre>
      *
-     * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     boolean hasKey();
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
      * </pre>
      *
-     * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     java.lang.String getKey();
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
      * </pre>
      *
-     * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     com.google.protobuf.ByteString
         getKeyBytes();
@@ -29063,14 +29063,14 @@ public final class Service {
               break;
             case 10: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              key_ = bs;
+              bitField0_ |= 0x00000001;
+              runId_ = bs;
               break;
             }
             case 18: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000001;
-              runId_ = bs;
+              bitField0_ |= 0x00000002;
+              key_ = bs;
               break;
             }
             default: {
@@ -29518,14 +29518,14 @@ public final class Service {
     }
 
     private int bitField0_;
-    public static final int RUN_ID_FIELD_NUMBER = 2;
+    public static final int RUN_ID_FIELD_NUMBER = 1;
     private volatile java.lang.Object runId_;
     /**
      * <pre>
      * ID of the run that the tag was logged under. Must be provided.
      * </pre>
      *
-     * <code>optional string run_id = 2;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasRunId() {
       return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -29535,7 +29535,7 @@ public final class Service {
      * ID of the run that the tag was logged under. Must be provided.
      * </pre>
      *
-     * <code>optional string run_id = 2;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getRunId() {
       java.lang.Object ref = runId_;
@@ -29556,7 +29556,7 @@ public final class Service {
      * ID of the run that the tag was logged under. Must be provided.
      * </pre>
      *
-     * <code>optional string run_id = 2;</code>
+     * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getRunIdBytes() {
@@ -29572,24 +29572,24 @@ public final class Service {
       }
     }
 
-    public static final int KEY_FIELD_NUMBER = 1;
+    public static final int KEY_FIELD_NUMBER = 2;
     private volatile java.lang.Object key_;
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
      * </pre>
      *
-     * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public boolean hasKey() {
       return ((bitField0_ & 0x00000002) == 0x00000002);
     }
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
      * </pre>
      *
-     * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public java.lang.String getKey() {
       java.lang.Object ref = key_;
@@ -29607,10 +29607,10 @@ public final class Service {
     }
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag. Maximum size is 255 bytes. Must be provided.
      * </pre>
      *
-     * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+     * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
      */
     public com.google.protobuf.ByteString
         getKeyBytes() {
@@ -29640,11 +29640,11 @@ public final class Service {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, key_);
-      }
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, runId_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 1, runId_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, key_);
       }
       unknownFields.writeTo(output);
     }
@@ -29655,11 +29655,11 @@ public final class Service {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, key_);
-      }
       if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, runId_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, runId_);
+      }
+      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, key_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -29974,7 +29974,7 @@ public final class Service {
        * ID of the run that the tag was logged under. Must be provided.
        * </pre>
        *
-       * <code>optional string run_id = 2;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasRunId() {
         return ((bitField0_ & 0x00000001) == 0x00000001);
@@ -29984,7 +29984,7 @@ public final class Service {
        * ID of the run that the tag was logged under. Must be provided.
        * </pre>
        *
-       * <code>optional string run_id = 2;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getRunId() {
         java.lang.Object ref = runId_;
@@ -30005,7 +30005,7 @@ public final class Service {
        * ID of the run that the tag was logged under. Must be provided.
        * </pre>
        *
-       * <code>optional string run_id = 2;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getRunIdBytes() {
@@ -30025,7 +30025,7 @@ public final class Service {
        * ID of the run that the tag was logged under. Must be provided.
        * </pre>
        *
-       * <code>optional string run_id = 2;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunId(
           java.lang.String value) {
@@ -30042,7 +30042,7 @@ public final class Service {
        * ID of the run that the tag was logged under. Must be provided.
        * </pre>
        *
-       * <code>optional string run_id = 2;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearRunId() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -30055,7 +30055,7 @@ public final class Service {
        * ID of the run that the tag was logged under. Must be provided.
        * </pre>
        *
-       * <code>optional string run_id = 2;</code>
+       * <code>optional string run_id = 1 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setRunIdBytes(
           com.google.protobuf.ByteString value) {
@@ -30071,20 +30071,20 @@ public final class Service {
       private java.lang.Object key_ = "";
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
        * </pre>
        *
-       * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public boolean hasKey() {
         return ((bitField0_ & 0x00000002) == 0x00000002);
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
        * </pre>
        *
-       * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public java.lang.String getKey() {
         java.lang.Object ref = key_;
@@ -30102,10 +30102,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
        * </pre>
        *
-       * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public com.google.protobuf.ByteString
           getKeyBytes() {
@@ -30122,10 +30122,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
        * </pre>
        *
-       * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setKey(
           java.lang.String value) {
@@ -30139,10 +30139,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
        * </pre>
        *
-       * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder clearKey() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -30152,10 +30152,10 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag. Maximum size is 255 bytes. Must be provided.
        * </pre>
        *
-       * <code>optional string key = 1 [(.mlflow.validate_required) = true];</code>
+       * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
        */
       public Builder setKeyBytes(
           com.google.protobuf.ByteString value) {
@@ -42411,125 +42411,125 @@ public final class Service {
       " \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022\021\n\003key\030\002 \001(\tB\004\370\206\031" +
       "\001\022\023\n\005value\030\003 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n" +
       "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "g\n\tDeleteTag\022\016\n\006run_id\030\002 \001(\t\022\021\n\003key\030\001 \001(" +
-      "\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databricks" +
-      ".rpc.RPC[$this.Response]\"}\n\006GetRun\022\016\n\006ru" +
-      "n_id\030\002 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\032$\n\010Response" +
-      "\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com.dat" +
-      "abricks.rpc.RPC[$this.Response]\"\230\002\n\nSear" +
-      "chRuns\022\026\n\016experiment_ids\030\001 \003(\t\022\016\n\006filter" +
-      "\030\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020.mlflow.V" +
-      "iewType:\013ACTIVE_ONLY\022\031\n\013max_results\030\005 \001(" +
-      "\005:\0041000\022\020\n\010order_by\030\006 \003(\t\022\022\n\npage_token\030" +
-      "\007 \001(\t\032>\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflow" +
-      ".Run\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com." +
-      "databricks.rpc.RPC[$this.Response]\"\253\001\n\rL" +
-      "istArtifacts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid" +
-      "\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010root" +
-      "_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileI" +
-      "nfo:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
-      "esponse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is" +
-      "_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020GetMet" +
-      "ricHistory\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001" +
-      " \001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Respon" +
-      "se\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric:+\342?(" +
+      "m\n\tDeleteTag\022\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022\021\n\003ke" +
+      "y\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.data" +
+      "bricks.rpc.RPC[$this.Response]\"}\n\006GetRun" +
+      "\022\016\n\006run_id\030\002 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\032$\n\010Re" +
+      "sponse\022\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&c" +
+      "om.databricks.rpc.RPC[$this.Response]\"\230\002" +
+      "\n\nSearchRuns\022\026\n\016experiment_ids\030\001 \003(\t\022\016\n\006" +
+      "filter\030\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020.ml" +
+      "flow.ViewType:\013ACTIVE_ONLY\022\031\n\013max_result" +
+      "s\030\005 \001(\005:\0041000\022\020\n\010order_by\030\006 \003(\t\022\022\n\npage_" +
+      "token\030\007 \001(\t\032>\n\010Response\022\031\n\004runs\030\001 \003(\0132\013." +
+      "mlflow.Run\022\027\n\017next_page_token\030\002 \001(\t:+\342?(" +
       "\n&com.databricks.rpc.RPC[$this.Response]" +
-      "\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics" +
-      "\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r" +
-      ".mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.Run" +
-      "Tag\032\n\n\010Response:+\342?(\n&com.databricks.rpc" +
-      ".RPC[$this.Response]*6\n\010ViewType\022\017\n\013ACTI" +
-      "VE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\n" +
-      "SourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PRO" +
-      "JECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunSt" +
-      "atus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINI" +
-      "SHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\263\032\n\rMlflo" +
-      "wService\022\306\001\n\020createExperiment\022\030.mlflow.C" +
-      "reateExperiment\032!.mlflow.CreateExperimen" +
-      "t.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experi" +
-      "ments/create\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlf" +
-      "low/experiments/create\032\004\010\002\020\000\020\001*\021Create E" +
-      "xperiment\022\274\001\n\017listExperiments\022\027.mlflow.L" +
-      "istExperiments\032 .mlflow.ListExperiments." +
-      "Response\"n\362\206\031j\n%\n\003GET\022\030/mlflow/experimen" +
-      "ts/list\032\004\010\002\020\000\n-\n\003GET\022 /preview/mlflow/ex" +
-      "periments/list\032\004\010\002\020\000\020\001*\020List Experiments" +
-      "\022\262\001\n\rgetExperiment\022\025.mlflow.GetExperimen" +
-      "t\032\036.mlflow.GetExperiment.Response\"j\362\206\031f\n" +
-      "$\n\003GET\022\027/mlflow/experiments/get\032\004\010\002\020\000\n,\n" +
-      "\003GET\022\037/preview/mlflow/experiments/get\032\004\010" +
-      "\002\020\000\020\001*\016Get Experiment\022\306\001\n\020deleteExperime" +
-      "nt\022\030.mlflow.DeleteExperiment\032!.mlflow.De" +
-      "leteExperiment.Response\"u\362\206\031q\n(\n\004POST\022\032/" +
-      "mlflow/experiments/delete\032\004\010\002\020\000\n0\n\004POST\022" +
-      "\"/preview/mlflow/experiments/delete\032\004\010\002\020" +
-      "\000\020\001*\021Delete Experiment\022\314\001\n\021restoreExperi" +
-      "ment\022\031.mlflow.RestoreExperiment\032\".mlflow" +
-      ".RestoreExperiment.Response\"x\362\206\031t\n)\n\004POS" +
-      "T\022\033/mlflow/experiments/restore\032\004\010\002\020\000\n1\n\004" +
-      "POST\022#/preview/mlflow/experiments/restor" +
-      "e\032\004\010\002\020\000\020\001*\022Restore Experiment\022\306\001\n\020update" +
-      "Experiment\022\030.mlflow.UpdateExperiment\032!.m" +
-      "lflow.UpdateExperiment.Response\"u\362\206\031q\n(\n" +
-      "\004POST\022\032/mlflow/experiments/update\032\004\010\002\020\000\n" +
-      "0\n\004POST\022\"/preview/mlflow/experiments/upd" +
-      "ate\032\004\010\002\020\000\020\001*\021Update Experiment\022\234\001\n\tcreat" +
-      "eRun\022\021.mlflow.CreateRun\032\032.mlflow.CreateR" +
-      "un.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/" +
-      "create\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/ru" +
-      "ns/create\032\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\tupdate" +
-      "Run\022\021.mlflow.UpdateRun\032\032.mlflow.UpdateRu" +
-      "n.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/u" +
-      "pdate\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/run" +
-      "s/update\032\004\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\tdeleteR" +
-      "un\022\021.mlflow.DeleteRun\032\032.mlflow.DeleteRun" +
-      ".Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/de" +
-      "lete\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs" +
-      "/delete\032\004\010\002\020\000\020\001*\nDelete Run\022\242\001\n\nrestoreR" +
-      "un\022\022.mlflow.RestoreRun\032\033.mlflow.RestoreR" +
-      "un.Response\"c\362\206\031_\n\"\n\004POST\022\024/mlflow/runs/" +
-      "restore\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/r" +
-      "uns/restore\032\004\010\002\020\000\020\001*\013Restore Run\022\244\001\n\tlog" +
-      "Metric\022\021.mlflow.LogMetric\032\032.mlflow.LogMe" +
-      "tric.Response\"h\362\206\031d\n%\n\004POST\022\027/mlflow/run" +
-      "s/log-metric\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlf" +
-      "low/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022" +
-      "\246\001\n\010logParam\022\020.mlflow.LogParam\032\031.mlflow." +
-      "LogParam.Response\"m\362\206\031i\n(\n\004POST\022\032/mlflow" +
-      "/runs/log-parameter\032\004\010\002\020\000\n0\n\004POST\022\"/prev" +
-      "iew/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tL" +
-      "og Param\022\222\001\n\006setTag\022\016.mlflow.SetTag\032\027.ml" +
-      "flow.SetTag.Response\"_\362\206\031[\n\"\n\004POST\022\024/mlf" +
-      "low/runs/set-tag\032\004\010\002\020\000\n*\n\004POST\022\034/preview" +
-      "/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\244\001" +
-      "\n\tdeleteTag\022\021.mlflow.DeleteTag\032\032.mlflow." +
-      "DeleteTag.Response\"h\362\206\031d\n%\n\004POST\022\027/mlflo" +
-      "w/runs/delete-tag\032\004\010\002\020\000\n-\n\004POST\022\037/previe" +
-      "w/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelete" +
-      " Tag\022\210\001\n\006getRun\022\016.mlflow.GetRun\032\027.mlflow" +
-      ".GetRun.Response\"U\362\206\031Q\n\035\n\003GET\022\020/mlflow/r" +
-      "uns/get\032\004\010\002\020\000\n%\n\003GET\022\030/preview/mlflow/ru" +
-      "ns/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n\nsearchRuns\022\022" +
-      ".mlflow.SearchRuns\032\033.mlflow.SearchRuns.R" +
-      "esponse\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/mlflow/runs/se" +
-      "arch\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs" +
-      "/search\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/ru" +
-      "ns/search\032\004\010\002\020\000\020\001*\013Search Runs\022\260\001\n\rlistA" +
-      "rtifacts\022\025.mlflow.ListArtifacts\032\036.mlflow" +
-      ".ListArtifacts.Response\"h\362\206\031d\n#\n\003GET\022\026/m" +
-      "lflow/artifacts/list\032\004\010\002\020\000\n+\n\003GET\022\036/prev" +
-      "iew/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List " +
-      "Artifacts\022\307\001\n\020getMetricHistory\022\030.mlflow." +
-      "GetMetricHistory\032!.mlflow.GetMetricHisto" +
-      "ry.Response\"v\362\206\031r\n(\n\003GET\022\033/mlflow/metric" +
-      "s/get-history\032\004\010\002\020\000\n0\n\003GET\022#/preview/mlf" +
-      "low/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Met" +
-      "ric History\022\236\001\n\010logBatch\022\020.mlflow.LogBat" +
-      "ch\032\031.mlflow.LogBatch.Response\"e\362\206\031a\n$\n\004P" +
-      "OST\022\026/mlflow/runs/log-batch\032\004\010\002\020\000\n,\n\004POS" +
-      "T\022\036/preview/mlflow/runs/log-batch\032\004\010\002\020\000\020" +
-      "\001*\tLog BatchB\036\n\024org.mlflow.api.proto\220\001\001\342" +
-      "?\002\020\001"
+      "\"\253\001\n\rListArtifacts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010ru" +
+      "n_uuid\030\001 \001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020" +
+      "\n\010root_uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow" +
+      ".FileInfo:+\342?(\n&com.databricks.rpc.RPC[$" +
+      "this.Response]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t" +
+      "\022\016\n\006is_dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020" +
+      "GetMetricHistory\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_" +
+      "uuid\030\001 \001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010" +
+      "Response\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metri" +
+      "c:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]\"\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007m" +
+      "etrics\030\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003" +
+      " \003(\0132\r.mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlfl" +
+      "ow.RunTag\032\n\n\010Response:+\342?(\n&com.databric" +
+      "ks.rpc.RPC[$this.Response]*6\n\010ViewType\022\017" +
+      "\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL" +
+      "\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022" +
+      "\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n" +
+      "\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014" +
+      "\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED\020\0052\263\032\n" +
+      "\rMlflowService\022\306\001\n\020createExperiment\022\030.ml" +
+      "flow.CreateExperiment\032!.mlflow.CreateExp" +
+      "eriment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/" +
+      "experiments/create\032\004\010\002\020\000\n0\n\004POST\022\"/previ" +
+      "ew/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Cr" +
+      "eate Experiment\022\274\001\n\017listExperiments\022\027.ml" +
+      "flow.ListExperiments\032 .mlflow.ListExperi" +
+      "ments.Response\"n\362\206\031j\n%\n\003GET\022\030/mlflow/exp" +
+      "eriments/list\032\004\010\002\020\000\n-\n\003GET\022 /preview/mlf" +
+      "low/experiments/list\032\004\010\002\020\000\020\001*\020List Exper" +
+      "iments\022\262\001\n\rgetExperiment\022\025.mlflow.GetExp" +
+      "eriment\032\036.mlflow.GetExperiment.Response\"" +
+      "j\362\206\031f\n$\n\003GET\022\027/mlflow/experiments/get\032\004\010" +
+      "\002\020\000\n,\n\003GET\022\037/preview/mlflow/experiments/" +
+      "get\032\004\010\002\020\000\020\001*\016Get Experiment\022\306\001\n\020deleteEx" +
+      "periment\022\030.mlflow.DeleteExperiment\032!.mlf" +
+      "low.DeleteExperiment.Response\"u\362\206\031q\n(\n\004P" +
+      "OST\022\032/mlflow/experiments/delete\032\004\010\002\020\000\n0\n" +
+      "\004POST\022\"/preview/mlflow/experiments/delet" +
+      "e\032\004\010\002\020\000\020\001*\021Delete Experiment\022\314\001\n\021restore" +
+      "Experiment\022\031.mlflow.RestoreExperiment\032\"." +
+      "mlflow.RestoreExperiment.Response\"x\362\206\031t\n" +
+      ")\n\004POST\022\033/mlflow/experiments/restore\032\004\010\002" +
+      "\020\000\n1\n\004POST\022#/preview/mlflow/experiments/" +
+      "restore\032\004\010\002\020\000\020\001*\022Restore Experiment\022\306\001\n\020" +
+      "updateExperiment\022\030.mlflow.UpdateExperime" +
+      "nt\032!.mlflow.UpdateExperiment.Response\"u\362" +
+      "\206\031q\n(\n\004POST\022\032/mlflow/experiments/update\032" +
+      "\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experimen" +
+      "ts/update\032\004\010\002\020\000\020\001*\021Update Experiment\022\234\001\n" +
+      "\tcreateRun\022\021.mlflow.CreateRun\032\032.mlflow.C" +
+      "reateRun.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow" +
+      "/runs/create\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlf" +
+      "low/runs/create\032\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\t" +
+      "updateRun\022\021.mlflow.UpdateRun\032\032.mlflow.Up" +
+      "dateRun.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/" +
+      "runs/update\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlfl" +
+      "ow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\td" +
+      "eleteRun\022\021.mlflow.DeleteRun\032\032.mlflow.Del" +
+      "eteRun.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/r" +
+      "uns/delete\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflo" +
+      "w/runs/delete\032\004\010\002\020\000\020\001*\nDelete Run\022\242\001\n\nre" +
+      "storeRun\022\022.mlflow.RestoreRun\032\033.mlflow.Re" +
+      "storeRun.Response\"c\362\206\031_\n\"\n\004POST\022\024/mlflow" +
+      "/runs/restore\032\004\010\002\020\000\n*\n\004POST\022\034/preview/ml" +
+      "flow/runs/restore\032\004\010\002\020\000\020\001*\013Restore Run\022\244" +
+      "\001\n\tlogMetric\022\021.mlflow.LogMetric\032\032.mlflow" +
+      ".LogMetric.Response\"h\362\206\031d\n%\n\004POST\022\027/mlfl" +
+      "ow/runs/log-metric\032\004\010\002\020\000\n-\n\004POST\022\037/previ" +
+      "ew/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\nLog M" +
+      "etric\022\246\001\n\010logParam\022\020.mlflow.LogParam\032\031.m" +
+      "lflow.LogParam.Response\"m\362\206\031i\n(\n\004POST\022\032/" +
+      "mlflow/runs/log-parameter\032\004\010\002\020\000\n0\n\004POST\022" +
+      "\"/preview/mlflow/runs/log-parameter\032\004\010\002\020" +
+      "\000\020\001*\tLog Param\022\222\001\n\006setTag\022\016.mlflow.SetTa" +
+      "g\032\027.mlflow.SetTag.Response\"_\362\206\031[\n\"\n\004POST" +
+      "\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\n*\n\004POST\022\034/p" +
+      "review/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set " +
+      "Tag\022\244\001\n\tdeleteTag\022\021.mlflow.DeleteTag\032\032.m" +
+      "lflow.DeleteTag.Response\"h\362\206\031d\n%\n\004POST\022\027" +
+      "/mlflow/runs/delete-tag\032\004\010\002\020\000\n-\n\004POST\022\037/" +
+      "preview/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\n" +
+      "Delete Tag\022\210\001\n\006getRun\022\016.mlflow.GetRun\032\027." +
+      "mlflow.GetRun.Response\"U\362\206\031Q\n\035\n\003GET\022\020/ml" +
+      "flow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/preview/mlf" +
+      "low/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n\nsearch" +
+      "Runs\022\022.mlflow.SearchRuns\032\033.mlflow.Search" +
+      "Runs.Response\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/mlflow/r" +
+      "uns/search\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflo" +
+      "w/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlf" +
+      "low/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\022\260\001\n" +
+      "\rlistArtifacts\022\025.mlflow.ListArtifacts\032\036." +
+      "mlflow.ListArtifacts.Response\"h\362\206\031d\n#\n\003G" +
+      "ET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\n+\n\003GET\022" +
+      "\036/preview/mlflow/artifacts/list\032\004\010\002\020\000\020\001*" +
+      "\016List Artifacts\022\307\001\n\020getMetricHistory\022\030.m" +
+      "lflow.GetMetricHistory\032!.mlflow.GetMetri" +
+      "cHistory.Response\"v\362\206\031r\n(\n\003GET\022\033/mlflow/" +
+      "metrics/get-history\032\004\010\002\020\000\n0\n\003GET\022#/previ" +
+      "ew/mlflow/metrics/get-history\032\004\010\002\020\000\020\001*\022G" +
+      "et Metric History\022\236\001\n\010logBatch\022\020.mlflow." +
+      "LogBatch\032\031.mlflow.LogBatch.Response\"e\362\206\031" +
+      "a\n$\n\004POST\022\026/mlflow/runs/log-batch\032\004\010\002\020\000\n" +
+      ",\n\004POST\022\036/preview/mlflow/runs/log-batch\032" +
+      "\004\010\002\020\000\020\001*\tLog BatchB\036\n\024org.mlflow.api.pro" +
+      "to\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {

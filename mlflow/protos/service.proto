@@ -800,10 +800,10 @@ message DeleteTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the run that the tag was logged under. Must be provided.
-  optional string run_id = 2;
+  optional string run_id = 1 [(validate_required) = true];
 
-  // Name of the tag. Maximum size is 255 bytes.
-  optional string key = 1 [(validate_required) = true];
+  // Name of the tag. Maximum size is 255 bytes. Must be provided.
+  optional string key = 2 [(validate_required) = true];
 
   message Response {
   }

@@ -472,7 +472,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
-            filtered_tags = session.query(SqlTag).filter_by(key=key).all()
+            filtered_tags = session.query(SqlTag).filter_by(run_uuid=run_id, key=key).all()
             if len(filtered_tags) == 0:
                 raise MlflowException(
                     "No tag with name: {} in run with id {}".format(key, run_id),
