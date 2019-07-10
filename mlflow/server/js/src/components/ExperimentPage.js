@@ -18,6 +18,7 @@ import ErrorCodes from "../sdk/ErrorCodes";
 import PermissionDeniedView from "./PermissionDeniedView";
 import {Spinner} from "./Spinner";
 import { withRouter } from 'react-router-dom';
+import { message } from 'antd';
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 
@@ -69,9 +70,9 @@ export class ExperimentPage extends Component {
         }
         this.setState({ nextPageToken, loadingMore: false });
       })
-      .catch((e) => {
-        console.log(e);
-        this.setState({ nextPageToken: null, loadingMore: false });
+      .catch((err) => {
+        console.error(err);
+        message.error('Failed to load more runs. Error: ' + err.getUserVisibleError());
       });
   }
 

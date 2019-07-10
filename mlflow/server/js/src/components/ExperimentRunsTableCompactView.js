@@ -360,8 +360,6 @@ class ExperimentRunsTableCompactView extends React.Component {
       loadingMore,
       handleLoadMoreRuns
     } = this.props;
-    console.log('nextPageToken', nextPageToken);
-
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       tagsList,
