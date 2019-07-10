@@ -479,7 +479,7 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST)
             elif len(filtered_tags) > 1:
                 raise MlflowException(
-                    "Bad data - tag with multiple value entries. Please file an issue.{}".format(str(filtered_tags)),
+                    "Bad data - tag with multiple value entries. Please file an issue.",
                     error_code=INVALID_STATE)
             session.delete(filtered_tags[0])
 
