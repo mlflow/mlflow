@@ -374,6 +374,8 @@ class ExperimentRunsTableCompactView extends React.Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, orderByKey, orderByAsc, "div")
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
+    const showLoadMore =
+      !isLoading && ((nextPageToken && this.state.isAtScrollBottom) || this.props.loadingMore);
     return (
       <div id="autosizer-container" className="runs-table-flex-container">
           <AutoSizer>
@@ -506,9 +508,8 @@ class ExperimentRunsTableCompactView extends React.Component {
                   }}
                   style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
                   cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
-                    // Add extra padding to last row so that we can render dropdowns for bagged
-                    // param key-value pairs in that row
-                    const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
+                    // Add extra padding for load more
+                    const paddingOpt = rowIndex === rows.length - 1 ? { paddingBottom: 74 } : {};
                     const colIdx = NUM_RUN_METADATA_COLS + unbaggedParams.length;
                     return (<CellMeasurer
                       cache={this._cache}
@@ -551,9 +552,8 @@ class ExperimentRunsTableCompactView extends React.Component {
                   cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
                     const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
                       unbaggedParams.length + unbaggedMetrics.length;
-                    // Add extra padding to last row so that we can render dropdowns for bagged
-                    // param key-value pairs in that row
-                    const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
+                    // Add extra padding for load more
+                    const paddingOpt = rowIndex === rows.length - 1 ? { paddingBottom: 74 } : {};
                     return (<CellMeasurer
                       cache={this._cache}
                       columnIndex={colIdx}
@@ -578,18 +578,13 @@ class ExperimentRunsTableCompactView extends React.Component {
             We can consider doing this refactor while we implement the multi-level nested runs.
             TODO(Zangr) rewrite the table with rowRenderer to allow a built-in load-more row
           */}
-          {isLoading ? null : (
+          {showLoadMore ? (
             <div
               className='load-more-row'
-              style={{
-                visibility: (nextPageToken && this.state.isAtScrollBottom) || this.props.loadingMore
-                  ? 'visible'
-                  : 'hidden',
-              }}
             >
               {/* TODO(Zangr) Replace all bootstrap buttons with antd buttons */}
               {loadingMore ? (
-                <div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
                   <Icon type='sync' spin style={{ fontSize: 20 }}/>
                 </div>
               ) : (
@@ -598,12 +593,13 @@ class ExperimentRunsTableCompactView extends React.Component {
                   htmlType='button'
                   onClick={handleLoadMoreRuns}
                   disabled={loadingMore}
+                  size='small'
                 >
                   Load more
                 </AntdButton>
               )}
             </div>
-          )}
+          ) : null}
       </div>
     );
   }
