@@ -23,27 +23,25 @@ SavedModelInfo = collections.namedtuple(
 client = mlflow.tracking.MlflowClient()
 
 
-def random_one_hot_labels(shape):
-    n, n_class = shape
-    classes = np.random.randint(0, n_class, n)
-    labels = np.zeros((n, n_class))
-    labels[np.arange(n), classes] = 1
-    return labels
-
 @pytest.fixture
 def random_train_data():
     return np.random.random((1000, 32))
 
-@pytest.fixture
-def random_train_data_labels():
-    return random_one_hot_labels((1000, 10))
 
 @pytest.fixture
-def tf_keras_random_data_run(random_train_data, random_train_data_labels):
+def tf_keras_random_data_run(random_train_data):
     mlflow.tensorflow.autolog(metrics_every_n_steps=2)
+
+    def random_one_hot_labels(shape):
+        n, n_class = shape
+        classes = np.random.randint(0, n_class, n)
+        labels = np.zeros((n, n_class))
+        labels[np.arange(n), classes] = 1
+        return labels
+
     with mlflow.start_run() as run:
         data = random_train_data
-        labels = random_train_data_labels
+        labels = random_one_hot_labels((1000, 10))
 
         model = tf.keras.Sequential()
 
@@ -73,14 +71,14 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 
 
 @pytest.mark.large
-def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run):
+def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts
     assert 'tensorboard_logs' in artifacts
     model = mlflow.keras.load_model("runs:/" + tf_keras_random_data_run.info.run_id +
                                     "/model")
-
+    model.predict(random_train_data)
 
 
 @pytest.fixture
@@ -113,7 +111,7 @@ def test_tf_core_autolog_logs_scalars(tf_core_random_tensors):
 
 
 @pytest.fixture
-def tf_estimator_random_data():
+def tf_estimator_random_data_run():
     mlflow.tensorflow.autolog(metrics_every_n_steps=1)
     with mlflow.start_run() as run:
         dir = tempfile.mkdtemp()
@@ -170,9 +168,16 @@ def tf_estimator_random_data():
 
 
 @pytest.mark.large
-def test_tf_estimator_autolog_logs_metrics_artifacts(tf_estimator_random_data):
-    metrics = tf_estimator_random_data.data.metrics
+def test_tf_estimator_autolog_logs_metrics_artifacts(tf_estimator_random_data_run):
+    metrics = tf_estimator_random_data_run.data.metrics
     assert len(metrics) > 0
-    artifacts = client.list_artifacts(tf_estimator_random_data.info.run_id)
+
+
+@pytest.mark.large
+def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
+    artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts
+    session = tf.Session()
+    model = mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id +
+                                        "/model", session)
