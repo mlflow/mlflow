@@ -29,11 +29,12 @@ export class LoadMoreBar extends React.PureComponent {
         style={{ height, width, border: borderStyle }}
       >
         {loadingMore ? (
-          <div style={{ display: 'flex', alignItems: 'center' }}>
+          <div className='loading-more-wrapper' style={{ display: 'flex', alignItems: 'center' }}>
             <Icon type='sync' spin style={{ fontSize: 20 }}/>
           </div>
         ) : (
           <Button
+            className='load-more-button'
             type='primary'
             htmlType='button'
             onClick={onLoadMore}
