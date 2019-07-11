@@ -299,9 +299,9 @@ public class MlflowClient {
   }
 
   /**
-   * Delete a tag against the given run, given a String key. This is irreversible.
-   * @param runId The ID of the run in which the tag exists to delete.
-   * @param key The key of the tag.
+   * Delete a tag on the run ID with a specific key. This is irreversible.
+   * @param runId String ID of the run
+   * @param key Name of the tag
    */
   public void deleteTag(String runId, String key) {
     sendPost("runs/delete-tag", mapper.makeDeleteTag(runId, key));

@@ -17,6 +17,6 @@ unspecified (the common case),
 MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
-Deletes a tag on a run. This is irreversible. Tags are run metadata that can be updated during a run and
+Delete a tag on the run ID with a specific key. This is irreversible. Tags are run metadata that can be updated during a run and
  after a run completes.
 }

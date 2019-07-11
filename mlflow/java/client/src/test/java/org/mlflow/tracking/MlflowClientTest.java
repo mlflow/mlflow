@@ -188,6 +188,13 @@ public class MlflowClientTest {
     for (RunTag rt : run.getData().getTagsList()) {
       Assert.assertTrue(!rt.getKey().equals("tag0"));
     }
+    // test that you can't re-delete the old tag
+    try {
+      client.deleteTag(runId, "tag0");
+      Assert.fail();
+    } catch (MlflowClientException e) {
+      Assert.assertTrue(e.getMessage().contains(String.format("No tag with name: tag0 in run with id %s", runId)));
+    }
     // test that you can't delete a tag that doesn't already exist.
     try {
       client.deleteTag(runId, "fakeTag");
