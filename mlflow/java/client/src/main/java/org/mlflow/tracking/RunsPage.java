@@ -70,7 +70,7 @@ public class RunsPage implements Page<Run> {
      */
     public RunsPage getNextPage() {
         if (this.hasNextPage()) {
-            return client.searchRunsV2(experimentIds,
+            return client.searchRuns(experimentIds,
                                        searchFilter,
                                        runViewType,
                                        orderBy,

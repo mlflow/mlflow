@@ -124,7 +124,9 @@ public class MlflowClient {
 
   /**
    * Return RunInfos from provided list of experiments that satisfy the search query.
-   *
+   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, int)} or similar
+   *                    that returns a page of Run results.
+   * 
    * @param experimentIds List of experiment IDs.
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
@@ -138,6 +140,8 @@ public class MlflowClient {
 
   /**
    * Return RunInfos from provided list of experiments that satisfy the search query.
+   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, int)} or similar
+   *                    that returns a page of Run results.
    *
    * @param experimentIds List of experiment IDs.
    * @param searchFilter SQL compatible search query string. Format of this query string is
@@ -151,30 +155,8 @@ public class MlflowClient {
   public List<RunInfo> searchRuns(List<String> experimentIds,
                               String searchFilter,
                               ViewType runViewType) {
-    return searchRuns(experimentIds, searchFilter, runViewType, new ArrayList<>());
-  }
-
-
-  /**
-   * Return RunInfos from provided list of experiments that satisfy the search query.
-   *
-   * @param experimentIds List of experiment IDs.
-   * @param searchFilter SQL compatible search query string. Format of this query string is
-   *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
-   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    Defaults to ACTIVE_ONLY.
-   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
-   *
-   * @return A list of all RunInfos that satisfy search filter.
-   */
-  public List<RunInfo> searchRuns(List<String> experimentIds,
-                              String searchFilter,
-                              ViewType runViewType,
-                              List<String> orderBy) {
     SearchRuns.Builder builder = SearchRuns.newBuilder()
-            .addAllExperimentIds(experimentIds)
-            .addAllOrderBy(orderBy);
+            .addAllExperimentIds(experimentIds);
 
     if (searchFilter != null) {
       builder.setFilter(searchFilter);
@@ -195,12 +177,15 @@ public class MlflowClient {
    * @param experimentIds List of experiment IDs.
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   * @param maxResults Maximum number of runs desired. Defaults to 1000.
    *
    * @return A list of all Runs that satisfy search filter.
    */
-  public RunsPage searchRunsV2(List<String> experimentIds, String searchFilter) {
-    return searchRunsV2(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
+  public RunsPage searchRuns(List<String> experimentIds,
+                                  String searchFilter,
+                                  int maxResults) {
+    return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY, new ArrayList<>(), maxResults);
   }
 
   /**
@@ -210,17 +195,17 @@ public class MlflowClient {
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
-   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    Defaults to ACTIVE_ONLY.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   * @param maxResults Maximum number of runs desired. Defaults to 1000.
    *
    * @return A list of all Runs that satisfy search filter.
    */
-  public RunsPage searchRunsV2(List<String> experimentIds,
+  public RunsPage searchRuns(List<String> experimentIds,
                                   String searchFilter,
-                                  ViewType runViewType) {
-    return searchRunsV2(experimentIds, searchFilter, runViewType, new ArrayList<>());
+                                  List<String> orderBy,
+                                  int maxResults) {
+    return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY, orderBy, maxResults);
   }
-
 
   /**
    * Return runs from provided list of experiments that satisfy the search query.
@@ -235,11 +220,11 @@ public class MlflowClient {
    *
    * @return A list of all Runs that satisfy search filter.
    */
-  public RunsPage searchRunsV2(List<String> experimentIds,
+  public RunsPage searchRuns(List<String> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType,
                                   List<String> orderBy) {
-    return searchRunsV2(experimentIds, searchFilter, runViewType, orderBy, 1000);
+    return searchRuns(experimentIds, searchFilter, runViewType, orderBy, 1000);
   }
 
   /**
@@ -256,12 +241,12 @@ public class MlflowClient {
    *
    * @return A list of all Runs that satisfy search filter.
    */
-  public RunsPage searchRunsV2(List<String> experimentIds,
+  public RunsPage searchRuns(List<String> experimentIds,
                               String searchFilter,
                               ViewType runViewType,
                               List<String> orderBy,
                               int maxResults) {
-    return searchRunsV2(experimentIds,searchFilter, runViewType, orderBy, maxResults,null);
+    return searchRuns(experimentIds,searchFilter, runViewType, orderBy, maxResults,null);
   }
 
   /**
@@ -280,7 +265,7 @@ public class MlflowClient {
    *
    * @return A page of Runs that satisfy the search filter.
    */
-  public RunsPage searchRunsV2(List<String> experimentIds,
+  public RunsPage searchRuns(List<String> experimentIds,
                               String searchFilter,
                               ViewType runViewType,
                               List<String> orderBy,
