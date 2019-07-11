@@ -22,16 +22,20 @@ def deprecated(alternative=None, since=None):
     :param func: A function to mark
     :returns Decorated function.
     """
-    def deprecated_func(func):
-        since_str = " since %s" % since if since else ""
-        notice = ".. Warning:: Deprecated%s: This method will be removed in " % since_str + \
-                 "a near future release."
-        if alternative is not None and alternative.strip():
-            notice += " Use ``%s`` instead." % alternative
-        func.__doc__ = notice + "\n" + func.__doc__
-        warnings.warn(notice, stacklevel=2)
-        return func
-    return deprecated_func
+    def deprecated_decorator(func):
+        def deprecated_func(*args, **kwargs):
+            since_str = " since %s" % since if since else ""
+            notice = ".. Warning:: Deprecated%s: This method will be removed in " % since_str + \
+                     "a near future release."
+            if alternative is not None and alternative.strip():
+                notice += " Use ``%s`` instead." % alternative
+            if func.__doc__ is not None:
+                func.__doc__ = notice + "\n" + func.__doc__
+            warnings.warn(notice, DeprecationWarning, stacklevel=2)
+            warnings.simplefilter('default', DeprecationWarning)
+            return func(*args, **kwargs)
+        return deprecated_func
+    return deprecated_decorator
 
 
 def keyword_only(func):
