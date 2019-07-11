@@ -25,7 +25,11 @@ public class TestUtils {
   }
 
   public static void assertMetric(List<Metric> metrics, String key, double value) {
-    Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
+    if (Double.isNaN(value)) {
+      Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && Double.isNaN(e.getValue())).findFirst().isPresent());
+    } else {
+      Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
+    }
   }
 
   public static void assertMetric(List<Metric> metrics, String key, double value, long timestamp, long step) {

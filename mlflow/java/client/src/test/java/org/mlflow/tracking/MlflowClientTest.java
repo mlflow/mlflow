@@ -142,6 +142,11 @@ public class MlflowClientTest {
     client.logMetric(runId, "multi_log_specified_step_ts", -3.0, 3000, 4);
     client.logMetric(runId, "multi_log_specified_step_ts", 4.0, 2999, 4);
 
+    // Log NaNs and Infs
+    client.logMetric(runId, "nan_metric", Double.NaN);
+    client.logMetric(runId, "pos_inf", Double.POSITIVE_INFINITY);
+    client.logMetric(runId, "neg_inf", Double.NEGATIVE_INFINITY);
+
     // Log tag
     client.setTag(runId, "user_email", USER_EMAIL);
 
@@ -303,6 +308,7 @@ public class MlflowClientTest {
     assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
     assertMetric(metrics, "multi_log_default_step_ts", -1.0);
     assertMetric(metrics, "multi_log_specified_step_ts", -3.0);
+    assertMetric(metrics, "nan_metric", Double.NaN)
     assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
 
     List<Metric> multiDefaultMetricHistory = client.getMetricHistory(
