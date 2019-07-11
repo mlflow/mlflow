@@ -366,6 +366,17 @@ public class MlflowClientTest {
     Assert.assertEquals(page.hasNextPage(), false);
     Assert.assertEquals(page.getNextPageToken(), Optional.empty());
     Assert.assertNull(page.getNextPage());
+
+    page = client.searchRunsV2(experimentIds, "", ViewType.ACTIVE_ONLY, Lists.newArrayList(), 1);
+    Assert.assertEquals(page.getPageSize(), 1);
+    Assert.assertEquals(page.hasNextPage(), true);
+    Assert.assertNotEquals(page.getNextPageToken(), Optional.empty());
+    
+    RunsPage page2 = page.getNextPage();
+    Assert.assertEquals(page2.getPageSize(), 1);
+    Assert.assertEquals(page2.hasNextPage(), false);
+    Assert.assertEquals(page2.getNextPageToken(), Optional.empty());
+    Assert.assertNull(page2.getNextPage());
   }
 
   @Test
