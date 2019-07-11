@@ -400,7 +400,7 @@ export class ExperimentView extends Component {
           </form>
           <div className="ExperimentView-run-buttons">
             <span className="run-count">
-              Showing the latest {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
+              Showing the {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
             </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare

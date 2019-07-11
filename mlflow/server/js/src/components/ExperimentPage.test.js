@@ -14,8 +14,8 @@ let history;
 let location;
 
 beforeEach(() => {
-  searchRunsApi = jest.fn();
-  getExperimentApi = jest.fn();
+  searchRunsApi = jest.fn(() => Promise.resolve());
+  getExperimentApi = jest.fn(() => Promise.resolve());
   location = {};
 
   history = {};
