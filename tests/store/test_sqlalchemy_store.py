@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import warnings
 
+import math
 import mock
 import pytest
 import sqlalchemy
@@ -418,8 +419,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         tval = 100.0
         metric = entities.Metric(tkey, tval, int(time.time()), 0)
         metric2 = entities.Metric(tkey, tval, int(time.time()) + 2, 0)
+        nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
+        pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
+        neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
         self.store.log_metric(run.info.run_id, metric)
         self.store.log_metric(run.info.run_id, metric2)
+        self.store.log_metric(run.info.run_id, nan_metric)
+        self.store.log_metric(run.info.run_id, pos_inf_metric)
+        self.store.log_metric(run.info.run_id, neg_inf_metric)
+
 
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
@@ -429,8 +437,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # MLflow RunData contains only the last reported values for metrics.
         with self.store.ManagedSessionMaker() as session:
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
-            self.assertEqual(2, len(sql_run_metrics))
-            self.assertEqual(1, len(run.data.metrics))
+            self.assertEqual(4, len(sql_run_metrics))
+            self.assertEqual(3, len(run.data.metrics))
+            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
+            self.assertTrue(run.data.metrics["PosInf"] > 1e308)
+            self.assertTrue(run.data.metrics["NegInf"] < -1e308)
+
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
