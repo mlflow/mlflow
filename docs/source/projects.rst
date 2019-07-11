@@ -379,8 +379,31 @@ where ``<uri>`` is a Git repository URI or a folder.
 Run a project on Kubernetes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can run MLflow projects on Kubernetes clusters using
-:ref:`Docker Project environments <project-docker-container-environments>`
+You can run MLflow projects with `Docker environments <project-docker-container-environments>`
+on Kubernetes clusters by following these steps:
+
+#. First, add a Docker environment to your MLflow Project, if one does not already exist. For
+   additional information, see :ref:`mlproject-specify-environment`.
+
+#. Then, create a ``backend_config.json`` with the following entries:
+   - ``kube-context``: The `Kubernetes context <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#context>`_
+     where MLflow will run the job.
+   - ``image-uri``: An image URI c
+
+   .. code-block:: json
+
+    {
+      "kube-context": "docker-for-desktop",
+      "image-uri": "username/mlflow-Kubernetes-example",
+      "kube-job-template-path": "kubernetes_job_template.yaml"
+    }
+
+  - ``kube-context``: 
+
+  
+
+on Kubernetes clusters using
+:ref:`Docker Project environments <project-docker-container-environments>`. 
 
 . MLflow uses an image to run 
 projects in :ref:`Docker environment <project-docker-container-environments>`  and pushes the image to an 
