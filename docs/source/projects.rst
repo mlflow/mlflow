@@ -379,18 +379,49 @@ where ``<uri>`` is a Git repository URI or a folder.
 Run a project on Kubernetes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can run MLflow projects with `Docker environments <project-docker-container-environments>`
-on Kubernetes clusters by following these steps:
+You can run MLflow Projects with :ref:`Docker environments <project-docker-container-environments>`
+on Kubernetes.
 
-#. First, add a Docker environment to your MLflow Project, if one does not already exist. For
+How it works
+~~~~~~~~~~~~
+
+When you run an MLflow Project on Kubernetes, MLflow constructs a new Docker image
+containing the Project's contents; this image inherits from the Project's
+:ref:`Docker environment <project-docker-container-environments>`. MLflow then pushes the new
+Project image to your specified Docker registry and starts a 
+`Kubernetes Job <https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/>`_ 
+on your specified Kubernetes cluster. This Kubernetes Job downloads the Project image and starts
+a corresponding Docker container. Finally, the container invokes your Project's
+:ref:`entry point <running-projects>`, logging parameters, tags, metrics, and artifacts to your 
+:ref:`MLflow tracking server <tracking_server>`.
+
+Execution guide
+~~~~~~~~~~~~~~~
+
+You can run your MLflow Project on Kubernetes by following these steps:
+
+1. First, add a Docker environment to your MLflow Project, if one does not already exist. For
    additional information, see :ref:`mlproject-specify-environment`.
 
-#. Then, create a ``backend_config.json`` with the following entries:
-   - ``kube-context``: The `Kubernetes context <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#context>`_
-     where MLflow will run the job.
-   - ``image-uri``: An image URI c
+2. Then, create a backend configuration JSON file with the following entries:
 
-   .. code-block:: json
+   - ``kube-context``
+     The `Kubernetes context 
+     <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#context>`_
+     where MLflow will run the job.
+   - ``repository-uri``
+     The URI of the docker repository where the Project execution Docker image will be uploaded 
+     (pushed). Your Kubernetes cluster must have access to this repository in order to run your 
+     MLflow Project.
+   - ``kube-job-template-path`` 
+     The path to a YAML configuration file for your Kubernetes Job. MLflow reads the configuration
+     and replaces certain fields to facilitate job execution and monitoring; MLflow does not
+     modify the original template file. For more information about writing Kubernetes Job templates
+     for use with MLflow, see the :ref:`kubernetes_execution_job_templates` section.
+
+  .. rubric:: Example
+  
+  .. code-block:: json 
 
     {
       "kube-context": "docker-for-desktop",
@@ -398,36 +429,47 @@ on Kubernetes clusters by following these steps:
       "kube-job-template-path": "kubernetes_job_template.yaml"
     }
 
-  - ``kube-context``: 
+3. If necessary, obtain credentials to access your Project's Docker and Kubernetes resources, 
+   including:
 
+   - The :ref:`Docker environment image <mlproject-specify-environment>` specified in the MLproject
+     file.
+   - The Docker repository referenced by ``repository-uri`` in your backend configuration file.
+   - The `Kubernetes context 
+     <https://kubernetes.io/docs/concepts/configuration/organize-cluster-access-kubeconfig/#context>`_
+     referenced by ``kube-context`` in your backend configuration file.
+   
+   MLflow expects these resources to be accessible via the ``docker`` and ``kubectl`` CLIs before
+   running the Project.
+
+4. Finally, run the Project using the MLflow Projects CLI or 
+   :py:func:`Python API <mlflow.projects.run>`, specifying your Project URI and the path to your 
+   backend configuration file. For example:
   
+  .. code-block:: bash
 
-on Kubernetes clusters using
-:ref:`Docker Project environments <project-docker-container-environments>`. 
+    mlflow run <project_uri> --backend kubernetes --backend-config examples/docker/kubernetes_config.json
 
-. MLflow uses an image to run 
-projects in :ref:`Docker environment <project-docker-container-environments>`  and pushes the image to an 
-image repository, so you need to configure MLproject with ``docker_env`` section. After that it 
-creates a Kubernetes job that uses this published image and runs the MLflow project on Kubernetes.
-To configure and use this feature:
+.. _kubernetes_execution_job_templates:
 
-#. In project folder create a ``backend_config.json`` with the following attributes:
+Job Templates
+~~~~~~~~~~~~~
 
-   .. code-block:: json
+MLflow executes Projects on Kubernetes by creating `Kubernetes Job resources
+<https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/>`_.
+MLflow creates a Kubernetes Job for an MLflow Project by reading a user-specified
+`Job Spec 
+<https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#writing-a-job-spec>`_.
+When 
 
-    {
-      "kube-context": "docker-for-desktop",  
-      "image-uri": "username/mlflow-Kubernetes-example",
-      "kube-job-template-path": "kubernetes_job_template.yaml"
-    }
 
-  where 
+Kubernetes Jobs
 
-  - ``kube-context`` attribute is the Kubernetes context where MLflow will run the job. ``image-uri`` points to the 
-registry, repository, or image where the image will be pushed so Kubernetes can download it and run. Remember that MLflow 
-expects that login credentials are already stored for both Kubernetes context and Docker repository to push images.
-  - ``kube-job-template-path`` points to a YAML file with the Kubernetes Job/Batch specification to run the training on 
-Kubernetes. 
+
+
+   For more information about 
+     Kubernetes Batch Job configurations, see the 
+     `Kubernetes Jobs documentation <https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/>`_.
 
 See below the example available in the Docker example project. For more information about specification options, see 
 Kubernetes docs:
