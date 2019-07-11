@@ -181,7 +181,7 @@ class MlflowClient(object):
 
     def delete_tag(self, run_id, key):
         """
-        Delete a tag on the run ID with a specific key. This is irreversible.
+        Delete a tag from a run. This is irreversible.
         :param run_id: String ID of the run
         :param key: Name of the tag
         """

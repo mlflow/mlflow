@@ -189,7 +189,7 @@ def set_tag(key, value):
 
 def delete_tag(key):
     """
-    Delete a tag on the run ID with a specific key. This is irreversible.
+    Delete a tag from a run. This is irreversible.
     :param key: Name of the tag
     """
     run_id = _get_or_start_run().info.run_id
