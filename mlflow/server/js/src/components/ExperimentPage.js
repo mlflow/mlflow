@@ -52,12 +52,12 @@ export class ExperimentPage extends Component {
 
     getExperimentApi(experimentId, this.getExperimentRequestId);
     searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
-      .then(this.handleNextPageToken);
+      .then(this.updateNextPageToken);
   }
 
-  handleNextPageToken = ({ value }) => {
+  updateNextPageToken = ({ value }) => {
     let nextPageToken = null;
-    if (value) {
+    if (value && value.next_page_token) {
       nextPageToken = value.next_page_token;
     }
     this.setState({ nextPageToken, loadingMore: false });
@@ -77,7 +77,7 @@ export class ExperimentPage extends Component {
       orderBy,
       nextPageToken,
       this.loadMoreRunsRequestId,
-    ).then(this.handleNextPageToken);
+    ).then(this.updateNextPageToken);
   };
 
   static propTypes = {
@@ -152,7 +152,7 @@ export class ExperimentPage extends Component {
       lifecycleFilterToRunViewType(lifecycleFilterInput),
       orderBy,
       this.searchRunsRequestId,
-    ).then(this.handleNextPageToken);
+    ).then(this.updateNextPageToken);
 
     this.updateUrlWithSearchFilter({
       paramKeyFilterString,
