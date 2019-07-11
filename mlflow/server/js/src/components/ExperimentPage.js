@@ -51,20 +51,17 @@ export class ExperimentPage extends Component {
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
 
     getExperimentApi(experimentId, this.getExperimentRequestId);
-    this.withNextPageTokenHandling(
-      searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId),
-    );
+    searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
+      .then(this.handleNextPageToken);
   }
 
-  withNextPageTokenHandling(promise) {
-    promise.then(({ value }) => {
-      let nextPageToken = null;
-      if (value) {
-        nextPageToken = value.next_page_token;
-      }
-      this.setState({ nextPageToken, loadingMore: false });
-    });
-  }
+  handleNextPageToken = ({ value }) => {
+    let nextPageToken = null;
+    if (value) {
+      nextPageToken = value.next_page_token;
+    }
+    this.setState({ nextPageToken, loadingMore: false });
+  };
 
   handleLoadMoreRuns = () => {
     const { loadMoreRunsApi, experimentId } = this.props;
@@ -73,16 +70,14 @@ export class ExperimentPage extends Component {
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     this.setState({ loadingMore: true });
-    this.withNextPageTokenHandling(
-      loadMoreRunsApi(
-        [experimentId],
-        searchInput,
-        viewType,
-        orderBy,
-        nextPageToken,
-        this.loadMoreRunsRequestId,
-      ),
-    );
+    loadMoreRunsApi(
+      [experimentId],
+      searchInput,
+      viewType,
+      orderBy,
+      nextPageToken,
+      this.loadMoreRunsRequestId,
+    ).then(this.handleNextPageToken);
   };
 
   static propTypes = {
@@ -151,15 +146,13 @@ export class ExperimentPage extends Component {
     });
 
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
-    this.withNextPageTokenHandling(
-      this.props.searchRunsApi(
-        [this.props.experimentId],
-        searchInput,
-        lifecycleFilterToRunViewType(lifecycleFilterInput),
-        orderBy,
-        this.searchRunsRequestId,
-      ),
-    );
+    this.props.searchRunsApi(
+      [this.props.experimentId],
+      searchInput,
+      lifecycleFilterToRunViewType(lifecycleFilterInput),
+      orderBy,
+      this.searchRunsRequestId,
+    ).then(this.handleNextPageToken);
 
     this.updateUrlWithSearchFilter({
       paramKeyFilterString,
