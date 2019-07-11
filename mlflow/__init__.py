@@ -33,6 +33,7 @@ from mlflow.version import VERSION as __version__
 import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")  # noqa: E402
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E402
+warnings.filterwarnings("module", category=DeprecationWarning)
 
 # pylint: disable=wrong-import-position
 import mlflow.projects as projects  # noqa
