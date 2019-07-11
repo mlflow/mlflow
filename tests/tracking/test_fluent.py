@@ -537,3 +537,4 @@ def test_delete_tag():
         mlflow.delete_tag('a')
     with pytest.raises(MlflowException):
         mlflow.delete_tag('b')
+    mlflow.end_run()
