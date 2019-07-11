@@ -5,8 +5,6 @@ import numbers
 import posixpath
 import re
 
-import numpy as np
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
