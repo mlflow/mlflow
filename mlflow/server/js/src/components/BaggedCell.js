@@ -58,7 +58,7 @@ export default class BaggedCell extends PureComponent {
                 Sort descending
               </Menu.Item>
               <Menu.Item onClick={this.handleRemoveBagged}>
-                Display in own column
+                Display as a separate column
               </Menu.Item>
             </Menu>
           )}
