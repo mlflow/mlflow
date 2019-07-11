@@ -588,8 +588,8 @@ class FileStore(AbstractStore):
     def delete_tag(self, run_id, key):
         """
         Delete a tag from a run.
-        :param run_id: ID of the run that contains the tag to delete
-        :param key: name of the tag to delete
+        :param run_id: String ID of the run
+        :param key: Name of the tag
         """
         _validate_run_id(run_id)
         run = self.get_run(run_id)

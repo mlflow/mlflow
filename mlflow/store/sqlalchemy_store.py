@@ -466,8 +466,8 @@ class SqlAlchemyStore(AbstractStore):
     def delete_tag(self, run_id, key):
         """
         Delete a tag from a run.
-        :param run_id: ID of the run that contains the tag to delete
-        :param key: name of the tag to delete
+        :param run_id: String ID of the run
+        :param key: Name of the tag
         """
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
@@ -479,7 +479,8 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST)
             elif len(filtered_tags) > 1:
                 raise MlflowException(
-                    "Bad data - tag with multiple value entries. Please file an issue.",
+                    "Bad data in database - tags for a specific run must have a single unique value."
+                    "See https://mlflow.org/docs/latest/tracking.html#adding-tags-to-runs",
                     error_code=INVALID_STATE)
             session.delete(filtered_tags[0])
 
