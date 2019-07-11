@@ -18,13 +18,6 @@ depends_on = None
 
 def upgrade():
     op.add_column('metrics', sa.Column('is_nan', sa.Boolean(), nullable=True, server_default="0"))
-    # with op.batch_alter_table("metrics") as batch_op:
-    #     batch_op.drop_constraint(constraint_name='metric_pk', type_="primary")
-    #     batch_op.alter_column(column_name="value",
-    #                           nullable=True)
-    #     batch_op.create_unique_constraint(
-    #         constraint_name='metric_uniq',
-    #         columns=['key', 'timestamp', 'step', 'run_uuid', 'value'])
 
 
 def downgrade():
