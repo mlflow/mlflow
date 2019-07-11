@@ -113,6 +113,7 @@ def test_tf_core_autolog_logs_scalars(tf_core_random_tensors):
     assert tf_core_random_tensors.data.metrics['b'] == 4.0
     all_a = client.get_metric_history(tf_core_random_tensors.info.run_id, 'a')
     assert all((x.step - 1) % 4 == 0 for x in all_a)
+    assert mlflow.active_run() is None
 
 
 @pytest.fixture

@@ -34,4 +34,5 @@ pytest --verbose tests/spark --large
 pytest --verbose tests/tensorflow --large
 pytest --verbose tests/azureml --large
 pytest --verbose tests/models --large
+pytest --verbose tests/autologging --large
 test $err = 0
