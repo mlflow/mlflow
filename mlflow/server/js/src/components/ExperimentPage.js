@@ -117,7 +117,7 @@ export class ExperimentPage extends Component {
       return {
         ...ExperimentPage.getDefaultUnpersistedState(),
         persistedState: state.lastExperimentId === undefined ?
-          state.persistedState : (new ExperimentPagePersistedState()).toJSON(),
+            state.persistedState : (new ExperimentPagePersistedState()).toJSON(),
         lastExperimentId: props.experimentId,
         lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
       };
