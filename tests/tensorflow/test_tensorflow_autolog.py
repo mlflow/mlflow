@@ -45,7 +45,7 @@ def tf_keras_random_data_run(random_train_data):
 
         model = tf.keras.Sequential()
 
-        model.add(layers.Dense(64, activation='relu'))
+        model.add(layers.Dense(64, activation='relu', input_shape=(32,)))
         model.add(layers.Dense(64, activation='relu'))
         model.add(layers.Dense(10, activation='softmax'))
 
@@ -66,7 +66,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert 'optimizer_name' in data.params
     assert data.params['optimizer_name'] == 'AdamOptimizer'
     assert 'summary' in tf_keras_random_data_run.data.tags
-    assert 'Model: "sequential"' in tf_keras_random_data_run.data.tags['summary']
     assert 'Total params: 6,922' in tf_keras_random_data_run.data.tags['summary']
     all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'epoch_acc')
     assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
@@ -102,6 +101,7 @@ def tf_core_random_tensors():
             writer.add_summary(summary, global_step=i)
         shutil.rmtree(dir)
         writer.close()
+        sess.close()
 
     return client.get_run(run.info.run_id)
 
