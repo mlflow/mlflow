@@ -5,7 +5,7 @@ import Fixtures from "../test-utils/Fixtures";
 import {LIFECYCLE_FILTER} from "./ExperimentPage";
 import KeyFilter from "../utils/KeyFilter";
 import {addApiToState, addExperimentToState, createPendingApi, emptyState} from "../test-utils/ReduxStoreFixtures";
-import {getUUID, SEARCH_MAX_RESULTS} from "../Actions";
+import {getUUID} from "../Actions";
 import {Spinner} from "./Spinner";
 
 let onSearchSpy;

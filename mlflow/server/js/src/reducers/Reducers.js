@@ -62,7 +62,7 @@ const runInfosByUuid = (state = {}, action) => {
       return amendRunInfosByUuid(state, runInfo);
     }
     case fulfilled(SEARCH_RUNS_API): {
-      let newState = {};
+      const newState = {};
       if (action.payload && action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
           const runInfo = RunInfo.fromJs(rJson.info);

@@ -4,7 +4,6 @@ import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
-import { SEARCH_MAX_RESULTS } from '../Actions';
 import { CollapsibleTagsCell } from './CollapsibleTagsCell';
 
 export default class ExperimentViewUtil {

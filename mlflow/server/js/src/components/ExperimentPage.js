@@ -45,13 +45,14 @@ export class ExperimentPage extends Component {
 
   loadData() {
     const { persistedState, lifecycleFilter } = this.state;
-    const { experimentId, searchRunsApi, getExperimentApi } = this.props;
+    const { experimentId } = this.props;
     const { orderByKey, orderByAsc, searchInput } = persistedState;
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
 
-    getExperimentApi(experimentId, this.getExperimentRequestId);
-    searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
+    this.props.getExperimentApi(experimentId, this.getExperimentRequestId);
+    this.props
+      .searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
       .then(this.updateNextPageToken);
   }
 
@@ -64,20 +65,22 @@ export class ExperimentPage extends Component {
   };
 
   handleLoadMoreRuns = () => {
-    const { loadMoreRunsApi, experimentId } = this.props;
+    const { experimentId } = this.props;
     const { persistedState, lifecycleFilter, nextPageToken } = this.state;
     const { orderByKey, orderByAsc, searchInput } = persistedState;
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     this.setState({ loadingMore: true });
-    loadMoreRunsApi(
-      [experimentId],
-      searchInput,
-      viewType,
-      orderBy,
-      nextPageToken,
-      this.loadMoreRunsRequestId,
-    ).then(this.updateNextPageToken);
+    this.props
+      .loadMoreRunsApi(
+        [experimentId],
+        searchInput,
+        viewType,
+        orderBy,
+        nextPageToken,
+        this.loadMoreRunsRequestId,
+      )
+      .then(this.updateNextPageToken);
   };
 
   static propTypes = {
@@ -103,7 +106,7 @@ export class ExperimentPage extends Component {
     this.loadData();
   }
 
-  componentDidUpdate(prevProps, prevState, snapshot) {
+  componentDidUpdate(prevProps) {
     this.maybeReloadData(prevProps);
   }
 
@@ -146,13 +149,15 @@ export class ExperimentPage extends Component {
     });
 
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
-    this.props.searchRunsApi(
-      [this.props.experimentId],
-      searchInput,
-      lifecycleFilterToRunViewType(lifecycleFilterInput),
-      orderBy,
-      this.searchRunsRequestId,
-    ).then(this.updateNextPageToken);
+    this.props
+      .searchRunsApi(
+        [this.props.experimentId],
+        searchInput,
+        lifecycleFilterToRunViewType(lifecycleFilterInput),
+        orderBy,
+        this.searchRunsRequestId,
+      )
+      .then(this.updateNextPageToken);
 
     this.updateUrlWithSearchFilter({
       paramKeyFilterString,

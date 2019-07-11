@@ -108,6 +108,7 @@ class ExperimentRunsTableCompactView extends React.Component {
 
     nextPageToken: PropTypes.string,
     handleLoadMoreRuns: PropTypes.func.isRequired,
+    loadingMore: PropTypes.bool.isRequired,
   };
 
 
@@ -356,7 +357,6 @@ class ExperimentRunsTableCompactView extends React.Component {
       unbaggedMetrics,
       unbaggedParams,
       nextPageToken,
-      isLoading,
       loadingMore,
       handleLoadMoreRuns
     } = this.props;
@@ -373,8 +373,7 @@ class ExperimentRunsTableCompactView extends React.Component {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, orderByKey, orderByAsc, "div")
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
-    const showLoadMore =
-      !isLoading && ((nextPageToken && this.state.isAtScrollBottom) || this.props.loadingMore);
+    const showLoadMore = (nextPageToken && this.state.isAtScrollBottom) || this.props.loadingMore;
     return (
       <div id="autosizer-container" className="runs-table-flex-container">
           <AutoSizer>
@@ -565,7 +564,7 @@ class ExperimentRunsTableCompactView extends React.Component {
                   }}
                 />}
               </Table>,
-              showLoadMore ? (
+              (showLoadMore ? (
                 <LoadMoreRow
                   key='load-more-row'
                   height={LOAD_MORE_ROW_HEIGHT}
@@ -574,14 +573,14 @@ class ExperimentRunsTableCompactView extends React.Component {
                   loadingMore={loadingMore}
                   onLoadMore={handleLoadMoreRuns}
                 />
-              ) : null];
+              ) : null)];
             }}
           </AutoSizer>
       </div>
     );
   }
 
-  componentDidUpdate(prevProps, prevState, snapshot) {
+  componentDidUpdate(prevProps) {
     this.maybeHandleScroll();
     this.maybeHandleLoadMoreFinish(prevProps);
   }
@@ -598,7 +597,7 @@ class ExperimentRunsTableCompactView extends React.Component {
       this.handleScroll();
       this.setState({ expanding: false });
     }
-  };
+  }
 
   handleScroll = _.debounce(() => {
     // Getting clientHeight, scrollHeight and scrollTop from the Grid instance directly here because
