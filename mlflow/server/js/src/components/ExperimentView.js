@@ -582,8 +582,7 @@ export class ExperimentView extends Component {
   }
 
   onClear() {
-    // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
-    // attributes to their default values.
+    // When user clicks "Clear", reset persisted state attributes to their default values.
     const newPersistedState = new ExperimentViewPersistedState();
     this.setState({persistedState: newPersistedState.toJSON()}, () => {
       this.snapshotComponentState();

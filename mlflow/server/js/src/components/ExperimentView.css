@@ -278,15 +278,3 @@ span.error-message {
   border-top-color: rgba(0, 0, 0, 0.75);
   border-left-color: rgba(0, 0, 0, 0.75);
 }
-
-.load-more-row {
-  display: flex;
-  justify-content: center;
-  background: white;
-  position: absolute;
-  min-width: 1398px;
-  bottom: 20px;
-  align-items: center;
-  border-top: 1px solid #ccc;
-  border-bottom: 1px solid #ccc;
-}

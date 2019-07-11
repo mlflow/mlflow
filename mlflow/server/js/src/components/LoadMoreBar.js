@@ -26,15 +26,16 @@ export class LoadMoreBar extends React.PureComponent {
     return (
       <div
         className='load-more-row'
-        style={{ height, width, border: borderStyle }}
+        style={{ ...styles.loadMoreRows, height, width, border: borderStyle }}
       >
         {loadingMore ? (
-          <div className='loading-more-wrapper' style={{ display: 'flex', alignItems: 'center' }}>
-            <Icon type='sync' spin style={{ fontSize: 20 }}/>
+          <div className='loading-more-wrapper' style={styles.loadingMoreWrapper}>
+            <Icon type='sync' spin style={styles.loadingMoreIcon}/>
           </div>
         ) : (
           <Button
             className='load-more-button'
+            style={styles.loadMoreButton}
             type='primary'
             htmlType='button'
             onClick={onLoadMore}
@@ -48,3 +49,25 @@ export class LoadMoreBar extends React.PureComponent {
     );
   }
 }
+
+const styles = {
+  loadMoreRows: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    background: 'white',
+    position: 'absolute',
+    bottom: 20,
+  },
+  loadingMoreWrapper: {
+    display: 'flex',
+    alignItems: 'center',
+  },
+  loadingMoreIcon: {
+    fontSize: 20,
+  },
+  loadMoreButton: {
+    paddingLeft: 16,
+    paddingRight: 16,
+  }
+};
