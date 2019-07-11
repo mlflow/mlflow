@@ -58,6 +58,7 @@ def tf_keras_random_data_run(random_train_data):
     return client.get_run(run.info.run_id)
 
 
+@pytest.mark.large
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
 
@@ -106,6 +107,7 @@ def tf_core_random_tensors():
     return client.get_run(run.info.run_id)
 
 
+@pytest.mark.large
 def test_tf_core_autolog_logs_scalars(tf_core_random_tensors):
     assert 'a' in tf_core_random_tensors.data.metrics
     assert tf_core_random_tensors.data.metrics['a'] == 3.0
@@ -175,12 +177,14 @@ def tf_estimator_random_data_run():
     return client.get_run(run.info.run_id)
 
 
+@pytest.mark.large
 def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
     assert 'loss' in tf_estimator_random_data_run.data.metrics
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, 'loss')
     assert all((x.step-1) % 100 == 0 for x in metrics)
 
 
+@pytest.mark.large
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
@@ -197,6 +201,7 @@ def duplicate_autolog_tf_estimator_run():
     return run  # should be autologged every 4 steps
 
 
+@pytest.mark.large
 def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
     metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)
