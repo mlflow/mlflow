@@ -9,7 +9,7 @@ import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import BaggedCell from "./BaggedCell";
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
 import _ from 'lodash';
-import { LoadMoreRow } from './LoadMoreRow';
+import { LoadMoreBar } from './LoadMoreBar';
 
 import 'react-virtualized/styles.css';
 
@@ -565,7 +565,7 @@ class ExperimentRunsTableCompactView extends React.Component {
                 />}
               </Table>,
               (showLoadMore ? (
-                <LoadMoreRow
+                <LoadMoreBar
                   key='load-more-row'
                   height={LOAD_MORE_ROW_HEIGHT}
                   width={tableWidth}

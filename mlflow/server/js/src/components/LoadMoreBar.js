@@ -1,5 +1,5 @@
 /**
- "Load more" row for user to click and load more runs. This row is currently built
+ "Load more" bar for user to click and load more runs. This row is currently built
  outside of the Table component as we are following a minimum-invasive way of building
  this feature to avoid massive refactor on current implementation. Ideally, this row
  can be built inside the Table as a special row by rewriting table rendering with a
@@ -12,7 +12,7 @@ import React from 'react';
 import { Button, Icon } from 'antd';
 import PropTypes from 'prop-types';
 
-export class LoadMoreRow extends React.PureComponent {
+export class LoadMoreBar extends React.PureComponent {
   static propTypes = {
     height: PropTypes.number.isRequired,
     width: PropTypes.number.isRequired,
