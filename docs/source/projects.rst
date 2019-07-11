@@ -321,14 +321,14 @@ Parameters
     :ref:`declared types <project_parameters>` are validated and transformed if needed.
 
 Deployment Mode
-    Both the command-line and API let you :ref:`launch projects remotely <databricks_execution>` on
-    a `Databricks <https://databricks.com>`_ environment. This
-    includes setting cluster parameters such as a VM type. Of course, you can also run projects on
-    any other computing infrastructure of your choice using the local version of the ``mlflow run``
-    command (for example, submit a script that does ``mlflow run`` to a standard job queueing system).
-    
-    It's also possible to launch projects remotely in `Kubernetes <https://Kubernetes.io/>`_ clusters 
-    using command-line (see :ref:`Run a project on Kubernetes <kubernetes_execution>`).
+    - Both the command-line and API let you :ref:`launch projects remotely <databricks_execution>`
+      on a `Databricks <https://databricks.com>`_ environment. This includes setting cluster
+      parameters such as a VM type. Of course, you can also run projects on any other computing
+      infrastructure of your choice using the local version of the ``mlflow run`` command (for
+      example, submit a script that does ``mlflow run`` to a standard job queueing system).
+
+    - You can also projects remotely on `Kubernetes <https://Kubernetes.io/>`_ clusters
+      using the ``mlflow run`` CLI (see :ref:`Run a project on Kubernetes <kubernetes_execution>`).
 
 Environment
     By default, MLflow Projects are run in the environment specified by the project directory
@@ -352,11 +352,17 @@ useful if you quickly want to test a project in your existing shell environment.
 Run a project on Databricks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Support for running projects remotely on Databricks is in public preview. To use this feature, you must have an enterprise Databricks account (Community Edition is not supported) and you must have set up the `Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions in the Databricks docs (`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_, `Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview of how to use the feature is as follows:
+You can run MLflow projects remotely on Databricks. To use this feature, you must have an enterprise
+Databricks account (Community Edition is not supported) and you must have set up the
+`Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions
+in the Databricks docs
+(`Azure Databricks <https://docs.databricks.com/applications/mlflow/index.html>`_,
+`Databricks on AWS <https://docs.databricks.com/applications/mlflow/index.html>`_). A brief overview
+of how to use the feature is as follows:
 
 .. important::
 
-  Remote execution for MLflow projects with Docker environments is *not* currently supported.
+  Databricks execution for MLflow projects with Docker environments is *not* currently supported.
 
 Create a JSON file containing the 
 `cluster specification <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
@@ -373,7 +379,10 @@ where ``<uri>`` is a Git repository URI or a folder.
 Run a project on Kubernetes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can run MLflow projects in Kubernetes clusters. MLflow uses an image to run 
+You can run MLflow projects on Kubernetes clusters using
+:ref:`Docker Project environments <project-docker-container-environments>`
+
+. MLflow uses an image to run 
 projects in :ref:`Docker environment <project-docker-container-environments>`  and pushes the image to an 
 image repository, so you need to configure MLproject with ``docker_env`` section. After that it 
 creates a Kubernetes job that uses this published image and runs the MLflow project on Kubernetes.
