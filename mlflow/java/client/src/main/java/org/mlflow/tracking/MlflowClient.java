@@ -304,8 +304,8 @@ public class MlflowClient {
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
     SearchRuns.Response response = mapper.toSearchRunsResponse(ojson);
-    return new RunsPage(response.getRunsList(), response.getNextPageToken(), experimentIds, searchFilter,
-            runViewType, orderBy, maxResults, this);
+    return new RunsPage(response.getRunsList(), response.getNextPageToken(), experimentIds,
+      searchFilter, runViewType, orderBy, maxResults, this);
   }
 
   /** @return  A list of all experiments. */

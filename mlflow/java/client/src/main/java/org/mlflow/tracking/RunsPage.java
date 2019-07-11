@@ -20,8 +20,14 @@ public class RunsPage implements Page<Run> {
     /**
      * Creates a fixed size page of Runs.
      */
-    public RunsPage(List<Run> runs, String token, List<String> experimentIds, String searchFilter,
-                    ViewType runViewType, List<String> orderBy, int maxResults, MlflowClient client) {
+    public RunsPage(List<Run> runs,
+                    String token,
+                    List<String> experimentIds,
+                    String searchFilter,
+                    ViewType runViewType,
+                    List<String> orderBy,
+                    int maxResults,
+                    MlflowClient client) {
         this.runs = Collections.unmodifiableList(runs);
         this.token = token;
         this.experimentIds = experimentIds;
@@ -47,7 +53,8 @@ public class RunsPage implements Page<Run> {
     }
 
     /**
-     * @return An optional with the token for the next page. Empty if the token doesn't exist or is empty.
+     * @return An optional with the token for the next page. 
+     * Empty if the token doesn't exist or is empty.
      */
     public Optional<String> getNextPageToken() {
         if (this.hasNextPage()) {
@@ -58,11 +65,17 @@ public class RunsPage implements Page<Run> {
     }
 
     /**
-     * @return The next page of runs matching the search criteria, or null if there are no more pages.
+     * @return The next page of runs matching the search criteria,
+     * or null if there are no more pages.
      */
     public RunsPage getNextPage() {
         if (this.hasNextPage()) {
-            return client.searchRunsV2(experimentIds, searchFilter, runViewType, orderBy, maxResults, token);
+            return client.searchRunsV2(experimentIds,
+                                       searchFilter,
+                                       runViewType,
+                                       orderBy,
+                                       maxResults,
+                                       token);
         } else {
             return null;
         }
