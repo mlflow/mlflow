@@ -58,7 +58,7 @@ public class RunsPage implements Page<Run> {
     }
 
     /**
-     * @return The next page of runs matching the search criteria.
+     * @return The next page of runs matching the search criteria, or null if there are no more pages.
      */
     public RunsPage getNextPage() {
         if (this.hasNextPage()) {

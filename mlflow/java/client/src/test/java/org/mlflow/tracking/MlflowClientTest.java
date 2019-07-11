@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Optional;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Set;
@@ -254,8 +255,8 @@ public class MlflowClientTest {
 
     searchResult = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
       Lists.newArrayList("metrics.accuracy_score"));
-    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
-    Assert.assertEquals(searchResult.get(1).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(1).getRunUuid(), runId_2);
 
     searchResult = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
       Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC"));
@@ -360,7 +361,11 @@ public class MlflowClientTest {
     Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_2);
 
     // pagination tests
-
+    RunsPage page = client.searchRunsV2(experimentIds, "");
+    Assert.assertEquals(page.getPageSize(), 2);
+    Assert.assertEquals(page.hasNextPage(), false);
+    Assert.assertEquals(page.getNextPageToken(), Optional.empty());
+    Assert.assertNull(page.getNextPage());
   }
 
   @Test
