@@ -185,7 +185,8 @@ public class MlflowClient {
   public RunsPage searchRuns(List<String> experimentIds,
                                   String searchFilter,
                                   int maxResults) {
-    return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY, new ArrayList<>(), maxResults);
+    return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY, new ArrayList<>(),
+             maxResults);
   }
 
   /**
