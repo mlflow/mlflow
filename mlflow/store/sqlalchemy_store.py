@@ -479,7 +479,8 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST)
             elif len(filtered_tags) > 1:
                 raise MlflowException(
-                    "Bad data in database - tags for a specific run must have a single unique value."
+                    "Bad data in database - tags for a specific run must have "
+                    "a single unique value."
                     "See https://mlflow.org/docs/latest/tracking.html#adding-tags-to-runs",
                     error_code=INVALID_STATE)
             session.delete(filtered_tags[0])
