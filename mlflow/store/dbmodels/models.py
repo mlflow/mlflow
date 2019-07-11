@@ -248,7 +248,7 @@ class SqlMetric(Base):
     """
     Step recorded for this metric entry: `BigInteger`.
     """
-    is_nan = Column(Boolean, nullable=True, default=False)
+    is_nan = Column(Boolean, nullable=False, default=False)
     """
     True if the value is in fact NaN.
     """
@@ -263,7 +263,8 @@ class SqlMetric(Base):
     """
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'step', 'run_uuid', 'value', name='metric_pk'),
+        PrimaryKeyConstraint('key', 'timestamp', 'step', 'run_uuid', 'value', "is_nan",
+                             name='metric_pk'),
     )
 
     def __repr__(self):
