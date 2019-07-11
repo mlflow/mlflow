@@ -2,7 +2,7 @@ import time
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy import (
     Column, String, Float, ForeignKey, Integer, CheckConstraint,
-    BigInteger, PrimaryKeyConstraint, UniqueConstraint, Boolean)
+    BigInteger, PrimaryKeyConstraint, Boolean)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
     Experiment, RunTag, Metric, Param, RunData, RunInfo,
@@ -235,7 +235,7 @@ class SqlMetric(Base):
     """
     Metric key: `String` (limit 250 characters). Part of *Primary Key* for ``metrics`` table.
     """
-    value = Column(Float, nullable=True)
+    value = Column(Float, nullable=False)
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
@@ -277,9 +277,6 @@ class SqlMetric(Base):
         """
         return Metric(
             key=self.key,
-            # NB: NaNs are encoded as NULL in the DB, we need to translate them back.
-            #  +/- Inf is translated to max / min float value but we can not distinguish them from
-            # the actual values so we do not turn them back to Infs.
             value=self.value if not self.is_nan else float("nan"),
             timestamp=self.timestamp,
             step=self.step)
