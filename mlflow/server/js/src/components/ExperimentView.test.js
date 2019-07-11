@@ -31,6 +31,8 @@ const getExperimentViewMock = () => {
     searchInput={""}
     searchRunsError={''}
     isLoading
+    loadingMore={false}
+    handleLoadMoreRuns={jest.fn()}
     orderByKey={null}
     orderByAsc={false}
   />);
