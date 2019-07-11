@@ -283,7 +283,7 @@ export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
 
 export const getApis = (requestIds, state) => {
   return requestIds.map((id) => (
-    state.apis[id]
+    state.apis[id] || {}
   ));
 };
 

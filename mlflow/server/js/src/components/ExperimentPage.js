@@ -18,15 +18,12 @@ import ErrorCodes from "../sdk/ErrorCodes";
 import PermissionDeniedView from "./PermissionDeniedView";
 import {Spinner} from "./Spinner";
 import { withRouter } from 'react-router-dom';
-import { message } from 'antd';
 
 export const LIFECYCLE_FILTER = { ACTIVE: 'Active', DELETED: 'Deleted' };
 
 export class ExperimentPage extends Component {
   constructor(props) {
     super(props);
-    this.onSearch = this.onSearch.bind(this);
-    this.getRequestIds = this.getRequestIds.bind(this);
     const urlState = Utils.getSearchParamsFromUrl(props.location.search);
     this.state = {
       ...ExperimentPage.getDefaultUnpersistedState(),
@@ -40,43 +37,34 @@ export class ExperimentPage extends Component {
       nextPageToken: null,
       loadingMore: false,
     };
-    this.loadData();
   }
 
+  getExperimentRequestId = getUUID();
+  searchRunsRequestId = getUUID();
+  loadMoreRunsRequestId = getUUID();
+
   loadData() {
-    const {
-      getExperimentRequestId,
-      persistedState,
-      searchRunsRequestId,
-      lifecycleFilter,
-    } = this.state;
+    const { persistedState, lifecycleFilter } = this.state;
     const { experimentId, searchRunsApi, getExperimentApi } = this.props;
     const { orderByKey, orderByAsc, searchInput } = persistedState;
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
 
-    getExperimentApi(experimentId, getExperimentRequestId);
-    this.withRunsUpdateHandling(
-      searchRunsApi([experimentId], searchInput, viewType, orderBy, searchRunsRequestId),
+    getExperimentApi(experimentId, this.getExperimentRequestId);
+    this.withNextPageTokenHandling(
+      searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId),
     );
   }
 
-  withRunsUpdateHandling(promise) {
-    promise
-      .then(({ value }) => {
-        let nextPageToken = null;
-        if (value) {
-          nextPageToken = value.next_page_token;
-        }
-        this.setState({ nextPageToken, loadingMore: false });
-      })
-      .catch((err) => {
-        console.error(err);
-        message.error('Failed to load more runs. Error: ' + err.getUserVisibleError());
-      });
+  withNextPageTokenHandling(promise) {
+    promise.then(({ value }) => {
+      let nextPageToken = null;
+      if (value) {
+        nextPageToken = value.next_page_token;
+      }
+      this.setState({ nextPageToken, loadingMore: false });
+    });
   }
-
-  static loadMoreRunReqestId = getUUID();
 
   handleLoadMoreRuns = () => {
     const { loadMoreRunsApi, experimentId } = this.props;
@@ -85,14 +73,14 @@ export class ExperimentPage extends Component {
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     this.setState({ loadingMore: true });
-    this.withRunsUpdateHandling(
+    this.withNextPageTokenHandling(
       loadMoreRunsApi(
         [experimentId],
         searchInput,
         viewType,
         orderBy,
         nextPageToken,
-        ExperimentPage.loadMoreRunReqestId,
+        this.loadMoreRunsRequestId,
       ),
     );
   };
@@ -109,10 +97,6 @@ export class ExperimentPage extends Component {
   /** Returns default values for state attributes that aren't persisted in the URL. */
   static getDefaultUnpersistedState() {
     return {
-      // String UUID associated with a GetExperiment API request
-      getExperimentRequestId: getUUID(),
-      // String UUID associated with a SearchRuns API request
-      searchRunsRequestId: getUUID(),
       // Last experiment, if any, displayed by this instance of ExperimentPage
       lastExperimentId: undefined,
       // Lifecycle filter of runs to display
@@ -120,8 +104,25 @@ export class ExperimentPage extends Component {
     };
   }
 
+  componentDidMount() {
+    this.loadData();
+  }
+
   componentDidUpdate(prevProps, prevState, snapshot) {
     this.maybeReloadData(prevProps);
+  }
+
+  static getDerivedStateFromProps(props, state) {
+    if (props.experimentId !== state.lastExperimentId) {
+      return {
+        ...ExperimentPage.getDefaultUnpersistedState(),
+        persistedState: state.lastExperimentId === undefined ?
+          state.persistedState : (new ExperimentPagePersistedState()).toJSON(),
+        lastExperimentId: props.experimentId,
+        lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
+      };
+    }
+    return null;
   }
 
   maybeReloadData(prevProps) {
@@ -130,13 +131,14 @@ export class ExperimentPage extends Component {
     }
   }
 
-  onSearch(
+  onSearch = (
       paramKeyFilterString,
       metricKeyFilterString,
       searchInput,
       lifecycleFilterInput,
       orderByKey,
-      orderByAsc) {
+      orderByAsc
+  ) => {
     this.setState({
       persistedState: new ExperimentPagePersistedState({
         paramKeyFilterString,
@@ -149,18 +151,16 @@ export class ExperimentPage extends Component {
     });
 
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
-    const searchRunsRequestId = getUUID();
-    this.withRunsUpdateHandling(
+    this.withNextPageTokenHandling(
       this.props.searchRunsApi(
         [this.props.experimentId],
         searchInput,
         lifecycleFilterToRunViewType(lifecycleFilterInput),
         orderBy,
-        searchRunsRequestId,
+        this.searchRunsRequestId,
       ),
     );
 
-    this.setState({ searchRunsRequestId });
     this.updateUrlWithSearchFilter({
       paramKeyFilterString,
       metricKeyFilterString,
@@ -168,7 +168,7 @@ export class ExperimentPage extends Component {
       orderByKey,
       orderByAsc,
     });
-  }
+  };
 
   static getOrderByExpr(orderByKey, orderByAsc) {
     let orderBy = [];
@@ -216,10 +216,10 @@ export class ExperimentPage extends Component {
           {(isLoading, shouldRenderError, requests) => {
             let searchRunsError;
             const getExperimentRequest = Utils.getRequestWithId(
-              requests, this.state.getExperimentRequestId);
+              requests, this.getExperimentRequestId);
             if (shouldRenderError) {
               const searchRunsRequest = Utils.getRequestWithId(
-                requests, this.state.searchRunsRequestId);
+                requests, this.searchRunsRequestId);
               if (searchRunsRequest.error) {
                 searchRunsError = searchRunsRequest.error.getMessageField();
               } else if (getExperimentRequest.error.getErrorCode() ===
@@ -231,7 +231,7 @@ export class ExperimentPage extends Component {
                 return undefined;
               }
             }
-            if (getExperimentRequest.active) {
+            if (!getExperimentRequest || getExperimentRequest.active) {
               return <Spinner/>;
             }
 
@@ -239,7 +239,7 @@ export class ExperimentPage extends Component {
               paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
               metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
               experimentId={this.props.experimentId}
-              searchRunsRequestId={this.state.searchRunsRequestId}
+              searchRunsRequestId={this.searchRunsRequestId}
               lifecycleFilter={this.state.lifecycleFilter}
               onSearch={this.onSearch}
               searchRunsError={searchRunsError}
@@ -258,7 +258,7 @@ export class ExperimentPage extends Component {
   }
 
   getRequestIds() {
-    return [this.state.getExperimentRequestId, this.state.searchRunsRequestId];
+    return [this.getExperimentRequestId, this.searchRunsRequestId];
   }
 }
 
