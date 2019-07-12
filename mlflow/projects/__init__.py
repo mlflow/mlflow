@@ -31,7 +31,7 @@ from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
     LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, \
@@ -131,7 +131,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             _validate_docker_env(project)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
-                                        image_uri=project.name,
+                                        repository_uri=project.name,
                                         base_image=project.docker_env.get('image'),
                                         run_id=active_run.info.run_id)
             command += _get_docker_command(image=image, active_run=active_run)
@@ -165,7 +165,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         _validate_docker_installation()
         kube_config = _parse_kubernetes_config(backend_config)
         image = _build_docker_image(work_dir=work_dir,
-                                    image_uri=kube_config["image-uri"],
+                                    repository_uri=kube_config["repository-uri"],
                                     base_image=project.docker_env.get('image'),
                                     run_id=active_run.info.run_id)
         image_digest = kb.push_image_to_registry(image.tags[0])
@@ -752,8 +752,8 @@ def _parse_kubernetes_config(backend_config):
             kube_job_template))
     if 'kube-context' not in backend_config.keys():
         raise ExecutionException("Could not find kube-context in backend_config.")
-    if 'image-uri' not in backend_config.keys():
-        raise ExecutionException("Could not find 'image-uri' in backend_config.")
+    if 'repository-uri' not in backend_config.keys():
+        raise ExecutionException("Could not find 'repository-uri' in backend_config.")
     return kube_config
 
 
@@ -776,24 +776,22 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     return result_path
 
 
-def _build_docker_image(work_dir, image_uri, base_image, run_id):
+def _build_docker_image(work_dir, repository_uri, base_image, run_id):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
     """
-    tag_name = _get_docker_tag_name(image_uri, work_dir)
+    image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
     dockerfile = (
         "FROM {imagename}\n"
-        "LABEL Name={tag_name}\n"
         "COPY {build_context_path}/ /mlflow/projects/code/\n"
         "WORKDIR /mlflow/projects/code/\n"
-    ).format(imagename=base_image, tag_name=tag_name,
-             build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
+    ).format(imagename=base_image, build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
     with open(build_ctx_path, 'rb') as docker_build_ctx:
-        _logger.info("=== Building docker image %s ===", tag_name)
+        _logger.info("=== Building docker image %s ===", image_uri)
         client = docker.from_env()
         image, _ = client.images.build(
-            tag=tag_name, forcerm=True,
+            tag=image_uri, forcerm=True,
             dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
             fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
     try:
@@ -801,21 +799,28 @@ def _build_docker_image(work_dir, image_uri, base_image, run_id):
     except Exception:  # pylint: disable=broad-except
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
     tracking.MlflowClient().set_tag(run_id,
-                                    MLFLOW_DOCKER_IMAGE_NAME,
-                                    tag_name)
+                                    MLFLOW_DOCKER_IMAGE_URI,
+                                    image_uri)
     tracking.MlflowClient().set_tag(run_id,
                                     MLFLOW_DOCKER_IMAGE_ID,
                                     image.id)
     return image
 
 
-def _get_docker_tag_name(imagename, work_dir):
-    """Returns an appropriate Docker tag for a project based on name and git hash."""
-    imagename = imagename if imagename else "docker-project"
+def _get_docker_image_uri(repository_uri, work_dir):
+    """
+    Returns an appropriate Docker image URI for a project based on the git hash of the specified
+    working directory.
+
+    :param repository_uri: The URI of the Docker repository with which to tag the image. The
+                           repository URI is used as the prefix of the image URI.
+    :param work_dir: Path to the working directory in which to search for a git commit hash
+    """
+    repository_uri = repository_uri if repository_uri else "docker-project"
     # Optionally include first 7 digits of git SHA in tag name, if available.
     git_commit = _get_git_commit(work_dir)
     version_string = ":" + git_commit[:7] if git_commit else ""
-    return imagename + version_string
+    return repository_uri + version_string
 
 
 __all__ = [
