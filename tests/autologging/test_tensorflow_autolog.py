@@ -96,10 +96,10 @@ def tf_core_random_tensors():
         merged = tf.summary.merge_all()
         dir = tempfile.mkdtemp()
         writer = tf.summary.FileWriter(dir, sess.graph)
-        for i in range(40):
-            with sess.as_default():
+        with sess.as_default():
+            for i in range(40):
                 summary, _ = sess.run([merged, total])
-            writer.add_summary(summary, global_step=i)
+                writer.add_summary(summary, global_step=i)
         shutil.rmtree(dir)
         writer.close()
         sess.close()
