@@ -14,23 +14,42 @@ import os
 import shutil
 import yaml
 import logging
+import gorilla
+import concurrent.futures
+import warnings
+import atexit
+import time
+import tempfile
 
 import pandas
 
 import mlflow
+import tensorflow
+import mlflow.keras
+from tensorflow.keras.callbacks import Callback, TensorBoard  # pylint: disable=import-error
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import DIRECTORY_NOT_EMPTY
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils import keyword_only
+from mlflow.utils import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.entities import Metric
+
 
 FLAVOR_NAME = "tensorflow"
 
 _logger = logging.getLogger(__name__)
+
+_MAX_METRIC_QUEUE_SIZE = 500
+
+_LOG_EVERY_N_STEPS = 100
+
+_metric_queue = []
+
+_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 
 def get_default_conda_env():
@@ -38,10 +57,9 @@ def get_default_conda_env():
     :return: The default Conda environment for MLflow Models produced by calls to
              :func:`save_model()` and :func:`log_model()`.
     """
-    import tensorflow as tf
     return _mlflow_conda_env(
         additional_conda_deps=[
-            "tensorflow={}".format(tf.__version__),
+            "tensorflow={}".format(tensorflow.__version__),
         ],
         additional_pip_deps=None,
         additional_conda_channels=None)
@@ -167,10 +185,8 @@ def _validate_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_d
     Validate the TensorFlow SavedModel by attempting to load it in a new TensorFlow graph.
     If the loading process fails, any exceptions thrown by TensorFlow are propagated.
     """
-    import tensorflow as tf
-
-    validation_tf_graph = tf.Graph()
-    validation_tf_sess = tf.Session(graph=validation_tf_graph)
+    validation_tf_graph = tensorflow.Graph()
+    validation_tf_sess = tensorflow.Session(graph=validation_tf_graph)
     with validation_tf_graph.as_default():
         _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir,
                                      tf_sess=validation_tf_sess,
@@ -242,9 +258,7 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_sess, tf_meta_graph_tags
              ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines input and
              output tensors within the specified metagraph for inference.
     """
-    import tensorflow as tf
-
-    meta_graph_def = tf.saved_model.loader.load(
+    meta_graph_def = tensorflow.saved_model.loader.load(
             sess=tf_sess,
             tags=tf_meta_graph_tags,
             export_dir=tf_saved_model_dir)
@@ -281,13 +295,11 @@ def _load_pyfunc(path):
 
     :param path: Local filesystem path to the MLflow Model with the ``tensorflow`` flavor.
     """
-    import tensorflow as tf
-
     tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key =\
         _get_and_parse_flavor_configuration(model_path=path)
 
-    tf_graph = tf.Graph()
-    tf_sess = tf.Session(graph=tf_graph)
+    tf_graph = tensorflow.Graph()
+    tf_sess = tensorflow.Session(graph=tf_graph)
     with tf_graph.as_default():
         signature_def = _load_tensorflow_saved_model(
             tf_saved_model_dir=tf_saved_model_dir, tf_sess=tf_sess,
@@ -333,3 +345,239 @@ class _TFWrapper(object):
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
             pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
             return pandas.DataFrame(data=pred_dict)
+
+
+class __MLflowTfKerasCallback(Callback):
+    """
+        Callback for auto-logging parameters (we rely on TensorBoard for metrics).
+        Records model structural information as params after training finishes.
+    """
+    def __init__(self):
+        if mlflow.active_run() is None:
+            mlflow.start_run()
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def on_epoch_end(self, epoch, logs=None):
+        pass
+
+    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+        opt = self.model.optimizer
+        if hasattr(opt, 'optimizer'):
+            opt = opt.optimizer
+        mlflow.log_param('optimizer_name', type(opt).__name__)
+        if hasattr(opt, '_lr'):
+            lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
+            mlflow.log_param('learning_rate', lr)
+        if hasattr(opt, '_epsilon'):
+            epsilon = opt._epsilon if type(opt._epsilon) is float \
+                else tensorflow.keras.backend.eval(opt._epsilon)
+            mlflow.log_param('epsilon', epsilon)
+        l = []
+        self.model.summary(print_fn=l.append)
+        summary = '\n'.join(l)
+        mlflow.set_tag('summary', summary)
+        mlflow.keras.log_model(self.model, artifact_path='model')
+
+
+def _log_artifacts_with_warning(**kwargs):
+    try:
+        mlflow.log_artifacts(**kwargs)
+    except MlflowException as e:
+        warnings.warn("Logging to MLflow failed: " + str(e))
+
+
+def _assoc_list_to_map(lst):
+    """
+    Convert an association list to a dictionary.
+    """
+    d = {}
+    for run_id, metric in lst:
+        d[run_id] = d[run_id] + [metric] if run_id in d else [metric]
+    return d
+
+
+def _flush_queue():
+    """
+    Flush the metric queue and log contents in batches to MLflow.
+    Queue is divided into batches according to run id.
+    """
+    global _metric_queue
+    try:
+        client = mlflow.tracking.MlflowClient()
+        dic = _assoc_list_to_map(_metric_queue)
+        for key in dic:
+            client.log_batch(key, metrics=dic[key], params=[], tags=[])
+    except MlflowException as e:
+        warnings.warn("Logging to MLflow failed: " + str(e))
+    finally:
+        _metric_queue = []
+
+
+atexit.register(_flush_queue)
+
+
+def _add_to_queue(key, value, step, time, run_id):
+    """
+    Add a metric to the metric queue. Flush the queue if it exceeds
+    max size.
+    """
+    met = Metric(key=key, value=value, timestamp=time, step=step)
+    _metric_queue.append((run_id, met))
+    if len(_metric_queue) > _MAX_METRIC_QUEUE_SIZE:
+        _flush_queue()
+
+
+def _log_event(event):
+    """
+    Extracts metric information from the event protobuf
+    """
+    if mlflow.active_run() is None:
+        mlflow.start_run()
+    if event.WhichOneof('what') == 'summary':
+        summary = event.summary
+        for v in summary.value:
+            if v.HasField('simple_value'):
+                if (event.step-1) % _LOG_EVERY_N_STEPS == 0:
+                    _thread_pool.submit(_add_to_queue, key=v.tag,
+                                        value=v.simple_value, step=event.step,
+                                        time=int(time.time())*1000,
+                                        run_id=mlflow.active_run().info.run_id)
+
+
+def _get_tensorboard_callback(lst):
+    for x in lst:
+        if isinstance(x, tensorflow.keras.callbacks.TensorBoard):
+            return x
+    return None
+
+
+def _setup_callbacks(lst):
+    """
+    Adds TensorBoard and MlfLowTfKeras callbacks to the
+    input list, and returns the new list and appropriate log directory.
+    """
+    tb = _get_tensorboard_callback(lst)
+    if tb is None:
+        log_dir = tempfile.mkdtemp()
+        l = lst + [TensorBoard(log_dir)]
+    else:
+        log_dir = tb.log_dir
+        l = lst
+    l += [__MLflowTfKerasCallback()]
+    return l, log_dir
+
+
+@experimental
+def autolog(metrics_every_n_steps=100):
+    # pylint: disable=E0611
+    """
+    Enable automatic logging from TensorFlow to MLflow. If applicable,
+    model checkpoints are logged as artifacts to a 'models' directory, along
+    with any TensorBoard log data.
+
+    Refer to the tracking documentation for
+    information on what is logged with different TensorFlow workflows.
+
+    :param metrics_every_n_steps: The frequency with which metrics should be logged.
+                                  Defaults to 100. Ex: a value of 100 will log metrics
+                                  at step 0, 100, 200, etc.
+
+    """
+    global _LOG_EVERY_N_STEPS
+    _LOG_EVERY_N_STEPS = metrics_every_n_steps
+
+    from distutils.version import StrictVersion
+
+    if StrictVersion(tensorflow.__version__) < StrictVersion('1.12') \
+            or StrictVersion(tensorflow.__version__) >= StrictVersion('2.0'):
+        warnings.warn("Could not log to MLflow. Only TensorFlow versions" +
+                      "1.12 <= v < 2.0.0 are supported.")
+        return
+
+    try:
+        from tensorflow.python.summary.writer.event_file_writer import EventFileWriter
+        from tensorflow.python.summary.writer.event_file_writer_v2 import EventFileWriterV2
+        from tensorflow.python.saved_model import tag_constants
+        from tensorflow.python.summary.writer.writer import FileWriter
+    except ImportError:
+        warnings.warn("Could not log to MLflow. Only TensorFlow versions" +
+                      "1.12 <= v < 2.0.0 are supported.")
+        return
+
+    @gorilla.patch(tensorflow.estimator.Estimator)
+    def export_saved_model(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
+                                                  'export_saved_model')
+        serialized = original(self, *args, **kwargs)
+        try:
+            log_model(tf_saved_model_dir=serialized.decode('utf-8'),
+                      tf_meta_graph_tags=[tag_constants.SERVING],
+                      tf_signature_def_key='predict',
+                      artifact_path='model')
+        except MlflowException as e:
+            warnings.warn("Logging to MLflow failed: " + str(e))
+        return serialized
+
+    @gorilla.patch(tensorflow.estimator.Estimator)
+    def export_savedmodel(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
+                                                  'export_savedmodel')
+        serialized = original(self, *args, **kwargs)
+        try:
+            log_model(tf_saved_model_dir=serialized.decode('utf-8'),
+                      tf_meta_graph_tags=[tag_constants.SERVING],
+                      tf_signature_def_key='predict',
+                      artifact_path='model')
+        except MlflowException as e:
+            warnings.warn("Logging to MLflow failed: " + str(e))
+        return serialized
+
+    @gorilla.patch(tensorflow.keras.Model)
+    def fit(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
+        if len(args) >= 6:
+            l = list(args)
+            l[5], log_dir = _setup_callbacks(l[5])
+            args = tuple(l)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
+        else:
+            kwargs['callbacks'], log_dir = _setup_callbacks([])
+        result = original(self, *args, **kwargs)
+        _flush_queue()
+        _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
+        shutil.rmtree(log_dir)
+        return result
+
+    @gorilla.patch(EventFileWriter)
+    def add_event(self, event):
+        _log_event(event)
+        original = gorilla.get_original_attribute(EventFileWriter, 'add_event')
+        return original(self, event)
+
+    @gorilla.patch(FileWriter)
+    def add_summary(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(FileWriter, 'add_summary')
+        result = original(self, *args, **kwargs)
+        _flush_queue()
+        return result
+
+    settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    patches = [
+        gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings),
+        gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings),
+        gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
+        gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
+                      export_saved_model, settings=settings),
+        gorilla.Patch(tensorflow.estimator.Estimator, 'export_savedmodel',
+                      export_savedmodel, settings=settings),
+        gorilla.Patch(FileWriter, 'add_summary', add_summary, settings=settings),
+        ]
+
+    for x in patches:
+        gorilla.apply(x)
