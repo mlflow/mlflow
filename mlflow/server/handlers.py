@@ -22,6 +22,14 @@ from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 
 _store = None
+STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
+
+
+def _add_static_prefix(route):
+    prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
+    if prefix:
+        return prefix + route
+    return route
 
 
 def _get_file_store(store_uri, artifact_uri):
@@ -300,6 +308,8 @@ def _search_runs():
     run_entities = _get_store().search_runs(experiment_ids, filter_string, run_view_type,
                                             max_results, order_by, page_token)
     response_message.runs.extend([r.to_proto() for r in run_entities])
+    if run_entities.token:
+        response_message.next_page_token = run_entities.token
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response
@@ -372,7 +382,7 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/preview/mlflow/experiment and
     /ajax-api/2.0/preview/mlflow/experiment in the Flask router.
     """
-    return ['/api/2.0{}'.format(base_path), '/ajax-api/2.0{}'.format(base_path)]
+    return ['/api/2.0{}'.format(base_path), _add_static_prefix('/ajax-api/2.0{}'.format(base_path))]
 
 
 def get_endpoints():
