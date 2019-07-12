@@ -72,7 +72,7 @@ test_that("logging functionality", {
   expect_true(is.nan(nanValue))
   posInfValue <- metrics$value[metrics$key == "inf"]
   expect_true(posInfValue >= 1.7976931348623157e308)
-  negInfValue <- metrics$$value[metrics$key == "-inf"]
+  negInfValue <- metrics$value[metrics$key == "-inf"]
   expect_true(posInfValue <= -1.7976931348623157e308)
   run_id <- run$run_uuid
   tags <- run$tags[[1]]
