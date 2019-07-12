@@ -172,6 +172,46 @@ public class MlflowClientTest {
   }
 
   @Test
+  public void deleteTag() {
+    // Create experiment
+    String expName = createExperimentName();
+    String expId = client.createExperiment(expName);
+
+    // Create run
+    RunInfo runCreated = client.createRun(expId);
+    String runId = runCreated.getRunUuid();
+    client.setTag(runId, "tag0", "val0");
+    client.setTag(runId, "tag1", "val1");
+    client.deleteTag(runId, "tag0");
+    Run run = client.getRun(runId);
+    // test that the tag was correctly deleted.
+    for (RunTag rt : run.getData().getTagsList()) {
+      Assert.assertTrue(!rt.getKey().equals("tag0"));
+    }
+    // test that you can't re-delete the old tag
+    try {
+      client.deleteTag(runId, "tag0");
+      Assert.fail();
+    } catch (MlflowClientException e) {
+      Assert.assertTrue(e.getMessage().contains(String.format("No tag with name: tag0 in run with id %s", runId)));
+    }
+    // test that you can't delete a tag that doesn't already exist.
+    try {
+      client.deleteTag(runId, "fakeTag");
+      Assert.fail();
+    } catch (MlflowClientException e) {
+      Assert.assertTrue(e.getMessage().contains(String.format("No tag with name: fakeTag in run with id %s", runId)));
+    }
+    // test that you can't delete a tag on a nonexistent run.
+    try {
+      client.deleteTag("fakeRunId", "fakeTag");
+      Assert.fail();
+    } catch (MlflowClientException e) {
+      Assert.assertTrue(e.getMessage().contains(String.format("Run '%s' not found", "fakeRunId")));
+    }
+  }
+
+  @Test
   public void searchRuns() {
     // Create exp
     String expName = createExperimentName();

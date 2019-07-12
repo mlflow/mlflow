@@ -64,6 +64,13 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
+  String makeDeleteTag(String runId, String key) {
+    DeleteTag.Builder builder = DeleteTag.newBuilder();
+    builder.setRunId(runId);
+    builder.setKey(key);
+    return print(builder);
+  }
+
   String makeLogBatch(String runId,
       Iterable<Metric> metrics,
       Iterable<Param> params,

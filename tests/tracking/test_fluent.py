@@ -519,3 +519,22 @@ def test_get_paginated_runs_gt_maxresults_onepage():
             MlflowClient.search_runs.assert_called_once_with(
                 [123], "", ViewType.ACTIVE_ONLY, max_results, None, None)
             assert len(paginated_runs) == 10
+
+
+def test_delete_tag():
+    """
+    Confirm that fluent API delete tags actually works
+    :return:
+    """
+    mlflow.set_tag('a', 'b')
+    run = MlflowClient().get_run(mlflow.active_run().info.run_id)
+    print(run.info.run_id)
+    assert 'a' in run.data.tags
+    mlflow.delete_tag('a')
+    run = MlflowClient().get_run(mlflow.active_run().info.run_id)
+    assert 'a' not in run.data.tags
+    with pytest.raises(MlflowException):
+        mlflow.delete_tag('a')
+    with pytest.raises(MlflowException):
+        mlflow.delete_tag('b')
+    mlflow.end_run()
