@@ -67,13 +67,13 @@ test_that("logging functionality", {
   mlflow_log_param("param_key", "param_value")
 
   run <- mlflow_get_run()
-  metrics = run$metrics[[1]]
-  nanValue <- metrics$value[metrics$key == "nan"]
-  expect_true(is.nan(nanValue))
-  posInfValue <- metrics$value[metrics$key == "inf"]
-  expect_true(posInfValue >= 1.7976931348623157e308)
-  negInfValue <- metrics$value[metrics$key == "-inf"]
-  expect_true(posInfValue <= -1.7976931348623157e308)
+  metrics <- run$metrics[[1]]
+  nan_value <- metrics$value[metrics$key == "nan"]
+  expect_true(is.nan(nan_value))
+  pos_inf_value <- metrics$value[metrics$key == "inf"]
+  expect_true(pos_inf_value >= 1.7976931348623157e308)
+  neg_inf_value <- metrics$value[metrics$key == "-inf"]
+  expect_true(neg_inf_value <= -1.7976931348623157e308)
   run_id <- run$run_uuid
   tags <- run$tags[[1]]
   expect_identical("tag_value", tags$value[tags$key == "tag_key"])

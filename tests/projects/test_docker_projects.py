@@ -13,7 +13,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAM
     MLFLOW_DOCKER_IMAGE_ID
 
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
-from tests.projects.utils import docker_example_base_image
+from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.projects import _project_spec
 

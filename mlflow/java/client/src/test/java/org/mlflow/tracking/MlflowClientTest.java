@@ -303,7 +303,7 @@ public class MlflowClientTest {
     assertParam(params, "max_depth", MAX_DEPTH);
 
     List<Metric> metrics = run.getData().getMetricsList();
-    Assert.assertEquals(metrics.size(), 4);
+    Assert.assertEquals(metrics.size(), 7);
     assertMetric(metrics, "accuracy_score", ACCURACY_SCORE);
     assertMetric(metrics, "zero_one_loss", ZERO_ONE_LOSS);
     assertMetric(metrics, "multi_log_default_step_ts", -1.0);
