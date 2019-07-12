@@ -535,8 +535,6 @@ class FileStore(AbstractStore):
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
-        if page_token:
-            raise MlflowException("FileStore does not yet support pagination tokens.")
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
@@ -547,8 +545,9 @@ class FileStore(AbstractStore):
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self.get_run(r.run_id) for r in run_infos)
         filtered = SearchUtils.filter(runs, filter_string)
-        runs = SearchUtils.sort(filtered, order_by)[:max_results]
-        return runs, None
+        sorted_runs = SearchUtils.sort(filtered, order_by)
+        runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+        return runs, next_page_token
 
     def log_metric(self, run_id, metric):
         _validate_run_id(run_id)

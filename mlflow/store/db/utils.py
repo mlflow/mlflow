@@ -3,7 +3,6 @@ import os
 import logging
 
 from alembic.migration import MigrationContext  # pylint: disable=import-error
-
 import sqlalchemy
 
 _logger = logging.getLogger(__name__)
@@ -42,7 +41,7 @@ def _get_alembic_config(db_url, alembic_dir=None):
     names.
     """
     from alembic.config import Config
-    final_alembic_dir = os.path.join(_get_package_dir(), 'alembic') \
+    final_alembic_dir = os.path.join(_get_package_dir(), 'store', 'db_migrations') \
         if alembic_dir is None else alembic_dir
     config = Config(os.path.join(final_alembic_dir, 'alembic.ini'))
     config.set_main_option('script_location', final_alembic_dir)
