@@ -458,9 +458,15 @@ Job Templates
 MLflow executes Projects on Kubernetes by creating `Kubernetes Job resources
 <https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/>`_.
 MLflow creates a Kubernetes Job for an MLflow Project by reading a user-specified
-`Job Spec 
+`Job Spec
 <https://kubernetes.io/docs/concepts/workloads/controllers/jobs-run-to-completion/#writing-a-job-spec>`_.
-When 
+When MLflow reads a Job Spec, it formats the following fields:
+
+- ``metadata.name`` Replaced with a string containing the name of the MLflow Project and the time
+  of Project execution
+- ``spec.template.spec.container[0].name`` Replaced with the name of the MLflow Project
+- ``spec.template.spec.container[0].image`` Replaced with the URI of the Docker image created during
+  Project execution
 
 
 Kubernetes Jobs
