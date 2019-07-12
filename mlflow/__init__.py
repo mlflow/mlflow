@@ -24,9 +24,9 @@ implement mutual exclusion manually.
 
 For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
-import mlflow.tracking.fluent
 from mlflow.version import VERSION as __version__
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
+import mlflow.tracking.fluent
 
 # Filter annoying Cython warnings that serve no good purpose, and so before
 # importing other modules.
