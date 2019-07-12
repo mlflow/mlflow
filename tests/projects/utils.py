@@ -40,7 +40,8 @@ def assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
-def build_docker_example_base_image():
+@pytest.fixture(scope="session")
+def docker_example_base_image():
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     if not mlflow_home:
         raise Exception("MLFLOW_HOME environment variable is not set. Please set the variable to "
@@ -55,12 +56,10 @@ def build_docker_example_base_image():
             f.write(("COPY {mlflow_dir} /opt/mlflow\n"
                      "RUN pip install -U -e /opt/mlflow\n").format(
                 mlflow_dir=mlflow_dir))
-            with open(os.path.join(TEST_DOCKER_PROJECT_DIR, 'Dockerfile'), "r") as example_docker:
-                f.writelines(example_docker.read())
 
         client = docker.from_env()
         try:
-            client.images.build(tag='mlflow-docker-example', forcerm=True,
+            client.images.build(tag='mlflow-docker-example', forcerm=True, nocache=True,
                                 dockerfile='Dockerfile', path=cwd)
         except BuildError as build_error:
             for chunk in build_error.build_log:
