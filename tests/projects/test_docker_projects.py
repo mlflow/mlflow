@@ -9,7 +9,7 @@ import mlflow
 from mlflow.entities import ViewType
 from mlflow.projects import ExecutionException, _get_docker_image_uri
 from mlflow.store import file_store
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID
 
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
@@ -46,7 +46,7 @@ def test_docker_project_execution(
     assert run.data.metrics == {"some_key": 3}
     exact_expected_tags = {MLFLOW_PROJECT_ENV: "docker"}
     approx_expected_tags = {
-        MLFLOW_DOCKER_IMAGE_NAME: "docker-example",
+        MLFLOW_DOCKER_IMAGE_URI: "docker-example",
         MLFLOW_DOCKER_IMAGE_ID: "sha256:",
     }
     run_tags = run.data.tags
