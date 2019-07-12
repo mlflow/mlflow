@@ -52,7 +52,7 @@ Entity Name Contains Special Characters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When a metric, parameter, or tag name contains a special character like hyphen, space, period, and so on,
-enclose the entity name in double quotes.
+enclose the entity name in double quotes. Using backticks also work.
 
 .. rubric:: Examples
 
@@ -80,7 +80,7 @@ For example:
 Searching by MLflow specific tags
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-To search by something like the name of a run, you will have to search using the tag ``tag."mlflow.runName"``.
+To search by something like the name of a run, you will have to search using the tag ``tag."mlflow.runName"``. Wrapping ```mlflow.runName``` in backticks instead of double quotes also works.
 Other MLflow specific tags can be found at :ref:`system_tags`. MLflow inside Dataricks currently does not support searching by User or ``tag."mlflow.user"``.
 This functionality will come in a future release.
 
