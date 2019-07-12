@@ -371,7 +371,7 @@ def test_parse_kubernetes_config():
     kubernetes_config = {
         "kube-context": "docker-for-desktop",
         "kube-job-template-path": os.path.join(work_dir, "kubernetes_job_template.yaml"),
-        "image-uri": "dockerhub_account/mlflow-kubernetes-example"
+        "repository-uri": "dockerhub_account/mlflow-kubernetes-example"
     }
     yaml_obj = None
     with open(kubernetes_config["kube-job-template-path"], 'r') as job_template:
@@ -379,13 +379,13 @@ def test_parse_kubernetes_config():
     kube_config = mlflow.projects._parse_kubernetes_config(kubernetes_config)
     assert kube_config["kube-context"] == kubernetes_config["kube-context"]
     assert kube_config["kube-job-template-path"] == kubernetes_config["kube-job-template-path"]
-    assert kube_config["image-uri"] == kubernetes_config["image-uri"]
+    assert kube_config["repository-uri"] == kubernetes_config["repository-uri"]
     assert kube_config["kube-job-template"] == yaml_obj
 
 
 def test_parse_kubernetes_config_without_context():
     kubernetes_config = {
-        "image-uri": "dockerhub_account/mlflow-kubernetes-example",
+        "repository-uri": "dockerhub_account/mlflow-kubernetes-example",
         "kube-job-template-path": "kubernetes_job_template.yaml"
     }
     with pytest.raises(ExecutionException):
@@ -404,7 +404,7 @@ def test_parse_kubernetes_config_without_image_uri():
 def test_parse_kubernetes_config_invalid_template_job_file():
     kubernetes_config = {
         "kube-context": "docker-for-desktop",
-        "image-uri": "username/mlflow-kubernetes-example",
+        "repository-uri": "username/mlflow-kubernetes-example",
         "kube-job-template-path": "file_not_found.yaml"
     }
     with pytest.raises(ExecutionException):
