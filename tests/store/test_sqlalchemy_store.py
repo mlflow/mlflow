@@ -438,8 +438,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.assertEqual(5, len(sql_run_metrics))
             self.assertEqual(4, len(run.data.metrics))
             self.assertTrue(math.isnan(run.data.metrics["NaN"]))
-            self.assertTrue(run.data.metrics["PosInf"] > 1e308)
-            self.assertTrue(run.data.metrics["NegInf"] < -1e308)
+            self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
+            self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()

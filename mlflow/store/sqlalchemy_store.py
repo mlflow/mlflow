@@ -408,7 +408,7 @@ class SqlAlchemyStore(AbstractStore):
         is_nan = math.isnan(metric.value)
         if is_nan:
             value = 0
-        elif not math.isfinite(metric.value):
+        elif math.isinf(metric.value):
             #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
             value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
         else:

@@ -1,7 +1,8 @@
 import time
 from sqlalchemy.orm import relationship, backref
+import sqlalchemy as sa
 from sqlalchemy import (
-    Column, String, Float, ForeignKey, Integer, CheckConstraint,
+    Column, String, ForeignKey, Integer, CheckConstraint,
     BigInteger, PrimaryKeyConstraint, Boolean)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
@@ -235,7 +236,7 @@ class SqlMetric(Base):
     """
     Metric key: `String` (limit 250 characters). Part of *Primary Key* for ``metrics`` table.
     """
-    value = Column(Float, nullable=False)
+    value = Column(sa.types.Float(precision=64), nullable=False)
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """

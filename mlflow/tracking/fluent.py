@@ -193,8 +193,8 @@ def log_metric(key, value, step=None):
 
     :param key: Metric name (string).
     :param value: Metric value (float). Note that some special values such as +/- Infinity may be
-                  replaced by other values depending on the store. For example, sql based store may
-                  replace +/- Inf with max / min float values.
+                  replaced by other values depending on the store. For example, sFor example, the
+                  SQLAlchemy store replaces +/- Inf with max / min float values.
     :param step: Metric step (int). Defaults to zero if unspecified.
     """
     run_id = _get_or_start_run().info.run_id
