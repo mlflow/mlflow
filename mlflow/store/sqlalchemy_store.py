@@ -32,9 +32,12 @@ _logger = logging.getLogger(__name__)
 class SqlAlchemyStore(AbstractStore):
     """
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
-    supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
+    supports the database dialects ``mysql``, ``mssql``, ``sqlite``, ``splicemachinesa`` and
+    ``postgresql``.
+    The Splice Machine dialect can be installed from PyPi: ``pip install splicemachinesa``
+
     As specified in the
-    `SQLAlchemy docs <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_ ,
+    `SQLAlchemy docs <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`,
     the database URI is expected in the format
     ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. If you do not
     specify a driver, SQLAlchemy uses a dialect's default driver.
@@ -62,7 +65,7 @@ class SqlAlchemyStore(AbstractStore):
                        the `SQLAlchemy docs
                        <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_
                        for format specifications. Mlflow supports the dialects ``mysql``,
-                       ``mssql``, ``sqlite``, and ``postgresql``.
+                       ``mssql``, ``sqlite``, ``splicemachinesa`` and ``postgresql``.
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
         """
@@ -223,7 +226,8 @@ class SqlAlchemyStore(AbstractStore):
         return instance, created
 
     def _get_artifact_location(self, experiment_id):
-        return posixpath.join(self.artifact_root_uri, str(experiment_id))
+        # python2.7 unicode strings are not decorated properly in SQL
+        return str(posixpath.join(self.artifact_root_uri, str(experiment_id)))
 
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
@@ -487,6 +491,9 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
+        if page_token:
+            raise MlflowException("SQLAlchemy-backed tracking stores do not yet support pagination"
+                                  "tokens.")
         # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
@@ -498,9 +505,8 @@ class SqlAlchemyStore(AbstractStore):
                     for exp in experiment_ids
                     for run in self._list_runs(session, exp, run_view_type)]
             filtered = SearchUtils.filter(runs, filter_string)
-            sorted_runs = SearchUtils.sort(filtered, order_by)
-            runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
-            return runs, next_page_token
+            runs = SearchUtils.sort(filtered, order_by)[:max_results]
+            return runs, None
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(
