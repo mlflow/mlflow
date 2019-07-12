@@ -10,12 +10,14 @@ const EXPERIMENT_ID = 17;
 
 let searchRunsApi;
 let getExperimentApi;
+let loadMoreRunsApi;
 let history;
 let location;
 
 beforeEach(() => {
-  searchRunsApi = jest.fn();
-  getExperimentApi = jest.fn();
+  searchRunsApi = jest.fn(() => Promise.resolve());
+  getExperimentApi = jest.fn(() => Promise.resolve());
+  loadMoreRunsApi = jest.fn(() => Promise.resolve());
   location = {};
 
   history = {};
@@ -30,6 +32,7 @@ const getExperimentPageMock = () => {
     experimentId={EXPERIMENT_ID}
     searchRunsApi={searchRunsApi}
     getExperimentApi={getExperimentApi}
+    loadMoreRunsApi={loadMoreRunsApi}
     history={history}
     location={location}
   />);
@@ -102,4 +105,34 @@ test('Loading state with all URL params', () => {
   expect(state.persistedState.searchInput).toEqual("c");
   expect(state.persistedState.orderByKey).toEqual("d");
   expect(state.persistedState.orderByAsc).toEqual(false);
+});
+
+test('should update next page token initially', () => {
+  const promise = Promise.resolve({ value: { next_page_token: 'token_1' } });
+  searchRunsApi = jest.fn(() => promise);
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  return promise.then(() => expect(instance.state.nextPageToken).toBe('token_1'));
+});
+
+test('should update next page token after load-more', () => {
+  const promise = Promise.resolve({ value: { next_page_token: 'token_1' } });
+  loadMoreRunsApi = jest.fn(() => promise);
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  instance.handleLoadMoreRuns();
+  return promise.then(() => expect(instance.state.nextPageToken).toBe('token_1'));
+});
+
+test('should update next page token to null when load-more response has no token', () => {
+  const promise1 = Promise.resolve({ value: { next_page_token: 'token_1' } });
+  const promise2 = Promise.resolve({ value: {} });
+  searchRunsApi = jest.fn(() => promise1);
+  loadMoreRunsApi = jest.fn(() => promise2);
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  instance.handleLoadMoreRuns();
+  return Promise.all([promise1, promise2]).then(() =>
+    expect(instance.state.nextPageToken).toBe(null),
+  );
 });

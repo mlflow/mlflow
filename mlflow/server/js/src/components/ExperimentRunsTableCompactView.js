@@ -1,4 +1,4 @@
-import React, { PureComponent } from 'react';
+import React from 'react';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ExperimentViewUtil from "./ExperimentViewUtil";
@@ -8,6 +8,9 @@ import { Dropdown, MenuItem } from 'react-bootstrap';
 import ExperimentRunsSortToggle from './ExperimentRunsSortToggle';
 import BaggedCell from "./BaggedCell";
 import { CellMeasurer, CellMeasurerCache, AutoSizer, Column, Table } from 'react-virtualized';
+import _ from 'lodash';
+import { LoadMoreBar } from './LoadMoreBar';
+
 import 'react-virtualized/styles.css';
 
 export const NUM_RUN_METADATA_COLS = 8;
@@ -15,6 +18,7 @@ const TABLE_HEADER_HEIGHT = 40;
 const UNBAGGED_COL_WIDTH = 125;
 const BAGGED_COL_WIDTH = 250;
 const BORDER_STYLE = "1px solid #e2e2e2";
+const LOAD_MORE_ROW_HEIGHT = 37;
 
 const styles = {
   sortArrow: {
@@ -59,10 +63,15 @@ const styles = {
  * Compact table view for displaying runs associated with an experiment. Renders metrics/params in
  * a single table cell per run (as opposed to one cell per metric/param).
  */
-class ExperimentRunsTableCompactView extends PureComponent {
+class ExperimentRunsTableCompactView extends React.Component {
   constructor(props) {
     super(props);
     this.getRow = this.getRow.bind(this);
+    this.tableRef = React.createRef();
+    this.state = {
+      expanding: false,
+      isAtScrollBottom: false,
+    };
   }
 
   static propTypes = {
@@ -96,6 +105,10 @@ class ExperimentRunsTableCompactView extends PureComponent {
     unbaggedParams: PropTypes.arrayOf(String).isRequired,
     // Array of keys corresponding to unbagged metrics
     unbaggedMetrics: PropTypes.arrayOf(String).isRequired,
+
+    nextPageToken: PropTypes.string,
+    handleLoadMoreRuns: PropTypes.func.isRequired,
+    loadingMore: PropTypes.bool.isRequired,
   };
 
 
@@ -126,8 +139,10 @@ class ExperimentRunsTableCompactView extends PureComponent {
     const rowContents = [
       ExperimentViewUtil.getCheckboxForRow(selected, () => onCheckbox(runInfo.run_uuid), "div"),
       ExperimentViewUtil.getExpander(
-        hasExpander, expanderOpen, () => onExpand(
-          runInfo.run_uuid, childrenIds), runInfo.run_uuid, "div")
+        hasExpander, expanderOpen, () => {
+          onExpand(runInfo.run_uuid, childrenIds);
+          this.setState({ expanding: true });
+        }, runInfo.run_uuid, "div")
     ];
     ExperimentViewUtil.getRunInfoCellsForRow(
       runInfo,
@@ -341,8 +356,10 @@ class ExperimentRunsTableCompactView extends PureComponent {
       runsExpanded,
       unbaggedMetrics,
       unbaggedParams,
+      nextPageToken,
+      loadingMore,
+      handleLoadMoreRuns
     } = this.props;
-
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       tagsList,
@@ -356,6 +373,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
     ExperimentViewUtil.getRunMetadataHeaderCells(onSortBy, orderByKey, orderByAsc, "div")
       .forEach((headerCell) => headerCells.push(headerCell));
     this.getMetricParamHeaderCells().forEach((cell) => headerCells.push(cell));
+    const showLoadMore = (nextPageToken && this.state.isAtScrollBottom) || this.props.loadingMore;
     return (
       <div id="autosizer-container" className="runs-table-flex-container">
           <AutoSizer>
@@ -396,6 +414,7 @@ class ExperimentRunsTableCompactView extends PureComponent {
               const tableMinWidth = (BAGGED_COL_WIDTH * (showBaggedParams + showBaggedMetrics))
                 + runMetadataWidth +
                 (UNBAGGED_COL_WIDTH * (unbaggedMetrics.length + unbaggedParams.length));
+              const tableWidth = Math.max(width, tableMinWidth);
               // If we aren't showing bagged metrics or params (bagged metrics & params are the
               // only cols that use the CellMeasurer component), set the row height statically
               const cellMeasurerProps = {};
@@ -405,11 +424,12 @@ class ExperimentRunsTableCompactView extends PureComponent {
               } else {
                 cellMeasurerProps.rowHeight = 32;
               }
-              return (<Table
+              return [<Table
+                key='table'
+                ref={this.tableRef}
+                onScroll={this.handleScroll}
                 {...cellMeasurerProps}
-                width={
-                  Math.max(width, tableMinWidth)
-                }
+                width={tableWidth}
                 height={Math.max(height - TABLE_HEADER_HEIGHT, 200) + 20}
                 headerHeight={TABLE_HEADER_HEIGHT}
                 overscanRowCount={2}
@@ -485,10 +505,11 @@ class ExperimentRunsTableCompactView extends PureComponent {
                   }}
                   style={{...styles.columnStyle, borderLeft: BORDER_STYLE}}
                   cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
-                    // Add extra padding to last row so that we can render dropdowns for bagged
-                    // param key-value pairs in that row
-                    const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
                     const colIdx = NUM_RUN_METADATA_COLS + unbaggedParams.length;
+                    // Add extra padding for load more
+                    const paddingOpt = rowIndex === rows.length - 1
+                      ? { paddingBottom: LOAD_MORE_ROW_HEIGHT * 2 }
+                      : {};
                     return (<CellMeasurer
                       cache={this._cache}
                       columnIndex={colIdx}
@@ -530,27 +551,68 @@ class ExperimentRunsTableCompactView extends PureComponent {
                   cellRenderer={({rowIndex, rowData, parent, dataKey}) => {
                     const colIdx = NUM_RUN_METADATA_COLS + showBaggedParams +
                       unbaggedParams.length + unbaggedMetrics.length;
-                    // Add extra padding to last row so that we can render dropdowns for bagged
-                    // param key-value pairs in that row
-                    const paddingOpt = rowIndex === rows.length - 1 ? {paddingBottom: 95} : {};
                     return (<CellMeasurer
                       cache={this._cache}
                       columnIndex={colIdx}
                       key={dataKey}
                       parent={parent}
                       rowIndex={rowIndex}>
-                      <div style={{...styles.baggedCellContainer, ...paddingOpt}}>
+                      <div style={{ ...styles.baggedCellContainer }}>
                         {rowData.contents[colIdx]}
                       </div>
                     </CellMeasurer>);
                   }}
                 />}
-              </Table>);
+              </Table>,
+              (showLoadMore ? (
+                <LoadMoreBar
+                  key='load-more-row'
+                  height={LOAD_MORE_ROW_HEIGHT}
+                  width={tableWidth}
+                  borderStyle={BORDER_STYLE}
+                  loadingMore={loadingMore}
+                  onLoadMore={handleLoadMoreRuns}
+                />
+              ) : null)];
             }}
           </AutoSizer>
       </div>
     );
   }
+
+  componentDidUpdate(prevProps) {
+    this.maybeHandleScroll();
+    this.maybeHandleLoadMoreFinish(prevProps);
+  }
+
+  maybeHandleLoadMoreFinish(prevProps) {
+    const loadMoreJustFinished = prevProps.loadingMore === false && this.props.loadingMore === true;
+    if (loadMoreJustFinished) {
+      this.setState({ isAtScrollBottom: false });
+    }
+  }
+
+  maybeHandleScroll() {
+    if (this.state.expanding) {
+      this.handleScroll();
+      this.setState({ expanding: false });
+    }
+  }
+
+  handleScroll = _.debounce(() => {
+    // Getting clientHeight, scrollHeight and scrollTop from the Grid instance directly here because
+    // corresponding inputs provided by onScroll are wrong at mounting phase and upon toggling
+    if (!this.tableRef.current) return;
+    const grid = this.tableRef.current.Grid;
+    const { clientHeight, scrollHeight, scrollTop } = {
+      clientHeight: grid.props.height,
+      scrollHeight: grid.getTotalRowsHeight(),
+      scrollTop: grid.state.scrollTop,
+    };
+    const isRunsListShort = scrollHeight < clientHeight;
+    const isAtScrollBottom = isRunsListShort || (clientHeight + scrollTop === scrollHeight);
+    this.setState({ isAtScrollBottom });
+  }, 100);
 }
 
 const mapStateToProps = (state, ownProps) => {
