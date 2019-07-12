@@ -134,7 +134,7 @@ logged to.
 
 
 Enable Automatic Logging from TensorFlow (experimental)
-------------------
+-------------------------------------------------------
 MLflow supports automatic logging from TensorFlow without the need for explicit log
 statements. You can enable this feature by calling :py:func:`mlflow.tensorflow.autolog`
 before your training code. **Note**: this feature is experimental - the API and format
@@ -498,11 +498,7 @@ the client in order to enforce this property.
 HDFS
 ^^^^
 
-To store artifacts in HDFS, specify a ``hdfs:`` URI. It can contain host and port:
-
-|     ``hdfs://<host>:<port>/<path>`` or just the path:
-|     ``hdfs://<path>``
-|
+To store artifacts in HDFS, specify a ``hdfs:`` URI. It can contain host and port: ``hdfs://<host>:<port>/<path>`` or just the path: ``hdfs://<path>``.
 
 There are also two ways to authenticate to HDFS:
 
@@ -514,16 +510,16 @@ There are also two ways to authenticate to HDFS:
   export MLFLOW_KERBEROS_TICKET_CACHE=/tmp/krb5cc_22222222
   export MLFLOW_KERBEROS_USER=user_name_to_use
 
-Most of the cluster contest settings is read from ```hdfs-site.xml``` accessed by the HDFS native driver
+Most of the cluster contest settings are read from ``hdfs-site.xml`` accessed by the HDFS native 
 driver using the ``CLASSPATH`` environment variable.
 
-Optionally one can select a different version of the HDFS driver library using:
+Optionally you can select a different version of the HDFS driver library using:
 
 .. code-block:: bash
 
   export MLFLOW_HDFS_DRIVER=libhdfs3
 
-The default one is ```libhdfs```.
+The default driver is ``libhdfs``.
 
 
 Networking
