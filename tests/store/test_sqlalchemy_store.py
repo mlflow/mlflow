@@ -546,6 +546,40 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
 
+    def test_delete_tag(self):
+        run = self._run_factory()
+        k0, v0 = 'tag0', 'val0'
+        k1, v1 = 'tag1', 'val1'
+        tag0 = entities.RunTag(k0, v0)
+        tag1 = entities.RunTag(k1, v1)
+        self.store.set_tag(run.info.run_id, tag0)
+        self.store.set_tag(run.info.run_id, tag1)
+        # delete a tag and check whether it is correctly deleted.
+        self.store.delete_tag(run.info.run_id, k0)
+        run = self.store.get_run(run.info.run_id)
+        self.assertTrue(k0 not in run.data.tags)
+        self.assertTrue(k1 in run.data.tags and run.data.tags[k1] == v1)
+
+        # test that deleting a tag works correctly with multiple runs having the same tag.
+        run2 = self._run_factory(config=self._get_run_configs(run.info.experiment_id))
+        self.store.set_tag(run.info.run_id, tag0)
+        self.store.set_tag(run2.info.run_id, tag0)
+        self.store.delete_tag(run.info.run_id, k0)
+        run = self.store.get_run(run.info.run_id)
+        run2 = self.store.get_run(run2.info.run_id)
+        self.assertTrue(k0 not in run.data.tags)
+        self.assertTrue(k0 in run2.data.tags)
+        # test that you cannot delete tags that don't exist.
+        with pytest.raises(MlflowException):
+            self.store.delete_tag(run.info.run_id, "fakeTag")
+        # test that you cannot delete tags for nonexistent runs
+        with pytest.raises(MlflowException):
+            self.store.delete_tag("randomRunId", k0)
+        # test that you cannot delete tags for deleted runs.
+        self.store.delete_run(run.info.run_id)
+        with pytest.raises(MlflowException):
+            self.store.delete_tag(run.info.run_id, k1)
+
     def test_get_metric_history(self):
         run = self._run_factory()
 
@@ -986,16 +1020,22 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(exp, max_results=n))
 
-    def test_search_runs_pagination_not_implemented(self):
-        # Note: It's not too important which type of db we test this with
-        exp = self._experiment_factory('test_search_runs_pagination_not_implemented')
+    def test_search_runs_pagination(self):
+        exp = self._experiment_factory('test_search_runs_pagination')
         # test returned token behavior
-        result = self.store.search_runs([exp], None, ViewType.ALL)
+        runs = sorted([self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
+                       for r in range(10)])
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4)
+        assert [r.info.run_id for r in result] == runs[0:4]
+        assert result.token is not None
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                        page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[4:8]
+        assert result.token is not None
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                        page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
-        # test page_token input behavior
-        with self.assertRaises(MlflowException):
-            self.store.search_runs([exp], None, ViewType.ALL, page_token="blah")
-        self.store.search_runs([exp], None, ViewType.ALL, page_token="")  # empty token is ok
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')

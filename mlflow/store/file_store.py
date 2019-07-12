@@ -12,7 +12,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
@@ -584,6 +584,21 @@ class FileStore(AbstractStore):
         make_containing_dirs(tag_path)
         # Don't add trailing newline
         write_to(tag_path, self._writeable_value(tag.value))
+
+    def delete_tag(self, run_id, key):
+        """
+        Delete a tag from a run.
+        :param run_id: String ID of the run
+        :param key: Name of the tag
+        """
+        _validate_run_id(run_id)
+        run = self.get_run(run_id)
+        check_run_is_active(run.info)
+        if key not in run.data.tags.keys():
+            raise MlflowException("No tag with name: {} in run with id {}".format(key, run_id),
+                                  error_code=RESOURCE_DOES_NOT_EXIST)
+        tag_path = self._get_tag_path(run.info.experiment_id, run_id, key)
+        os.remove(tag_path)
 
     def _overwrite_run_info(self, run_info):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
