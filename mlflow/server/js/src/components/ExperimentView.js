@@ -323,7 +323,7 @@ export class ExperimentView extends Component {
             <div className="ExperimentView-search-inputs">
               <div className="ExperimentView-search">
                 <div className="ExperimentView-search-input">
-                  <label className="filter-label">Search Expression:</label>
+                  <label className="filter-label">Search Runs:</label>
                   <div className="filter-wrapper">
                     <input
                       className="ExperimentView-searchInput"
