@@ -236,7 +236,7 @@ class SqlMetric(Base):
     """
     Metric key: `String` (limit 250 characters). Part of *Primary Key* for ``metrics`` table.
     """
-    value = Column(sa.types.Float(precision=64), nullable=False)
+    value = Column(sa.types.Float(precision=53), nullable=False)
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
