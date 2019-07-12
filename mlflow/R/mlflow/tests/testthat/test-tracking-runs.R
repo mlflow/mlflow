@@ -70,6 +70,11 @@ test_that("logging functionality", {
   expect_identical(run$params[[1]]$key, "param_key")
   expect_identical(run$params[[1]]$value, "param_value")
 
+  mlflow_delete_tag("tag_key", run_id)
+  run <- mlflow_get_run()
+  tags <- run$tags[[1]]
+  expect_false("tag_key" %in% tags$key)
+
   mlflow_end_run()
   end_time_upper_bound <- Sys.time()
   ended_run <- mlflow_get_run(run_id = run_id)

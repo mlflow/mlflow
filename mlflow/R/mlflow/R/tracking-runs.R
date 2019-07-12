@@ -186,6 +186,28 @@ mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
   invisible(NULL)
 }
 
+#' Delete Tag
+#'
+#' Deletes a tag on a run. This is irreversible. Tags are run metadata that can be updated during a run and
+#'  after a run completes.
+#'
+#' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
+#' @template roxlate-run-id
+#' @template roxlate-client
+#' @export
+mlflow_delete_tag <- function(key, run_id = NULL, client = NULL) {
+  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+
+  key <- cast_string(key)
+
+  mlflow_rest("runs", "delete-tag", client = client, verb = "POST", data = list(
+    run_id = run_id,
+    key = key
+  ))
+
+  invisible(NULL)
+}
+
 #' Log Parameter
 #'
 #' Logs a parameter for a run. Examples are params and hyperparams

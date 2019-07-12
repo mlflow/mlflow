@@ -46,6 +46,7 @@ ActiveRun = mlflow.tracking.fluent.ActiveRun
 log_param = mlflow.tracking.fluent.log_param
 log_metric = mlflow.tracking.fluent.log_metric
 set_tag = mlflow.tracking.fluent.set_tag
+delete_tag = mlflow.tracking.fluent.delete_tag
 log_artifacts = mlflow.tracking.fluent.log_artifacts
 log_artifact = mlflow.tracking.fluent.log_artifact
 active_run = mlflow.tracking.fluent.active_run

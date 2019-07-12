@@ -17,6 +17,7 @@ import time
 import tempfile
 
 import mlflow.experiments
+from mlflow.exceptions import MlflowException
 from mlflow.entities import RunStatus, Metric, Param, RunTag, ViewType
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
@@ -310,6 +311,28 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     assert metric1.value == 987.654
     assert metric1.timestamp == 321
     assert metric1.step == 0
+
+
+def test_delete_tag(mlflow_client, backend_store_uri):
+    experiment_id = mlflow_client.create_experiment('DeleteTagExperiment')
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+    mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789, step=2)
+    mlflow_client.log_metric(run_id, key='stepless-metric', value=987.654, timestamp=321)
+    mlflow_client.log_param(run_id, 'param', 'value')
+    mlflow_client.set_tag(run_id, 'taggity', 'do-dah')
+    run = mlflow_client.get_run(run_id)
+    assert 'taggity' in run.data.tags and run.data.tags['taggity'] == 'do-dah'
+    mlflow_client.delete_tag(run_id, 'taggity')
+    run = mlflow_client.get_run(run_id)
+    assert 'taggity' not in run.data.tags
+    with pytest.raises(MlflowException):
+        mlflow_client.delete_tag('fake_run_id', 'taggity')
+    with pytest.raises(MlflowException):
+        mlflow_client.delete_tag(run_id, 'fakeTag')
+    mlflow_client.delete_run(run_id)
+    with pytest.raises(MlflowException):
+        mlflow_client.delete_tag(run_id, 'taggity')
 
 
 def test_log_batch(mlflow_client, backend_store_uri):
