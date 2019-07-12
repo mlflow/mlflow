@@ -7,7 +7,6 @@ Create Date: 2019-07-10 22:40:18.787993
 """
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import orm, Column, Integer, String, ForeignKey, PrimaryKeyConstraint
 
 # revision identifiers, used by Alembic.
 revision = '181f10493468'
