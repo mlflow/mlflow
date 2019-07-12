@@ -23,7 +23,7 @@ public interface Page<E> {
 
     /**
      * @return Retrieves the next Page object using the next page token,
-     * or null if there are no more pages.
+     * or returns an empty page if there are no more pages.
      */
     public Page<E> getNextPage();
 

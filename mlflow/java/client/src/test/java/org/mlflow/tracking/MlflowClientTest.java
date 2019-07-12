@@ -255,23 +255,22 @@ public class MlflowClientTest {
 
     // Paged searchRuns
 
-    List<Run> searchRuns = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
+    List<Run> searchRuns = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000,
             Lists.newArrayList("metrics.accuracy_score")).getItems();
     Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_1);
     Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_2);
 
-    searchRuns = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
+    searchRuns = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000,
             Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC")).getItems();
     Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_1);
     Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_2);
 
-    RunsPage page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, Lists.newArrayList());
+    RunsPage page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000);
     Assert.assertEquals(page.getPageSize(), 2);
     Assert.assertEquals(page.hasNextPage(), false);
     Assert.assertEquals(page.getNextPageToken(), Optional.empty());
-    Assert.assertNull(page.getNextPage());
 
-    page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, Lists.newArrayList(), 1);
+    page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1);
     Assert.assertEquals(page.getPageSize(), 1);
     Assert.assertEquals(page.hasNextPage(), true);
     Assert.assertNotEquals(page.getNextPageToken(), Optional.empty());
@@ -280,7 +279,10 @@ public class MlflowClientTest {
     Assert.assertEquals(page2.getPageSize(), 1);
     Assert.assertEquals(page2.hasNextPage(), false);
     Assert.assertEquals(page2.getNextPageToken(), Optional.empty());
-    Assert.assertNull(page2.getNextPage());
+    
+    RunsPage page3 = page2.getNextPage();
+    Assert.assertEquals(page3.getPageSize(), 0);
+    Assert.assertEquals(page3.getNextPageToken(), Optional.empty());
   }
 
   @Test

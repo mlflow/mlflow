@@ -2,6 +2,7 @@ package org.mlflow.tracking;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Optional;
 import org.mlflow.api.proto.Service.*;
 
@@ -25,8 +26,8 @@ public class RunsPage implements Page<Run> {
                     List<String> experimentIds,
                     String searchFilter,
                     ViewType runViewType,
-                    List<String> orderBy,
                     int maxResults,
+                    List<String> orderBy,
                     MlflowClient client) {
         this.runs = Collections.unmodifiableList(runs);
         this.token = token;
@@ -65,19 +66,26 @@ public class RunsPage implements Page<Run> {
     }
 
     /**
-     * @return The next page of runs matching the search criteria,
-     * or null if there are no more pages.
+     * @return The next page of runs matching the search criteria. 
+     * If there are no more pages, an empty page will be returned with an empty token.
      */
     public RunsPage getNextPage() {
         if (this.hasNextPage()) {
             return client.searchRuns(experimentIds,
                                        searchFilter,
                                        runViewType,
-                                       orderBy,
                                        maxResults,
+                                       orderBy,
                                        token);
         } else {
-            return null;
+            return new RunsPage(new ArrayList<>(),
+                                "",
+                                this.experimentIds,
+                                this.searchFilter,
+                                this.runViewType,
+                                this.maxResults,
+                                this.orderBy,
+                                this.client);
         }
     }
 
