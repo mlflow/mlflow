@@ -435,8 +435,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # MLflow RunData contains only the last reported values for metrics.
         with self.store.ManagedSessionMaker() as session:
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
-            self.assertEqual(4, len(sql_run_metrics))
-            self.assertEqual(3, len(run.data.metrics))
+            self.assertEqual(5, len(sql_run_metrics))
+            self.assertEqual(4, len(run.data.metrics))
             self.assertTrue(math.isnan(run.data.metrics["NaN"]))
             self.assertTrue(run.data.metrics["PosInf"] > 1e308)
             self.assertTrue(run.data.metrics["NegInf"] < -1e308)
