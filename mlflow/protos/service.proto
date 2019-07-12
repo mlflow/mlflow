@@ -266,6 +266,26 @@ service MlflowService {
     };
   }
 
+  // Delete a tag on a run. Tags are run metadata that can be updated during a run and after
+  // a run completes.
+  //
+  rpc deleteTag(DeleteTag) returns (DeleteTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/runs/delete-tag"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
+        path: "/preview/mlflow/runs/delete-tag"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Tag",
+    };
+  }
+
   // Get metadata, metrics, params, and tags for a run. In the case where multiple metrics
   // with the same key are logged for a run, return only the value with the latest timestamp.
   // If there are multiple values with the latest timestamp, return the maximum of these values.
@@ -771,6 +791,19 @@ message SetTag {
 
   // String value of the tag being logged. Maximum size is 5000 bytes.
   optional string value = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message DeleteTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the run that the tag was logged under. Must be provided.
+  optional string run_id = 1 [(validate_required) = true];
+
+  // Name of the tag. Maximum size is 255 bytes. Must be provided.
+  optional string key = 2 [(validate_required) = true];
 
   message Response {
   }

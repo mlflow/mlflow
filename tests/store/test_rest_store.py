@@ -9,7 +9,7 @@ from mlflow.entities import Param, Metric, RunTag, SourceType, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import CreateRun, DeleteExperiment, DeleteRun, LogBatch, \
     LogMetric, LogParam, RestoreExperiment, RestoreRun, RunTag as ProtoRunTag, SearchRuns, \
-    SetTag
+    SetTag, DeleteTag
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
@@ -165,6 +165,12 @@ class TestRestStore(unittest.TestCase):
                 run_uuid="some_uuid", run_id="some_uuid", key="t1", value="abcd"*1000))
             self._verify_requests(mock_http, creds,
                                   "runs/set-tag", "POST", body)
+
+        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+            store.delete_tag("some_uuid", "t1")
+            body = message_to_json(DeleteTag(run_id="some_uuid", key="t1"))
+            self._verify_requests(mock_http, creds,
+                                  "runs/delete-tag", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
             store.log_metric("u2", Metric("m1", 0.87, 12345, 3))

@@ -556,6 +556,31 @@ class TestFileStore(unittest.TestCase):
         tags = fs.get_run(run_id).data.tags
         assert tags["multiline_tag"] == "value2\nvalue2\nvalue2"
 
+    def test_delete_tags(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        fs.set_tag(run_id, RunTag("tag0", "value0"))
+        fs.set_tag(run_id, RunTag("tag1", "value1"))
+        tags = fs.get_run(run_id).data.tags
+        assert tags["tag0"] == "value0"
+        assert tags["tag1"] == "value1"
+        fs.delete_tag(run_id, "tag0")
+        new_tags = fs.get_run(run_id).data.tags
+        assert "tag0" not in new_tags.keys()
+        # test that you cannot delete tags that don't exist.
+        with pytest.raises(MlflowException):
+            fs.delete_tag(run_id, "fakeTag")
+        # test that you cannot delete tags for nonexistent runs
+        with pytest.raises(MlflowException):
+            fs.delete_tag("random_id", "tag0")
+        fs = FileStore(self.test_root)
+        fs.delete_run(run_id)
+        # test that you cannot delete tags for deleted runs.
+        assert fs.get_run(run_id).info.lifecycle_stage == LifecycleStage.DELETED
+        with pytest.raises(MlflowException):
+            fs.delete_tag(run_id, "tag0")
+
     def test_unicode_tag(self):
         fs = FileStore(self.test_root)
         run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
