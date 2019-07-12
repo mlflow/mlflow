@@ -20,7 +20,7 @@ import java.util.stream.Collectors;
  * Client to an MLflow Tracking Sever.
  */
 public class MlflowClient {
-  private static final String DEFAULT_EXPERIMENT_ID = "0";
+  protected static final String DEFAULT_EXPERIMENT_ID = "0";
 
   private final MlflowProtobufMapper mapper = new MlflowProtobufMapper();
   private final ArtifactRepositoryFactory artifactRepositoryFactory;
@@ -44,7 +44,7 @@ public class MlflowClient {
   public MlflowClient(MlflowHostCredsProvider hostCredsProvider) {
     this.hostCredsProvider = hostCredsProvider;
     this.httpCaller = new MlflowHttpCaller(hostCredsProvider);
-    this. artifactRepositoryFactory = new ArtifactRepositoryFactory(hostCredsProvider);
+    this.artifactRepositoryFactory = new ArtifactRepositoryFactory(hostCredsProvider);
   }
 
   /**
