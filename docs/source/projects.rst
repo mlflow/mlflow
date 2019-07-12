@@ -327,7 +327,7 @@ Deployment Mode
       infrastructure of your choice using the local version of the ``mlflow run`` command (for
       example, submit a script that does ``mlflow run`` to a standard job queueing system).
 
-    - You can also projects remotely on `Kubernetes <https://Kubernetes.io/>`_ clusters
+    - You can also launch projects remotely on `Kubernetes <https://Kubernetes.io/>`_ clusters
       using the ``mlflow run`` CLI (see :ref:`Run a Project on Kubernetes <kubernetes_execution>`).
 
 Environment
