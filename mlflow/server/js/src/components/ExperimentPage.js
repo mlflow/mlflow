@@ -54,7 +54,10 @@ export class ExperimentPage extends Component {
     this.props
       .searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
       .then(this.updateNextPageToken)
-      .catch(Utils.logErrorAndNotifyUser);
+      .catch((e) => {
+        Utils.logErrorAndNotifyUser(e);
+        this.setState({ nextPageToken: null, loadingMore: false });
+      });
   }
 
   updateNextPageToken = (response = {}) => {
@@ -83,7 +86,10 @@ export class ExperimentPage extends Component {
         this.loadMoreRunsRequestId,
       )
       .then(this.updateNextPageToken)
-      .catch(Utils.logErrorAndNotifyUser);
+      .catch((e) => {
+        Utils.logErrorAndNotifyUser(e);
+        this.setState({ nextPageToken: null, loadingMore: false });
+      });
   };
 
   static propTypes = {
@@ -161,7 +167,10 @@ export class ExperimentPage extends Component {
         this.searchRunsRequestId,
       )
       .then(this.updateNextPageToken)
-      .catch(Utils.logErrorAndNotifyUser);
+      .catch((e) => {
+        Utils.logErrorAndNotifyUser(e);
+        this.setState({ nextPageToken: null, loadingMore: false });
+      });
 
     this.updateUrlWithSearchFilter({
       paramKeyFilterString,
