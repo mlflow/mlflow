@@ -224,6 +224,16 @@ def test_log_batch(tracking_uri_mock, tmpdir):
             assert exact_expected_tags[tag_key] == tag_value
     # Validate params
     assert finished_run.data.params == expected_params
+    # test that log_batch works with fewer params
+    new_tags = {"1": "2", "3": "4", "5": "6"}
+    tags = [RunTag(key=key, value=value) for key, value in new_tags.items()]
+    client.log_batch(run_id=run_id, tags=tags)
+    finished_run_2 = client.get_run(run_id)
+    # Validate tags (for automatically-set tags)
+    assert len(finished_run_2.data.tags) == len(finished_run.data.tags) + 3
+    for tag_key, tag_value in finished_run_2.data.tags.items():
+        if tag_key in new_tags:
+            assert new_tags[tag_key] == tag_value
 
 
 def test_log_metric(tracking_uri_mock):

@@ -187,17 +187,20 @@ class MlflowClient(object):
         """
         self.store.delete_tag(run_id, key)
 
-    def log_batch(self, run_id, metrics, params, tags):
+    def log_batch(self, run_id, metrics=(), params=(), tags=()):
         """
         Log multiple metrics, params, and/or tags.
 
-        :param metrics: List of Metric(key, value, timestamp) instances.
-        :param params: List of Param(key, value) instances.
-        :param tags: List of RunTag(key, value) instances.
+        :param run_id: String ID of the run
+        :param metrics: If provided, List of Metric(key, value, timestamp) instances.
+        :param params: If provided, List of Param(key, value) instances.
+        :param tags: If provided, List of RunTag(key, value) instances.
 
         Raises an MlflowException if any errors occur.
-        :returns: None
+        :return: None
         """
+        if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
+            return
         for metric in metrics:
             _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:
