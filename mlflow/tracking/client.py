@@ -179,6 +179,14 @@ class MlflowClient(object):
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
+    def delete_tag(self, run_id, key):
+        """
+        Delete a tag from a run. This is irreversible.
+        :param run_id: String ID of the run
+        :param key: Name of the tag
+        """
+        self.store.delete_tag(run_id, key)
+
     def log_batch(self, run_id, metrics, params, tags):
         """
         Log multiple metrics, params, and/or tags.

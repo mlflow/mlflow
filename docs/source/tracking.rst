@@ -133,6 +133,30 @@ an optional ``artifact_path``.
 logged to.
 
 
+Enable Automatic Logging from TensorFlow (experimental)
+------------------
+MLflow supports automatic logging from TensorFlow without the need for explicit log
+statements. You can enable this feature by calling :py:func:`mlflow.tensorflow.autolog`
+before your training code. **Note**: this feature is experimental - the API and format
+of the logged data are subject to change.
+
+
+:py:func:`mlflow.tensorflow.autolog` optionally accepts a ``metrics_every_n_steps``
+argument to specify the frequency with which metrics should be logged to MLflow.
+
+The following table details auto-logging capabilities for different TensorFlow workflows:
+
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
+| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                        |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end    |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
+| ``tf.estimator`` | TensorBoard metrics                                    | --                                                       | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model); on call to ``export_saved_model`` |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
+| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                               |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
+
+
 Launching Multiple Runs in One Program
 --------------------------------------
 
@@ -255,7 +279,7 @@ add tags to a run, and more.
 Adding Tags to Runs
 ~~~~~~~~~~~~~~~~~~~
 
-The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. For example:
+The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
 
 .. code-block:: py
 

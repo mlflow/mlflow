@@ -1,18 +1,16 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import classNames from 'classnames';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
-import { getApis, getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
+import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
-import { Button, ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
+import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
 import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
 
-import ExperimentRunsTableMultiColumnView from "./ExperimentRunsTableMultiColumnView";
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
@@ -25,7 +23,6 @@ import { Icon, Popover } from 'antd';
 
 import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
-import {SEARCH_MAX_RESULTS} from "../Actions";
 
 export const DEFAULT_EXPANDED_VALUE = false;
 
@@ -95,6 +92,10 @@ export class ExperimentView extends Component {
     searchInput: PropTypes.string.isRequired,
     searchRunsError: PropTypes.string,
     isLoading: PropTypes.bool.isRequired,
+
+    nextPageToken: PropTypes.string,
+    handleLoadMoreRuns: PropTypes.func.isRequired,
+    loadingMore: PropTypes.bool.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -189,15 +190,6 @@ export class ExperimentView extends Component {
     };
   }
 
-  setShowMultiColumns(value) {
-    this.setState({
-      persistedState: new ExperimentViewPersistedState({
-        ...this.state.persistedState,
-        showMultiColumns: value,
-      }).toJSON(),
-    });
-  }
-
   onDeleteRun() {
     this.setState({ showDeleteRunModal: true });
   }
@@ -261,6 +253,10 @@ export class ExperimentView extends Component {
       runInfos,
       paramKeyFilter,
       metricKeyFilter,
+      isLoading,
+      loadingMore,
+      nextPageToken,
+      handleLoadMoreRuns,
     } = this.props;
 
     // Apply our parameter and metric key filters to just pass the filtered, sorted lists
@@ -403,10 +399,7 @@ export class ExperimentView extends Component {
           </form>
           <div className="ExperimentView-run-buttons">
             <span className="run-count">
-              {runInfos.length > SEARCH_MAX_RESULTS ?
-                `Showing the latest ${SEARCH_MAX_RESULTS} matching runs` :
-                `${runInfos.length} matching ${runInfos.length === 1 ? 'run' : 'runs'}`
-              }
+              Showing {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
             </span>
             <Button className="btn-primary" disabled={compareDisabled} onClick={this.onCompare}>
               Compare
@@ -426,67 +419,34 @@ export class ExperimentView extends Component {
             <Button onClick={this.onDownloadCsv}>
               Download CSV <i className="fas fa-download"/>
             </Button>
-            <span style={{cursor: "pointer"}}>
-                <ButtonGroup style={styles.tableToggleButtonGroup}>
-                <Button
-                  onClick={() => this.setShowMultiColumns(false)}
-                  title="Compact view"
-                  className={classNames({ "active": !this.state.persistedState.showMultiColumns })}
-                >
-                  <i className={"fas fa-list"}/>
-                </Button>
-                <Button
-                  onClick={() => this.setShowMultiColumns(true)}
-                  title="Grid view"
-                  className={classNames({ "active": this.state.persistedState.showMultiColumns })}
-                >
-                  <i className={"fas fa-table"}/>
-                </Button>
-                </ButtonGroup>
-            </span>
           </div>
-          {this.props.isLoading ?
-            <Spinner showImmediately/> :
-            (this.state.persistedState.showMultiColumns ?
-                <ExperimentRunsTableMultiColumnView
-                  onCheckbox={this.onCheckbox}
-                  runInfos={this.props.runInfos}
-                  paramsList={this.props.paramsList}
-                  metricsList={this.props.metricsList}
-                  tagsList={this.props.tagsList}
-                  paramKeyList={paramKeyList}
-                  metricKeyList={metricKeyList}
-                  onCheckAll={this.onCheckAll}
-                  isAllChecked={this.isAllChecked()}
-                  onSortBy={this.onSortBy}
-                  orderByKey={this.props.orderByKey}
-                  orderByAsc={this.props.orderByAsc}
-                  runsSelected={this.state.runsSelected}
-                  runsExpanded={this.state.persistedState.runsExpanded}
-                  onExpand={this.onExpand}
-                /> :
-                <ExperimentRunsTableCompactView
-                  onCheckbox={this.onCheckbox}
-                  runInfos={this.props.runInfos}
-                  // Bagged param and metric keys
-                  paramKeyList={paramKeyList}
-                  metricKeyList={metricKeyList}
-                  paramsList={this.props.paramsList}
-                  metricsList={this.props.metricsList}
-                  tagsList={this.props.tagsList}
-                  onCheckAll={this.onCheckAll}
-                  isAllChecked={this.isAllChecked()}
-                  onSortBy={this.onSortBy}
-                  orderByKey={this.props.orderByKey}
-                  orderByAsc={this.props.orderByAsc}
-                  runsSelected={this.state.runsSelected}
-                  runsExpanded={this.state.persistedState.runsExpanded}
-                  onExpand={this.onExpand}
-                  unbaggedMetrics={unbaggedMetricKeyList}
-                  unbaggedParams={unbaggedParamKeyList}
-                  onAddBagged={this.addBagged}
-                  onRemoveBagged={this.removeBagged}
-                />
+          {isLoading ?
+            <Spinner showImmediately/> : (
+              <ExperimentRunsTableCompactView
+                onCheckbox={this.onCheckbox}
+                runInfos={this.props.runInfos}
+                // Bagged param and metric keys
+                paramKeyList={paramKeyList}
+                metricKeyList={metricKeyList}
+                paramsList={this.props.paramsList}
+                metricsList={this.props.metricsList}
+                tagsList={this.props.tagsList}
+                onCheckAll={this.onCheckAll}
+                isAllChecked={this.isAllChecked()}
+                onSortBy={this.onSortBy}
+                orderByKey={this.props.orderByKey}
+                orderByAsc={this.props.orderByAsc}
+                runsSelected={this.state.runsSelected}
+                runsExpanded={this.state.persistedState.runsExpanded}
+                onExpand={this.onExpand}
+                unbaggedMetrics={unbaggedMetricKeyList}
+                unbaggedParams={unbaggedParamKeyList}
+                onAddBagged={this.addBagged}
+                onRemoveBagged={this.removeBagged}
+                nextPageToken={nextPageToken}
+                handleLoadMoreRuns={handleLoadMoreRuns}
+                loadingMore={loadingMore}
+              />
             )
           }
         </div>
@@ -622,11 +582,8 @@ export class ExperimentView extends Component {
   }
 
   onClear() {
-    // When user clicks "Clear", preserve multicolumn toggle state but reset other persisted state
-    // attributes to their default values.
-    const newPersistedState = new ExperimentViewPersistedState({
-      showMultiColumns: this.state.persistedState.showMultiColumns,
-    });
+    // When user clicks "Clear", reset persisted state attributes to their default values.
+    const newPersistedState = new ExperimentViewPersistedState();
     this.setState({persistedState: newPersistedState.toJSON()}, () => {
       this.snapshotComponentState();
       this.initiateSearch({paramKeyFilterInput: "", metricKeyFilterInput: "",
@@ -758,15 +715,14 @@ export class ExperimentView extends Component {
 }
 
 export const mapStateToProps = (state, ownProps) => {
-  const { lifecycleFilter, searchRunsRequestId } = ownProps;
-  const searchRunApi = getApis([searchRunsRequestId], state)[0];
+  const { lifecycleFilter } = ownProps;
+
   // The runUuids we should serve.
-  let runUuids;
-  if (searchRunApi.data && searchRunApi.data.runs) {
-    runUuids = searchRunApi.data.runs.map((r) => r.info.run_uuid);
-  } else {
-    runUuids = [];
-  }
+  const { runInfosByUuid } = state.entities;
+  const runUuids = Object.values(runInfosByUuid)
+    .filter((r) => r.experiment_id === ownProps.experimentId.toString())
+    .map((r) => r.run_uuid);
+
   const runInfos = runUuids.map((run_id) => getRunInfo(run_id, state))
     .filter((rInfo) => {
       if (lifecycleFilter === LIFECYCLE_FILTER.ACTIVE) {
@@ -779,7 +735,8 @@ export const mapStateToProps = (state, ownProps) => {
   const metricKeysSet = new Set();
   const paramKeysSet = new Set();
   const metricsList = runInfos.map((runInfo) => {
-    const metrics = Object.values(getLatestMetrics(runInfo.getRunUuid(), state));
+    const metricsByRunUuid = getLatestMetrics(runInfo.getRunUuid(), state);
+    const metrics = Object.values(metricsByRunUuid || {});
     metrics.forEach((metric) => {
       metricKeysSet.add(metric.key);
     });
@@ -811,9 +768,6 @@ const styles = {
   },
   lifecycleButtonFilterWrapper: {
     marginLeft: '48px',
-  },
-  tableToggleButtonGroup: {
-    marginLeft: '16px',
   },
 };
 
