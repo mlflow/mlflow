@@ -5,7 +5,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment, LogBatch
+    UpdateExperiment, LogBatch, DeleteTag
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import http_request, verify_rest_response
@@ -182,12 +182,21 @@ class RestStore(AbstractStore):
         """
         Set a tag for the specified run
 
-        :param run_id: String id for the run
+        :param run_id: String ID of the run
         :param tag: RunTag instance to log
         """
         req_body = message_to_json(SetTag(
             run_uuid=run_id, run_id=run_id, key=tag.key, value=tag.value))
         self._call_endpoint(SetTag, req_body)
+
+    def delete_tag(self, run_id, key):
+        """
+        Delete a tag for the specified run with the specified tag key.
+        :param run_id: String ID of the run
+        :param key: Name of the tag
+        """
+        req_body = message_to_json(DeleteTag(run_id=run_id, key=key))
+        self._call_endpoint(DeleteTag, req_body)
 
     def get_metric_history(self, run_id, metric_key):
         """

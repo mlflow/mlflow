@@ -148,6 +148,33 @@ def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, 
 
 
 @pytest.mark.large
+def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_model_class, iris_data):
+    sklearn_artifact_path = "sk_model_no_run"
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(sk_model=sklearn_knn_model, artifact_path=sklearn_artifact_path)
+        sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=sklearn_artifact_path)
+
+    def test_predict(sk_model, model_input):
+        return sk_model.predict(model_input) * 2
+
+    pyfunc_artifact_path = "pyfunc_model"
+    assert mlflow.active_run() is None
+    mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                            artifacts={"sk_model": sklearn_model_uri},
+                            python_model=main_scoped_model_class(test_predict))
+    pyfunc_model_uri = "runs:/{run_id}/{artifact_path}".format(
+            run_id=mlflow.active_run().info.run_id,
+            artifact_path=pyfunc_artifact_path)
+    loaded_pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=pyfunc_model_uri)
+    np.testing.assert_array_equal(
+            loaded_pyfunc_model.predict(model_input=iris_data[0]),
+            test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
+    mlflow.end_run()
+
+
+@pytest.mark.large
 def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():

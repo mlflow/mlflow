@@ -255,7 +255,7 @@ add tags to a run, and more.
 Adding Tags to Runs
 ~~~~~~~~~~~~~~~~~~~
 
-The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. For example:
+The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
 
 .. code-block:: py
 
