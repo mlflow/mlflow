@@ -1,22 +1,22 @@
 package org.mlflow.tracking;
 
-import java.util.List;
+import java.lang.Iterable;
 import java.util.Optional;
 
 interface Page<E> {
 
   /**
-   * @return Returns the number of elements in this page.
+   * @return The number of elements in this page.
    */
   public int getPageSize();
 
   /**
-   * @return Returns true if there are more pages that can be retrieved from the API.
+   * @return True if there are more pages that can be retrieved from the API.
    */
   public boolean hasNextPage();
 
   /**
-   * @return Returns an Optional of the token string to get the next page. 
+   * @return An Optional of the token string to get the next page. 
    * Empty if there is no next page.
    */
   public Optional<String> getNextPageToken();
@@ -28,8 +28,8 @@ interface Page<E> {
   public Page<E> getNextPage();
 
   /**
-   * @return Returns a List of the elements in this Page.
+   * @return A List of the elements in this Page.
    */
-  public List<E> getItems();
+  public Iterable getItems();
 
 }

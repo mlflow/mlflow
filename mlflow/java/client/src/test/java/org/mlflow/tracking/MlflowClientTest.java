@@ -255,17 +255,18 @@ public class MlflowClientTest {
 
     // Paged searchRuns
 
-    List<Run> searchRuns = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000,
-            Lists.newArrayList("metrics.accuracy_score")).getItems();
+    List<Run> searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "", 
+            ViewType.ACTIVE_ONLY, 1000, Lists.newArrayList("metrics.accuracy_score")).getItems());
     Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_1);
     Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_2);
 
-    searchRuns = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000,
-            Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC")).getItems();
+    searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
+            1000, Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC"))
+            .getItems());
     Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_1);
     Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_2);
 
-    RunsPage page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000);
+    Page<Run> page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000);
     Assert.assertEquals(page.getPageSize(), 2);
     Assert.assertEquals(page.hasNextPage(), false);
     Assert.assertEquals(page.getNextPageToken(), Optional.empty());
@@ -275,12 +276,12 @@ public class MlflowClientTest {
     Assert.assertEquals(page.hasNextPage(), true);
     Assert.assertNotEquals(page.getNextPageToken(), Optional.empty());
 
-    RunsPage page2 = page.getNextPage();
+    Page<Run> page2 = page.getNextPage();
     Assert.assertEquals(page2.getPageSize(), 1);
     Assert.assertEquals(page2.hasNextPage(), false);
     Assert.assertEquals(page2.getNextPageToken(), Optional.empty());
     
-    RunsPage page3 = page2.getNextPage();
+    Page<Run> page3 = page2.getNextPage();
     Assert.assertEquals(page3.getPageSize(), 0);
     Assert.assertEquals(page3.getNextPageToken(), Optional.empty());
   }

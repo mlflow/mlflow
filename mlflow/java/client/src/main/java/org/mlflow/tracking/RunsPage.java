@@ -21,7 +21,7 @@ public class RunsPage implements Page<Run> {
   /**
    * Creates a fixed size page of Runs.
    */
-  public RunsPage(List<Run> runs,
+  RunsPage(List<Run> runs,
                   String token,
                   List<String> experimentIds,
                   String searchFilter,
@@ -67,9 +67,9 @@ public class RunsPage implements Page<Run> {
 
   /**
    * @return The next page of runs matching the search criteria. 
-   * If there are no more pages, an empty page will be returned with an empty token.
+   * If there are no more pages, an {@link org.mlflow.tracking.EmptyPage} will be returned.
    */
-  public RunsPage getNextPage() {
+  public Page<Run> getNextPage() {
     if (this.hasNextPage()) {
       return this.client.searchRuns(this.experimentIds,
                                     this.searchFilter,
@@ -78,14 +78,7 @@ public class RunsPage implements Page<Run> {
                                     this.orderBy,
                                     this.token);
     } else {
-      return new RunsPage(new ArrayList<>(),
-                          "",
-                          this.experimentIds,
-                          this.searchFilter,
-                          this.runViewType,
-                          this.maxResults,
-                          this.orderBy,
-                          this.client);
+      return new EmptyPage();
     }
   }
 

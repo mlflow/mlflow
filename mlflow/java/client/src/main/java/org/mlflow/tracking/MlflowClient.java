@@ -131,6 +131,7 @@ public class MlflowClient {
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
    *
    * @return A list of all RunInfos that satisfy search filter.
    */
@@ -147,8 +148,9 @@ public class MlflowClient {
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    Defaults to ACTIVE_ONLY.
+   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
    *
    * @return A list of all RunInfos that satisfy search filter.
    */
@@ -178,9 +180,10 @@ public class MlflowClient {
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    Defaults to ACTIVE_ONLY.
-   * @param maxResults Maximum number of runs desired. Defaults to 1000.
+   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of runs desired in one page. Defaults to 1000 runs per page.
    *
    * @return A list of all Runs that satisfy search filter.
    */
@@ -199,9 +202,10 @@ public class MlflowClient {
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    Defaults to ACTIVE_ONLY.
-   * @param maxResults Maximum number of runs desired. Defaults to 1000.
+   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of runs desired in one page. Defaults to 1000 runs per page.
    * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
    *
    * @return A list of all Runs that satisfy search filter.
@@ -221,9 +225,10 @@ public class MlflowClient {
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    Defaults to ACTIVE_ONLY.
-   * @param maxResults Maximum number of runs desired. Defaults to 1000.
+   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of runs desired in one page. Defaults to 1000 runs per page.
    * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
    * @param pageToken String token specifying the next page of results. It should be obtained from
    *             a call to {@link #searchRuns(List, String)}.
