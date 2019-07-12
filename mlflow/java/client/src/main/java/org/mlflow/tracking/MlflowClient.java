@@ -183,7 +183,7 @@ public class MlflowClient {
    *                     If null, the result will be equivalent to having an empty search filter.
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
    *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
-   * @param maxResults Maximum number of runs desired in one page. Defaults to 1000 runs per page.
+   * @param maxResults Maximum number of runs desired in one page.
    *
    * @return A list of all Runs that satisfy search filter.
    */
@@ -205,7 +205,7 @@ public class MlflowClient {
    *                     If null, the result will be equivalent to having an empty search filter.
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
    *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
-   * @param maxResults Maximum number of runs desired in one page. Defaults to 1000 runs per page.
+   * @param maxResults Maximum number of runs desired in one page.
    * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
    *
    * @return A list of all Runs that satisfy search filter.
@@ -228,7 +228,7 @@ public class MlflowClient {
    *                     If null, the result will be equivalent to having an empty search filter.
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
    *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
-   * @param maxResults Maximum number of runs desired in one page. Defaults to 1000 runs per page.
+   * @param maxResults Maximum number of runs desired in one page.
    * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
    * @param pageToken String token specifying the next page of results. It should be obtained from
    *             a call to {@link #searchRuns(List, String)}.

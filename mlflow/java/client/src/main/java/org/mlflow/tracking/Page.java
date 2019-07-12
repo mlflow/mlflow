@@ -30,6 +30,6 @@ interface Page<E> {
   /**
    * @return A List of the elements in this Page.
    */
-  public Iterable getItems();
+  public Iterable<E> getItems();
 
 }
