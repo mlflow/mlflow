@@ -77,6 +77,20 @@ For example:
   metrics."2019-04-02 error rate"
 
 
+Searching by MLflow specific tags
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To search by something like the name of a run, you will have to search using the tag ``tag."mlflow.runName"``.
+Other MLflow specific tags can be found at :ref:`system_tags`. MLflow inside Dataricks currently does not support searching by User or ``tag."mlflow.user"``.
+This functionality will come in a future release.
+
+.. rubric:: Example
+
+.. code-block:: sql
+
+  tags."mlflow.runName" = "keras-hyperparam-search"
+
+
 Run Attributes
 ~~~~~~~~~~~~~~
 
