@@ -1,32 +1,26 @@
 import os
 import shlex
+import sys
 
 from flask import Flask, send_from_directory
 
 from mlflow.server import handlers
-from mlflow.server.handlers import get_artifact_handler
+from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix
 from mlflow.utils.process import exec_cmd
 
 # NB: These are intenrnal environment variables used for communication between
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
-STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
+
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
-
-
-def _add_static_prefix(route):
-    prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
-    if prefix:
-        return prefix + route
-    return route
 
 
 # Serve the "get-artifact" route.
@@ -48,10 +42,27 @@ def serve():
     return send_from_directory(STATIC_DIR, 'index.html')
 
 
-def _run_server(file_store_path, default_artifact_root, host, port, workers, static_prefix,
-                gunicorn_opts):
+def _build_waitress_command(waitress_opts, host, port):
+    opts = shlex.split(waitress_opts) if waitress_opts else []
+    return ['waitress-serve'] + \
+        opts + [
+            "--host=%s" % host,
+            "--port=%s" % port,
+            "--ident=mlflow",
+            "mlflow.server:app"
+    ]
+
+
+def _build_gunicorn_command(gunicorn_opts, host, port, workers):
+    bind_address = "%s:%s" % (host, port)
+    opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
+    return ["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"]
+
+
+def _run_server(file_store_path, default_artifact_root, host, port, static_prefix=None,
+                workers=None, gunicorn_opts=None, waitress_opts=None):
     """
-    Run the MLflow server, wrapping it in gunicorn
+    Run the MLflow server, wrapping it in gunicorn or waitress on windows
     :param static_prefix: If set, the index.html asset will be served from the path static_prefix.
                           If left None, the index.html asset will be served from the root path.
     :return: None
@@ -63,7 +74,10 @@ def _run_server(file_store_path, default_artifact_root, host, port, workers, sta
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
     if static_prefix:
         env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
-    bind_address = "%s:%s" % (host, port)
-    opts = shlex.split(gunicorn_opts) if gunicorn_opts else []
-    exec_cmd(["gunicorn"] + opts + ["-b", bind_address, "-w", "%s" % workers, "mlflow.server:app"],
-             env=env_map, stream_output=True)
+
+    # TODO: eventually may want waitress on non-win32
+    if sys.platform == 'win32':
+        full_command = _build_waitress_command(waitress_opts, host, port)
+    else:
+        full_command = _build_gunicorn_command(gunicorn_opts, host, port, workers or 4)
+    exec_cmd(full_command, env=env_map, stream_output=True)

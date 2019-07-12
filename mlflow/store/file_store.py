@@ -12,18 +12,18 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
 import mlflow.protos.databricks_pb2 as databricks_pb2
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
     _validate_tag_name, _validate_experiment_id, \
     _validate_batch_log_limits, _validate_batch_log_data
-
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
                                      read_yaml, find, read_file_lines, read_file,
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all, local_file_uri_to_path, path_to_local_file_uri)
+from mlflow.utils.search_utils import SearchUtils
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -533,8 +533,8 @@ class FileStore(AbstractStore):
                                 exc_info=True)
         return run_infos
 
-    def search_runs(self, experiment_ids, search_filter, run_view_type,
-                    max_results=SEARCH_MAX_RESULTS_THRESHOLD):
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
+                     page_token):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
@@ -544,8 +544,10 @@ class FileStore(AbstractStore):
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
             runs.extend(self.get_run(r.run_id) for r in run_infos)
-        filtered = [run for run in runs if not search_filter or search_filter.filter(run)]
-        return sorted(filtered, key=lambda r: (-r.info.start_time, r.info.run_id))[:max_results]
+        filtered = SearchUtils.filter(runs, filter_string)
+        sorted_runs = SearchUtils.sort(filtered, order_by)
+        runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+        return runs, next_page_token
 
     def log_metric(self, run_id, metric):
         _validate_run_id(run_id)
@@ -582,6 +584,21 @@ class FileStore(AbstractStore):
         make_containing_dirs(tag_path)
         # Don't add trailing newline
         write_to(tag_path, self._writeable_value(tag.value))
+
+    def delete_tag(self, run_id, key):
+        """
+        Delete a tag from a run. This is irreversible.
+        :param run_id: String ID of the run
+        :param key: Name of the tag
+        """
+        _validate_run_id(run_id)
+        run = self.get_run(run_id)
+        check_run_is_active(run.info)
+        if key not in run.data.tags.keys():
+            raise MlflowException("No tag with name: {} in run with id {}".format(key, run_id),
+                                  error_code=RESOURCE_DOES_NOT_EXIST)
+        tag_path = self._get_tag_path(run.info.experiment_id, run_id, key)
+        os.remove(tag_path)
 
     def _overwrite_run_info(self, run_info):
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)

@@ -255,7 +255,7 @@ add tags to a run, and more.
 Adding Tags to Runs
 ~~~~~~~~~~~~~~~~~~~
 
-The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. For example:
+The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
 
 .. code-block:: py
 
@@ -358,11 +358,7 @@ backend as ``./path_to_store`` or ``file:/path_to_store`` and a *database-backed
 `SQLAlchemy database URI <https://docs.sqlalchemy.org/en/latest/core/engines
 .html#database-urls>`_. The database URI typically takes the format ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``.
 MLflow supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
-Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver.
-For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``. 
-For example, ``--backend-store-uri sqlite:///mlflow.db`` would create a local SQLite database.
-
-For backwards compatibility, ``--file-store`` is an alias for ``--backend-store-uri``.
+Drivers are optional. If you do not specify a driver, SQLAlchemy uses a dialect's default driver. For example, ``--backend-store-uri sqlite:///mlflow.db`` would use a local SQLite database.
 
 .. important::
 
@@ -471,7 +467,7 @@ NFS
 ^^^
 
 To store artifacts in an NFS mount, specify a URI as a normal file system path, e.g., ``/mnt/nfs``.
-This path must the same on both the server and the client -- you may need to use symlinks or remount
+This path must be the same on both the server and the client -- you may need to use symlinks or remount
 the client in order to enforce this property.
 
 

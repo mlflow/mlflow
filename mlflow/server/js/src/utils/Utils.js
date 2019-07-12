@@ -5,6 +5,7 @@ import emptySvg from '../static/empty.svg';
 import laptopSvg from '../static/laptop.svg';
 import projectSvg from '../static/project.svg';
 import qs from 'qs';
+import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 
 class Utils {
   /**
@@ -348,6 +349,28 @@ class Utils {
     return plotMetricKeysStr ? JSON.parse(plotMetricKeysStr) : [];
   }
 
+  static getSearchParamsFromUrl(search) {
+    const params = qs.parse(search, {ignoreQueryPrefix: true});
+    const str = JSON.stringify(params,
+      function replaceUndefined(key, value) {
+        return (value === undefined) ? "" : value;
+      });
+
+    return params ? JSON.parse(str) : [];
+  }
+
+  static getSearchUrlFromState(state) {
+    const replaced = {};
+    for (const key in state) {
+      if (state[key] === undefined) {
+        replaced[key] = '';
+      } else {
+        replaced[key] = state[key];
+      }
+    }
+    return qs.stringify(replaced);
+  }
+
   static compareByTimestamp(history1, history2) {
     return history1.timestamp - history2.timestamp;
   }
@@ -355,6 +378,22 @@ class Utils {
   static compareByStepAndTimestamp(history1, history2) {
     const stepResult = history1.step - history2.step;
     return stepResult === 0 ? (history1.timestamp - history2.timestamp) : stepResult;
+  }
+
+  static getVisibleTagValues(tags) {
+    // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
+    return Object.values(tags).map((t) =>
+      [t.getKey(), t.getValue()]
+    ).filter(t =>
+      !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
+    );
+  }
+
+  static getAjaxUrl(relativeUrl) {
+    if (process.env.USE_ABSOLUTE_AJAX_URLS === "true") {
+      return '/' + relativeUrl;
+    }
+    return relativeUrl;
   }
 }
 

@@ -119,7 +119,8 @@ public class MlflowClient {
   public List<RunInfo> listRunInfos(String experimentId) {
     List<String> experimentIds = new ArrayList<>();
     experimentIds.add(experimentId);
-    return searchRuns(experimentIds, null);
+    return searchRuns(experimentIds, null).stream().map(Run::getInfo)
+      .collect(Collectors.toList());
   }
 
   /**
@@ -130,9 +131,9 @@ public class MlflowClient {
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
    *
-   * @return A list of all RunInfos that satisfy search filter.
+   * @return A list of all Runs that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<String> experimentIds, String searchFilter) {
+  public List<Run> searchRuns(List<String> experimentIds, String searchFilter) {
     return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
   }
 
@@ -146,12 +147,35 @@ public class MlflowClient {
    * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
    *                    Defaults to ACTIVE_ONLY.
    *
-   * @return A list of all RunInfos that satisfy search filter.
+   * @return A list of all Runs that satisfy search filter.
    */
-  public List<RunInfo> searchRuns(List<String> experimentIds,
+  public List<Run> searchRuns(List<String> experimentIds,
                                   String searchFilter,
                                   ViewType runViewType) {
-    SearchRuns.Builder builder = SearchRuns.newBuilder().addAllExperimentIds(experimentIds);
+    return searchRuns(experimentIds, searchFilter, runViewType, new ArrayList<>());
+  }
+
+
+  /**
+   * Return runs from provided list of experiments that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs.
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    Defaults to ACTIVE_ONLY.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   *
+   * @return A list of all RunInfos that satisfy search filter.
+   */
+  public List<Run> searchRuns(List<String> experimentIds,
+                                  String searchFilter,
+                                  ViewType runViewType,
+                                  List<String> orderBy) {
+    SearchRuns.Builder builder = SearchRuns.newBuilder()
+      .addAllExperimentIds(experimentIds)
+      .addAllOrderBy(orderBy);
 
     if (searchFilter != null) {
       builder.setFilter(searchFilter);
@@ -162,8 +186,7 @@ public class MlflowClient {
     SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
-    return mapper.toSearchRunsResponse(ojson).getRunsList().stream().map(Run::getInfo)
-      .collect(Collectors.toList());
+    return mapper.toSearchRunsResponse(ojson).getRunsList();
   }
 
   /** @return  A list of all experiments. */
@@ -267,9 +290,21 @@ public class MlflowClient {
 
   /**
    * Log a new tag against the given run, as a key-value pair.
+   * @param runId The ID of the run on which to set the tag
+   * @param key The key used to identify the tag.
+   * @param value The value of the tag.
    */
   public void setTag(String runId, String key, String value) {
     sendPost("runs/set-tag", mapper.makeSetTag(runId, key, value));
+  }
+
+  /**
+   * Delete a tag on the run ID with a specific key. This is irreversible.
+   * @param runId String ID of the run
+   * @param key Name of the tag
+   */
+  public void deleteTag(String runId, String key) {
+    sendPost("runs/delete-tag", mapper.makeDeleteTag(runId, key));
   }
 
   /**
