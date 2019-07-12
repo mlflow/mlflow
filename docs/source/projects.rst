@@ -386,13 +386,13 @@ In project folder you need to create a ``backend_config.json`` with the followin
 {
   "kube-context": "docker-for-desktop",
   
-  "image-uri": "username/mlflow-kubernetes-example",
+  "repository-uri": "username/mlflow-kubernetes-example",
 
   "kube-job-template-path": "kubernetes_job_template.yaml"
 }
 
-The ``kube-context`` attribute is the kubernetes context where mlflow will run the Job. ``image-uri`` points to the 
-registry/repository/image where the image will be pushed so kubernetes can download it and run. Remeber that mlflow 
+The ``kube-context`` attribute is the kubernetes context where mlflow will run the Job. ``repository-uri`` points to the
+repository where the image will be pushed so kubernetes can download it and run. Remember that mlflow
 expects that login credentials are already stored for both kubernetes context and docker repository to push images.
 
 The ``kube-job-template-path`` points to a yaml file with the kubernetes Job/Batch specification to run the traning on 
