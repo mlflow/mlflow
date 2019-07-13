@@ -164,6 +164,7 @@ parse_run_data <- function(d) {
     purrr::map(unlist) %>%
     purrr::map_at("timestamp", milliseconds_to_date) %>%
     purrr::map_at("step", as.double) %>%
+    purrr::map_at("value", as.double) %>%
     tibble::as_tibble() %>%
     list()
 }
