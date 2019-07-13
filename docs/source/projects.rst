@@ -43,7 +43,8 @@ Environment
 
 You can run any project from a Git URI or from a local directory using the ``mlflow run``
 command-line tool, or the :py:func:`mlflow.projects.run` Python API. These APIs also allow submitting the
-project for remote execution on `Databricks <https://databricks.com>`_.
+project for remote execution on :ref:`Databricks <databricks_execution>` and
+:ref:`Kubernetes <kubernetes_execution>`.
 
 .. important::
 
@@ -328,7 +329,7 @@ Deployment Mode
       example, submit a script that does ``mlflow run`` to a standard job queueing system).
 
     - You can also launch projects remotely on `Kubernetes <https://Kubernetes.io/>`_ clusters
-      using the ``mlflow run`` CLI (see :ref:`Run a Project on Kubernetes <kubernetes_execution>`).
+      using the ``mlflow run`` CLI (see :ref:`kubernetes_execution`).
 
 Environment
     By default, MLflow Projects are run in the environment specified by the project directory
@@ -349,10 +350,10 @@ useful if you quickly want to test a project in your existing shell environment.
 
 .. _databricks_execution:
 
-Run a Project on Databricks
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Run an MLflow Project on Databricks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can run MLflow projects remotely on Databricks. To use this feature, you must have an enterprise
+You can run MLflow Projects remotely on Databricks. To use this feature, you must have an enterprise
 Databricks account (Community Edition is not supported) and you must have set up the
 `Databricks CLI <https://github.com/databricks/databricks-cli>`_. Find more detailed instructions
 in the Databricks docs
@@ -376,8 +377,8 @@ where ``<project_uri>`` is a Git repository URI or a folder.
 
 .. _kubernetes_execution:
 
-Run a Project on Kubernetes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Run an MLflow Project on Kubernetes
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can run MLflow Projects with :ref:`Docker environments <project-docker-container-environments>`
 on Kubernetes. The following sections provide an overview of the feature, including a simple
@@ -407,10 +408,10 @@ Execution guide
 
 You can run your MLflow Project on Kubernetes by following these steps:
 
-1. First, add a Docker environment to your MLflow Project, if one does not already exist. For
+1. Add a Docker environment to your MLflow Project, if one does not already exist. For
    reference, see :ref:`mlproject-specify-environment`.
 
-2. Then, create a backend configuration JSON file with the following entries:
+2. Create a backend configuration JSON file with the following entries:
 
    - ``kube-context``
      The `Kubernetes context
@@ -452,9 +453,8 @@ You can run your MLflow Project on Kubernetes by following these steps:
    `kubectl <https://kubernetes.io/docs/reference/kubectl/kubectl/>`_ CLIs before running the
    Project.
 
-4. Finally, run the Project using the MLflow Projects CLI or
-   :py:func:`Python API <mlflow.projects.run>`, specifying your Project URI and the path to your
-   backend configuration file. For example:
+4. Run the Project using the MLflow Projects CLI or :py:func:`Python API <mlflow.projects.run>`,
+   specifying your Project URI and the path to your backend configuration file. For example:
 
    .. code-block:: bash
 
@@ -502,7 +502,7 @@ execution. Replaced fields are indicated using bracketed text.
         containers:
         - name: "{replaced with MLflow Project name}"
           image: "{replaced with URI of Docker image created during Project execution}"
-          command: [{replaced with MLflow Project entry point command}]
+          command: ["{replaced with MLflow Project entry point command}"]
         resources:
           limits:
             memory: 512Mi
@@ -510,9 +510,9 @@ execution. Replaced fields are indicated using bracketed text.
             memory: 256Mi
         restartPolicy: Never
 
-Note that the ``container.name``, ``container.image``, and ``container.command`` fields are only
-replaced for the *first* container defined in the Job Spec. All subsequent container definitions
-are applied without modification.
+The ``container.name``, ``container.image``, and ``container.command`` fields are only replaced for
+the *first* container defined in the Job Spec. All subsequent container definitions are applied
+without modification.
 
 Iterating Quickly
 -----------------
