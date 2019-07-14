@@ -195,6 +195,7 @@ def test_standard_store_registry_with_mocked_entrypoint():
             'mysql',
             'sqlite',
             'mssql',
+	    'splicemachinesa',
             'databricks',
             'mock-scheme'
         }

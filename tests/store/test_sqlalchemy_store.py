@@ -41,7 +41,8 @@ class TestParseDbUri(unittest.TestCase):
                            'pypostgresql', 'pygresql', 'zxjdbc'),
             'mysql': ('mysqldb', 'pymysql', 'mysqlconnector', 'cymysql',
                       'oursql', 'mysqldb', 'gaerdbms', 'pyodbc', 'zxjdbc'),
-            'mssql': ('pyodbc', 'mxodbc', 'pymssql', 'zxjdbc', 'adodbapi')
+            'mssql': ('pyodbc', 'mxodbc', 'pymssql', 'zxjdbc', 'adodbapi'),
+	    'splicemachinesa': ('pyodbc')
         }
         for target_db_type, drivers in target_db_type_uris.items():
             # try the driver-less version, which will revert SQLAlchemy to the default driver
