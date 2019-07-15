@@ -338,7 +338,7 @@ For example:
 
 .. code-block:: py
 
-  mlflow.tracking.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
+  mlflow.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
   
 .. rubric:: Models API
 
