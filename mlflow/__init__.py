@@ -34,12 +34,12 @@ import mlflow.tracking.fluent
 import warnings
 warnings.filterwarnings("ignore", message="numpy.dtype size changed")  # noqa: E402
 warnings.filterwarnings("ignore", message="numpy.ufunc size changed")  # noqa: E402
+# log a deprecated warning only one per module
 warnings.filterwarnings("module", category=DeprecationWarning)
 
 # pylint: disable=wrong-import-position
 import mlflow.projects as projects  # noqa
 import mlflow.tracking as tracking  # noqa
-
 
 _configure_mlflow_loggers(root_module_name=__name__)
 
