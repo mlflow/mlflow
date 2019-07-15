@@ -52,7 +52,7 @@ Entity Name Contains Special Characters
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When a metric, parameter, or tag name contains a special character like hyphen, space, period, and so on,
-enclose the entity name in double quotes. Using backticks also work.
+enclose the entity name in double quotes or backticks.
 
 .. rubric:: Examples
 
@@ -77,7 +77,7 @@ For example:
   metrics."2019-04-02 error rate"
 
 
-Searching by MLflow specific tags
+Searching by MLflow Tags
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You can also search for the name of an MLflow run and other tags that MLflow tracks internally. To format the search query, you will have to search using the tag ``tag."mlflow.runName"``. Wrapping ```mlflow.runName``` in backticks instead of double quotes also works.
@@ -89,6 +89,10 @@ This functionality will come in a future release.
 .. code-block:: sql
 
   tags."mlflow.runName" = "keras-hyperparam-search"
+
+.. code-block:: sql
+
+  tags.`mlflow.parentRunId` = "f1e4beff214688d45a4b6f0a8dee"
 
 
 Run Attributes
