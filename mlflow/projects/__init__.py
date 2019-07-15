@@ -646,9 +646,30 @@ def _invoke_mlflow_run_subprocess(
 
 
 def _get_conda_command(conda_env_name):
-    # From conda version 4.4, the recommended way is to just use conda activate
-    return ["conda activate %s" % (conda_env_name)]
+    conda_path = _get_conda_bin_executable("conda")
+    activate_path = _get_conda_bin_executable("activate")
 
+    try:
+        process.exec_cmd([conda_path, "--help"], throw_on_error=False)
+    except EnvironmentError:
+        raise ExecutionException("Could not find Conda executable at {0}. "
+                                 "Ensure Conda is installed as per the instructions "
+                                 "at https://conda.io/docs/user-guide/install/index.html. You can "
+                                 "also configure MLflow to look for a specific Conda executable "
+                                 "by setting the {1} environment variable to the path of the Conda "
+                                 "executable".format(conda_path, MLFLOW_CONDA_HOME))
+
+    (_, stdout, _) = process.exec_cmd([conda_path, "info", "--json"])
+    conda_env_version = json.loads(stdout)['conda_env_version']
+    conda_env_version_major = int(conda_env_version.split(".")[0])
+    conda_env_version_minor = int(conda_env_version.split(".")[1])
+
+    # in case os name is not 'nt', we are not running on windows. It introduces
+    # bash command otherwise.
+    if os.name != "nt" and (conda_env_version_major == 4 and conda_env_version_minor < 6):
+        return ["source %s %s" % (activate_path, conda_env_name)]
+    else:
+        return ["conda activate %s" % (conda_env_name)]
 
 def _validate_execution_environment(project, backend):
     if project.docker_env and backend == "databricks":
@@ -770,7 +791,6 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
         shutil.rmtree(directory)
     return result_path
 
-
 def _build_docker_image(work_dir, repository_uri, base_image, run_id):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
@@ -794,13 +814,13 @@ def _build_docker_image(work_dir, repository_uri, base_image, run_id):
     except Exception:  # pylint: disable=broad-except
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
     tracking.MlflowClient().set_tag(run_id,
+
                                     MLFLOW_DOCKER_IMAGE_URI,
                                     image_uri)
     tracking.MlflowClient().set_tag(run_id,
                                     MLFLOW_DOCKER_IMAGE_ID,
                                     image.id)
     return image
-
 
 def _get_docker_image_uri(repository_uri, work_dir):
     """
@@ -816,7 +836,6 @@ def _get_docker_image_uri(repository_uri, work_dir):
     git_commit = _get_git_commit(work_dir)
     version_string = ":" + git_commit[:7] if git_commit else ""
     return repository_uri + version_string
-
 
 __all__ = [
     "run",
