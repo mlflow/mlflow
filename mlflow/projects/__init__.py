@@ -656,6 +656,7 @@ def _get_conda_command(conda_env_name):
         activate_conda_env = ['source ' + os.path.dirname(conda_path) +
                               '/../etc/profile.d/conda.sh']
     activate_conda_env += ["conda activate {0}".format(conda_env_name)]
+    return activate_conda_env
 
 
 def _validate_execution_environment(project, backend):

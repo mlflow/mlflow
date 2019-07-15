@@ -338,8 +338,13 @@ def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
 def test_conda_path(mock_env, expected_conda, expected_activate):
     """Verify that we correctly determine the path to conda executables"""
     with mock.patch.dict("os.environ", mock_env):
-        assert mlflow.projects._get_conda_bin_executable("conda") == expected_conda
-        assert mlflow.projects._get_conda_bin_executable("activate") == expected_activate
+        obtained_conda = mlflow.projects._get_conda_bin_executable("conda")
+        obtained_activate = mlflow.projects._get_conda_bin_executable("activate")
+        if not mock_env:
+            obtained_conda = obtained_conda.split('/')[-1]
+            obtained_activate = obtained_activate.split('/')[-1]
+        assert obtained_conda == expected_conda
+        assert obtained_activate == expected_activate
 
 
 def test_cancel_run(tracking_uri_mock):  # pylint: disable=unused-argument
