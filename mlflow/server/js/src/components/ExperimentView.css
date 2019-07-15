@@ -232,7 +232,11 @@ span.error-message {
   font-weight: inherit;
 }
 
-/* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
+.ExperimentView .ReactVirtualized__Table__Grid:focus {
+  outline: 0;
+}
+
+  /* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
 .ExperimentView .ReactVirtualized__Table__rowColumn {
   overflow: visible !important;
 }

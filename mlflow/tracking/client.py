@@ -9,7 +9,6 @@ from six import iteritems
 
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import utils
-from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
@@ -18,7 +17,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 
 class MlflowClient(object):
-    """Client of an MLflow Tracking Server that creates and manages experiments and runs.
+    """
+    Client of an MLflow Tracking Server that creates and manages experiments and runs.
     """
 
     def __init__(self, tracking_uri=None):
@@ -34,9 +34,9 @@ class MlflowClient(object):
     def get_run(self, run_id):
         """
         Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
-        contains a collection of run metadata - :py:class:`RunInfo <mlflow.entities.RunInfo>`,
-        as well as a collection of run parameters, tags, and metrics -
-        :py:class`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
+        contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
+        as well as a collection of run parameters, tags, and metrics --
+        :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
         same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
         the most recently logged value at the largest step for each metric.
 
@@ -154,8 +154,8 @@ class MlflowClient(object):
 
     def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
-        Log a metric against the run ID. If timestamp is not provided, uses
-        the current timestamp. The metric's step defaults to 0 if unspecified.
+        Log a metric against the run ID. The timestamp defaults to the current timestamp.
+        The step defaults to 0.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
         step = step if step is not None else 0
@@ -179,17 +179,28 @@ class MlflowClient(object):
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
-    def log_batch(self, run_id, metrics, params, tags):
+    def delete_tag(self, run_id, key):
+        """
+        Delete a tag from a run. This is irreversible.
+        :param run_id: String ID of the run
+        :param key: Name of the tag
+        """
+        self.store.delete_tag(run_id, key)
+
+    def log_batch(self, run_id, metrics=(), params=(), tags=()):
         """
         Log multiple metrics, params, and/or tags.
 
-        :param metrics: List of Metric(key, value, timestamp) instances.
-        :param params: List of Param(key, value) instances.
-        :param tags: List of RunTag(key, value) instances.
+        :param run_id: String ID of the run
+        :param metrics: If provided, List of Metric(key, value, timestamp) instances.
+        :param params: If provided, List of Param(key, value) instances.
+        :param tags: If provided, List of RunTag(key, value) instances.
 
         Raises an MlflowException if any errors occur.
-        :returns: None
+        :return: None
         """
+        if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
+            return
         for metric in metrics:
             _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:
@@ -234,19 +245,24 @@ class MlflowClient(object):
         artifact_repo = get_artifact_repository(artifact_root)
         return artifact_repo.list_artifacts(path)
 
-    def download_artifacts(self, run_id, path):
+    def download_artifacts(self, run_id, path, dst_path=None):
         """
         Download an artifact file or directory from a run to a local directory if applicable,
         and return a local path for it.
 
         :param run_id: The run to download artifacts from.
         :param path: Relative source path to the desired artifact.
+        :param dst_path: Absolute path of the local filesystem destination directory to which to
+                         download the specified artifacts. This directory must already exist.
+                         If unspecified, the artifacts will either be downloaded to a new
+                         uniquely-named directory on the local filesystem or will be returned
+                         directly in the case of the LocalArtifactRepository.
         :return: Local path of desired artifact.
         """
         run = self.get_run(run_id)
         artifact_root = run.info.artifact_uri
         artifact_repo = get_artifact_repository(artifact_root)
-        return artifact_repo.download_artifacts(path)
+        return artifact_repo.download_artifacts(path, dst_path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
@@ -271,22 +287,27 @@ class MlflowClient(object):
         """
         self.store.restore_run(run_id)
 
-    def search_runs(self, experiment_ids, filter_string,
-                    run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT):
+    def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
         """
         Search experiments that fit the search criteria.
 
-        :param experiment_ids: List of experiment IDs
-        :param filter_string: Filter query string.
+        :param experiment_ids: List of experiment IDs, or a single int or string id.
+        :param filter_string: Filter query string, defaults to searching all runs.
         :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                               defined in :py:class:`mlflow.entities.ViewType`.
         :param max_results: Maximum number of runs desired.
+        :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
+                         ordering is to sort by start_time DESC, then run_id.
+        :param page_token: Token specifying the next page of results. It should be obtained from
+            a ``search_runs`` call.
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
-            expressions
+            expressions. If the underlying tracking store supports pagination, the token for
+            the next page may be obtained via the ``token`` attribute of the returned object.
         """
-        return self.store.search_runs(experiment_ids=experiment_ids,
-                                      search_filter=SearchFilter(filter_string=filter_string),
-                                      run_view_type=run_view_type,
-                                      max_results=max_results)
+        if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
+            experiment_ids = [experiment_ids]
+        return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
+                                      run_view_type=run_view_type, max_results=max_results,
+                                      order_by=order_by, page_token=page_token)

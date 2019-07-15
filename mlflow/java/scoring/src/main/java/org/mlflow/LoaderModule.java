@@ -45,15 +45,14 @@ public abstract class LoaderModule<T extends Flavor> {
    * @param modelRootPath The path to the root directory of the MLFlow model
    */
   public Predictor load(String modelRootPath) throws PredictorLoadingException {
-    Optional<Model> model = Optional.empty();
     try {
-      model = Optional.of(Model.fromRootPath(modelRootPath));
+      Optional<Model> model = Optional.of(Model.fromRootPath(modelRootPath));
+      return load(model.get());
     } catch (IOException e) {
       throw new PredictorLoadingException(
           "Failed to load the model configuration at the specified path. Please ensure that"
               + " this is the path to the root directory of a valid MLFlow model");
     }
-    return load(model.get());
   }
 
   /**

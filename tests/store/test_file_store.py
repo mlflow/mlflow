@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import posixpath
 import random
 import shutil
 import six
@@ -12,13 +13,12 @@ import uuid
 import mock
 import pytest
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, RunStatus
+from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, RunStatus, RunData
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
-from mlflow.utils.file_utils import write_yaml, read_yaml
+from mlflow.utils.file_utils import write_yaml, read_yaml, path_to_local_file_uri
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
-from mlflow.utils.search_utils import SearchFilter
 
 from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
@@ -188,6 +188,8 @@ class TestFileStore(unittest.TestCase):
         # get the new experiment (by id) and verify (by name)
         exp1 = fs.get_experiment(created_id)
         self.assertEqual(exp1.name, name)
+        self.assertEqual(exp1.artifact_location,
+                         path_to_local_file_uri(posixpath.join(self.test_root, created_id)))
 
         # get the new experiment (by name) and verify (by id)
         exp2 = fs.get_experiment_by_name(name)
@@ -269,6 +271,28 @@ class TestFileStore(unittest.TestCase):
         fs.delete_experiment(exp_id)
         with pytest.raises(Exception):
             fs.create_run(exp_id, 'user', 0, [])
+
+    def test_create_run_returns_expected_run_data(self):
+        fs = FileStore(self.test_root)
+        no_tags_run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID, user_id='user', start_time=0, tags=[])
+        assert isinstance(no_tags_run.data, RunData)
+        assert len(no_tags_run.data.tags) == 0
+
+        tags_dict = {
+            "my_first_tag": "first",
+            "my-second-tag": "2nd",
+        }
+        tags_entities = [
+            RunTag(key, value) for key, value in tags_dict.items()
+        ]
+        tags_run = fs.create_run(
+            experiment_id=FileStore.DEFAULT_EXPERIMENT_ID,
+            user_id='user',
+            start_time=0,
+            tags=tags_entities)
+        assert isinstance(tags_run.data, RunData)
+        assert tags_run.data.tags == tags_dict
 
     def _experiment_id_edit_func(self, old_dict):
         old_dict["experiment_id"] = int(old_dict["experiment_id"])
@@ -377,9 +401,8 @@ class TestFileStore(unittest.TestCase):
 
     def _search(self, fs, experiment_id, filter_str=None,
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
-        search_filter = SearchFilter(filter_string=filter_str) if filter_str else None
         return [r.info.run_id
-                for r in fs.search_runs([experiment_id], search_filter, run_view_type, max_results)]
+                for r in fs.search_runs([experiment_id], filter_str, run_view_type, max_results)]
 
     def test_search_runs(self):
         # replace with test with code is implemented
@@ -457,6 +480,24 @@ class TestFileStore(unittest.TestCase):
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(fs, exp, max_results=n))
 
+    def test_search_runs_pagination(self):
+        fs = FileStore(self.test_root)
+        exp = fs.create_experiment("test_search_runs_pagination")
+        # test returned token behavior
+        runs = sorted([fs.create_run(exp, 'user', 1000, []).info.run_id
+                       for r in range(10)])
+        result = fs.search_runs([exp], None, ViewType.ALL, max_results=4)
+        assert [r.info.run_id for r in result] == runs[0:4]
+        assert result.token is not None
+        result = fs.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[4:8]
+        assert result.token is not None
+        result = fs.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[8:]
+        assert result.token is None
+
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)
@@ -514,6 +555,31 @@ class TestFileStore(unittest.TestCase):
         fs.set_tag(run_id, RunTag("multiline_tag", "value2\nvalue2\nvalue2"))
         tags = fs.get_run(run_id).data.tags
         assert tags["multiline_tag"] == "value2\nvalue2\nvalue2"
+
+    def test_delete_tags(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        fs.set_tag(run_id, RunTag("tag0", "value0"))
+        fs.set_tag(run_id, RunTag("tag1", "value1"))
+        tags = fs.get_run(run_id).data.tags
+        assert tags["tag0"] == "value0"
+        assert tags["tag1"] == "value1"
+        fs.delete_tag(run_id, "tag0")
+        new_tags = fs.get_run(run_id).data.tags
+        assert "tag0" not in new_tags.keys()
+        # test that you cannot delete tags that don't exist.
+        with pytest.raises(MlflowException):
+            fs.delete_tag(run_id, "fakeTag")
+        # test that you cannot delete tags for nonexistent runs
+        with pytest.raises(MlflowException):
+            fs.delete_tag("random_id", "tag0")
+        fs = FileStore(self.test_root)
+        fs.delete_run(run_id)
+        # test that you cannot delete tags for deleted runs.
+        assert fs.get_run(run_id).info.lifecycle_stage == LifecycleStage.DELETED
+        with pytest.raises(MlflowException):
+            fs.delete_tag(run_id, "tag0")
 
     def test_unicode_tag(self):
         fs = FileStore(self.test_root)

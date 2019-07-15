@@ -8,6 +8,7 @@ from six.moves import shlex_quote
 
 from mlflow import data
 from mlflow.exceptions import ExecutionException
+from mlflow.utils.file_utils import get_local_path_or_none
 
 
 MLPROJECT_FILE_NAME = "MLproject"
@@ -43,7 +44,7 @@ def load_project(directory):
             raise ExecutionException("Project specified conda environment file %s, but no such "
                                      "file was found." % conda_env_path)
         return Project(conda_env_path=conda_env_path, entry_points=entry_points,
-                       docker_env=docker_env, name=project_name)
+                       docker_env=docker_env, name=project_name,)
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
         return Project(conda_env_path=default_conda_path, entry_points=entry_points,
@@ -158,11 +159,12 @@ class Parameter(object):
         return user_param_value
 
     def _compute_path_value(self, user_param_value, storage_dir):
-        if not data.is_uri(user_param_value):
-            if not os.path.exists(user_param_value):
+        local_path = get_local_path_or_none(user_param_value)
+        if local_path:
+            if not os.path.exists(local_path):
                 raise ExecutionException("Got value %s for parameter %s, but no such file or "
                                          "directory was found." % (user_param_value, self.name))
-            return os.path.abspath(user_param_value)
+            return os.path.abspath(local_path)
         basename = os.path.basename(user_param_value)
         dest_path = os.path.join(storage_dir, basename)
         if dest_path != user_param_value:

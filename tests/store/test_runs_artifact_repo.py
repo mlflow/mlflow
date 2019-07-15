@@ -1,4 +1,5 @@
 import pytest
+from mock import Mock
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -45,3 +46,18 @@ def test_runs_artifact_repo_init():
     assert isinstance(runs_repo.repo, S3ArtifactRepository)
     expected_absolute_uri = "%s%s/artifacts/path/to/model" % (artifact_location, run_id)
     assert runs_repo.repo.artifact_uri == expected_absolute_uri
+
+
+def test_runs_artifact_repo_uses_repo_download_artifacts():
+    """
+    The RunsArtifactRepo should delegate `download_artifacts` to it's self.repo.download_artifacts
+    function
+    """
+    artifact_location = "s3://blah_bucket/"
+    experiment_id = mlflow.create_experiment("expr_abcd", artifact_location)
+    with mlflow.start_run(experiment_id=experiment_id):
+        run_id = mlflow.active_run().info.run_id
+    runs_repo = RunsArtifactRepository('runs:/{}'.format(run_id))
+    runs_repo.repo = Mock()
+    runs_repo.download_artifacts('artifact_path', 'dst_path')
+    runs_repo.repo.download_artifacts.assert_called_once()

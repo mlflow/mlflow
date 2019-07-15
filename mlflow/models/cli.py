@@ -1,5 +1,6 @@
 import logging
 import click
+import os
 import posixpath
 
 from mlflow.models import Model
@@ -24,17 +25,33 @@ def commands():
 
 @commands.command("serve")
 @cli_args.MODEL_URI
-@click.option("--port", "-p", default=5000, help="Server port. [default: 5000]")
-@click.option("--host", "-h", default="127.0.0.1", help="Server host. [default: 127.0.0.1]")
+@cli_args.PORT
+@cli_args.HOST
+@cli_args.WORKERS
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
-def serve(model_uri, port, host, no_conda=False, install_mlflow=False):
+def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port. For
     information about the input data formats accepted by the webserver, see the following
     documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
+
+    You can make requests to ``POST /invocations`` in pandas split- or record-oriented formats.
+
+    Example:
+
+    .. code-block:: bash
+
+        $ mlflow models serve -m runs:/my-run-id/model-path &
+
+        $ curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
+            "columns": ["a", "b", "c"],
+            "data": [[1, 2, 3], [4, 5, 6]]
+        }'
     """
-    return _get_flavor_backend(model_uri, no_conda=no_conda,
+    return _get_flavor_backend(model_uri,
+                               no_conda=no_conda,
+                               workers=workers,
                                install_mlflow=install_mlflow).serve(model_uri=model_uri, port=port,
                                                                     host=host)
 
@@ -74,14 +91,49 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
                                                                       json_format=json_format)
 
 
+@commands.command("build-docker")
+@cli_args.MODEL_URI
+@click.option("--name", "-n", default="mlflow-pyfunc-servable",
+              help="Name to use for built image")
+@cli_args.INSTALL_MLFLOW
+def build_docker(model_uri, name, install_mlflow):
+    """
+    **EXPERIMENTAL**: Builds a Docker image whose default entrypoint serves the specified MLflow
+    model at port 8080 within the container, using the 'python_function' flavor.
+
+    For example, the following command builds a docker image named 'my-image-name' that serves the
+    model from run 'some-run-uuid' at run-relative artifact path 'my-model':
+
+    .. code:: bash
+
+        mlflow models build-docker -m "runs:/some-run-uuid/my-model" -n "my-image-name"
+
+    We can then serve the model, exposing it at port 5001 on the host via:
+
+    .. code:: bash
+
+        docker run -p 5001:8080 "my-image-name"
+
+    See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
+    'python_function' flavor.
+
+    This command is experimental (may be changed or removed in a future release without warning)
+    and does not guarantee that the arguments nor format of the Docker container will remain the
+    same.
+    """
+    mlflow_home = os.environ.get("MLFLOW_HOME", None)
+    _get_flavor_backend(model_uri, docker_build=True).build_image(model_uri, name,
+                                                                  mlflow_home=mlflow_home,
+                                                                  install_mlflow=install_mlflow)
+
+
 def _get_flavor_backend(model_uri, **kwargs):
     with TempDir() as tmp:
         local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
                                                  output_path=tmp.path())
         model = Model.load(local_path)
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
-
-    _logger.info("Selected backend for flavor '%s'", flavor_name)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
+    _logger.info("Selected backend for flavor '%s'", flavor_name)
     return flavor_backend

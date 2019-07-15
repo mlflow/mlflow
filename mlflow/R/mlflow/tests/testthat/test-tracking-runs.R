@@ -29,12 +29,20 @@ test_that("mlflow_end_run() works properly", {
   mlflow_start_run()
   killed_time <- mlflow:::current_time()
   client <- mlflow_client()
-  run_info <- mlflow_end_run(
+  run <- mlflow_end_run(
     client = client, run_id = mlflow:::mlflow_get_active_run_id(),
     status = "KILLED", end_time = killed_time
   )
-  expect_identical(run_info$status, "KILLED")
-  expect_identical(run_info$end_time, as.POSIXct(as.double(c(killed_time)) / 1000, origin = "1970-01-01"))
+  expect_identical(run$status, "KILLED")
+  expect_identical(run$end_time, as.POSIXct(as.double(c(killed_time)) / 1000, origin = "1970-01-01"))
+
+  # Verify that only expected run field names are present and that all run info fields are set
+  # (not NA).
+  run_info_names <- c("run_uuid", "experiment_id", "user_id", "status", "start_time",
+  "artifact_uri", "lifecycle_stage", "run_id", "end_time")
+  run_data_names <- c("metrics", "params", "tags")
+  expect_setequal(c(run_info_names, run_data_names), names(run))
+  expect_true(!anyNA(run[run_info_names]))
 })
 
 test_that("mlflow_set_tag() should return NULL invisibly", {
@@ -61,6 +69,11 @@ test_that("logging functionality", {
   expect_identical("tag_value", tags$value[tags$key == "tag_key"])
   expect_identical(run$params[[1]]$key, "param_key")
   expect_identical(run$params[[1]]$value, "param_value")
+
+  mlflow_delete_tag("tag_key", run_id)
+  run <- mlflow_get_run()
+  tags <- run$tags[[1]]
+  expect_false("tag_key" %in% tags$key)
 
   mlflow_end_run()
   end_time_upper_bound <- Sys.time()
@@ -241,6 +254,15 @@ test_that("mlflow_search_runs() works", {
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 10", experiment_ids = list("0"))), 1)
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.test < 20", experiment_ids = list("0"))), 1)
   expect_equal(nrow(mlflow_search_runs(filter = "metrics.test > 20", experiment_ids = list("0"))), 0)
+
+  search <- mlflow_search_runs(order_by = "metrics.test", experiment_ids = list("0"))
+  expect_equal(search$metrics[[1]]$value[1], 10)
+  expect_equal(search$metrics[[2]]$value[1], 20)
+
+  search <- mlflow_search_runs(order_by = list("metrics.test DESC"), experiment_ids = list("0"))
+  expect_equal(search$metrics[[1]]$value[1], 20)
+  expect_equal(search$metrics[[2]]$value[1], 10)
+
   mlflow_set_experiment("new-experiment")
   expect_equal(nrow(mlflow_search_runs()), 0)
   with(mlflow_start_run(), {

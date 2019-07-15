@@ -186,6 +186,28 @@ mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
   invisible(NULL)
 }
 
+#' Delete Tag
+#'
+#' Deletes a tag on a run. This is irreversible. Tags are run metadata that can be updated during a run and
+#'  after a run completes.
+#'
+#' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
+#' @template roxlate-run-id
+#' @template roxlate-client
+#' @export
+mlflow_delete_tag <- function(key, run_id = NULL, client = NULL) {
+  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+
+  key <- cast_string(key)
+
+  mlflow_rest("runs", "delete-tag", client = client, verb = "POST", data = list(
+    run_id = run_id,
+    key = key
+  ))
+
+  invisible(NULL)
+}
+
 #' Log Parameter
 #'
 #' Logs a parameter for a run. Examples are params and hyperparams
@@ -253,10 +275,13 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
 #'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
+#' @param order_by List of properties to order by. Example: "metrics.acc DESC".
 #'
 #' @export
 mlflow_search_runs <- function(filter = NULL,
-                               run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), experiment_ids = NULL,
+                               run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+                               experiment_ids = NULL,
+                               order_by = list(),
                                client = NULL) {
   experiment_ids <- resolve_experiment_id(experiment_ids)
   # If we get back a single experiment ID, e.g. the active experiment ID, convert it to a list
@@ -272,11 +297,13 @@ mlflow_search_runs <- function(filter = NULL,
   response <- mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
     experiment_ids = experiment_ids,
     filter = filter,
-    run_view_type = run_view_type
+    run_view_type = run_view_type,
+    order_by = cast_string_list(order_by)
   ))
 
-  response$run %>%
-    purrr::map_df(parse_run)
+  runs_list <- response$run %>%
+    purrr::map(parse_run)
+  do.call("rbind", runs_list) %||% data.frame()
 }
 
 #' List Artifacts
@@ -381,9 +408,10 @@ mlflow_list_run_infos <- function(run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY
     run_view_type = run_view_type
   ))
 
-  response$runs %>%
+  run_infos_list <- response$runs %>%
     purrr::map("info") %>%
-    purrr::map_df(parse_run_info)
+    purrr::map(parse_run_info)
+  do.call("rbind", run_infos_list) %||% data.frame()
 }
 
 #' Log Artifact

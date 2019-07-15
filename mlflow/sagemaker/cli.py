@@ -9,6 +9,7 @@ import mlflow
 import mlflow.sagemaker
 from mlflow.sagemaker import DEFAULT_IMAGE_NAME as IMAGE
 from mlflow.utils import cli_args
+import mlflow.models.docker_utils
 
 
 @click.group("sagemaker")
@@ -32,8 +33,8 @@ def commands():
               help="Name of the AWS region in which to deploy the application")
 @click.option("--mode", default=mlflow.sagemaker.DEPLOYMENT_MODE_CREATE,
               help="The mode in which to deploy the application."
-              " Must be one of the following: {mds}".format(
-                  mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
+                   " Must be one of the following: {mds}".format(
+                     mds=", ".join(mlflow.sagemaker.DEPLOYMENT_MODES)))
 @click.option("--archive", "-ar", is_flag=True,
               help=("If specified, any SageMaker resources that become inactive (i.e as the"
                     " result of an update in {mode_replace} mode) are preserved."
@@ -42,23 +43,23 @@ def commands():
                     " endpoint. Otherwise, if `--archive` is unspecified, these resources are"
                     " deleted. `--archive` must be specified when deploying asynchronously with"
                     " `--async`.".format(
-                            mode_replace=mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE)))
+                      mode_replace=mlflow.sagemaker.DEPLOYMENT_MODE_REPLACE)))
 @click.option("--instance-type", "-t", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_TYPE,
               help="The type of SageMaker ML instance on which to deploy the model. For a list of"
-              " supported instance types, see"
-              " https://aws.amazon.com/sagemaker/pricing/instance-types/.")
+                   " supported instance types, see"
+                   " https://aws.amazon.com/sagemaker/pricing/instance-types/.")
 @click.option("--instance-count", "-c", default=mlflow.sagemaker.DEFAULT_SAGEMAKER_INSTANCE_COUNT,
               help="The number of SageMaker ML instances on which to deploy the model")
 @click.option("--vpc-config", "-v",
               help="Path to a file containing a JSON-formatted VPC configuration. This"
-              " configuration will be used when creating the new SageMaker model associated"
-              " with this application. For more information, see"
-              " https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html")
+                   " configuration will be used when creating the new SageMaker model associated"
+                   " with this application. For more information, see"
+                   " https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html")
 @click.option("--flavor", "-f", default=None,
               help=("The name of the flavor to use for deployment. Must be one of the following:"
                     " {supported_flavors}. If unspecified, a flavor will be automatically selected"
                     " from the model's available flavors.".format(
-                        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
+                      supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
 @click.option("--async", "asynchronous", is_flag=True,
               help=("If specified, this command will return immediately after starting the"
                     " deployment process. It will not wait for the deployment process to complete."
@@ -141,7 +142,7 @@ def delete(app_name, region_name, archive, asynchronous, timeout):
               help=("The name of the flavor to use for local serving. Must be one of the following:"
                     " {supported_flavors}. If unspecified, a flavor will be automatically selected"
                     " from the model's available flavors.".format(
-                        supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
+                      supported_flavors=mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS)))
 def run_local(model_uri, port, image, flavor):
     """
     Serve model locally running in a Sagemaker-compatible Docker container.
@@ -165,8 +166,23 @@ def build_and_push_container(build, push, container, mlflow_home):
     if not (build or push):
         print("skipping both build and push, have nothing to do!")
     if build:
-        mlflow.sagemaker.build_image(container,
-                                     mlflow_home=os.path.abspath(mlflow_home) if mlflow_home
-                                     else None)
+        sagemaker_image_entrypoint = """
+        ENTRYPOINT ["python", "-c", "import sys; from mlflow.models import container as C; \
+        C._init(sys.argv[1])"]
+        """
+
+        def setup_container(_):
+            return "\n".join([
+                'ENV {disable_env}="false"',
+                'RUN python -c "from mlflow.models.container import _install_pyfunc_deps;'
+                '_install_pyfunc_deps(None, False)"'
+            ])
+
+        mlflow.models.docker_utils._build_image(
+            container,
+            mlflow_home=os.path.abspath(mlflow_home) if mlflow_home else None,
+            entrypoint=sagemaker_image_entrypoint,
+            custom_setup_steps_hook=setup_container
+        )
     if push:
         mlflow.sagemaker.push_image_to_ecr(container)

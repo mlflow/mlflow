@@ -1,6 +1,6 @@
 import React from 'react';
 import _ from 'lodash';
-import { Radio, Switch, TreeSelect } from 'antd';
+import { Radio, Switch, TreeSelect, Icon, Tooltip } from 'antd';
 import PropTypes from 'prop-types';
 import { CHART_TYPE_LINE } from './MetricsPlotPanel';
 import { LineSmoothSlider } from './LineSmoothSlider';
@@ -39,56 +39,74 @@ export class MetricsPlotControls extends React.Component {
 
   render() {
     const { chartType } = this.props;
+    const lineSmoothnessTooltipText =
+      'Make the line between points "smoother" based on generalized Catmull-Rom splines. ' +
+      'Smoothing can be useful for displaying the ' +
+      'overall trend when the logging frequency is high.';
     return (
       <div className='plot-controls'>
-        <h2>Plot Settings</h2>
         {chartType === CHART_TYPE_LINE ? (
           <div>
-            <h3>Points:</h3>
-            <Switch
-              className='show-point-toggle'
-              checkedChildren='On'
-              unCheckedChildren='Off'
-              onChange={this.props.handleShowPointChange}
-            />
-            <h3>Line Smoothness</h3>
-            <LineSmoothSlider
-              className='smoothness-toggle'
-              min={0}
-              max={1.3}
-              handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 500)}
-            />
-            <h3>X-axis:</h3>
-            <RadioGroup onChange={this.props.handleXAxisChange} value={this.props.selectedXAxis}>
-              <Radio className='x-axis-radio' value={X_AXIS_STEP}>
-                Step
-              </Radio>
-              <Radio className='x-axis-radio' value={X_AXIS_WALL}>
-                Time (Wall)
-              </Radio>
-              <Radio className='x-axis-radio' value={X_AXIS_RELATIVE}>
-                Time (Relative)
-              </Radio>
-            </RadioGroup>
+            <div className='inline-control'>
+              <div className='control-label'>Points:</div>
+              <Switch
+                className='show-point-toggle'
+                checkedChildren='On'
+                unCheckedChildren='Off'
+                onChange={this.props.handleShowPointChange}
+              />
+            </div>
+            <div className='block-control'>
+              <div className='control-label'>
+                Line Smoothness {' '}
+                <Tooltip title={lineSmoothnessTooltipText}>
+                  <Icon type='question-circle' />
+                </Tooltip>
+              </div>
+              <LineSmoothSlider
+                className='smoothness-toggle'
+                min={0}
+                max={1.3}
+                handleLineSmoothChange={_.debounce(this.props.handleLineSmoothChange, 500)}
+              />
+            </div>
+            <div className='block-control'>
+              <div className='control-label'>X-axis:</div>
+              <RadioGroup onChange={this.props.handleXAxisChange} value={this.props.selectedXAxis}>
+                <Radio className='x-axis-radio' value={X_AXIS_STEP}>
+                  Step
+                </Radio>
+                <Radio className='x-axis-radio' value={X_AXIS_WALL}>
+                  Time (Wall)
+                </Radio>
+                <Radio className='x-axis-radio' value={X_AXIS_RELATIVE}>
+                  Time (Relative)
+                </Radio>
+              </RadioGroup>
+            </div>
           </div>
         ) : null}
-        <h3>Y-axis:</h3>
-        <TreeSelect
-          className='metrics-select'
-          searchPlaceholder='Please select metric'
-          value={this.props.selectedMetricKeys}
-          showCheckedStrategy={TreeSelect.SHOW_PARENT}
-          treeCheckable
-          treeData={this.getAllMetricKeys()}
-          onChange={this.props.handleMetricsSelectChange}
-          filterTreeNode={this.handleMetricsSelectFilterChange}
-        />
-        <h3>Log Scale:</h3>
-        <Switch
-          checkedChildren='On'
-          unCheckedChildren='Off'
-          onChange={this.props.handleYAxisLogScaleChange}
-        />
+        <div className='block-control'>
+          <div className='control-label'>Y-axis:</div>
+          <TreeSelect
+            className='metrics-select'
+            searchPlaceholder='Please select metric'
+            value={this.props.selectedMetricKeys}
+            showCheckedStrategy={TreeSelect.SHOW_PARENT}
+            treeCheckable
+            treeData={this.getAllMetricKeys()}
+            onChange={this.props.handleMetricsSelectChange}
+            filterTreeNode={this.handleMetricsSelectFilterChange}
+          />
+        </div>
+        <div className='inline-control'>
+          <div className='control-label'>Y-axis Log Scale:</div>
+          <Switch
+            checkedChildren='On'
+            unCheckedChildren='Off'
+            onChange={this.props.handleYAxisLogScaleChange}
+          />
+        </div>
       </div>
     );
   }

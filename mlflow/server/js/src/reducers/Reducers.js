@@ -1,14 +1,23 @@
 import { combineReducers } from 'redux';
 import {
   CLOSE_ERROR_MODAL,
-  fulfilled, GET_EXPERIMENT_API, GET_RUN_API, isFulfilledApi, isPendingApi,
+  fulfilled,
+  GET_EXPERIMENT_API,
+  GET_RUN_API,
+  isFulfilledApi,
+  isPendingApi,
   isRejectedApi,
   LIST_ARTIFACTS_API,
-  LIST_EXPERIMENTS_API, OPEN_ERROR_MODAL, SEARCH_RUNS_API, SET_TAG_API,
+  LIST_EXPERIMENTS_API,
+  OPEN_ERROR_MODAL,
+  SEARCH_RUNS_API,
+  LOAD_MORE_RUNS_API,
+  SET_TAG_API, rejected,
 } from '../Actions';
 import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
+import _ from 'lodash';
 
 export const getExperiments = (state) => {
   return Object.values(state.entities.experimentsById);
@@ -42,39 +51,30 @@ const experimentsById = (state = {}, action) => {
   }
 };
 
-export const getRunInfos = (state) => {
-  return Object.values(state.entities.runInfosByUuid).sort((a, b) => {
-    if (a.start_time < b.start_time) {
-      return 1;
-    } else if (a.start_time > b.start_time) {
-      return -1;
-    } else {
-      return 0;
-    }
-  });
-};
-
 export const getRunInfo = (runUuid, state) => {
   return state.entities.runInfosByUuid[runUuid];
 };
 
 const runInfosByUuid = (state = {}, action) => {
   switch (action.type) {
-    case fulfilled(GET_EXPERIMENT_API): {
-      let newState = { ...state };
-      if (action.payload && action.payload.runs) {
-        action.payload.runs.forEach((rJson) => {
-          const runInfo = RunInfo.fromJs(rJson);
-          newState = amendRunInfosByUuid(newState, runInfo);
-        });
-      }
-      return newState;
-    }
     case fulfilled(GET_RUN_API): {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
       return amendRunInfosByUuid(state, runInfo);
     }
     case fulfilled(SEARCH_RUNS_API): {
+      const newState = {};
+      if (action.payload && action.payload.runs) {
+        action.payload.runs.forEach((rJson) => {
+          const runInfo = RunInfo.fromJs(rJson.info);
+          newState[runInfo.getRunUuid()] = runInfo;
+        });
+      }
+      return newState;
+    }
+    case rejected(SEARCH_RUNS_API): {
+      return {};
+    }
+    case fulfilled(LOAD_MORE_RUNS_API): {
       let newState = { ...state };
       if (action.payload && action.payload.runs) {
         action.payload.runs.forEach((rJson) => {
@@ -120,7 +120,8 @@ const paramsByRunUuid = (state = {}, action) => {
       newState[runUuid] = paramArrToObject(params);
       return newState;
     }
-    case fulfilled(SEARCH_RUNS_API): {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
       const runs = action.payload.runs;
       const newState = { ...state };
       if (runs) {
@@ -162,7 +163,8 @@ const tagsByRunUuid = (state = {}, action) => {
       newState[runUuid] = tagArrToObject(tags);
       return newState;
     }
-    case fulfilled(SEARCH_RUNS_API): {
+    case fulfilled(SEARCH_RUNS_API):
+    case fulfilled(LOAD_MORE_RUNS_API): {
       const runs = action.payload.runs;
       const newState = { ...state };
       if (runs) {
@@ -269,9 +271,19 @@ const entities = combineReducers({
   artifactRootUriByRunUuid,
 });
 
+export const getSharedParamKeysByRunUuids = (runUuids, state) =>
+  _.intersection(
+    ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+  );
+
+export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
+  _.intersection(
+    ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+  );
+
 export const getApis = (requestIds, state) => {
   return requestIds.map((id) => (
-    state.apis[id]
+    state.apis[id] || {}
   ));
 };
 

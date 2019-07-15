@@ -22,13 +22,53 @@ from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils.search_utils import SearchFilter
+from mlflow.utils import extract_db_type_from_uri
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
 
 DB_URI = 'sqlite:///'
 ARTIFACT_URI = 'artifact_folder'
+
+
+class TestParseDbUri(unittest.TestCase):
+
+    def test_correct_db_type_from_uri(self):
+        # try each the main drivers per supported database type
+        target_db_type_uris = {
+            'sqlite': ('pysqlite', 'pysqlcipher'),
+            'postgresql': ('psycopg2', 'pg8000', 'psycopg2cffi',
+                           'pypostgresql', 'pygresql', 'zxjdbc'),
+            'mysql': ('mysqldb', 'pymysql', 'mysqlconnector', 'cymysql',
+                      'oursql', 'mysqldb', 'gaerdbms', 'pyodbc', 'zxjdbc'),
+            'mssql': ('pyodbc', 'mxodbc', 'pymssql', 'zxjdbc', 'adodbapi')
+        }
+        for target_db_type, drivers in target_db_type_uris.items():
+            # try the driver-less version, which will revert SQLAlchemy to the default driver
+            uri = "%s://..." % target_db_type
+            parsed_db_type = extract_db_type_from_uri(uri)
+            self.assertEqual(target_db_type, parsed_db_type)
+            # try each of the popular drivers (per SQLAlchemy's dialect pages)
+            for driver in drivers:
+                uri = "%s+%s://..." % (target_db_type, driver)
+                parsed_db_type = extract_db_type_from_uri(uri)
+                self.assertEqual(target_db_type, parsed_db_type)
+
+    def _db_uri_error(self, db_uris, expected_message_part):
+        for db_uri in db_uris:
+            with self.assertRaises(MlflowException) as e:
+                extract_db_type_from_uri(db_uri)
+            self.assertIn(expected_message_part, e.exception.message)
+
+    def test_fail_on_unsupported_db_type(self):
+        bad_db_uri_strings = ['oracle://...', 'oracle+cx_oracle://...',
+                              'snowflake://...', '://...', 'abcdefg']
+        self._db_uri_error(bad_db_uri_strings, "Supported database engines are ")
+
+    def test_fail_on_multiple_drivers(self):
+        bad_db_uri_strings = ['mysql+pymsql+pyodbc://...']
+        self._db_uri_error(bad_db_uri_strings,
+                           "mlflow.org/docs/latest/tracking.html#storage for format specifications")
 
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase):
@@ -505,6 +545,40 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
 
+    def test_delete_tag(self):
+        run = self._run_factory()
+        k0, v0 = 'tag0', 'val0'
+        k1, v1 = 'tag1', 'val1'
+        tag0 = entities.RunTag(k0, v0)
+        tag1 = entities.RunTag(k1, v1)
+        self.store.set_tag(run.info.run_id, tag0)
+        self.store.set_tag(run.info.run_id, tag1)
+        # delete a tag and check whether it is correctly deleted.
+        self.store.delete_tag(run.info.run_id, k0)
+        run = self.store.get_run(run.info.run_id)
+        self.assertTrue(k0 not in run.data.tags)
+        self.assertTrue(k1 in run.data.tags and run.data.tags[k1] == v1)
+
+        # test that deleting a tag works correctly with multiple runs having the same tag.
+        run2 = self._run_factory(config=self._get_run_configs(run.info.experiment_id))
+        self.store.set_tag(run.info.run_id, tag0)
+        self.store.set_tag(run2.info.run_id, tag0)
+        self.store.delete_tag(run.info.run_id, k0)
+        run = self.store.get_run(run.info.run_id)
+        run2 = self.store.get_run(run2.info.run_id)
+        self.assertTrue(k0 not in run.data.tags)
+        self.assertTrue(k0 in run2.data.tags)
+        # test that you cannot delete tags that don't exist.
+        with pytest.raises(MlflowException):
+            self.store.delete_tag(run.info.run_id, "fakeTag")
+        # test that you cannot delete tags for nonexistent runs
+        with pytest.raises(MlflowException):
+            self.store.delete_tag("randomRunId", k0)
+        # test that you cannot delete tags for deleted runs.
+        self.store.delete_run(run.info.run_id)
+        with pytest.raises(MlflowException):
+            self.store.delete_tag(run.info.run_id, k1)
+
     def test_get_metric_history(self):
         run = self._run_factory()
 
@@ -644,10 +718,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     # Tests for Search API
     def _search(self, experiment_id, filter_string=None,
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
-        search_filter = SearchFilter(filter_string=filter_string)
         exps = [experiment_id] if isinstance(experiment_id, int) else experiment_id
         return [r.info.run_id
-                for r in self.store.search_runs(exps, search_filter, run_view_type, max_results)]
+                for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)]
 
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
@@ -877,17 +950,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         filter_string = "attribute.artifact_uri != 'random_artifact_path'"
         six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
 
-        filter_string = "attribute.lifecycle_stage = '{}'".format(entities.LifecycleStage.ACTIVE)
-        six.assertCountEqual(self, [r1, r2], self._search([e1, e2], filter_string))
-
-        # change lifecycle stage for one of the runs
-        self.store.delete_run(r1)
-
-        filter_string = "attribute.lifecycle_stage = '{}'".format(entities.LifecycleStage.ACTIVE)
-        six.assertCountEqual(self, [r2], self._search([e1, e2], filter_string))
-
-        filter_string = "attribute.lifecycle_stage = '{}'".format(entities.LifecycleStage.DELETED)
-        six.assertCountEqual(self, [r1], self._search([e1, e2], filter_string))
+        for (k, v) in {"experiment_id": e1,
+                       "lifecycle_stage": "ACTIVE",
+                       "run_id": r1,
+                       "run_uuid": r2}.items():
+            with self.assertRaises(MlflowException) as e:
+                self._search([e1, e2], "attribute.{} = '{}'".format(k, v))
+            self.assertIn("Invalid attribute key", e.exception.message)
 
     def test_search_full(self):
         experiment_id = self._experiment_factory('search_params')
@@ -949,6 +1018,23 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(exp, max_results=n))
+
+    def test_search_runs_pagination(self):
+        exp = self._experiment_factory('test_search_runs_pagination')
+        # test returned token behavior
+        runs = sorted([self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
+                       for r in range(10)])
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4)
+        assert [r.info.run_id for r in result] == runs[0:4]
+        assert result.token is not None
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                        page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[4:8]
+        assert result.token is not None
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                        page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[8:]
+        assert result.token is None
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
