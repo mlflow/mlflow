@@ -119,63 +119,121 @@ public class MlflowClient {
   public List<RunInfo> listRunInfos(String experimentId) {
     List<String> experimentIds = new ArrayList<>();
     experimentIds.add(experimentId);
-    return searchRuns(experimentIds, null).stream().map(Run::getInfo)
-      .collect(Collectors.toList());
+    return searchRuns(experimentIds, null);
   }
 
   /**
-   * Return runs from provided list of experiments that satisfy the search query.
-   *
+   * Return RunInfos from provided list of experiments that satisfy the search query.
+   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or
+   *                    similar that returns a page of Run results.
+   * 
    * @param experimentIds List of experiment IDs.
    * @param searchFilter SQL compatible search query string. Format of this query string is
    *                     similar to that specified on MLflow UI.
    *                     Example : "params.model = 'LogisticRegression' and metrics.acc = 0.9"
-   *
-   * @return A list of all Runs that satisfy search filter.
-   */
-  public List<Run> searchRuns(List<String> experimentIds, String searchFilter) {
-    return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY);
-  }
-
-  /**
-   * Return runs from provided list of experiments that satisfy the search query.
-   *
-   * @param experimentIds List of experiment IDs.
-   * @param searchFilter SQL compatible search query string. Format of this query string is
-   *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
-   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    Defaults to ACTIVE_ONLY.
-   *
-   * @return A list of all Runs that satisfy search filter.
-   */
-  public List<Run> searchRuns(List<String> experimentIds,
-                                  String searchFilter,
-                                  ViewType runViewType) {
-    return searchRuns(experimentIds, searchFilter, runViewType, new ArrayList<>());
-  }
-
-
-  /**
-   * Return runs from provided list of experiments that satisfy the search query.
-   *
-   * @param experimentIds List of experiment IDs.
-   * @param searchFilter SQL compatible search query string. Format of this query string is
-   *                     similar to that specified on MLflow UI.
-   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
-   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
-   *                    Defaults to ACTIVE_ONLY.
-   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   *                     If null, the result will be equivalent to having an empty search filter.
    *
    * @return A list of all RunInfos that satisfy search filter.
    */
-  public List<Run> searchRuns(List<String> experimentIds,
-                                  String searchFilter,
-                                  ViewType runViewType,
-                                  List<String> orderBy) {
+  public List<RunInfo> searchRuns(List<String> experimentIds, String searchFilter) {
+    return searchRuns(experimentIds, searchFilter, ViewType.ACTIVE_ONLY, 1000).getItems().stream()
+      .map(Run::getInfo).collect(Collectors.toList());
+  }
+
+  /**
+   * Return RunInfos from provided list of experiments that satisfy the search query.
+   * @deprecated As of 1.1.0 - please use {@link #searchRuns(List, String, ViewType, int)} or 
+   *                    similar that returns a page of Run results.
+   *
+   * @param experimentIds List of experiment IDs.
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
+   *
+   * @return A list of all RunInfos that satisfy search filter.
+   */
+  public List<RunInfo> searchRuns(List<String> experimentIds,
+                              String searchFilter,
+                              ViewType runViewType) {
+    return searchRuns(experimentIds, searchFilter, runViewType, 1000).getItems().stream()
+      .map(Run::getInfo).collect(Collectors.toList());
+  }
+
+  /**
+   * Return runs from provided list of experiments that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs.
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of runs desired in one page.
+   *
+   * @return A list of all Runs that satisfy search filter.
+   */
+  public RunsPage searchRuns(List<String> experimentIds,
+                              String searchFilter,
+                              ViewType runViewType,
+                              int maxResults) {
+    return searchRuns(experimentIds, searchFilter, runViewType, maxResults, new ArrayList<>(),
+                      null);
+  }
+
+  /**
+   * Return runs from provided list of experiments that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs.
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of runs desired in one page.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   *
+   * @return A list of all Runs that satisfy search filter.
+   */
+  public RunsPage searchRuns(List<String> experimentIds,
+                              String searchFilter,
+                              ViewType runViewType,
+                              int maxResults,
+                              List<String> orderBy) {
+    return searchRuns(experimentIds, searchFilter, runViewType, maxResults, orderBy, null);
+  }
+
+  /**
+   * Return runs from provided list of experiments that satisfy the search query.
+   *
+   * @param experimentIds List of experiment IDs.
+   * @param searchFilter SQL compatible search query string. Format of this query string is
+   *                     similar to that specified on MLflow UI.
+   *                     Example : "params.model = 'LogisticRegression' and metrics.acc != 0.9"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param runViewType ViewType for expected runs. One of (ACTIVE_ONLY, DELETED_ONLY, ALL)
+   *                    If null, only runs with viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of runs desired in one page.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   * @param pageToken String token specifying the next page of results. It should be obtained from
+   *             a call to {@link #searchRuns(List, String)}.
+   *
+   * @return A page of Runs that satisfy the search filter.
+   */
+  public RunsPage searchRuns(List<String> experimentIds,
+                              String searchFilter,
+                              ViewType runViewType,
+                              int maxResults,
+                              List<String> orderBy,
+                              String pageToken) {
     SearchRuns.Builder builder = SearchRuns.newBuilder()
-      .addAllExperimentIds(experimentIds)
-      .addAllOrderBy(orderBy);
+            .addAllExperimentIds(experimentIds)
+            .addAllOrderBy(orderBy)
+            .setMaxResults(maxResults);
 
     if (searchFilter != null) {
       builder.setFilter(searchFilter);
@@ -183,10 +241,15 @@ public class MlflowClient {
     if (runViewType != null) {
       builder.setRunViewType(runViewType);
     }
+    if (pageToken != null) {
+      builder.setPageToken(pageToken);
+    }
     SearchRuns request = builder.build();
     String ijson = mapper.toJson(request);
     String ojson = sendPost("runs/search", ijson);
-    return mapper.toSearchRunsResponse(ojson).getRunsList();
+    SearchRuns.Response response = mapper.toSearchRunsResponse(ojson);
+    return new RunsPage(response.getRunsList(), response.getNextPageToken(), experimentIds,
+      searchFilter, runViewType, maxResults, orderBy, this);
   }
 
   /** @return  A list of all experiments. */
