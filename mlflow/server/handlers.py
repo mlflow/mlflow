@@ -51,6 +51,7 @@ for scheme in DATABASE_ENGINES:
 
 _tracking_store_registry.register_entrypoints()
 
+
 def _get_store(backend_store_uri=None, default_artifact_root=None):
     from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
     global _store
