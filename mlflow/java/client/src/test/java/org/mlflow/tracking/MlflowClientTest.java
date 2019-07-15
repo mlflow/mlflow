@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Optional;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Set;
@@ -251,7 +252,7 @@ public class MlflowClientTest {
     List<String> experimentIds = Arrays.asList(expId);
 
     // metrics based searches
-    List<Run> searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0");
+    List<RunInfo> searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0");
     Assert.assertEquals(searchResult.size(), 0);
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0");
@@ -261,16 +262,10 @@ public class MlflowClientTest {
     Assert.assertEquals(searchResult.size(), 0);
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score < 0.5");
-    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
-    Assert.assertEquals(searchResult.get(0).getData().getMetricsList().size(), 1);
-    Assert.assertEquals(searchResult.get(0).getData().getParamsList().size(), 2);
-    Assert.assertEquals(searchResult.get(0).getData().getTagsList().size(), 2);
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "metrics.accuracy_score > 0.5");
-    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_2);
-    Assert.assertEquals(searchResult.get(0).getData().getMetricsList().size(), 1);
-    Assert.assertEquals(searchResult.get(0).getData().getParamsList().size(), 2);
-    Assert.assertEquals(searchResult.get(0).getData().getTagsList().size(), 1);
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
 
     // parameter based searches
     searchResult = client.searchRuns(experimentIds,
@@ -280,33 +275,55 @@ public class MlflowClientTest {
             "params.min_samples_leaf != '" + MIN_SAMPLES_LEAF + "'");
     Assert.assertEquals(searchResult.size(), 0);
     searchResult = client.searchRuns(experimentIds, "params.max_depth = '5'");
-    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "params.max_depth = '15'");
-    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_2);
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
 
     // tag based search
     searchResult = client.searchRuns(experimentIds, "tag.user_email = '" + USER_EMAIL + "'");
-    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "tag.user_email != '" + USER_EMAIL + "'");
     Assert.assertEquals(searchResult.size(), 0);
 
     searchResult = client.searchRuns(experimentIds, "tag.test = 'works'");
-    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_1);
 
     searchResult = client.searchRuns(experimentIds, "tag.test = 'also works'");
-    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_2);
+    Assert.assertEquals(searchResult.get(0).getRunUuid(), runId_2);
 
-    searchResult = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
-      Lists.newArrayList("metrics.accuracy_score"));
-    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_1);
-    Assert.assertEquals(searchResult.get(1).getInfo().getRunUuid(), runId_2);
+    // Paged searchRuns
 
-    searchResult = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
-      Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC"));
-    Assert.assertEquals(searchResult.get(1).getInfo().getRunUuid(), runId_1);
-    Assert.assertEquals(searchResult.get(0).getInfo().getRunUuid(), runId_2);
+    List<Run> searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "", 
+            ViewType.ACTIVE_ONLY, 1000, Lists.newArrayList("metrics.accuracy_score")).getItems());
+    Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_1);
+    Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_2);
+
+    searchRuns = Lists.newArrayList(client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY,
+            1000, Lists.newArrayList("params.min_samples_leaf", "metrics.accuracy_score DESC"))
+            .getItems());
+    Assert.assertEquals(searchRuns.get(1).getInfo().getRunUuid(), runId_1);
+    Assert.assertEquals(searchRuns.get(0).getInfo().getRunUuid(), runId_2);
+
+    Page<Run> page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1000);
+    Assert.assertEquals(page.getPageSize(), 2);
+    Assert.assertEquals(page.hasNextPage(), false);
+    Assert.assertEquals(page.getNextPageToken(), Optional.empty());
+
+    page = client.searchRuns(experimentIds, "", ViewType.ACTIVE_ONLY, 1);
+    Assert.assertEquals(page.getPageSize(), 1);
+    Assert.assertEquals(page.hasNextPage(), true);
+    Assert.assertNotEquals(page.getNextPageToken(), Optional.empty());
+
+    Page<Run> page2 = page.getNextPage();
+    Assert.assertEquals(page2.getPageSize(), 1);
+    Assert.assertEquals(page2.hasNextPage(), false);
+    Assert.assertEquals(page2.getNextPageToken(), Optional.empty());
+    
+    Page<Run> page3 = page2.getNextPage();
+    Assert.assertEquals(page3.getPageSize(), 0);
+    Assert.assertEquals(page3.getNextPageToken(), Optional.empty());
   }
 
   @Test
