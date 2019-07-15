@@ -80,3 +80,39 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
             process.exec_cmd([conda_path, "env", "create", "-n", project_env_name, "python"],
                              stream_output=True)
     return project_env_name
+    
+
+def _get_conda_command(conda_env_name, direct_output_to_err=False):
+    conda_path = _get_conda_bin_executable("conda")
+    activate_path = _get_conda_bin_executable("activate")
+
+    try:
+        process.exec_cmd([conda_path, "--help"], throw_on_error=False)
+    except EnvironmentError:
+        raise ExecutionException("Could not find Conda executable at {0}. "
+                                 "Ensure Conda is installed as per the instructions "
+                                 "at https://conda.io/docs/user-guide/install/index.html. You can "
+                                 "also configure MLflow to look for a specific Conda executable "
+                                 "by setting the {1} environment variable to the path of the Conda "
+                                 "executable".format(conda_path, MLFLOW_CONDA_HOME))
+
+    (_, stdout, _) = process.exec_cmd([conda_path, "info", "--json"])
+    conda_env_version = json.loads(stdout)['conda_env_version']
+    conda_env_version_major = int(conda_env_version.split(".")[0])
+    conda_env_version_minor = int(conda_env_version.split(".")[1])
+
+    output_direct = ""
+    if direct_output_to_err:
+        output_direct = " 1>&2"
+
+    # in case os name is not 'nt', we are not running on windows. It introduces
+    # bash command otherwise.
+    if os.name != "nt" and (conda_env_version_major == 4 and conda_env_version_minor < 6):
+        return ["source %s %s%s" % (activate_path, conda_env_name, output_direct)]
+    else:
+        # TODO Need to fix, getting conda.sh is not simple
+        # As per https://github.com/conda/conda/issues/7126
+        # Notes: 
+        # 1. $(dirname $CONDA_EXE)/../etc/profile.d/conda.sh will break in cases where conda and conda.sh is in expected directories, ie. /usr/bin/conda, /etc/profile.d/conda.sh
+        # 2. $(dirname $CONDA_EXE)/activate <env> will not work if activate and deactivate does not stick around.
+        return ["source /etc/profile.d/conda.sh", "%s activate %s%s" % (conda_path, conda_env_name, output_direct)]
