@@ -281,7 +281,7 @@ def load_model(model_uri, suppress_warnings=False):
     return load_pyfunc(model_uri, suppress_warnings)
 
 
-@deprecated("pyfunc.load_model", 1.0)
+@deprecated("mlflow.pyfunc.load_model", 1.0)
 def load_pyfunc(model_uri, suppress_warnings=False):
     """
     Load a model stored in Python function format.

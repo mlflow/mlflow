@@ -1,3 +1,4 @@
+import warnings
 from functools import wraps
 
 
@@ -21,15 +22,29 @@ def deprecated(alternative=None, since=None):
     :param func: A function to mark
     :returns Decorated function.
     """
-    def deprecated_func(func):
+
+    def deprecated_decorator(func):
         since_str = " since %s" % since if since else ""
-        notice = ".. Warning:: Deprecated%s: This method will be removed in " % since_str + \
-                 "a near future release."
+        notice = (
+            ".. Warning:: ``{function_name}`` is deprecated{since_string}. This method will be"
+            " removed in a near future release".format(
+                function_name='.'.join([func.__module__, func.__name__]),
+                since_string=since_str)
+        )
         if alternative is not None and alternative.strip():
             notice += " Use ``%s`` instead." % alternative
-        func.__doc__ = notice + "\n" + func.__doc__
-        return func
-    return deprecated_func
+
+        @wraps(func)
+        def deprecated_func(*args, **kwargs):
+            warnings.warn(notice, category=DeprecationWarning, stacklevel=2)
+            return func(*args, **kwargs)
+
+        if func.__doc__ is not None:
+            deprecated_func.__doc__ = notice + "\n" + func.__doc__
+
+        return deprecated_func
+
+    return deprecated_decorator
 
 
 def keyword_only(func):
