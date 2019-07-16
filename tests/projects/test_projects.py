@@ -164,11 +164,17 @@ def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
     # Verify we throw an exception when conda is unavailable
     old_path = os.environ["PATH"]
     env.unset_variable("PATH")
+    conda_exe_path = ''
+    if "CONDA_EXE" in os.environ:
+        conda_exe_path = os.environ["CONDA_EXE"]
+        env.unset_variable("CONDA_EXE")
     try:
         with pytest.raises(ExecutionException):
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
     finally:
         os.environ["PATH"] = old_path
+        if conda_exe_path:
+            os.environ["CONDA_EXE"] = conda_exe_path
 
 
 def test_is_valid_branch_name(local_git_repo):
@@ -330,7 +336,7 @@ def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
 @pytest.mark.parametrize(
     "mock_env,expected_conda,expected_activate",
     [
-        ({}, "conda", "activate"),
+        ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
         ({mlflow.projects.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
          "/some/dir/bin/activate")
     ]

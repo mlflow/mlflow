@@ -232,5 +232,6 @@ class TestRestStore(unittest.TestCase):
                                   message_to_json(expected_message))
             assert result.token == "67890fghij"
 
+
 if __name__ == '__main__':
     unittest.main()
