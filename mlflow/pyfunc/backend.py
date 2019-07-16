@@ -127,12 +127,15 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
         command_env = os.environ
     env_id = os.environ.get("MLFLOW_HOME", VERSION) if install_mlflow else None
     conda_env_name = _get_or_create_conda_env(conda_env_path, env_id=env_id)
-    conda_path = _get_conda_bin_executable("conda")
-    activate_conda_env = []
-    if conda_path != 'conda':
+    #  Checking for newer conda versions
+    if 'CONDA_EXE' in os.environ or 'MLFLOW_CONDA_HOME' in os.environ:
+        conda_path = _get_conda_bin_executable("conda")
         activate_conda_env = ['source ' + os.path.dirname(conda_path) +
                               '/../etc/profile.d/conda.sh']
-    activate_conda_env += ["conda activate {0} 1>&2".format(conda_env_name)]
+        activate_conda_env += ["conda activate {0} 1>&2".format(conda_env_name)]
+    else:
+        activate_path = _get_conda_bin_executable("activate")
+        activate_conda_env = ["source {0} {1} 1>&2".format(activate_path, conda_env_name)]
     if install_mlflow:
         if "MLFLOW_HOME" in os.environ:  # dev version
             install_mlflow = "pip install -e {} 1>&2".format(os.environ["MLFLOW_HOME"])
