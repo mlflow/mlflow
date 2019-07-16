@@ -530,6 +530,34 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
+    def test_set_experiment_tag(self):
+        exp_id = self._experiment_factory('setExperimentTagExp')
+        tag = entities.ExperimentTag("tag0", "value0")
+        new_tag = entities.RunTag("tag0", "value00000")
+        self.store.set_experiment_tag(exp_id, tag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["tag0"] == "value0")
+        # test that updating a tag works
+        self.store.set_experiment_tag(exp_id, new_tag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        # test that setting a tag on 1 experiment does not impact another experiment.
+        exp_id_2 = self._experiment_factory('setExperimentTagExp2')
+        experiment2 = self.store.get_experiment(exp_id_2)
+        self.assertTrue(len(experiment2.tags) == 0)
+        # test that setting a tag on different experiments maintain different values across experiments
+        different_tag = entities.RunTag("tag0", "differentValue")
+        self.store.set_experiment_tag(exp_id_2, different_tag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        experiment2 = self.store.get_experiment(exp_id_2)
+        self.assertTrue(experiment2.tags["tag0"] == "differentValue")
+        # test can set multi-line tags
+        multiLineTag = entities.ExperimentTag("multiline_tag", "value2\nvalue2\nvalue2")
+        self.store.set_experiment_tag(exp_id, multiLineTag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
+
     def test_set_tag(self):
         run = self._run_factory()
 

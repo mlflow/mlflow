@@ -9,7 +9,7 @@ import sqlalchemy
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.dbmodels.db_types import MYSQL
-from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
+from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag, SqlExperimentTag
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
@@ -80,9 +80,13 @@ class SqlAlchemyStore(AbstractStore):
             SqlRun.__tablename__,
             SqlMetric.__tablename__,
             SqlParam.__tablename__,
-            SqlTag.__tablename__
+            SqlTag.__tablename__,
+            SqlExperimentTag.__tablename__
         ])
         if len(expected_tables & set(insp.get_table_names())) == 0:
+            print('TRIGGERED')
+            print(insp.get_table_names())
+            print(expected_tables)
             SqlAlchemyStore._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
@@ -365,6 +369,12 @@ class SqlAlchemyStore(AbstractStore):
                                   .format(run.run_uuid, run.lifecycle_stage),
                                   INVALID_PARAMETER_VALUE)
 
+    def _check_experiment_is_active(self, experiment):
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException("The experiment {} must be in 'active' state. Current state is {}."
+                                  .format(experiment.experiment_id, experiment.lifecycle_stage),
+                                  INVALID_PARAMETER_VALUE)
+
     def _check_run_is_deleted(self, run):
         if run.lifecycle_stage != LifecycleStage.DELETED:
             raise MlflowException("The run {} must be in 'deleted' state. Current state is {}."
@@ -457,7 +467,24 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     raise
 
+    def set_experiment_tag(self, experiment_id, tag):
+        """
+        Set a tag for the specified experiment
+
+        :param experiment_id: String ID of the experiment
+        :param tag: ExperimentRunTag instance to log
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self._get_experiment(session, experiment_id, ViewType.ALL).to_mlflow_entity()
+            self._check_experiment_is_active(experiment)
+            session.merge(SqlExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value))
+
     def set_tag(self, run_id, tag):
+        """
+        Set a tag on a run.
+        :param run_id: String ID of the run
+        :param tag: RunTag instance to log
+        """
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
