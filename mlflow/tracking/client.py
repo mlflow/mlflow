@@ -5,6 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import time
+import os
 from six import iteritems
 
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
@@ -218,7 +219,10 @@ class MlflowClient(object):
         """
         run = self.get_run(run_id)
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.log_artifact(local_path, artifact_path)
+        if os.path.isdir(local_path):
+            artifact_repo.log_artifacts(local_path, artifact_path)
+        else:
+            artifact_repo.log_artifact(local_path, artifact_path)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """
