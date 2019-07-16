@@ -18,7 +18,7 @@ The syntax does not support ``OR``. Each expression has three parts: an identifi
 the left-hand side (LHS), a comparator, and constant on the right-hand side (RHS).
 
 Example Expressions
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^
 
 - Search for the subset of runs with logged accuracy metric greater than 0.92.
 
@@ -42,14 +42,18 @@ Example Expressions
 Identifier
 ^^^^^^^^^^
 
-Required in the LHS of a search expression. Signifies an entity to compare against. An identifier has two
-parts separated by a period: the type of the entity and the name of the entity. 
-The type of the entity is ``metrics``, ``params``, ``tags``, or ``attributes``. The entity name can
-contain alphanumeric characters and special characters.
-For example: ``metrics.accuracy``.
+Required in the LHS of a search expression. Signifies an entity to compare against. 
 
-Entity Name Contains Special Characters
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+An identifier has two parts separated by a period: the type of the entity and the name of the entity. The type of the entity is ``metrics``, ``params``, ``attributes``, or ``tag``. The entity name can contain alphanumeric characters and special characters.
+
+This section describes supported entity names and how to specify such names in search expressions.
+
+.. contents:: In this section:
+  :local:
+  :depth: 1
+
+Entity Names Containing Special Characters
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When a metric, parameter, or tag name contains a special character like hyphen, space, period, and so on,
 enclose the entity name in double quotes or backticks.
@@ -62,49 +66,59 @@ enclose the entity name in double quotes or backticks.
 
 .. code-block:: sql
 
-  metrics."error rate"
+  metrics.`error rate`
 
 
-Entity Name Starts with a Number
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Entity Names Starting with a Number
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Unlike SQL syntax for column names, MLflow allows logging metrics, parameters, and tags with names
-that have a leading number. If an entity name contains a leading number, enclose the entity name in double quotes. 
-For example:
+Unlike SQL syntax for column names, MLflow allows logging metrics, parameters, and tags names
+that have a leading number. If an entity name contains a leading number, enclose the entity name in double quotes. For example:
 
 .. code-block:: sql
 
   metrics."2019-04-02 error rate"
 
 
-Searching by MLflow Tags
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-You can also search for the name of an MLflow run and other tags that MLflow tracks internally. To format the search query, you will have to search using the tag ``tag."mlflow.runName"``. Wrapping ```mlflow.runName``` in backticks instead of double quotes also works.
-Other searchable MLflow specific tags can be found at :ref:`system_tags`. MLflow inside Dataricks currently does not support searching by User or ``tag."mlflow.user"``.
-This functionality will come in a future release.
-
-.. rubric:: Example
-
-.. code-block:: sql
-
-  tags."mlflow.runName" = "keras-hyperparam-search"
-
-.. code-block:: sql
-
-  tags.`mlflow.parentRunId` = "f1e4beff214688d45a4b6f0a8dee"
-
-
 Run Attributes
 ~~~~~~~~~~~~~~
 
-The search syntax supports searching runs using two attributes: ``status`` and ``artifact_uri``. Both attributes have string values. Other fields in :py:class:`mlflow.entities.RunInfo` are :ref:`system_tags` that are searchable using the UI and the API. The search returns an error if you use other attribute names in the filter string. 
+You can search using two run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``status`` and ``artifact_uri``. Both attributes have string values. 
+
+Other fields in ``mlflow.entities.RunInfo`` are :ref:`MLflow tags <system_tags>` that are searchable as ``tag`` identifiers (see :ref:`mlflow_tags` below); search returns an error if you use these names in the ``attributes`` identifier. 
 
 .. note::
   
   - The experiment ID is implicitly selected by the search API. 
   - A run's ``lifecycle_stage`` attribute is not allowed because it is already encoded as a part of the API's ``run_view_type`` field. To search for runs using ``run_id``, it is more efficient to use ``get_run`` APIs. 
   - The ``start_time`` and ``end_time`` attributes are not supported.
+  
+.. rubric:: Example
+
+.. code-block:: sql
+
+  attributes.artifact_uri
+
+
+.. _mlflow_tags:
+
+MLflow Tags
+~~~~~~~~~~~
+
+You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search for the name of an MLflow run, specify ``tag."mlflow.runName"`` or ``tag.`mlflow.runName```. 
+
+.. note:: Search on Databricks does not support searching for a user (``tag."mlflow.user"``).
+
+.. rubric:: Examples
+
+.. code-block:: sql
+
+  tag."mlflow.runName"
+
+.. code-block:: sql
+
+  tag.`mlflow.parentRunId`
+
 
 Comparator
 ^^^^^^^^^^
@@ -112,7 +126,7 @@ Comparator
 There are two classes of comparators: numeric and string.
 
 - Numeric comparators (``metrics``): ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-- String comparators (``params``, ``tags``, and ``attributes``): ``=`` and ``!=``.
+- String comparators (``params``, ``tag``, and ``attributes``): ``=`` and ``!=``.
 
 Constant
 ^^^^^^^^
