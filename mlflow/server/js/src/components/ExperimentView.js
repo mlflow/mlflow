@@ -323,7 +323,7 @@ export class ExperimentView extends Component {
             <div className="ExperimentView-search-inputs">
               <div className="ExperimentView-search">
                 <div className="ExperimentView-search-input">
-                  <label className="filter-label">Search Expression:</label>
+                  <label className="filter-label">Search Runs:</label>
                   <div className="filter-wrapper">
                     <input
                       className="ExperimentView-searchInput"
@@ -375,7 +375,7 @@ export class ExperimentView extends Component {
               </div>
               <div className="ExperimentView-keyFilters">
                 <div className="ExperimentView-paramKeyFilter">
-                  <label className="filter-label">Params:</label>
+                  <label className="filter-label">Filter Params:</label>
                   <div className="filter-wrapper">
                     <input type="text"
                            placeholder="alpha, lr"
@@ -385,8 +385,8 @@ export class ExperimentView extends Component {
                   </div>
                 </div>
                 <div className="ExperimentView-metricKeyFilter">
-                  <label className="filter-label">Metrics:</label>
-                  <div className="filter-wrapper">
+                  <label className="filter-label metrics-filter-label">Filter Metrics:</label>
+                  <div className="filter-wrapper metrics-filter-wrapper">
                     <input type="text"
                            placeholder="rmse, r2"
                            value={this.state.metricKeyFilterInput}
