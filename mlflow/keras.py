@@ -15,7 +15,6 @@ import os
 import yaml
 import gorilla
 import warnings
-import keras
 from keras.callbacks import Callback
 
 import pandas as pd
@@ -345,9 +344,9 @@ class __MLflowKerasCallback(Callback):
             mlflow.log_param('num_layers', len(self.model.layers))
             mlflow.log_param('optimizer_name', type(self.model.optimizer).__name__)
             if hasattr(self.model.optimizer, 'lr'):
-                mlflow.log_param('learning_rate', keras.backend.eval(self.model.optimizer.lr))
+                mlflow.log_param('learning_rate', self.model.optimizer.lr)
             if hasattr(self.model.optimizer, 'epsilon'):
-                mlflow.log_param('epsilon', keras.backend.eval(self.model.optimizer.epsilon))
+                mlflow.log_param('epsilon', self.model.optimizer.epsilon)
             sum_list = []
             self.model.summary(print_fn=sum_list.append)
             summary = '\n'.join(sum_list)
