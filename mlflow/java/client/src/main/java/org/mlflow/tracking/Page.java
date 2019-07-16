@@ -3,7 +3,7 @@ package org.mlflow.tracking;
 import java.lang.Iterable;
 import java.util.Optional;
 
-interface Page<E> {
+public interface Page<E> {
 
   /**
    * @return The number of elements in this page.
