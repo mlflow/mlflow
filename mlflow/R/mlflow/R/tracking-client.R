@@ -100,7 +100,7 @@ get_env_var <- function(x) {
     old_name <- paste("MLFLOW_", x, sep="")
     res <- Sys.getenv(old_name, NA)
     if (!is.na(res)) {
-      warning(paste("'", old_name, "' is deprectaed. Please use '", new_name, "' instead."), sep="")
+      warning(paste("'", old_name, "' is deprecated. Please use '", new_name, "' instead."), sep="")
     }
   }
   res
