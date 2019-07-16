@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: ""
+  name: "{replaced with MLflow Project name}"
   namespace: mlflow
 spec:
   ttlSecondsAfterFinished: 100
@@ -9,9 +9,9 @@ spec:
   template:
     spec:
       containers:
-      - name: "name"
-        image: "image"
-        command: ["cmd"]
+      - name: "{replaced with MLflow Project name}"
+        image: "{replaced with URI of Docker image created during Project execution}"
+        command: ["{replaced with MLflow Project entry point command}"]
       resources:
         limits:
           memory: 512Mi
