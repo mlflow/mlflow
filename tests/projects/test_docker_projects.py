@@ -7,9 +7,9 @@ from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow.entities import ViewType
-from mlflow.projects import ExecutionException, _get_docker_tag_name
+from mlflow.projects import ExecutionException, _get_docker_image_uri
 from mlflow.store import file_store
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID
 
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
@@ -46,7 +46,7 @@ def test_docker_project_execution(
     assert run.data.metrics == {"some_key": 3}
     exact_expected_tags = {MLFLOW_PROJECT_ENV: "docker"}
     approx_expected_tags = {
-        MLFLOW_DOCKER_IMAGE_NAME: "docker-example",
+        MLFLOW_DOCKER_IMAGE_URI: "docker-example",
         MLFLOW_DOCKER_IMAGE_ID: "sha256:",
     }
     run_tags = run.data.tags
@@ -92,18 +92,18 @@ def test_docker_uri_mode_validation(tracking_uri_mock):  # pylint: disable=unuse
 
 
 @mock.patch('mlflow.projects._get_git_commit')
-def test_docker_tag_name_with_git(get_git_commit_mock):
+def test_docker_image_uri_with_git(get_git_commit_mock):
     get_git_commit_mock.return_value = '1234567890'
-    tag_name = _get_docker_tag_name("my_project", "my_workdir")
-    assert tag_name == "my_project:1234567"
+    image_uri = _get_docker_image_uri("my_project", "my_workdir")
+    assert image_uri == "my_project:1234567"
     get_git_commit_mock.assert_called_with('my_workdir')
 
 
 @mock.patch('mlflow.projects._get_git_commit')
-def test_docker_tag_name_no_git(get_git_commit_mock):
+def test_docker_image_uri_no_git(get_git_commit_mock):
     get_git_commit_mock.return_value = None
-    tag_name = _get_docker_tag_name("my_project", "my_workdir")
-    assert tag_name == "my_project"
+    image_uri = _get_docker_image_uri("my_project", "my_workdir")
+    assert image_uri == "my_project"
     get_git_commit_mock.assert_called_with('my_workdir')
 
 
