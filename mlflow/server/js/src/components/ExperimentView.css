@@ -114,22 +114,13 @@
 }
 
 .ExperimentView-search-controls .filter-label {
-  width: 84px; /* COMMON_FILTER_LABEL_WIDTH */
+  width: 92px;
   float: left;
   margin-top: 6px;
 }
 
 .ExperimentView-search-controls .filter-wrapper {
-  margin-left: 84px; /* same as COMMON_FILTER_LABEL_WIDTH */
-}
-
-.ExperimentView-search-controls .ExperimentView-metricKeyFilter .filter-label {
-  width: 70px; /* METRICS_FILTER_LABEL_WIDTH */
-  padding-left: 12px;
-}
-
-.ExperimentView-search-controls .ExperimentView-metricKeyFilter .filter-wrapper {
-  margin-left: 70px; /* same as METRICS_FILTER_LABEL_WIDTH */
+  margin-left: 92px;
 }
 
 .ExperimentView-search-controls input {
