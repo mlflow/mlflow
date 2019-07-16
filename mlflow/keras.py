@@ -15,7 +15,6 @@ import os
 import yaml
 import gorilla
 import warnings
-from keras.callbacks import Callback
 
 import pandas as pd
 
@@ -318,49 +317,42 @@ def load_model(model_uri, **kwargs):
     return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, **kwargs)
 
 
-class __MLflowKerasCallback(Callback):
-    """
-    Callback for auto-logging metrics and parameters.
-    Records available logs after each epoch.
-    Records model structural information as params after training finishes.
-    """
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        pass
-
-    def on_epoch_end(self, epoch, logs=None):
-        if not logs:
-            return
-        try:
-            mlflow.log_metrics(logs, step=epoch)
-        except mlflow.exceptions.MlflowException as e:
-            warnings.warn("Logging to MLflow failed: " + str(e))
-
-    def on_train_end(self, logs=None):
-        try:
-            mlflow.log_param('num_layers', len(self.model.layers))
-            mlflow.log_param('optimizer_name', type(self.model.optimizer).__name__)
-            if hasattr(self.model.optimizer, 'lr'):
-                mlflow.log_param('learning_rate', self.model.optimizer.lr)
-            if hasattr(self.model.optimizer, 'epsilon'):
-                mlflow.log_param('epsilon', self.model.optimizer.epsilon)
-            sum_list = []
-            self.model.summary(print_fn=sum_list.append)
-            summary = '\n'.join(sum_list)
-            mlflow.set_tag('summary', summary)
-            log_model(self.model, artifact_path='model')
-        except mlflow.exceptions.MlflowException as e:
-            warnings.warn("Logging to Mlflow failed: " + str(e))
-
-
 def autolog():
     """
     Enable auto-logging from Keras to MLflow.
     """
     import keras
+
+    class __MLflowKerasCallback(keras.callbacks.Callback):
+        """
+        Callback for auto-logging metrics and parameters.
+        Records available logs after each epoch.
+        Records model structural information as params after training finishes.
+        """
+
+        def on_epoch_end(self, epoch, logs=None):
+            if not logs:
+                return
+            try:
+                mlflow.log_metrics(logs, step=epoch)
+            except mlflow.exceptions.MlflowException as e:
+                warnings.warn("Logging to MLflow failed: " + str(e))
+
+        def on_train_end(self, logs=None):
+            try:
+                mlflow.log_param('num_layers', len(self.model.layers))
+                mlflow.log_param('optimizer_name', type(self.model.optimizer).__name__)
+                if hasattr(self.model.optimizer, 'lr'):
+                    mlflow.log_param('learning_rate', self.model.optimizer.lr)
+                if hasattr(self.model.optimizer, 'epsilon'):
+                    mlflow.log_param('epsilon', self.model.optimizer.epsilon)
+                sum_list = []
+                self.model.summary(print_fn=sum_list.append)
+                summary = '\n'.join(sum_list)
+                mlflow.set_tag('summary', summary)
+                log_model(self.model, artifact_path='model')
+            except mlflow.exceptions.MlflowException as e:
+                warnings.warn("Logging to Mlflow failed: " + str(e))
 
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):
