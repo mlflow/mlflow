@@ -96,21 +96,25 @@ class ShowArtifactNbView extends Component {
                                         outputs.map((output, index) => (
                                             <Output output={output} key={index}>
                                               <StreamText />
-                                              <KernelOutputError />
                                               <ExecuteResult>
+                                                <Media.Image mediaType="image/jpeg"/>
+                                                <Media.Image mediaType="image/gif"/>
                                                 <Media.Image mediaType="image/png"/>
                                                 <Media.HTML />
-                                                <Media.Plain />
                                                 <Media.Json />
                                                 <Media.JavaScript />
+                                                <Media.Plain />
                                               </ExecuteResult>
                                               <DisplayData>
+                                                <Media.Image mediaType="image/jpeg"/>
+                                                <Media.Image mediaType="image/gif"/>
                                                 <Media.Image mediaType="image/png"/>
                                                 <Media.HTML />
-                                                <Media.Plain />
                                                 <Media.Json />
                                                 <Media.JavaScript />
+                                                <Media.Plain />
                                               </DisplayData>
+                                              <KernelOutputError />
                                             </Output>
                                         ))
                                         : null
