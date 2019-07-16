@@ -55,6 +55,7 @@
 
 .ExperimentView-search-controls {
   margin-top: 8px;
+  min-width: 800px;
 }
 
 .ExperimentView-run-buttons{
