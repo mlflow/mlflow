@@ -231,13 +231,12 @@ export class ExperimentPage extends Component {
             if (shouldRenderError) {
               const searchRunsRequest = Utils.getRequestWithId(
                 requests, this.searchRunsRequestId);
-              if (searchRunsRequest.error) {
-                searchRunsError = searchRunsRequest.error.getMessageField();
-              } else if (getExperimentRequest.error.getErrorCode() ===
-                  ErrorCodes.PERMISSION_DENIED) {
+              if (getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
                 return (<PermissionDeniedView
                   errorMessage={getExperimentRequest.error.xhr.responseJSON.message}
                 />);
+              } else if (searchRunsRequest.error) {
+                searchRunsError = searchRunsRequest.error.getMessageField();
               } else {
                 return undefined;
               }
