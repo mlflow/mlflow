@@ -309,6 +309,8 @@ public class MlflowClientTest {
     assertMetric(metrics, "multi_log_default_step_ts", -1.0);
     assertMetric(metrics, "multi_log_specified_step_ts", -3.0);
     assertMetric(metrics, "nan_metric", Double.NaN);
+    assertMetric(metrics, ""pos_inf"", Double.MAX_VALUE);
+    assertMetric(metrics, "neg_inf", -Double.MAX_VALUE);
     assert(metrics.get(0).getTimestamp() > 0) : metrics.get(0).getTimestamp();
 
     List<Metric> multiDefaultMetricHistory = client.getMetricHistory(
