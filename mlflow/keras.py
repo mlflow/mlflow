@@ -83,7 +83,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                             ]
                         }
     :param mlflow_model: MLflow model config this flavor is being added to.
-    :param custom_objects: Keras ``custom_objects`` dictionary containing a dictionary mapping
+    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
                            names (strings) to custom classes or functions to be considered
                            during deserialization. MLflow saves these custom layers using
                            CloudPickle and restores them automatically when the model is
@@ -186,7 +186,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                                 'tensorflow=1.8.0'
                             ]
                         }
-    :param custom_objects: Keras ``custom_objects`` dictionary containing a dictionary mapping
+    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
                            names (strings) to custom classes or functions to be considered
                            during deserialization. MLflow saves these custom layers using
                            CloudPickle and restores them automatically when the model is
@@ -218,7 +218,7 @@ def _save_custom_objects(path, custom_objects):
     Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
 
     :param path: An absolute path that points to the data directory within /path/to/model.
-    :param custom_objects: Keras ``custom_objects`` dictionary containing a dictionary mapping
+    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
                            names (strings) to custom classes or functions to be considered
                            during deserialization. MLflow saves these custom layers using
                            CloudPickle and restores them automatically when the model is
