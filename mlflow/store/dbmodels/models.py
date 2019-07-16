@@ -74,7 +74,8 @@ class SqlExperiment(Base):
             experiment_id=str(self.experiment_id),
             name=self.name,
             artifact_location=self.artifact_location,
-            lifecycle_stage=self.lifecycle_stage)
+            lifecycle_stage=self.lifecycle_stage,
+            tags=[t.to_mlflow_entity() for t in self.tags])
 
 
 class SqlRun(Base):

@@ -553,7 +553,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         experiment2 = self.store.get_experiment(exp_id_2)
         self.assertTrue(experiment2.tags["tag0"] == "differentValue")
         # test can set multi-line tags
-        multiLineTag = entities.ExperimentTag("multiline_tag", "value2\nvalue2\nvalue2")
+        multiLineTag = entities.ExperimentTag("multiline tag", "value2\nvalue2\nvalue2")
         self.store.set_experiment_tag(exp_id, multiLineTag)
         experiment = self.store.get_experiment(exp_id)
         self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
