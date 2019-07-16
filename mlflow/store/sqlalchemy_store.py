@@ -84,9 +84,6 @@ class SqlAlchemyStore(AbstractStore):
             SqlExperimentTag.__tablename__
         ])
         if len(expected_tables & set(insp.get_table_names())) == 0:
-            print('TRIGGERED')
-            print(insp.get_table_names())
-            print(expected_tables)
             SqlAlchemyStore._initialize_tables(self.engine)
         Base.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
