@@ -1,6 +1,7 @@
 import React from 'react';
 import qs from 'qs';
 import { shallow } from 'enzyme';
+import ErrorCodes from '../sdk/ErrorCodes';
 import { ExperimentPage } from './ExperimentPage';
 import { ViewType } from '../sdk/MlflowEnums';
 
@@ -105,6 +106,17 @@ test('Loading state with all URL params', () => {
   expect(state.persistedState.searchInput).toEqual("c");
   expect(state.persistedState.orderByKey).toEqual("d");
   expect(state.persistedState.orderByAsc).toEqual(false);
+});
+
+test('should render permission denied view when getExperiment yields permission error', () => {
+  getExperimentApi = jest.fn(() => Promise.resolve({
+    error_code: ErrorCodes.PERMISSION_DENIED,
+    message: "User 'corey.zumar@databricks.com' does not have permission to 'View' experiment with id 772"
+  }));
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  const rendered = instance.render();
+  console.log(rendered.props.children[0]);
 });
 
 test('should update next page token initially', () => {
