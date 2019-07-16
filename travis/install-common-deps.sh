@@ -13,7 +13,7 @@ else
 fi
 
 bash /travis-install/miniconda.sh -b -p $HOME/miniconda
-source ~/.bash_profile
+source ~/.bashrc
 hash -r
 conda config --set always_yes yes --set changeps1 no
 # Useful for debugging any issues with conda
