@@ -83,11 +83,10 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                             ]
                         }
     :param mlflow_model: MLflow model config this flavor is being added to.
-    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
-                           names (strings) to custom classes or functions to be considered
-                           during deserialization. MLflow saves these custom layers using
-                           CloudPickle and restores them automatically when the model is
-                           loaded with :py:func:`mlflow.keras.load_model` and
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions required by the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
     :param keras_module: Keras module to be used to save / load the model
                          (``keras`` or ``tf.keras``). If not provided, MLflow will
@@ -186,11 +185,10 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                                 'tensorflow=1.8.0'
                             ]
                         }
-    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
-                           names (strings) to custom classes or functions to be considered
-                           during deserialization. MLflow saves these custom layers using
-                           CloudPickle and restores them automatically when the model is
-                           loaded with :py:func:`mlflow.keras.load_model` and
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions required by the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
                            :py:func:`mlflow.pyfunc.load_model`.
     :param keras_module: Keras module to be used to save / load the model
                          (``keras`` or ``tf.keras``). If not provided, MLflow will
