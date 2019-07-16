@@ -336,7 +336,7 @@ def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
 @pytest.mark.parametrize(
     "mock_env,expected_conda,expected_activate",
     [
-        ({"CONDA_EXE": ""}, "conda", "activate"),
+        ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
         ({mlflow.projects.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
          "/some/dir/bin/activate")
     ]
