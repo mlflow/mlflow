@@ -10,6 +10,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 import math
 
+
 class SearchUtils(object):
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
     VALID_PARAM_COMPARATORS = set(['!=', '='])
@@ -259,6 +260,7 @@ class SearchUtils(object):
 
         def run_matches(run):
             return all([cls._does_run_match_clause(run, s) for s in parsed])
+
         return [run for run in runs if run_matches(run)]
 
     @classmethod
