@@ -25,6 +25,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.annotations import experimental
 
 
 FLAVOR_NAME = "keras"
@@ -317,9 +318,13 @@ def load_model(model_uri, **kwargs):
     return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, **kwargs)
 
 
+@experimental
 def autolog():
     """
-    Enable auto-logging from Keras to MLflow.
+    Enable automatic logging from TensorFlow to MLflow.
+    Logs loss and any other metrics specified in the fit
+    function, and optimizer data as parameters. Model checkpoints
+    are logged as artifacts to a 'models' directory.
     """
     import keras
 
