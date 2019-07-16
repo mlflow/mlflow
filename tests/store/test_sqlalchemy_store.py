@@ -23,7 +23,7 @@ from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils import extract_db_type_from_uri
+from mlflow.utils import extract_db_type_from_uri, mlflow_tags
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
@@ -696,6 +696,39 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         exps = [experiment_id] if isinstance(experiment_id, int) else experiment_id
         return [r.info.run_id
                 for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)]
+
+    def test_order_by_metric(self):
+        experiment_id = self.store.create_experiment('order_by_metric')
+
+        def create_and_log_run(name):
+            run_id = self.store.create_run(
+                experiment_id,
+                user_id="MrDuck",
+                start_time=123,
+                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name)]).info.run_id
+            self.store.log_metric(run_id, entities.Metric("x", float(name), 1, 0))
+            return run_id
+
+        for name in ["nan", "inf", "-inf", "-1000", "0", "1000"]:
+            create_and_log_run(name)
+
+        # asc
+        sorted_runs_asc = [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=["metrics.x asc"])]
+
+        assert ["-inf", "-1000", "0", "1000", "inf", "nan"] == sorted_runs_asc
+        # desc
+        sorted_runs_desc = [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=["metrics.x desc"])]
+        assert ["inf", "1000", "0", "-1000", "-inf", "nan"] == sorted_runs_desc
 
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
