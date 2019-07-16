@@ -16,6 +16,15 @@ CREATE TABLE experiments (
 )
 
 
+CREATE TABLE experiment_tags (
+	key VARCHAR(250) NOT NULL, 
+	value VARCHAR(250), 
+	experiment_id INTEGER NOT NULL, 
+	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id), 
+	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
 CREATE TABLE runs (
 	run_uuid VARCHAR(32) NOT NULL, 
 	name VARCHAR(250), 
@@ -32,8 +41,8 @@ CREATE TABLE runs (
 	experiment_id INTEGER, 
 	CONSTRAINT run_pk PRIMARY KEY (run_uuid), 
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id), 
-	CONSTRAINT status CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING')), 
 	CONSTRAINT source_type CHECK (source_type IN ('NOTEBOOK', 'JOB', 'LOCAL', 'UNKNOWN', 'PROJECT')), 
+	CONSTRAINT status CHECK (status IN ('SCHEDULED', 'FAILED', 'FINISHED', 'RUNNING')), 
 	CONSTRAINT runs_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
 )
 
