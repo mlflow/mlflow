@@ -27,7 +27,7 @@ def deprecated(alternative=None, since=None):
         since_str = " since %s" % since if since else ""
         notice = (
             ".. Warning:: ``{function_name}`` is deprecated{since_string}. This method will be"
-            " removed in a near future release".format(
+            " removed in a near future release.".format(
                 function_name='.'.join([func.__module__, func.__name__]),
                 since_string=since_str)
         )
