@@ -652,7 +652,10 @@ def _invoke_mlflow_run_subprocess(
 def _get_conda_command(conda_env_name):
     conda_path = _get_conda_bin_executable("conda")
     activate_conda_env = []
-    activate_conda_env += ["{0} activate {1}".format(conda_path, conda_env_name)]
+    if conda_path != 'conda':
+        activate_conda_env = ['source ' + os.path.dirname(conda_path) +
+                              '/../etc/profile.d/conda.sh']
+    activate_conda_env += ["conda activate {0}".format(conda_env_name)]
     return activate_conda_env
 
 
