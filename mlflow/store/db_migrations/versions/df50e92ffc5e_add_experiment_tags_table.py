@@ -7,8 +7,7 @@ Create Date: 2019-07-15 17:46:42.704214
 """
 from alembic import op
 import sqlalchemy as sa
-from mlflow.store.dbmodels.models import Base
-target_metadata = Base.metadata
+from mlflow.store.dbmodels.models import SqlExperimentTag
 
 # revision identifiers, used by Alembic.
 revision = 'df50e92ffc5e'
@@ -18,8 +17,9 @@ depends_on = None
 
 
 def upgrade():
-    schema = target_metadata.tables['experiment_tags']
-    print(schema)
+    op.create_table(SqlExperimentTag.__tablename__,
+        *SqlExperimentTag.__table__.columns
+    )
 
 
 def downgrade():
