@@ -156,6 +156,9 @@ The following table details auto-logging capabilities for different TensorFlow w
 | TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                               |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
 
+For Keras, loss and any metrics specified in the ``metrics`` argument of ``keras.model.fit`` are logged
+as metrics. Learning rate, optimizer name and epsilon are logged as parameters. Model checkpointing
+(as a Keras model) occurs once at training end.
 
 Launching Multiple Runs in One Program
 --------------------------------------
