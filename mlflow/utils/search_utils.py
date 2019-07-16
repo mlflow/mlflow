@@ -306,7 +306,7 @@ class SearchUtils(object):
                                   error_code=INVALID_PARAMETER_VALUE)
 
         # Return a key such that None values are always at the end.
-        is_null_or_nan = sort_value is None or math.isnan(sort_value)
+        is_null_or_nan = sort_value is None or isinstance(sort_value, float) and math.isnan(sort_value)
         if ascending:
             return (is_null_or_nan, sort_value)
         return (not is_null_or_nan, sort_value)
