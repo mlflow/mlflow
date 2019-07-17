@@ -318,10 +318,8 @@ test_that("mlflow_log_batch() works", {
     metrics$key,
     c("mse", "rmse", "nan", "Inf", "-Inf")
   )
-  expect_setequal(
-    metrics$value[metrics$name %in% c("mse", "rmse")],
-    c(23, 42)
-  )
+  expect_equal(23, metrics$value[metrics$key == "mse"])
+  expect_equal(42, metrics$value[metrics$key == "rmse"])
   expect_true(all(is.nan(metrics$value[metrics$key == "nan"])))
   expect_true(all(1.7976931348623157e308 <= (metrics$value[metrics$key == "Inf"])))
   expect_true(all(-1.7976931348623157e308 >= (metrics$value[metrics$key == "-Inf"])))

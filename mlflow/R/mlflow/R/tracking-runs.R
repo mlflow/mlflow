@@ -158,6 +158,11 @@ mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id 
   invisible(NULL)
 }
 
+has_nas <- function(df) {
+  any(is.na(df[, which(names(df) != "value")])) ||
+  any(is.na(df$value) & !is.nan(df$value))
+}
+
 validate_batch_input <- function(input_type, input_dataframe, expected_column_names) {
   if (is.null(input_dataframe)) {
     return()
@@ -169,7 +174,7 @@ validate_batch_input <- function(input_type, input_dataframe, expected_column_na
                  paste(names(input_dataframe), collapse = ", "),
                  sep = "")
     stop(msg, call. = FALSE)
-  } else if (any(is.na(input_dataframe) && !is.nan(input_dataframe))) {
+  } else if (has_nas(input_dataframe)) {
     msg <- paste(input_type,
                  " batch input dataframe contains a missing ('NA') entry.",
                  sep = "")
