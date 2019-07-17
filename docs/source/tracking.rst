@@ -133,13 +133,13 @@ an optional ``artifact_path``.
 logged to.
 
 
-Enable Automatic Logging from TensorFlow (experimental)
+Enable Automatic Logging from TensorFlow and Keras (experimental)
 -------------------------------------------------------
-MLflow supports automatic logging from TensorFlow without the need for explicit log
-statements. You can enable this feature by calling :py:func:`mlflow.tensorflow.autolog`
-before your training code. **Note**: this feature is experimental - the API and format
-of the logged data are subject to change.
-
+MLflow supports automatic logging from TensorFlow and Keras without the need for explicit log
+statements. You can enable this feature by calling one of :py:func:`mlflow.tensorflow.autolog`
+or :py:func:`mlflow.keras.autolog` depending on the framework before your training code.
+Note that ``tensorflow.keras`` is handled by ``mlflow.tensorflow``, not ``mlflow.keras``.
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 :py:func:`mlflow.tensorflow.autolog` optionally accepts a ``metrics_every_n_steps``
 argument to specify the frequency with which metrics should be logged to MLflow.
@@ -156,6 +156,9 @@ The following table details auto-logging capabilities for different TensorFlow w
 | TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                               |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
 
+For Keras, loss and any metrics specified in the ``metrics`` argument of ``keras.model.fit`` are logged
+as metrics. Learning rate, optimizer name and epsilon are logged as parameters. Model checkpointing
+(as a Keras model) occurs once at training end.
 
 Launching Multiple Runs in One Program
 --------------------------------------
