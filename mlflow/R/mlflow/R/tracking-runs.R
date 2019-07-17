@@ -1,4 +1,5 @@
 
+# Translate metric to value to safe format for REST.
 metric_value_to_rest <- function(value) {
   if (is.nan(value)) {
     as.character(NaN)

@@ -41,7 +41,7 @@ Imports:
   yaml,
   rlang (>= 0.2.0),
   zeallot,
-  tibble (>= 2.0.0),
+  tibble,
   glue
 RoxygenNote: 6.1.1
 Suggests: 
