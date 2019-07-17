@@ -578,8 +578,8 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.user``               | Identifier of the user who created the run.                                            |
 +-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.type``        | Source type (possible values are ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,             |
-|                               | ``"LOCAL"``, and ``"UNKNOWN"``)                                                        |
+| ``mlflow.source.type``        | Source type. Possible values: ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,                |
+|                               | ``"LOCAL"``, and ``"UNKNOWN"``                                                         |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.source.name``        | Source identifier (e.g., GitHub URL, local Python filename, name of notebook)          |
 +-------------------------------+----------------------------------------------------------------------------------------+
@@ -589,7 +589,8 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.source.git.repoURL`` | URL that the executed code was cloned from.                                            |
 +-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.project.env``        | One of "docker" or "conda", indicating the runtime context used by the MLflow project. |
+| ``mlflow.project.env``        | The runtime context used by the MLflow project.                                        |
+|                               | Possible values: ``"docker"`` and ``"conda"``.                                         |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.project.entryPoint`` | Name of the project entry point associated with the current run, if any.               |
 +-------------------------------+----------------------------------------------------------------------------------------+
