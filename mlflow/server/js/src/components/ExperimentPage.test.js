@@ -2,7 +2,9 @@ import React from 'react';
 import qs from 'qs';
 import { shallow } from 'enzyme';
 import ErrorCodes from '../sdk/ErrorCodes';
+import { ErrorWrapper } from '../Actions';
 import { ExperimentPage } from './ExperimentPage';
+import PermissionDeniedView from "./PermissionDeniedView";
 import { ViewType } from '../sdk/MlflowEnums';
 
 
@@ -109,14 +111,28 @@ test('Loading state with all URL params', () => {
 });
 
 test('should render permission denied view when getExperiment yields permission error', () => {
-  getExperimentApi = jest.fn(() => Promise.resolve({
-    error_code: ErrorCodes.PERMISSION_DENIED,
-    message: "User 'corey.zumar@databricks.com' does not have permission to 'View' experiment with id 772"
-  }));
   const wrapper = getExperimentPageMock();
   const instance = wrapper.instance();
-  const rendered = instance.render();
-  console.log(rendered.props.children[0]);
+  const searchRunsErrorRequest = {
+    id: instance.searchRunsRequestId,
+    active: false,
+    error: new ErrorWrapper({
+      responseText: `{"error_code": "${ErrorCodes.PERMISSION_DENIED}"}`
+    })
+  };
+  const getExperimentErrorRequest = {
+    id: instance.getExperimentRequestId,
+    active: false,
+    error: new ErrorWrapper({
+      responseText: `{"error_code": "${ErrorCodes.PERMISSION_DENIED}", "message": "Access denied"}`,
+    })
+  };
+  const experimentView = shallow(instance.renderExperimentView({
+    isLoading: false,
+    shouldRenderError: true,
+    requests: [searchRunsErrorRequest, getExperimentErrorRequest]
+  }));
+  expect(experimentView.instance()).toBeInstanceOf(PermissionDeniedView);
 });
 
 test('should update next page token initially', () => {

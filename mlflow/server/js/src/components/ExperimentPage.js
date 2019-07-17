@@ -220,48 +220,51 @@ export class ExperimentPage extends Component {
     }
   }
 
+  renderExperimentView = ({isLoading, shouldRenderError, requests}) => {
+    let searchRunsError;
+    const getExperimentRequest = Utils.getRequestWithId(
+      requests, this.getExperimentRequestId);
+
+    if (shouldRenderError) {
+      const searchRunsRequest = Utils.getRequestWithId(
+        requests, this.searchRunsRequestId);
+      if (getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
+        return (<PermissionDeniedView
+          errorMessage={getExperimentRequest.error.getMessageField()}
+        />);
+      } else if (searchRunsRequest.error) {
+        searchRunsError = searchRunsRequest.error.getMessageField();
+      } else {
+        return undefined;
+      }
+    }
+    if (!getExperimentRequest || getExperimentRequest.active) {
+      return <Spinner/>;
+    }
+
+    return <ExperimentView
+      paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
+      metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
+      experimentId={this.props.experimentId}
+      searchRunsRequestId={this.searchRunsRequestId}
+      lifecycleFilter={this.state.lifecycleFilter}
+      onSearch={this.onSearch}
+      searchRunsError={searchRunsError}
+      searchInput={this.state.persistedState.searchInput}
+      isLoading={isLoading && !searchRunsError}
+      orderByKey={this.state.persistedState.orderByKey}
+      orderByAsc={this.state.persistedState.orderByAsc}
+      nextPageToken={this.state.nextPageToken}
+      handleLoadMoreRuns={this.handleLoadMoreRuns}
+      loadingMore={this.state.loadingMore}
+    />;
+  }
+
   render() {
     return (
       <div className="ExperimentPage runs-table-flex-container" style={{height: "100%"}}>
         <RequestStateWrapper shouldOptimisticallyRender requestIds={this.getRequestIds()}>
-          {(isLoading, shouldRenderError, requests) => {
-            let searchRunsError;
-            const getExperimentRequest = Utils.getRequestWithId(
-              requests, this.getExperimentRequestId);
-            if (shouldRenderError) {
-              const searchRunsRequest = Utils.getRequestWithId(
-                requests, this.searchRunsRequestId);
-              if (getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
-                return (<PermissionDeniedView
-                  errorMessage={getExperimentRequest.error.xhr.responseJSON.message}
-                />);
-              } else if (searchRunsRequest.error) {
-                searchRunsError = searchRunsRequest.error.getMessageField();
-              } else {
-                return undefined;
-              }
-            }
-            if (!getExperimentRequest || getExperimentRequest.active) {
-              return <Spinner/>;
-            }
-
-            return <ExperimentView
-              paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
-              metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
-              experimentId={this.props.experimentId}
-              searchRunsRequestId={this.searchRunsRequestId}
-              lifecycleFilter={this.state.lifecycleFilter}
-              onSearch={this.onSearch}
-              searchRunsError={searchRunsError}
-              searchInput={this.state.persistedState.searchInput}
-              isLoading={isLoading && !searchRunsError}
-              orderByKey={this.state.persistedState.orderByKey}
-              orderByAsc={this.state.persistedState.orderByAsc}
-              nextPageToken={this.state.nextPageToken}
-              handleLoadMoreRuns={this.handleLoadMoreRuns}
-              loadingMore={this.state.loadingMore}
-            />;
-          }}
+          {this.renderExperimentView}
         </RequestStateWrapper>
       </div>
     );
