@@ -13,7 +13,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI
     MLFLOW_DOCKER_IMAGE_ID
 
 from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
-from tests.projects.utils import build_docker_example_base_image
+from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.projects import _project_spec
 
@@ -26,8 +26,8 @@ def _build_uri(base_uri, subdirectory):
 
 @pytest.mark.parametrize("use_start_run", map(str, [0, 1]))
 def test_docker_project_execution(
-        use_start_run, tmpdir, tracking_uri_mock):  # pylint: disable=unused-argument
-    build_docker_example_base_image()
+        use_start_run,
+        tmpdir, tracking_uri_mock, docker_example_base_image):  # pylint: disable=unused-argument
     expected_params = {"use_start_run": use_start_run}
     submitted_run = mlflow.projects.run(
         TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
@@ -64,8 +64,7 @@ def test_docker_project_execution(
 @mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
 def test_docker_project_tracking_uri_propagation(
         ProfileConfigProvider, tmpdir, tracking_uri,
-        expected_command_segment):  # pylint: disable=unused-argument
-    build_docker_example_base_image()
+        expected_command_segment, docker_example_base_image):  # pylint: disable=unused-argument
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = \
         DatabricksConfig("host", "user", "pass", None, insecure=True)
@@ -85,9 +84,9 @@ def test_docker_project_tracking_uri_propagation(
         mlflow.set_tracking_uri(old_uri)
 
 
-def test_docker_uri_mode_validation(tracking_uri_mock):  # pylint: disable=unused-argument
+def test_docker_uri_mode_validation(
+        tracking_uri_mock, docker_example_base_image):  # pylint: disable=unused-argument
     with pytest.raises(ExecutionException):
-        build_docker_example_base_image()
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")
 
 
