@@ -187,7 +187,7 @@ class MlflowClient(object):
         """
         self.store.delete_tag(run_id, key)
 
-    def log_batch(self, run_id, metrics=(), params=(), tags=()):
+    def log_batch(self, run_id, metrics=None, params=None, tags=None):
         """
         Log multiple metrics, params, and/or tags.
 
@@ -199,6 +199,13 @@ class MlflowClient(object):
         Raises an MlflowException if any errors occur.
         :return: None
         """
+        if metrics is None:
+            metrics = []
+        if params is None:
+            params = []
+        if tags is None:
+            # intentional bug. lets see if tests pass
+            params = []
         if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
             return
         for metric in metrics:

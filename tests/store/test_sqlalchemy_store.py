@@ -338,7 +338,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             else:
                 self.assertEqual(v, v2)
 
-    def _get_run_configs(self, experiment_id=None, tags=(), start_time=None):
+    def _get_run_configs(self, experiment_id=None, tags=None, start_time=None):
+        if tags is None:
+            tags = []
         return {
             'experiment_id': experiment_id,
             'user_id': 'Anderson',
