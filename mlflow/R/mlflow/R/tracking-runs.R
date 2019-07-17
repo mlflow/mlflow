@@ -1,3 +1,16 @@
+
+metric_value_to_rest <- function(value) {
+  if (is.nan(value)) {
+    as.character(NaN)
+  } else if (value == Inf) {
+    "Infinity"
+  } else if (value == -Inf) {
+    "-Infinity"
+  } else {
+    as.character(value)
+  }
+}
+
 #' Log Metric
 #'
 #' Logs a metric for a run. Metrics key-value pair that records a single float measure.
@@ -18,6 +31,8 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id 
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   key <- cast_string(key)
   value <- cast_scalar_double(value, allow_na = TRUE)
+  # convert Inf to 'Infinity'
+  value <- metric_value_to_rest(value)
   timestamp <- cast_nullable_scalar_double(timestamp)
   timestamp <- round(timestamp %||% current_time())
   step <- round(cast_nullable_scalar_double(step) %||% 0)
@@ -127,6 +142,7 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
 mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id = NULL,
                              client = NULL) {
   validate_batch_input("metrics", metrics, c("key", "value", "step", "timestamp"))
+  metrics$value <- unlist(lapply(metrics$value, metric_value_to_rest))
   validate_batch_input("params", params, c("key", "value"))
   validate_batch_input("tags", tags, c("key", "value"))
 
@@ -152,7 +168,7 @@ validate_batch_input <- function(input_type, input_dataframe, expected_column_na
                  paste(names(input_dataframe), collapse = ", "),
                  sep = "")
     stop(msg, call. = FALSE)
-  } else if (any(is.na(input_dataframe))) {
+  } else if (any(is.na(input_dataframe) && !is.nan(input_dataframe))) {
     msg <- paste(input_type,
                  " batch input dataframe contains a missing ('NA') entry.",
                  sep = "")
