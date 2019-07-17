@@ -191,6 +191,8 @@ Arguments
 | ``key``                       | Name of the tag. Maximum size is 255 |
 |                               | bytes. This field is required.       |
 +-------------------------------+--------------------------------------+
+| ``id``                        | Run ID of the run to set the tag on. |
++-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An MLflow client object   |
 |                               | returned from                        |
 |                               | `mlflow_client <#mlflow-client>`__ . |
@@ -200,8 +202,6 @@ Arguments
 |                               | (the common case), MLflow will use   |
 |                               | the tracking server associated with  |
 |                               | the current tracking URI.            |
-+-------------------------------+--------------------------------------+
-| ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_download_artifacts``
