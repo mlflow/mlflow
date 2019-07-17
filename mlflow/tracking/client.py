@@ -195,7 +195,8 @@ class MlflowClient(object):
         :param key: Name of the tag
         """
         if id is None or key is None:
-            raise MlflowException("ID and key must both be specified.", error_code=INVALID_PARAMETER_VALUE)
+            raise MlflowException("ID and key must both be specified.",
+                                  error_code=INVALID_PARAMETER_VALUE)
         self.store.delete_tag(id, key)
 
     def log_batch(self, run_id, metrics=(), params=(), tags=()):
