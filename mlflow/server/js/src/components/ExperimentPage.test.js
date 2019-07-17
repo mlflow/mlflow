@@ -111,23 +111,22 @@ test('Loading state with all URL params', () => {
 });
 
 test('should render permission denied view when getExperiment yields permission error', () => {
-  const wrapper = getExperimentPageMock();
-  const instance = wrapper.instance();
+  const experimentPageInstance = getExperimentPageMock().instance();
   const searchRunsErrorRequest = {
-    id: instance.searchRunsRequestId,
+    id: experimentPageInstance.searchRunsRequestId,
     active: false,
     error: new ErrorWrapper({
       responseText: `{"error_code": "${ErrorCodes.PERMISSION_DENIED}"}`
     })
   };
   const getExperimentErrorRequest = {
-    id: instance.getExperimentRequestId,
+    id: experimentPageInstance.getExperimentRequestId,
     active: false,
     error: new ErrorWrapper({
       responseText: `{"error_code": "${ErrorCodes.PERMISSION_DENIED}", "message": "Access denied"}`,
     })
   };
-  const experimentView = shallow(instance.renderExperimentView({
+  const experimentView = shallow(experimentPageInstance.renderExperimentView({
     isLoading: false,
     shouldRenderError: true,
     requests: [searchRunsErrorRequest, getExperimentErrorRequest]
