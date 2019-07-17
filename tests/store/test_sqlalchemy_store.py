@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import warnings
 
+import math
 import mock
 import pytest
 import sqlalchemy
@@ -14,7 +15,7 @@ import uuid
 
 import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import _get_schema_version
@@ -22,10 +23,9 @@ from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils import extract_db_type_from_uri
+from mlflow.utils import extract_db_type_from_uri, mlflow_tags
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
-
 
 DB_URI = 'sqlite:///'
 ARTIFACT_URI = 'artifact_folder'
@@ -418,8 +418,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         tval = 100.0
         metric = entities.Metric(tkey, tval, int(time.time()), 0)
         metric2 = entities.Metric(tkey, tval, int(time.time()) + 2, 0)
+        nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
+        pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
+        neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
         self.store.log_metric(run.info.run_id, metric)
         self.store.log_metric(run.info.run_id, metric2)
+        self.store.log_metric(run.info.run_id, nan_metric)
+        self.store.log_metric(run.info.run_id, pos_inf_metric)
+        self.store.log_metric(run.info.run_id, neg_inf_metric)
 
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
@@ -429,8 +435,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # MLflow RunData contains only the last reported values for metrics.
         with self.store.ManagedSessionMaker() as session:
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
-            self.assertEqual(2, len(sql_run_metrics))
-            self.assertEqual(1, len(run.data.metrics))
+            self.assertEqual(5, len(sql_run_metrics))
+            self.assertEqual(4, len(run.data.metrics))
+            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
+            self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
+            self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
@@ -722,6 +731,39 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         return [r.info.run_id
                 for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)]
 
+    def test_order_by_metric(self):
+        experiment_id = self.store.create_experiment('order_by_metric')
+
+        def create_and_log_run(name):
+            run_id = self.store.create_run(
+                experiment_id,
+                user_id="MrDuck",
+                start_time=123,
+                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name)]).info.run_id
+            self.store.log_metric(run_id, entities.Metric("x", float(name), 1, 0))
+            return run_id
+
+        for name in ["nan", "inf", "-inf", "-1000", "0", "1000"]:
+            create_and_log_run(name)
+
+        # asc
+        sorted_runs_asc = [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=["metrics.x asc"])]
+
+        assert ["-inf", "-1000", "0", "1000", "inf", "nan"] == sorted_runs_asc
+        # desc
+        sorted_runs_desc = [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=["metrics.x desc"])]
+        assert ["inf", "1000", "0", "-1000", "-inf", "nan"] == sorted_runs_desc
+
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
         runs = [self._run_factory(self._get_run_configs(exp)).info.run_id
@@ -1002,9 +1044,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # reverse the ordering, since we created in increasing order of start_time
         runs.reverse()
 
-        assert(runs[:1000] == self._search(exp))
+        assert (runs[:1000] == self._search(exp))
         for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
-            assert(runs[:min(1200, n)] == self._search(exp, max_results=n))
+            assert (runs[:min(1200, n)] == self._search(exp, max_results=n))
 
         with self.assertRaises(MlflowException) as e:
             self._search(exp, max_results=int(1e10))
@@ -1017,7 +1059,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         runs = sorted([self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
-            assert(runs[:min(10, n)] == self._search(exp, max_results=n))
+            assert (runs[:min(10, n)] == self._search(exp, max_results=n))
 
     def test_search_runs_pagination(self):
         exp = self._experiment_factory('test_search_runs_pagination')
@@ -1111,9 +1153,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
             raise Exception("Some internal error")
+
         with mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore.log_metric") as metric_mock,\
                 mock.patch(
-                    "mlflow.store.sqlalchemy_store.SqlAlchemyStore.log_param") as param_mock,\
+                    "mlflow.store.sqlalchemy_store.SqlAlchemyStore.log_param") as param_mock, \
                 mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore.set_tag") as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
             param_mock.side_effect = _raise_exception_fn
@@ -1196,6 +1239,7 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     then migrates their DB. TODO: update this test in MLflow 1.1 to use InitialBase from
     mlflow.store.db.initial_models.
     """
+
     def setUp(self):
         fd, self.temp_dbfile = tempfile.mkstemp()
         os.close(fd)
@@ -1247,5 +1291,5 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
         run = self._run_factory()
         for i in range(100):
             self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
-            self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i,  "pval-%s" % i))
-            self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i,  "tval-%s" % i))
+            self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
+            self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))

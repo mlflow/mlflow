@@ -289,11 +289,18 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
     mlflow_client.log_metric(run_id, key='metric', value=123.456, timestamp=789, step=2)
+    mlflow_client.log_metric(run_id, key='nan_metric', value=float("nan"))
+    mlflow_client.log_metric(run_id, key='inf_metric', value=float("inf"))
+    mlflow_client.log_metric(run_id, key='-inf_metric', value=-float("inf"))
     mlflow_client.log_metric(run_id, key='stepless-metric', value=987.654, timestamp=321)
     mlflow_client.log_param(run_id, 'param', 'value')
     mlflow_client.set_tag(run_id, 'taggity', 'do-dah')
     run = mlflow_client.get_run(run_id)
     assert run.data.metrics.get('metric') == 123.456
+    import math
+    assert math.isnan(run.data.metrics.get('nan_metric'))
+    assert run.data.metrics.get('inf_metric') >= 1.7976931348623157e308
+    assert run.data.metrics.get('-inf_metric') <= -1.7976931348623157e308
     assert run.data.metrics.get('stepless-metric') == 987.654
     assert run.data.params.get('param') == 'value'
     assert run.data.tags.get('taggity') == 'do-dah'

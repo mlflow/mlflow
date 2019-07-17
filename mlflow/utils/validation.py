@@ -5,8 +5,6 @@ import numbers
 import posixpath
 import re
 
-import numpy as np
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
@@ -62,8 +60,7 @@ def _validate_metric(key, value, timestamp, step):
     it isn't.
     """
     _validate_metric_name(key)
-    if not isinstance(value, numbers.Number) or value > np.finfo(np.float64).max \
-            or value < np.finfo(np.float64).min:
+    if not isinstance(value, numbers.Number):
         raise MlflowException(
             "Got invalid value %s for metric '%s' (timestamp=%s). Please specify value as a valid "
             "double (64-bit floating point)" % (value, key, timestamp),

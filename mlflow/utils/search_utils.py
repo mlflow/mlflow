@@ -8,6 +8,8 @@ from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
+import math
+
 
 class SearchUtils(object):
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
@@ -258,6 +260,7 @@ class SearchUtils(object):
 
         def run_matches(run):
             return all([cls._does_run_match_clause(run, s) for s in parsed])
+
         return [run for run in runs if run_matches(run)]
 
     @classmethod
@@ -303,9 +306,11 @@ class SearchUtils(object):
                                   error_code=INVALID_PARAMETER_VALUE)
 
         # Return a key such that None values are always at the end.
+        is_null_or_nan = sort_value is None or (isinstance(sort_value, float)
+                                                and math.isnan(sort_value))
         if ascending:
-            return (sort_value is None, sort_value)
-        return (sort_value is not None, sort_value)
+            return (is_null_or_nan, sort_value)
+        return (not is_null_or_nan, sort_value)
 
     @classmethod
     def sort(cls, runs, order_by_list):
