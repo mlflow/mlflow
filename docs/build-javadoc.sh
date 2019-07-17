@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Builds the MLflow Javadoc and places it into build/html/java_api/
 
 set -ex
