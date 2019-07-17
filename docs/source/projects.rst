@@ -377,12 +377,14 @@ where ``<project_uri>`` is a Git repository URI or a folder.
 
 .. _kubernetes_execution:
 
-Run an MLflow Project on Kubernetes
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Run an MLflow Project on Kubernetes (experimental)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can run MLflow Projects with :ref:`Docker environments <project-docker-container-environments>`
 on Kubernetes. The following sections provide an overview of the feature, including a simple
-Project execution guide with examples.
+Project execution guide with examples. **Note**: this feature is experimental - the API is
+subject to change.
+
 
 To see this feature in action, you can also refer to the
 `Docker example <https://github.com/mlflow/mlflow/tree/master/examples/docker>`_, which includes
