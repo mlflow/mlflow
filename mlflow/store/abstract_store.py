@@ -181,12 +181,13 @@ class AbstractStore:
         """
         self.log_batch(run_id, metrics=[], params=[param], tags=[])
 
-    def set_tag(self, run_id, tag):
+    def set_tag(self, run_id=None, tag=None, id=None):
         """
         Set a tag for the specified run
 
         :param run_id: String id for the run
         :param tag: :py:class:`mlflow.entities.RunTag` instance to set
+        :param id: :py:class:`mlflow.entities.MlFlowId` that the tag is set on.
         """
         self.log_batch(run_id, metrics=[], params=[], tags=[tag])
 
