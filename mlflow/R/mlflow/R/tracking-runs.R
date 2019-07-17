@@ -17,7 +17,7 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id 
                               client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   key <- cast_string(key)
-  value <- cast_scalar_double(value)
+  value <- cast_scalar_double(value, allow_na = TRUE)
   timestamp <- cast_nullable_scalar_double(timestamp)
   timestamp <- round(timestamp %||% current_time())
   step <- round(cast_nullable_scalar_double(step) %||% 0)
