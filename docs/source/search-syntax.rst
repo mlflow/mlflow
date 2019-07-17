@@ -83,9 +83,7 @@ that have a leading number. If an entity name contains a leading number, enclose
 Run Attributes
 ~~~~~~~~~~~~~~
 
-You can search using two run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``status`` and ``artifact_uri``. Both attributes have string values. 
-
-Other fields in ``mlflow.entities.RunInfo`` are :ref:`MLflow tags <system_tags>` that are searchable as ``tag`` identifiers (see :ref:`mlflow_tags` below); search returns an error if you use these names in the ``attributes`` identifier. 
+You can search using two run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``status`` and ``artifact_uri``. Both attributes have string values. Other fields in ``mlflow.entities.RunInfo`` are not currently searchable.
 
 .. note::
   
@@ -105,19 +103,20 @@ Other fields in ``mlflow.entities.RunInfo`` are :ref:`MLflow tags <system_tags>`
 MLflow Tags
 ~~~~~~~~~~~
 
-You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search for the name of an MLflow run, specify ``tag."mlflow.runName"`` or ``tag.`mlflow.runName```. 
+You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search for the name of an MLflow run, specify ``tags."mlflow.runName"`` or ``tags.`mlflow.runName```. 
+You can find a list of searchable tags at :ref:`MLflow tags <system_tags>`.
 
-.. note:: Search on Databricks does not support searching for a user (``tag."mlflow.user"``).
+.. note:: MLflow on Databricks does not currently support searching for a user (``tags."mlflow.user"``).
 
 .. rubric:: Examples
 
 .. code-block:: sql
 
-  tag."mlflow.runName"
+  tags."mlflow.runName"
 
 .. code-block:: sql
 
-  tag.`mlflow.parentRunId`
+  tags.`mlflow.parentRunId`
 
 
 Comparator
@@ -126,7 +125,7 @@ Comparator
 There are two classes of comparators: numeric and string.
 
 - Numeric comparators (``metrics``): ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.
-- String comparators (``params``, ``tag``, and ``attributes``): ``=`` and ``!=``.
+- String comparators (``params``, ``tags``, and ``attributes``): ``=`` and ``!=``.
 
 Constant
 ^^^^^^^^
