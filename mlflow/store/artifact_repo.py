@@ -85,7 +85,7 @@ class ArtifactRepository:
                 if not os.path.exists(local_path):
                     os.mkdir(local_path)
                 for file_info in listing:
-                    # prevent an infinite loop (sometimes the current path is listed e.g. as “.”)
+                    # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
                     if file_info.path == "." or file_info.path == artifact_path:
                         continue
                     download_artifacts_into(artifact_path=file_info.path, dest_dir=local_path)
