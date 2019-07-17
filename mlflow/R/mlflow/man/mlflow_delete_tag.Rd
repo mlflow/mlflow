@@ -4,17 +4,17 @@
 \alias{mlflow_delete_tag}
 \title{Delete Tag}
 \usage{
-mlflow_delete_tag(key, run_id = NULL, client = NULL)
+mlflow_delete_tag(key, id = NULL, client = NULL)
 }
 \arguments{
 \item{key}{Name of the tag. Maximum size is 255 bytes. This field is required.}
-
-\item{run_id}{Run ID.}
 
 \item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
 If specified, MLflow will use the tracking server associated with the passed-in client. If
 unspecified (the common case),
 MLflow will use the tracking server associated with the current tracking URI.}
+
+\item{run_id}{Run ID.}
 }
 \description{
 Deletes a tag on a run. This is irreversible. Tags are run metadata that can be updated during a run and

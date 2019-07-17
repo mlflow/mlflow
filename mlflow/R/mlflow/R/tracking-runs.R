@@ -217,13 +217,13 @@ mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
 #' @template roxlate-run-id
 #' @template roxlate-client
 #' @export
-mlflow_delete_tag <- function(key, run_id = NULL, client = NULL) {
-  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+mlflow_delete_tag <- function(key, id = NULL, client = NULL) {
+  c(client, id) %<-% resolve_client_and_run_id(client, id)
 
   key <- cast_string(key)
 
   mlflow_rest("runs", "delete-tag", client = client, verb = "POST", data = list(
-    run_id = run_id,
+    run_id = id,
     key = key
   ))
 

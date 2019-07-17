@@ -178,7 +178,7 @@ can be updated during a run and after a run completes.
 
 .. code:: r
 
-   mlflow_delete_tag(key, run_id = NULL, client = NULL)
+   mlflow_delete_tag(key, id = NULL, client = NULL)
 
 .. _arguments-4:
 
@@ -191,8 +191,6 @@ Arguments
 | ``key``                       | Name of the tag. Maximum size is 255 |
 |                               | bytes. This field is required.       |
 +-------------------------------+--------------------------------------+
-| ``run_id``                    | Run ID.                              |
-+-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An MLflow client object   |
 |                               | returned from                        |
 |                               | `mlflow_client <#mlflow-client>`__ . |
@@ -202,6 +200,8 @@ Arguments
 |                               | (the common case), MLflow will use   |
 |                               | the tracking server associated with  |
 |                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+| ``run_id``                    | Run ID.                              |
 +-------------------------------+--------------------------------------+
 
 ``mlflow_download_artifacts``

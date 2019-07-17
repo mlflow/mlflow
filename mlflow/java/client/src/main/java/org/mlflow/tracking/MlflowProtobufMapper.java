@@ -64,9 +64,9 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeDeleteTag(String runId, String key) {
+  String makeDeleteTag(String id, String key) {
     DeleteTag.Builder builder = DeleteTag.newBuilder();
-    builder.setRunId(runId);
+    builder.setRunId(id);
     builder.setKey(key);
     return print(builder);
   }

@@ -12,6 +12,8 @@ from mlflow.tracking import utils
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 
@@ -186,13 +188,15 @@ class MlflowClient(object):
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
-    def delete_tag(self, run_id, key):
+    def delete_tag(self, id=None, key=None):
         """
         Delete a tag from a run. This is irreversible.
-        :param run_id: String ID of the run
+        :param id: String ID of the run
         :param key: Name of the tag
         """
-        self.store.delete_tag(run_id, key)
+        if id is None or key is None:
+            raise MlflowException("ID and key must both be specified.", error_code=INVALID_PARAMETER_VALUE)
+        self.store.delete_tag(id, key)
 
     def log_batch(self, run_id, metrics=(), params=(), tags=()):
         """
