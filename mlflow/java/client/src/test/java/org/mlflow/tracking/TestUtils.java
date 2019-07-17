@@ -25,8 +25,13 @@ public class TestUtils {
   }
 
   public static void assertMetric(List<Metric> metrics, String key, double value) {
+
     if (Double.isNaN(value)) {
       Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && Double.isNaN(e.getValue())).findFirst().isPresent());
+    } else if(Double.isInfinite(value) && value > 0) {
+      Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && e.getValue() >= Double.MAX_VALUE).findFirst().isPresent());
+    } else if(Double.isInfinite(value) && value < 0) {
+      Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && e.getValue() <= -Double.MAX_VALUE).findFirst().isPresent());
     } else {
       Assert.assertTrue(metrics.stream().filter(e -> e.getKey().equals(key) && equals(e.getValue(), value)).findFirst().isPresent());
     }
