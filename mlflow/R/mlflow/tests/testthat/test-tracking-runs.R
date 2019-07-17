@@ -300,10 +300,10 @@ test_that("mlflow_log_batch() works", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
   mlflow_log_batch(
-    metrics = data.frame(key = c("mse", "mse", "rmse", "rmse"),
-                         value = c(21, 23, 42, 36),
-                         timestamp = c(100, 200, 300, 300),
-                         step = c(-4, 1, 7, 3)),
+    metrics = data.frame(key = c("mse", "mse", "rmse", "rmse", "nan", "Inf", "-Inf"),
+                         value = c(21, 23, 42, 36, NaN, Inf, -Inf),
+                         timestamp = c(100, 200, 300, 300, 400, 500, 600),
+                         step = c(-4, 1, 7, 3, 8, 9, 10)),
     params = data.frame(key = c("l1", "optimizer"), value = c(0.01, "adam")),
     tags = data.frame(key = c("model_type", "data_year"),
                       value = c("regression", "2015"))
@@ -316,19 +316,20 @@ test_that("mlflow_log_batch() works", {
 
   expect_setequal(
     metrics$key,
-    c("mse", "rmse")
+    c("mse", "rmse", "nan", "Inf", "-Inf")
   )
-  expect_setequal(
-    metrics$value,
-    c(23, 42)
-  )
+  expect_equal(23, metrics$value[metrics$key == "mse"])
+  expect_equal(42, metrics$value[metrics$key == "rmse"])
+  expect_true(all(is.nan(metrics$value[metrics$key == "nan"])))
+  expect_true(all(1.7976931348623157e308 <= (metrics$value[metrics$key == "Inf"])))
+  expect_true(all(-1.7976931348623157e308 >= (metrics$value[metrics$key == "-Inf"])))
   expect_setequal(
     metrics$timestamp,
-    purrr::map(c(200, 300), mlflow:::milliseconds_to_date)
+    purrr::map(c(200, 300, 400, 500, 600), mlflow:::milliseconds_to_date)
   )
   expect_setequal(
     metrics$step,
-    c(1, 7)
+    c(1, 7, 8, 9, 10)
   )
 
   metric_history <- mlflow_get_metric_history("mse")
