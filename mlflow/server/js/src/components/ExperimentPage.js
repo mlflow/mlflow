@@ -50,7 +50,11 @@ export class ExperimentPage extends Component {
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
 
-    this.props.getExperimentApi(experimentId, this.getExperimentRequestId);
+    this.props
+      .getExperimentApi(experimentId, this.getExperimentRequestId)
+      .catch((e) => {
+        console.error(e);
+      });
     this.props
       .searchRunsApi([experimentId], searchInput, viewType, orderBy, this.searchRunsRequestId)
       .then(this.updateNextPageToken)
@@ -220,7 +224,7 @@ export class ExperimentPage extends Component {
     }
   }
 
-  renderExperimentView = ({isLoading, shouldRenderError, requests}) => {
+  renderExperimentView = (isLoading, shouldRenderError, requests) => {
     let searchRunsError;
     const getExperimentRequest = Utils.getRequestWithId(
       requests, this.getExperimentRequestId);

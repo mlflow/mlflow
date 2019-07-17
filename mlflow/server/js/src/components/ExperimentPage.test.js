@@ -126,11 +126,11 @@ test('should render permission denied view when getExperiment yields permission 
     active: false,
     error: responseErrorWrapper,
   };
-  const experimentViewInstance = shallow(experimentPageInstance.renderExperimentView({
-    isLoading: false,
-    shouldRenderError: true,
-    requests: [searchRunsErrorRequest, getExperimentErrorRequest],
-  })).instance();
+  const experimentViewInstance = shallow(experimentPageInstance.renderExperimentView(
+    false,
+    true,
+    [searchRunsErrorRequest, getExperimentErrorRequest],
+  )).instance();
   expect(experimentViewInstance).toBeInstanceOf(PermissionDeniedView);
   expect(experimentViewInstance.props.errorMessage).toEqual(errorMessage);
 });
