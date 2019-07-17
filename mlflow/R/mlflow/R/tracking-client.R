@@ -101,7 +101,7 @@ get_env_var <- function(x) {
     res <- Sys.getenv(old_name, NA)
     if (!is.na(res)) {
       warning(paste("'", old_name, "' is deprecated. Please use '", new_name, "' instead."),
-                    sep= "" )
+                    sepc = "" )
     }
   }
   res
