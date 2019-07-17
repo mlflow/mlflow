@@ -257,10 +257,13 @@ def log_artifact(local_path, artifact_path=None):
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
     run_id = _get_or_start_run().info.run_id
+    if os.isdir(local_path):
+        MlflowClient().log_artifacts(run_id, local_path, artifact_path)
+
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
-@deprecated("mlflow.tracking.fluent.log_artifact", 1.1)
+@deprecated("mlflow.log_artifact", 1.1)
 def log_artifacts(local_dir, artifact_path=None):
     """
     Log all the contents of a local directory as artifacts of the run.

@@ -483,7 +483,7 @@ public class MlflowClient {
   }
 
   /**
-   * Upload the given local file to the run's root artifact directory. For example,
+   * Upload the given local file or directory to the run's root artifact directory. For example,
    *
    *   <pre>
    *   logArtifact(runId, "/my/localModel")
@@ -491,14 +491,20 @@ public class MlflowClient {
    *   </pre>
    *
    * @param runId Run ID of an existing MLflow run.
-   * @param localFile File to upload. Must exist, and must be a simple file (not a directory).
+   * @param localFile File or directory to upload. Must exist.
    */
   public void logArtifact(String runId, File localFile) {
-    getArtifactRepository(runId).logArtifact(localFile);
+    if (localFile.isDirectory()) {
+      getArtifactRepository(runId).logArtifacts(localFile);
+    }
+    else {
+      getArtifactRepository(runId).logArtifact(localFile);
+    }
   }
 
   /**
-   * Upload the given local file to an artifactPath within the run's root directory. For example,
+   * Upload the given local file or directory to an artifactPath
+   * within the run's root directory. For example,
    *
    *   <pre>
    *   logArtifact(runId, "/my/localModel", "model")
@@ -508,45 +514,29 @@ public class MlflowClient {
    * (i.e., the localModel file is now available in model/localModel).
    *
    * @param runId Run ID of an existing MLflow run.
-   * @param localFile File to upload. Must exist, and must be a simple file (not a directory).
+   * @param localFile File or directory to upload. Must exist.
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
   public void logArtifact(String runId, File localFile, String artifactPath) {
-    getArtifactRepository(runId).logArtifact(localFile, artifactPath);
+    if (localFile.isDirectory()) {
+      getArtifactRepository(runId).logArtifacts(localFile, artifactPath);
+    }
+    else {
+      getArtifactRepository(runId).logArtifact(localFile, artifactPath);
+    }
   }
 
   /**
-   * Upload all files within the given local directory the run's root artifact directory.
-   * For example, if /my/local/dir/ contains two files "file1" and "file2", then
-   *
-   *   <pre>
-   *   logArtifacts(runId, "/my/local/dir")
-   *   listArtifacts(runId) // returns "file1" and "file2"
-   *   </pre>
-   *
-   * @param runId Run ID of an existing MLflow run.
-   * @param localDir Directory to upload. Must exist, and must be a directory (not a simple file).
+   * @deprecated use logArtifact instead.
    */
+  @Deprecated
   public void logArtifacts(String runId, File localDir) {
     getArtifactRepository(runId).logArtifacts(localDir);
   }
 
   /**
-   * Upload all files within the given local director an artifactPath within the run's root
-   * artifact directory. For example, if /my/local/dir/ contains two files "file1" and "file2", then
-   *
-   *   <pre>
-   *   logArtifacts(runId, "/my/local/dir", "model")
-   *   listArtifacts(runId, "model") // returns "model/file1" and "model/file2"
-   *   </pre>
-   *
-   * (i.e., the contents of the local directory are now available in model/).
-   *
-   * @param runId Run ID of an existing MLflow run.
-   * @param localDir Directory to upload. Must exist, and must be a directory (not a simple file).
-   * @param artifactPath Artifact path relative to the run's root directory. Should NOT
-   *                     start with a /.
+   * @deprecated use logArtifact instead.
    */
   public void logArtifacts(String runId, File localDir, String artifactPath) {
     getArtifactRepository(runId).logArtifacts(localDir, artifactPath);
