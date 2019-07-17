@@ -44,7 +44,7 @@ Identifier
 
 Required in the LHS of a search expression. Signifies an entity to compare against. 
 
-An identifier has two parts separated by a period: the type of the entity and the name of the entity. The type of the entity is ``metrics``, ``params``, ``attributes``, or ``tag``. The entity name can contain alphanumeric characters and special characters.
+An identifier has two parts separated by a period: the type of the entity and the name of the entity. The type of the entity is ``metrics``, ``params``, ``attributes``, or ``tags``. The entity name can contain alphanumeric characters and special characters.
 
 This section describes supported entity names and how to specify such names in search expressions.
 
@@ -83,7 +83,7 @@ that have a leading number. If an entity name contains a leading number, enclose
 Run Attributes
 ~~~~~~~~~~~~~~
 
-You can search using two run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``status`` and ``artifact_uri``. Both attributes have string values. Other fields in ``mlflow.entities.RunInfo`` are not currently searchable.
+You can search using two run attributes contained in :py:class:`mlflow.entities.RunInfo`: ``status`` and ``artifact_uri``. Both attributes have string values. Other fields in ``mlflow.entities.RunInfo`` are not searchable.
 
 .. note::
   
@@ -104,9 +104,8 @@ MLflow Tags
 ~~~~~~~~~~~
 
 You can search for MLflow tags by enclosing the tag name in double quotes or backticks. For example, to search for the name of an MLflow run, specify ``tags."mlflow.runName"`` or ``tags.`mlflow.runName```. 
-You can find a list of searchable tags at :ref:`MLflow tags <system_tags>`.
 
-.. note:: MLflow on Databricks does not currently support searching for a user (``tags."mlflow.user"``).
+.. note:: Databricks does not support searching for a user with the tag ``tags."mlflow.user"``.
 
 .. rubric:: Examples
 
