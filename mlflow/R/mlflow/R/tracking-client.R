@@ -94,13 +94,14 @@ new_mlflow_client.default <- function(tracking_uri) {
 }
 
 get_env_var <- function(x) {
-  new_name <- paste("MLFLOW_TRACKING_", x, sep="")
+  new_name <- paste("MLFLOW_TRACKING_", x, sep = "")
   res <- Sys.getenv(new_name, NA)
   if (is.na(res)) {
-    old_name <- paste("MLFLOW_", x, sep="")
+    old_name <- paste("MLFLOW_", x, sep = "")
     res <- Sys.getenv(old_name, NA)
     if (!is.na(res)) {
-      warning(paste("'", old_name, "' is deprecated. Please use '", new_name, "' instead."), sep="")
+      warning(paste("'", old_name, "' is deprecated. Please use '", new_name, "' instead."),
+                    sep= "" )
     }
   }
   res
