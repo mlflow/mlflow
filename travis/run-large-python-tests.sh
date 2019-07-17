@@ -35,5 +35,6 @@ pytest --verbose tests/spark --large
 pytest --verbose tests/tensorflow --large
 pytest --verbose tests/azureml --large
 pytest --verbose tests/models --large
-pytest --verbose tests/autologging --large
+pytest --verbose tests/tensorflow_autolog --large
+pytest --verbose tests/keras_autolog --large
 test $err = 0
