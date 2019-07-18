@@ -214,6 +214,7 @@ def log_metric(key, value, step=None):
 def log_metrics(metrics, step=None):
     """
     Log multiple metrics for the current run, starting a run if no runs are active.
+
     :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special values
                     such as +/- Infinity may be replaced by other values depending on the store.
                     For example, sql based store may replace +/- Inf with max / min float values.
@@ -231,6 +232,7 @@ def log_metrics(metrics, step=None):
 def log_params(params):
     """
     Log a batch of params for the current run, starting a run if no runs are active.
+
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
     :returns: None
@@ -243,6 +245,7 @@ def log_params(params):
 def set_tags(tags):
     """
     Log a batch of tags for the current run, starting a run if no runs are active.
+    
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
     :returns: None
