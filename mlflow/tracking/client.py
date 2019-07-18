@@ -154,8 +154,15 @@ class MlflowClient(object):
 
     def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
-        Log a metric against the run ID. The timestamp defaults to the current timestamp.
-        The step defaults to 0.
+        Log a metric against the run ID.
+
+        :param run_id: The run id to which the metric should be logged.
+        :param key: Metric name.
+        :param value: Metric value (float). Note that some special values such
+        as +/- Infinity may be replaced by other values depending on the store. For example, the
+        SQLAlchemy store replaces +/- Inf with max / min float values.
+        :param timestamp: Time when this metric was calculated. Defaults to the current system time.
+        :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
         step = step if step is not None else 0
