@@ -371,7 +371,7 @@ for your run. Then, run your project using the command
 
 .. code-block:: bash
 
-  mlflow run <project_uri> -m databricks --cluster-spec <json-cluster-spec>
+  mlflow run <project_uri> -b databricks --backend-config <json-cluster-spec>
 
 where ``<project_uri>`` is a Git repository URI or a folder.
 
