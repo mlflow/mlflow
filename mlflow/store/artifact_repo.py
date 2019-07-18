@@ -74,7 +74,7 @@ class ArtifactRepository:
         """
 
         # TODO: Probably need to add a more efficient method to stream just a single artifact
-        # without downloading it, or to get a pre-signed URL for cloud storage.
+        #       without downloading it, or to get a pre-signed URL for cloud storage.
 
         def download_artifacts_into(artifact_path, dest_dir):
             basename = posixpath.basename(artifact_path)
