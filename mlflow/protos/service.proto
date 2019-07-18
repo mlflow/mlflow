@@ -252,11 +252,11 @@ service MlflowService {
     option (rpc) = {
       endpoints: [{
         method: "POST",
-        path: "/mlflow/runs/set-experiment-tag"
+        path: "/mlflow/experiments/set-experiment-tag"
         since { major: 2, minor: 0 },
       }, {
         method: "POST",
-        path: "/preview/mlflow/runs/set-experiment-tag"
+        path: "/preview/mlflow/experiments/set-experiment-tag"
         since { major: 2, minor: 0 },
       }],
 

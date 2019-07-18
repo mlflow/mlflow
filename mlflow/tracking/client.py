@@ -11,7 +11,7 @@ from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import utils
 from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
-from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
+from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 
@@ -177,6 +177,14 @@ class MlflowClient(object):
         _validate_param_name(key)
         param = Param(key, str(value))
         self.store.log_param(run_id, param)
+
+    def set_experiment_tag(self, exp_id, key, value):
+        """
+        Set a tag on the experiment ID. Value is converted to a string.
+        """
+        _validate_tag_name(key)
+        tag = ExperimentTag(key, str(value))
+        self.store.set_experiment_tag(exp_id, tag)
 
     def set_tag(self, run_id, key, value):
         """
