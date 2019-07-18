@@ -67,6 +67,6 @@ set_tags = mlflow.tracking.fluent.set_tags
 run = projects.run
 
 
-__all__ = ["ActiveRun", "log_param", "log_metric", "set_tag", "log_artifacts", "log_artifact",
-           "active_run", "start_run", "end_run", "search_runs", "get_artifact_uri",
-           "set_tracking_uri", "create_experiment", "set_experiment", "run"]
+__all__ = ["ActiveRun", "log_param", "log_params", "log_metric", "log_metrics", "set_tag", "set_tags",
+           "log_artifacts", "log_artifact", "active_run", "start_run", "end_run", "search_runs",
+           "get_artifact_uri", "set_tracking_uri", "create_experiment", "set_experiment", "run"]
