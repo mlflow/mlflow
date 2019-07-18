@@ -28,7 +28,8 @@ class ArtifactRepositoryImpl(ArtifactRepository):
     ('', '12345/model', ['12345/model/modelfile'], ['12345/model/modelfile']),
     ('', '12345/model', ['12345/model', '12345/model/modelfile'], ['12345/model/modelfile']),
 ])
-def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, list_return_val, expected_args):
+def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, list_return_val,
+                                                     expected_args):
 
     def list_artifacts_mock(self, path):
         if path.endswith("model"):
@@ -36,6 +37,7 @@ def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, lis
         else:
             return []
 
-    with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts", new_callable=lambda: list_artifacts_mock):
+    with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts",
+                           new_callable=lambda: list_artifacts_mock):
         repo = ArtifactRepositoryImpl(base_uri)
         repo.download_artifacts(download_arg)
