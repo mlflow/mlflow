@@ -122,6 +122,10 @@ def test_mlflow_server_with_installed_plugin(tmpdir):
         BACKEND_STORE_URI_ENV_VAR: "file-plugin:%s" % tmpdir.strpath,
     }
     with mock.patch.dict(os.environ, env):
-        plugin_file_store = mlflow.server.handlers._get_store()
+        mlflow.server.handlers._store = None
+        try:
+            plugin_file_store = mlflow.server.handlers._get_store()
+        finally:
+            mlflow.server.handlers._store = None
         assert isinstance(plugin_file_store, PluginFileStore)
         assert plugin_file_store.is_plugin
