@@ -822,17 +822,6 @@ message SetExperimentTag {
   }
 }
 
-message MlflowId {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // ID of the run under which to log the tag. Must be provided.
-  optional string run_id = 1;
-  // [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will
-  // be removed in a future MLflow version.
-  optional string run_uuid = 1;
-  optional string experiment_id = 2;
-}
-
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -848,9 +837,6 @@ message SetTag {
 
   // String value of the tag being logged. Maximum size is 5000 bytes.
   optional string value = 3 [(validate_required) = true];
-
-  // MLFlow ID that is optional, but recommended
-  optional MlflowId id = 5;
 
   message Response {
   }

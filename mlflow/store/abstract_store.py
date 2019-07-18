@@ -181,7 +181,7 @@ class AbstractStore:
         """
         self.log_batch(run_id, metrics=[], params=[param], tags=[])
 
-    def set_tag(self, run_id=None, tag=None, id=None):
+    def set_tag(self, run_id, tag):
         """
         Set a tag for the specified run
 
