@@ -123,8 +123,10 @@ def _serve_pyfunc(model):
         if not os.environ.get(DISABLE_ENV_CREATION) == "true":
             _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
         bash_cmds += ["source /miniconda/bin/activate custom_env"]
-    nginx_conf = resource_filename(mlflow.models.__name__, "container/scoring_server/nginx.conf")
-    nginx = Popen(['envsubst', '${NGINX_PORT}', '<', nginx_conf, '&&', 'nginx', '-g', '\"daemon off;\"'])
+    nginx_conf_template = resource_filename(mlflow.models.__name__,
+                                            "container/scoring_server/nginx.conf.template")
+    nginx = Popen(['envsubst', '<', nginx_conf_template, '/nginx.conf',
+                   '&&', 'nginx', '-c', '/nginx.conf'])
     # link the log streams to stdout/err so they will be logged to the container logs
     check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
     check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
