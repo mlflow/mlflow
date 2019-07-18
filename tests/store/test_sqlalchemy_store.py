@@ -554,7 +554,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         exp_id_2 = self._experiment_factory('setExperimentTagExp2')
         experiment2 = self.store.get_experiment(exp_id_2)
         self.assertTrue(len(experiment2.tags) == 0)
-        # test that setting a tag on different experiments maintain different values across experiments
+        # setting a tag on different experiments maintains different values across experiments
         different_tag = entities.RunTag("tag0", "differentValue")
         self.store.set_experiment_tag(exp_id_2, different_tag)
         experiment = self.store.get_experiment(exp_id)

@@ -191,7 +191,8 @@ class SqlRun(Base):
 
 class SqlExperimentTag(Base):
     """
-    DB model for :py:class:`mlflow.entities.RunTag`. These are recorded in ``experiment_tags`` table.
+    DB model for :py:class:`mlflow.entities.RunTag`.
+    These are recorded in ``experiment_tags`` table.
     """
     __tablename__ = 'experiment_tags'
 

@@ -13,7 +13,8 @@ import uuid
 import mock
 import pytest
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, RunStatus, RunData, ExperimentTag
+from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, RunStatus, RunData,\
+    ExperimentTag
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
@@ -557,7 +558,7 @@ class TestFileStore(unittest.TestCase):
                 break
         experiment = fs.get_experiment(exp_id)
         assert len(experiment.tags) == 0
-        # test that setting a tag on different experiments maintain different values across experiments
+        # setting a tag on different experiments maintains different values across experiments
         fs.set_experiment_tag(exp_id, ExperimentTag("tag1", "value11111"))
         experiment = fs.get_experiment(exp_id)
         assert len(experiment.tags) == 1

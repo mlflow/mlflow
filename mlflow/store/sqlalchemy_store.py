@@ -10,7 +10,8 @@ import sqlalchemy
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.dbmodels.db_types import MYSQL
-from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag, SqlExperimentTag
+from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag, \
+    SqlExperimentTag
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
@@ -369,7 +370,8 @@ class SqlAlchemyStore(AbstractStore):
 
     def _check_experiment_is_active(self, experiment):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException("The experiment {} must be in 'active' state. Current state is {}."
+            raise MlflowException("The experiment {} must be in 'active' state. "
+                                  "Current state is {}."
                                   .format(experiment.experiment_id, experiment.lifecycle_stage),
                                   INVALID_PARAMETER_VALUE)
 
@@ -481,9 +483,13 @@ class SqlAlchemyStore(AbstractStore):
         :param tag: ExperimentRunTag instance to log
         """
         with self.ManagedSessionMaker() as session:
-            experiment = self._get_experiment(session, experiment_id, ViewType.ALL).to_mlflow_entity()
+            experiment = self._get_experiment(session,
+                                              experiment_id,
+                                              ViewType.ALL).to_mlflow_entity()
             self._check_experiment_is_active(experiment)
-            session.merge(SqlExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value))
+            session.merge(SqlExperimentTag(experiment_id=experiment_id,
+                                           key=tag.key,
+                                           value=tag.value))
 
     def set_tag(self, run_id, tag):
         """
