@@ -1,7 +1,7 @@
 """Add Experiment Tags Table
 
 Revision ID: df50e92ffc5e
-Revises: 90e64c465722
+Revises: 181f10493468
 Create Date: 2019-07-15 17:46:42.704214
 
 """
@@ -11,7 +11,7 @@ from mlflow.store.dbmodels.models import SqlExperimentTag
 
 # revision identifiers, used by Alembic.
 revision = 'df50e92ffc5e'
-down_revision = '90e64c465722'
+down_revision = '181f10493468'
 branch_labels = None
 depends_on = None
 
