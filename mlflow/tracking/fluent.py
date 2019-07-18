@@ -400,7 +400,7 @@ def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_result
             runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
                                               NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
         all_runs.extend(runs)
-        if hasattr(runs, 'token') and runs.token != '':
+        if hasattr(runs, 'token') and runs.token != '' and runs.token is not None:
             next_page_token = runs.token
         else:
             break
