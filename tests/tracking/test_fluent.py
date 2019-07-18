@@ -399,7 +399,7 @@ def test_search_runs_data():
 
 
 def test_search_runs_no_arguments():
-    """"
+    """
     When no experiment ID is specified, it should try to get the implicit one or
     create a new experiment
     """
@@ -416,7 +416,7 @@ def test_search_runs_no_arguments():
 
 
 def test_get_paginated_runs_lt_maxresults_onepage():
-    """"
+    """
     Number of runs is less than max_results and fits on one page,
     so we only need to fetch one page.
     """
@@ -431,7 +431,7 @@ def test_get_paginated_runs_lt_maxresults_onepage():
 
 
 def test_get_paginated_runs_lt_maxresults_multipage():
-    """"
+    """
     Number of runs is less than max_results, but multiple pages are necessary to get all runs
     """
     tokenized_runs = PagedList([create_run() for i in range(10)], "token")
@@ -444,6 +444,21 @@ def test_get_paginated_runs_lt_maxresults_multipage():
 
             paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
             assert len(paginated_runs) == TOTAL_RUNS
+
+
+def test_get_paginated_runs_lt_maxresults_onepage_nonetoken():
+    """
+    Number of runs is less than max_results and fits on one page.
+    The token passed back on the last page is None, not the emptystring
+    """
+    runs = [create_run() for i in range(5)]
+    tokenized_runs = PagedList(runs, None)
+    max_results = 50
+    with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
+        with mock.patch.object(MlflowClient, "search_runs", return_value=tokenized_runs):
+            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+            MlflowClient.search_runs.assert_called_once()
+            assert len(paginated_runs) == 5
 
 
 def test_get_paginated_runs_eq_maxresults_blanktoken():
