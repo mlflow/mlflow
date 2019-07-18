@@ -71,7 +71,7 @@ def cli():
               help="Path to JSON file (must end in '.json') or JSON string which will be passed "
                    "as config to the backend. The exact content which should be "
                    "provided is different for each execution backend and is documented "
-                   "at https://www.mlflow.org/docs/latest/projects.html."
+                   "at https://www.mlflow.org/docs/latest/projects.html.")
 @cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when ``backend`` is local."
