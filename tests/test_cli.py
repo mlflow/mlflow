@@ -49,7 +49,21 @@ def test_tracking_uri_validation_sql_driver_uris(command):
         CliRunner().invoke(command,
                            ["--backend-store-uri", "mysql+pymysql://user:pwd@host:5432/mydb",
                             "--default-artifact-root", "./mlruns"])
-        sql_store.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb", "./mlruns")
+        sql_store.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb", "./mlruns", {})
+        run_server_mock.assert_called()
+
+
+def test_server_store_options():
+    handlers._store = None
+    with mock.patch("mlflow.cli._run_server") as run_server_mock,\
+            mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore") as sql_store:
+        CliRunner().invoke(server,
+                           ["--backend-store-uri", "mysql+pymysql://user:pwd@host:5432/mydb",
+                            "--default-artifact-root", "./mlruns",
+                            "--store-opts", "pool_pre_ping=True"])
+        sql_store.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb",
+                                          "./mlruns",
+                                          {"pool_pre_ping": True})
         run_server_mock.assert_called()
 
 

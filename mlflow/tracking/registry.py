@@ -40,7 +40,7 @@ class TrackingStoreRegistry:
                     stacklevel=2
                 )
 
-    def get_store(self, store_uri=None, artifact_uri=None):
+    def get_store(self, store_uri=None, artifact_uri=None, options=None):
         """Get a store from the registry based on the scheme of store_uri
 
         :param store_uri: The store URI. If None, it will be inferred from the environment. This URI
@@ -48,6 +48,8 @@ class TrackingStoreRegistry:
                           is passed to the constructor of the implementation.
         :param artifact_uri: Artifact repository URI. Passed through to the tracking store
                              implementation.
+        :param options: A dictionary of arguments and their values passed as configuration
+                        to the tracking store implementation.
 
         :return: An instance of `mlflow.store.AbstractStore` that fulfills the store URI
                  requirements.
@@ -62,4 +64,4 @@ class TrackingStoreRegistry:
             raise MlflowException(
                 "Unexpected URI scheme '{}' for tracking store. "
                 "Valid schemes are: {}".format(store_uri, list(self._registry.keys())))
-        return store_builder(store_uri=store_uri, artifact_uri=artifact_uri)
+        return store_builder(store_uri=store_uri, artifact_uri=artifact_uri, options=options)

@@ -10,7 +10,6 @@ from click import UsageError
 
 import mlflow.azureml.cli
 import mlflow.projects as projects
-import mlflow.data
 import mlflow.experiments
 import mlflow.models.cli
 
@@ -237,8 +236,11 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Additional command line options forwarded to gunicorn processes.")
 @click.option("--waitress-opts", default=None,
               help="Additional command line options for waitress-serve.")
+@click.option("--store-opts", default=None,
+              help="Additional options for the tracking store.")
 def server(backend_store_uri, default_artifact_root, host, port,
-           workers, static_prefix, gunicorn_opts, waitress_opts):
+           workers, static_prefix, gunicorn_opts, waitress_opts,
+           store_opts):
     """
     Run the MLflow tracking server.
 
@@ -262,7 +264,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
             sys.exit(1)
 
     try:
-        _get_store(backend_store_uri, default_artifact_root)
+        _get_store(backend_store_uri, default_artifact_root, store_opts)
     except Exception as e:  # pylint: disable=broad-except
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -270,7 +272,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port,
-                    static_prefix, workers, gunicorn_opts, waitress_opts)
+                    static_prefix, workers, gunicorn_opts, waitress_opts, store_opts)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)

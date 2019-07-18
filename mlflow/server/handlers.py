@@ -1,10 +1,11 @@
 # Define all the service endpoint handlers here.
+import ast
 import json
 import os
 import re
-import six
-
 from functools import wraps
+
+import six
 from flask import Response, request, send_file
 from querystring_parser import parser
 
@@ -26,6 +27,26 @@ _store = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 
 
+def string_to_literal(string):
+    if string == 'true':
+        return True
+
+    if string == 'false':
+        return False
+
+    try:
+        return ast.literal_eval(string)
+    except ValueError:
+        return string
+
+
+def parse_key_value_string(string):
+    return {
+        match.group(1): string_to_literal(match.group(2).strip('"'))
+        for match in re.finditer(r"""([^\s=]+)=("[^\s"]"|[^\s;]+);?""", string)
+    }
+
+
 def _add_static_prefix(route):
     prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
     if prefix:
@@ -33,14 +54,14 @@ def _add_static_prefix(route):
     return route
 
 
-def _get_file_store(store_uri, artifact_uri):
+def _get_file_store(store_uri, artifact_uri, **_):
     from mlflow.store.file_store import FileStore
     return FileStore(store_uri, artifact_uri)
 
 
-def _get_sqlalchemy_store(store_uri, artifact_uri):
+def _get_sqlalchemy_store(store_uri, artifact_uri, options=None):
     from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-    return SqlAlchemyStore(store_uri, artifact_uri)
+    return SqlAlchemyStore(store_uri, artifact_uri, options)
 
 
 _tracking_store_registry = TrackingStoreRegistry()
@@ -52,13 +73,15 @@ for scheme in DATABASE_ENGINES:
 _tracking_store_registry.register_entrypoints()
 
 
-def _get_store(backend_store_uri=None, default_artifact_root=None):
-    from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
+def _get_store(backend_store_uri=None, default_artifact_root=None, options=None):
+    from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR,\
+        STORE_OPTIONS_ENV_VAR
     global _store
     if _store is None:
         store_uri = backend_store_uri or os.environ.get(BACKEND_STORE_URI_ENV_VAR, None)
         artifact_root = default_artifact_root or os.environ.get(ARTIFACT_ROOT_ENV_VAR, None)
-        _store = _tracking_store_registry.get_store(store_uri, artifact_root)
+        options = parse_key_value_string(options or os.environ.get(STORE_OPTIONS_ENV_VAR, ''))
+        _store = _tracking_store_registry.get_store(store_uri, artifact_root, options)
     return _store
 
 

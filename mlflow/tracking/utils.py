@@ -91,11 +91,11 @@ def _get_file_store(store_uri, **_):
     return FileStore(store_uri, store_uri)
 
 
-def _get_sqlalchemy_store(store_uri, artifact_uri):
+def _get_sqlalchemy_store(store_uri, artifact_uri, options=None):
     from mlflow.store.sqlalchemy_store import SqlAlchemyStore
     if artifact_uri is None:
         artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-    return SqlAlchemyStore(store_uri, artifact_uri)
+    return SqlAlchemyStore(store_uri, artifact_uri, options)
 
 
 def _get_rest_store(store_uri, **_):
@@ -141,8 +141,8 @@ for scheme in DATABASE_ENGINES:
 _tracking_store_registry.register_entrypoints()
 
 
-def _get_store(store_uri=None, artifact_uri=None):
-    return _tracking_store_registry.get_store(store_uri, artifact_uri)
+def _get_store(store_uri=None, artifact_uri=None, options=None):
+    return _tracking_store_registry.get_store(store_uri, artifact_uri, options)
 
 
 # TODO(sueann): move to a projects utils module

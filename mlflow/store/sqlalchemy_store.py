@@ -55,7 +55,7 @@ class SqlAlchemyStore(AbstractStore):
     ARTIFACTS_FOLDER_NAME = "artifacts"
     DEFAULT_EXPERIMENT_ID = "0"
 
-    def __init__(self, db_uri, default_artifact_root):
+    def __init__(self, db_uri, default_artifact_root, options=None):
         """
         Create a database backed store.
 
@@ -66,12 +66,14 @@ class SqlAlchemyStore(AbstractStore):
                        ``mssql``, ``sqlite``, and ``postgresql``.
         :param default_artifact_root: Path/URI to location suitable for large data (such as a blob
                                       store object, DBFS path, or shared NFS file system).
+        :param options: A dictionary of arguments and their values passed to
+                        SQLAlchemy's ``create_engine`` function.
         """
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
-        self.engine = sqlalchemy.create_engine(db_uri)
+        self.engine = sqlalchemy.create_engine(db_uri, **options or {})
         insp = sqlalchemy.inspect(self.engine)
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all

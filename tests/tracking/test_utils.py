@@ -231,7 +231,7 @@ def test_plugin_registration():
     tracking_store.register(test_scheme, mock_plugin)
     assert test_scheme in tracking_store._registry
     assert tracking_store.get_store(test_uri) == mock_plugin.return_value
-    mock_plugin.assert_called_once_with(store_uri=test_uri, artifact_uri=None)
+    mock_plugin.assert_called_once_with(store_uri=test_uri, artifact_uri=None, options=None)
 
 
 def test_plugin_registration_via_entrypoints():
@@ -248,7 +248,8 @@ def test_plugin_registration_via_entrypoints():
 
     assert tracking_store.get_store("mock-scheme://") == mock_plugin_function.return_value
 
-    mock_plugin_function.assert_called_once_with(store_uri="mock-scheme://", artifact_uri=None)
+    mock_plugin_function.assert_called_once_with(store_uri="mock-scheme://", artifact_uri=None,
+                                                 options=None)
     mock_get_group_all.assert_called_once_with("mlflow.tracking_store")
 
 
