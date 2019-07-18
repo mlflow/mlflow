@@ -460,6 +460,7 @@ def test_get_paginated_runs_lt_maxresults_onepage_nonetoken():
             MlflowClient.search_runs.assert_called_once()
             assert len(paginated_runs) == 5
 
+
 def test_get_paginated_runs_eq_maxresults_blanktoken():
     """
     Runs returned are equal to max_results which are equal to a full number of pages.
