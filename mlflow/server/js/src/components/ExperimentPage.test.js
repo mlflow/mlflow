@@ -1,7 +1,10 @@
 import React from 'react';
 import qs from 'qs';
 import { shallow } from 'enzyme';
+import ErrorCodes from '../sdk/ErrorCodes';
+import { ErrorWrapper } from '../Actions';
 import { ExperimentPage } from './ExperimentPage';
+import PermissionDeniedView from "./PermissionDeniedView";
 import { ViewType } from '../sdk/MlflowEnums';
 
 
@@ -105,6 +108,31 @@ test('Loading state with all URL params', () => {
   expect(state.persistedState.searchInput).toEqual("c");
   expect(state.persistedState.orderByKey).toEqual("d");
   expect(state.persistedState.orderByAsc).toEqual(false);
+});
+
+test('should render permission denied view when getExperiment yields permission error', () => {
+  const experimentPageInstance = getExperimentPageMock().instance();
+  const errorMessage = "Access Denied";
+  const responseErrorWrapper = new ErrorWrapper({
+    responseText: `{"error_code": "${ErrorCodes.PERMISSION_DENIED}", "message": "${errorMessage}"}`
+  });
+  const searchRunsErrorRequest = {
+    id: experimentPageInstance.searchRunsRequestId,
+    active: false,
+    error: responseErrorWrapper,
+  };
+  const getExperimentErrorRequest = {
+    id: experimentPageInstance.getExperimentRequestId,
+    active: false,
+    error: responseErrorWrapper,
+  };
+  const experimentViewInstance = shallow(experimentPageInstance.renderExperimentView(
+    false,
+    true,
+    [searchRunsErrorRequest, getExperimentErrorRequest],
+  )).instance();
+  expect(experimentViewInstance).toBeInstanceOf(PermissionDeniedView);
+  expect(experimentViewInstance.props.errorMessage).toEqual(errorMessage);
 });
 
 test('should update next page token initially', () => {
