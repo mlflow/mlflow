@@ -286,6 +286,28 @@ def test_correct_sorting(order_bys, matching_runs):
     assert sorted_run_indices == matching_runs
 
 
+def test_order_by_metric_with_nans_and_infs():
+    metric_vals_str = ["nan", "inf", "-inf", "-1000", "0", "1000"]
+    runs = [
+        Run(run_info=RunInfo(run_id=x, run_uuid=x, experiment_id=0, user_id="user",
+                             status=RunStatus.to_string(RunStatus.FINISHED),
+                             start_time=0, end_time=1, lifecycle_stage=LifecycleStage.ACTIVE),
+            run_data=RunData(
+                metrics=[Metric("x", float(x), 1, 0)])
+            ) for x in metric_vals_str
+    ]
+    sorted_runs_asc = [
+        x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x asc"])
+    ]
+    sorted_runs_desc = [
+        x.info.run_id for x in SearchUtils.sort(runs, ["metrics.x desc"])
+    ]
+    # asc
+    assert ["-inf", "-1000", "0", "1000", "inf", "nan"] == sorted_runs_asc
+    # desc
+    assert ["inf", "1000", "0", "-1000", "-inf", "nan"] == sorted_runs_desc
+
+
 @pytest.mark.parametrize("order_by, error_message", [
     ("m.acc", "Invalid entity type"),
     ("acc", "Invalid identifier"),

@@ -18,7 +18,8 @@ trap 'err=1' ERR
 # NB: Also add --ignore'd tests to run-small-python-tests.sh
 pytest tests --large --ignore=tests/h2o --ignore=tests/keras \
   --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn \
-  --ignore=tests/spark --ignore=tests/tensorflow --ignore tests/azureml --ignore tests/onnx
+  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/azureml --ignore=tests/onnx \
+  --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog
 # Run ML framework tests in their own Python processes to avoid OOM issues due to per-framework
 # overhead
 pytest --verbose tests/h2o --large
@@ -34,4 +35,6 @@ pytest --verbose tests/spark --large
 pytest --verbose tests/tensorflow --large
 pytest --verbose tests/azureml --large
 pytest --verbose tests/models --large
+pytest --verbose tests/tensorflow_autolog --large
+pytest --verbose tests/keras_autolog --large
 test $err = 0

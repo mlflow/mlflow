@@ -44,8 +44,6 @@ export const ExperimentViewPersistedState = Immutable.Record({
   // Object mapping run UUIDs (strings) to booleans, where a boolean value of true indicates that
   // a run has been expanded (its child runs are visible).
   runsExpanded: {},
-  // If true, shows the multi-column table view instead of the compact table view.
-  showMultiColumns: false,
   // Arrays of "unbagged", or split-out metric and param keys (strings). We maintain these as lists
   // to help keep them ordered (i.e. splitting out a column shouldn't change the ordering of columns
   // that have already been split out)

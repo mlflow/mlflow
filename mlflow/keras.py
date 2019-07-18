@@ -13,6 +13,8 @@ from __future__ import absolute_import
 import importlib
 import os
 import yaml
+import gorilla
+import warnings
 
 import pandas as pd
 
@@ -23,6 +25,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.annotations import experimental
+
 
 FLAVOR_NAME = "keras"
 # File name to which custom objects cloudpickle is saved - used during save and load
@@ -83,9 +87,15 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
                                 'tensorflow=1.8.0'
                             ]
                         }
-    :param keras_module: Keras module to be used to save / load the model. If not provided, MLflow
-    will attempt to infer the Keras module based on the given model.
     :param mlflow_model: MLflow model config this flavor is being added to.
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions associated with the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    :param keras_module: Keras module to be used to save / load the model
+                         (``keras`` or ``tf.keras``). If not provided, MLflow will
+                         attempt to infer the Keras module based on the given model.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> import mlflow
@@ -180,7 +190,14 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                                 'tensorflow=1.8.0'
                             ]
                         }
-
+    :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
+                           custom classes or functions associated with the Keras model. MLflow saves
+                           these custom layers using CloudPickle and restores them automatically
+                           when the model is loaded with :py:func:`mlflow.keras.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
+    :param keras_module: Keras module to be used to save / load the model
+                         (``keras`` or ``tf.keras``). If not provided, MLflow will
+                         attempt to infer the Keras module based on the given model.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> from keras import Dense, layers
@@ -204,7 +221,12 @@ def _save_custom_objects(path, custom_objects):
     Save custom objects dictionary to a cloudpickle file so a model can be easily loaded later.
 
     :param path: An absolute path that points to the data directory within /path/to/model.
-    :param custom_objects: A dictionary that maps layer names to layer definitions
+    :param custom_objects: Keras ``custom_objects`` is a dictionary mapping
+                           names (strings) to custom classes or functions to be considered
+                           during deserialization. MLflow saves these custom layers using
+                           CloudPickle and restores them automatically when the model is
+                           loaded with :py:func:`mlflow.keras.load_model` and
+                           :py:func:`mlflow.pyfunc.load_model`.
     """
     import cloudpickle
     custom_objects_path = os.path.join(path, _CUSTOM_OBJECTS_SAVE_PATH)
@@ -312,3 +334,67 @@ def load_model(model_uri, **kwargs):
         local_model_path,
         flavor_conf.get("data", _MODEL_SAVE_PATH))
     return _load_model(model_path=keras_model_artifacts_path, keras_module=keras_module, **kwargs)
+
+
+@experimental
+def autolog():
+    """
+    Enable automatic logging from TensorFlow to MLflow.
+    Logs loss and any other metrics specified in the fit
+    function, and optimizer data as parameters. Model checkpoints
+    are logged as artifacts to a 'models' directory.
+    """
+    import keras
+
+    class __MLflowKerasCallback(keras.callbacks.Callback):
+        """
+        Callback for auto-logging metrics and parameters.
+        Records available logs after each epoch.
+        Records model structural information as params after training finishes.
+        """
+
+        def on_epoch_end(self, epoch, logs=None):
+            if not logs:
+                return
+            try:
+                mlflow.log_metrics(logs, step=epoch)
+            except mlflow.exceptions.MlflowException as e:
+                warnings.warn("Logging to MLflow failed: " + str(e))
+
+        def on_train_end(self, logs=None):
+            try:
+                mlflow.log_param('num_layers', len(self.model.layers))
+                mlflow.log_param('optimizer_name', type(self.model.optimizer).__name__)
+                if hasattr(self.model.optimizer, 'lr'):
+                    lr = self.model.optimizer if \
+                        type(self.model.optimizer.lr) is float \
+                        else keras.backend.eval(self.model.optimizer.lr)
+                    mlflow.log_param('learning_rate', lr)
+                if hasattr(self.model.optimizer, 'epsilon'):
+                    epsilon = self.model.optimizer if \
+                        type(self.model.optimizer.epsilon) is float \
+                        else keras.backend.eval(self.model.optimizer.epsilon)
+                    mlflow.log_param('epsilon', epsilon)
+                sum_list = []
+                self.model.summary(print_fn=sum_list.append)
+                summary = '\n'.join(sum_list)
+                mlflow.set_tag('summary', summary)
+                log_model(self.model, artifact_path='model')
+            except mlflow.exceptions.MlflowException as e:
+                warnings.warn("Logging to Mlflow failed: " + str(e))
+
+    @gorilla.patch(keras.Model)
+    def fit(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(keras.Model, 'fit')
+        if len(args) >= 6:
+            l = list(args)
+            l[5] += [__MLflowKerasCallback()]
+            args = tuple(l)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'] += [__MLflowKerasCallback()]
+        else:
+            kwargs['callbacks'] = [__MLflowKerasCallback()]
+        return original(self, *args, **kwargs)
+    settings = gorilla.Settings(allow_hit=True, store_hit=True)
+    patch = gorilla.Patch(keras.Model, 'fit', fit, settings=settings)
+    gorilla.apply(patch)
