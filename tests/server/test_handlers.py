@@ -3,11 +3,14 @@ import json
 import mock
 import pytest
 
+import os
+import mlflow
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
     _search_runs, _log_batch, catch_mlflow_exception
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR
 from mlflow.store.abstract_store import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
@@ -108,3 +111,21 @@ def test_catch_mlflow_exception():
     assert response.status_code == 500
     assert json_response['error_code'] == ErrorCode.Name(INTERNAL_ERROR)
     assert json_response['message'] == 'test error'
+
+
+@pytest.mark.large
+def test_mlflow_server_with_installed_plugin(tmpdir):
+    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+    from mlflow_test_plugin import PluginFileStore
+
+    env = {
+        BACKEND_STORE_URI_ENV_VAR: "file-plugin:%s" % tmpdir.strpath,
+    }
+    with mock.patch.dict(os.environ, env):
+        mlflow.server.handlers._store = None
+        try:
+            plugin_file_store = mlflow.server.handlers._get_store()
+        finally:
+            mlflow.server.handlers._store = None
+        assert isinstance(plugin_file_store, PluginFileStore)
+        assert plugin_file_store.is_plugin
