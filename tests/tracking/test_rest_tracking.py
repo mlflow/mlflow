@@ -342,7 +342,8 @@ def test_set_experiment_tag(mlflow_client, backend_store_uri):
     # test can set multi-line tags
     mlflow_client.set_experiment_tag(experiment_id, "multiline tag", "value2\nvalue2\nvalue2")
     experiment = mlflow_client.get_experiment(experiment_id)
-    assert "multiline tag" in experiment.tags and experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
+    assert "multiline tag" in experiment.tags \
+           and experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
 
 
 def test_delete_tag(mlflow_client, backend_store_uri):
