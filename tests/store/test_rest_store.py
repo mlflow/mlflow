@@ -166,7 +166,7 @@ class TestRestStore(unittest.TestCase):
                 key="t1",
                 value="abcd"*1000))
             self._verify_requests(mock_http, creds,
-                                  "runs/set-experiment-tag", "POST", body)
+                                  "experiments/set-experiment-tag", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
             store.set_tag("some_uuid", RunTag("t1", "abcd"*1000))
