@@ -1,4 +1,5 @@
 import os
+import pathlib
 
 import mock
 import pytest
@@ -6,8 +7,10 @@ import pytest
 from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
+from mlflow.projects.docker import _get_docker_image_uri, \
+    _get_s3_artifact_cmd_and_envs, _get_local_artifact_cmd_and_envs
 from mlflow.entities import ViewType
-from mlflow.projects import ExecutionException, _get_docker_image_uri
+from mlflow.projects import ExecutionException
 from mlflow.store import file_store
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID
@@ -109,7 +112,7 @@ def test_docker_image_uri_no_git(get_git_commit_mock):
 def test_docker_valid_project_backend_local():
     work_dir = "./examples/docker"
     project = _project_spec.load_project(work_dir)
-    mlflow.projects._validate_docker_env(project)
+    mlflow.projects.docker._validate_docker_env(project)
 
 
 def test_docker_invalid_project_backend_local():
@@ -117,4 +120,34 @@ def test_docker_invalid_project_backend_local():
     project = _project_spec.load_project(work_dir)
     project.name = None
     with pytest.raises(ExecutionException):
-        mlflow.projects._validate_docker_env(project)
+        mlflow.projects.docker._validate_docker_env(project)
+
+
+def test_docker_s3_cmd_and_envs_from_env():
+    mock_env = {
+        "AWS_SECRET_ACCESS_KEY": "mock_secret",
+        "AWS_ACCESS_KEY_ID": "mock_access_key",
+        "MLFLOW_S3_ENDPOINT_URL": "mock_endpoint"
+    }
+    with mock.patch.dict("os.environ", mock_env), mock.patch("pathlib.Path.home") as home_path:
+        home_path.return_value.joinpath.return_value.exists.return_value = False
+        cmds, envs = _get_s3_artifact_cmd_and_envs(None)
+        assert cmds == []
+        assert envs == mock_env
+
+
+def test_docker_s3_cmd_and_envs_from_home():
+    mock_env = {}
+    with mock.patch.dict("os.environ", mock_env), mock.patch("pathlib.Path.home") as home_path:
+        home_path.return_value.joinpath.return_value.__str__.return_value = "mock_volume"
+        cmds, envs = _get_s3_artifact_cmd_and_envs(None)
+        assert cmds == ["-v", "mock_volume:/.aws"]
+        assert envs == mock_env
+
+
+def test_docker_local_artifact_cmd_and_envs():
+    artifact_repo = mock.MagicMock()
+    artifact_repo.artifact_uri = "mock_volume"
+    cmds, envs = _get_local_artifact_cmd_and_envs(artifact_repo)
+    assert cmds == ["-v", "mock_volume:mock_volume"]
+    assert envs == {}

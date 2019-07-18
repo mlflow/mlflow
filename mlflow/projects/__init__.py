@@ -11,13 +11,10 @@ import yaml
 import os
 import sys
 import re
-import shutil
 from six.moves import urllib
 import subprocess
 import tempfile
 import logging
-import posixpath
-import docker
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
@@ -31,12 +28,10 @@ from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
 from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
-    MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
     LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, \
     MLFLOW_PROJECT_BACKEND
-from mlflow.utils import databricks_utils, file_utils
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -124,6 +119,10 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
+            from mlflow.projects.docker import _get_docker_image_uri, _build_docker_image, \
+                _validate_docker_installation, \
+                _validate_docker_env, _get_docker_command
+
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV,
                                             "docker")
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
@@ -158,6 +157,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
     elif backend == "kubernetes":
         from mlflow.projects import kubernetes as kb
+        from mlflow.projects.docker import _build_docker_image, _validate_docker_installation, \
+            _validate_docker_env
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "kubernetes")
@@ -688,61 +689,6 @@ def _get_local_uri_or_none(uri):
         return None, None
 
 
-def _get_docker_command(image, active_run):
-    docker_path = "docker"
-    cmd = [docker_path, "run", "--rm"]
-    env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
-                                 experiment_id=active_run.info.experiment_id)
-    tracking_uri = tracking.get_tracking_uri()
-    local_path, container_tracking_uri = _get_local_uri_or_none(tracking_uri)
-    if local_path is not None:
-        cmd += ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
-    if tracking.utils._is_databricks_uri(tracking_uri):
-        db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
-        config = databricks_utils.get_databricks_host_creds(db_profile)
-        # We set these via environment variables so that only the current profile is exposed, rather
-        # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
-        # part of ~/.databrickscfg into the container
-        env_vars[tracking._TRACKING_URI_ENV_VAR] = 'databricks'
-        env_vars['DATABRICKS_HOST'] = config.host
-        if config.username:
-            env_vars['DATABRICKS_USERNAME'] = config.username
-        if config.password:
-            env_vars['DATABRICKS_PASSWORD'] = config.password
-        if config.token:
-            env_vars['DATABRICKS_TOKEN'] = config.token
-        if config.ignore_tls_verification:
-            env_vars['DATABRICKS_INSECURE'] = config.ignore_tls_verification
-
-    for key, value in env_vars.items():
-        cmd += ["-e", "{key}={value}".format(key=key, value=value)]
-    cmd += [image.tags[0]]
-    return cmd
-
-
-def _validate_docker_installation():
-    """
-    Verify if Docker is installed on host machine.
-    """
-    try:
-        docker_path = "docker"
-        process.exec_cmd([docker_path, "--help"], throw_on_error=False)
-    except EnvironmentError:
-        raise ExecutionException("Could not find Docker executable. "
-                                 "Ensure Docker is installed as per the instructions "
-                                 "at https://docs.docker.com/install/overview/.")
-
-
-def _validate_docker_env(project):
-    if not project.name:
-        raise ExecutionException("Project name in MLProject must be specified when using docker "
-                                 "for image tagging.")
-    if not project.docker_env.get('image'):
-        raise ExecutionException("Project with docker environment must specify the docker image "
-                                 "to use via an 'image' field under the 'docker_env' field.")
-
-
 def _parse_kubernetes_config(backend_config):
     """
     Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
@@ -767,72 +713,6 @@ def _parse_kubernetes_config(backend_config):
     if 'repository-uri' not in backend_config.keys():
         raise ExecutionException("Could not find 'repository-uri' in backend_config.")
     return kube_config
-
-
-def _create_docker_build_ctx(work_dir, dockerfile_contents):
-    """
-    Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
-    """
-    directory = tempfile.mkdtemp()
-    try:
-        dst_path = os.path.join(directory, "mlflow-project-contents")
-        shutil.copytree(src=work_dir, dst=dst_path)
-        with open(os.path.join(dst_path, _GENERATED_DOCKERFILE_NAME), "w") as handle:
-            handle.write(dockerfile_contents)
-        _, result_path = tempfile.mkstemp()
-        file_utils.make_tarfile(
-            output_filename=result_path,
-            source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME)
-    finally:
-        shutil.rmtree(directory)
-    return result_path
-
-
-def _build_docker_image(work_dir, repository_uri, base_image, run_id):
-    """
-    Build a docker image containing the project in `work_dir`, using the base image.
-    """
-    image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
-    dockerfile = (
-        "FROM {imagename}\n"
-        "COPY {build_context_path}/ /mlflow/projects/code/\n"
-        "WORKDIR /mlflow/projects/code/\n"
-    ).format(imagename=base_image, build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
-    build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
-    with open(build_ctx_path, 'rb') as docker_build_ctx:
-        _logger.info("=== Building docker image %s ===", image_uri)
-        client = docker.from_env()
-        image, _ = client.images.build(
-            tag=image_uri, forcerm=True,
-            dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
-            fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
-    try:
-        os.remove(build_ctx_path)
-    except Exception:  # pylint: disable=broad-except
-        _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
-    tracking.MlflowClient().set_tag(run_id,
-                                    MLFLOW_DOCKER_IMAGE_URI,
-                                    image_uri)
-    tracking.MlflowClient().set_tag(run_id,
-                                    MLFLOW_DOCKER_IMAGE_ID,
-                                    image.id)
-    return image
-
-
-def _get_docker_image_uri(repository_uri, work_dir):
-    """
-    Returns an appropriate Docker image URI for a project based on the git hash of the specified
-    working directory.
-
-    :param repository_uri: The URI of the Docker repository with which to tag the image. The
-                           repository URI is used as the prefix of the image URI.
-    :param work_dir: Path to the working directory in which to search for a git commit hash
-    """
-    repository_uri = repository_uri if repository_uri else "docker-project"
-    # Optionally include first 7 digits of git SHA in tag name, if available.
-    git_commit = _get_git_commit(work_dir)
-    version_string = ":" + git_commit[:7] if git_commit else ""
-    return repository_uri + version_string
 
 
 __all__ = [
