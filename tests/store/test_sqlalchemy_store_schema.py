@@ -34,8 +34,8 @@ def _assert_schema_files_equal(generated_schema_file, expected_schema_file):
     # so sort the lines within the statements before comparing them.
     for generated_schema_table, expected_schema_table \
             in zip(generated_schema_table_chunks, expected_schema_table_chunks):
-        generated_lines = sorted(generated_schema_table.split("\n"))
-        expected_lines = sorted(expected_schema_table.split("\n"))
+        generated_lines = [x.strip() for x in sorted(generated_schema_table.split("\n"))]
+        expected_lines = [x.strip() for x in sorted(expected_schema_table.split("\n"))]
         assert generated_lines == expected_lines,\
             "Generated schema did not match expected schema. Generated schema had table " \
             "definition:\n{generated_table}\nExpected schema had table definition:" \

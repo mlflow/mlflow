@@ -202,7 +202,9 @@ def log_metric(key, value, step=None):
     Log a metric under the current run, creating a run if necessary.
 
     :param key: Metric name (string).
-    :param value: Metric value (float).
+    :param value: Metric value (float). Note that some special values such as +/- Infinity may be
+                  replaced by other values depending on the store. For example, sFor example, the
+                  SQLAlchemy store replaces +/- Inf with max / min float values.
     :param step: Metric step (int). Defaults to zero if unspecified.
     """
     run_id = _get_or_start_run().info.run_id
@@ -212,7 +214,9 @@ def log_metric(key, value, step=None):
 def log_metrics(metrics, step=None):
     """
     Log multiple metrics for the current run, starting a run if no runs are active.
-    :param metrics: Dictionary of metric_name: String -> value: Float
+    :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special values
+                    such as +/- Infinity may be replaced by other values depending on the store.
+                    For example, sql based store may replace +/- Inf with max / min float values.
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
@@ -396,7 +400,7 @@ def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_result
             runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
                                               NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
         all_runs.extend(runs)
-        if hasattr(runs, 'token') and runs.token != '':
+        if hasattr(runs, 'token') and runs.token != '' and runs.token is not None:
             next_page_token = runs.token
         else:
             break
