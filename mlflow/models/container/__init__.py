@@ -125,8 +125,9 @@ def _serve_pyfunc(model):
         bash_cmds += ["source /miniconda/bin/activate custom_env"]
     nginx_conf_template = resource_filename(mlflow.models.__name__,
                                             "container/scoring_server/nginx.conf.template")
-    nginx = Popen(['envsubst', '<', nginx_conf_template, '/nginx.conf',
-                   '&&', 'nginx', '-c', '/nginx.conf'])
+    nginx = Popen(['/bin/bash', '-c',
+                   'envsubst', '<', nginx_conf_template, '>', '/nginx/env/nginx.conf',
+                   '&&', 'nginx', '-c', '/nginx/env/nginx.conf'])
     # link the log streams to stdout/err so they will be logged to the container logs
     check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
     check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])

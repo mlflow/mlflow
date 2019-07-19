@@ -19,6 +19,7 @@ RUN apt-get -y update && apt-get install -y --no-install-recommends \
          wget \
          curl \
          nginx \
+         gettext-base \
          ca-certificates \
          bzip2 \
          build-essential \
