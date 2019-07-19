@@ -9,8 +9,8 @@ Various examples that depict MLflow tracking, project, and serving use cases.
 * `h2o` depicts how MLflow can be use to track various random forest architectures to train models 
 for predicting wine quality.
 * `hyperparam`  shows how to do hyperparameter tuning with MLflow and some popular optimization libraries.
-* `keras` 
-modifies [a Keras classification example](https://github.com/keras-team/keras/blob/master/examples/reuters_mlp.py)
+* `keras` modifies 
+[a Keras classification example](https://github.com/keras-team/keras/blob/ed07472bc5fc985982db355135d37059a1f887a9/examples/reuters_mlp.py)
 and uses MLflow's auto-logging feature to automatically log metrics and parameters
 to MLflow during training.
 * `multistep_workflow` is an end-to-end of a data ETL and ML training pipeline built as an MLflow 
