@@ -72,7 +72,7 @@ rsthtml:
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 .PHONY: html
-html: javadocs rdocs rsthtml
+html: rdocs rsthtml javadocs
 
 .PHONY: dirhtml
 dirhtml:
