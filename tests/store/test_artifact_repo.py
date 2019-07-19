@@ -28,9 +28,10 @@ class ArtifactRepositoryImpl(ArtifactRepository):
     ('', '12345/model', ['12345/model/modelfile'], ['12345/model/modelfile']),
     ('', '12345/model', ['12345/model', '12345/model/modelfile'], ['12345/model/modelfile']),
 ])
-def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, list_return_val):
+def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, list_return_val,
+                                                     expected_args):
 
-    def list_artifacts_mock(path):
+    def list_artifacts_mock(self, path):
         if path.endswith("model"):
             return [FileInfo(item, False, 123) for item in list_return_val]
         else:
