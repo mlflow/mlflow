@@ -525,11 +525,11 @@ class FileStore(AbstractStore):
             return ExperimentTag(tag_name, tag_data)
         return RunTag(tag_name, tag_data)
 
-    def get_all_tags(self, id, is_experiment=False):
+    def get_all_tags(self, obj_id, is_experiment=False):
         if is_experiment:
-            parent_path, tag_files = self._get_experiment_files(id)
+            parent_path, tag_files = self._get_experiment_files(obj_id)
         else:
-            parent_path, tag_files = self._get_run_files(id, "tag")
+            parent_path, tag_files = self._get_run_files(obj_id, "tag")
         tags = []
         for tag_file in tag_files:
             tags.append(self._get_tag_from_file(parent_path, tag_file, is_experiment=is_experiment))
