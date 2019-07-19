@@ -18,7 +18,7 @@ export default class PermissionDeniedView extends Component {
           src={permissionDeniedLock}
           alt='permission denied'
         />
-        <h1 className="center" style={{ paddingTop: '10px' }}>
+        <h1 className="center" style={{ paddingTop: 10 }}>
           Permission Denied
         </h1>
         <h2 className="center" style={{ color: Colors.secondaryText }}>
