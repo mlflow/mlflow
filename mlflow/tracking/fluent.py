@@ -245,7 +245,7 @@ def log_params(params):
 def set_tags(tags):
     """
     Log a batch of tags for the current run, starting a run if no runs are active.
-    
+
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
     :returns: None
