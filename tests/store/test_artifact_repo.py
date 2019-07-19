@@ -20,24 +20,23 @@ class ArtifactRepositoryImpl(ArtifactRepository):
         print("download_file called with ", remote_file_path)
 
 
-@pytest.mark.parametrize("base_uri, download_arg, list_return_val, expected_args", [
-    ('12345/model', '', ['modelfile'], ['modelfile']),
-    ('12345/model', '', ['.', 'modelfile'], ['modelfile']),
-    ('12345', 'model', ['model/modelfile'], ['model/modelfile']),
-    ('12345', 'model', ['model', 'model/modelfile'], ['model/modelfile']),
-    ('', '12345/model', ['12345/model/modelfile'], ['12345/model/modelfile']),
-    ('', '12345/model', ['12345/model', '12345/model/modelfile'], ['12345/model/modelfile']),
+@pytest.mark.parametrize("base_uri, download_arg, list_return_val", [
+    ('12345/model', '', ['modelfile']),
+    ('12345/model', '', ['.', 'modelfile']),
+    ('12345', 'model', ['model/modelfile']),
+    ('12345', 'model', ['model', 'model/modelfile']),
+    ('', '12345/model', ['12345/model/modelfile']),
+    ('', '12345/model', ['12345/model', '12345/model/modelfile']),
 ])
-def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, list_return_val,
-                                                     expected_args):
+def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, list_return_val):
 
-    def list_artifacts_mock(self, path):
+    def list_artifacts(path):
         if path.endswith("model"):
             return [FileInfo(item, False, 123) for item in list_return_val]
         else:
             return []
 
-    with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts",
-                           new_callable=lambda: list_artifacts_mock):
+    with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts") as list_artifacts_mock:
+        list_artifacts_mock.side_effect = list_artifacts
         repo = ArtifactRepositoryImpl(base_uri)
         repo.download_artifacts(download_arg)
