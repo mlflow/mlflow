@@ -35,7 +35,7 @@ def keras_random_data_run(random_train_data):
         model.add(layers.Dense(64, activation='relu'))
         model.add(layers.Dense(10, activation='softmax'))
 
-        model.compile(optimizer=keras.optimizers.Adam(lr=0.001),
+        model.compile(optimizer=keras.optimizers.Adam(lr=0.001, epsilon=1e-07),
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
 
@@ -51,6 +51,8 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     assert 'loss' in data.metrics
     assert 'optimizer_name' in data.params
     assert data.params['optimizer_name'] == 'Adam'
+    assert 'epsilon' in data.params
+    assert data.params['epsilon'] == '1e-07'
     assert 'summary' in keras_random_data_run.data.tags
     assert 'Total params: 6,922' in keras_random_data_run.data.tags['summary']
 
