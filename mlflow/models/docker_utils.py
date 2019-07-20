@@ -35,6 +35,7 @@ RUN bash ./miniconda.sh -b -p /miniconda; rm ./miniconda.sh;
 ENV PATH="/miniconda/bin:$PATH"
 ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
 ENV GUNICORN_CMD_ARGS="--timeout 60 -k gevent"
+ENV GUNICORN_SERVER="127.0.0.1:8000"
 ENV NGINX_PORT="8080"
 # Set up the program in the image
 WORKDIR /opt/mlflow
