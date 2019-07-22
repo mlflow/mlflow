@@ -6,7 +6,7 @@ import logging
 import docker
 
 import posixpath
-import urllib
+from six.moves import urllib
 
 import mlflow
 from mlflow import tracking as tracking
