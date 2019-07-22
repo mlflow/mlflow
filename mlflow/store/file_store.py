@@ -619,7 +619,8 @@ class FileStore(AbstractStore):
         _validate_tag(tag.key, tag.value)
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException("The experiment {} must be in 'active' lifecycle_stage to set tags"
+            raise MlflowException("The experiment {} must be in 'active'"
+                                  "lifecycle_stage to set tags"
                                   .format(experiment.experiment_id))
         tag_path = self._get_experiment_tag_path(experiment_id, tag.key)
         make_containing_dirs(tag_path)
