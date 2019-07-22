@@ -178,13 +178,13 @@ class MlflowClient(object):
         param = Param(key, str(value))
         self.store.log_param(run_id, param)
 
-    def set_experiment_tag(self, exp_id, key, value):
+    def set_experiment_tag(self, experiment_id, key, value):
         """
         Set a tag on the experiment ID. Value is converted to a string.
         """
         _validate_tag_name(key)
         tag = ExperimentTag(key, str(value))
-        self.store.set_experiment_tag(exp_id, tag)
+        self.store.set_experiment_tag(experiment_id, tag)
 
     def set_tag(self, run_id, key, value):
         """
