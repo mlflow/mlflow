@@ -40,10 +40,6 @@ HOST = click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
 PORT = click.option("--port", "-p", default=5000,
                     help="The port to listen on (default: 5000).")
 
-TIMEOUT = click.option("--timeout", "-t", metavar="TIMEOUT", default=60,
-                       help="Gunicorn workers silent for more than this many seconds are killed "
-                            "and restarted.")
-
 # We use None to disambiguate manually selecting "4"
 WORKERS = click.option("--workers", "-w", default=None,
                        help="Number of gunicorn worker processes to handle requests (default: 4).")
