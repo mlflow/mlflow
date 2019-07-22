@@ -207,20 +207,11 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 
 Automatic Logging from TensorFlow and Keras (experimental)
 ==================================================================
-MLflow supports automatic logging of metrics and parameters from TensorFlow and Keras without the need for explicit
-log statements. You can enable this feature by calling one of :py:func:`mlflow.tensorflow.autolog` or
-:py:func:`mlflow.keras.autolog` depending on the framework before your training code. Note that ``tensorflow.keras``
-is handled by :py:mod:`mlflow.tensorflow`, not :py:mod:`mlflow.keras`.
+Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
+log statements. See example usages with `Keras <http://www.github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
+`TensorFlow <http://www.github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_. 
 
-You can also view example usages with `Keras <http://www.github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
-`TensorFlow <http://www.github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_ in the MLflow GitHub repository.
-
-**Note**: this feature is experimental - the API and format of the logged data are subject to change.
-
-:py:func:`mlflow.tensorflow.autolog` optionally accepts a ``every_n_iter``
-argument to specify the frequency with which metrics should be logged to MLflow.
-
-The following table details auto-logging capabilities for different frameworks:
+Autologging captures the following information:
 
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 | Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
@@ -234,6 +225,9 @@ The following table details auto-logging capabilities for different frameworks:
 | TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                                            |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
 
+Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`. 
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 
 .. _organizing_runs_in_experiments:
