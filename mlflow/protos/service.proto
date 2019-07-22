@@ -632,7 +632,7 @@ message GetExperiment {
     // A collection of active runs in the experiment. Note: this may not contain
     // all of the experiment's active runs.
     //
-    // This field is deprecated. Please use the SearchRuns API to fetch
+    // This field is deprecated. Please use the "Search Runs" API to fetch
     // runs within an experiment.
     repeated RunInfo runs = 2 [deprecated=true];
   }
