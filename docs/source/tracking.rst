@@ -207,11 +207,14 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 
 Automatic Logging from TensorFlow and Keras (experimental)
 ==================================================================
-MLflow supports automatic logging of metrics and parameters
-from TensorFlow and Keras without the need for explicit log statements. You can enable this feature by
-calling one of :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` depending on the
-framework before your training code. Note that ``tensorflow.keras`` is handled by :py:mod:`mlflow.tensorflow`,
-not :py:mod:`mlflow.keras`.
+MLflow supports automatic logging of metrics and parameters from TensorFlow and Keras without the need for explicit
+log statements. You can enable this feature by calling one of :py:func:`mlflow.tensorflow.autolog` or
+:py:func:`mlflow.keras.autolog` depending on the framework before your training code. Note that ``tensorflow.keras``
+is handled by :py:mod:`mlflow.tensorflow`, not :py:mod:`mlflow.keras`.
+
+You can also view example usages with `Keras <http://www.github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
+`TensorFlow <http://www.github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_ in the MLflow GitHub repository.
+
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 :py:func:`mlflow.tensorflow.autolog` optionally accepts a ``every_n_iter``
