@@ -123,7 +123,7 @@ def test_docker_invalid_project_backend_local():
         mlflow.projects.docker._validate_docker_env(project)
 
 
-def test_docker_s3_cmd_and_envs_from_env():
+def test_docker_s3_artifact_cmd_and_envs_from_env():
     mock_env = {
         "AWS_SECRET_ACCESS_KEY": "mock_secret",
         "AWS_ACCESS_KEY_ID": "mock_access_key",
@@ -136,7 +136,7 @@ def test_docker_s3_cmd_and_envs_from_env():
         assert envs == mock_env
 
 
-def test_docker_s3_cmd_and_envs_from_home():
+def test_docker_s3_artifact_cmd_and_envs_from_home():
     mock_env = {}
     with mock.patch.dict("os.environ", mock_env), \
             mock.patch("posixpath.exists", return_value=True), \
@@ -146,8 +146,7 @@ def test_docker_s3_cmd_and_envs_from_home():
         assert envs == mock_env
 
 
-def test_docker_wasbs_cmd_and_envs_from_home():
-    # pylint: disable=unused-argument
+def test_docker_wasbs_artifact_cmd_and_envs_from_home():
     from azure.storage.blob import BlockBlobService
 
     mock_env = {
@@ -159,6 +158,20 @@ def test_docker_wasbs_cmd_and_envs_from_home():
             mock.patch("azure.storage.blob.BlockBlobService"):
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs(wasbs_uri)
         assert cmds == []
+        assert envs == mock_env
+
+
+def test_docker_hdfs_artifact_cmd_and_envs_from_home():
+    mock_env = {
+        "MLFLOW_HDFS_DRIVER": "mock_libhdfs",
+        "MLFLOW_KERBEROS_TICKET_CACHE": "/mock_ticket_cache",
+        "MLFLOW_KERBEROS_USER": "mock_krb_user",
+        "MLFLOW_PYARROW_EXTRA_CONF": "mock_pyarrow_extra_conf"
+    }
+    hdfs_uri = "hdfs://host:8020/path"
+    with mock.patch.dict("os.environ", mock_env):
+        cmds, envs = _get_docker_artifact_storage_cmd_and_envs(hdfs_uri)
+        assert cmds == ["-v", "/mock_ticket_cache:/mock_ticket_cache"]
         assert envs == mock_env
 
 
