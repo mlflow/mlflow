@@ -141,7 +141,7 @@ or :py:func:`mlflow.keras.autolog` depending on the framework before your traini
 Note that ``tensorflow.keras`` is handled by ``mlflow.tensorflow``, not ``mlflow.keras``.
 **Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
-:py:func:`mlflow.tensorflow.autolog` optionally accepts a ``metrics_every_n_steps``
+:py:func:`mlflow.tensorflow.autolog` optionally accepts a ``every_n_iter``
 argument to specify the frequency with which metrics should be logged to MLflow.
 
 The following table details auto-logging capabilities for different TensorFlow workflows:
