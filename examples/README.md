@@ -11,7 +11,7 @@ for predicting wine quality.
 * `hyperparam`  shows how to do hyperparameter tuning with MLflow and some popular optimization libraries.
 * `keras` modifies 
 [a Keras classification example](https://github.com/keras-team/keras/blob/ed07472bc5fc985982db355135d37059a1f887a9/examples/reuters_mlp.py)
-and uses MLflow's auto-logging feature to automatically log metrics and parameters
+and uses MLflow's `mlflow.keras.autolog()` API to automatically log metrics and parameters
 to MLflow during training.
 * `multistep_workflow` is an end-to-end of a data ETL and ML training pipeline built as an MLflow 
 project. The example shows how parts of the workflow can leverage from previously run steps.
@@ -27,6 +27,6 @@ and stores (logs) them as MLflow artifacts.
 * `sklearn_logisic_regression` is a simple MLflow example with hooks to log training data to MLflow
 tracking server.
 * `tensorflow` is an end-to-end one run example from train to predict. It includes a usage of MLflow's
-auto-logging feature, which captures TensorBoard data and logs to MLflow with no code change.
+`mlflow.tensorflow.autolog()` API, which captures TensorBoard data and logs to MLflow with no code change.
 * `docker` demonstrates how to create and run an MLflow project using docker (rather than conda)
   to manage project dependencies

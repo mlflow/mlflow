@@ -9,7 +9,9 @@ from keras.datasets import reuters
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
 from keras.preprocessing.text import Tokenizer
-import mlflow
+
+# The following import and function call are the only additions to code required
+# to automatically log metrics and parameters to MLflow.
 import mlflow.keras
 
 mlflow.keras.autolog()
