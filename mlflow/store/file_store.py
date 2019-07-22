@@ -17,7 +17,7 @@ from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULT
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
     _validate_tag_name, _validate_experiment_id, \
-    _validate_batch_log_limits, _validate_batch_log_data
+    _validate_batch_log_limits, _validate_batch_log_data, _validate_tag
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
                                      read_yaml, find, read_file_lines, read_file,
@@ -83,6 +83,7 @@ class FileStore(AbstractStore):
     METRICS_FOLDER_NAME = "metrics"
     PARAMS_FOLDER_NAME = "params"
     TAGS_FOLDER_NAME = "tags"
+    EXPERIMENT_TAGS_FOLDER_NAME = "tags"
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
 
@@ -202,7 +203,9 @@ class FileStore(AbstractStore):
         self._check_root_dir()
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
-        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, dict(experiment))
+        experiment_dict = dict(experiment)
+        del experiment_dict['tags']
+        write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, experiment_dict)
         return experiment_id
 
     def create_experiment(self, name, artifact_location=None):
@@ -243,7 +246,7 @@ class FileStore(AbstractStore):
             meta['lifecycle_stage'] = LifecycleStage.DELETED
         else:
             meta['lifecycle_stage'] = LifecycleStage.ACTIVE
-        meta['tags'] = self.get_all_tags(experiment_id, is_experiment=True)
+        meta['tags'] = self.get_all_experiment_tags(experiment_id)
         experiment = _read_persisted_experiment_dict(meta)
         if experiment_id != experiment.experiment_id:
             logging.warning("Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
@@ -422,14 +425,6 @@ class FileStore(AbstractStore):
 
         _, run_dir = self._find_run_root(run_uuid)
         # run_dir exists since run validity has been confirmed above.
-        return self._get_metric_files(run_dir, resource_type)
-
-    def _get_experiment_files(self, experiment_id):
-        _validate_experiment_id(experiment_id)
-        experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
-        return self._get_metric_files(experiment_dir, "tag")
-
-    def _get_metric_files(self, root_dir, resource_type):
         if resource_type == "metric":
             subfolder_name = FileStore.METRICS_FOLDER_NAME
         elif resource_type == "param":
@@ -438,6 +433,14 @@ class FileStore(AbstractStore):
             subfolder_name = FileStore.TAGS_FOLDER_NAME
         else:
             raise Exception("Looking for unknown resource.")
+        return self._get_resource_files(run_dir, subfolder_name)
+
+    def _get_experiment_files(self, experiment_id):
+        _validate_experiment_id(experiment_id)
+        experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
+        return self._get_resource_files(experiment_dir, FileStore.EXPERIMENT_TAGS_FOLDER_NAME)
+
+    def _get_resource_files(self, root_dir, subfolder_name):
         source_dirs = find(root_dir, subfolder_name, full_path=True)
         if len(source_dirs) == 0:
             return root_dir, []
@@ -518,21 +521,29 @@ class FileStore(AbstractStore):
         return params
 
     @staticmethod
-    def _get_tag_from_file(parent_path, tag_name, is_experiment=False):
+    def _get_experiment_tag_from_file(parent_path, tag_name):
         _validate_tag_name(tag_name)
         tag_data = read_file(parent_path, tag_name)
-        if is_experiment:
-            return ExperimentTag(tag_name, tag_data)
-        return RunTag(tag_name, tag_data)
+        return ExperimentTag(tag_name, tag_data)
 
-    def get_all_tags(self, obj_id, is_experiment=False):
-        if is_experiment:
-            parent_path, tag_files = self._get_experiment_files(obj_id)
-        else:
-            parent_path, tag_files = self._get_run_files(obj_id, "tag")
+    def get_all_experiment_tags(self, exp_id):
+        parent_path, tag_files = self._get_experiment_files(exp_id)
         tags = []
         for tag_file in tag_files:
-            tags.append(self._get_tag_from_file(parent_path, tag_file, is_experiment=is_experiment))
+            tags.append(self._get_experiment_tag_from_file(parent_path, tag_file))
+        return tags
+
+    @staticmethod
+    def _get_tag_from_file(parent_path, tag_name):
+        _validate_tag_name(tag_name)
+        tag_data = read_file(parent_path, tag_name)
+        return RunTag(tag_name, tag_data)
+
+    def get_all_tags(self, run_uuid):
+        parent_path, tag_files = self._get_run_files(run_uuid, "tag")
+        tags = []
+        for tag_file in tag_files:
+            tags.append(self._get_tag_from_file(parent_path, tag_file))
         return tags
 
     def _list_run_infos(self, experiment_id, view_type):
@@ -605,8 +616,11 @@ class FileStore(AbstractStore):
         :param experiment_id: String ID of the experiment
         :param tag: ExperimentRunTag instance to log
         """
-        _validate_tag_name(tag.key)
-        # experiment validation happens in get_experiment_tag_path
+        _validate_tag(tag.key, tag.value)
+        experiment = self.get_experiment(experiment_id)
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException("The experiment {} must be in 'active' lifecycle_stage to set tags"
+                                  .format(experiment.experiment_id))
         tag_path = self._get_experiment_tag_path(experiment_id, tag.key)
         make_containing_dirs(tag_path)
         write_to(tag_path, self._writeable_value(tag.value))

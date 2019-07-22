@@ -23,7 +23,7 @@ from mlflow.utils import extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
-    _validate_run_id, _validate_metric
+    _validate_run_id, _validate_metric, _validate_tag
 from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
@@ -325,10 +325,7 @@ class SqlAlchemyStore(AbstractStore):
     def create_run(self, experiment_id, user_id, start_time, tags):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
-
-            if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-                raise MlflowException('Experiment id={} must be active'.format(experiment_id),
-                                      INVALID_STATE)
+            self._check_experiment_is_active(experiment)
 
             run_id = uuid.uuid4().hex
             artifact_location = posixpath.join(experiment.artifact_location, run_id,
@@ -482,6 +479,7 @@ class SqlAlchemyStore(AbstractStore):
         :param experiment_id: String ID of the experiment
         :param tag: ExperimentRunTag instance to log
         """
+        _validate_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session,
                                               experiment_id,

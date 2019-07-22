@@ -566,6 +566,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_experiment_tag(exp_id, multiLineTag)
         experiment = self.store.get_experiment(exp_id)
         self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
+        # test cannot set tags that are too long
+        longTag = entities.ExperimentTag("longTagKey", "a" * 501)
+        with pytest.raises(MlflowException):
+            self.store.set_experiment_tag(exp_id, longTag)
+        # test cannot set tags on deleted experiments
+        self.store.delete_experiment(exp_id)
+        with pytest.raises(MlflowException):
+            self.store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
 
     def test_set_tag(self):
         run = self._run_factory()

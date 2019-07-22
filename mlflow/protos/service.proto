@@ -809,7 +809,7 @@ message LogParam {
 message SetExperimentTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // ID of the run under which to log the tag. Must be provided.
+  // ID of the experiment under which to log the tag. Must be provided.
   optional string experiment_id = 1 [(validate_required) = true];
 
   // Name of the tag. Maximum size is 255 bytes.

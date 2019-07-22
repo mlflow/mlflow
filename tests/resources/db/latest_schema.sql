@@ -18,7 +18,7 @@ CREATE TABLE experiments (
 
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL, 
-	value VARCHAR(250), 
+	value VARCHAR(500), 
 	experiment_id INTEGER NOT NULL, 
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id), 
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
@@ -52,9 +52,9 @@ CREATE TABLE metrics (
 	value FLOAT NOT NULL, 
 	timestamp BIGINT NOT NULL, 
 	run_uuid VARCHAR(32) NOT NULL, 
-	step BIGINT DEFAULT '0' NOT NULL,
-	is_nan BOOLEAN DEFAULT '0' NOT NULL,
-	CONSTRAINT metric_pk PRIMARY KEY (key, value, timestamp, run_uuid, step, is_nan),
+	step BIGINT DEFAULT '0' NOT NULL, 
+	is_nan BOOLEAN DEFAULT '0' NOT NULL, 
+	CONSTRAINT metric_pk PRIMARY KEY (key, value, timestamp, run_uuid, step, is_nan), 
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 

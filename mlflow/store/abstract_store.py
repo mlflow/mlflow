@@ -185,7 +185,7 @@ class AbstractStore:
         """
         Set a tag for the specified experiment
 
-        :param experiment_id: String id for the run
+        :param experiment_id: String id for the experiment
         :param tag: :py:class:`mlflow.entities.ExperimentTag` instance to set
         """
         pass
