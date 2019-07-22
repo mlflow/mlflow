@@ -146,6 +146,22 @@ def test_docker_s3_cmd_and_envs_from_home():
         assert envs == mock_env
 
 
+def test_docker_wasbs_cmd_and_envs_from_home():
+    # pylint: disable=unused-argument
+    from azure.storage.blob import BlockBlobService
+
+    mock_env = {
+        "AZURE_STORAGE_CONNECTION_STRING": "mock_connection_string",
+        "AZURE_STORAGE_ACCESS_KEY": "mock_access_key"
+    }
+    wasbs_uri = "wasbs://container@account.blob.core.windows.net/some/path"
+    with mock.patch.dict("os.environ", mock_env), \
+            mock.patch("azure.storage.blob.BlockBlobService"):
+        cmds, envs = _get_docker_artifact_storage_cmd_and_envs(wasbs_uri)
+        assert cmds == []
+        assert envs == mock_env
+
+
 def test_docker_local_artifact_cmd_and_envs():
     expected_volume_path = os.path.abspath("mock_volume")
     cmds, envs = _get_docker_artifact_storage_cmd_and_envs("file:mock_volume")
