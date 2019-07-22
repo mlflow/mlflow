@@ -1,14 +1,14 @@
 import os
-import pathlib
 
 import mock
 import pytest
+import posixpath  # pylint: disable=unused-import
 
 from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow.projects.docker import _get_docker_image_uri, \
-    _get_s3_artifact_cmd_and_envs, _get_local_artifact_cmd_and_envs
+    _get_docker_artifact_storage_cmd_and_envs, _get_docker_tracking_cmd_and_envs
 from mlflow.entities import ViewType
 from mlflow.projects import ExecutionException
 from mlflow.store import file_store
@@ -129,25 +129,41 @@ def test_docker_s3_cmd_and_envs_from_env():
         "AWS_ACCESS_KEY_ID": "mock_access_key",
         "MLFLOW_S3_ENDPOINT_URL": "mock_endpoint"
     }
-    with mock.patch.dict("os.environ", mock_env), mock.patch("pathlib.Path.home") as home_path:
-        home_path.return_value.joinpath.return_value.exists.return_value = False
-        cmds, envs = _get_s3_artifact_cmd_and_envs(None)
+    with mock.patch.dict("os.environ", mock_env), \
+            mock.patch("posixpath.exists", return_value=False):
+        cmds, envs = _get_docker_artifact_storage_cmd_and_envs("s3://mock_bucket")
         assert cmds == []
         assert envs == mock_env
 
 
 def test_docker_s3_cmd_and_envs_from_home():
     mock_env = {}
-    with mock.patch.dict("os.environ", mock_env), mock.patch("pathlib.Path.home") as home_path:
-        home_path.return_value.joinpath.return_value.__str__.return_value = "mock_volume"
-        cmds, envs = _get_s3_artifact_cmd_and_envs(None)
+    with mock.patch.dict("os.environ", mock_env), \
+            mock.patch("posixpath.exists", return_value=True), \
+            mock.patch("posixpath.expanduser", return_value="mock_volume"):
+        cmds, envs = _get_docker_artifact_storage_cmd_and_envs("s3://mock_bucket")
         assert cmds == ["-v", "mock_volume:/.aws"]
         assert envs == mock_env
 
 
 def test_docker_local_artifact_cmd_and_envs():
-    artifact_repo = mock.MagicMock()
-    artifact_repo.artifact_uri = "mock_volume"
-    cmds, envs = _get_local_artifact_cmd_and_envs(artifact_repo)
-    assert cmds == ["-v", "mock_volume:mock_volume"]
+    expected_volume_path = os.path.abspath("mock_volume")
+    cmds, envs = _get_docker_artifact_storage_cmd_and_envs("file:mock_volume")
+    assert cmds == ["-v", "{}:{}".format(expected_volume_path, expected_volume_path)]
     assert envs == {}
+
+
+@mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
+def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
+    mock_provider = mock.MagicMock()
+    mock_provider.get_config.return_value = \
+        DatabricksConfig("host", "user", "pass", None, insecure=True)
+    ProfileConfigProvider.return_value = mock_provider
+
+    cmds, envs = _get_docker_tracking_cmd_and_envs("databricks://some-profile")
+    assert envs == {"DATABRICKS_HOST": "host",
+                    "DATABRICKS_USERNAME": "user",
+                    "DATABRICKS_PASSWORD": "pass",
+                    "DATABRICKS_INSECURE": True,
+                    mlflow.tracking._TRACKING_URI_ENV_VAR: "databricks"}
+    assert cmds == []
