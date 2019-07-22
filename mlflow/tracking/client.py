@@ -184,7 +184,6 @@ class MlflowClient(object):
         """
         _validate_tag_name(key)
         tag = ExperimentTag(key, str(value))
-
         self.store.set_experiment_tag(experiment_id, tag)
 
     def set_tag(self, run_id, key, value):
