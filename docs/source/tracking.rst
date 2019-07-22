@@ -144,10 +144,12 @@ Note that ``tensorflow.keras`` is handled by ``mlflow.tensorflow``, not ``mlflow
 :py:func:`mlflow.tensorflow.autolog` optionally accepts a ``every_n_iter``
 argument to specify the frequency with which metrics should be logged to MLflow.
 
-The following table details auto-logging capabilities for different TensorFlow workflows:
+The following table details auto-logging capabilities for different frameworks:
 
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
 | Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                        |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
+| Keras            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end    |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
 | ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end    |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
@@ -156,9 +158,6 @@ The following table details auto-logging capabilities for different TensorFlow w
 | TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                               |
 +------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
 
-For Keras, loss and any metrics specified in the ``metrics`` argument of ``keras.model.fit`` are logged
-as metrics. Learning rate, optimizer name and epsilon are logged as parameters. Model checkpointing
-(as a Keras model) occurs once at training end.
 
 Launching Multiple Runs in One Program
 --------------------------------------
