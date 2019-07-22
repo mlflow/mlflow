@@ -77,7 +77,13 @@ class DatabricksJobRunner(object):
         _logger.info("=== Uploading project to DBFS path %s ===", dbfs_fuse_uri)
         http_endpoint = dbfs_fuse_uri
         with open(src_path, 'rb') as f:
-            self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
+            try:
+                self._databricks_api_request(endpoint=http_endpoint, method='POST', data=f)
+            except MlflowException as e:
+                if "Error 409" in e.message and "File already exists" in e.message:
+                    _logger.info("=== Did not overwrite existing DBFS path %s ===", dbfs_fuse_uri)
+                else:
+                    raise e
 
     def _dbfs_path_exists(self, dbfs_path):
         """
