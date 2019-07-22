@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship, backref
 import sqlalchemy as sa
 from sqlalchemy import (
     Column, String, ForeignKey, Integer, CheckConstraint,
-    BigInteger, PrimaryKeyConstraint, Boolean)
+    BigInteger, PrimaryKeyConstraint, Boolean, func, and_)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
     Experiment, RunTag, Metric, Param, RunData, RunInfo,
@@ -152,7 +152,7 @@ class SqlRun(Base):
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
-    def to_mlflow_entity(self):
+    def to_mlflow_entity(self, session):
         """
         Convert DB model to corresponding MLflow entity.
 
@@ -170,7 +170,10 @@ class SqlRun(Base):
             artifact_uri=self.artifact_uri)
 
         # only get latest recorded metrics per key
-        all_metrics = [m.to_mlflow_entity() for m in self.metrics]
+        last_metrics = self.get_last_recorded_metrics(session)
+
+        all_metrics = [Metric(key=m[1], value=m[4], timestamp=m[3], step=m[2])
+                       for m in last_metrics]
         metrics = {}
         for m in all_metrics:
             existing_metric = metrics.get(m.key)
@@ -186,6 +189,33 @@ class SqlRun(Base):
             tags=[t.to_mlflow_entity() for t in self.tags])
 
         return Run(run_info=run_info, run_data=run_data)
+
+    def get_last_recorded_metrics(self, session):
+        metrics_with_max_step = session \
+            .query(SqlMetric.run_uuid, SqlMetric.key, func.max(SqlMetric.step).label('step')) \
+            .group_by(SqlMetric.key, SqlMetric.run_uuid) \
+            .subquery('metrics_with_max_step')
+        metrics_with_max_timestamp = session \
+            .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step,
+                   func.max(SqlMetric.timestamp).label('timestamp')) \
+            .join(metrics_with_max_step,
+                  and_(SqlMetric.step == metrics_with_max_step.c.step,
+                       SqlMetric.run_uuid == metrics_with_max_step.c.run_uuid,
+                       SqlMetric.key == metrics_with_max_step.c.key)) \
+            .group_by(SqlMetric.key, SqlMetric.run_uuid) \
+            .subquery('metrics_with_max_timestamp')
+        metrics_with_max_value = session \
+            .query(SqlMetric.run_uuid, SqlMetric.key,
+                   SqlMetric.step, SqlMetric.timestamp, func.max(SqlMetric.value).label('value')) \
+            .join(metrics_with_max_timestamp,
+                  and_(SqlMetric.timestamp == metrics_with_max_timestamp.c.timestamp,
+                       SqlMetric.run_uuid == metrics_with_max_timestamp.c.run_uuid,
+                       SqlMetric.key == metrics_with_max_timestamp.c.key,
+                       SqlMetric.step == metrics_with_max_timestamp.c.step)) \
+            .filter(SqlMetric.run_uuid == self.run_uuid) \
+            .group_by(SqlMetric.key, SqlMetric.run_uuid) \
+            .all()
+        return metrics_with_max_value
 
 
 class SqlTag(Base):
