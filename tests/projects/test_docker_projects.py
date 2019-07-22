@@ -93,7 +93,7 @@ def test_docker_uri_mode_validation(
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")
 
 
-@mock.patch('mlflow.projects._get_git_commit')
+@mock.patch('mlflow.projects.docker._get_git_commit')
 def test_docker_image_uri_with_git(get_git_commit_mock):
     get_git_commit_mock.return_value = '1234567890'
     image_uri = _get_docker_image_uri("my_project", "my_workdir")
@@ -101,7 +101,7 @@ def test_docker_image_uri_with_git(get_git_commit_mock):
     get_git_commit_mock.assert_called_with('my_workdir')
 
 
-@mock.patch('mlflow.projects._get_git_commit')
+@mock.patch('mlflow.projects.docker._get_git_commit')
 def test_docker_image_uri_no_git(get_git_commit_mock):
     get_git_commit_mock.return_value = None
     image_uri = _get_docker_image_uri("my_project", "my_workdir")
