@@ -22,11 +22,13 @@ In MLflow Projects:
 **More features and improvements**
 
 In MLflow Tracking: 
+
 - Paginated “load more” and backend sorting for experiment search view UI. This change allows the UI to scalably display the sorted runs from large experiments. (#1564, @Zangr)
 - Search results are encoded in the URL. This allows you to share searches through their URL and to deep link to them. (#1416, @apurva-koti)
 - Ability to serve MLflow UI behind ``jupyter-server-proxy`` or outside of the root path ``/``. Previous to MLflow 1.1, the UI could only be hosted on `/` since the Javascript makes requests directly to ``/ajax-api/...``. With this patch, MLflow will make requests to ``ajax-api/...`` or a path relative to where the HTML is being served. (#1413, @xhochy)
 
 In MLflow Models: 
+
 - Update ``mlflow.spark.log_model()`` to accept descendants of pyspark.Model (#1519, @ankitmathur-db)
 - Support for saving custom Keras models with ``custom_objects``. This field is semantically equivalent to custom_objects parameter of ``keras.models.load_model()`` function (#1525, @ankitmathur-db)
 - New more performant split orient based input format for pyfunc scoring server (#1479, @lennon310)
