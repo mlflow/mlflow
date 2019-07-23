@@ -629,8 +629,12 @@ message GetExperiment {
     // Experiment details.
     optional Experiment experiment = 1;
 
-    // All (max limit to be imposed) active runs associated with this experiment.
-    repeated RunInfo runs = 2;
+    // A collection of active runs in the experiment. Note: this may not contain
+    // all of the experiment's active runs.
+    //
+    // This field is deprecated. Please use the "Search Runs" API to fetch
+    // runs within an experiment.
+    repeated RunInfo runs = 2 [deprecated=true];
   }
 }
 
