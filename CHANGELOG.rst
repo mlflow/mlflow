@@ -34,7 +34,7 @@ In MLflow Models:
 - New more performant split orient based input format for pyfunc scoring server (#1479, @lennon310)
 - Ability to specify gunicorn options for pyfunc scoring server built with `mlflow models build-docker`. #1428, @lennon310)
 
-** Bug fixes and documentation updates**
+**Bug fixes and documentation updates**
 
 - [Tracking] Fix database migration for MySQL. ``mlflow db upgrade`` should now work for MySQL backends. (#1404, @sueann)
 - [Tracking] Make CLI ``mlflow server`` and ``mlflow ui`` commands to work with SQLAlchemy URIs that specify a database driver. (#1411, @sueann)
