@@ -6,13 +6,13 @@ MLflow 1.1 includes several major features and improvements:
 
 In MLflow Tracking: 
 
+- Experimental support for autologging from Tensorflow and Keras. Using ``mlflow.tensorflow.autolog()`` will enable automatic logging of metrics and optimizer parameters from TensorFlow to MLflow. The feature will work with TensorFlow versions ``1.12 <= v < 2.0``. (#1520, #1601, @apurva-koti)
+- Parallel coordinates plot in the MLflow compare run UI. Adds out of the box support for a parallel coordinates plot. The plot allows users to observe relationships between a n-dimensional set of parameters to metrics. It visualizes all runs as lines that are color-coded based on the value of a metric (e.g. accuracy), and shows what parameter values each run took on. (#1497, @Zangr)
 - Pandas based search API. Adds the ability to return the results of a search as a pandas dataframe using the new ``mlflow.search_runs`` API. (#1483, #1548, @max-allen-db)
 - Java fluent API. Adds a new set of APIs to create and log to MLflow runs. This API contrasts with the existing low level ``MlflowClient`` API which simply wraps the REST APIs. The new fluent API allows you to create and log runs similar to how you would using the Python fluent API. (#1508, @andrewmchen)
 - Run tags improvements. Adds the ability to add and edit tags from the run view UI, delete tags from the API, and view tags in the experiment search view. (#1400, #1426, @Zangr; #1548, #1558, @ankitmathur-db)
-- Parallel coordinates plot in the MLflow compare run UI. Adds out of the box support for a parallel coordinates plot. The plot allows users to observe relationships between a n-dimensional set of parameters to metrics. It visualizes all runs as lines that are color-coded based on the value of a metric (e.g. accuracy), and shows what parameter values each run took on. (#1497, @Zangr)
 - Search API improvements. Adds order by and pagination to the search API. Pagination allows you to read a large set of runs in small page sized chunks. This allows clients and backend implementations to handle an unbounded set of runs in a scalable manner. (#1444, @sueann; #1437, #1455, #1482, #1485, #1542, @aarondav; #1567, @max-allen-db; #1217, @mparkhe)
 - Windows support for running the MLflow tracking server. (#1080, @akshaya-a)
-- Experimental support for autologging from Tensorflow and Keras. Using ``mlflow.tensorflow.autolog()`` will enable automatic logging of metrics and optimizer parameters from TensorFlow to MLflow. The feature will work with TensorFlow versions ``1.12 <= v < 2.0``. (#1520, #1601, @apurva-koti)
 
 In MLflow Projects:
 
