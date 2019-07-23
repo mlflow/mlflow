@@ -20,6 +20,7 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.gcs_artifact_repo import GCSArtifactRepository
 from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository
 
 _PROJECT_TAR_ARCHIVE_NAME = "mlflow-project-docker-build-context"
@@ -148,6 +149,18 @@ def _get_azure_blob_artifact_cmd_and_envs(artifact_repo):
     return [], envs
 
 
+def _get_gcs_artifact_cmd_and_envs(artifact_repo):
+    # pylint: disable=unused-argument
+    cmds = []
+    envs = {}
+
+    if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+        credentials_path = os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+        cmds = ["-v", "{}:/.gcs".format(credentials_path)]
+        envs["GOOGLE_APPLICATION_CREDENTIALS"] = "/.gcs"
+    return cmds, envs
+
+
 def _get_hdfs_artifact_cmd_and_envs(artifact_repo):
     # pylint: disable=unused-argument
     cmds = []
@@ -170,6 +183,7 @@ _artifact_storages = {
     S3ArtifactRepository: _get_s3_artifact_cmd_and_envs,
     AzureBlobArtifactRepository: _get_azure_blob_artifact_cmd_and_envs,
     HdfsArtifactRepository: _get_hdfs_artifact_cmd_and_envs,
+    GCSArtifactRepository: _get_gcs_artifact_cmd_and_envs,
 }
 
 

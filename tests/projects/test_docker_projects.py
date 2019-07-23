@@ -147,7 +147,7 @@ def test_docker_s3_artifact_cmd_and_envs_from_home():
 
 
 def test_docker_wasbs_artifact_cmd_and_envs_from_home():
-    from azure.storage.blob import BlockBlobService
+    from azure.storage.blob import BlockBlobService  # pylint: disable=unused-import
 
     mock_env = {
         "AZURE_STORAGE_CONNECTION_STRING": "mock_connection_string",
@@ -159,6 +159,17 @@ def test_docker_wasbs_artifact_cmd_and_envs_from_home():
         cmds, envs = _get_docker_artifact_storage_cmd_and_envs(wasbs_uri)
         assert cmds == []
         assert envs == mock_env
+
+
+def test_docker_gcs_artifact_cmd_and_envs_from_home():
+    mock_env = {
+        "GOOGLE_APPLICATION_CREDENTIALS": "mock_credentials_path",
+    }
+    gs_uri = "gs://mock_bucket"
+    with mock.patch.dict("os.environ", mock_env):
+        cmds, envs = _get_docker_artifact_storage_cmd_and_envs(gs_uri)
+        assert cmds == ["-v", "mock_credentials_path:/.gcs"]
+        assert envs == {"GOOGLE_APPLICATION_CREDENTIALS": "/.gcs"}
 
 
 def test_docker_hdfs_artifact_cmd_and_envs_from_home():
