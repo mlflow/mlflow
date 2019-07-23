@@ -149,6 +149,14 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         if synchronous:
             command += _get_entry_point_command(project, entry_point, parameters, storage_dir)
             command = command_separator.join(command)
+
+            if not use_conda and "Rscript" in command:
+                command += " --no-conda"
+                if '--python' not in command:
+                    command += " --python={}".format(sys.executable)
+                if '--mlflow' not in command:
+                    command += " --mlflow={}".format(shutil.which('mlflow'))
+
             return _run_entry_point(command, work_dir, experiment_id,
                                     run_id=active_run.info.run_id)
         # Otherwise, invoke `mlflow run` in a subprocess

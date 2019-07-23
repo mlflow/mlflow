@@ -24,11 +24,19 @@ mlflow_cli <- function(...,
 
   python <- dirname(python_bin())
   mlflow_bin <- python_mlflow_bin()
-  env <- modifyList(list(
-    PATH = paste(python, Sys.getenv("PATH"), sep = ":"),
-    MLFLOW_CONDA_HOME = python_conda_home(),
-    MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
-  ), env)
+
+  if (!is.null(python_conda_home())) {
+    env <- modifyList(list(
+      PATH = paste(python, Sys.getenv("PATH"), sep = ":"),
+      MLFLOW_CONDA_HOME = python_conda_home(),
+      MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
+    ), env)
+  } else {
+    env <- modifyList(list(
+      MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
+    ), env)
+  }
+
   if (is.null(stderr_callback)) {
     stderr_callback <- function(x, p) {
       cat(x, file = stderr())
