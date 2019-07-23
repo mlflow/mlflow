@@ -172,8 +172,10 @@ class SqlRun(Base):
         # only get latest recorded metrics per key
         last_metrics = self.get_last_recorded_metrics(session)
 
-        all_metrics = [Metric(key=m[1], value=m[4], timestamp=m[3], step=m[2])
-                       for m in last_metrics]
+        all_metrics = [Metric(key=m[1],
+                              value=m[4] if not m[5] else float("nan"),
+                              timestamp=m[3],
+                              step=m[2]) for m in last_metrics]
         metrics = {}
         for m in all_metrics:
             existing_metric = metrics.get(m.key)
@@ -205,8 +207,8 @@ class SqlRun(Base):
             .group_by(SqlMetric.key, SqlMetric.run_uuid) \
             .subquery('metrics_with_max_timestamp')
         metrics_with_max_value = session \
-            .query(SqlMetric.run_uuid, SqlMetric.key,
-                   SqlMetric.step, SqlMetric.timestamp, func.max(SqlMetric.value).label('value')) \
+            .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step, SqlMetric.timestamp,
+                   func.max(SqlMetric.value).label('value'), SqlMetric.is_nan) \
             .join(metrics_with_max_timestamp,
                   and_(SqlMetric.timestamp == metrics_with_max_timestamp.c.timestamp,
                        SqlMetric.run_uuid == metrics_with_max_timestamp.c.run_uuid,
