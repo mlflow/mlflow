@@ -251,16 +251,13 @@ def set_tags(tags):
 
 def log_artifact(local_path, artifact_path=None):
     """
-    Log a local file as an artifact of the currently active run.
+    Log a local file or directory as an artifact of the currently active run.
 
     :param local_path: Path to the file to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
     run_id = _get_or_start_run().info.run_id
-    if os.path.isdir(local_path):
-        MlflowClient().log_artifacts(run_id, local_path, artifact_path)
-
-    MlflowClient().log_artifact(run_id, local_path, artifact_path)
+    MlflowClient().log_artifacts(run_id, local_path, artifact_path)
 
 
 @deprecated("mlflow.log_artifact", 1.1)

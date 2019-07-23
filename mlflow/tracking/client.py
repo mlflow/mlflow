@@ -15,6 +15,7 @@ from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _v
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.utils.annotations import deprecated
 
 
 class MlflowClient(object):
@@ -212,9 +213,9 @@ class MlflowClient(object):
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
-        Write a local file to the remote ``artifact_uri``.
+        Write a local file or directory to the remote ``artifact_uri``.
 
-        :param local_path: Path to the file to write.
+        :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
@@ -224,6 +225,7 @@ class MlflowClient(object):
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
 
+    @deprecated('mlflow.tracking.client.log_artifact', 1.1)
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """
         Write a directory of files to the remote ``artifact_uri``.
