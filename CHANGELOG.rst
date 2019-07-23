@@ -12,7 +12,7 @@ In MLflow Tracking:
 - Java fluent API. Adds a new set of APIs to create and log to MLflow runs. This API contrasts with the existing low level ``MlflowClient`` API which simply wraps the REST APIs. The new fluent API allows you to create and log runs similar to how you would using the Python fluent API. (#1508, @andrewmchen)
 - Run tags improvements. Adds the ability to add and edit tags from the run view UI, delete tags from the API, and view tags in the experiment search view. (#1400, #1426, @Zangr; #1548, #1558, @ankitmathur-db)
 - Search API improvements. Adds order by and pagination to the search API. Pagination allows you to read a large set of runs in small page sized chunks. This allows clients and backend implementations to handle an unbounded set of runs in a scalable manner. (#1444, @sueann; #1437, #1455, #1482, #1485, #1542, @aarondav; #1567, @max-allen-db; #1217, @mparkhe)
-- Windows support for running the MLflow tracking server. (#1080, @akshaya-a)
+- Windows support for running the MLflow tracking server and UI. (#1080, @akshaya-a)
 
 In MLflow Projects:
 
