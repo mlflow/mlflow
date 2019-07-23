@@ -5,7 +5,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment, LogBatch
+    UpdateExperiment, LogBatch, DeleteTag
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import http_request, verify_rest_response
@@ -182,12 +182,21 @@ class RestStore(AbstractStore):
         """
         Set a tag for the specified run
 
-        :param run_id: String id for the run
+        :param run_id: String ID of the run
         :param tag: RunTag instance to log
         """
         req_body = message_to_json(SetTag(
             run_uuid=run_id, run_id=run_id, key=tag.key, value=tag.value))
         self._call_endpoint(SetTag, req_body)
+
+    def delete_tag(self, run_id, key):
+        """
+        Delete a tag from a run. This is irreversible.
+        :param run_id: String ID of the run
+        :param key: Name of the tag
+        """
+        req_body = message_to_json(DeleteTag(run_id=run_id, key=key))
+        self._call_endpoint(DeleteTag, req_body)
 
     def get_metric_history(self, run_id, metric_key):
         """
@@ -215,7 +224,11 @@ class RestStore(AbstractStore):
         req_body = message_to_json(sr)
         response_proto = self._call_endpoint(SearchRuns, req_body)
         runs = [Run.from_proto(proto_run) for proto_run in response_proto.runs]
-        return runs, response_proto.next_page_token
+        # If next_page_token is not set, we will see it as "". We need to convert this to None.
+        next_page_token = None
+        if response_proto.next_page_token:
+            next_page_token = response_proto.next_page_token
+        return runs, next_page_token
 
     def delete_run(self, run_id):
         req_body = message_to_json(DeleteRun(run_id=run_id))

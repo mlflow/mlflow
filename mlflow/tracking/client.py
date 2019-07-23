@@ -154,8 +154,15 @@ class MlflowClient(object):
 
     def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
-        Log a metric against the run ID. The timestamp defaults to the current timestamp.
-        The step defaults to 0.
+        Log a metric against the run ID.
+
+        :param run_id: The run id to which the metric should be logged.
+        :param key: Metric name.
+        :param value: Metric value (float). Note that some special values such
+        as +/- Infinity may be replaced by other values depending on the store. For example, the
+        SQLAlchemy store replaces +/- Inf with max / min float values.
+        :param timestamp: Time when this metric was calculated. Defaults to the current system time.
+        :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
         timestamp = timestamp if timestamp is not None else int(time.time())
         step = step if step is not None else 0
@@ -179,17 +186,28 @@ class MlflowClient(object):
         tag = RunTag(key, str(value))
         self.store.set_tag(run_id, tag)
 
-    def log_batch(self, run_id, metrics, params, tags):
+    def delete_tag(self, run_id, key):
+        """
+        Delete a tag from a run. This is irreversible.
+        :param run_id: String ID of the run
+        :param key: Name of the tag
+        """
+        self.store.delete_tag(run_id, key)
+
+    def log_batch(self, run_id, metrics=(), params=(), tags=()):
         """
         Log multiple metrics, params, and/or tags.
 
-        :param metrics: List of Metric(key, value, timestamp) instances.
-        :param params: List of Param(key, value) instances.
-        :param tags: List of RunTag(key, value) instances.
+        :param run_id: String ID of the run
+        :param metrics: If provided, List of Metric(key, value, timestamp) instances.
+        :param params: If provided, List of Param(key, value) instances.
+        :param tags: If provided, List of RunTag(key, value) instances.
 
         Raises an MlflowException if any errors occur.
-        :returns: None
+        :return: None
         """
+        if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
+            return
         for metric in metrics:
             _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:

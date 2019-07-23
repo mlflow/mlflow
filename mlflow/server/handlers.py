@@ -14,7 +14,8 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
+    DeleteTag
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import TrackingStoreRegistry
@@ -22,6 +23,14 @@ from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
 
 _store = None
+STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
+
+
+def _add_static_prefix(route):
+    prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
+    if prefix:
+        return prefix + route
+    return route
 
 
 def _get_file_store(store_uri, artifact_uri):
@@ -39,6 +48,8 @@ _tracking_store_registry.register('', _get_file_store)
 _tracking_store_registry.register('file', _get_file_store)
 for scheme in DATABASE_ENGINES:
     _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+
+_tracking_store_registry.register_entrypoints()
 
 
 def _get_store(backend_store_uri=None, default_artifact_root=None):
@@ -275,6 +286,16 @@ def _set_tag():
 
 
 @catch_mlflow_exception
+def _delete_tag():
+    request_message = _get_request_message(DeleteTag())
+    _get_store().delete_tag(request_message.run_id, request_message.key)
+    response_message = DeleteTag.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _get_run():
     request_message = _get_request_message(GetRun())
     response_message = GetRun.Response()
@@ -300,6 +321,8 @@ def _search_runs():
     run_entities = _get_store().search_runs(experiment_ids, filter_string, run_view_type,
                                             max_results, order_by, page_token)
     response_message.runs.extend([r.to_proto() for r in run_entities])
+    if run_entities.token:
+        response_message.next_page_token = run_entities.token
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response
@@ -372,7 +395,7 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/preview/mlflow/experiment and
     /ajax-api/2.0/preview/mlflow/experiment in the Flask router.
     """
-    return ['/api/2.0{}'.format(base_path), '/ajax-api/2.0{}'.format(base_path)]
+    return ['/api/2.0{}'.format(base_path), _add_static_prefix('/ajax-api/2.0{}'.format(base_path))]
 
 
 def get_endpoints():
@@ -403,6 +426,7 @@ HANDLERS = {
     LogParam: _log_param,
     LogMetric: _log_metric,
     SetTag: _set_tag,
+    DeleteTag: _delete_tag,
     LogBatch: _log_batch,
     GetRun: _get_run,
     SearchRuns: _search_runs,

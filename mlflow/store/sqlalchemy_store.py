@@ -2,6 +2,7 @@ import logging
 import uuid
 from contextlib import contextmanager
 
+import math
 import posixpath
 from alembic.script import ScriptDirectory
 import sqlalchemy
@@ -404,13 +405,21 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_metric(self, run_id, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
+        is_nan = math.isnan(metric.value)
+        if is_nan:
+            value = 0
+        elif math.isinf(metric.value):
+            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
+            value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
+        else:
+            value = metric.value
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
             self._get_or_create(model=SqlMetric, run_uuid=run_id, key=metric.key,
-                                value=metric.value, timestamp=metric.timestamp, step=metric.step,
-                                session=session)
+                                value=value, timestamp=metric.timestamp, step=metric.step,
+                                session=session, is_nan=is_nan)
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -463,11 +472,30 @@ class SqlAlchemyStore(AbstractStore):
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
 
+    def delete_tag(self, run_id, key):
+        """
+        Delete a tag from a run. This is irreversible.
+        :param run_id: String ID of the run
+        :param key: Name of the tag
+        """
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            filtered_tags = session.query(SqlTag).filter_by(run_uuid=run_id, key=key).all()
+            if len(filtered_tags) == 0:
+                raise MlflowException(
+                    "No tag with name: {} in run with id {}".format(key, run_id),
+                    error_code=RESOURCE_DOES_NOT_EXIST)
+            elif len(filtered_tags) > 1:
+                raise MlflowException(
+                    "Bad data in database - tags for a specific run must have "
+                    "a single unique value."
+                    "See https://mlflow.org/docs/latest/tracking.html#adding-tags-to-runs",
+                    error_code=INVALID_STATE)
+            session.delete(filtered_tags[0])
+
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
-        if page_token:
-            raise MlflowException("SQLAlchemy-backed tracking stores do not yet support pagination"
-                                  "tokens.")
         # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
@@ -479,8 +507,9 @@ class SqlAlchemyStore(AbstractStore):
                     for exp in experiment_ids
                     for run in self._list_runs(session, exp, run_view_type)]
             filtered = SearchUtils.filter(runs, filter_string)
-            runs = SearchUtils.sort(filtered, order_by)[:max_results]
-            return runs, None
+            sorted_runs = SearchUtils.sort(filtered, order_by)
+            runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+            return runs, next_page_token
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(

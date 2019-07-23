@@ -65,7 +65,8 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
     MLlib persistence format and produces an MLflow Model with the Spark flavor.
 
-    :param spark_model: PipelineModel to be saved.
+    :param spark_model: Spark model to be saved - MLFlow can only save descendants of
+                        pyspark.ml.Model which implement MLReadable and MLWritable.
     :param artifact_path: Run relative artifact path.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
@@ -111,6 +112,9 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     from py4j.protocol import Py4JJavaError
 
     _validate_model(spark_model)
+    from pyspark.ml import PipelineModel
+    if not isinstance(spark_model, PipelineModel):
+        spark_model = PipelineModel([spark_model])
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
     # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model,
@@ -250,23 +254,28 @@ def _save_model_metadata(dst_dir, spark_model, mlflow_model, sample_input, conda
 
 
 def _validate_model(spark_model):
-    from pyspark.ml.pipeline import PipelineModel
-
-    if not isinstance(spark_model, PipelineModel):
-        raise MlflowException("Not a PipelineModel. SparkML can only save PipelineModels.",
-                              INVALID_PARAMETER_VALUE)
+    from pyspark.ml.util import MLReadable, MLWritable
+    from pyspark.ml import Model as PySparkModel
+    if not isinstance(spark_model, PySparkModel) \
+            or not isinstance(spark_model, MLReadable) \
+            or not isinstance(spark_model, MLWritable):
+        raise MlflowException(
+                "Cannot serialize this model. MLFlow can only save descendants of pyspark.Model"
+                "that implement MLWritable and MLReadable.",
+                INVALID_PARAMETER_VALUE)
 
 
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
                dfs_tmpdir=None, sample_input=None):
     """
-    Save a Spark MLlib PipelineModel to a local path.
+    Save a Spark MLlib Model to a local path.
 
     By default, this function saves models using the Spark MLlib persistence mechanism.
     Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
     is also serialized in MLeap format and the MLeap flavor is added.
 
-    :param spark_model: Spark PipelineModel to be saved. Can save only PipelineModels.
+    :param spark_model: Spark model to be saved - MLFlow can only save descendants of
+                        pyspark.ml.Model which implement MLReadable and MLWritable.
     :param path: Local path where the model is to be saved.
     :param mlflow_model: MLflow model config this flavor is being added to.
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
@@ -303,6 +312,9 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
     >>> mlflow.spark.save_model(model, "spark-model")
     """
     _validate_model(spark_model)
+    from pyspark.ml import PipelineModel
+    if not isinstance(spark_model, PipelineModel):
+        spark_model = PipelineModel([spark_model])
     # Spark ML stores the model on DFS if running on a cluster
     # Save it to a DFS temp dir first and copy it to local path
     if dfs_tmpdir is None:

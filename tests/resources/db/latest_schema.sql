@@ -43,8 +43,9 @@ CREATE TABLE metrics (
 	value FLOAT NOT NULL, 
 	timestamp BIGINT NOT NULL, 
 	run_uuid VARCHAR(32) NOT NULL, 
-	step BIGINT DEFAULT '0' NOT NULL, 
-	CONSTRAINT metric_pk PRIMARY KEY (key, value, timestamp, run_uuid, step), 
+	step BIGINT DEFAULT '0' NOT NULL,
+	is_nan BOOLEAN DEFAULT '0' NOT NULL,
+	CONSTRAINT metric_pk PRIMARY KEY (key, value, timestamp, run_uuid, step, is_nan),
 	FOREIGN KEY(run_uuid) REFERENCES runs (run_uuid)
 )
 
