@@ -3,9 +3,12 @@ import os
 import docker
 from docker.errors import BuildError, APIError
 
+
 import pytest
 
 import mlflow
+from mlflow.utils.file_utils import TempDir, _copy_project
+
 from mlflow.entities import RunStatus
 from mlflow.projects import _project_spec
 from mlflow.utils.file_utils import path_to_local_sqlite_uri
@@ -37,19 +40,34 @@ def assert_dirs_equal(expected, actual):
     assert len(dir_comparison.funny_files) == 0
 
 
-def build_docker_example_base_image():
-    print(os.path.join(TEST_DOCKER_PROJECT_DIR, 'Dockerfile'))
-    client = docker.from_env()
-    try:
-        client.images.build(tag='mlflow-docker-example', forcerm=True,
-                            dockerfile='Dockerfile', path=TEST_DOCKER_PROJECT_DIR)
-    except BuildError as build_error:
-        for chunk in build_error.build_log:
-            print(chunk)
-        raise build_error
-    except APIError as api_error:
-        print(api_error.explanation)
-        raise api_error
+@pytest.fixture(scope="session")
+def docker_example_base_image():
+    mlflow_home = os.environ.get("MLFLOW_HOME", None)
+    if not mlflow_home:
+        raise Exception("MLFLOW_HOME environment variable is not set. Please set the variable to "
+                        "point to your mlflow dev root.")
+    with TempDir() as tmp:
+        cwd = tmp.path()
+        mlflow_dir = _copy_project(
+            src_path=mlflow_home, dst_path=cwd)
+        import shutil
+        shutil.copy(os.path.join(TEST_DOCKER_PROJECT_DIR, "Dockerfile"), tmp.path("Dockerfile"))
+        with open(tmp.path("Dockerfile"), "a") as f:
+            f.write(("COPY {mlflow_dir} /opt/mlflow\n"
+                     "RUN pip install -U -e /opt/mlflow\n").format(
+                mlflow_dir=mlflow_dir))
+
+        client = docker.from_env()
+        try:
+            client.images.build(tag='mlflow-docker-example', forcerm=True, nocache=True,
+                                dockerfile='Dockerfile', path=cwd)
+        except BuildError as build_error:
+            for chunk in build_error.build_log:
+                print(chunk)
+            raise build_error
+        except APIError as api_error:
+            print(api_error.explanation)
+            raise api_error
 
 
 @pytest.fixture()

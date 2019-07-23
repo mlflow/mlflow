@@ -133,30 +133,6 @@ an optional ``artifact_path``.
 logged to.
 
 
-Enable Automatic Logging from TensorFlow (experimental)
--------------------------------------------------------
-MLflow supports automatic logging from TensorFlow without the need for explicit log
-statements. You can enable this feature by calling :py:func:`mlflow.tensorflow.autolog`
-before your training code. **Note**: this feature is experimental - the API and format
-of the logged data are subject to change.
-
-
-:py:func:`mlflow.tensorflow.autolog` optionally accepts a ``metrics_every_n_steps``
-argument to specify the frequency with which metrics should be logged to MLflow.
-
-The following table details auto-logging capabilities for different TensorFlow workflows:
-
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                        |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end    |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-| ``tf.estimator`` | TensorBoard metrics                                    | --                                                       | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model); on call to ``export_saved_model`` |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                               |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-
-
 Launching Multiple Runs in One Program
 --------------------------------------
 
@@ -227,6 +203,31 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 .. figure:: _static/images/metrics-time-relative.png
 
   X-axis relative time - graphs the time relative to the first metric logged, for each run
+
+
+Automatic Logging from TensorFlow and Keras (experimental)
+==================================================================
+Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
+log statements. See example usages with `Keras <http://www.github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
+`TensorFlow <http://www.github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_. 
+
+Autologging captures the following information:
+
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Keras            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end                 |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end                 |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.estimator`` | TensorBoard metrics                                    | --                                                       | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model); on call to ``tf.estimator.export_saved_model`` |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                                            |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+
+Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`. 
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 
 .. _organizing_runs_in_experiments:
@@ -578,8 +579,8 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.user``               | Identifier of the user who created the run.                                            |
 +-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.type``        | Source type (possible values are ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,             |
-|                               | ``"LOCAL"``, and ``"UNKNOWN"``)                                                        |
+| ``mlflow.source.type``        | Source type. Possible values: ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,                |
+|                               | ``"LOCAL"``, and ``"UNKNOWN"``                                                         |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.source.name``        | Source identifier (e.g., GitHub URL, local Python filename, name of notebook)          |
 +-------------------------------+----------------------------------------------------------------------------------------+
@@ -589,7 +590,8 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.source.git.repoURL`` | URL that the executed code was cloned from.                                            |
 +-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.project.env``        | One of "docker" or "conda", indicating the runtime context used by the MLflow project. |
+| ``mlflow.project.env``        | The runtime context used by the MLflow project.                                        |
+|                               | Possible values: ``"docker"`` and ``"conda"``.                                         |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.project.entryPoint`` | Name of the project entry point associated with the current run, if any.               |
 +-------------------------------+----------------------------------------------------------------------------------------+
