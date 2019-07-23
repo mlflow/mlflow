@@ -30,7 +30,7 @@ def random_train_data():
 
 @pytest.fixture
 def tf_keras_random_data_run(random_train_data):
-    mlflow.tensorflow.autolog(metrics_every_n_steps=5)
+    mlflow.tensorflow.autolog(every_n_iter=5)
 
     def random_one_hot_labels(shape):
         n, n_class = shape
@@ -85,7 +85,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
 
 @pytest.fixture
 def tf_core_random_tensors():
-    mlflow.tensorflow.autolog(metrics_every_n_steps=4)
+    mlflow.tensorflow.autolog(every_n_iter=4)
     with mlflow.start_run() as run:
         sess = tf.Session()
         a = tf.constant(3.0, dtype=tf.float32)
@@ -196,7 +196,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_
 
 @pytest.fixture
 def duplicate_autolog_tf_estimator_run():
-    mlflow.tensorflow.autolog(metrics_every_n_steps=23)  # 23 is prime; no false positives in test
+    mlflow.tensorflow.autolog(every_n_iter=23)  # 23 is prime; no false positives in test
     run = tf_estimator_random_data_run()
     return run  # should be autologged every 4 steps
 
