@@ -473,7 +473,7 @@ def _setup_callbacks(lst):
 
 
 @experimental
-def autolog(metrics_every_n_steps=100):
+def autolog(every_n_iter=100):
     # pylint: disable=E0611
     """
     Enable automatic logging from TensorFlow to MLflow. If applicable,
@@ -483,13 +483,13 @@ def autolog(metrics_every_n_steps=100):
     Refer to the tracking documentation for
     information on what is logged with different TensorFlow workflows.
 
-    :param metrics_every_n_steps: The frequency with which metrics should be logged.
+    :param every_n_iter: The frequency with which metrics should be logged.
                                   Defaults to 100. Ex: a value of 100 will log metrics
                                   at step 0, 100, 200, etc.
 
     """
     global _LOG_EVERY_N_STEPS
-    _LOG_EVERY_N_STEPS = metrics_every_n_steps
+    _LOG_EVERY_N_STEPS = every_n_iter
 
     from distutils.version import StrictVersion
 
