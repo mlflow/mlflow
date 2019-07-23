@@ -41,7 +41,7 @@ In MLflow Models:
 - [Tracking] Fix usability bugs related to FTP artifact repository. (#1398, @kafendt; #1421, @nlaille)
 - [Tracking] Return appropriate HTTP status codes for MLflowException (#1434, @max-allen-db)
 - [Tracking] Fix sorting by user ID in the experiment search view. (#1401, @andrewmchen)
-- [Tracking] You can now call log_metric with NaNs and infs. (#1573, @tomasatdatabricks)
+- [Tracking] Allow calling log_metric with NaNs and infs. (#1573, @tomasatdatabricks)
 - [Tracking] Fixes an infinite loop in downloading artifacts logged via dbfs and retrieved via S3. (#1605, @sueann)
 - [Projects] Docker projects should preserve directory structure (#1436, @ahutterTA)
 - [Projects] Fix conda activation for newer versions of conda. (#1576, @avinashraghuthu, @smurching)
