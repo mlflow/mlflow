@@ -812,10 +812,12 @@ message SetExperimentTag {
   // ID of the experiment under which to log the tag. Must be provided.
   optional string experiment_id = 1 [(validate_required) = true];
 
-  // Name of the tag.
+  // Name of the tag. Maximum size depends on storage backend.
+  // Maximum must be at least 250 bytes.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the tag being logged.
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // Maximum must be at least 5000 bytes.
   optional string value = 3 [(validate_required) = true];
 
   message Response {
