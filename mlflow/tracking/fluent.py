@@ -276,7 +276,7 @@ def log_artifacts(local_dir, artifact_path=None):
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
     """
     run_id = _get_or_start_run().info.run_id
-    MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
+    MlflowClient().log_artifact(run_id, local_dir, artifact_path)
 
 
 def create_experiment(name, artifact_location=None):

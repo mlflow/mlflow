@@ -29,7 +29,7 @@ if __name__ == "__main__":
         file_path = os.path.join(local_dir, "some_output_file.txt")
         with open(file_path, "w") as handle:
             handle.write(message)
-        log_artifacts(local_dir, "some_subdir")
+        log_artifact(local_dir, "some_subdir")
         log_artifact(file_path, "another_dir")
     finally:
         shutil.rmtree(local_dir)

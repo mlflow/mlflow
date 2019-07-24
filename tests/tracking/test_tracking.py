@@ -412,7 +412,7 @@ def test_log_artifact(tracking_uri_mock):
             artifact_uri = mlflow.get_artifact_uri()
             run_artifact_dir = local_file_uri_to_path(artifact_uri)
 
-            mlflow.log_artifacts(artifact_src_dir, parent_dir)
+            mlflow.log_artifact(artifact_src_dir, parent_dir)
         # Check that the logged artifacts match
         expected_artifact_output_dir = os.path.join(run_artifact_dir, parent_dir) \
             if parent_dir is not None else run_artifact_dir

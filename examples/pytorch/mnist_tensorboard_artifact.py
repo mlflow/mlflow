@@ -164,6 +164,6 @@ with mlflow.start_run():
 
     # Upload the TensorBoard event logs as a run artifact
     print("Uploading TensorBoard events as a run artifact...")
-    mlflow.log_artifacts(output_dir, artifact_path="events")
+    mlflow.log_artifact(output_dir, artifact_path="events")
     print("\nLaunch TensorBoard with:\n\ntensorboard --logdir=%s" %
         os.path.join(mlflow.get_artifact_uri(), "events"))

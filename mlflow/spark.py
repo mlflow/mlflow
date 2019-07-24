@@ -142,7 +142,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
             tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env)
-        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        mlflow.tracking.fluent.log_artifact(tmp_model_metadata_dir, artifact_path)
 
 
 def _tmp_path(dfs_tmp):
