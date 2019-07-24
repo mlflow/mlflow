@@ -147,7 +147,8 @@ def test_docker_s3_artifact_cmd_and_envs_from_home():
 
 
 def test_docker_wasbs_artifact_cmd_and_envs_from_home():
-    from azure.storage.blob import BlockBlobService  # pylint: disable=unused-import
+    # pylint: disable=unused-import, unused-variable
+    from azure.storage.blob import BlockBlobService
 
     mock_env = {
         "AZURE_STORAGE_CONNECTION_STRING": "mock_connection_string",
