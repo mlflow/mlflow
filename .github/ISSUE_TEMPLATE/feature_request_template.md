@@ -10,7 +10,7 @@ for information on what types of issues we address.
 Please do not delete this template unless you are sure your issue is outside its scope.
 
 -------
-##Guidelines
+## Guidelines
 
 Feature requests should involve the following workflow:
 
