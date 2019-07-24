@@ -2,7 +2,7 @@
 name: Documentation Fix
 about: Use this template for proposing documentation fixes/improvements.
 labels: 'docs'
-title: [DOC-FIX]
+title: "[DOC-FIX]"
 ---
 Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
 for information on what types of issues we address.

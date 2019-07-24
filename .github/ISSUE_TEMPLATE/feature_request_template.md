@@ -2,7 +2,7 @@
 name: Feature Request
 about: Use this template for feature and enhancement proposals.
 labels: 'enhancement'
-title: [FR]
+title: "[FR]"
 ---
 Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
 for information on what types of issues we address.

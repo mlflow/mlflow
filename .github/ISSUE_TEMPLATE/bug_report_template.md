@@ -2,7 +2,7 @@
 name: Bug Report
 about: Use this template for reporting bugs encountered while using MLflow.
 labels: 'bug'
-title: [BUG]
+title: "[BUG]"
 ---
 Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
 for information on what types of issues we address.
