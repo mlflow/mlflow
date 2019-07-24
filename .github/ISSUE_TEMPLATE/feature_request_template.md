@@ -12,7 +12,7 @@ Please do not delete this template unless you are sure your issue is outside its
 -------
 ## Guidelines
 
-Feature requests should involve the following workflow:
+Feature requests typically go through the following lifecycle:
 
 1. Submit feature request with high-level description
 2. Discuss feature request with a committer, who may ask for a more detailed design
