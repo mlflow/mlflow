@@ -28633,7 +28633,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -28641,7 +28641,7 @@ public final class Service {
     boolean hasKey();
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -28649,7 +28649,7 @@ public final class Service {
     java.lang.String getKey();
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -28659,7 +28659,7 @@ public final class Service {
 
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -28667,7 +28667,7 @@ public final class Service {
     boolean hasValue();
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -28675,7 +28675,7 @@ public final class Service {
     java.lang.String getValue();
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29246,7 +29246,7 @@ public final class Service {
     private volatile java.lang.Object key_;
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29256,7 +29256,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29277,7 +29277,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29300,7 +29300,7 @@ public final class Service {
     private volatile java.lang.Object value_;
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29310,7 +29310,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29331,7 +29331,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29821,7 +29821,7 @@ public final class Service {
       private java.lang.Object key_ = "";
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29831,7 +29831,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29852,7 +29852,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29872,7 +29872,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29889,7 +29889,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29902,7 +29902,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29921,7 +29921,7 @@ public final class Service {
       private java.lang.Object value_ = "";
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29931,7 +29931,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29952,7 +29952,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29972,7 +29972,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29989,7 +29989,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30002,7 +30002,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30131,7 +30131,7 @@ public final class Service {
 
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30139,7 +30139,7 @@ public final class Service {
     boolean hasKey();
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30147,7 +30147,7 @@ public final class Service {
     java.lang.String getKey();
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30157,7 +30157,7 @@ public final class Service {
 
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30165,7 +30165,7 @@ public final class Service {
     boolean hasValue();
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30173,7 +30173,7 @@ public final class Service {
     java.lang.String getValue();
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30808,7 +30808,7 @@ public final class Service {
     private volatile java.lang.Object key_;
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30818,7 +30818,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30839,7 +30839,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * Name of the tag. Maximum size is 255 bytes.
+     * Name of the tag.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30862,7 +30862,7 @@ public final class Service {
     private volatile java.lang.Object value_;
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30872,7 +30872,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30893,7 +30893,7 @@ public final class Service {
     }
     /**
      * <pre>
-     * String value of the tag being logged. Maximum size is 5000 bytes.
+     * String value of the tag being logged.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31515,7 +31515,7 @@ public final class Service {
       private java.lang.Object key_ = "";
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31525,7 +31525,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31546,7 +31546,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31566,7 +31566,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31583,7 +31583,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31596,7 +31596,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag. Maximum size is 255 bytes.
+       * Name of the tag.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31615,7 +31615,7 @@ public final class Service {
       private java.lang.Object value_ = "";
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31625,7 +31625,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31646,7 +31646,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31666,7 +31666,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31683,7 +31683,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31696,7 +31696,7 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged. Maximum size is 5000 bytes.
+       * String value of the tag being logged.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>

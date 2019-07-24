@@ -567,9 +567,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         experiment = self.store.get_experiment(exp_id)
         self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
         # test cannot set tags that are too long
-        longTag = entities.ExperimentTag("longTagKey", "a" * 501)
+        longTag = entities.ExperimentTag("longTagKey", "a" * 5001)
         with pytest.raises(MlflowException):
             self.store.set_experiment_tag(exp_id, longTag)
+        # test can set tags that are somewhat long
+        longTag = entities.ExperimentTag("longTagKey", "a" * 4999)
+        self.store.set_experiment_tag(exp_id, longTag)
         # test cannot set tags on deleted experiments
         self.store.delete_experiment(exp_id)
         with pytest.raises(MlflowException):
@@ -702,12 +705,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         with self.assertRaises(MlflowException) as e:
             self.store.restore_run(run.info.run_id)
-        self.assertIn("must be in 'deleted' state", e.exception.message)
+        self.assertIn("must be in the 'deleted' state", e.exception.message)
 
         self.store.delete_run(run.info.run_id)
         with self.assertRaises(MlflowException) as e:
             self.store.delete_run(run.info.run_id)
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         deleted = self.store.get_run(run.info.run_id)
         self.assertEqual(deleted.info.run_id, run.info.run_id)
@@ -716,7 +719,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.restore_run(run.info.run_id)
         with self.assertRaises(MlflowException) as e:
             self.store.restore_run(run.info.run_id)
-            self.assertIn("must be in 'deleted' state", e.exception.message)
+            self.assertIn("must be in the 'deleted' state", e.exception.message)
         restored = self.store.get_run(run.info.run_id)
         self.assertEqual(restored.info.run_id, run.info.run_id)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
@@ -730,15 +733,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          entities.LifecycleStage.DELETED)
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run_id, entities.Param("p1345", "v1"))
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
             self.store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
             self.store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         # restore this run and try again
         self.store.restore_run(run_id)

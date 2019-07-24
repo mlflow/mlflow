@@ -570,9 +570,6 @@ class TestFileStore(unittest.TestCase):
         fs.set_experiment_tag(exp_id, ExperimentTag("multiline_tag", "value2\nvalue2\nvalue2"))
         experiment = fs.get_experiment(exp_id)
         assert experiment.tags["multiline_tag"] == "value2\nvalue2\nvalue2"
-        # test cannot set tags that are too long
-        with pytest.raises(MlflowException):
-            fs.set_experiment_tag(exp_id, ExperimentTag("longTagKey", "a" * 501))
         # test cannot set tags on deleted experiments
         fs.delete_experiment(exp_id)
         with pytest.raises(MlflowException):

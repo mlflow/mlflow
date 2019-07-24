@@ -812,10 +812,10 @@ message SetExperimentTag {
   // ID of the experiment under which to log the tag. Must be provided.
   optional string experiment_id = 1 [(validate_required) = true];
 
-  // Name of the tag. Maximum size is 255 bytes.
+  // Name of the tag.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the tag being logged. Maximum size is 5000 bytes.
+  // String value of the tag being logged.
   optional string value = 3 [(validate_required) = true];
 
   message Response {
@@ -832,10 +832,10 @@ message SetTag {
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
 
-  // Name of the tag. Maximum size is 255 bytes.
+  // Name of the tag.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the tag being logged. Maximum size is 5000 bytes.
+  // String value of the tag being logged.
   optional string value = 3 [(validate_required) = true];
 
   message Response {

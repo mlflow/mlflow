@@ -27,6 +27,8 @@ MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 250
 MAX_TAG_VAL_LENGTH = 250
+MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
+MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
@@ -96,6 +98,15 @@ def _validate_tag(key, value):
     _validate_tag_name(key)
     _validate_length_limit("Tag key", MAX_ENTITY_KEY_LENGTH, key)
     _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value)
+
+
+def _validate_experiment_tag(key, value):
+    """
+    Check that a tag with the specified key & value is valid and raise an exception if it isn't.
+    """
+    _validate_tag_name(key)
+    _validate_length_limit("Tag key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
+    _validate_length_limit("Tag value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
 
 
 def _validate_param_name(name):

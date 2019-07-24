@@ -17,7 +17,7 @@ from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, SEARCH_MAX_RESULT
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.validation import _validate_metric_name, _validate_param_name, _validate_run_id, \
     _validate_tag_name, _validate_experiment_id, \
-    _validate_batch_log_limits, _validate_batch_log_data, _validate_tag
+    _validate_batch_log_limits, _validate_batch_log_data, _validate_experiment_tag
 from mlflow.utils.env import get_env
 from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, write_yaml,
                                      read_yaml, find, read_file_lines, read_file,
@@ -204,6 +204,8 @@ class FileStore(AbstractStore):
         meta_dir = mkdir(self.root_directory, str(experiment_id))
         experiment = Experiment(experiment_id, name, artifact_uri, LifecycleStage.ACTIVE)
         experiment_dict = dict(experiment)
+        # tags are added to the file system and are not written to this dict on write
+        # As such, we should not include them in the meta file.
         del experiment_dict['tags']
         write_yaml(meta_dir, FileStore.META_DATA_FILE_NAME, experiment_dict)
         return experiment_id
@@ -432,7 +434,7 @@ class FileStore(AbstractStore):
         elif resource_type == "tag":
             subfolder_name = FileStore.TAGS_FOLDER_NAME
         else:
-            raise Exception("Looking for unknown resource.")
+            raise Exception("Looking for unknown resource under run.")
         return self._get_resource_files(run_dir, subfolder_name)
 
     def _get_experiment_files(self, experiment_id):
@@ -616,12 +618,12 @@ class FileStore(AbstractStore):
         :param experiment_id: String ID of the experiment
         :param tag: ExperimentRunTag instance to log
         """
-        _validate_tag(tag.key, tag.value)
+        _validate_tag_name(tag.key)
         experiment = self.get_experiment(experiment_id)
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException("The experiment {} must be in 'active'"
+            raise MlflowException("The experiment {} must be in the 'active'"
                                   "lifecycle_stage to set tags"
-                                  .format(experiment.experiment_id))
+                                  .format(experiment.experiment_id), error_code=databricks_pb2.INVALID_PARAMETER_VALUE)
         tag_path = self._get_experiment_tag_path(experiment_id, tag.key)
         make_containing_dirs(tag_path)
         write_to(tag_path, self._writeable_value(tag.value))

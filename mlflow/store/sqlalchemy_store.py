@@ -23,7 +23,7 @@ from mlflow.utils import extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
-    _validate_run_id, _validate_metric, _validate_tag
+    _validate_run_id, _validate_metric, _validate_experiment_tag
 from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
@@ -361,20 +361,20 @@ class SqlAlchemyStore(AbstractStore):
 
     def _check_run_is_active(self, run):
         if run.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException("The run {} must be in 'active' state. Current state is {}."
+            raise MlflowException("The run {} must be in the 'active' state. Current state is {}."
                                   .format(run.run_uuid, run.lifecycle_stage),
                                   INVALID_PARAMETER_VALUE)
 
     def _check_experiment_is_active(self, experiment):
         if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException("The experiment {} must be in 'active' state. "
+            raise MlflowException("The experiment {} must be in the 'active' state. "
                                   "Current state is {}."
                                   .format(experiment.experiment_id, experiment.lifecycle_stage),
                                   INVALID_PARAMETER_VALUE)
 
     def _check_run_is_deleted(self, run):
         if run.lifecycle_stage != LifecycleStage.DELETED:
-            raise MlflowException("The run {} must be in 'deleted' state. Current state is {}."
+            raise MlflowException("The run {} must be in the 'deleted' state. Current state is {}."
                                   .format(run.run_uuid, run.lifecycle_stage),
                                   INVALID_PARAMETER_VALUE)
 
@@ -479,7 +479,7 @@ class SqlAlchemyStore(AbstractStore):
         :param experiment_id: String ID of the experiment
         :param tag: ExperimentRunTag instance to log
         """
-        _validate_tag(tag.key, tag.value)
+        _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             experiment = self._get_experiment(session,
                                               experiment_id,
