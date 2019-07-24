@@ -15,7 +15,7 @@ class ShowArtifactPage extends Component {
 
   render() {
     if (this.props.path) {
-      if (IMAGE_EXTENSIONS.has(getExtension(this.props.path))) {
+      if (IMAGE_EXTENSIONS.has(getExtension(this.props.path).toLowerCase())) {
         return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path}/>;
       } else if (TEXT_EXTENSIONS.has(getExtension(this.props.path))) {
         return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path}/>;
