@@ -134,7 +134,7 @@ logged to.
 
 
 Enable Automatic Logging from TensorFlow and Keras (experimental)
--------------------------------------------------------
+-----------------------------------------------------------------
 MLflow supports automatic logging from TensorFlow and Keras without the need for explicit log
 statements. You can enable this feature by calling one of :py:func:`mlflow.tensorflow.autolog`
 or :py:func:`mlflow.keras.autolog` depending on the framework before your training code.

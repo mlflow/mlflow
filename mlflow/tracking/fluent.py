@@ -192,7 +192,7 @@ def delete_tag(key):
     """
     Delete a tag from a run. This is irreversible.
 
-    :param key: Name of the tag.
+    :param key: Name of the tag
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().delete_tag(run_id, key)
