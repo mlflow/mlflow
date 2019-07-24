@@ -1,6 +1,7 @@
 import os
 import git
 import tempfile
+import yaml
 
 from distutils import dir_util
 
@@ -27,7 +28,7 @@ MOCK_USER = "janebloggs"
 
 @pytest.fixture
 def patch_user():
-    with mock.patch("mlflow.tracking.context._get_user", return_value=MOCK_USER):
+    with mock.patch("mlflow.projects._get_user", return_value=MOCK_USER):
         yield
 
 
@@ -163,11 +164,17 @@ def test_use_conda(tracking_uri_mock):  # pylint: disable=unused-argument
     # Verify we throw an exception when conda is unavailable
     old_path = os.environ["PATH"]
     env.unset_variable("PATH")
+    conda_exe_path = ''
+    if "CONDA_EXE" in os.environ:
+        conda_exe_path = os.environ["CONDA_EXE"]
+        env.unset_variable("CONDA_EXE")
     try:
         with pytest.raises(ExecutionException):
             mlflow.projects.run(TEST_PROJECT_DIR, use_conda=True)
     finally:
         os.environ["PATH"] = old_path
+        if conda_exe_path:
+            os.environ["CONDA_EXE"] = conda_exe_path
 
 
 def test_is_valid_branch_name(local_git_repo):
@@ -329,7 +336,7 @@ def test_run_async(tracking_uri_mock):  # pylint: disable=unused-argument
 @pytest.mark.parametrize(
     "mock_env,expected_conda,expected_activate",
     [
-        ({}, "conda", "activate"),
+        ({"CONDA_EXE": "/abc/conda"}, "/abc/conda", "/abc/activate"),
         ({mlflow.projects.MLFLOW_CONDA_HOME: "/some/dir/"}, "/some/dir/bin/conda",
          "/some/dir/bin/activate")
     ]
@@ -363,3 +370,48 @@ def test_storage_dir(tmpdir):
     """
     assert os.path.dirname(mlflow.projects._get_storage_dir(tmpdir.strpath)) == tmpdir.strpath
     assert os.path.dirname(mlflow.projects._get_storage_dir(None)) == tempfile.gettempdir()
+
+
+def test_parse_kubernetes_config():
+    work_dir = "./examples/docker"
+    kubernetes_config = {
+        "kube-context": "docker-for-desktop",
+        "kube-job-template-path": os.path.join(work_dir, "kubernetes_job_template.yaml"),
+        "repository-uri": "dockerhub_account/mlflow-kubernetes-example"
+    }
+    yaml_obj = None
+    with open(kubernetes_config["kube-job-template-path"], 'r') as job_template:
+        yaml_obj = yaml.safe_load(job_template.read())
+    kube_config = mlflow.projects._parse_kubernetes_config(kubernetes_config)
+    assert kube_config["kube-context"] == kubernetes_config["kube-context"]
+    assert kube_config["kube-job-template-path"] == kubernetes_config["kube-job-template-path"]
+    assert kube_config["repository-uri"] == kubernetes_config["repository-uri"]
+    assert kube_config["kube-job-template"] == yaml_obj
+
+
+def test_parse_kubernetes_config_without_context():
+    kubernetes_config = {
+        "repository-uri": "dockerhub_account/mlflow-kubernetes-example",
+        "kube-job-template-path": "kubernetes_job_template.yaml"
+    }
+    with pytest.raises(ExecutionException):
+        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+
+
+def test_parse_kubernetes_config_without_image_uri():
+    kubernetes_config = {
+        "kube-context": "docker-for-desktop",
+        "kube-job-template-path": "kubernetes_job_template.yaml"
+    }
+    with pytest.raises(ExecutionException):
+        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+
+
+def test_parse_kubernetes_config_invalid_template_job_file():
+    kubernetes_config = {
+        "kube-context": "docker-for-desktop",
+        "repository-uri": "username/mlflow-kubernetes-example",
+        "kube-job-template-path": "file_not_found.yaml"
+    }
+    with pytest.raises(ExecutionException):
+        mlflow.projects._parse_kubernetes_config(kubernetes_config)

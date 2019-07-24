@@ -1,8 +1,9 @@
 import time
 from sqlalchemy.orm import relationship, backref
+import sqlalchemy as sa
 from sqlalchemy import (
-    Column, String, Float, ForeignKey, Integer, CheckConstraint,
-    BigInteger, PrimaryKeyConstraint)
+    Column, String, ForeignKey, Integer, CheckConstraint,
+    BigInteger, PrimaryKeyConstraint, Boolean)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
     Experiment, RunTag, Metric, Param, RunData, RunInfo,
@@ -235,7 +236,7 @@ class SqlMetric(Base):
     """
     Metric key: `String` (limit 250 characters). Part of *Primary Key* for ``metrics`` table.
     """
-    value = Column(Float, nullable=False)
+    value = Column(sa.types.Float(precision=53), nullable=False)
     """
     Metric value: `Float`. Defined as *Non-null* in schema.
     """
@@ -248,6 +249,10 @@ class SqlMetric(Base):
     """
     Step recorded for this metric entry: `BigInteger`.
     """
+    is_nan = Column(Boolean, nullable=False, default=False)
+    """
+    True if the value is in fact NaN.
+    """
     run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
     """
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``metrics`` table.
@@ -259,7 +264,8 @@ class SqlMetric(Base):
     """
 
     __table_args__ = (
-        PrimaryKeyConstraint('key', 'timestamp', 'step', 'run_uuid', 'value', name='metric_pk'),
+        PrimaryKeyConstraint('key', 'timestamp', 'step', 'run_uuid', 'value', "is_nan",
+                             name='metric_pk'),
     )
 
     def __repr__(self):
@@ -273,7 +279,7 @@ class SqlMetric(Base):
         """
         return Metric(
             key=self.key,
-            value=self.value,
+            value=self.value if not self.is_nan else float("nan"),
             timestamp=self.timestamp,
             step=self.step)
 
