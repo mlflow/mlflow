@@ -126,7 +126,7 @@ def _serve_pyfunc(model):
     nginx_conf_template = resource_filename(mlflow.models.__name__,
                                             "container/scoring_server/nginx.conf.template")
     nginx_conf = "/nginx/env/nginx.conf"
-    nginx = Popen(" ".join(['touch', nginx_conf, '&&',
+    nginx = Popen(" ".join(['mkdir', '/nginx/env', '&&', 'touch', nginx_conf, '&&',
                             'envsubst', '\'${GUNICORN_SERVER},${NGINX_PORT}\'',
                             '<', nginx_conf_template, '>', nginx_conf,
                             '&&', 'nginx', '-c', nginx_conf]), shell=True)
