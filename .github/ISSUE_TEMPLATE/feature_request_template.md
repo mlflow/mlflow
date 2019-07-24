@@ -14,7 +14,7 @@ Please do not delete this template unless you are sure your issue is outside its
 
 Feature requests typically go through the following lifecycle:
 
-1. Submit feature request with high-level description
+1. Submit feature request with high-level description on GitHub issues (this is what you're doing now)
 2. Discuss feature request with a committer, who may ask for a more detailed design
 3. After discussion & agreement on feature request, start implementation
 
