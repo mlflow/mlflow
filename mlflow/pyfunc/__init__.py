@@ -416,7 +416,7 @@ def spark_udf(spark, model_uri, result_type="double"):
 
     with TempDir() as local_tmpdir:
         local_model_path = _download_artifact_from_uri(
-            artifact_uri=model_uri, output_path=local_tmpdir)
+            artifact_uri=model_uri, output_path=local_tmpdir.path())
         archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     def predict(*args):
