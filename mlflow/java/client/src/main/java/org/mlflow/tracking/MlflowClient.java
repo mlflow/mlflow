@@ -538,6 +538,7 @@ public class MlflowClient {
   /**
    * @deprecated use logArtifact instead.
    */
+  @Deprecated
   public void logArtifacts(String runId, File localDir, String artifactPath) {
     getArtifactRepository(runId).logArtifacts(localDir, artifactPath);
   }

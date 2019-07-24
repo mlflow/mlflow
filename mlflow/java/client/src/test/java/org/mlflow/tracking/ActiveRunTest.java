@@ -139,14 +139,14 @@ public class ActiveRunTest {
   }
 
   @Test
-  public void testLogArtifacts() {
+  public void testLogArtifactWithDir() {
     ActiveRun activeRun = getActiveRun();
     activeRun.logArtifacts(Paths.get("test"));
     verify(mockClient).logArtifacts(RUN_ID, new File("test"));
   }
 
   @Test
-  public void testLogArtifactsWithArtifactPath() {
+  public void testLogArtifactWithDirWithArtifactPath() {
     ActiveRun activeRun = getActiveRun();
     activeRun.logArtifacts(Paths.get("test"), "artifact-path");
     verify(mockClient).logArtifacts(RUN_ID, new File("test"), "artifact-path");
