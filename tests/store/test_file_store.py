@@ -480,6 +480,24 @@ class TestFileStore(unittest.TestCase):
         for n in [0, 1, 2, 4, 8, 10, 20]:
             assert(runs[:min(10, n)] == self._search(fs, exp, max_results=n))
 
+    def test_search_runs_pagination(self):
+        fs = FileStore(self.test_root)
+        exp = fs.create_experiment("test_search_runs_pagination")
+        # test returned token behavior
+        runs = sorted([fs.create_run(exp, 'user', 1000, []).info.run_id
+                       for r in range(10)])
+        result = fs.search_runs([exp], None, ViewType.ALL, max_results=4)
+        assert [r.info.run_id for r in result] == runs[0:4]
+        assert result.token is not None
+        result = fs.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[4:8]
+        assert result.token is not None
+        result = fs.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[8:]
+        assert result.token is None
+
     def test_weird_param_names(self):
         WEIRD_PARAM_NAME = "this is/a weird/but valid param"
         fs = FileStore(self.test_root)
@@ -537,6 +555,31 @@ class TestFileStore(unittest.TestCase):
         fs.set_tag(run_id, RunTag("multiline_tag", "value2\nvalue2\nvalue2"))
         tags = fs.get_run(run_id).data.tags
         assert tags["multiline_tag"] == "value2\nvalue2\nvalue2"
+
+    def test_delete_tags(self):
+        fs = FileStore(self.test_root)
+        exp_id = self.experiments[random_int(0, len(self.experiments) - 1)]
+        run_id = self.exp_data[exp_id]['runs'][0]
+        fs.set_tag(run_id, RunTag("tag0", "value0"))
+        fs.set_tag(run_id, RunTag("tag1", "value1"))
+        tags = fs.get_run(run_id).data.tags
+        assert tags["tag0"] == "value0"
+        assert tags["tag1"] == "value1"
+        fs.delete_tag(run_id, "tag0")
+        new_tags = fs.get_run(run_id).data.tags
+        assert "tag0" not in new_tags.keys()
+        # test that you cannot delete tags that don't exist.
+        with pytest.raises(MlflowException):
+            fs.delete_tag(run_id, "fakeTag")
+        # test that you cannot delete tags for nonexistent runs
+        with pytest.raises(MlflowException):
+            fs.delete_tag("random_id", "tag0")
+        fs = FileStore(self.test_root)
+        fs.delete_run(run_id)
+        # test that you cannot delete tags for deleted runs.
+        assert fs.get_run(run_id).info.lifecycle_stage == LifecycleStage.DELETED
+        with pytest.raises(MlflowException):
+            fs.delete_tag(run_id, "tag0")
 
     def test_unicode_tag(self):
         fs = FileStore(self.test_root)

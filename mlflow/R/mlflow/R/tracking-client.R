@@ -93,23 +93,38 @@ new_mlflow_client.default <- function(tracking_uri) {
   stop(paste("Unsupported scheme: '", tracking_uri$scheme, "'", sep = ""))
 }
 
+get_env_var <- function(x) {
+  new_name <- paste("MLFLOW_TRACKING_", x, sep = "")
+  res <- Sys.getenv(new_name, NA)
+  if (is.na(res)) {
+    old_name <- paste("MLFLOW_", x, sep = "")
+    res <- Sys.getenv(old_name, NA)
+    if (!is.na(res)) {
+      warning(paste("'", old_name, "' is deprecated. Please use '", new_name, "' instead."),
+                    sepc = "" )
+    }
+  }
+  res
+}
+
 basic_http_client <- function(tracking_uri) {
   host <- paste(tracking_uri$scheme, tracking_uri$path, sep = "://")
   get_host_creds <- function () {
     new_mlflow_host_creds(
       host = host,
-      username = Sys.getenv("MLFLOW_USERNAME", NA),
-      password = Sys.getenv("MLFLOW_PASSWORD", NA),
-      token = Sys.getenv("MLFLOW_TOKEN", NA),
-      insecure = Sys.getenv("MLFLOW_INSECURE", NA)
+      username = get_env_var("USERNAME"),
+      password = get_env_var("PASSWORD"),
+      token = get_env_var("TOKEN"),
+      insecure = get_env_var("INSECURE")
     )
   }
   cli_env <- function() {
+    creds <- get_host_creds()
     res <- list(
-      MLFLOW_USERNAME = Sys.getenv("MLFLOW_USERNAME", NA),
-      MLFLOW_PASSWORD = Sys.getenv("MLFLOW_PASSWORD", NA),
-      MLFLOW_TOKEN = Sys.getenv("MLFLOW_TOKEN", NA),
-      MLFLOW_INSECURE = Sys.getenv("MLFLOW_INSECURE", NA)
+      MLFLOW_TRACKING_USERNAME = creds$username,
+      MLFLOW_TRACKING_PASSWORD = creds$password,
+      MLFLOW_TRACKING_TOKEN = creds$token,
+      MLFLOW_TRACKING_INSECURE = creds$insecure
     )
     res[!is.na(res)]
   }

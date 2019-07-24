@@ -24,6 +24,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils import PYTHON_VERSION
 from tests.models import test_pyfunc
 from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image, \
+    pyfunc_serve_from_docker_image_with_env_override, \
     RestEndpoint, get_safe_port, pyfunc_serve_and_score_model
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED, \
@@ -37,6 +38,7 @@ no_conda = ["--no-conda"] if in_travis and sys.platform == "win32" else []
 install_mlflow = ["--install-mlflow"] if not no_conda else []
 
 extra_options = no_conda + install_mlflow
+gunicorn_options = "--timeout 60 -w 5"
 
 
 @pytest.fixture(scope="module")
@@ -239,6 +241,25 @@ def test_build_docker(iris_data, sk_model):
     image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"])
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image(image_name, host_port)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
+
+
+@pytest.mark.large
+def test_build_docker_with_env_override(iris_data, sk_model):
+    with mlflow.start_run() as active_run:
+        mlflow.sklearn.log_model(sk_model, "model")
+        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+    x, _ = iris_data
+    df = pd.DataFrame(x)
+    image_name = pyfunc_build_image(model_uri, extra_args=["--install-mlflow"])
+    host_port = get_safe_port()
+    scoring_proc = pyfunc_serve_from_docker_image_with_env_override(image_name,
+                                                                    host_port,
+                                                                    gunicorn_options)
+    _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model)
+
+
+def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model):
     with RestEndpoint(proc=scoring_proc, port=host_port) as endpoint:
         for content_type in [CONTENT_TYPE_JSON_SPLIT_ORIENTED, CONTENT_TYPE_CSV, CONTENT_TYPE_JSON]:
             scoring_response = endpoint.invoke(df, content_type)
