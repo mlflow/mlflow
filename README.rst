@@ -53,8 +53,10 @@ Official documentation for MLflow can be found at https://mlflow.org/docs/latest
 
 Community
 ---------
-To discuss MLflow or get help, please subscribe to our mailing list (mlflow-users@googlegroups.com) or
+To discuss MLflow, please subscribe to our mailing list (mlflow-users@googlegroups.com) or
 join us on Slack at https://tinyurl.com/mlflow-slack.
+
+For help, please refer to `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 
 To report bugs, please use GitHub issues.
 
