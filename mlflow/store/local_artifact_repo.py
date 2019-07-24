@@ -72,7 +72,7 @@ class LocalArtifactRepository(ArtifactRepository):
             path = os.path.normpath(path)
         list_dir = os.path.join(self.artifact_dir, path) if path else self.artifact_dir
         if os.path.isdir(list_dir):
-            artifact_files = list_all(list_dir, full_path=True)
+            artifact_files = list_all(list_dir, full_path=True) + [list_dir]
             infos = [get_file_info(f,
                                    relative_path_to_artifact_path(
                                        os.path.relpath(f, self.artifact_dir)))
