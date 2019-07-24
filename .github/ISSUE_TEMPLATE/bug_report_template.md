@@ -6,6 +6,9 @@ title: [BUG]
 ---
 Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
 for information on what types of issues we address.
+
+For help with debugging your code, please refer to [Stack Overflow](https://stackoverflow.com/questions/tagged/mlflow).
+
   
 Please do not delete this template unless you are sure your issue is outside its scope.
 
@@ -15,7 +18,7 @@ Please do not delete this template unless you are sure your issue is outside its
 - **MLflow installed from (source or binary)**: 
 - **MLflow version (run ``mlflow --version``)**:
 - **Python version**: 
-- **npm version** (if running the dev UI):
+- **npm version, if running the dev UI**:
 - **Exact command to reproduce**:
 
 ### Describe the problem

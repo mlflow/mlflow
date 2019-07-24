@@ -10,12 +10,10 @@ for information on what types of issues we address.
 Please do not delete this template unless you are sure your issue is outside its scope.
 
 ### System information
-- **Have I written custom code (as opposed to using a stock example script provided in MLflow)**:
 - **OS Platform and Distribution (e.g., Linux Ubuntu 16.04)**:
 - **MLflow installed from (source or binary)**: 
 - **MLflow version (run ``mlflow --version``)**:
 - **Python version**: 
-- **npm version** (if running the dev UI):
 - **Exact command to reproduce**:
 
 ### Describe the problem
