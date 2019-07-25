@@ -2,6 +2,8 @@ context("Bypass conda")
 
 
 test_that("MLflow finds MLFLOW_PYTHON_BIN environment variable", {
+  orig_global <- mlflow:::.globals$python_bin
+  rm("python_bin", envir = mlflow:::.globals)
   orig <- Sys.getenv("MLFLOW_PYTHON_BIN")
   expected_path <- tempfile("python")
   file.create(expected_path)
@@ -11,6 +13,7 @@ test_that("MLflow finds MLFLOW_PYTHON_BIN environment variable", {
   # Clean up
   file.remove(expected_path)
   Sys.setenv(MLFLOW_PYTHON_BIN = orig)
+  assign("python_bin", orig_global, envir = mlflow:::.globals)
 })
 
 test_that("MLflow finds MLFLOW_BIN environment variable", {
@@ -29,23 +32,30 @@ test_that("MLflow finds MLFLOW_BIN environment variable", {
 })
 
 test_that("MLflow defaults MLFLOW_BIN from the same directory than MLFLOW_PYTHON_BIN", {
+  orig_global <- mlflow:::.globals$python_bin
+  rm("python_bin", envir = mlflow:::.globals)
   orig <- Sys.getenv("MLFLOW_PYTHON_BIN")
   expected_python_path <- tempfile("python")
   expected_mlflow_path <- paste(tempdir(), "mlflow", sep = "/")
   file.create(expected_python_path)
   Sys.setenv(MLFLOW_PYTHON_BIN = expected_python_path)
   expected_fail <- try(mlflow:::python_mlflow_bin(), silent = TRUE)
-  expect_equal(class(expected_fail), "try-error")
-  file.create(expected_mlflow_path)
-  mlflow_bin <- mlflow:::python_mlflow_bin()
-  expect_equal(mlflow_bin, expected_mlflow_path)
+  if (class(expected_fail) == "try-error") {
+    file.create(expected_mlflow_path)
+    mlflow_bin <- mlflow:::python_mlflow_bin()
+    expect_equal(mlflow_bin, expected_mlflow_path)
+    # Clean up
+    file.remove(expected_mlflow_path)
+  }
   # Clean up
   file.remove(expected_python_path)
-  file.remove(expected_mlflow_path)
   Sys.setenv(MLFLOW_PYTHON_BIN = orig)
+  assign("python_bin", orig_global, envir = mlflow:::.globals)
 })
 
 test_that("MLflow bypasses `python_conda_home()` when Python and MLflow executables are provided", {
+  orig_global <- mlflow:::.globals$python_bin
+  rm("python_bin", envir = mlflow:::.globals)
   orig <- Sys.getenv("MLFLOW_PYTHON_BIN")
   expected_python_path <- tempfile("python")
   expected_mlflow_path <- paste(tempdir(), "mlflow", sep = "/")
@@ -58,4 +68,5 @@ test_that("MLflow bypasses `python_conda_home()` when Python and MLflow executab
   file.remove(expected_python_path)
   file.remove(expected_mlflow_path)
   Sys.setenv(MLFLOW_PYTHON_BIN = orig)
+  assign("python_bin", orig_global, envir = mlflow:::.globals)
 })
