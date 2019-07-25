@@ -75,7 +75,7 @@ class Model(object):
             run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
-            mlflow.tracking.fluent.log_artifact(local_path, artifact_path)
+            mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
 
 
 class FlavorBackend(object):

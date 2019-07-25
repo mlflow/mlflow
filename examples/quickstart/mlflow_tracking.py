@@ -1,7 +1,7 @@
 import os
 from random import random, randint
 
-from mlflow import log_metric, log_param, log_artifact
+from mlflow import log_metric, log_param, log_artifacts
 
 if __name__ == "__main__":
     print("Running mlflow_tracking.py")
@@ -17,4 +17,4 @@ if __name__ == "__main__":
     with open("outputs/test.txt", "w") as f:
         f.write("hello world!")
 
-    log_artifact("outputs")
+    log_artifacts("outputs")

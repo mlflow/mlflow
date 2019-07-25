@@ -401,7 +401,7 @@ def test_artifacts(mlflow_client):
     with open(src_file, 'w') as f:
         f.write('Hello, World!')
     mlflow_client.log_artifact(run_id, src_file, None)
-    mlflow_client.log_artifact(run_id, src_dir, 'dir')
+    mlflow_client.log_artifacts(run_id, src_dir, 'dir')
 
     root_artifacts_list = mlflow_client.list_artifacts(run_id)
     assert set([a.path for a in root_artifacts_list]) == {'my.file', 'dir'}
