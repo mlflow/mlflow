@@ -53,10 +53,13 @@ Official documentation for MLflow can be found at https://mlflow.org/docs/latest
 
 Community
 ---------
-To discuss MLflow or get help, please subscribe to our mailing list (mlflow-users@googlegroups.com) or
-join us on Slack at https://tinyurl.com/mlflow-slack.
+For help or questions about MLflow usage (e.g. "how do I do X?") see the `docs <https://mlflow.org/docs/latest/index.html>`_
+or `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 
-To report bugs, please use GitHub issues.
+To report a bug, file a documentation issue, or submit a feature request, please open a GitHub issue.
+
+For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
+or join us on Slack at https://tinyurl.com/mlflow-slack.
 
 Running a Sample App With the Tracking API
 ------------------------------------------
