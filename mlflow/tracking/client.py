@@ -159,8 +159,8 @@ class MlflowClient(object):
         :param run_id: The run id to which the metric should be logged.
         :param key: Metric name.
         :param value: Metric value (float). Note that some special values such
-        as +/- Infinity may be replaced by other values depending on the store. For example, the
-        SQLAlchemy store replaces +/- Inf with max / min float values.
+                      as +/- Infinity may be replaced by other values depending on the store. For
+                      example, the SQLAlchemy store replaces +/- Inf with max / min float values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
@@ -189,6 +189,7 @@ class MlflowClient(object):
     def delete_tag(self, run_id, key):
         """
         Delete a tag from a run. This is irreversible.
+
         :param run_id: String ID of the run
         :param key: Name of the tag
         """
