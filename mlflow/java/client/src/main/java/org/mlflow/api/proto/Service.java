@@ -28634,7 +28634,7 @@ public final class Service {
     /**
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
-     * Maximum must be at least 250 bytes.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -28643,7 +28643,7 @@ public final class Service {
     /**
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
-     * Maximum must be at least 250 bytes.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -28652,7 +28652,7 @@ public final class Service {
     /**
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
-     * Maximum must be at least 250 bytes.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -28663,7 +28663,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * Maximum must be at least 5000 bytes.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -28672,7 +28672,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * Maximum must be at least 5000 bytes.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -28681,7 +28681,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * Maximum must be at least 5000 bytes.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29253,7 +29253,7 @@ public final class Service {
     /**
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
-     * Maximum must be at least 250 bytes.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29264,7 +29264,7 @@ public final class Service {
     /**
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
-     * Maximum must be at least 250 bytes.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29286,7 +29286,7 @@ public final class Service {
     /**
      * <pre>
      * Name of the tag. Maximum size depends on storage backend.
-     * Maximum must be at least 250 bytes.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29310,7 +29310,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * Maximum must be at least 5000 bytes.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29321,7 +29321,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * Maximum must be at least 5000 bytes.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29343,7 +29343,7 @@ public final class Service {
     /**
      * <pre>
      * String value of the tag being logged. Maximum size depends on storage backend.
-     * Maximum must be at least 5000 bytes.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29834,7 +29834,7 @@ public final class Service {
       /**
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
-       * Maximum must be at least 250 bytes.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29845,7 +29845,7 @@ public final class Service {
       /**
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
-       * Maximum must be at least 250 bytes.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29867,7 +29867,7 @@ public final class Service {
       /**
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
-       * Maximum must be at least 250 bytes.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29888,7 +29888,7 @@ public final class Service {
       /**
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
-       * Maximum must be at least 250 bytes.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29906,7 +29906,7 @@ public final class Service {
       /**
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
-       * Maximum must be at least 250 bytes.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29920,7 +29920,7 @@ public final class Service {
       /**
        * <pre>
        * Name of the tag. Maximum size depends on storage backend.
-       * Maximum must be at least 250 bytes.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -29940,7 +29940,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * Maximum must be at least 5000 bytes.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29951,7 +29951,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * Maximum must be at least 5000 bytes.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29973,7 +29973,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * Maximum must be at least 5000 bytes.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -29994,7 +29994,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * Maximum must be at least 5000 bytes.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30012,7 +30012,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * Maximum must be at least 5000 bytes.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30026,7 +30026,7 @@ public final class Service {
       /**
        * <pre>
        * String value of the tag being logged. Maximum size depends on storage backend.
-       * Maximum must be at least 5000 bytes.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30155,7 +30155,8 @@ public final class Service {
 
     /**
      * <pre>
-     * Name of the tag.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30163,7 +30164,8 @@ public final class Service {
     boolean hasKey();
     /**
      * <pre>
-     * Name of the tag.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30171,7 +30173,8 @@ public final class Service {
     java.lang.String getKey();
     /**
      * <pre>
-     * Name of the tag.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30181,7 +30184,8 @@ public final class Service {
 
     /**
      * <pre>
-     * String value of the tag being logged.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30189,7 +30193,8 @@ public final class Service {
     boolean hasValue();
     /**
      * <pre>
-     * String value of the tag being logged.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30197,7 +30202,8 @@ public final class Service {
     java.lang.String getValue();
     /**
      * <pre>
-     * String value of the tag being logged.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30832,7 +30838,8 @@ public final class Service {
     private volatile java.lang.Object key_;
     /**
      * <pre>
-     * Name of the tag.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30842,7 +30849,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Name of the tag.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30863,7 +30871,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * Name of the tag.
+     * Name of the tag. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 250 bytes in size.
      * </pre>
      *
      * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -30886,7 +30895,8 @@ public final class Service {
     private volatile java.lang.Object value_;
     /**
      * <pre>
-     * String value of the tag being logged.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30896,7 +30906,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * String value of the tag being logged.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -30917,7 +30928,8 @@ public final class Service {
     }
     /**
      * <pre>
-     * String value of the tag being logged.
+     * String value of the tag being logged. Maximum size depends on storage backend.
+     * All storage backends are guaranteed to support key values up to 5000 bytes in size.
      * </pre>
      *
      * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31539,7 +31551,8 @@ public final class Service {
       private java.lang.Object key_ = "";
       /**
        * <pre>
-       * Name of the tag.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31549,7 +31562,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31570,7 +31584,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31590,7 +31605,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31607,7 +31623,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31620,7 +31637,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * Name of the tag.
+       * Name of the tag. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 250 bytes in size.
        * </pre>
        *
        * <code>optional string key = 2 [(.mlflow.validate_required) = true];</code>
@@ -31639,7 +31657,8 @@ public final class Service {
       private java.lang.Object value_ = "";
       /**
        * <pre>
-       * String value of the tag being logged.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31649,7 +31668,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31670,7 +31690,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31690,7 +31711,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31707,7 +31729,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
@@ -31720,7 +31743,8 @@ public final class Service {
       }
       /**
        * <pre>
-       * String value of the tag being logged.
+       * String value of the tag being logged. Maximum size depends on storage backend.
+       * All storage backends are guaranteed to support key values up to 5000 bytes in size.
        * </pre>
        *
        * <code>optional string value = 3 [(.mlflow.validate_required) = true];</code>
