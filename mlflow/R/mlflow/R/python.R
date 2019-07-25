@@ -45,7 +45,7 @@ python_mlflow_bin <- function() {
 # under conda_home/bin/
 #' @importFrom reticulate conda_binary
 python_conda_home <- function() {
-  if(file.exists(python_bin()) && file.exists(python_mlflow_bin())) {
+  if (file.exists(python_bin()) && file.exists(python_mlflow_bin())) {
     return("")
   }
   dirname(dirname(mlflow_conda_bin()))
