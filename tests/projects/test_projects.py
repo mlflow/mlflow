@@ -44,7 +44,7 @@ def _get_version_local_git_repo(local_git_repo):
     return repo.git.rev_parse("HEAD")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def clean_mlruns_dir():
     yield
     dir_path = os.path.join(TEST_PROJECT_DIR, "mlruns")
