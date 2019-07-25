@@ -23,7 +23,6 @@ from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
 from mlflow.utils.validation import _validate_run_id
-from mlflow.utils.annotations import deprecated
 
 _EXPERIMENT_ID_ENV_VAR = "MLFLOW_EXPERIMENT_ID"
 _EXPERIMENT_NAME_ENV_VAR = "MLFLOW_EXPERIMENT_NAME"
@@ -267,7 +266,6 @@ def log_artifact(local_path, artifact_path=None):
     MlflowClient().log_artifact(run_id, local_path, artifact_path)
 
 
-@deprecated("mlflow.log_artifact", 1.1)
 def log_artifacts(local_dir, artifact_path=None):
     """
     Log all the contents of a local directory as artifacts of the run.
