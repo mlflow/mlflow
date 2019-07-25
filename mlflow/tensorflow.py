@@ -550,7 +550,7 @@ def autolog(every_n_iter=100):
             kwargs['callbacks'], log_dir = _setup_callbacks([])
         result = original(self, *args, **kwargs)
         _flush_queue()
-        _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
+        _log_artifacts_with_warning(local_path=log_dir, artifact_path='tensorboard_logs')
         shutil.rmtree(log_dir)
         return result
 
