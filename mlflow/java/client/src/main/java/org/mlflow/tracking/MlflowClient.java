@@ -358,7 +358,7 @@ public class MlflowClient {
    * @param value The value of the tag.
    */
   public void setExperimentTag(String experimentId, String key, String value) {
-    sendPost("experiments/set-experiment-tag", mapper.makeSetExperimentTag(expId, key, value));
+    sendPost("experiments/set-experiment-tag", mapper.makeSetExperimentTag(experimentId, key, value));
   }
 
   /**
