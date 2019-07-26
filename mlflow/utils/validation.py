@@ -134,7 +134,7 @@ def _validate_length_limit(entity_name, limit, value):
     if len(value) > limit:
         raise MlflowException(
             "%s '%s' had length %s, which exceeded length limit of %s" %
-            (entity_name, value, len(value), limit))
+            (entity_name, value[:250], len(value), limit))
 
 
 def _validate_run_id(run_id):

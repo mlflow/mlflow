@@ -246,7 +246,7 @@ service MlflowService {
     };
   }
 
-  // Set a tag on an experiment. Tags are run metadata that can be updated on an experiment.
+  // Set a tag on an experiment. Experiment tags are metadata that can be updated.
   //
   rpc setExperimentTag(SetExperimentTag) returns (SetExperimentTag.Response) {
     option (rpc) = {
