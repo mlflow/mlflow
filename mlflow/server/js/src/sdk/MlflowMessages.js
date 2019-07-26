@@ -304,6 +304,9 @@ export const Experiment = Immutable.Record({
 
   // optional INT64
   creation_time: undefined,
+
+  // repeated RunTag
+  tags: Immutable.List(),
 }, 'Experiment');
 
 /**
@@ -311,8 +314,17 @@ export const Experiment = Immutable.Record({
  * This reviver allow us to keep the Immutable.Record type when serializing JSON message
  * into nested Immutable Record class.
  */
+ /**
+ * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
+ * This reviver allow us to keep the Immutable.Record type when serializing JSON message
+ * into nested Immutable Record class.
+ */
 Experiment.fromJsReviver = function fromJsReviver(key, value) {
   switch (key) {
+    case 'tags':
+      return Immutable.List(value.map((element) =>
+        RunTag.fromJs(element)
+      ));
     default:
       return Immutable.fromJS(value);
   }
@@ -338,6 +350,9 @@ const extended_Experiment = ModelBuilder.extend(Experiment, {
   getCreationTime() {
     return this.creation_time !== undefined ? this.creation_time : 0;
   },
+  getTags() {
+    return this.tags !== undefined ? this.tags : [];
+  }
 });
 
 /**

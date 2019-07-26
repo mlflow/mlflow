@@ -133,6 +133,7 @@ class RunView extends Component {
       if (this.state.showNotesEditor) {
         return <NoteEditorView
             runUuid={this.props.runUuid}
+            type={"run"}
             noteInfo={noteInfo}
             submitCallback={this.handleSubmittedNote}
             cancelCallback={this.handleNoteEditorViewCancel}/>;
@@ -249,7 +250,7 @@ class RunView extends Component {
           </div>
           {duration !== null ?
             <div className="run-info">
-              <span className="metadata-header">Duration: </span>
+              <span className="metadata-header">This is my duration: </span>
               <span className="metadata-info">{Utils.formatDuration(duration)}</span>
             </div>
             : null

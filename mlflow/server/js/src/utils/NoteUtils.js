@@ -14,4 +14,12 @@ export class NoteInfo {
     }
     return new NoteInfo(contentTag.getValue());
   };
+
+  static fromExperimentTags = (tags) => {
+    const contentTag = tags.find((t) => t.getKey() === NOTE_CONTENT_TAG);
+    if (contentTag === undefined) {
+      return undefined;
+    }
+    return new NoteInfo(contentTag.getValue());
+  };
 }

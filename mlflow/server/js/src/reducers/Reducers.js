@@ -203,6 +203,53 @@ const amendTagsByRunUuid = (state, tags, runUuid) => {
   return newState;
 };
 
+const experimentTagsByRunUuid = (state = {}, action) => {
+  const tagArrToObject = (tags) => {
+    const tagObj = {};
+    tags.forEach((tag) => tagObj[tag.key] = RunTag.fromJs(tag));
+    return tagObj;
+  };
+  switch (action.type) {
+    case fulfilled(GET_EXPERIMENT_API): {
+      const exp = Experiment.fromJs(action.payload.experiment);
+      const tags = action.payload.run.data.tags || [];
+      const expId = exp.getExperimentId();
+      const newState = {...state};
+      newState[expId] = tagArrToObject(tags)
+      return newState;
+    }
+    case fulfilled(LIST_EXPERIMENTS_API): {
+      const experiments  = action.payload.experiments;
+      const newState = {...state};
+
+    }
+    case fulfilled(SET_TAG_API): {
+      const tag = {key: action.meta.key, value: action.meta.value};
+      return amendTagsByExpUuid(state, [tag], action.meta.experiment_id);
+    }
+    default:
+      return state;
+  }
+};
+
+const amendTagsByExpUuid = (state, tags, expId) => {
+  let newState = { ...state };
+  if (tags) {
+    tags.forEach((tJson) => {
+      const tag = RunTag.fromJs(tJson);
+      const oldTags = newState[expId] ? newState[expId] : {};
+      newState = {
+        ...newState,
+        [expId]: {
+          ...oldTags,
+          [tag.getKey()]: tag,
+        }
+      };
+    });
+  }
+  return newState;
+};
+
 export const getArtifacts = (runUuid, state) => {
   return state.entities.artifactsByRunUuid[runUuid];
 };

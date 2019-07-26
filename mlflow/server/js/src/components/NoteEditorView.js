@@ -5,7 +5,7 @@ import { Prompt } from 'react-router';
 import ReactMde from 'react-mde';
 import { getConverter, sanitizeConvertedHtml } from "../utils/MarkdownUtils";
 import PropTypes from 'prop-types';
-import { setTagApi, getUUID } from '../Actions';
+import { setTagApi, setExperimentTagApi, getUUID, getUserVisibleError } from '../Actions';
 import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import 'react-mde/lib/styles/css/react-mde-all.css';
 import './NoteEditorView.css';
@@ -37,7 +37,9 @@ class NoteEditorView extends Component {
   };
 
   static propTypes = {
-    runUuid: PropTypes.string.isRequired,
+    runUuid: PropTypes.string,
+    expId: PropTypes.string,
+    type: PropTypes.string.isRequired,
     submitCallback: PropTypes.func.isRequired,
     cancelCallback: PropTypes.func.isRequired,
     dispatch: PropTypes.func.isRequired,
@@ -56,8 +58,20 @@ class NoteEditorView extends Component {
     this.setState({ isSubmitting: true });
     const submittedContent = this.state.mdSource;
     const setTagRequestId = getUUID();
+    var id = "";
+    var tagApiCall = "";
+    if (this.props.type === "experiment") {
+      id = this.props.expId;
+      tagApiCall = setExperimentTagApi
+    } else if (this.props.type === "run") {
+      id = this.props.runUuid
+      tagApiCall = setTagApi
+    } else {
+      // throw - until I figure out how to actually do that,
+      1 === 0
+    }
     return this.props.dispatch(
-      setTagApi(this.props.runUuid, NOTE_CONTENT_TAG, submittedContent, setTagRequestId))
+      tagApiCall(id, NOTE_CONTENT_TAG, submittedContent, setTagRequestId))
       .then(() => {
         this.setState({ isSubmitting: false, error: undefined });
         this.props.submitCallback(undefined);
@@ -87,7 +101,7 @@ class NoteEditorView extends Component {
           <Alert bsStyle="danger" onDismiss={this.handleErrorAlertDismissed}>
             <h4>Uh oh! There was an error submitting your note.</h4>
             <p>
-              {this.state.error.getUserVisibleError()}
+            It was bad.
             </p>
           </Alert>
           :
