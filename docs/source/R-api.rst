@@ -303,7 +303,7 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``experiment_id``             | Identifer to get an experiment.      |
+| ``experiment_id``             | ID of the experiment.                |
 +-------------------------------+--------------------------------------+
 | ``name``                      | The experiment name. Only one of     |
 |                               | ``name`` or ``experiment_id`` should |
@@ -1348,8 +1348,8 @@ Arguments
 
 Set Experiment Tag
 
-Sets a tag on an experiment. Tags are experiment metadata that can be
-updated.
+Sets a tag on an experiment with the specified ID. Tags are experiment
+metadata that can be updated.
 
 .. code:: r
 
@@ -1364,14 +1364,18 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``key``                       | Name of the tag. Maximum size is 255 |
-|                               | bytes. This field is required.       |
-+-------------------------------+--------------------------------------+
-| ``value``                     | String value of the tag being        |
-|                               | logged. Maximum size is 500 bytes.   |
+| ``key``                       | Name of the tag. All storage         |
+|                               | backends are guaranteed to support   |
+|                               | key values up to 250 bytes in size.  |
 |                               | This field is required.              |
 +-------------------------------+--------------------------------------+
-| ``experiment_id``             | Identifer to get an experiment.      |
+| ``value``                     | String value of the tag being        |
+|                               | logged. All storage backends are     |
+|                               | guaranteed to support key values up  |
+|                               | to 5000 bytes in size. This field is |
+|                               | required.                            |
++-------------------------------+--------------------------------------+
+| ``experiment_id``             | ID of the experiment.                |
 +-------------------------------+--------------------------------------+
 | ``client``                    | (Optional) An MLflow client object   |
 |                               | returned from                        |
