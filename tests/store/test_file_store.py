@@ -570,8 +570,6 @@ class TestFileStore(unittest.TestCase):
         fs.set_experiment_tag(exp_id, ExperimentTag("multiline_tag", "value2\nvalue2\nvalue2"))
         experiment = fs.get_experiment(exp_id)
         assert experiment.tags["multiline_tag"] == "value2\nvalue2\nvalue2"
-        # test list-run-infos works when the tags directory is set.
-        fs.list_run_infos(exp_id, ViewType.ACTIVE_ONLY)
         # test cannot set tags on deleted experiments
         fs.delete_experiment(exp_id)
         with pytest.raises(MlflowException):
