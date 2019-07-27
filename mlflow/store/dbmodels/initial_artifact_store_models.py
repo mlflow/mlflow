@@ -10,8 +10,10 @@
 # database schema matched the schema in this file.
 
 from sqlalchemy import (
-    Column, String, LargeBinary, Integer, PrimaryKeyConstraint)
+    Column, String, VARBINARY, BigInteger, Integer, PrimaryKeyConstraint)
 from sqlalchemy.ext.declarative import declarative_base
+
+from mlflow.entities import FileInfo
 
 Base = declarative_base()
 
@@ -32,21 +34,44 @@ class SqlArtifact(Base):
     Artifact Name: ``String` (limit 256 characters).
     """
 
-    group_name = Column(String(256), nullable=True)
+    group_path = Column(String(256), nullable=False)
     """
-    Group name: `String` (limit 256 characters). 
+    Group path: `String` (limit 256 characters). 
     """
 
-    artifact_content = Column(LargeBinary, nullable=False)
+    node_depth = Column(Integer, nullable=False)
     """
-    Artifact : `LargeBinary`. Defined as *Non null* in table schema.
+    Node depth: `Integer` .
     """
+
+    artifact_content = Column(VARBINARY, nullable=False)
+    """
+    Artifact : `VarBinary`. Defined as *Non null* in table schema.
+    """
+
+    artifact_initial_size = Column(BigInteger, nullable=True)
+    """
+    Artifact Initial Size : `BigInteger`. Defined as *null* in table schema.
+    """
+
 
     __table_args__ = (
         PrimaryKeyConstraint('artifact_id', name='artifact_pk'),
     )
 
+    def to_file_info(self):
+        """
+        Convert DB model to corresponding FileInfo object.
+
+        :return: :py:class:`mlflow.entities.FileInfo`.
+        """
+        return FileInfo(
+            path=self.artifact_name,
+            is_dir=False,
+            file_size=self.artifact_initial_size)
 
     def __repr__(self):
         return '<SqlArtifact ({}, {}, {}, {})>'.format(self.artifact_id, self.artifact_name,
-                                                       self.group_name, self.artifact_content)
+                                                       self.group_path, self.node_depth,
+                                                       self.artifact_content,
+                                                       self.artifact_initial_size)

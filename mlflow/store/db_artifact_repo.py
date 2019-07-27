@@ -20,6 +20,9 @@ from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
 from sqlalchemy import select
+from sqlalchemy import or_
+from mlflow.entities import FileInfo
+
 _logger = logging.getLogger(__name__)
 
 
@@ -63,7 +66,6 @@ class DBArtifactRepository(ArtifactRepository):
         _logger.info("Creating initial MLflow database tables...")
         InitialBase.metadata.create_all(engine)
 
-
     @staticmethod
     def _get_managed_session_maker(SessionMaker):
         """
@@ -92,7 +94,6 @@ class DBArtifactRepository(ArtifactRepository):
 
         return make_managed_session
 
-    @abstractmethod
     def log_artifact(self, local_file, artifact_path=None):
         """
         Log a local file as an artifact, optionally taking an ``artifact_path`` to place it in
@@ -107,14 +108,15 @@ class DBArtifactRepository(ArtifactRepository):
         _, file_name = os.path.split(local_file)
         with self.ManagedSessionMaker() as session:
             artifact = SqlArtifact(
-                artifact_name=file_name, group_name=artifact_path, artifact_content=open(
-                    local_file, "rb").read(),
+                artifact_name=file_name, group_path=artifact_path, node_depth=1,
+                artifact_content=open(
+                    local_file, "rb").read(), artifact_initial_size=
+                os.path.getsize(local_file)
             )
             session.add(artifact)
             session.flush()
             return str(artifact.artifact_id)
 
-    @abstractmethod
     def log_artifacts(self, local_dir, artifact_path=None):
         """
         Log the files in the specified local directory as artifacts, optionally taking
@@ -135,15 +137,14 @@ class DBArtifactRepository(ArtifactRepository):
 
                 for each_file in files:
                     source = os.path.join(subdir_path, each_file)
-                    destination = posixpath.join(db_subdir_path, each_file)
                     artifact = SqlArtifact(
-                        artifact_name=each_file, group_name=db_subdir_path,
+                        artifact_name=each_file, group_path=db_subdir_path, node_depth=1,
                         artifact_content=open(source, "rb").read(),
+                        artifact_initial_size=os.path.getsize(source)
                     )
                     session.add(artifact)
         session.flush()
 
-    @abstractmethod
     def list_artifacts(self, path):
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
@@ -153,7 +154,12 @@ class DBArtifactRepository(ArtifactRepository):
 
         :return: List of artifacts as FileInfo listed directly under path.
         """
-        pass
+        with self.ManagedSessionMaker() as session:
+            regex = path + '/%'
+            return [artifact.to_file_info()
+                    for artifact in
+                    session.query(SqlArtifact).filter(or_(SqlArtifact.group_path.like(regex),
+                                                          SqlArtifact.group_path == path))]
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
@@ -224,5 +230,3 @@ class DBArtifactRepository(ArtifactRepository):
             raise MlflowException("Invalid artifact path: '%s'. %s" % (artifact_path,
                                                                        bad_path_message(
                                                                            artifact_path)))
-
-

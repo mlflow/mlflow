@@ -54,16 +54,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 result = session.query(initial_artifact_store_models.SqlArtifact).all()
                 self.assertEqual(len(result), 1)
 
-                test_art = session.query(initial_artifact_store_models.SqlArtifact).\
+                test_art = session.query(initial_artifact_store_models.SqlArtifact). \
                     filter_by(artifact_name='model').first()
                 self.assertEqual(str(test_art.artifact_id), "1")
                 self.assertEqual(test_art.artifact_name, 'model')
-                self.assertEqual(test_art.group_name, 'more_path/some')
+                self.assertEqual(test_art.group_path, 'more_path/some')
                 self.assertEqual(test_art.artifact_content, open(
                     local_file, "rb").read())
 
     def test_log_artifacts(self):
-
         with TempDir() as root_dir:
             with open(root_dir.path("file_one.txt"), "w") as f:
                 f.write('DB store Test One')
@@ -78,11 +77,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 result = session.query(initial_artifact_store_models.SqlArtifact).all()
                 self.assertEqual(len(result), 2)
 
-                test_art = session.query(initial_artifact_store_models.SqlArtifact).\
+                test_art = session.query(initial_artifact_store_models.SqlArtifact). \
                     filter_by(artifact_name='file_one.txt').first()
                 self.assertEqual(str(test_art.artifact_id), "1")
                 self.assertEqual(test_art.artifact_name, 'file_one.txt')
-                self.assertEqual(test_art.group_name, 'new_path/path')
+                self.assertEqual(test_art.group_path, 'new_path/path')
                 self.assertEqual(test_art.artifact_content, open(
                     root_dir.path("file_one.txt"), "rb").read())
 
@@ -90,6 +89,27 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='file_two.txt').first()
                 self.assertEqual(str(test_art.artifact_id), "2")
                 self.assertEqual(test_art.artifact_name, 'file_two.txt')
-                self.assertEqual(test_art.group_name, 'new_path/path/subdir')
+                self.assertEqual(test_art.group_path, 'new_path/path/subdir')
                 self.assertEqual(test_art.artifact_content, open(
                     root_dir.path("subdir/file_two.txt"), "rb").read())
+
+    def test_list_artifacts(self):
+        with TempDir() as root_dir:
+            with open(root_dir.path("file_one.txt"), "w") as f:
+                f.write('DB store Test One')
+
+            os.mkdir(root_dir.path("subdir"))
+            with open(root_dir.path("subdir/file_two.txt"), "w") as f:
+                f.write('DB store Test Two')
+
+            with open(root_dir.path("subdir/file_three.txt"), "w") as f:
+                f.write('DB store Test Three')
+
+            self.store.log_artifacts(root_dir._path, 'new_path/path')
+            self.store.log_artifacts(root_dir._path, 'new_path2/path')
+
+            self.assertEqual(len(self.store.list_artifacts('new_path/path')), 3)
+            self.assertEqual(len(self.store.list_artifacts('new_path')), 3)
+
+            print(self.store.list_artifacts('new_path'))
+
