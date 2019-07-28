@@ -2,7 +2,7 @@
 #' @importFrom reticulate conda_list
 get_python_bin <- function() {
   in_env <- Sys.getenv("MLFLOW_PYTHON_BIN")
-  if (file.exists(in_env)) {
+  if (in_env != "") {
     return(in_env)
   }
   conda <- mlflow_conda_bin()
@@ -28,25 +28,20 @@ python_bin <- function() {
 # Python executable
 python_mlflow_bin <- function() {
   in_env <- Sys.getenv("MLFLOW_BIN")
-  if (file.exists(in_env)) {
+  if (in_env != "") {
     return(in_env)
   }
   python_bin_dir <- dirname(python_bin())
-  path <- file.path(python_bin_dir, "mlflow")
-  if (!file.exists(path) && file.exists(Sys.getenv("MLFLOW_PYTHON_BIN"))) {
-    stop("Mlflow executable does not seem to be in the same directory than Python.\n",
-         "  Please set the environment variable MLFLOW_BIN to the path of your mlflow executable."
-         )
-  }
-  path
+  file.path(python_bin_dir, "mlflow")
 }
 
 # Return path to conda home directory, such that the `conda` executable can be found
 # under conda_home/bin/
 #' @importFrom reticulate conda_binary
 python_conda_home <- function() {
-  if (file.exists(Sys.getenv("MLFLOW_PYTHON_BIN")) && file.exists(python_mlflow_bin())) {
-    return("")
+  path <- try(dirname(dirname(mlflow_conda_bin())), silent = TRUE)
+  if (class(path) == "try-error") {
+    return(NA)
   }
-  dirname(dirname(mlflow_conda_bin()))
+  path
 }
