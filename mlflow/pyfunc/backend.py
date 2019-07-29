@@ -2,6 +2,7 @@ import logging
 import os
 
 import subprocess
+import shlex
 
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
@@ -56,6 +57,7 @@ class PyFuncBackend(FlavorBackend):
             scoring_server._predict(local_uri, input_path, output_path, content_type,
                                     json_format)
 
+
     def serve(self, model_uri, port, host):
         """
         Serve pyfunc model locally.
@@ -64,11 +66,42 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
-        command = ("gunicorn -b {host}:{port} -w {nworkers} "
+
+        # Retrieve and parse GUNICORN_CMD_ARGS environment variable, while maintaing default
+        # timeout of 60 seconds
+
+        def _get_gunicorn_cmd_args_default_timeout(self):
+            """
+            Retrieve GUNICORN_CMD_ARGS from the environment, and append
+            a --timeout=60 flag if one is not already specified
+            """
+            gunicorn_cmd_args = os.environ.get('GUNICORN_CMD_ARGS','')
+
+            contains_timeout_flag = False
+
+            # Try to detect if `-t` or `--timeout` flag is specified in GUNICORN_CMD_ARGS
+            # if not, append `--timeout 60` to the string
+            if gunicorn_cmd_args: # if not empty string
+                args_list = shlex.split(gunicorn_cmd_args)
+                for arg in args_list:
+                    if (arg=='-t' or arg=='--timeout' or arg[:9]=='--timeout'):
+                        contains_timeout_flag=True
+                        break
+
+            if not contains_timeout_flag:
+                gunicorn_cmd_args += ' --timeout=60'
+
+            return gunicorn_cmd_args
+
+
+        gunicorn_cmd_args = _get_parse_gunicorn_cmd_args_default_timeout()
+
+        command = ("gunicorn -b {host}:{port} -w {nworkers} {gunicorn_cmd_args} "
                    "mlflow.pyfunc.scoring_server.wsgi:app").format(
             host=host,
             port=port,
-            nworkers=self._nworkers)
+            nworkers=self._nworkers,
+            gunicorn_cmd_args=gunicorn_cmd_args)
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
         if not self._no_conda and ENV in self._config:
