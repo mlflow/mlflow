@@ -2,6 +2,7 @@ import logging
 import os
 
 import subprocess
+import shlex
 
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
@@ -56,6 +57,7 @@ class PyFuncBackend(FlavorBackend):
             scoring_server._predict(local_uri, input_path, output_path, content_type,
                                     json_format)
 
+
     def serve(self, model_uri, port, host):
         """
         Serve pyfunc model locally.
@@ -64,11 +66,13 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
+
         command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}} "
                    "mlflow.pyfunc.scoring_server.wsgi:app").format(
             host=host,
             port=port,
-            nworkers=self._nworkers)
+            nworkers=self._nworkers,
+            gunicorn_cmd_args=gunicorn_cmd_args)
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
         if not self._no_conda and ENV in self._config:
