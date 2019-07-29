@@ -56,7 +56,6 @@ class PyFuncBackend(FlavorBackend):
             scoring_server._predict(local_uri, input_path, output_path, content_type,
                                     json_format)
 
-
     def serve(self, model_uri, port, host):
         """
         Serve pyfunc model locally.
