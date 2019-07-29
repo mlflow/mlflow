@@ -15,6 +15,7 @@ from mlflow.entities.run_tag import RunTag
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.view_type import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
+from mlflow.entities.experiment_tag import ExperimentTag
 
 __all__ = [
     "Experiment",
@@ -26,6 +27,7 @@ __all__ = [
     "RunInfo",
     "RunStatus",
     "RunTag",
+    "ExperimentTag",
     "SourceType",
     "ViewType",
     "LifecycleStage"

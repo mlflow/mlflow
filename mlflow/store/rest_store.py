@@ -5,7 +5,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
-    UpdateExperiment, LogBatch, DeleteTag
+    UpdateExperiment, LogBatch, DeleteTag, SetExperimentTag
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import http_request, verify_rest_response
@@ -177,6 +177,17 @@ class RestStore(AbstractStore):
         req_body = message_to_json(LogParam(
             run_uuid=run_id, run_id=run_id, key=param.key, value=param.value))
         self._call_endpoint(LogParam, req_body)
+
+    def set_experiment_tag(self, experiment_id, tag):
+        """
+        Set a tag for the specified experiment
+
+        :param experiment_id: String ID of the experiment
+        :param tag: ExperimentRunTag instance to log
+        """
+        req_body = message_to_json(SetExperimentTag(
+            experiment_id=experiment_id, key=tag.key, value=tag.value))
+        self._call_endpoint(SetExperimentTag, req_body)
 
     def set_tag(self, run_id, tag):
         """

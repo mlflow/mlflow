@@ -246,6 +246,25 @@ service MlflowService {
     };
   }
 
+  // Set a tag on an experiment. Experiment tags are metadata that can be updated.
+  //
+  rpc setExperimentTag(SetExperimentTag) returns (SetExperimentTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/experiments/set-experiment-tag"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
+        path: "/preview/mlflow/experiments/set-experiment-tag"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Set Experiment Tag",
+    };
+  }
+
   // Set a tag on a run. Tags are run metadata that can be updated during a run and after
   // a run completes.
   //
@@ -532,6 +551,14 @@ message RunTag {
   optional string value = 2;
 }
 
+// Tag for an experiment.
+message ExperimentTag {
+  // The tag key.
+  optional string key = 1;
+  // The tag value.
+  optional string value = 2;
+}
+
 // Metadata of a single run.
 message RunInfo {
   // Unique identifier for the run.
@@ -588,6 +615,9 @@ message Experiment {
 
   // Creation time
   optional int64 creation_time = 6;
+
+  // Tags: Additional metadata key-value pairs.
+  repeated ExperimentTag tags = 7;
 }
 
 message CreateExperiment {
@@ -780,6 +810,24 @@ message LogParam {
   }
 }
 
+message SetExperimentTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the experiment under which to log the tag. Must be provided.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 2 [(validate_required) = true];
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
+  optional string value = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -790,10 +838,12 @@ message SetTag {
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
 
-  // Name of the tag. Maximum size is 255 bytes.
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the tag being logged. Maximum size is 5000 bytes.
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
   optional string value = 3 [(validate_required) = true];
 
   message Response {
