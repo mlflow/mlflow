@@ -29,7 +29,6 @@
 }
 
 .ExperimentView-run-buttons .btn {
-  margin-top: 40px;
   margin-left: 16px;
 }
 
@@ -55,8 +54,12 @@
 }
 
 .ExperimentView-search-controls {
-  margin-top: 8px;
+  margin-top: 25px;
   min-width: 800px;
+}
+
+.ExperimentView-info {
+  margin-top: 8px;
 }
 
 .ExperimentView-run-buttons{

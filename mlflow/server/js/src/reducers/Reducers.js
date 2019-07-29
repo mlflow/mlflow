@@ -12,6 +12,7 @@ import {
   OPEN_ERROR_MODAL,
   SEARCH_RUNS_API,
   LOAD_MORE_RUNS_API,
+  SET_EXPERIMENT_TAG_API,
   SET_TAG_API, rejected,
 } from '../Actions';
 import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
@@ -148,6 +149,15 @@ export const getRunTags = (runUuid, state) => {
   }
 };
 
+export const getExperimentTags = (experimentId, state) => {
+  const tags = state.entities.experimentTagsByExperimentId[experimentId];
+  if (tags) {
+      return tags;
+  } else {
+      return {}
+  }
+};
+
 const tagsByRunUuid = (state = {}, action) => {
   const tagArrToObject = (tags) => {
     const tagObj = {};
@@ -203,7 +213,7 @@ const amendTagsByRunUuid = (state, tags, runUuid) => {
   return newState;
 };
 
-const experimentTagsByRunUuid = (state = {}, action) => {
+const experimentTagsByExperimentId = (state = {}, action) => {
   const tagArrToObject = (tags) => {
     const tagObj = {};
     tags.forEach((tag) => tagObj[tag.key] = RunTag.fromJs(tag));
@@ -211,28 +221,22 @@ const experimentTagsByRunUuid = (state = {}, action) => {
   };
   switch (action.type) {
     case fulfilled(GET_EXPERIMENT_API): {
-      const exp = Experiment.fromJs(action.payload.experiment);
-      const tags = action.payload.run.data.tags || [];
-      const expId = exp.getExperimentId();
-      const newState = {...state};
-      newState[expId] = tagArrToObject(tags)
+      const {experiment} = action.payload;
+      const newState = { ...state };
+      const tags = experiment.tags || [];
+      newState[experiment.experiment_id] = tagArrToObject(tags);
       return newState;
     }
-    case fulfilled(LIST_EXPERIMENTS_API): {
-      const experiments  = action.payload.experiments;
-      const newState = {...state};
-
-    }
-    case fulfilled(SET_TAG_API): {
+    case fulfilled(SET_EXPERIMENT_TAG_API): {
       const tag = {key: action.meta.key, value: action.meta.value};
-      return amendTagsByExpUuid(state, [tag], action.meta.experiment_id);
+      return amendExperimentTagsByExperimentId(state, [tag], action.meta.experimentId);
     }
     default:
       return state;
   }
 };
 
-const amendTagsByExpUuid = (state, tags, expId) => {
+const amendExperimentTagsByExperimentId = (state, tags, expId) => {
   let newState = { ...state };
   if (tags) {
     tags.forEach((tJson) => {
@@ -314,6 +318,7 @@ const entities = combineReducers({
   latestMetricsByRunUuid,
   paramsByRunUuid,
   tagsByRunUuid,
+  experimentTagsByExperimentId,
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
 });

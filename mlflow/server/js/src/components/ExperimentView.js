@@ -2,7 +2,7 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
-import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
+import { getExperiment, getParams, getRunInfo, getRunTags, getExperimentTags } from '../reducers/Reducers';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
@@ -84,6 +84,8 @@ export class ExperimentView extends Component {
     metricsList: PropTypes.arrayOf(Array).isRequired,
     // List of tags dictionary in all the visible runs.
     tagsList: PropTypes.arrayOf(Object).isRequired,
+    //List of experiment tags
+    experimentTagsList: PropTypes.instanceOf(Object).isRequired,
 
     // Input to the paramKeyFilter field
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
@@ -294,17 +296,16 @@ export class ExperimentView extends Component {
       } else if (noteInfo) {
         return <NoteShowView content={noteInfo.content}/>;
       } else {
-        return <em>None</em>;
+        return;
       }
     }
     return null;
   }
 
   render() {
-    const { experiment_id, name, artifact_location, tags } = this.props.experiment;
-    console.log("THIS")
-    console.log(tags)
-    console.log(this.props.experiment)
+    const { experiment_id, name, artifact_location } = this.props.experiment;
+    const { experimentTagsList } = this.props;
+    console.log(experimentTagsList);
     const {
       runInfos,
       paramKeyFilter,
@@ -325,7 +326,7 @@ export class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
-    const noteInfo = NoteInfo.fromExperimentTags(tags);
+    const noteInfo = NoteInfo.fromExperimentTags(experimentTagsList);
     const searchInputHelpTooltipContent = (
       <div className="search-input-tooltip-content">
         Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
@@ -360,6 +361,21 @@ export class ExperimentView extends Component {
             <span className="metadata-header">Artifact Location:</span>
             {artifact_location}
           </span>
+        </div>
+        <div className="ExperimentView-info">
+          <h2 className="table-name">
+                <span className="metadata">
+                  <span className="metadata-header">Description:</span>
+                  {!this.state.showNotes || !this.state.showNotesEditor ?
+                      <a onClick={this.handleExposeNotesEditorClick} >
+                        <Icon type="form" />
+                      </a>
+                      :
+                      null
+                  }
+                </span>
+          </h2>
+          {this.renderNoteSection(noteInfo)}
         </div>
         <div className="ExperimentView-runs runs-table-flex-container">
           {this.props.searchRunsError ?
@@ -454,26 +470,6 @@ export class ExperimentView extends Component {
               </div>
             </div>
           </form>
-          <div className="ExperimentView-info">
-            <h2 className="table-name">
-                <span
-                  onClick={this.state.showNotesEditor ?
-                    undefined : () => this.onClickExpander(NOTES_KEY)}
-                  className="RunView-notes-headline">
-                  <i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/>{' '}Notes
-                </span>
-                {!this.state.showNotes || !this.state.showNotesEditor ?
-                  <span>{' '}
-                    <a onClick={this.handleExposeNotesEditorClick} >
-                      <Icon type="form" />
-                    </a>
-                  </span>
-                  :
-                  null
-                }
-            </h2>
-            {this.renderNoteSection(noteInfo)}
-          </div>
           <div className="ExperimentView-run-buttons">
             <span className="run-count">
               Showing {runInfos.length} matching {runInfos.length === 1 ? 'run' : 'runs'}
@@ -837,6 +833,7 @@ export const mapStateToProps = (state, ownProps) => {
   });
 
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
+  const experimentTagsList = getExperimentTags(experiment.experiment_id, state);
   return {
     runInfos,
     experiment,
@@ -845,6 +842,7 @@ export const mapStateToProps = (state, ownProps) => {
     metricsList,
     paramsList,
     tagsList,
+    experimentTagsList,
   };
 };
 

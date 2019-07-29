@@ -16,7 +16,7 @@ export class NoteInfo {
   };
 
   static fromExperimentTags = (tags) => {
-    const contentTag = tags.find((t) => t.getKey() === NOTE_CONTENT_TAG);
+    const contentTag = Object.values(tags).find((t) => t.getKey() === NOTE_CONTENT_TAG);
     if (contentTag === undefined) {
       return undefined;
     }
