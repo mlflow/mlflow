@@ -64,17 +64,8 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
-
-        # Extract gunicorn_cmd_args and append
-        gunicorn_cmd_args = os.environ.get("GUNICORN_CMD_ARGS", '')
-
-        if gunicorn_cmd_args: # if not empty string
-            gunicorn_cmd_args += " " # add a whitespace
-
-        # Note: the optional environment variable GUNICORN_CMD_ARGS will be appended to the command
-        # Note: make sure there are never two whitespaces before mlflow.pyfunc.scoring_server.wsgi:app !
-        command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} {gunicorn_cmd_args}"
-                   "mlflow.pyfunc.scoring_server.wsgi:app").format(
+        command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
+                   " mlflow.pyfunc.scoring_server.wsgi:app").format(
             host=host,
             port=port,
             nworkers=self._nworkers,
