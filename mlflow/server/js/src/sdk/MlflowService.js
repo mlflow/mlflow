@@ -203,6 +203,7 @@ export class MlflowService {
   static searchRuns({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/search'), {
       type: 'POST',
+      contentType: "application/json; charset=utf-8",
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
