@@ -2,7 +2,6 @@ import logging
 import os
 
 import subprocess
-import shlex
 
 from mlflow.models import FlavorBackend
 from mlflow.models.docker_utils import _build_image, DISABLE_ENV_CREATION
@@ -67,12 +66,21 @@ class PyFuncBackend(FlavorBackend):
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
 
-        command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}} "
+        # Extract gunicorn_cmd_args and append
+        gunicorn_cmd_args = os.environ.get("GUNICORN_CMD_ARGS", '')
+
+        if gunicorn_cmd_args: # if not empty string
+            gunicorn_cmd_args += " " # add a whitespace
+
+        # Note: the optional environment variable GUNICORN_CMD_ARGS will be appended to the command
+        # Note: make sure there are never two whitespaces before mlflow.pyfunc.scoring_server.wsgi:app !
+        command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} {gunicorn_cmd_args}"
                    "mlflow.pyfunc.scoring_server.wsgi:app").format(
             host=host,
             port=port,
             nworkers=self._nworkers,
-            gunicorn_cmd_args=gunicorn_cmd_args)
+            gunicorn_cmd_args=gunicorn_cmd_args
+        )
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
         if not self._no_conda and ENV in self._config:
