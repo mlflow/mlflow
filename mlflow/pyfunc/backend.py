@@ -65,7 +65,7 @@ class PyFuncBackend(FlavorBackend):
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
         command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
-                   " mlflow.pyfunc.scoring_server.wsgi:app").format(
+                   "mlflow.pyfunc.scoring_server.wsgi:app").format(
                        host=host,
                        port=port,
                        nworkers=self._nworkers,
