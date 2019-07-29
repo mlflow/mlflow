@@ -178,6 +178,47 @@ public class MlflowClientTest {
   }
 
   @Test
+  public void setExperimentTag() {
+    // Create experiment
+    String expName = createExperimentName();
+    String expId = client.createExperiment(expName);
+    client.setExperimentTag(expId, "dataset", "imagenet1K");
+    Experiment exp = client.getExperiment(expId).getExperiment();
+    Assert.assertTrue(exp.getTagsCount() == 1);
+    Assert.assertTrue(exp.getTags(0).getKey().equals("dataset"));
+    Assert.assertTrue(exp.getTags(0).getValue().equals("imagenet1K"));
+    // test updating experiment tag
+    client.setExperimentTag(expId, "dataset", "birdbike");
+    exp = client.getExperiment(expId).getExperiment();
+    Assert.assertTrue(exp.getTagsCount() == 1);
+    Assert.assertTrue(exp.getTags(0).getKey().equals("dataset"));
+    Assert.assertTrue(exp.getTags(0).getValue().equals("birdbike"));
+    // test that setting a tag on 1 experiment does not impact another experiment.
+    String expId2 = client.createExperiment("randomExperimentName");
+    Experiment exp2 = client.getExperiment(expId2).getExperiment();
+    Assert.assertTrue(exp2.getTagsCount() == 0);
+    // test that setting a tag on different experiments maintain different values across experiments
+    client.setExperimentTag(expId2, "dataset", "birds200");
+    exp = client.getExperiment(expId).getExperiment();
+    exp2 = client.getExperiment(expId2).getExperiment();
+    Assert.assertTrue(exp.getTagsCount() == 1);
+    Assert.assertTrue(exp.getTags(0).getKey().equals("dataset"));
+    Assert.assertTrue(exp.getTags(0).getValue().equals("birdbike"));
+    Assert.assertTrue(exp2.getTagsCount() == 1);
+    Assert.assertTrue(exp2.getTags(0).getKey().equals("dataset"));
+    Assert.assertTrue(exp2.getTags(0).getValue().equals("birds200"));
+    // test can set multi-line tags
+    client.setExperimentTag(expId, "multiline tag", "value2\nvalue2\nvalue2");
+    exp = client.getExperiment(expId).getExperiment();
+    Assert.assertTrue(exp.getTagsCount() == 2);
+    for (ExperimentTag tag : exp.getTagsList()) {
+      if (tag.getKey().equals("multiline tag")) {
+        Assert.assertTrue(tag.getValue().equals("value2\nvalue2\nvalue2"));
+      }
+    }
+  }
+
+  @Test
   public void deleteTag() {
     // Create experiment
     String expName = createExperimentName();
