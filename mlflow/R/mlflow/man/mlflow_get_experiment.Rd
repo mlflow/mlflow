@@ -8,7 +8,7 @@ mlflow_get_experiment(experiment_id = NULL, name = NULL,
   client = NULL)
 }
 \arguments{
-\item{experiment_id}{Identifer to get an experiment.}
+\item{experiment_id}{ID of the experiment.}
 
 \item{name}{The experiment name. Only one of `name` or `experiment_id` should be specified.}
 

@@ -320,6 +320,32 @@ def test_log_metrics_params_tags(mlflow_client, backend_store_uri):
     assert metric1.step == 0
 
 
+def test_set_experiment_tag(mlflow_client, backend_store_uri):
+    experiment_id = mlflow_client.create_experiment('SetExperimentTagTest')
+    mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert "dataset" in experiment.tags and experiment.tags["dataset"] == "imagenet1K"
+    # test that updating a tag works
+    mlflow_client.set_experiment_tag(experiment_id, "dataset", "birdbike")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert "dataset" in experiment.tags and experiment.tags["dataset"] == "birdbike"
+    # test that setting a tag on 1 experiment does not impact another experiment.
+    experiment_id_2 = mlflow_client.create_experiment("SetExperimentTagTest2")
+    experiment2 = mlflow_client.get_experiment(experiment_id_2)
+    assert len(experiment2.tags) == 0
+    # test that setting a tag on different experiments maintain different values across experiments
+    mlflow_client.set_experiment_tag(experiment_id_2, "dataset", "birds200")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    experiment2 = mlflow_client.get_experiment(experiment_id_2)
+    assert "dataset" in experiment.tags and experiment.tags["dataset"] == "birdbike"
+    assert "dataset" in experiment2.tags and experiment2.tags["dataset"] == "birds200"
+    # test can set multi-line tags
+    mlflow_client.set_experiment_tag(experiment_id, "multiline tag", "value2\nvalue2\nvalue2")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert "multiline tag" in experiment.tags \
+           and experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
+
+
 def test_delete_tag(mlflow_client, backend_store_uri):
     experiment_id = mlflow_client.create_experiment('DeleteTagExperiment')
     created_run = mlflow_client.create_run(experiment_id)

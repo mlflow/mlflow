@@ -303,7 +303,7 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``experiment_id``             | Identifer to get an experiment.      |
+| ``experiment_id``             | ID of the experiment.                |
 +-------------------------------+--------------------------------------+
 | ``name``                      | The experiment name. Only one of     |
 |                               | ``name`` or ``experiment_id`` should |
@@ -1343,6 +1343,51 @@ Arguments
 |                               | the path of all static paths.        |
 +-------------------------------+--------------------------------------+
 
+``mlflow_set_experiment_tag``
+=============================
+
+Set Experiment Tag
+
+Sets a tag on an experiment with the specified ID. Tags are experiment
+metadata that can be updated.
+
+.. code:: r
+
+   mlflow_set_experiment_tag(key, value, experiment_id = NULL,
+     client = NULL)
+
+.. _arguments-31:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``key``                       | Name of the tag. All storage         |
+|                               | backends are guaranteed to support   |
+|                               | key values up to 250 bytes in size.  |
+|                               | This field is required.              |
++-------------------------------+--------------------------------------+
+| ``value``                     | String value of the tag being        |
+|                               | logged. All storage backends are     |
+|                               | guaranteed to support key values up  |
+|                               | to 5000 bytes in size. This field is |
+|                               | required.                            |
++-------------------------------+--------------------------------------+
+| ``experiment_id``             | ID of the experiment.                |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+
 ``mlflow_set_experiment``
 =========================
 
@@ -1358,7 +1403,7 @@ provided name. Returns the ID of the active experiment.
    mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
      artifact_location = NULL)
 
-.. _arguments-31:
+.. _arguments-32:
 
 Arguments
 ---------
@@ -1388,7 +1433,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-32:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1428,7 +1473,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-33:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1451,7 +1496,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-34:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1478,7 +1523,7 @@ can be provided.
    mlflow_start_run(run_id = NULL, experiment_id = NULL,
      start_time = NULL, tags = NULL, client = NULL)
 
-.. _arguments-35:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1541,7 +1586,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(client, ...)
 
-.. _arguments-36:
+.. _arguments-37:
 
 Arguments
 ---------

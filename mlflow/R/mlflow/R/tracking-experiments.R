@@ -46,13 +46,39 @@ mlflow_list_experiments <- function(view_type = c("ACTIVE_ONLY", "DELETED_ONLY",
     tibble::as_tibble()
 }
 
+#' Set Experiment Tag
+#'
+#' Sets a tag on an experiment with the specified ID. Tags are experiment metadata that can be updated.
+#'
+#' @param key Name of the tag. All storage backends are guaranteed to support
+#'   key values up to 250 bytes in size. This field is required.
+#' @param value String value of the tag being logged. All storage backends are
+#'   guaranteed to support key values up to 5000 bytes in size. This field is required.
+#' @param experiment_id ID of the experiment.
+#' @template roxlate-client
+#' @export
+mlflow_set_experiment_tag <- function(key, value, experiment_id = NULL, client = NULL) {
+  key <- cast_string(key)
+  value <- cast_string(value)
+  client <- resolve_client(client)
+
+  experiment_id <- resolve_experiment_id(experiment_id)
+  experiment_id <- cast_string(experiment_id)
+  response <- mlflow_rest("experiments", "set-experiment-tag", client = client, verb = "POST", data = list(
+      experiment_id = experiment_id,
+      key = key,
+      value = value
+  ))
+
+  invisible(NULL)
+}
+
 #' Get Experiment
 #'
 #' Gets metadata for an experiment and a list of runs for the experiment. Attempts to obtain the
 #' active experiment if both `experiment_id` and `name` are unspecified.
 #'
-#'
-#' @param experiment_id Identifer to get an experiment.
+#' @param experiment_id ID of the experiment.
 #' @param name The experiment name. Only one of `name` or `experiment_id` should be specified.
 #' @template roxlate-client
 #' @export
