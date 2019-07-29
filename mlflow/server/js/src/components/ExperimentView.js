@@ -26,7 +26,6 @@ import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
 
 export const DEFAULT_EXPANDED_VALUE = false;
-const NOTES_KEY = 'notes';
 
 
 export class ExperimentView extends Component {
@@ -257,25 +256,6 @@ export class ExperimentView extends Component {
       });
   }
 
-
-  onClickExpander(key) {
-    switch (key) {
-      case NOTES_KEY: {
-        this.setState({ showNotes: !this.state.showNotes });
-        return;
-      }
-      default:
-    }
-  }
-
-  getExpanderClassName(key) {
-    switch (key) {
-      case NOTES_KEY: {
-        return this.state.showNotes ? 'fa-caret-down' : 'fa-caret-right';
-      }
-    }
-  }
-
   handleExposeNotesEditorClick() {
     this.setState({ showNotesEditor: true, showNotes: true });
   }
@@ -305,7 +285,6 @@ export class ExperimentView extends Component {
   render() {
     const { experiment_id, name, artifact_location } = this.props.experiment;
     const { experimentTagsList } = this.props;
-    console.log(experimentTagsList);
     const {
       runInfos,
       paramKeyFilter,
@@ -326,7 +305,7 @@ export class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
-    const noteInfo = NoteInfo.fromExperimentTags(experimentTagsList);
+    const noteInfo = NoteInfo.fromTags(experimentTagsList);
     const searchInputHelpTooltipContent = (
       <div className="search-input-tooltip-content">
         Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>

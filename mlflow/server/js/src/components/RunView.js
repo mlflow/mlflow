@@ -169,7 +169,7 @@ class RunView extends Component {
 
   render() {
     const { runUuid, run, params, tags, latestMetrics, getMetricPagePath } = this.props;
-    const noteInfo = NoteInfo.fromRunTags(tags);
+    const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
@@ -250,7 +250,7 @@ class RunView extends Component {
           </div>
           {duration !== null ?
             <div className="run-info">
-              <span className="metadata-header">This is my duration: </span>
+              <span className="metadata-header">Duration: </span>
               <span className="metadata-info">{Utils.formatDuration(duration)}</span>
             </div>
             : null

@@ -5,7 +5,7 @@ import { Prompt } from 'react-router';
 import ReactMde from 'react-mde';
 import { getConverter, sanitizeConvertedHtml } from "../utils/MarkdownUtils";
 import PropTypes from 'prop-types';
-import { setTagApi, setExperimentTagApi, getUUID, getUserVisibleError } from '../Actions';
+import { setTagApi, setExperimentTagApi, getUUID } from '../Actions';
 import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import 'react-mde/lib/styles/css/react-mde-all.css';
 import './NoteEditorView.css';
@@ -100,7 +100,7 @@ class NoteEditorView extends Component {
           <Alert bsStyle="danger" onDismiss={this.handleErrorAlertDismissed}>
             <h4>Uh oh! There was an error submitting your note.</h4>
             <p>
-            It was bad.
+            {this.state.error.getUserVisibleError()}
             </p>
           </Alert>
           :
