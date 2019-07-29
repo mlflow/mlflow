@@ -67,8 +67,7 @@ class NoteEditorView extends Component {
       id = this.props.runUuid
       tagApiCall = setTagApi
     } else {
-      // throw - until I figure out how to actually do that,
-      1 === 0
+      throw "Cannot display a note editor for this type."
     }
     return this.props.dispatch(
       tagApiCall(id, NOTE_CONTENT_TAG, submittedContent, setTagRequestId))

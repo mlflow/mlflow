@@ -138,7 +138,7 @@ class RunView extends Component {
             submitCallback={this.handleSubmittedNote}
             cancelCallback={this.handleNoteEditorViewCancel}/>;
       } else if (noteInfo) {
-        return <NoteShowView content={noteInfo.content}/>;
+        return <NoteShowView content={noteInfo.content} noteType={"run"}/>;
       } else {
         return <em>None</em>;
       }

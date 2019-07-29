@@ -305,7 +305,7 @@ export const Experiment = Immutable.Record({
   // optional INT64
   creation_time: undefined,
 
-  // repeated RunTag
+  // repeated ExperimentTag
   tags: Immutable.List(),
 }, 'Experiment');
 
@@ -323,7 +323,7 @@ Experiment.fromJsReviver = function fromJsReviver(key, value) {
   switch (key) {
     case 'tags':
       return Immutable.List(value.map((element) =>
-        RunTag.fromJs(element)
+        ExperimentTag.fromJs(element)
       ));
     default:
       return Immutable.fromJS(value);
@@ -992,5 +992,47 @@ const extended_RunTag = ModelBuilder.extend(RunTag, {
 RunTag.fromJs = function fromJs(pojo) {
   const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, RunTag.fromJsReviver);
   return new extended_RunTag(pojoWithNestedImmutables);
+};
+
+export const ExperimentTag = Immutable.Record({
+  // optional STRING
+  key: undefined,
+
+  // optional STRING
+  value: undefined,
+}, 'ExperimentTag');
+
+/**
+ * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
+ * This reviver allow us to keep the Immutable.Record type when serializing JSON message
+ * into nested Immutable Record class.
+ */
+ExperimentTag.fromJsReviver = function fromJsReviver(key, value) {
+  switch (key) {
+    default:
+      return Immutable.fromJS(value);
+  }
+};
+
+const extended_ExperimentTag = ModelBuilder.extend(ExperimentTag, {
+
+  getKey() {
+    return this.key !== undefined ? this.key : '';
+  },
+  getValue() {
+    return this.value !== undefined ? this.value : '';
+  },
+});
+
+/**
+ * This is a customized fromJs function used to translate plain old Javascript
+ * objects into this Immutable Record.  Example usage:
+ *
+ *   // The pojo is your javascript object
+ *   const record = RunTag.fromJs(pojo);
+ */
+ExperimentTag.fromJs = function fromJs(pojo) {
+  const pojoWithNestedImmutables = RecordUtils.fromJs(pojo, RunTag.fromJsReviver);
+  return new extended_ExperimentTag(pojoWithNestedImmutables);
 };
 

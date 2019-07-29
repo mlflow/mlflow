@@ -15,7 +15,7 @@ import {
   SET_EXPERIMENT_TAG_API,
   SET_TAG_API, rejected,
 } from '../Actions';
-import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
+import {Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
 import _ from 'lodash';
@@ -216,7 +216,7 @@ const amendTagsByRunUuid = (state, tags, runUuid) => {
 const experimentTagsByExperimentId = (state = {}, action) => {
   const tagArrToObject = (tags) => {
     const tagObj = {};
-    tags.forEach((tag) => tagObj[tag.key] = RunTag.fromJs(tag));
+    tags.forEach((tag) => tagObj[tag.key] = ExperimentTag.fromJs(tag));
     return tagObj;
   };
   switch (action.type) {
@@ -240,7 +240,7 @@ const amendExperimentTagsByExperimentId = (state, tags, expId) => {
   let newState = { ...state };
   if (tags) {
     tags.forEach((tJson) => {
-      const tag = RunTag.fromJs(tJson);
+      const tag = ExperimentTag.fromJs(tJson);
       const oldTags = newState[expId] ? newState[expId] : {};
       newState = {
         ...newState,

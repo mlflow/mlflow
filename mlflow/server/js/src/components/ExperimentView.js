@@ -294,7 +294,7 @@ export class ExperimentView extends Component {
             submitCallback={this.handleSubmittedNote}
             cancelCallback={this.handleNoteEditorViewCancel}/>;
       } else if (noteInfo) {
-        return <NoteShowView content={noteInfo.content}/>;
+        return <NoteShowView content={noteInfo.content} noteType={"experiment"}/>;
       } else {
         return;
       }
