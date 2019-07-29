@@ -7,7 +7,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
     Experiment, RunTag, Metric, Param, RunData, RunInfo,
-    SourceType, RunStatus, Run, ViewType)
+    SourceType, RunStatus, Run, ViewType, ExperimentTag)
 from mlflow.entities.lifecycle_stage import LifecycleStage
 
 Base = declarative_base()
@@ -75,7 +75,8 @@ class SqlExperiment(Base):
             experiment_id=str(self.experiment_id),
             name=self.name,
             artifact_location=self.artifact_location,
-            lifecycle_stage=self.lifecycle_stage)
+            lifecycle_stage=self.lifecycle_stage,
+            tags=[t.to_mlflow_entity() for t in self.tags])
 
 
 class SqlRun(Base):
@@ -186,6 +187,47 @@ class SqlRun(Base):
             tags=[t.to_mlflow_entity() for t in self.tags])
 
         return Run(run_info=run_info, run_data=run_data)
+
+
+class SqlExperimentTag(Base):
+    """
+    DB model for :py:class:`mlflow.entities.RunTag`.
+    These are recorded in ``experiment_tags`` table.
+    """
+    __tablename__ = 'experiment_tags'
+
+    key = Column(String(250))
+    """
+    Tag key: `String` (limit 250 characters). *Primary Key* for ``tags`` table.
+    """
+    value = Column(String(5000), nullable=True)
+    """
+    Value associated with tag: `String` (limit 5000 characters). Could be *null*.
+    """
+    experiment_id = Column(Integer, ForeignKey('experiments.experiment_id'))
+    """
+    Experiment ID to which this tag belongs: *Foreign Key* into ``experiments`` table.
+    """
+    experiment = relationship('SqlExperiment', backref=backref('tags', cascade='all'))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint('key', 'experiment_id', name='experiment_tag_pk'),
+    )
+
+    def __repr__(self):
+        return '<SqlExperimentTag({}, {})>'.format(self.key, self.value)
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        :return: :py:class:`mlflow.entities.RunTag`.
+        """
+        return ExperimentTag(key=self.key,
+                             value=self.value)
 
 
 class SqlTag(Base):
