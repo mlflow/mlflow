@@ -67,36 +67,7 @@ class PyFuncBackend(FlavorBackend):
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
 
-        # Retrieve and parse GUNICORN_CMD_ARGS environment variable, while maintaing default
-        # timeout of 60 seconds
-
-        def _get_gunicorn_cmd_args_default_timeout(self):
-            """
-            Retrieve GUNICORN_CMD_ARGS from the environment, and append
-            a --timeout=60 flag if one is not already specified
-            """
-            gunicorn_cmd_args = os.environ.get('GUNICORN_CMD_ARGS','')
-
-            contains_timeout_flag = False
-
-            # Try to detect if `-t` or `--timeout` flag is specified in GUNICORN_CMD_ARGS
-            # if not, append `--timeout 60` to the string
-            if gunicorn_cmd_args: # if not empty string
-                args_list = shlex.split(gunicorn_cmd_args)
-                for arg in args_list:
-                    if (arg=='-t' or arg=='--timeout' or arg[:9]=='--timeout'):
-                        contains_timeout_flag=True
-                        break
-
-            if not contains_timeout_flag:
-                gunicorn_cmd_args += ' --timeout=60'
-
-            return gunicorn_cmd_args
-
-
-        gunicorn_cmd_args = _get_parse_gunicorn_cmd_args_default_timeout()
-
-        command = ("gunicorn -b {host}:{port} -w {nworkers} {gunicorn_cmd_args} "
+        command = ("gunicorn --timeout 60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}} "
                    "mlflow.pyfunc.scoring_server.wsgi:app").format(
             host=host,
             port=port,
