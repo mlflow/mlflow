@@ -58,23 +58,20 @@ def cli():
               help="ID of the experiment under which to launch the run.")
 # TODO: Add tracking server argument once we have it working.
 @click.option("--backend", "-b", metavar="BACKEND",
-              help="Execution backend to use for run. Supported values: 'local' (runs project "
-                   "locally) and 'databricks' (runs project on a Databricks cluster). "
-                   "Defaults to 'local'. If running against Databricks, will run against a "
-                   "Databricks workspace determined as follows: if a Databricks tracking URI "
-                   "of the form 'databricks://profile' has been set (e.g. by setting "
-                   "the MLFLOW_TRACKING_URI environment variable), will run against the "
-                   "workspace specified by <profile>. Otherwise, runs against the workspace "
-                   "specified by the default Databricks CLI profile. See "
+              help="Execution backend to use for run. Supported values: 'local', 'databricks', "
+                   "kubernetes (experimental). Defaults to 'local'. If running against "
+                   "Databricks, will run against a Databricks workspace determined as follows: "
+                   "if a Databricks tracking URI of the form 'databricks://profile' has been set "
+                   "(e.g. by setting the MLFLOW_TRACKING_URI environment variable), will run "
+                   "against the workspace specified by <profile>. Otherwise, runs against the "
+                   "workspace specified by the default Databricks CLI profile. See "
                    "https://github.com/databricks/databricks-cli for more info on configuring a "
                    "Databricks CLI profile.")
 @click.option("--backend-config", "-c", metavar="FILE",
               help="Path to JSON file (must end in '.json') or JSON string which will be passed "
-                   "as config to the backend. For the Databricks backend, this should be a "
-                   "cluster spec: see "
-                   "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster "
-                   "for more information. Note that MLflow runs are currently launched against "
-                   "a new cluster.")
+                   "as config to the backend. The exact content which should be "
+                   "provided is different for each execution backend and is documented "
+                   "at https://www.mlflow.org/docs/latest/projects.html.")
 @cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when ``backend`` is local."

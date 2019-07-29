@@ -84,6 +84,7 @@ class FileStore(AbstractStore):
     PARAMS_FOLDER_NAME = "params"
     TAGS_FOLDER_NAME = "tags"
     EXPERIMENT_TAGS_FOLDER_NAME = "tags"
+    RESERVED_EXPERIMENT_FOLDERS = [EXPERIMENT_TAGS_FOLDER_NAME]
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
 
@@ -553,7 +554,12 @@ class FileStore(AbstractStore):
         if not self._has_experiment(experiment_id):
             return []
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
-        run_uuids = list_all(experiment_dir, os.path.isdir, full_path=False)
+        run_uuids = list_all(experiment_dir,
+                             filter_func=lambda x:
+                             all([os.path.basename(os.path.normpath(x)) != reservedFolderName
+                                  for reservedFolderName in
+                                  FileStore.RESERVED_EXPERIMENT_FOLDERS]) and os.path.isdir(x),
+                             full_path=False)
         run_infos = []
         for r_id in run_uuids:
             try:

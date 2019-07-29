@@ -3,7 +3,7 @@ from mlflow.protos.service_pb2 import ExperimentTag as ProtoExperimentTag
 
 
 class ExperimentTag(_MLflowObject):
-    """Tag object associated with a run."""
+    """Tag object associated with an experiment."""
     def __init__(self, key, value):
         self._key = key
         self._value = value

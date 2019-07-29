@@ -8,11 +8,13 @@ mlflow_set_experiment_tag(key, value, experiment_id = NULL,
   client = NULL)
 }
 \arguments{
-\item{key}{Name of the tag. Maximum size is 255 bytes. This field is required.}
+\item{key}{Name of the tag. All storage backends are guaranteed to support
+key values up to 250 bytes in size. This field is required.}
 
-\item{value}{String value of the tag being logged. Maximum size is 500 bytes. This field is required.}
+\item{value}{String value of the tag being logged. All storage backends are
+guaranteed to support key values up to 5000 bytes in size. This field is required.}
 
-\item{experiment_id}{Identifer to get an experiment.}
+\item{experiment_id}{ID of the experiment.}
 
 \item{client}{(Optional) An MLflow client object returned from \link[mlflow]{mlflow_client}.
 If specified, MLflow will use the tracking server associated with the passed-in client. If
@@ -20,5 +22,5 @@ unspecified (the common case),
 MLflow will use the tracking server associated with the current tracking URI.}
 }
 \description{
-Sets a tag on an experiment. Tags are experiment metadata that can be updated.
+Sets a tag on an experiment with the specified ID. Tags are experiment metadata that can be updated.
 }

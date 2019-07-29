@@ -159,8 +159,8 @@ class MlflowClient(object):
         :param run_id: The run id to which the metric should be logged.
         :param key: Metric name.
         :param value: Metric value (float). Note that some special values such
-        as +/- Infinity may be replaced by other values depending on the store. For example, the
-        SQLAlchemy store replaces +/- Inf with max / min float values.
+                      as +/- Infinity may be replaced by other values depending on the store. For
+                      example, the SQLAlchemy store replaces +/- Inf with max / min float values.
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
@@ -180,7 +180,10 @@ class MlflowClient(object):
 
     def set_experiment_tag(self, experiment_id, key, value):
         """
-        Set a tag on the experiment ID. Value is converted to a string.
+        Set a tag on the experiment with the specified ID. Value is converted to a string.
+        :param experiment_id: String ID of the experiment.
+        :param key: Name of the tag.
+        :param value: Tag value (converted to a string).
         """
         _validate_tag_name(key)
         tag = ExperimentTag(key, str(value))
@@ -188,7 +191,10 @@ class MlflowClient(object):
 
     def set_tag(self, run_id, key, value):
         """
-        Set a tag on the run ID. Value is converted to a string.
+        Set a tag on the run with the specified ID. Value is converted to a string.
+        :param run_id: String ID of the run.
+        :param key: Name of the tag.
+        :param value: Tag value (converted to a string)
         """
         _validate_tag_name(key)
         tag = RunTag(key, str(value))
@@ -197,6 +203,7 @@ class MlflowClient(object):
     def delete_tag(self, run_id, key):
         """
         Delete a tag from a run. This is irreversible.
+
         :param run_id: String ID of the run
         :param key: Name of the tag
         """
