@@ -152,9 +152,9 @@ export const getRunTags = (runUuid, state) => {
 export const getExperimentTags = (experimentId, state) => {
   const tags = state.entities.experimentTagsByExperimentId[experimentId];
   if (tags) {
-      return tags;
+    return tags;
   } else {
-      return {}
+    return {};
   }
 };
 

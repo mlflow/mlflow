@@ -25,6 +25,7 @@ const getExperimentViewMock = () => {
     paramsList={[]}
     metricsList={[]}
     tagsList={[]}
+    experimentTagsList={[]}
     paramKeyFilter={new KeyFilter("")}
     metricKeyFilter={new KeyFilter("")}
     lifecycleFilter={LIFECYCLE_FILTER.ACTIVE}
@@ -91,5 +92,6 @@ test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
     metricsList: [],
     paramsList: [],
     tagsList: [],
+    experimentTagsList: [],
   });
 });

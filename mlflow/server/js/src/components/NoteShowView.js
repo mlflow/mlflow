@@ -7,7 +7,7 @@ class NoteShowView extends Component {
   constructor(props) {
     super(props);
     this.converter = getConverter();
-    this.noteType = props.noteType
+    this.noteType = props.noteType;
   }
 
   static propTypes = {
@@ -18,7 +18,7 @@ class NoteShowView extends Component {
   render() {
     const htmlContent = sanitizeConvertedHtml(this.converter.makeHtml(this.props.content));
     if (this.noteType === "run") {
-        return (
+      return (
             <div className="note-view-outer-container">
                 <div className="note-view-text-area">
                     <div className="note-view-preview note-editor-preview">
@@ -29,9 +29,9 @@ class NoteShowView extends Component {
                     </div>
                 </div>
             </div>
-        );
+      );
     } else if (this.noteType === "experiment") {
-        return (
+      return (
             <div className="note-view-outer-container">
                 <div className="note-view-text-area">
                     <div className="note-editor-preview-content"
@@ -40,7 +40,9 @@ class NoteShowView extends Component {
                     </div>
                 </div>
             </div>
-        );
+      );
+    } else {
+      return null;
     }
   }
 }

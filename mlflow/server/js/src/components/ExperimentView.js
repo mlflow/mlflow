@@ -2,7 +2,12 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
-import { getExperiment, getParams, getRunInfo, getRunTags, getExperimentTags } from '../reducers/Reducers';
+import {
+  getExperiment,
+  getParams,
+  getRunInfo,
+  getRunTags,
+  getExperimentTags } from '../reducers/Reducers';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
@@ -83,7 +88,7 @@ export class ExperimentView extends Component {
     metricsList: PropTypes.arrayOf(Array).isRequired,
     // List of tags dictionary in all the visible runs.
     tagsList: PropTypes.arrayOf(Object).isRequired,
-    //List of experiment tags
+    // List of experiment tags
     experimentTagsList: PropTypes.instanceOf(Object).isRequired,
 
     // Input to the paramKeyFilter field
@@ -276,7 +281,7 @@ export class ExperimentView extends Component {
       } else if (noteInfo) {
         return <NoteShowView content={noteInfo.content} noteType={"experiment"}/>;
       } else {
-        return;
+        return null;
       }
     }
     return null;

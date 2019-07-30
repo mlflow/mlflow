@@ -58,16 +58,16 @@ class NoteEditorView extends Component {
     this.setState({ isSubmitting: true });
     const submittedContent = this.state.mdSource;
     const setTagRequestId = getUUID();
-    var id = "";
-    var tagApiCall = "";
+    let id = "";
+    let tagApiCall = "";
     if (this.props.type === "experiment") {
       id = this.props.expId;
-      tagApiCall = setExperimentTagApi
+      tagApiCall = setExperimentTagApi;
     } else if (this.props.type === "run") {
-      id = this.props.runUuid
-      tagApiCall = setTagApi
+      id = this.props.runUuid;
+      tagApiCall = setTagApi;
     } else {
-      throw "Cannot display a note editor for this type."
+      throw new Error("Cannot display a note editor for this type.");
     }
     return this.props.dispatch(
       tagApiCall(id, NOTE_CONTENT_TAG, submittedContent, setTagRequestId))
