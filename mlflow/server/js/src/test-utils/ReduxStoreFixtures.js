@@ -3,6 +3,7 @@ export const emptyState = {
   entities: {
     runInfosByUuid: {},
     experimentsById: {},
+    experimentTagsByExperimentId: {}
   }
 };
 
@@ -26,6 +27,20 @@ export const addExperimentToState = (state, experiment) => {
       experimentsById: {
         ...oldExperiments,
         [experiment.experiment_id]: experiment,
+      }
+    }
+  };
+};
+
+export const addExperimentTagsToState = (state, experiment_id, tags) => {
+  const oldExperimentTags = state.entities.experimentTagsByExperimentId;
+  return {
+    ...state,
+    entities: {
+      ...state.entities,
+      experimentTagsByExperimentId: {
+        ...oldExperimentTags,
+        experiment_id: tags,
       }
     }
   };

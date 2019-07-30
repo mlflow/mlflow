@@ -88,8 +88,8 @@ export class ExperimentView extends Component {
     metricsList: PropTypes.arrayOf(Array).isRequired,
     // List of tags dictionary in all the visible runs.
     tagsList: PropTypes.arrayOf(Object).isRequired,
-    // List of experiment tags
-    experimentTagsList: PropTypes.instanceOf(Object).isRequired,
+    // Object of experiment tags
+    experimentTags: PropTypes.instanceOf(Object).isRequired,
 
     // Input to the paramKeyFilter field
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
@@ -311,7 +311,7 @@ export class ExperimentView extends Component {
 
   render() {
     const { experiment_id, name, artifact_location } = this.props.experiment;
-    const { experimentTagsList } = this.props;
+    const { experimentTags } = this.props;
     const {
       runInfos,
       paramKeyFilter,
@@ -332,7 +332,7 @@ export class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
-    const noteInfo = NoteInfo.fromTags(experimentTagsList);
+    const noteInfo = NoteInfo.fromTags(experimentTags);
     const searchInputHelpTooltipContent = (
       <div className="search-input-tooltip-content">
         Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
@@ -844,7 +844,7 @@ export const mapStateToProps = (state, ownProps) => {
   });
 
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
-  const experimentTagsList = getExperimentTags(experiment.experiment_id, state);
+  const experimentTags = getExperimentTags(experiment.experiment_id, state);
   return {
     runInfos,
     experiment,
@@ -853,7 +853,7 @@ export const mapStateToProps = (state, ownProps) => {
     metricsList,
     paramsList,
     tagsList,
-    experimentTagsList,
+    experimentTags,
   };
 };
 
