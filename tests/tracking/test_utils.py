@@ -124,7 +124,7 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
         assert store.db_uri == uri
         assert store.artifact_root_uri == "./mlruns"
 
-    mock_create_engine.assert_called_once_with(uri)
+    mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
 
 @pytest.mark.parametrize("db_type", DATABASE_ENGINES)
@@ -144,7 +144,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
         assert store.db_uri == uri
         assert store.artifact_root_uri == artifact_uri
 
-    mock_create_engine.assert_called_once_with(uri)
+    mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
 
 def test_get_store_databricks():
