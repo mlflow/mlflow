@@ -13,7 +13,8 @@ import uuid
 import mock
 import pytest
 
-from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, RunStatus, RunData
+from mlflow.entities import Metric, Param, RunTag, ViewType, LifecycleStage, RunStatus, RunData,\
+    ExperimentTag
 from mlflow.exceptions import MlflowException, MissingConfigException
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.file_store import FileStore
@@ -535,6 +536,44 @@ class TestFileStore(unittest.TestCase):
         fs.set_tag(run_id, RunTag(WEIRD_TAG_NAME, "Muhahaha!"))
         run = fs.get_run(run_id)
         assert run.data.tags[WEIRD_TAG_NAME] == "Muhahaha!"
+
+    def test_set_experiment_tags(self):
+        fs = FileStore(self.test_root)
+        fs.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag0", "value0"))
+        fs.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag1", "value1"))
+        experiment = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+        assert len(experiment.tags) == 2
+        assert experiment.tags["tag0"] == "value0"
+        assert experiment.tags["tag1"] == "value1"
+        # test that updating a tag works
+        fs.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag0", "value00000"))
+        experiment = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+        assert experiment.tags["tag0"] == "value00000"
+        assert experiment.tags["tag1"] == "value1"
+        # test that setting a tag on 1 experiment does not impact another experiment.
+        exp_id = None
+        for exp in self.experiments:
+            if exp != FileStore.DEFAULT_EXPERIMENT_ID:
+                exp_id = exp
+                break
+        experiment = fs.get_experiment(exp_id)
+        assert len(experiment.tags) == 0
+        # setting a tag on different experiments maintains different values across experiments
+        fs.set_experiment_tag(exp_id, ExperimentTag("tag1", "value11111"))
+        experiment = fs.get_experiment(exp_id)
+        assert len(experiment.tags) == 1
+        assert experiment.tags["tag1"] == "value11111"
+        experiment = fs.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+        assert experiment.tags["tag0"] == "value00000"
+        assert experiment.tags["tag1"] == "value1"
+        # test can set multi-line tags
+        fs.set_experiment_tag(exp_id, ExperimentTag("multiline_tag", "value2\nvalue2\nvalue2"))
+        experiment = fs.get_experiment(exp_id)
+        assert experiment.tags["multiline_tag"] == "value2\nvalue2\nvalue2"
+        # test cannot set tags on deleted experiments
+        fs.delete_experiment(exp_id)
+        with pytest.raises(MlflowException):
+            fs.set_experiment_tag(exp_id, ExperimentTag("should", "notset"))
 
     def test_set_tags(self):
         fs = FileStore(self.test_root)
