@@ -1,12 +1,13 @@
 import React from 'react';
 import qs from 'qs';
-import { shallow, mount } from 'enzyme';
+import { shallow } from 'enzyme';
 import ErrorCodes from '../sdk/ErrorCodes';
 import { ErrorWrapper } from '../Actions';
 import { ExperimentPage } from './ExperimentPage';
 import ExperimentView from "./ExperimentView";
 import PermissionDeniedView from "./PermissionDeniedView";
 import { ViewType } from '../sdk/MlflowEnums';
+import { MemoryRouter as Router } from 'react-router-dom';
 
 
 const BASE_PATH = "/experiments/17/s";
@@ -138,11 +139,6 @@ test('should render permission denied view when getExperiment yields permission 
 
 
 test('should render experiment view when search error occurs', () => {
-  jest.doMock("./ExperimentView", () => {
-    console.log("FUNTUSSS");
-    return <div />;
-  });
-
   const experimentPageInstance = getExperimentPageMock().instance();
   const responseErrorWrapper = new ErrorWrapper({
     responseText: `{"error_code": "${ErrorCodes.INVALID_PARAMETER_VALUE}", "message": "Invalid"}`
@@ -156,20 +152,15 @@ test('should render experiment view when search error occurs', () => {
     id: experimentPageInstance.getExperimentRequestId,
     active: false,
   };
-  const experimentView = shallow(experimentPageInstance.renderExperimentView(
-    false,
-    true,
-    [searchRunsErrorRequest, getExperimentErrorRequest],
-  ));
-  console.log(mount(experimentView));
-  console.log(experimentView);
-  const experimentViewInstance = shallow(experimentPageInstance.renderExperimentView(
-    false,
-    true,
-    [searchRunsErrorRequest, getExperimentErrorRequest],
-  )).instance();
-  console.log(experimentViewInstance);
-  expect(experimentViewInstance).toBeInstanceOf(ExperimentView);
+  const renderedView = shallow(
+    <Router>
+      {experimentPageInstance.renderExperimentView(
+      false,
+      true,
+      [searchRunsErrorRequest, getExperimentErrorRequest])}
+    </Router>
+  );
+  expect(renderedView.find(ExperimentView)).toHaveLength(1);
 });
 
 
