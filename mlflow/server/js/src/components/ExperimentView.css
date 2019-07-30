@@ -54,12 +54,21 @@
 }
 
 .ExperimentView-search-controls {
-  margin-top: 23px;
+  margin-top: 8px;
   min-width: 800px;
 }
 
 .ExperimentView-info {
   margin-top: 8px;
+}
+
+.ExperimentView-info .note-view-outer-container {
+  width: 100%;
+  height: auto;
+}
+
+.ExperimentView-info .note-editor-button-area {
+  padding-bottom: 12px;
 }
 
 .ExperimentView-run-buttons{
