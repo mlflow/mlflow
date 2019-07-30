@@ -26,7 +26,7 @@ import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
 
 export const DEFAULT_EXPANDED_VALUE = false;
-
+const NOTES_KEY = 'notes';
 
 export class ExperimentView extends Component {
   constructor(props) {
@@ -282,6 +282,28 @@ export class ExperimentView extends Component {
     return null;
   }
 
+  onClickExpander(key) {
+    switch (key) {
+      case NOTES_KEY: {
+        this.setState({ showNotes: !this.state.showNotes });
+        return;
+      }
+      default:
+        return;
+    }
+  }
+
+  getExpanderClassName(key) {
+    switch (key) {
+      case NOTES_KEY: {
+        return this.state.showNotes ? 'fa-caret-down' : 'fa-caret-right';
+      }
+      default: {
+        return null;
+      }
+    }
+  }
+
   render() {
     const { experiment_id, name, artifact_location } = this.props.experiment;
     const { experimentTagsList } = this.props;
@@ -344,7 +366,12 @@ export class ExperimentView extends Component {
         <div className="ExperimentView-info">
           <h2 className="table-name">
                 <span className="metadata">
-                  <span className="metadata-header">Description:</span>
+                  <span
+                      onClick={this.state.showNotesEditor ?
+                          undefined : () => this.onClickExpander(NOTES_KEY)}
+                      className="metadata-header">
+                    <i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/>{' '}Description:
+                  </span>
                   {!this.state.showNotes || !this.state.showNotesEditor ?
                       <a onClick={this.handleExposeNotesEditorClick} >
                         <Icon type="form" />
