@@ -246,6 +246,7 @@ export class ExperimentPage extends Component {
     if (!getExperimentRequest || getExperimentRequest.active) {
       return <Spinner/>;
     }
+
     return <ExperimentView
       paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
       metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
