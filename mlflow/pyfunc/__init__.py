@@ -414,8 +414,10 @@ def spark_udf(spark, model_uri, result_type="double"):
                     "of the following types types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE)
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    archive_path = SparkModelCache.add_local_model(spark, local_model_path)
+    with TempDir() as local_tmpdir:
+        local_model_path = _download_artifact_from_uri(
+            artifact_uri=model_uri, output_path=local_tmpdir.path())
+        archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
