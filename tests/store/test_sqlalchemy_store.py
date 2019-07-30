@@ -77,11 +77,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         return SqlAlchemyStore(db_uri, ARTIFACT_URI)
 
     def setUp(self):
-        self.maxDiff = None  # print all differences on assert failures
-        fd, self.temp_dbfile = tempfile.mkstemp()
-        # Close handle immediately so that we can remove the file later on in Windows
-        os.close(fd)
-        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        # self.maxDiff = None  # print all differences on assert failures
+        # fd, self.temp_dbfile = tempfile.mkstemp()
+        # # Close handle immediately so that we can remove the file later on in Windows
+        # os.close(fd)
+        # self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        self.db_url = "mysql://root:password@localhost:33060"
         self.store = self._get_store(self.db_url)
 
     def tearDown(self):
