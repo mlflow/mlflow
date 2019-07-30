@@ -232,7 +232,7 @@ export class ExperimentPage extends Component {
     if (shouldRenderError) {
       const searchRunsRequest = Utils.getRequestWithId(
         requests, this.searchRunsRequestId);
-      if (getExperimentRequest.error !== undefined &&
+      if (getExperimentRequest.error &&
           getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
         return (<PermissionDeniedView
           errorMessage={getExperimentRequest.error.getMessageField()}
