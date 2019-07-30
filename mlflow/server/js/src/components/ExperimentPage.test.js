@@ -137,7 +137,6 @@ test('should render permission denied view when getExperiment yields permission 
   expect(experimentViewInstance.props.errorMessage).toEqual(errorMessage);
 });
 
-
 test('should render experiment view when search error occurs', () => {
   const experimentPageInstance = getExperimentPageMock().instance();
   const responseErrorWrapper = new ErrorWrapper({
@@ -162,7 +161,6 @@ test('should render experiment view when search error occurs', () => {
   );
   expect(renderedView.find(ExperimentView)).toHaveLength(1);
 });
-
 
 test('should update next page token initially', () => {
   const promise = Promise.resolve({ value: { next_page_token: 'token_1' } });
