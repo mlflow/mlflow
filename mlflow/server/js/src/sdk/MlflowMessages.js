@@ -314,11 +314,6 @@ export const Experiment = Immutable.Record({
  * This reviver allow us to keep the Immutable.Record type when serializing JSON message
  * into nested Immutable Record class.
  */
- /**
- * By default Immutable.fromJS will translate an object field in JSON into Immutable.Map.
- * This reviver allow us to keep the Immutable.Record type when serializing JSON message
- * into nested Immutable Record class.
- */
 Experiment.fromJsReviver = function fromJsReviver(key, value) {
   switch (key) {
     case 'tags':

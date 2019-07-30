@@ -38,7 +38,7 @@ class NoteEditorView extends Component {
 
   static propTypes = {
     runUuid: PropTypes.string,
-    expId: PropTypes.string,
+    experimentId: PropTypes.string,
     type: PropTypes.string.isRequired,
     submitCallback: PropTypes.func.isRequired,
     cancelCallback: PropTypes.func.isRequired,
@@ -58,10 +58,10 @@ class NoteEditorView extends Component {
     this.setState({ isSubmitting: true });
     const submittedContent = this.state.mdSource;
     const setTagRequestId = getUUID();
-    let id = "";
-    let tagApiCall = "";
+    let id = '';
+    let tagApiCall = '';
     if (this.props.type === "experiment") {
-      id = this.props.expId;
+      id = this.props.experimentId;
       tagApiCall = setExperimentTagApi;
     } else if (this.props.type === "run") {
       id = this.props.runUuid;

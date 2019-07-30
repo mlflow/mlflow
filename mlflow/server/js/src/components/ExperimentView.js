@@ -269,11 +269,19 @@ export class ExperimentView extends Component {
     this.setState({ showNotesEditor: false });
   }
 
+  returnOnClickFunction(notesKey) {
+    if (this.state.showNotesEditor) {
+      return undefined;
+    } else {
+      return () => this.onClickExpander(notesKey);
+    }
+  }
+
   renderNoteSection(noteInfo) {
     if (this.state.showNotes) {
       if (this.state.showNotesEditor) {
         return <NoteEditorView
-            expId={this.props.experiment.experiment_id}
+            experimentId={this.props.experiment.experiment_id}
             type={"experiment"}
             noteInfo={noteInfo}
             submitCallback={this.handleSubmittedNote}
@@ -372,8 +380,7 @@ export class ExperimentView extends Component {
           <h2 className="table-name">
                 <span className="metadata">
                   <span
-                      onClick={this.state.showNotesEditor ?
-                          undefined : () => this.onClickExpander(NOTES_KEY)}
+                      onClick={this.returnOnClickFunction(NOTES_KEY)}
                       className="metadata-header">
                     <i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/>{' '}Description:
                   </span>
@@ -539,10 +546,7 @@ export class ExperimentView extends Component {
   }
 
   handleSubmittedNote(err) {
-    if (err) {
-      // Do nothing; error is handled by the note editor view
-    } else {
-      // Successfully submitted note, close the editor
+    if (!err) {
       this.setState({ showNotesEditor: false });
     }
   }
