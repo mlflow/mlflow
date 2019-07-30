@@ -4,8 +4,10 @@ import { shallow } from 'enzyme';
 import ErrorCodes from '../sdk/ErrorCodes';
 import { ErrorWrapper } from '../Actions';
 import { ExperimentPage } from './ExperimentPage';
+import ExperimentView from "./ExperimentView";
 import PermissionDeniedView from "./PermissionDeniedView";
 import { ViewType } from '../sdk/MlflowEnums';
+import { MemoryRouter as Router } from 'react-router-dom';
 
 
 const BASE_PATH = "/experiments/17/s";
@@ -133,6 +135,31 @@ test('should render permission denied view when getExperiment yields permission 
   )).instance();
   expect(experimentViewInstance).toBeInstanceOf(PermissionDeniedView);
   expect(experimentViewInstance.props.errorMessage).toEqual(errorMessage);
+});
+
+test('should render experiment view when search error occurs', () => {
+  const experimentPageInstance = getExperimentPageMock().instance();
+  const responseErrorWrapper = new ErrorWrapper({
+    responseText: `{"error_code": "${ErrorCodes.INVALID_PARAMETER_VALUE}", "message": "Invalid"}`
+  });
+  const searchRunsErrorRequest = {
+    id: experimentPageInstance.searchRunsRequestId,
+    active: false,
+    error: responseErrorWrapper,
+  };
+  const getExperimentErrorRequest = {
+    id: experimentPageInstance.getExperimentRequestId,
+    active: false,
+  };
+  const renderedView = shallow(
+    <Router>
+      {experimentPageInstance.renderExperimentView(
+      false,
+      true,
+      [searchRunsErrorRequest, getExperimentErrorRequest])}
+    </Router>
+  );
+  expect(renderedView.find(ExperimentView)).toHaveLength(1);
 });
 
 test('should update next page token initially', () => {
