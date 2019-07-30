@@ -232,7 +232,9 @@ export class ExperimentPage extends Component {
     if (shouldRenderError) {
       const searchRunsRequest = Utils.getRequestWithId(
         requests, this.searchRunsRequestId);
-      if (getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
+      if (getExperimentRequest.error !== undefined &&
+          getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
+      // if (getExperimentRequest.error.getErrorCode() === ErrorCodes.PERMISSION_DENIED) {
         return (<PermissionDeniedView
           errorMessage={getExperimentRequest.error.getMessageField()}
         />);
@@ -245,7 +247,6 @@ export class ExperimentPage extends Component {
     if (!getExperimentRequest || getExperimentRequest.active) {
       return <Spinner/>;
     }
-
     return <ExperimentView
       paramKeyFilter={new KeyFilter(this.state.persistedState.paramKeyFilterString)}
       metricKeyFilter={new KeyFilter(this.state.persistedState.metricKeyFilterString)}
