@@ -39,8 +39,8 @@ export const addExperimentTagsToState = (state, experiment_id, tags) => {
     entities: {
       ...state.entities,
       experimentTagsByExperimentId: {
-        experiment_id: {
-          ...oldExperimentTags,
+        ...oldExperimentTags,
+        [experiment_id]: {
           tags,
         },
       }

@@ -155,7 +155,7 @@ export const setExperimentTagApi = (experimentId, tagName, tagValue, id = getUUI
     payload: wrapDeferred(MlflowService.setExperimentTag, {
       experiment_id: experimentId, key: tagName, value: tagValue
     }),
-    meta: { id: id, experimentId: experimentId, key: tagName, value: tagValue },
+    meta: { id, experimentId, key: tagName, value: tagValue },
   };
 };
 
