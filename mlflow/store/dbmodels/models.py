@@ -195,11 +195,13 @@ class SqlRun(Base):
     def get_last_recorded_metrics(self, session):
         metrics_with_max_step = session \
             .query(SqlMetric.run_uuid, SqlMetric.key, func.max(SqlMetric.step).label('step')) \
+            .filter(SqlMetric.run_uuid == self.run_uuid) \
             .group_by(SqlMetric.key, SqlMetric.run_uuid) \
             .subquery('metrics_with_max_step')
         metrics_with_max_timestamp = session \
             .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step,
                    func.max(SqlMetric.timestamp).label('timestamp')) \
+            .filter(SqlMetric.run_uuid == self.run_uuid) \
             .join(metrics_with_max_step,
                   and_(SqlMetric.step == metrics_with_max_step.c.step,
                        SqlMetric.run_uuid == metrics_with_max_step.c.run_uuid,
@@ -209,13 +211,13 @@ class SqlRun(Base):
         metrics_with_max_value = session \
             .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step, SqlMetric.timestamp,
                    func.max(SqlMetric.value).label('value'), SqlMetric.is_nan) \
+            .filter(SqlMetric.run_uuid == self.run_uuid) \
             .join(metrics_with_max_timestamp,
                   and_(SqlMetric.timestamp == metrics_with_max_timestamp.c.timestamp,
                        SqlMetric.run_uuid == metrics_with_max_timestamp.c.run_uuid,
                        SqlMetric.key == metrics_with_max_timestamp.c.key,
                        SqlMetric.step == metrics_with_max_timestamp.c.step)) \
-            .filter(SqlMetric.run_uuid == self.run_uuid) \
-            .group_by(SqlMetric.key, SqlMetric.run_uuid) \
+            .group_by(SqlMetric.key, SqlMetric.run_uuid, SqlMetric.is_nan) \
             .all()
         return metrics_with_max_value
 
