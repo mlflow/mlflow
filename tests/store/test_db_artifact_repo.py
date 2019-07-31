@@ -109,7 +109,38 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.log_artifacts(root_dir._path, 'new_path2/path')
 
             self.assertEqual(len(self.store.list_artifacts('new_path/path')), 3)
+            filenames = [f.path for f in self.store.list_artifacts('new_path/path')]
+            self.assertTrue(filenames.__contains__('new_path/path/file_one.txt'))
+            self.assertTrue(filenames.__contains__('new_path/path/subdir/file_two.txt'))
+            self.assertTrue(filenames.__contains__('new_path/path/subdir/file_three.txt'))
+
             self.assertEqual(len(self.store.list_artifacts('new_path')), 3)
+            filenames = [f.path for f in self.store.list_artifacts('new_path')]
+            self.assertTrue(filenames.__contains__('new_path/path/file_one.txt'))
+            self.assertTrue(filenames.__contains__('new_path/path/subdir/file_two.txt'))
+            self.assertTrue(filenames.__contains__('new_path/path/subdir/file_three.txt'))
 
-            print(self.store.list_artifacts('new_path'))
+    def test_download_file_artifact(self):
+        with TempDir() as root_dir:
+            with open(root_dir.path("file_one.txt"), "w") as f:
+                f.write('DB store Test One')
 
+            self.store.log_artifacts(root_dir._path, 'new_path/path')
+            local_path = self.store.download_artifacts(artifact_path='new_path/path/file_one.txt')
+            assert open(local_path).read() == 'DB store Test One'
+
+    def test_download_dir_artifact(self):
+        with TempDir() as root_dir:
+            with open(root_dir.path("file_one.txt"), "w") as f:
+                f.write('DB store Test One')
+
+            os.mkdir(root_dir.path("subdir"))
+            with open(root_dir.path("subdir/file_two.txt"), "w") as f:
+                f.write('DB store Test Two')
+            self.store.log_artifacts(root_dir._path, 'new_path/path')
+            local_path = self.store.download_artifacts(artifact_path='new_path/path')
+            print(local_path)
+            assert open(os.path.join(local_path,"file_one.txt")).read() == 'DB store Test One'
+            assert open(os.path.join(local_path,"file_two.txt")).read() == 'DB store Test Two'
+
+            # assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))

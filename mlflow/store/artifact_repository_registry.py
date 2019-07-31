@@ -11,6 +11,7 @@ from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
+from mlflow.store.db_artifact_repo import DBArtifactRepository
 
 from mlflow.utils import get_uri_scheme
 
@@ -60,6 +61,7 @@ class ArtifactRepositoryRegistry:
         """
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
+        print("Repository ", repository)
         if repository is None:
             raise MlflowException(
                 "Could not find a registered artifact repository for: {}. "
@@ -82,8 +84,18 @@ _artifact_repository_registry.register('sftp', SFTPArtifactRepository)
 _artifact_repository_registry.register('dbfs', dbfs_artifact_repo_factory)
 _artifact_repository_registry.register('hdfs', HdfsArtifactRepository)
 _artifact_repository_registry.register('runs', RunsArtifactRepository)
+_artifact_repository_registry.register('sqlite', DBArtifactRepository)
+_artifact_repository_registry.register('mssql', DBArtifactRepository)
 
 _artifact_repository_registry.register_entrypoints()
+
+
+def get_artifact_repository_type(artifact_uri):
+    scheme = get_uri_scheme(artifact_uri)
+    if scheme == 'sqlite' or scheme == 'mssql':
+        return "db"
+    else:
+        return "filesystem"
 
 
 def get_artifact_repository(artifact_uri):

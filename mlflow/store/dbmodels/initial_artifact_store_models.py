@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 
 from mlflow.entities import FileInfo
+import os
 
 Base = declarative_base()
 
@@ -39,11 +40,6 @@ class SqlArtifact(Base):
     Group path: `String` (limit 256 characters). 
     """
 
-    node_depth = Column(Integer, nullable=False)
-    """
-    Node depth: `Integer` .
-    """
-
     artifact_content = Column(VARBINARY, nullable=False)
     """
     Artifact : `VarBinary`. Defined as *Non null* in table schema.
@@ -53,7 +49,6 @@ class SqlArtifact(Base):
     """
     Artifact Initial Size : `BigInteger`. Defined as *null* in table schema.
     """
-
 
     __table_args__ = (
         PrimaryKeyConstraint('artifact_id', name='artifact_pk'),
@@ -66,12 +61,12 @@ class SqlArtifact(Base):
         :return: :py:class:`mlflow.entities.FileInfo`.
         """
         return FileInfo(
-            path=self.artifact_name,
+            path=os.path.join(self.group_path, self.artifact_name),
             is_dir=False,
             file_size=self.artifact_initial_size)
 
     def __repr__(self):
         return '<SqlArtifact ({}, {}, {}, {})>'.format(self.artifact_id, self.artifact_name,
-                                                       self.group_path, self.node_depth,
+                                                       self.group_path,
                                                        self.artifact_content,
                                                        self.artifact_initial_size)

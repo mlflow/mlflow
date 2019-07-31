@@ -7,8 +7,13 @@ from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact_repository_registry import get_artifact_repository, \
+    get_artifact_repository_type
 from mlflow.tracking.utils import _get_store
+from mlflow.utils.validation import _validate_db_type_string
+
+_INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html for " \
+                      "format specifications."
 
 
 def get_artifact_uri(run_id, artifact_path=None):
@@ -53,14 +58,59 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     :param output_path: The local filesystem path to which to download the artifact. If unspecified,
                         a local output path will be created.
     """
+    artifact_repo_type = get_artifact_repository_type(artifact_uri)
+    if artifact_repo_type == 'filesystem':
+        parsed_uri = urllib.parse.urlparse(artifact_uri)
+        prefix = ""
+        if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
+            # relative path is a special case, urllib does not reconstruct it properly
+            prefix = parsed_uri.scheme + ":"
+            parsed_uri = parsed_uri._replace(scheme="")
+        artifact_path = posixpath.basename(parsed_uri.path)
+        parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
+        root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
+
+        return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
+            artifact_path=artifact_path, dst_path=output_path)
+    else:
+        db_uri, artifact_path = extract_db_uri_and_artifact_path_from_uri(artifact_uri)
+        print(db_uri, artifact_path)
+        return get_artifact_repository(artifact_uri=db_uri).download_artifacts(
+            artifact_path=artifact_path, dst_path=output_path)
+
+
+def extract_db_uri_and_artifact_path_from_uri(artifact_uri):
+    """
+    Parse the specified artifact URI to extract the artifact path from the DB_URI.
+    The DB_URIs are of the form:
+    <dialect>+<driver>://<username>:<password>@<host>:<port>/<database>?<query>.
+    Confirm the database type is supported. If a driver is specified,
+    confirm it passes a plausible regex.
+    """
+
     parsed_uri = urllib.parse.urlparse(artifact_uri)
-    prefix = ""
-    if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
-        # relative path is a special case, urllib does not reconstruct it properly
-        prefix = parsed_uri.scheme + ":"
-        parsed_uri = parsed_uri._replace(scheme="")
-    artifact_path = posixpath.basename(parsed_uri.path)
-    parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
-    root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
-    return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
-        artifact_path=artifact_path, dst_path=output_path)
+    scheme = parsed_uri.scheme
+    scheme_plus_count = scheme.count('+')
+
+    if scheme_plus_count == 0:
+        db_type = scheme
+    elif scheme_plus_count == 1:
+        db_type, _ = scheme.split('+')
+    else:
+        error_msg = "Invalid database scheme in the URI: '%s'. %s" % (scheme, _INVALID_DB_URI_MSG)
+        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
+
+    _validate_db_type_string(db_type)
+
+    if parsed_uri.query == "":
+        print("IF")
+        artifact_path = parsed_uri.path.split("/", 2)[2]
+        parsed_uri = parsed_uri._replace(path="/" + parsed_uri.path.split("/", 1)[1])
+    else:
+        print("ELSE")
+
+        artifact_path = parsed_uri.query.split("/", 1)[1]
+        print(parsed_uri.query.split("/", 1)[0])
+        parsed_uri = parsed_uri._replace(query=parsed_uri.query.split("/", 1)[0])
+
+    return urllib.parse.urlunparse(parsed_uri), artifact_path
