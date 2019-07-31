@@ -24,6 +24,7 @@ export class MlflowService {
   static createExperiment({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/create'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -81,6 +82,7 @@ export class MlflowService {
   static createRun({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/create'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -98,6 +100,7 @@ export class MlflowService {
   static deleteRun({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/delete'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -115,6 +118,7 @@ export class MlflowService {
   static restoreRun({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/restore'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -132,6 +136,7 @@ export class MlflowService {
   static updateRun({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/update'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -149,6 +154,7 @@ export class MlflowService {
   static logMetric({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/log-metric'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -166,6 +172,7 @@ export class MlflowService {
   static logParam({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/log-parameter'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -203,6 +210,7 @@ export class MlflowService {
   static searchRuns({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/search'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
@@ -260,6 +268,7 @@ export class MlflowService {
   static setTag({ data, success, error }) {
     return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/set-tag'), {
       type: 'POST',
+      contentType: 'application/json; charset=utf-8',
       dataType: 'json',
       data: JSON.stringify(data),
       jsonp: false,
