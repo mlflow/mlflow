@@ -1,3 +1,5 @@
+import {RunTag} from "../sdk/MlflowMessages";
+
 export const emptyState = {
   apis: {},
   entities: {
@@ -34,15 +36,18 @@ export const addExperimentToState = (state, experiment) => {
 
 export const addExperimentTagsToState = (state, experiment_id, tags) => {
   const oldExperimentTags = state.entities.experimentTagsByExperimentId;
+  const tagsArrToObject = (tags) => {
+    const tagObj = {};
+    tags.forEach((tag) => (tagObj[tag.key] = RunTag.fromJs(tag)));
+    return tagObj;
+  };
   return {
     ...state,
     entities: {
       ...state.entities,
       experimentTagsByExperimentId: {
         ...oldExperimentTags,
-        [experiment_id]: {
-          tags,
-        },
+        [experiment_id]: tagsArrToObject(tags)
       }
     }
   };
