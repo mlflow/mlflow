@@ -378,7 +378,14 @@ def autolog():
                 sum_list = []
                 self.model.summary(print_fn=sum_list.append)
                 summary = '\n'.join(sum_list)
+            except mlflow.exceptions.MlflowException as e:
+                warnings.warn("Logging to Mlflow failed: " + str(e))
+
+            try:
                 mlflow.set_tag('summary', summary)
+            except mlflow.exceptions.MlflowException as e:
+                warnings.warn("Logging to Mlflow failed: " + str(e))
+            try:
                 log_model(self.model, artifact_path='model')
             except mlflow.exceptions.MlflowException as e:
                 warnings.warn("Logging to Mlflow failed: " + str(e))

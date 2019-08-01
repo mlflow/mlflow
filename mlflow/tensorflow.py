@@ -366,22 +366,33 @@ class __MLflowTfKerasCallback(Callback):
         pass
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        opt = self.model.optimizer
-        if hasattr(opt, 'optimizer'):
-            opt = opt.optimizer
-        mlflow.log_param('optimizer_name', type(opt).__name__)
-        if hasattr(opt, '_lr'):
-            lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
-            mlflow.log_param('learning_rate', lr)
-        if hasattr(opt, '_epsilon'):
-            epsilon = opt._epsilon if type(opt._epsilon) is float \
-                else tensorflow.keras.backend.eval(opt._epsilon)
-            mlflow.log_param('epsilon', epsilon)
+        try:
+            opt = self.model.optimizer
+            if hasattr(opt, 'optimizer'):
+                opt = opt.optimizer
+            mlflow.log_param('optimizer_name', type(opt).__name__)
+            if hasattr(opt, '_lr'):
+                lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
+                mlflow.log_param('learning_rate', lr)
+            if hasattr(opt, '_epsilon'):
+                epsilon = opt._epsilon if type(opt._epsilon) is float \
+                    else tensorflow.keras.backend.eval(opt._epsilon)
+                mlflow.log_param('epsilon', epsilon)
+        except mlflow.exceptions.MlflowException as e:
+            warnings.warn("Logging to Mlflow failed: " + str(e))
+
         l = []
         self.model.summary(print_fn=l.append)
         summary = '\n'.join(l)
-        mlflow.set_tag('summary', summary)
-        mlflow.keras.log_model(self.model, artifact_path='model')
+        try:
+            mlflow.set_tag('summary', summary)
+        except mlflow.exceptions.MlflowException as e:
+            warnings.warn("Logging to Mlflow failed: " + str(e))
+        try:
+            mlflow.keras.log_model(self.model, artifact_path='model')
+
+        except mlflow.exceptions.MlflowException as e:
+            warnings.warn("Logging to Mlflow failed: " + str(e))
 
 
 def _log_artifacts_with_warning(**kwargs):
