@@ -54,6 +54,8 @@ def test_docker_project_execution(
         assert run_tags[k] == v
     for k, v in approx_expected_tags.items():
         assert run_tags[k].startswith(v)
+    artifacts = mlflow_service.list_artifacts(run_id=run_id)
+    assert len(artifacts) == 1
 
 
 @pytest.mark.parametrize("tracking_uri, expected_command_segment", [
