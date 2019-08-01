@@ -701,8 +701,12 @@ def _get_docker_command(image, active_run):
         cmd += ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
     if artifact_uri_local_path is not None:
+        container_path = artifact_uri_local_path
+        if not os.path.isabs(artifact_uri_local_path):
+            container_path = os.path.join("/mlflow/projects/code/", artifact_uri_local_path)
+            container_path = os.path.normpath(container_path)
         artifact_uri_local_abspath = os.path.abspath(artifact_uri_local_path)
-        cmd += ["-v", "%s:%s" % (artifact_uri_local_abspath, artifact_uri_local_abspath)]
+        cmd += ["-v", "%s:%s" % (artifact_uri_local_abspath, container_path)]
     if tracking.utils._is_databricks_uri(tracking_uri):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)

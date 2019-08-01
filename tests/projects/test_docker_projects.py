@@ -122,14 +122,14 @@ def test_docker_invalid_project_backend_local():
         mlflow.projects._validate_docker_env(project)
 
 
-@pytest.mark.parametrize("artifact_uri, expected_path, should_be_mount", [
-    ("/tmp/mlruns/fake_run_id/artifacts", "/tmp/mlruns/fake_run_id/artifacts", True),
-    ("s3://my_bucket", None, False),
-    ("file:///tmp/mlruns/fake_run_id/artifacts", "/tmp/mlruns/fake_run_id/artifacts", True),
-    ("./mlruns", os.path.abspath("./mlruns"), True)
+@pytest.mark.parametrize("artifact_uri, host_artifact_uri, container_artifact_uri, should_mount", [
+    ("/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
+    ("s3://my_bucket", None, None, False),
+    ("file:///tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
+    ("./mlruns", os.path.abspath("./mlruns"), "/mlflow/projects/code/mlruns", True)
 ])
-def test_docker_mount_local_artifact_uri(artifact_uri, expected_path,
-                                         should_be_mount):
+def test_docker_mount_local_artifact_uri(artifact_uri, host_artifact_uri,
+                                         container_artifact_uri, should_mount):
     active_run = mock.MagicMock()
     run_info = mock.MagicMock()
     run_info.run_id = "fake_run_id"
@@ -141,5 +141,5 @@ def test_docker_mount_local_artifact_uri(artifact_uri, expected_path,
 
     docker_command = mlflow.projects._get_docker_command(image, active_run)
 
-    docker_volume_expected = "-v {}:{}".format(expected_path, expected_path)
-    assert (docker_volume_expected in " ".join(docker_command)) == should_be_mount
+    docker_volume_expected = "-v {}:{}".format(host_artifact_uri, container_artifact_uri)
+    assert (docker_volume_expected in " ".join(docker_command)) == should_mount
