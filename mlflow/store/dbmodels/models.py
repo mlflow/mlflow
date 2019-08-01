@@ -206,7 +206,7 @@ class SqlRun(Base):
                   and_(SqlMetric.step == metrics_with_max_step.c.step,
                        SqlMetric.run_uuid == metrics_with_max_step.c.run_uuid,
                        SqlMetric.key == metrics_with_max_step.c.key)) \
-            .group_by(SqlMetric.key, SqlMetric.run_uuid) \
+            .group_by(SqlMetric.key, SqlMetric.run_uuid, SqlMetric.step) \
             .subquery('metrics_with_max_timestamp')
         metrics_with_max_value = session \
             .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step, SqlMetric.timestamp,
@@ -217,7 +217,7 @@ class SqlRun(Base):
                        SqlMetric.run_uuid == metrics_with_max_timestamp.c.run_uuid,
                        SqlMetric.key == metrics_with_max_timestamp.c.key,
                        SqlMetric.step == metrics_with_max_timestamp.c.step)) \
-            .group_by(SqlMetric.key, SqlMetric.run_uuid, SqlMetric.is_nan) \
+            .group_by(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step, SqlMetric.timestamp, SqlMetric.is_nan) \
             .all()
         return metrics_with_max_value
 
