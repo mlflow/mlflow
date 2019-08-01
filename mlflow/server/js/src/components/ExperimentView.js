@@ -2,7 +2,12 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
-import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
+import {
+  getExperiment,
+  getParams,
+  getRunInfo,
+  getRunTags,
+  getExperimentTags } from '../reducers/Reducers';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
@@ -10,13 +15,14 @@ import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
-
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
-
+import { NoteInfo } from "../utils/NoteUtils";
+import NoteEditorView from "./NoteEditorView";
+import NoteShowView from "./NoteShowView";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 import { Icon, Popover } from 'antd';
@@ -25,7 +31,7 @@ import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
 
 export const DEFAULT_EXPANDED_VALUE = false;
-
+const NOTES_KEY = 'notes';
 
 export class ExperimentView extends Component {
   constructor(props) {
@@ -51,11 +57,17 @@ export class ExperimentView extends Component {
     this.onExpand = this.onExpand.bind(this);
     this.addBagged = this.addBagged.bind(this);
     this.removeBagged = this.removeBagged.bind(this);
+    this.handleExposeNotesEditorClick = this.handleExposeNotesEditorClick.bind(this);
+    this.handleSubmittedNote = this.handleSubmittedNote.bind(this);
+    this.handleNoteEditorViewCancel = this.handleNoteEditorViewCancel.bind(this);
+    this.renderNoteSection = this.renderNoteSection.bind(this);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     this.state = {
       ...ExperimentView.getDefaultUnpersistedState(),
       persistedState: persistedState.toJSON(),
+      showNotesEditor: false,
+      showNotes: true,
     };
   }
 
@@ -76,6 +88,8 @@ export class ExperimentView extends Component {
     metricsList: PropTypes.arrayOf(Array).isRequired,
     // List of tags dictionary in all the visible runs.
     tagsList: PropTypes.arrayOf(Object).isRequired,
+    // Object of experiment tags
+    experimentTags: PropTypes.instanceOf(Object).isRequired,
 
     // Input to the paramKeyFilter field
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
@@ -247,8 +261,65 @@ export class ExperimentView extends Component {
       });
   }
 
+  handleExposeNotesEditorClick() {
+    this.setState({ showNotesEditor: true, showNotes: true });
+  }
+
+  handleNoteEditorViewCancel() {
+    this.setState({ showNotesEditor: false });
+  }
+
+  returnOnClickFunction(notesKey) {
+    if (this.state.showNotesEditor) {
+      return undefined;
+    } else {
+      return () => this.onClickExpander(notesKey);
+    }
+  }
+
+  renderNoteSection(noteInfo) {
+    if (this.state.showNotes) {
+      if (this.state.showNotesEditor) {
+        return <NoteEditorView
+            experimentId={this.props.experiment.experiment_id}
+            type={"experiment"}
+            noteInfo={noteInfo}
+            submitCallback={this.handleSubmittedNote}
+            cancelCallback={this.handleNoteEditorViewCancel}/>;
+      } else if (noteInfo) {
+        return <NoteShowView content={noteInfo.content} noteType={"experiment"}/>;
+      } else {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  onClickExpander(key) {
+    switch (key) {
+      case NOTES_KEY: {
+        this.setState({ showNotes: !this.state.showNotes });
+        return;
+      }
+      default:
+        return;
+    }
+  }
+
+  getExpanderClassName(key) {
+    switch (key) {
+      case NOTES_KEY: {
+        return this.state.showNotes ? 'fa-caret-down' : 'fa-caret-right';
+      }
+      default: {
+        return null;
+      }
+    }
+  }
+
   render() {
     const { experiment_id, name, artifact_location } = this.props.experiment;
+    const { experimentTags } = this.props;
     const {
       runInfos,
       paramKeyFilter,
@@ -269,6 +340,7 @@ export class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
+    const noteInfo = NoteInfo.fromTags(experimentTags);
     const searchInputHelpTooltipContent = (
       <div className="search-input-tooltip-content">
         Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
@@ -303,6 +375,25 @@ export class ExperimentView extends Component {
             <span className="metadata-header">Artifact Location:</span>
             {artifact_location}
           </span>
+        </div>
+        <div className="ExperimentView-info">
+          <h2 className="table-name">
+                <span className="metadata">
+                  <span
+                      onClick={this.returnOnClickFunction(NOTES_KEY)}
+                      className="metadata-header">
+                    <i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/>{' '}Description:
+                  </span>
+                  {!this.state.showNotes || !this.state.showNotesEditor ?
+                      <a onClick={this.handleExposeNotesEditorClick} >
+                        <Icon type="form" />
+                      </a>
+                      :
+                      null
+                  }
+                </span>
+          </h2>
+          {this.renderNoteSection(noteInfo)}
         </div>
         <div className="ExperimentView-runs runs-table-flex-container">
           {this.props.searchRunsError ?
@@ -452,6 +543,12 @@ export class ExperimentView extends Component {
         </div>
       </div>
     );
+  }
+
+  handleSubmittedNote(err) {
+    if (!err) {
+      this.setState({ showNotesEditor: false });
+    }
   }
 
   onSortBy(orderByKey, orderByAsc) {
@@ -751,6 +848,7 @@ export const mapStateToProps = (state, ownProps) => {
   });
 
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
+  const experimentTags = getExperimentTags(experiment.experiment_id, state);
   return {
     runInfos,
     experiment,
@@ -759,6 +857,7 @@ export const mapStateToProps = (state, ownProps) => {
     metricsList,
     paramsList,
     tagsList,
+    experimentTags,
   };
 };
 
