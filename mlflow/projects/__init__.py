@@ -702,7 +702,7 @@ def _get_docker_command(image, active_run):
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
     if artifact_uri_local_path is not None:
         container_path = artifact_uri_local_path
-        if not os.path.isabs(artifact_uri_local_path):
+        if not os.path.isabs(container_path):
             container_path = os.path.join("/mlflow/projects/code/", artifact_uri_local_path)
             container_path = os.path.normpath(container_path)
         artifact_uri_local_abspath = os.path.abspath(artifact_uri_local_path)
