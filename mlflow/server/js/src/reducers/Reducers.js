@@ -12,9 +12,11 @@ import {
   OPEN_ERROR_MODAL,
   SEARCH_RUNS_API,
   LOAD_MORE_RUNS_API,
-  SET_TAG_API, rejected,
+  SET_EXPERIMENT_TAG_API,
+  SET_TAG_API,
+  rejected,
 } from '../Actions';
-import {Experiment, Param, RunInfo, RunTag } from '../sdk/MlflowMessages';
+import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
 import _ from 'lodash';
@@ -34,13 +36,13 @@ const experimentsById = (state = {}, action) => {
       if (action.payload && action.payload.experiments) {
         action.payload.experiments.forEach((eJson) => {
           const experiment = Experiment.fromJs(eJson);
-          newState = Object.assign(newState, {[experiment.getExperimentId()]: experiment});
+          newState = Object.assign(newState, { [experiment.getExperimentId()]: experiment });
         });
       }
       return newState;
     }
     case fulfilled(GET_EXPERIMENT_API): {
-      const {experiment} = action.payload;
+      const { experiment } = action.payload;
       return {
         ...state,
         [experiment.experiment_id]: Experiment.fromJs(experiment),
@@ -92,7 +94,7 @@ const runInfosByUuid = (state = {}, action) => {
 const amendRunInfosByUuid = (state, runInfo) => {
   return {
     ...state,
-    [runInfo.getRunUuid()]: runInfo
+    [runInfo.getRunUuid()]: runInfo,
   };
 };
 
@@ -108,7 +110,7 @@ export const getParams = (runUuid, state) => {
 const paramsByRunUuid = (state = {}, action) => {
   const paramArrToObject = (params) => {
     const paramObj = {};
-    params.forEach((p) => paramObj[p.key] = Param.fromJs(p));
+    params.forEach((p) => (paramObj[p.key] = Param.fromJs(p)));
     return paramObj;
   };
   switch (action.type) {
@@ -138,7 +140,6 @@ const paramsByRunUuid = (state = {}, action) => {
   }
 };
 
-
 export const getRunTags = (runUuid, state) => {
   const tags = state.entities.tagsByRunUuid[runUuid];
   if (tags) {
@@ -148,10 +149,15 @@ export const getRunTags = (runUuid, state) => {
   }
 };
 
+export const getExperimentTags = (experimentId, state) => {
+  const tags = state.entities.experimentTagsByExperimentId[experimentId];
+  return tags || {};
+};
+
 const tagsByRunUuid = (state = {}, action) => {
   const tagArrToObject = (tags) => {
     const tagObj = {};
-    tags.forEach((tag) => tagObj[tag.key] = RunTag.fromJs(tag));
+    tags.forEach((tag) => (tagObj[tag.key] = RunTag.fromJs(tag)));
     return tagObj;
   };
   switch (action.type) {
@@ -159,7 +165,7 @@ const tagsByRunUuid = (state = {}, action) => {
       const runInfo = RunInfo.fromJs(action.payload.run.info);
       const tags = action.payload.run.data.tags || [];
       const runUuid = runInfo.getRunUuid();
-      const newState = {...state};
+      const newState = { ...state };
       newState[runUuid] = tagArrToObject(tags);
       return newState;
     }
@@ -177,7 +183,7 @@ const tagsByRunUuid = (state = {}, action) => {
       return newState;
     }
     case fulfilled(SET_TAG_API): {
-      const tag = {key: action.meta.key, value: action.meta.value};
+      const tag = { key: action.meta.key, value: action.meta.value };
       return amendTagsByRunUuid(state, [tag], action.meta.runUuid);
     }
     default:
@@ -196,7 +202,48 @@ const amendTagsByRunUuid = (state, tags, runUuid) => {
         [runUuid]: {
           ...oldTags,
           [tag.getKey()]: tag,
-        }
+        },
+      };
+    });
+  }
+  return newState;
+};
+
+const experimentTagsByExperimentId = (state = {}, action) => {
+  const tagArrToObject = (tags) => {
+    const tagObj = {};
+    tags.forEach((tag) => (tagObj[tag.key] = ExperimentTag.fromJs(tag)));
+    return tagObj;
+  };
+  switch (action.type) {
+    case fulfilled(GET_EXPERIMENT_API): {
+      const { experiment } = action.payload;
+      const newState = { ...state };
+      const tags = experiment.tags || [];
+      newState[experiment.experiment_id] = tagArrToObject(tags);
+      return newState;
+    }
+    case fulfilled(SET_EXPERIMENT_TAG_API): {
+      const tag = { key: action.meta.key, value: action.meta.value };
+      return amendExperimentTagsByExperimentId(state, [tag], action.meta.experimentId);
+    }
+    default:
+      return state;
+  }
+};
+
+const amendExperimentTagsByExperimentId = (state, tags, expId) => {
+  let newState = { ...state };
+  if (tags) {
+    tags.forEach((tJson) => {
+      const tag = ExperimentTag.fromJs(tJson);
+      const oldTags = newState[expId] ? newState[expId] : {};
+      newState = {
+        ...newState,
+        [expId]: {
+          ...oldTags,
+          [tag.getKey()]: tag,
+        },
       };
     });
   }
@@ -224,7 +271,7 @@ const artifactsByRunUuid = (state = {}, action) => {
         artifactNode.setChildren(files);
       } else {
         // Otherwise, traverse the queryPath to get to the appropriate artifact node.
-        const pathParts = queryPath.split("/");
+        const pathParts = queryPath.split('/');
         let curArtifactNode = artifactNode;
         pathParts.forEach((part) => {
           curArtifactNode = curArtifactNode.children[part];
@@ -267,41 +314,40 @@ const entities = combineReducers({
   latestMetricsByRunUuid,
   paramsByRunUuid,
   tagsByRunUuid,
+  experimentTagsByExperimentId,
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
 });
 
 export const getSharedParamKeysByRunUuids = (runUuids, state) =>
-  _.intersection(
-    ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
-  );
+    _.intersection(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+    );
 
 export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
-  _.intersection(
-    ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
-  );
+    _.intersection(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+    );
 
 export const getApis = (requestIds, state) => {
-  return requestIds.map((id) => (
-    state.apis[id] || {}
-  ));
+  return requestIds.map((id) => state.apis[id] || {});
 };
 
 const apis = (state = {}, action) => {
   if (isPendingApi(action)) {
     return {
       ...state,
-      [action.meta.id]: { id: action.meta.id, active: true }
+      [action.meta.id]: { id: action.meta.id, active: true },
     };
   } else if (isFulfilledApi(action)) {
     return {
       ...state,
-      [action.meta.id]: { id: action.meta.id, active: false, data: action.payload }
+      [action.meta.id]: { id: action.meta.id, active: false, data: action.payload },
     };
   } else if (isRejectedApi(action)) {
     return {
       ...state,
-      [action.meta.id]: { id: action.meta.id, active: false, error: action.payload }
+      [action.meta.id]: { id: action.meta.id, active: false, error: action.payload },
     };
   } else {
     return state;

@@ -276,4 +276,21 @@ export class MlflowService {
       error: error,
     });
   }
+
+  /**
+   * @param {SetExperimentTag} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static setExperimentTag({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/experiments/set-experiment-tag'), {
+      type: 'POST',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
 }

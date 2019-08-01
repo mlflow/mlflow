@@ -58,6 +58,19 @@
   min-width: 800px;
 }
 
+.ExperimentView-info {
+  margin-top: 8px;
+}
+
+.ExperimentView-info .note-view-outer-container {
+  width: 100%;
+  height: auto;
+}
+
+.ExperimentView-info .note-editor-button-area {
+  padding-bottom: 12px;
+}
+
 .ExperimentView-run-buttons{
   margin-top: 16px;
   margin-bottom: 16px;

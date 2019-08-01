@@ -4,7 +4,12 @@ import { ExperimentView, mapStateToProps } from './ExperimentView';
 import Fixtures from "../test-utils/Fixtures";
 import {LIFECYCLE_FILTER} from "./ExperimentPage";
 import KeyFilter from "../utils/KeyFilter";
-import {addApiToState, addExperimentToState, createPendingApi, emptyState} from "../test-utils/ReduxStoreFixtures";
+import {
+  addApiToState,
+  addExperimentToState,
+  addExperimentTagsToState,
+  createPendingApi,
+  emptyState} from "../test-utils/ReduxStoreFixtures";
 import {getUUID} from "../Actions";
 import {Spinner} from "./Spinner";
 
@@ -25,6 +30,7 @@ const getExperimentViewMock = () => {
     paramsList={[]}
     metricsList={[]}
     tagsList={[]}
+    experimentTags={{}}
     paramKeyFilter={new KeyFilter("")}
     metricKeyFilter={new KeyFilter("")}
     lifecycleFilter={LIFECYCLE_FILTER.ACTIVE}
@@ -78,6 +84,7 @@ test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
   const experiment = Fixtures.createExperiment();
   state = addApiToState(state, createPendingApi(searchRunsId));
   state = addExperimentToState(state, experiment);
+  state = addExperimentTagsToState(state, experiment.experiment_id, []);
   const newProps = mapStateToProps(state, {
     lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
     searchRunsRequestId: searchRunsId,
@@ -91,5 +98,6 @@ test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
     metricsList: [],
     paramsList: [],
     tagsList: [],
+    experimentTags: {},
   });
 });
