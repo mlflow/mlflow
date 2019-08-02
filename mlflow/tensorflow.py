@@ -378,11 +378,9 @@ class __MLflowTfKerasCallback(Callback):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
-
         l = []
         self.model.summary(print_fn=l.append)
         summary = '\n'.join(l)
-
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
 
@@ -521,7 +519,6 @@ def autolog(every_n_iter=100):
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
         serialized = original(self, *args, **kwargs)
-
         try_mlflow_log(log_model, tf_saved_model_dir=serialized.decode('utf-8'),
                        tf_meta_graph_tags=[tag_constants.SERVING],
                        tf_signature_def_key='predict',
