@@ -1,6 +1,10 @@
 # Computes path to Python executable within conda environment created for the MLflow R package
 #' @importFrom reticulate conda_list
 get_python_bin <- function() {
+  in_env <- Sys.getenv("MLFLOW_PYTHON_BIN")
+  if (in_env != "") {
+    return(in_env)
+  }
   conda <- mlflow_conda_bin()
   envs <- conda_list(conda = conda)
   mlflow_env <- envs[envs$name == mlflow_conda_env_name(), ]
@@ -23,6 +27,10 @@ python_bin <- function() {
 # Returns path to MLflow CLI, assumed to be in the same bin/ directory as the
 # Python executable
 python_mlflow_bin <- function() {
+  in_env <- Sys.getenv("MLFLOW_BIN")
+  if (in_env != "") {
+    return(in_env)
+  }
   python_bin_dir <- dirname(python_bin())
   file.path(python_bin_dir, "mlflow")
 }
@@ -31,5 +39,9 @@ python_mlflow_bin <- function() {
 # under conda_home/bin/
 #' @importFrom reticulate conda_binary
 python_conda_home <- function() {
-  dirname(dirname(mlflow_conda_bin()))
+  path <- try(dirname(dirname(mlflow_conda_bin())), silent = TRUE)
+  if (class(path) == "try-error") {
+    return(NA)
+  }
+  path
 }
