@@ -590,7 +590,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_tag(run.info.run_id, tag)
         # Overwriting tags is allowed
         self.store.set_tag(run.info.run_id, new_tag)
-
+        # test setting tags that are too long fails.
+        with pytest.raises(MlflowException):
+            self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+        # test can set tags that are somewhat long
+        self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
 
