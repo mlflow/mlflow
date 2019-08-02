@@ -1,17 +1,17 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
-import './ShowArtifactNbView.css';
 import { getRequestHeaders } from '../../setupAjaxHeaders';
 import { parseNotebook, fromJS } from "@nteract/commutable";
 import {
-    LightTheme, Cell, Input, Prompt, Source, Outputs, Cells
+    Cell, Input, Prompt, Source, Outputs, Cells
 } from "@nteract/presentational-components";
 import {
     Output, StreamText, DisplayData, Media, KernelOutputError, ExecuteResult
 } from "@nteract/outputs";
 import Markdown from "@nteract/markdown";
 import { Provider as MathJaxProvider } from "@nteract/mathjax";
+import './ShowArtifactNbView.css';
 
 
 class ShowArtifactNbView extends Component {
@@ -31,7 +31,7 @@ class ShowArtifactNbView extends Component {
     immutableNotebook: undefined
   };
 
-  componentWillMount() {
+  componentDidMount() {
     this.fetchArtifacts();
   }
 
@@ -42,32 +42,30 @@ class ShowArtifactNbView extends Component {
   }
 
   render() {
-    if (this.state.loading) {
-      return (
-        <div>
-          Loading...
-        </div>
-      );
-    }
-    if (this.state.error) {
+    const { error, loading, immutableNotebook } = this.state;
+    if (error) {
       return (
         <div>
           Oops we couldn't load your file because of an error.
         </div>
       );
-    } else {
-      const notebook = this.state.immutableNotebook;
-
-      const language = notebook.getIn(
+    } else if (loading) {
+      return (
+        <div>
+          Loading...
+        </div>
+      );
+    } else if (immutableNotebook) {
+      const language = immutableNotebook.getIn(
         ["metadata", "language_info", "codemirror_mode", "name"],
-        notebook.getIn(
+        immutableNotebook.getIn(
           ["metadata", "language_info", "codemirror_mode"],
-          notebook.getIn(["metadata", "language_info", "name"], "text")
+          immutableNotebook.getIn(["metadata", "language_info", "name"], "text")
         )
       );
 
-      const cellOrder = notebook.get("cellOrder");
-      const cellMap = notebook.get("cellMap");
+      const cellOrder = immutableNotebook.get("cellOrder");
+      const cellMap = immutableNotebook.get("cellMap");
 
       return (
         <div className="notebook-container">
@@ -80,14 +78,13 @@ class ShowArtifactNbView extends Component {
                           const source = cell.get("source");
                           const outputs = cell.get("outputs");
 
-
                           switch (cellType) {
                             case "code":
                               return (
                                 <Cell key={cellID}>
                                   <Input>
                                     <Prompt />
-                                    <Source language={language} theme="light">
+                                    <Source language={language}>
                                       {source}
                                     </Source>
                                   </Input>
@@ -128,14 +125,6 @@ class ShowArtifactNbView extends Component {
                                   <div className="content-margin">
                                     <Markdown source={source} />
                                   </div>
-                                  <style jsx>{`
-                                    .content-margin {
-                                      padding-left: calc(var(--prompt-width, 50px) + 10px);
-                                      padding-top: 10px;
-                                      padding-bottom: 10px;
-                                      padding-right: 10px;
-                                    }
-                                  `}</style>
                                 </Cell>
                               );
                             case "raw":
@@ -143,17 +132,6 @@ class ShowArtifactNbView extends Component {
                                 <Cell key={cellID}>
                                   <pre className="raw-cell">
                                     {source}
-                                    <style jsx>{`
-                                      raw-cell {
-                                        background: repeating-linear-gradient(
-                                          -45deg,
-                                          transparent,
-                                          transparent 10px,
-                                          #efefef 10px,
-                                          #f1f1f1 20px
-                                        );
-                                      }
-                                    `}</style>
                                   </pre>
                                 </Cell>
                               );
@@ -169,19 +147,14 @@ class ShowArtifactNbView extends Component {
                           }
                         })}
                     </Cells>
-
-                    <style>{`:root {
-                      ${LightTheme}
-                        --theme-cell-shadow-hover: none;
-                        --theme-cell-shadow-focus: none;
-                        --theme-cell-prompt-bg-hover: var(--theme-cell-prompt-bg);
-                        --theme-cell-prompt-bg-focus: var(--theme-cell-prompt-bg);
-                        --theme-cell-prompt-fg-hover: var(--theme-cell-prompt-fg);
-                        --theme-cell-prompt-fg-focus: var(--theme-cell-prompt-fg);
-                      }
-                    `}</style>
                 </div>
             </MathJaxProvider>
+        </div>
+      );
+    } else {
+      return (
+        <div>
+          Oops we couldn't load your file because of an error.
         </div>
       );
     }
@@ -200,10 +173,10 @@ class ShowArtifactNbView extends Component {
       fileReader.onload = (event) => {
         const notebook = parseNotebook(event.target.result);
         const immutableNotebook = fromJS(notebook);
-        this.setState({ immutableNotebook: immutableNotebook, loading: false });
+        this.setState({ immutableNotebook: immutableNotebook, loading: false, error: undefined });
       };
       fileReader.readAsText(blob);
-    });
+    }).catch(error => this.setState({ error, loading: false, immutableNotebook: undefined }));
   }
 }
 
