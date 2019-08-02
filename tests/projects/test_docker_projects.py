@@ -54,6 +54,8 @@ def test_docker_project_execution(
         assert run_tags[k] == v
     for k, v in approx_expected_tags.items():
         assert run_tags[k].startswith(v)
+    artifacts = mlflow_service.list_artifacts(run_id=run_id)
+    assert len(artifacts) == 1
 
 
 @pytest.mark.parametrize("tracking_uri, expected_command_segment", [
@@ -118,3 +120,26 @@ def test_docker_invalid_project_backend_local():
     project.name = None
     with pytest.raises(ExecutionException):
         mlflow.projects._validate_docker_env(project)
+
+
+@pytest.mark.parametrize("artifact_uri, host_artifact_uri, container_artifact_uri, should_mount", [
+    ("/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
+    ("s3://my_bucket", None, None, False),
+    ("file:///tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", "/tmp/mlruns/artifacts", True),
+    ("./mlruns", os.path.abspath("./mlruns"), "/mlflow/projects/code/mlruns", True)
+])
+def test_docker_mount_local_artifact_uri(artifact_uri, host_artifact_uri,
+                                         container_artifact_uri, should_mount):
+    active_run = mock.MagicMock()
+    run_info = mock.MagicMock()
+    run_info.run_id = "fake_run_id"
+    run_info.experiment_id = "fake_experiment_id"
+    run_info.artifact_uri = artifact_uri
+    active_run.info = run_info
+    image = mock.MagicMock()
+    image.tags = ["image:tag"]
+
+    docker_command = mlflow.projects._get_docker_command(image, active_run)
+
+    docker_volume_expected = "-v {}:{}".format(host_artifact_uri, container_artifact_uri)
+    assert (docker_volume_expected in " ".join(docker_command)) == should_mount
