@@ -506,7 +506,7 @@ public class MlflowClient {
    */
   public void logArtifact(String runId, File localFile) {
     if (localFile.isDirectory()) {
-      getArtifactRepository(runId).logArtifacts(localFile);
+      getArtifactRepository(runId).logArtifacts(localFile, localFile);
     }
     else {
       getArtifactRepository(runId).logArtifact(localFile);
@@ -523,6 +523,7 @@ public class MlflowClient {
    *   </pre>
    *
    * (i.e., the localModel file is now available in model/localModel).
+   * If logging a directory, the directory is renamed to artifactPath.
    *
    * @param runId Run ID of an existing MLflow run.
    * @param localFile File or directory to upload. Must exist.
