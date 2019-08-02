@@ -23,7 +23,7 @@ from mlflow.utils import extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
-    _validate_run_id, _validate_metric, _validate_experiment_tag
+    _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag
 from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
@@ -496,6 +496,7 @@ class SqlAlchemyStore(AbstractStore):
         :param tag: RunTag instance to log
         """
         with self.ManagedSessionMaker() as session:
+            _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
