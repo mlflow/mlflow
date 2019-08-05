@@ -184,7 +184,6 @@ def set_tag(key, value):
     :param value: Tag value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_id
-    print(run_id)
     MlflowClient().set_tag(run_id, key, value)
 
 
