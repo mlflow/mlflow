@@ -27,10 +27,15 @@ from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
-    MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, \
-    LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, \
-    MLFLOW_PARENT_RUN_ID, MLFLOW_PROJECT_BACKEND
+
+from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri, \
+    get_local_path_or_none
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, \
+    MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
+    MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
+    LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, \
+    MLFLOW_PROJECT_BACKEND
+from mlflow.utils import databricks_utils
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -208,17 +213,17 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :param version: For Git-based projects, either a commit hash or a branch name.
     :param experiment_name: Name of experiment under which to launch the run.
     :param experiment_id: ID of experiment under which to launch the run.
-    :param backend: Execution backend for the run: "local" or "databricks". If running against
-                    Databricks, will run against a Databricks workspace determined as follows: if
-                    a Databricks tracking URI of the form ``databricks://profile`` has been set
-                    (e.g. by setting the MLFLOW_TRACKING_URI environment variable), will run
-                    against the workspace specified by <profile>. Otherwise, runs against the
-                    workspace specified by the default Databricks CLI profile.
+    :param backend: Execution backend for the run: "local", "databricks", or "kubernetes"
+                    (experimental). If running against Databricks, will run against a Databricks
+                    workspace determined as follows: if a Databricks tracking URI of the form
+                    ``databricks://profile`` has been set (e.g. by setting the
+                    MLFLOW_TRACKING_URI environment variable), will run against the workspace
+                    specified by <profile>. Otherwise, runs against the workspace specified by
+                    the default Databricks CLI profile.
     :param backend_config: A dictionary, or a path to a JSON file (must end in '.json'), which will
-                           be passed as config to the backend. For the Databricks backend, this
-                           should be a cluster spec: see `Databricks Cluster Specs for Jobs
-                           <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-                           for more information.
+                           be passed as config to the backend. The exact content which should be
+                           provided is different for each execution backend and is documented
+                           at https://www.mlflow.org/docs/latest/projects.html.
     :param use_conda: If True (the default), create a new Conda environment for the run and
                       install project dependencies within that environment. Otherwise, run the
                       project in the current environment without installing any project

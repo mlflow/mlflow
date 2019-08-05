@@ -191,6 +191,7 @@ def set_tag(key, value):
 def delete_tag(key):
     """
     Delete a tag from a run. This is irreversible.
+
     :param key: Name of the tag
     """
     run_id = _get_or_start_run().info.run_id
@@ -214,6 +215,7 @@ def log_metric(key, value, step=None):
 def log_metrics(metrics, step=None):
     """
     Log multiple metrics for the current run, starting a run if no runs are active.
+
     :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special values
                     such as +/- Infinity may be replaced by other values depending on the store.
                     For example, sql based store may replace +/- Inf with max / min float values.
@@ -231,6 +233,7 @@ def log_metrics(metrics, step=None):
 def log_params(params):
     """
     Log a batch of params for the current run, starting a run if no runs are active.
+
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
     :returns: None
@@ -243,6 +246,7 @@ def log_params(params):
 def set_tags(tags):
     """
     Log a batch of tags for the current run, starting a run if no runs are active.
+
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
     :returns: None
@@ -400,7 +404,7 @@ def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_result
             runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
                                               NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
         all_runs.extend(runs)
-        if hasattr(runs, 'token') and runs.token != '':
+        if hasattr(runs, 'token') and runs.token != '' and runs.token is not None:
             next_page_token = runs.token
         else:
             break
