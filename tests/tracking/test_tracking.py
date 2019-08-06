@@ -385,6 +385,23 @@ def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
                 assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
+def test_log_artifact_with_dirs(tracking_uri_mock):
+    # Test log artifact with a directory
+    art_dir = tempfile.mkdtemp()
+    _, file0 = tempfile.mkstemp(dir=art_dir)
+    _, file1 = tempfile.mkstemp(dir=art_dir)
+    sub_dir = tempfile.mkdtemp(dir=art_dir)
+    for i, path in enumerate([file0, file1]):
+        with open(path, 'w') as handle:
+            handle.write("something")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(art_dir)
+        print(os.listdir(run_artifact_dir))
+        assert os.listdir(run_artifact_dir) == [os.path.basename(art_dir)]
+
+
 def test_log_artifact(tracking_uri_mock):
     artifact_src_dir = tempfile.mkdtemp()
     # Create artifacts
