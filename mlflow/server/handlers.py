@@ -8,14 +8,14 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
-    DeleteTag
+    DeleteTag, SetExperimentTag
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import TrackingStoreRegistry
@@ -274,6 +274,17 @@ def _log_param():
 
 
 @catch_mlflow_exception
+def _set_experiment_tag():
+    request_message = _get_request_message(SetExperimentTag())
+    tag = ExperimentTag(request_message.key, request_message.value)
+    _get_store().set_experiment_tag(request_message.experiment_id, tag)
+    response_message = SetExperimentTag.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _set_tag():
     request_message = _get_request_message(SetTag())
     tag = RunTag(request_message.key, request_message.value)
@@ -425,6 +436,7 @@ HANDLERS = {
     RestoreRun: _restore_run,
     LogParam: _log_param,
     LogMetric: _log_metric,
+    SetExperimentTag: _set_experiment_tag,
     SetTag: _set_tag,
     DeleteTag: _delete_tag,
     LogBatch: _log_batch,

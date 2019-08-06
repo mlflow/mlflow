@@ -1,5 +1,6 @@
 import os
 import git
+import shutil
 import tempfile
 import yaml
 
@@ -41,6 +42,14 @@ def _build_uri(base_uri, subdirectory):
 def _get_version_local_git_repo(local_git_repo):
     repo = git.Repo(local_git_repo, search_parent_directories=True)
     return repo.git.rev_parse("HEAD")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def clean_mlruns_dir():
+    yield
+    dir_path = os.path.join(TEST_PROJECT_DIR, "mlruns")
+    if os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
 
 
 @pytest.fixture

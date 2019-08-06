@@ -352,6 +352,17 @@ public class MlflowClient {
   }
 
   /**
+   * Log a new tag against the given experiment as a key-value pair.
+   * @param experimentId The ID of the experiment on which to set the tag
+   * @param key The key used to identify the tag.
+   * @param value The value of the tag.
+   */
+  public void setExperimentTag(String experimentId, String key, String value) {
+    sendPost("experiments/set-experiment-tag",
+            mapper.makeSetExperimentTag(experimentId, key, value));
+  }
+
+  /**
    * Log a new tag against the given run, as a key-value pair.
    * @param runId The ID of the run on which to set the tag
    * @param key The key used to identify the tag.

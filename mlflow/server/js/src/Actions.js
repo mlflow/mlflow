@@ -148,6 +148,17 @@ export const setTagApi = (runUuid, tagName, tagValue, id = getUUID()) => {
   };
 };
 
+export const SET_EXPERIMENT_TAG_API = 'SET_EXPERIMENT_TAG_API';
+export const setExperimentTagApi = (experimentId, tagName, tagValue, id = getUUID()) => {
+  return {
+    type: SET_EXPERIMENT_TAG_API,
+    payload: wrapDeferred(MlflowService.setExperimentTag, {
+      experiment_id: experimentId, key: tagName, value: tagValue
+    }),
+    meta: { id, experimentId, key: tagName, value: tagValue },
+  };
+};
+
 export const CLOSE_ERROR_MODAL = 'CLOSE_ERROR_MODAL';
 export const closeErrorModal = () => {
   return {
