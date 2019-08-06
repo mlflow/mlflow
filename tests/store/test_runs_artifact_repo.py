@@ -48,6 +48,7 @@ def test_runs_artifact_repo_init():
     assert runs_repo.repo.artifact_uri == expected_absolute_uri
 
 
+@pytest.mark.usefixtures("tracking_uri_mock")
 def test_runs_artifact_repo_uses_repo_download_artifacts():
     """
     The RunsArtifactRepo should delegate `download_artifacts` to it's self.repo.download_artifacts
