@@ -1,5 +1,4 @@
 from click.testing import CliRunner
-from mock import mock
 import tempfile
 import mlflow
 import sys
@@ -9,6 +8,12 @@ def test_store_cli_log_artifact():
     """
     Test that the store CLI doesn't import SQLAlchemy or Alembic
     """
+    if "sqlalchemy" in sys.modules:
+        del sys.modules["sqlalchemy"]
+    if "alembic" in sys.modules:
+        del sys.modules["alembic"]
+    if "logging" in sys.modules:
+        del sys.modules["logging"]
     artifact_src_dir = tempfile.mkdtemp()
     _, filepath = tempfile.mkstemp(dir=artifact_src_dir)
     with open(filepath, "w") as handle:
