@@ -2,7 +2,12 @@
 
 #' Serve an RFunc MLflow Model
 #'
-#' Serves an RFunc MLflow model as a local web API.
+#' Serves an RFunc MLflow model as a local REST API server. This interface provides similar
+#' functionality to ``mlflow models serve`` cli command, however, it can only be used to deploy
+#' models that include RFunc flavor. The deployed server supports standard mlflow models interface
+#' with /ping and /invocation endpoints. In addition, R function models also support deprecated
+#' /predict endpoint for generating predictions. The /predict endpoint will be removed in the future
+#' versions of mlflow.
 #'
 #' @template roxlate-model-uri
 #' @param host Address to use to serve model, as a string.
