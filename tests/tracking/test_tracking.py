@@ -398,7 +398,6 @@ def test_log_artifact_with_dirs(tracking_uri_mock):
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         mlflow.log_artifact(art_dir)
-        print(os.listdir(run_artifact_dir))
         assert os.listdir(run_artifact_dir) == [os.path.basename(art_dir)]
 
 
