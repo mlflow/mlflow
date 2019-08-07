@@ -26,6 +26,7 @@ mlflow_cli <- function(...,
   mlflow_bin <- python_mlflow_bin()
   env <- modifyList(list(
     PATH = paste(python, Sys.getenv("PATH"), sep = ":"),
+    MLFLOW_PYTHON_BIN = Sys.getenv("MLFLOW_PYTHON_BIN", NULL) %||% python_bin(),
     MLFLOW_CONDA_HOME = python_conda_home(),
     MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
   ), env)
