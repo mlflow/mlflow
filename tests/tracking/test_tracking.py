@@ -400,6 +400,30 @@ def test_log_artifact_with_dirs(tracking_uri_mock):
         mlflow.log_artifact(art_dir)
         assert os.listdir(run_artifact_dir) == [os.path.basename(art_dir)]
 
+    # Test log artifact with directory and specified parent folder
+    art_dir = tempfile.mkdtemp()
+
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(art_dir, "some_parent")
+        assert os.listdir(run_artifact_dir) == [os.path.basename("some_parent")]
+        assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == \
+            [os.path.basename(art_dir)]
+
+    sub_dir = tempfile.mkdtemp(dir=art_dir)
+
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(art_dir, "parent/and_child")
+        assert os.listdir(os.path.join(run_artifact_dir, "parent", "and_child")) == \
+            [os.path.basename(art_dir)]
+        assert os.listdir(os.path.join(run_artifact_dir,
+                                       "parent", "and_child",
+                                       os.path.basename(art_dir))) == \
+            [os.path.basename(sub_dir)]
+
 
 def test_log_artifact(tracking_uri_mock):
     artifact_src_dir = tempfile.mkdtemp()

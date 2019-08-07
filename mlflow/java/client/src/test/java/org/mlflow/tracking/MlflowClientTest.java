@@ -550,8 +550,10 @@ public class MlflowClientTest {
     String content = "Hello, Worldz!";
 
     File tempFile = Files.createTempFile(getClass().getSimpleName(), ".txt").toFile();
+    File tempDir = Files.createTempDirectory("tempDir").toFile();
     FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
     client.logArtifact(runId, tempFile);
+    client.logArtifact(runId, tempDir);
 
     File downloadedArtifact = client.downloadArtifacts(runId, tempFile.getName());
     String downloadedContent = FileUtils.readFileToString(downloadedArtifact,
