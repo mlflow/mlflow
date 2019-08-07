@@ -20,8 +20,12 @@ mlflow_maybe_create_conda_env <- function() {
 
 #' Install MLflow
 #'
-#' Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a one-time setup step, you
-#' must run install_mlflow() to install these dependencies before calling other MLflow APIs.
+#' Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
+#' one-time setup step, you must run install_mlflow() to install these
+#' dependencies before calling other MLflow APIs. Alternatively, you can set MLFLOW_PYTHON_BIN and
+#' MLFLOW_BIN environment variables instead. These variables allow you to use custom mlflow
+#' installation. Note that there may be some compatibility issues if the custom
+#' mlflow version does not match the version of the R package.
 #'
 #' install_mlflow() requires Python and Conda to be installed.
 #' See \url{https://www.python.org/getit/} and \url{https://docs.conda.io/projects/conda/en/latest/user-guide/install/}.
