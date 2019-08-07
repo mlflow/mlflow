@@ -118,3 +118,6 @@ def download_artifacts(run_id, artifact_path, artifact_uri):
     artifact_repo = get_artifact_repository(artifact_uri)
     artifact_location = artifact_repo.download_artifacts(artifact_path)
     print(artifact_location)
+
+if __name__ == '__main__':
+    commands()
