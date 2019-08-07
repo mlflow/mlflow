@@ -242,9 +242,10 @@ class MlflowClient(object):
         run = self.get_run(run_id)
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
         if os.path.isdir(local_path):
-            dir_name = os.path.basename(os.path.normpath(local_path)) \
-                if artifact_path is None else artifact_path
-            artifact_repo.log_artifacts(local_path, dir_name)
+            dir_name = os.path.basename(os.path.normpath(local_path))
+            path_name = os.path.join(artifact_path, dir_name) \
+                if artifact_path is not None else dir_name
+            artifact_repo.log_artifacts(local_path, path_name)
         else:
             artifact_repo.log_artifact(local_path, artifact_path)
 
