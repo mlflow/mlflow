@@ -506,7 +506,7 @@ public class MlflowClient {
    */
   public void logArtifact(String runId, File localFile) {
     if (localFile.isDirectory()) {
-      getArtifactRepository(runId).logArtifacts(localFile, localFile);
+      getArtifactRepository(runId).logArtifacts(localFile, localFile.getName());
     }
     else {
       getArtifactRepository(runId).logArtifact(localFile);
