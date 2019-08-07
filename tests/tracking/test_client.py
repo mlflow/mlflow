@@ -1,12 +1,11 @@
 import pytest
 import mock
 
-from mlflow.entities import RunTag, SourceType, ViewType
+from mlflow.entities import SourceType, ViewType, RunTag
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
-from mlflow.utils.search_utils import SearchFilter
 
 
 @pytest.fixture
@@ -70,59 +69,81 @@ def test_client_create_run_overrides(mock_store):
     )
 
 
-class SearchFilterMatcher:
-    """Matches a SearchFilter object by comparing it to the given filter string."""
-    def __init__(self, filter):
-        self.filter = filter
-
-    def __eq__(self, other):
-        assert(isinstance(other, SearchFilter))
-        return self.filter == other.filter_string
-
-
 def test_client_search_runs_defaults(mock_store):
     MlflowClient().search_runs([1, 2, 3])
     mock_store.search_runs.assert_called_once_with(experiment_ids=[1, 2, 3],
-                                                   search_filter=SearchFilterMatcher(""),
+                                                   filter_string="",
                                                    run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None,
+                                                   page_token=None)
 
 
 def test_client_search_runs_filter(mock_store):
     MlflowClient().search_runs(["a", "b", "c"], "my filter")
     mock_store.search_runs.assert_called_once_with(experiment_ids=["a", "b", "c"],
-                                                   search_filter=SearchFilterMatcher("my filter"),
+                                                   filter_string="my filter",
                                                    run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None,
+                                                   page_token=None)
 
 
 def test_client_search_runs_view_type(mock_store):
     MlflowClient().search_runs(["a", "b", "c"], "my filter", ViewType.DELETED_ONLY)
     mock_store.search_runs.assert_called_once_with(experiment_ids=["a", "b", "c"],
-                                                   search_filter=SearchFilterMatcher("my filter"),
+                                                   filter_string="my filter",
                                                    run_view_type=ViewType.DELETED_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None,
+                                                   page_token=None)
 
 
 def test_client_search_runs_max_results(mock_store):
     MlflowClient().search_runs([5], "my filter", ViewType.ALL, 2876)
     mock_store.search_runs.assert_called_once_with(experiment_ids=[5],
-                                                   search_filter=SearchFilterMatcher("my filter"),
+                                                   filter_string="my filter",
                                                    run_view_type=ViewType.ALL,
-                                                   max_results=2876)
+                                                   max_results=2876,
+                                                   order_by=None,
+                                                   page_token=None)
 
 
 def test_client_search_runs_int_experiment_id(mock_store):
     MlflowClient().search_runs(123)
     mock_store.search_runs.assert_called_once_with(experiment_ids=[123],
-                                                   search_filter=SearchFilterMatcher(""),
+                                                   filter_string="",
                                                    run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None,
+                                                   page_token=None)
 
 
 def test_client_search_runs_string_experiment_id(mock_store):
     MlflowClient().search_runs("abc")
     mock_store.search_runs.assert_called_once_with(experiment_ids=["abc"],
-                                                   search_filter=SearchFilterMatcher(""),
+                                                   filter_string="",
                                                    run_view_type=ViewType.ACTIVE_ONLY,
-                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT)
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None,
+                                                   page_token=None)
+
+
+def test_client_search_runs_order_by(mock_store):
+    MlflowClient().search_runs([5], order_by=["a", "b"])
+    mock_store.search_runs.assert_called_once_with(experiment_ids=[5],
+                                                   filter_string="",
+                                                   run_view_type=ViewType.ACTIVE_ONLY,
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=["a", "b"],
+                                                   page_token=None)
+
+
+def test_client_search_runs_page_token(mock_store):
+    MlflowClient().search_runs([5], page_token="blah")
+    mock_store.search_runs.assert_called_once_with(experiment_ids=[5],
+                                                   filter_string="",
+                                                   run_view_type=ViewType.ACTIVE_ONLY,
+                                                   max_results=SEARCH_MAX_RESULTS_DEFAULT,
+                                                   order_by=None,
+                                                   page_token="blah")

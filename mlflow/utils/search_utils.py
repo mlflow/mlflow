@@ -1,3 +1,5 @@
+import base64
+import json
 import sqlparse
 from sqlparse.sql import Identifier, Token, Comparison, Statement
 from sqlparse.tokens import Token as TokenType
@@ -6,13 +8,16 @@ from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
+import math
 
-class SearchFilter(object):
+
+class SearchUtils(object):
     VALID_METRIC_COMPARATORS = set(['>', '>=', '!=', '=', '<', '<='])
     VALID_PARAM_COMPARATORS = set(['!=', '='])
     VALID_TAG_COMPARATORS = set(['!=', '='])
     VALID_STRING_ATTRIBUTE_COMPARATORS = set(['!=', '='])
-    VALID_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
+    VALID_SEARCH_ATTRIBUTE_KEYS = set(RunInfo.get_searchable_attributes())
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = set(RunInfo.get_orderable_attributes())
     _METRIC_IDENTIFIER = "metric"
     _ALTERNATE_METRIC_IDENTIFIERS = set(["metrics"])
     _PARAM_IDENTIFIER = "parameter"
@@ -29,24 +34,6 @@ class SearchFilter(object):
                              + list(_ALTERNATE_ATTRIBUTE_IDENTIFIERS))
     STRING_VALUE_TYPES = set([TokenType.Literal.String.Single])
     NUMERIC_VALUE_TYPES = set([TokenType.Literal.Number.Integer, TokenType.Literal.Number.Float])
-
-    def __init__(self, filter_string=None, anded_expressions=None):
-        self._filter_string = filter_string
-        self._search_expressions = anded_expressions
-        if self._filter_string and self._search_expressions:
-            raise MlflowException("Can specify only one of 'filter' or 'search_expression'",
-                                  error_code=INVALID_PARAMETER_VALUE)
-
-        # lazy parsing
-        self.parsed = None
-
-    @property
-    def filter_string(self):
-        return self._filter_string
-
-    @property
-    def search_expressions(self):
-        return self._search_expressions
 
     @classmethod
     def _trim_ends(cls, string_value):
@@ -83,7 +70,7 @@ class SearchFilter(object):
     def _valid_entity_type(cls, entity_type):
         entity_type = cls._trim_backticks(entity_type)
         if entity_type not in cls._VALID_IDENTIFIERS:
-            raise MlflowException("Invalid search expression type '%s'. "
+            raise MlflowException("Invalid entity type '%s'. "
                                   "Valid values are %s" % (entity_type, cls._IDENTIFIERS),
                                   error_code=INVALID_PARAMETER_VALUE)
 
@@ -100,21 +87,19 @@ class SearchFilter(object):
             return entity_type
 
     @classmethod
-    def _get_identifier(cls, identifier):
+    def _get_identifier(cls, identifier, valid_attributes):
         try:
             entity_type, key = identifier.split(".", 1)
         except ValueError:
-            raise MlflowException("Invalid filter string '%s'. Filter comparison is expected as "
-                                  "'attribute.<key> <comparator> <value>', "
-                                  "'metric.<key> <comparator> <value>', "
-                                  "'tag.<key> <comparator> <value>', or "
-                                  "'params.<key> <comparator> <value>'." % identifier,
+            raise MlflowException("Invalid identifier '%s'. Columns should be specified as "
+                                  "'attribute.<key>', 'metric.<key>', 'tag.<key>', or "
+                                  "'param.'." % identifier,
                                   error_code=INVALID_PARAMETER_VALUE)
         identifier = cls._valid_entity_type(entity_type)
-        key = cls._strip_quotes(key)
-        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in cls.VALID_ATTRIBUTE_KEYS:
+        key = cls._trim_backticks(cls._strip_quotes(key))
+        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
-                                  " are '{}'".format(key, cls.VALID_ATTRIBUTE_KEYS))
+                                  " are '{}'".format(key, valid_attributes))
         return {"type": identifier, "key": key}
 
     @classmethod
@@ -171,7 +156,7 @@ class SearchFilter(object):
     def _get_comparison(cls, comparison):
         stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
         cls._validate_comparison(stripped_comparison)
-        comp = cls._get_identifier(stripped_comparison[0].value)
+        comp = cls._get_identifier(stripped_comparison[0].value, cls.VALID_SEARCH_ATTRIBUTE_KEYS)
         comp["comparator"] = stripped_comparison[1].value
         comp["value"] = cls._get_value(comp.get("type"), stripped_comparison[2])
         return comp
@@ -198,62 +183,25 @@ class SearchFilter(object):
         return [cls._get_comparison(si) for si in statement.tokens if isinstance(si, Comparison)]
 
     @classmethod
-    def search_expression_to_dict(cls, search_expression):
-        key_type = search_expression.WhichOneof('expression')
-        if key_type == cls._METRIC_IDENTIFIER:
-            key = search_expression.metric.key
-            metric_type = search_expression.metric.WhichOneof('clause')
-            if metric_type == 'float':
-                comparator = search_expression.metric.float.comparator
-                value = search_expression.metric.float.value
-            elif metric_type == 'double':
-                comparator = search_expression.metric.double.comparator
-                value = search_expression.metric.double.value
-            else:
-                raise MlflowException("Invalid metric type: '%s', expected float or double",
-                                      error_code=INVALID_PARAMETER_VALUE)
-            return {
-                "type": cls._METRIC_IDENTIFIER,
-                "key": key,
-                "comparator": comparator,
-                "value": value
-            }
-        elif key_type == cls._PARAM_IDENTIFIER:
-            key = search_expression.parameter.key
-            comparator = search_expression.parameter.string.comparator
-            value = search_expression.parameter.string.value
-            return {
-                "type": cls._PARAM_IDENTIFIER,
-                "key": key,
-                "comparator": comparator,
-                "value": value
-            }
-        else:
-            raise MlflowException("Invalid search expression type '%s'" % key_type,
-                                  error_code=INVALID_PARAMETER_VALUE)
-
-    def _parse(self):
-        if self._filter_string:
-            try:
-                parsed = sqlparse.parse(self._filter_string)
-            except Exception:
-                raise MlflowException("Error on parsing filter '%s'" % self._filter_string,
-                                      error_code=INVALID_PARAMETER_VALUE)
-            if len(parsed) == 0 or not isinstance(parsed[0], Statement):
-                raise MlflowException("Invalid filter '%s'. Could not be parsed." %
-                                      self._filter_string, error_code=INVALID_PARAMETER_VALUE)
-            elif len(parsed) > 1:
-                raise MlflowException("Search filter contained multiple expression '%s'. "
-                                      "Provide AND-ed expression list." % self._filter_string,
-                                      error_code=INVALID_PARAMETER_VALUE)
-            return self._process_statement(parsed[0])
-        elif self._search_expressions:
-            return [self.search_expression_to_dict(se) for se in self._search_expressions]
-        else:
+    def _parse_search_filter(cls, filter_string):
+        if not filter_string:
             return []
+        try:
+            parsed = sqlparse.parse(filter_string)
+        except Exception:
+            raise MlflowException("Error on parsing filter '%s'" % filter_string,
+                                  error_code=INVALID_PARAMETER_VALUE)
+        if len(parsed) == 0 or not isinstance(parsed[0], Statement):
+            raise MlflowException("Invalid filter '%s'. Could not be parsed." %
+                                  filter_string, error_code=INVALID_PARAMETER_VALUE)
+        elif len(parsed) > 1:
+            raise MlflowException("Search filter contained multiple expression '%s'. "
+                                  "Provide AND-ed expression list." % filter_string,
+                                  error_code=INVALID_PARAMETER_VALUE)
+        return SearchUtils._process_statement(parsed[0])
 
     @classmethod
-    def does_run_match_clause(cls, run, sed):
+    def _does_run_match_clause(cls, run, sed):
         key_type = sed.get('type')
         key = sed.get('key')
         value = sed.get('value')
@@ -303,7 +251,136 @@ class SearchFilter(object):
         else:
             return False
 
-    def filter(self, run):
-        if not self.parsed:
-            self.parsed = self._parse()
-        return all([self.does_run_match_clause(run, s) for s in self.parsed])
+    @classmethod
+    def filter(cls, runs, filter_string):
+        """Filters a set of runs based on a search filter string."""
+        if not filter_string:
+            return runs
+        parsed = cls._parse_search_filter(filter_string)
+
+        def run_matches(run):
+            return all([cls._does_run_match_clause(run, s) for s in parsed])
+
+        return [run for run in runs if run_matches(run)]
+
+    @classmethod
+    def _parse_order_by(cls, order_by):
+        try:
+            parsed = sqlparse.parse(order_by)
+        except Exception:
+            raise MlflowException("Error on parsing order_by clause '%s'" % order_by,
+                                  error_code=INVALID_PARAMETER_VALUE)
+        if len(parsed) != 1 or not isinstance(parsed[0], Statement):
+            raise MlflowException("Invalid order_by clause '%s'. Could not be parsed." %
+                                  order_by, error_code=INVALID_PARAMETER_VALUE)
+
+        statement = parsed[0]
+        if len(statement.tokens) != 1 or not isinstance(statement[0], Identifier):
+            raise MlflowException("Invalid order_by clause '%s'. Could not be parsed." %
+                                  order_by, error_code=INVALID_PARAMETER_VALUE)
+
+        token_value = statement.tokens[0].value
+        is_ascending = True
+        if token_value.lower().endswith(" desc"):
+            is_ascending = False
+            token_value = token_value[0:-len(" desc")]
+        elif token_value.lower().endswith(" asc"):
+            token_value = token_value[0:-len(" asc")]
+        identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
+        return (identifier["type"], identifier["key"], is_ascending)
+
+    @classmethod
+    def _get_value_for_sort(cls, run, key_type, key, ascending):
+        """Returns a tuple suitable to be used as a sort key for runs."""
+        sort_value = None
+        if key_type == cls._METRIC_IDENTIFIER:
+            sort_value = run.data.metrics.get(key)
+        elif key_type == cls._PARAM_IDENTIFIER:
+            sort_value = run.data.params.get(key)
+        elif key_type == cls._TAG_IDENTIFIER:
+            sort_value = run.data.tags.get(key)
+        elif key_type == cls._ATTRIBUTE_IDENTIFIER:
+            sort_value = getattr(run.info, key)
+        else:
+            raise MlflowException("Invalid order_by entity type '%s'" % key_type,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        # Return a key such that None values are always at the end.
+        is_null_or_nan = sort_value is None or (isinstance(sort_value, float)
+                                                and math.isnan(sort_value))
+        if ascending:
+            return (is_null_or_nan, sort_value)
+        return (not is_null_or_nan, sort_value)
+
+    @classmethod
+    def sort(cls, runs, order_by_list):
+        """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
+        Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
+        """
+        runs = sorted(runs, key=lambda run: (-run.info.start_time, run.info.run_uuid))
+        if not order_by_list:
+            return runs
+        # NB: We rely on the stability of Python's sort function, so that we can apply
+        # the ordering conditions in reverse order.
+        for order_by_clause in reversed(order_by_list):
+            (key_type, key, ascending) = cls._parse_order_by(order_by_clause)
+            # pylint: disable=cell-var-from-loop
+            runs = sorted(runs,
+                          key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
+                          reverse=not ascending)
+        return runs
+
+    @classmethod
+    def _parse_start_offset_from_page_token(cls, page_token):
+        # Note: the page_token is expected to be a base64-encoded JSON that looks like
+        # { "offset": xxx }. However, this format is not stable, so it should not be
+        # relied upon outside of this method.
+        if not page_token:
+            return 0
+
+        try:
+            decoded_token = base64.b64decode(page_token)
+        except TypeError:
+            raise MlflowException("Invalid page token, could not base64-decode",
+                                  error_code=INVALID_PARAMETER_VALUE)
+        except base64.binascii.Error:
+            raise MlflowException("Invalid page token, could not base64-decode",
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        try:
+            parsed_token = json.loads(decoded_token)
+        except ValueError:
+            raise MlflowException("Invalid page token, decoded value=%s" % decoded_token,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        offset_str = parsed_token.get("offset")
+        if not offset_str:
+            raise MlflowException("Invalid page token, parsed value=%s" % parsed_token,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        try:
+            offset = int(offset_str)
+        except ValueError:
+            raise MlflowException("Invalid page token, not stringable %s" % offset_str,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        return offset
+
+    @classmethod
+    def _create_page_token(cls, offset):
+        return base64.b64encode(json.dumps({"offset": offset}).encode("utf-8"))
+
+    @classmethod
+    def paginate(cls, runs, page_token, max_results):
+        """Paginates a set of runs based on an offset encoded into the page_token and a max
+        results limit. Returns a pair containing the set of paginated runs, followed by
+        an optional next_page_token if there are further results that need to be returned.
+        """
+        start_offset = cls._parse_start_offset_from_page_token(page_token)
+        final_offset = start_offset + max_results
+
+        paginated_runs = runs[start_offset:final_offset]
+        next_page_token = None
+        if final_offset < len(runs):
+            next_page_token = cls._create_page_token(final_offset)
+        return (paginated_runs, next_page_token)

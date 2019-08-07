@@ -47,7 +47,7 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
@@ -111,7 +111,7 @@ def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
                       :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
@@ -171,16 +171,16 @@ def load_model(model_uri):
     Load an H2O model from a local file (if ``run_id`` is ``None``) or a run.
     This function expects there is an H2O instance initialised with ``h2o.init``.
 
-    :param model_uri: The location, in URI format, of the MLflow model, for example:
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
 
                       - ``/Users/me/path/to/local/model``
                       - ``relative/path/to/local/model``
                       - ``s3://my_bucket/path/to/model``
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
-                      For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
 
     :return: An `H2OEstimator model object
              <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/intro.html#models>`_.

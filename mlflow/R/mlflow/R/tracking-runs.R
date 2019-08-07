@@ -1,3 +1,17 @@
+
+# Translate metric to value to safe format for REST.
+metric_value_to_rest <- function(value) {
+  if (is.nan(value)) {
+    as.character(NaN)
+  } else if (value == Inf) {
+    "Infinity"
+  } else if (value == -Inf) {
+    "-Infinity"
+  } else {
+    as.character(value)
+  }
+}
+
 #' Log Metric
 #'
 #' Logs a metric for a run. Metrics key-value pair that records a single float measure.
@@ -17,7 +31,9 @@ mlflow_log_metric <- function(key, value, timestamp = NULL, step = NULL, run_id 
                               client = NULL) {
   c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
   key <- cast_string(key)
-  value <- cast_scalar_double(value)
+  value <- cast_scalar_double(value, allow_na = TRUE)
+  # convert Inf to 'Infinity'
+  value <- metric_value_to_rest(value)
   timestamp <- cast_nullable_scalar_double(timestamp)
   timestamp <- round(timestamp %||% current_time())
   step <- round(cast_nullable_scalar_double(step) %||% 0)
@@ -127,6 +143,7 @@ mlflow_get_run <- function(run_id = NULL, client = NULL) {
 mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id = NULL,
                              client = NULL) {
   validate_batch_input("metrics", metrics, c("key", "value", "step", "timestamp"))
+  metrics$value <- unlist(lapply(metrics$value, metric_value_to_rest))
   validate_batch_input("params", params, c("key", "value"))
   validate_batch_input("tags", tags, c("key", "value"))
 
@@ -141,6 +158,11 @@ mlflow_log_batch <- function(metrics = NULL, params = NULL, tags = NULL, run_id 
   invisible(NULL)
 }
 
+has_nas <- function(df) {
+  any(is.na(df[, which(names(df) != "value")])) ||
+  any(is.na(df$value) & !is.nan(df$value))
+}
+
 validate_batch_input <- function(input_type, input_dataframe, expected_column_names) {
   if (is.null(input_dataframe)) {
     return()
@@ -152,7 +174,7 @@ validate_batch_input <- function(input_type, input_dataframe, expected_column_na
                  paste(names(input_dataframe), collapse = ", "),
                  sep = "")
     stop(msg, call. = FALSE)
-  } else if (any(is.na(input_dataframe))) {
+  } else if (has_nas(input_dataframe)) {
     msg <- paste(input_type,
                  " batch input dataframe contains a missing ('NA') entry.",
                  sep = "")
@@ -181,6 +203,28 @@ mlflow_set_tag <- function(key, value, run_id = NULL, client = NULL) {
     run_id = run_id,
     key = key,
     value = value
+  ))
+
+  invisible(NULL)
+}
+
+#' Delete Tag
+#'
+#' Deletes a tag on a run. This is irreversible. Tags are run metadata that can be updated during a run and
+#'  after a run completes.
+#'
+#' @param key Name of the tag. Maximum size is 255 bytes. This field is required.
+#' @template roxlate-run-id
+#' @template roxlate-client
+#' @export
+mlflow_delete_tag <- function(key, run_id = NULL, client = NULL) {
+  c(client, run_id) %<-% resolve_client_and_run_id(client, run_id)
+
+  key <- cast_string(key)
+
+  mlflow_rest("runs", "delete-tag", client = client, verb = "POST", data = list(
+    run_id = run_id,
+    key = key
   ))
 
   invisible(NULL)
@@ -253,10 +297,13 @@ mlflow_get_metric_history <- function(metric_key, run_id = NULL, client = NULL) 
 #' @param filter A filter expression over params, metrics, and tags, allowing returning a subset of runs.
 #'   The syntax is a subset of SQL which allows only ANDing together binary operations between a param/metric/tag and a constant.
 #' @param run_view_type Run view type.
+#' @param order_by List of properties to order by. Example: "metrics.acc DESC".
 #'
 #' @export
 mlflow_search_runs <- function(filter = NULL,
-                               run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"), experiment_ids = NULL,
+                               run_view_type = c("ACTIVE_ONLY", "DELETED_ONLY", "ALL"),
+                               experiment_ids = NULL,
+                               order_by = list(),
                                client = NULL) {
   experiment_ids <- resolve_experiment_id(experiment_ids)
   # If we get back a single experiment ID, e.g. the active experiment ID, convert it to a list
@@ -272,7 +319,8 @@ mlflow_search_runs <- function(filter = NULL,
   response <- mlflow_rest("runs", "search", client = client, verb = "POST", data = list(
     experiment_ids = experiment_ids,
     filter = filter,
-    run_view_type = run_view_type
+    run_view_type = run_view_type,
+    order_by = cast_string_list(order_by)
   ))
 
   runs_list <- response$run %>%

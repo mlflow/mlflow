@@ -5,8 +5,6 @@ import numbers
 import posixpath
 import re
 
-import numpy as np
-
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
@@ -28,7 +26,9 @@ MAX_METRICS_PER_BATCH = 1000
 MAX_ENTITIES_PER_BATCH = 1000
 MAX_BATCH_LOG_REQUEST_SIZE = int(1e6)
 MAX_PARAM_VAL_LENGTH = 250
-MAX_TAG_VAL_LENGTH = 250
+MAX_TAG_VAL_LENGTH = 5000
+MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
+MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
 
 _UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {%s}" % ', '.join(DATABASE_ENGINES)
@@ -62,8 +62,7 @@ def _validate_metric(key, value, timestamp, step):
     it isn't.
     """
     _validate_metric_name(key)
-    if not isinstance(value, numbers.Number) or value > np.finfo(np.float64).max \
-            or value < np.finfo(np.float64).min:
+    if not isinstance(value, numbers.Number):
         raise MlflowException(
             "Got invalid value %s for metric '%s' (timestamp=%s). Please specify value as a valid "
             "double (64-bit floating point)" % (value, key, timestamp),
@@ -101,6 +100,15 @@ def _validate_tag(key, value):
     _validate_length_limit("Tag value", MAX_TAG_VAL_LENGTH, value)
 
 
+def _validate_experiment_tag(key, value):
+    """
+    Check that a tag with the specified key & value is valid and raise an exception if it isn't.
+    """
+    _validate_tag_name(key)
+    _validate_length_limit("Tag key", MAX_EXPERIMENT_TAG_KEY_LENGTH, key)
+    _validate_length_limit("Tag value", MAX_EXPERIMENT_TAG_VAL_LENGTH, value)
+
+
 def _validate_param_name(name):
     """Check that `name` is a valid parameter name and raise an exception if it isn't."""
     if not _VALID_PARAM_AND_METRIC_NAMES.match(name):
@@ -126,7 +134,7 @@ def _validate_length_limit(entity_name, limit, value):
     if len(value) > limit:
         raise MlflowException(
             "%s '%s' had length %s, which exceeded length limit of %s" %
-            (entity_name, value, len(value), limit))
+            (entity_name, value[:250], len(value), limit))
 
 
 def _validate_run_id(run_id):

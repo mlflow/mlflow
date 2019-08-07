@@ -15,7 +15,7 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
   you easily deploy the same model (from any ML library) to batch and real-time scoring on platforms such as
   Docker, Apache Spark, Azure ML and AWS SageMaker.
 
-|docs| |travis| |pypi| |conda-forge|
+|docs| |travis| |pypi| |conda-forge| |cran| |maven| |license|
 
 .. |docs| image:: https://img.shields.io/badge/docs-latest-success.svg
     :target: https://mlflow.org/docs/latest/index.html
@@ -29,6 +29,15 @@ currently run ML code (e.g. in notebooks, standalone applications or the cloud).
 .. |conda-forge| image:: https://img.shields.io/conda/vn/conda-forge/mlflow.svg
     :target: https://anaconda.org/conda-forge/mlflow
     :alt: Latest Conda Release
+.. |cran| image:: https://img.shields.io/cran/v/mlflow.svg
+    :target: https://cran.r-project.org/package=mlflow
+    :alt: Latest CRAN Release
+.. |maven| image:: https://img.shields.io/maven-central/v/org.mlflow/mlflow-parent.svg
+    :target: https://mvnrepository.com/artifact/org.mlflow
+    :alt: Maven Central
+.. |license| image:: https://img.shields.io/badge/license-Apache%202-brightgreen.svg
+    :target: https://github.com/mlflow/mlflow/blob/master/LICENSE.txt
+    :alt: Apache 2 License
 
 Installing
 ----------
@@ -44,10 +53,13 @@ Official documentation for MLflow can be found at https://mlflow.org/docs/latest
 
 Community
 ---------
-To discuss MLflow or get help, please subscribe to our mailing list (mlflow-users@googlegroups.com) or
-join us on Slack at https://tinyurl.com/mlflow-slack.
+For help or questions about MLflow usage (e.g. "how do I do X?") see the `docs <https://mlflow.org/docs/latest/index.html>`_
+or `Stack Overflow <https://stackoverflow.com/questions/tagged/mlflow>`_.
 
-To report bugs, please use GitHub issues.
+To report a bug, file a documentation issue, or submit a feature request, please open a GitHub issue.
+
+For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
+or join us on Slack at https://tinyurl.com/mlflow-slack.
 
 Running a Sample App With the Tracking API
 ------------------------------------------

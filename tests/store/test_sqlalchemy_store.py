@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import warnings
 
+import math
 import mock
 import pytest
 import sqlalchemy
@@ -14,7 +15,7 @@ import uuid
 
 import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
-from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST,\
+from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import _get_schema_version
@@ -22,11 +23,9 @@ from mlflow.store.dbmodels import models
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
-from mlflow.utils import extract_db_type_from_uri
-from mlflow.utils.search_utils import SearchFilter
+from mlflow.utils import extract_db_type_from_uri, mlflow_tags
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
-
 
 DB_URI = 'sqlite:///'
 ARTIFACT_URI = 'artifact_folder'
@@ -326,7 +325,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             'lifecycle_stage': entities.LifecycleStage.ACTIVE,
             'artifact_uri': '//'
         }
-        run = models.SqlRun(**config).to_mlflow_entity()
+        with self.store.ManagedSessionMaker() as session:
+            run = models.SqlRun(**config).to_mlflow_entity(session)
 
         for k, v in config.items():
             # These keys were removed from RunInfo.
@@ -419,8 +419,14 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         tval = 100.0
         metric = entities.Metric(tkey, tval, int(time.time()), 0)
         metric2 = entities.Metric(tkey, tval, int(time.time()) + 2, 0)
+        nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
+        pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
+        neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
         self.store.log_metric(run.info.run_id, metric)
         self.store.log_metric(run.info.run_id, metric2)
+        self.store.log_metric(run.info.run_id, nan_metric)
+        self.store.log_metric(run.info.run_id, pos_inf_metric)
+        self.store.log_metric(run.info.run_id, neg_inf_metric)
 
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.metrics and run.data.metrics[tkey] == tval)
@@ -430,8 +436,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # MLflow RunData contains only the last reported values for metrics.
         with self.store.ManagedSessionMaker() as session:
             sql_run_metrics = self.store._get_run(session, run.info.run_id).metrics
-            self.assertEqual(2, len(sql_run_metrics))
-            self.assertEqual(1, len(run.data.metrics))
+            self.assertEqual(5, len(sql_run_metrics))
+            self.assertEqual(4, len(run.data.metrics))
+            self.assertTrue(math.isnan(run.data.metrics["NaN"]))
+            self.assertTrue(run.data.metrics["PosInf"] == 1.7976931348623157e308)
+            self.assertTrue(run.data.metrics["NegInf"] == -1.7976931348623157e308)
 
     def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_value(self):
         run = self._run_factory()
@@ -531,6 +540,45 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
+    def test_set_experiment_tag(self):
+        exp_id = self._experiment_factory('setExperimentTagExp')
+        tag = entities.ExperimentTag("tag0", "value0")
+        new_tag = entities.RunTag("tag0", "value00000")
+        self.store.set_experiment_tag(exp_id, tag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["tag0"] == "value0")
+        # test that updating a tag works
+        self.store.set_experiment_tag(exp_id, new_tag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        # test that setting a tag on 1 experiment does not impact another experiment.
+        exp_id_2 = self._experiment_factory('setExperimentTagExp2')
+        experiment2 = self.store.get_experiment(exp_id_2)
+        self.assertTrue(len(experiment2.tags) == 0)
+        # setting a tag on different experiments maintains different values across experiments
+        different_tag = entities.RunTag("tag0", "differentValue")
+        self.store.set_experiment_tag(exp_id_2, different_tag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        experiment2 = self.store.get_experiment(exp_id_2)
+        self.assertTrue(experiment2.tags["tag0"] == "differentValue")
+        # test can set multi-line tags
+        multiLineTag = entities.ExperimentTag("multiline tag", "value2\nvalue2\nvalue2")
+        self.store.set_experiment_tag(exp_id, multiLineTag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
+        # test cannot set tags that are too long
+        longTag = entities.ExperimentTag("longTagKey", "a" * 5001)
+        with pytest.raises(MlflowException):
+            self.store.set_experiment_tag(exp_id, longTag)
+        # test can set tags that are somewhat long
+        longTag = entities.ExperimentTag("longTagKey", "a" * 4999)
+        self.store.set_experiment_tag(exp_id, longTag)
+        # test cannot set tags on deleted experiments
+        self.store.delete_experiment(exp_id)
+        with pytest.raises(MlflowException):
+            self.store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
+
     def test_set_tag(self):
         run = self._run_factory()
 
@@ -542,9 +590,47 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_tag(run.info.run_id, tag)
         # Overwriting tags is allowed
         self.store.set_tag(run.info.run_id, new_tag)
-
+        # test setting tags that are too long fails.
+        with pytest.raises(MlflowException):
+            self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+        # test can set tags that are somewhat long
+        self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
+
+    def test_delete_tag(self):
+        run = self._run_factory()
+        k0, v0 = 'tag0', 'val0'
+        k1, v1 = 'tag1', 'val1'
+        tag0 = entities.RunTag(k0, v0)
+        tag1 = entities.RunTag(k1, v1)
+        self.store.set_tag(run.info.run_id, tag0)
+        self.store.set_tag(run.info.run_id, tag1)
+        # delete a tag and check whether it is correctly deleted.
+        self.store.delete_tag(run.info.run_id, k0)
+        run = self.store.get_run(run.info.run_id)
+        self.assertTrue(k0 not in run.data.tags)
+        self.assertTrue(k1 in run.data.tags and run.data.tags[k1] == v1)
+
+        # test that deleting a tag works correctly with multiple runs having the same tag.
+        run2 = self._run_factory(config=self._get_run_configs(run.info.experiment_id))
+        self.store.set_tag(run.info.run_id, tag0)
+        self.store.set_tag(run2.info.run_id, tag0)
+        self.store.delete_tag(run.info.run_id, k0)
+        run = self.store.get_run(run.info.run_id)
+        run2 = self.store.get_run(run2.info.run_id)
+        self.assertTrue(k0 not in run.data.tags)
+        self.assertTrue(k0 in run2.data.tags)
+        # test that you cannot delete tags that don't exist.
+        with pytest.raises(MlflowException):
+            self.store.delete_tag(run.info.run_id, "fakeTag")
+        # test that you cannot delete tags for nonexistent runs
+        with pytest.raises(MlflowException):
+            self.store.delete_tag("randomRunId", k0)
+        # test that you cannot delete tags for deleted runs.
+        self.store.delete_run(run.info.run_id)
+        with pytest.raises(MlflowException):
+            self.store.delete_tag(run.info.run_id, k1)
 
     def test_get_metric_history(self):
         run = self._run_factory()
@@ -624,12 +710,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         with self.assertRaises(MlflowException) as e:
             self.store.restore_run(run.info.run_id)
-        self.assertIn("must be in 'deleted' state", e.exception.message)
+        self.assertIn("must be in the 'deleted' state", e.exception.message)
 
         self.store.delete_run(run.info.run_id)
         with self.assertRaises(MlflowException) as e:
             self.store.delete_run(run.info.run_id)
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         deleted = self.store.get_run(run.info.run_id)
         self.assertEqual(deleted.info.run_id, run.info.run_id)
@@ -638,7 +724,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.restore_run(run.info.run_id)
         with self.assertRaises(MlflowException) as e:
             self.store.restore_run(run.info.run_id)
-            self.assertIn("must be in 'deleted' state", e.exception.message)
+            self.assertIn("must be in the 'deleted' state", e.exception.message)
         restored = self.store.get_run(run.info.run_id)
         self.assertEqual(restored.info.run_id, run.info.run_id)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
@@ -652,15 +738,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          entities.LifecycleStage.DELETED)
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run_id, entities.Param("p1345", "v1"))
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
             self.store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
             self.store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         # restore this run and try again
         self.store.restore_run(run_id)
@@ -685,10 +771,42 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     # Tests for Search API
     def _search(self, experiment_id, filter_string=None,
                 run_view_type=ViewType.ALL, max_results=SEARCH_MAX_RESULTS_DEFAULT):
-        search_filter = SearchFilter(filter_string=filter_string)
         exps = [experiment_id] if isinstance(experiment_id, int) else experiment_id
         return [r.info.run_id
-                for r in self.store.search_runs(exps, search_filter, run_view_type, max_results)]
+                for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)]
+
+    def test_order_by_metric(self):
+        experiment_id = self.store.create_experiment('order_by_metric')
+
+        def create_and_log_run(name):
+            run_id = self.store.create_run(
+                experiment_id,
+                user_id="MrDuck",
+                start_time=123,
+                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name)]).info.run_id
+            self.store.log_metric(run_id, entities.Metric("x", float(name), 1, 0))
+            return run_id
+
+        for name in ["nan", "inf", "-inf", "-1000", "0", "1000"]:
+            create_and_log_run(name)
+
+        # asc
+        sorted_runs_asc = [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=["metrics.x asc"])]
+
+        assert ["-inf", "-1000", "0", "1000", "inf", "nan"] == sorted_runs_asc
+        # desc
+        sorted_runs_desc = [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=["metrics.x desc"])]
+        assert ["inf", "1000", "0", "-1000", "-inf", "nan"] == sorted_runs_desc
 
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
@@ -970,9 +1088,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         # reverse the ordering, since we created in increasing order of start_time
         runs.reverse()
 
-        assert(runs[:1000] == self._search(exp))
+        assert (runs[:1000] == self._search(exp))
         for n in [0, 1, 2, 4, 8, 10, 20, 50, 100, 500, 1000, 1200, 2000]:
-            assert(runs[:min(1200, n)] == self._search(exp, max_results=n))
+            assert (runs[:min(1200, n)] == self._search(exp, max_results=n))
 
         with self.assertRaises(MlflowException) as e:
             self._search(exp, max_results=int(1e10))
@@ -985,7 +1103,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         runs = sorted([self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
                        for r in range(10)])
         for n in [0, 1, 2, 4, 8, 10, 20]:
-            assert(runs[:min(10, n)] == self._search(exp, max_results=n))
+            assert (runs[:min(10, n)] == self._search(exp, max_results=n))
+
+    def test_search_runs_pagination(self):
+        exp = self._experiment_factory('test_search_runs_pagination')
+        # test returned token behavior
+        runs = sorted([self._run_factory(self._get_run_configs(exp, start_time=10)).info.run_id
+                       for r in range(10)])
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4)
+        assert [r.info.run_id for r in result] == runs[0:4]
+        assert result.token is not None
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                        page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[4:8]
+        assert result.token is not None
+        result = self.store.search_runs([exp], None, ViewType.ALL, max_results=4,
+                                        page_token=result.token)
+        assert [r.info.run_id for r in result] == runs[8:]
+        assert result.token is None
 
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
@@ -1062,9 +1197,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         def _raise_exception_fn(*args, **kwargs):  # pylint: disable=unused-argument
             raise Exception("Some internal error")
+
         with mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore.log_metric") as metric_mock,\
                 mock.patch(
-                    "mlflow.store.sqlalchemy_store.SqlAlchemyStore.log_param") as param_mock,\
+                    "mlflow.store.sqlalchemy_store.SqlAlchemyStore.log_param") as param_mock, \
                 mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore.set_tag") as tags_mock:
             metric_mock.side_effect = _raise_exception_fn
             param_mock.side_effect = _raise_exception_fn
@@ -1147,6 +1283,7 @@ class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     then migrates their DB. TODO: update this test in MLflow 1.1 to use InitialBase from
     mlflow.store.db.initial_models.
     """
+
     def setUp(self):
         fd, self.temp_dbfile = tempfile.mkstemp()
         os.close(fd)
@@ -1198,5 +1335,5 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
         run = self._run_factory()
         for i in range(100):
             self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
-            self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i,  "pval-%s" % i))
-            self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i,  "tval-%s" % i))
+            self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
+            self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
