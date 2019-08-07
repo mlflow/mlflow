@@ -162,7 +162,7 @@ serve_handlers <- function(host, port, ...) {
              headers = list(
                  "Content-Type" = paste0(serve_content_type("json"), "; charset=UTF-8")
              ),
-             body=""
+             body = ""
         )
         res
       } else {
@@ -183,7 +183,7 @@ serve_handlers <- function(host, port, ...) {
         "application/json; format=pandas-records" = parse_json(data_raw, "records"),
         "application/json-numpy-split" = parse_json(data_raw, "split"),
         "application/json" = parse_json(data_raw, "split"),
-        "text/csv" = utils::read.csv(text=data_raw),
+        "text/csv" = utils::read.csv(text = data_raw),
         stop("Unsupported input format.")
       )
       results <- mlflow_predict(model, df, ...)

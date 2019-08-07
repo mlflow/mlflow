@@ -116,10 +116,10 @@ test_that("mlflow models server api works with R model function", {
       )
     }
     # csv
-    csv_header <- paste(names(newdata), collapse=", ")
-    csv_row_1 <- paste(newdata[1,], collapse=", ")
-    csv_row_2 <- paste(newdata[2,], collapse=", ")
-    newdata_csv <- paste(csv_header, csv_row_1, csv_row_2, "", sep="\n")
+    csv_header <- paste(names(newdata), collapse = ", ")
+    csv_row_1 <- paste(newdata[1,], collapse = ", ")
+    csv_row_2 <- paste(newdata[2,], collapse = ", ")
+    newdata_csv <- paste(csv_header, csv_row_1, csv_row_2, "", sep = "\n")
     check_prediction(
       httr::content(
         httr::POST(
