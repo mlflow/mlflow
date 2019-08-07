@@ -19,9 +19,9 @@ Install MLflow
 
 Installs auxiliary dependencies of MLflow (e.g. the MLflow CLI). As a
 one-time setup step, you must run install_mlflow() to install these
-dependencies before calling other MLflow APIs. Alternatively, you may set MLFLOW_PYTHON_BIN and
+dependencies before calling other MLflow APIs. Alternatively, you can set MLFLOW_PYTHON_BIN and
 MLFLOW_BIN environment variables instead. These variables allow you to use custom mlflow
-installation you may already have. Note that there may be some compatibility issues if the custom
+installation. Note that there may be some compatibility issues if the custom
 mlflow version does not match the version of the R package.
 
 .. code:: r
