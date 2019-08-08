@@ -114,9 +114,10 @@ def rename_experiment(experiment_id, new_name):
 @commands.command("csv")
 @EXPERIMENT_ID
 @click.option("--filename_csv", type=click.STRING, required=True)
-def generate_csv_with_runs(experiment_id: str, filename_csv: str) -> None:
+def generate_csv_with_runs(experiment_id, filename_csv):
+    # type: (str, str) -> None
     """
     Generate CSV with all runs for an experiment
     """
-    runs: pd.DataFrame = fluent.search_runs(experiment_ids=experiment_id)
+    runs = fluent.search_runs(experiment_ids=experiment_id)
     runs.to_csv(filename_csv)
