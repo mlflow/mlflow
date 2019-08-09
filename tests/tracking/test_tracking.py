@@ -385,24 +385,25 @@ def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
                 assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_log_artifact_with_dirs(tracking_uri_mock):
+def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
     # Test log artifact with a directory
-    art_dir = tempfile.mkdtemp()
-    _, file0 = tempfile.mkstemp(dir=art_dir)
-    _, file1 = tempfile.mkstemp(dir=art_dir)
-    sub_dir = tempfile.mkdtemp(dir=art_dir)
-    for i, path in enumerate([file0, file1]):
-        with open(path, 'w') as handle:
-            handle.write("something")
+    art_dir = tmpdir.mkdir("parent")
+    file0 = art_dir.join("file0")
+    file0.write("something")
+    file1 = art_dir.join("file1")
+    file1.write("something")
+    sub_dir = art_dir.mkdir("child")
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         mlflow.log_artifact(art_dir)
-        assert os.listdir(run_artifact_dir) == [os.path.basename(art_dir)]
-
+        base = os.path.basename(art_dir)
+        assert os.listdir(run_artifact_dir) == [base]
+        assert os.listdir(os.path.join(run_artifact_dir, base)) == ['file0', 'file1', 'child']
+        with open(os.path.join(run_artifact_dir, base, "file0")) as f:
+            assert f.read() == "something"
     # Test log artifact with directory and specified parent folder
-    art_dir = tempfile.mkdtemp()
-
+    art_dir = tmpdir.mkdir("dir")
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
@@ -410,9 +411,7 @@ def test_log_artifact_with_dirs(tracking_uri_mock):
         assert os.listdir(run_artifact_dir) == [os.path.basename("some_parent")]
         assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == \
             [os.path.basename(art_dir)]
-
-    sub_dir = tempfile.mkdtemp(dir=art_dir)
-
+    sub_dir = art_dir.mkdir("another_dir")
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
