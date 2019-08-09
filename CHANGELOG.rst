@@ -4,29 +4,29 @@ Changelog
 ----------------
 MLflow 1.2 includes several major features and improvements:
 
-Features: (7)
+- Experiments now have editable tags and descriptions (#1630, #1632, #1678, @ankitmathur-db)
+- Search latency has been significantly reduced in the SQLAlchemyStore (#1660, @t-henri)
 
-- Update run tags to have larger length limit for value field (#1687, @ankitmathur-db)
-- Bypassing conda when running R scripts (by setting env vars) (#1650, @spadarian)
-- Get run last metrics optimization (#1660, @t-henri)
-- add notes to experiments in UI (#1678, @ankitmathur-db)
-- Added cmdline option to override default gunicorn timeout of 60 s  (#1557, @LarsDu)
-- add experiment tags to MLFlow client (#1632, @ankitmathur-db)
-- add experiment tags to MLFlow storage backend (#1630, @ankitmathur-db)
+**More features and improvements**
 
-Bug fixes and documentation updates: (9)
+- [Tracking] Backend stores now support run tag values up to 5000 characters in length. Some store implementations may support longer tag values (#1687, @ankitmathur-db)
+- [Scoring] Gunicorn options can now be configured for the ``mlflow models serve`` CLI with the ``GUNICORN_CMD_ARGS`` environment variable (#1557, @LarsDu)
+- [UI] Jsonnet artifacts can now be previewed in the UI (#1683, @ankitmathur-db)
 
-- Fix for Autologging failing some log statements (#1690, @apurva-koti)
-- Mount local artifact folder to docker container in MLProject (#1544, @nlaille)
-- Fix MLFlow Server MIME-Types in the Frontend (#1679, @ynotzort)
-- add jsonnet as a valid text file format (#1683, @ankitmathur-db)
-- display artifact previews even if extension is upper case (#1664, @ankitmathur-db)
-- Fix UI search error behavior (#1681, @dbczumar)
-- Fix Spark bug loading Spark UDFs on Databricks (#1658, @smurching)
-- use setuptools to define platform specific dependencies (#1643, @akshaya-a)
-- Deprecate `runs` field in  GetExperiment.Response proto (#1647, @dbczumar)
+**Bug fixes and documentation updates**
+
+- [Tracking] The Autologging integration is now more resilient to tracking errors (#1690, @apurva-koti)
+- [Tracking] The ``runs`` field in in the ``GetExperiment.Response`` proto has been deprecated. Please use the ``Search Runs`` API for fetching runs instead (#1647, @dbczumar)
+- [Projects] Fixed a bug that prevented MLflow Projects from logging to the ``LocalArtifactRepository`` (#1450, @nlaille)
+- [Projects] Running MLflow projects with the ``--no-conda`` flag in R no longer requires Anaconda to be installed (#1650, @spadarian)
+- [Models/Scoring] Fix Spark bug loading Spark UDFs on Databricks (#1658, @smurching)
+- [UI] AJAX requests made by the MLFlow Server Frontend now specify correct MIME-Types (#1679, @ynotzort)
+- [UI] Previews now render correctly for artifacts with uppercase file extensions (e.g., ``.JSON``, ``.YAML``) (#1664, @ankitmathur-db)
+- [UI] Fix UI bug where search API errors were surfaced with a Niagara Falls page (#1681, @dbczumar)
+- [Installation] MLflow dependencies are now selected properly based on the target installation platform (#1643, @akshaya-a)
 
 Small bug fixes and doc updates (#1663, @dbczumar; #1693, @max-allen-db; #1695, #1659, @smurching; #1675, @jdlesage; #1699, @ankitmathur-db; #1696, @aarondav; #1710, #1700, #1656, @apurva-koti)
+
 
 1.1 (2019-07-22)
 ----------------
