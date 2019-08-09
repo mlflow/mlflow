@@ -114,9 +114,10 @@ class FlavorBackend(object):
     @abstractmethod
     def serve(self, model_uri, port, host):
         """
-        Serve saved MLflow model locally.
+        Serve the specified MLflow model locally.
+
         :param model_uri: URI pointing to the MLflow model to be used for scoring.
-        :param port: Port to deploy the model to.
+        :param port: Port to use for the model deployment.
         :param host: Host to use for the model deployment. Defaults to 'localhost'.
         """
         pass
