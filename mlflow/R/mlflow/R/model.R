@@ -185,7 +185,7 @@ supported_model_flavors <- function() {
 parse_json <- function(input_path, json_format="split") {
   switch(json_format,
     split = {
-      json <- jsonlite::read_json(input_path, simplifyVector = TRUE)
+      json <- jsonlite::fromJSON(input_path, simplifyVector = TRUE)
       elms <- names(json)
       if (length(setdiff(elms, c("columns", "index", "data"))) != 0
       || length(setdiff(c("columns", "data"), elms) != 0)) {
@@ -195,7 +195,7 @@ parse_json <- function(input_path, json_format="split") {
       names(df) <- json$columns
       df
     },
-    records = jsonlite::read_json(input_path, simplifyVector = TRUE),
+    records = jsonlite::fromJSON(input_path, simplifyVector = TRUE),
     stop(paste("Unsupported JSON format", json_format,
                ". Supported formats are 'split' or 'records'"))
   )
