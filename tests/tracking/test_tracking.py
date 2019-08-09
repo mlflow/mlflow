@@ -397,7 +397,7 @@ def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         mlflow.log_artifact(str(art_dir))
-        base = os.path.basename(art_dir)
+        base = os.path.basename(str(art_dir))
         assert os.listdir(run_artifact_dir) == [base]
         assert set(os.listdir(os.path.join(run_artifact_dir, base))) == \
             {'child', 'file0', 'file1'}
@@ -411,14 +411,14 @@ def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
         mlflow.log_artifact(str(art_dir), "some_parent")
         assert os.listdir(run_artifact_dir) == [os.path.basename("some_parent")]
         assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == \
-            [os.path.basename(art_dir)]
+            [os.path.basename(str(art_dir))]
     sub_dir = art_dir.mkdir("another_dir")
     with start_run():
         artifact_uri = mlflow.get_artifact_uri()
         run_artifact_dir = local_file_uri_to_path(artifact_uri)
         mlflow.log_artifact(str(art_dir), "parent/and_child")
         assert os.listdir(os.path.join(run_artifact_dir, "parent", "and_child")) == \
-            [os.path.basename(art_dir)]
+            [os.path.basename(str(art_dir))]
         assert os.listdir(os.path.join(run_artifact_dir,
                                        "parent", "and_child",
                                        os.path.basename(art_dir))) == \
