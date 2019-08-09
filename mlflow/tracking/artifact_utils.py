@@ -11,7 +11,7 @@ from mlflow.store.artifact_repository_registry import get_artifact_repository, \
     get_artifact_repository_type
 from mlflow.tracking.utils import _get_store
 from mlflow.utils.validation import _validate_db_type_string
-
+from mlflow.store.db_artifact_repo import extract_db_uri_and_path
 _INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html for " \
                       "format specifications."
 
@@ -102,15 +102,7 @@ def extract_db_uri_and_artifact_path_from_uri(artifact_uri):
 
     _validate_db_type_string(db_type)
 
-    if parsed_uri.query == "":
-        print("IF")
-        artifact_path = parsed_uri.path.split("/", 2)[2]
-        parsed_uri = parsed_uri._replace(path="/" + parsed_uri.path.split("/", 1)[1])
-    else:
-        print("ELSE")
+    return extract_db_uri_and_path(artifact_uri)
 
-        artifact_path = parsed_uri.query.split("/", 1)[1]
-        print(parsed_uri.query.split("/", 1)[0])
-        parsed_uri = parsed_uri._replace(query=parsed_uri.query.split("/", 1)[0])
 
-    return urllib.parse.urlunparse(parsed_uri), artifact_path
+
