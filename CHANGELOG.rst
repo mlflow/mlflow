@@ -22,7 +22,7 @@ MLflow 1.2 includes the following major features and improvements:
 - [Models/Scoring] Fixed a bug that prevented Spark UDFs from being loaded on Databricks (#1658, @smurching)
 - [UI] AJAX requests made by the MLFlow Server Frontend now specify correct MIME-Types (#1679, @ynotzort)
 - [UI] Previews now render correctly for artifacts with uppercase file extensions (e.g., ``.JSON``, ``.YAML``) (#1664, @ankitmathur-db)
-- [UI] Fix UI bug where search API errors were surfaced with a Niagara Falls page (#1681, @dbczumar)
+- [UI] Fixed a bug that caused search API errors to surface a Niagara Falls page (#1681, @dbczumar)
 - [Installation] MLflow dependencies are now selected properly based on the target installation platform (#1643, @akshaya-a)
 
 Small bug fixes and doc updates (#1663, @dbczumar; #1693, @max-allen-db; #1695, #1659, @smurching; #1675, @jdlesage; #1699, @ankitmathur-db; #1696, @aarondav; #1710, #1700, #1656, @apurva-koti)
