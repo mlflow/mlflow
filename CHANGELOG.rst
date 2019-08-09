@@ -1,5 +1,22 @@
 Changelog
 =========
+1.2 (2019-08-09)
+----------------
+MLflow 1.2 includes several major features and improvements:
+
+Features: (0)
+
+
+
+Bug fixes and documentation updates: (4)
+
+- Mount local artifact folder to docker container in MLProject (#1544, @nlaille)
+- Fix UI search error behavior (#1681, @dbczumar)
+- Fix Spark bug loading Spark UDFs on Databricks (#1658, @smurching)
+- Deprecate `runs` field in  GetExperiment.Response proto (#1647, @dbczumar)
+
+Small bug fixes and doc updates (#1659, @smurching; #1663, @dbczumar; #1700, #1656, @apurva-koti)
+
 1.1 (2019-07-22)
 ----------------
 MLflow 1.1 includes several major features and improvements: 
