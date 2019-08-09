@@ -334,7 +334,8 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
                                order_by)
     info = {'run_id': [], 'experiment_id': [],
-            'status': [], 'artifact_uri': [], }
+            'status': [], 'artifact_uri': [],
+            'start_time': [], 'end_time': []}
     params, metrics, tags = ({}, {}, {})
     PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
     for i, run in enumerate(runs):
@@ -342,6 +343,8 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
         info['experiment_id'].append(run.info.experiment_id)
         info['status'].append(run.info.status)
         info['artifact_uri'].append(run.info.artifact_uri)
+        info['start_time'].append(run.info.start_time)
+        info['end_time'].append(run.info.end_time)
 
         # Params
         param_keys = set(params.keys())
@@ -387,7 +390,12 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
         data['params.' + key] = params[key]
     for key in tags:
         data['tags.' + key] = tags[key]
-    return pd.DataFrame(data)
+
+    df = pd.DataFrame(data)
+    df['start_time'] = pd.to_datetime(df['start_time'], unit="ms", utc=True)
+    df['end_time'] = pd.to_datetime(df['end_time'], unit="ms", utc=True)
+
+    return df
 
 
 def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
