@@ -106,8 +106,8 @@ class FlavorBackend(object):
                             the behavior of Pandas orient attribute. The default is ``split`` which
                             expects dict like data: ``{'index' -> [index], 'columns' -> [columns],
                             'data' -> [values]}``, where index is optional.
-                            For more information see "https://pandas.pydata.org/
-                            pandas-docs/stable/reference/api/pandas.read_json.html"
+                            For more information see
+                            https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json.html
         """
         pass
 
