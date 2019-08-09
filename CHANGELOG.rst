@@ -2,7 +2,7 @@ Changelog
 =========
 1.2 (2019-08-09)
 ----------------
-MLflow 1.2 includes several major features and improvements:
+MLflow 1.2 includes the following major features and improvements:
 
 - Experiments now have editable tags and descriptions (#1630, #1632, #1678, @ankitmathur-db)
 - Search latency has been significantly reduced in the SQLAlchemyStore (#1660, @t-henri)
