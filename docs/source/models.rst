@@ -526,10 +526,10 @@ The predict command accepts the same input formats. The format is specified as c
 Commands
 ~~~~~~~~
 
-* :ref:`serve <mlflow-models-serve>` deploys the model as a local REST API server.
-* :ref:`build_docker <mlflow-models-build-docker>` packages a REST API endpoint serving the
+* :py:func:`serve <mlflow.models.cli.serve>` deploys the model as a local REST API server.
+* :py:func:`build_docker <mlflow.models.cli.build-docker>` packages a REST API endpoint serving the
   model as a docker image.
-* :ref:`predict <mlflow-models-predict>` uses the model to generate a prediction for a local
+* :py:func:`predict <mlflow.models.cli.predict>` uses the model to generate a prediction for a local
   CSV or JSON file.
 
 For more info, see:
