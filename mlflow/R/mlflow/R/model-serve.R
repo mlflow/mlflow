@@ -2,7 +2,12 @@
 
 #' Serve an RFunc MLflow Model
 #'
-#' Serves an RFunc MLflow model as a local web API.
+#' Serves an RFunc MLflow model as a local REST API server. This interface provides similar
+#' functionality to ``mlflow models serve`` cli command, however, it can only be used to deploy
+#' models that include RFunc flavor. The deployed server supports standard mlflow models interface
+#' with /ping and /invocation endpoints. In addition, R function models also support deprecated
+#' /predict endpoint for generating predictions. The /predict endpoint will be removed in a future
+#' version of mlflow.
 #'
 #' @template roxlate-model-uri
 #' @param host Address to use to serve model, as a string.
@@ -94,7 +99,6 @@ serve_invalid_request <- function(message = NULL) {
 
 serve_prediction <- function(json_raw, model, ...) {
   mlflow_verbose_message("Serving prediction: ", json_raw)
-
   df <- data.frame()
   if (length(json_raw) > 0) {
     df <- jsonlite::fromJSON(
@@ -154,6 +158,47 @@ serve_handlers <- function(host, port, ...) {
         ),
         body = charToRaw(enc2utf8(
           jsonlite::toJSON(results, auto_unbox = TRUE, digits = NA)
+        ))
+      )
+    },
+    "^/ping" = function(req, model) {
+      if (!is.na(model) && !is.null(model)) {
+        res <- list(status = 200L,
+             headers = list(
+                 "Content-Type" = paste0(serve_content_type("json"), "; charset=UTF-8")
+             ),
+             body = ""
+        )
+        res
+      } else {
+        list(status = 404L,
+             headers = list(
+                 "Content-Type" = paste0(serve_content_type("json"), "; charset=UTF-8")
+             )
+        )
+      }
+    },
+    "^/invocation" = function(req, model) {
+      data_raw <- rawToChar(req$rook.input$read())
+      headers <- strsplit(req$HEADERS, "\n")
+      content_type <- headers$`content-type` %||% "application/json"
+      df <- switch( content_type,
+        "application/json" = parse_json(data_raw, "split"),
+        "application/json; format=pandas-split" = parse_json(data_raw, "split"),
+        "application/json; format=pandas-records" = parse_json(data_raw, "records"),
+        "application/json-numpy-split" = parse_json(data_raw, "split"),
+        "application/json" = parse_json(data_raw, "split"),
+        "text/csv" = utils::read.csv(text = data_raw, stringsAsFactors = FALSE),
+        stop("Unsupported input format.")
+      )
+      results <- mlflow_predict(model, df, ...)
+      list(
+        status = 200L,
+        headers = list(
+          "Content-Type" = paste0(serve_content_type("json"), "; charset=UTF-8")
+        ),
+        body = charToRaw(enc2utf8(
+          jsonlite::toJSON(results, auto_unbox = TRUE, digits = NA, simplifyVector = TRUE)
         ))
       )
     },

@@ -21,20 +21,20 @@ mlflow_cli <- function(...,
   env <- if (is.null(client)) list() else client$get_cli_env()
   args <- list(...)
   verbose <- mlflow_is_verbose()
-
   python <- dirname(python_bin())
   mlflow_bin <- python_mlflow_bin()
   env <- modifyList(list(
     PATH = paste(python, Sys.getenv("PATH"), sep = ":"),
     MLFLOW_CONDA_HOME = python_conda_home(),
-    MLFLOW_TRACKING_URI = mlflow_get_tracking_uri()
+    MLFLOW_TRACKING_URI = mlflow_get_tracking_uri(),
+    MLFLOW_BIN = mlflow_bin,
+    MLFLOW_PYTHON_BIN = python_bin()
   ), env)
   if (is.null(stderr_callback)) {
     stderr_callback <- function(x, p) {
       cat(x, file = stderr())
     }
   }
-
   with_envvar(env, {
     if (background) {
       result <- process$new(mlflow_bin, args = unlist(args), echo_cmd = verbose, supervise = TRUE)
