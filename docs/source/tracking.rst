@@ -122,7 +122,7 @@ multiple metrics at once.
 :py:func:`mlflow.set_tag` sets a single key-value tag in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.set_tags` to set multiple tags at once.
 
-:py:func:`mlflow.log_artifact` logs a local file as an artifact, optionally taking an
+:py:func:`mlflow.log_artifact` logs a local file or directory as an artifact, optionally taking an
 ``artifact_path`` to place it in within the run's artifact URI. Run artifacts can be organized into
 directories, so you can place the artifact in a directory this way.
 

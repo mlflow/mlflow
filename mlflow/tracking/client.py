@@ -5,6 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import time
+import os
 from six import iteritems
 
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
@@ -233,14 +234,20 @@ class MlflowClient(object):
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
-        Write a local file to the remote ``artifact_uri``.
+        Write a local file or directory to the remote ``artifact_uri``.
 
-        :param local_path: Path to the file to write.
+        :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.log_artifact(local_path, artifact_path)
+        if os.path.isdir(local_path):
+            dir_name = os.path.basename(os.path.normpath(local_path))
+            path_name = os.path.join(artifact_path, dir_name) \
+                if artifact_path is not None else dir_name
+            artifact_repo.log_artifacts(local_path, path_name)
+        else:
+            artifact_repo.log_artifact(local_path, artifact_path)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """

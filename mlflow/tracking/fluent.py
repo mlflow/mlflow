@@ -257,7 +257,7 @@ def set_tags(tags):
 
 def log_artifact(local_path, artifact_path=None):
     """
-    Log a local file as an artifact of the currently active run.
+    Log a local file or directory as an artifact of the currently active run.
 
     :param local_path: Path to the file to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
