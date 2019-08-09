@@ -399,7 +399,8 @@ def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
         mlflow.log_artifact(art_dir)
         base = os.path.basename(art_dir)
         assert os.listdir(run_artifact_dir) == [base]
-        assert os.listdir(os.path.join(run_artifact_dir, base)) == ['file0', 'file1', 'child']
+        assert set(os.listdir(os.path.join(run_artifact_dir, base))) == \
+            {'child', 'file0', 'file1'}
         with open(os.path.join(run_artifact_dir, base, "file0")) as f:
             assert f.read() == "something"
     # Test log artifact with directory and specified parent folder
