@@ -6,8 +6,8 @@
 #' functionality to ``mlflow models serve`` cli command, however, it can only be used to deploy
 #' models that include RFunc flavor. The deployed server supports standard mlflow models interface
 #' with /ping and /invocation endpoints. In addition, R function models also support deprecated
-#' /predict endpoint for generating predictions. The /predict endpoint will be removed in the future
-#' versions of mlflow.
+#' /predict endpoint for generating predictions. The /predict endpoint will be removed in a future
+#' version of mlflow.
 #'
 #' @template roxlate-model-uri
 #' @param host Address to use to serve model, as a string.
@@ -188,7 +188,7 @@ serve_handlers <- function(host, port, ...) {
         "application/json; format=pandas-records" = parse_json(data_raw, "records"),
         "application/json-numpy-split" = parse_json(data_raw, "split"),
         "application/json" = parse_json(data_raw, "split"),
-        "text/csv" = utils::read.csv(text = data_raw),
+        "text/csv" = utils::read.csv(text = data_raw, stringsAsFactors = FALSE),
         stop("Unsupported input format.")
       )
       results <- mlflow_predict(model, df, ...)
