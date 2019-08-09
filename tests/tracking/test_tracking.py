@@ -421,8 +421,8 @@ def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
             [os.path.basename(str(art_dir))]
         assert os.listdir(os.path.join(run_artifact_dir,
                                        "parent", "and_child",
-                                       os.path.basename(art_dir))) == \
-            [os.path.basename(str(art_dir))]
+                                       os.path.basename(str(art_dir)))) == \
+            [os.path.basename(str(sub_dir))]
 
 
 def test_log_artifact(tracking_uri_mock):
