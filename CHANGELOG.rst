@@ -17,7 +17,7 @@ MLflow 1.2 includes the following major features and improvements:
 
 - [Tracking] The Autologging integration is now more resilient to tracking errors (#1690, @apurva-koti)
 - [Tracking] The ``runs`` field in in the ``GetExperiment.Response`` proto has been deprecated. Please use the ``Search Runs`` API for fetching runs instead (#1647, @dbczumar)
-- [Projects] Fixed a bug that prevented MLflow Projects from logging to the ``LocalArtifactRepository`` (#1450, @nlaille)
+- [Projects] Fixed a bug that prevented MLflow Projects from logging artifacts to the ``LocalArtifactRepository`` (#1450, @nlaille)
 - [Projects] Running MLflow projects with the ``--no-conda`` flag in R no longer requires Anaconda to be installed (#1650, @spadarian)
 - [Models/Scoring] Fix Spark bug loading Spark UDFs on Databricks (#1658, @smurching)
 - [UI] AJAX requests made by the MLFlow Server Frontend now specify correct MIME-Types (#1679, @ynotzort)
