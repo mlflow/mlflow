@@ -7,9 +7,9 @@ sudo chown travis /travis-install
 # We do this conditionally because it saves us some downloading if the
 # version is the same.
 if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
-  wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+  wget https://repo.continuum.io/miniconda/Miniconda2-4.7.10-Linux-x86_64.sh -O /travis-install/miniconda.sh;
 else
-  wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /travis-install/miniconda.sh;
+  wget https://repo.continuum.io/miniconda/Miniconda3-4.7.10-Linux-x86_64.sh -O /travis-install/miniconda.sh;
 fi
 
 bash /travis-install/miniconda.sh -b -p $HOME/miniconda
@@ -29,7 +29,6 @@ fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   pip install -r ./travis/large-requirements.txt
 fi
-pip install "pandas<0.25.0"
 pip install .
 export MLFLOW_HOME=$(pwd)
 # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
