@@ -76,6 +76,14 @@ def test_load_docker_project(tmpdir):
     assert project.docker_env.get("image") == "some-image"
 
 
+def test_validate_conda_env_path(tmpdir):
+    nonexistent_file = 'nonexistent_conda_path.yaml'
+    with pytest.raises(ExecutionException) as e:
+        _project_spec.validate_conda_env_path(nonexistent_file)
+    expected_error_msg = "conda environment file {} not found".format(nonexistent_file)
+    assert expected_error_msg in str(e)
+
+
 bad_ml_project_file_test_cases = (
     # bad sub-entries at various points
     (
