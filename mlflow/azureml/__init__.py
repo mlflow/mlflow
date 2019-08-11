@@ -62,7 +62,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     :param description: A string description to associate with the Azure Container Image and the
                         Azure Model that will be created. For more information, see
                         `<https://docs.microsoft.com/en-us/python/api/azureml-core/
-                        azureml.core.image.container.containerimageconfig>`_ and
+                        azureml.core.image.container.containerimageconfig?view=azure-ml-py>`_ and
                         `<https://docs.microsoft.com/en-us/python/api/azureml-core/
                         azureml.core.model.model?view=azure-ml-py#register>`_.
     :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to
@@ -70,7 +70,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
                  These tags are added to a set of default tags that include the model uri,
                  and more. For more information, see
                  `<https://docs.microsoft.com/en-us/python/api/azureml-core/
-                 azureml.core.image.container.containerimageconfig>`_ and
+                 azureml.core.image.container.containerimageconfig?view-azure-ml-py>`_ and
                  `<https://docs.microsoft.com/en-us/python/api/azureml-core/
                  azureml.core.model.model?view=azure-ml-py#register>`_.
     :param synchronous: If ``True``, this method blocks until the image creation procedure

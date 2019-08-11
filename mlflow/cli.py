@@ -173,7 +173,7 @@ def ui(backend_store_uri, default_artifact_root, port):
     Launch the MLflow tracking UI for local viewing of run results. To launch a production
     server, use the "mlflow server" command instead.
 
-    The UI will be visible at http://localhost:5000 by default.
+    The UI will be visible at ``http://localhost:5000`` by default.
     """
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
@@ -242,9 +242,10 @@ def server(backend_store_uri, default_artifact_root, host, port,
     """
     Run the MLflow tracking server.
 
-    The server which listen on http://localhost:5000 by default, and only accept connections from
-    the local machine. To let the server accept connections from other machines, you will need to
-    pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
+    The server which listen on ``http://localhost:5000`` by default, and only accept connections 
+    from the local machine. To let the server accept connections from other machines, you will need
+    to pass ``--host 0.0.0.0`` to listen on all network interfaces
+    (or a specific interface address).
     """
 
     _validate_server_args(gunicorn_opts=gunicorn_opts, workers=workers, waitress_opts=waitress_opts)

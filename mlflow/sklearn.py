@@ -2,7 +2,7 @@
 The ``mlflow.sklearn`` module provides an API for logging and loading scikit-learn models. This
 module exports scikit-learn models with the following flavors:
 
-Python (native) `pickle <http://scikit-learn.org/stable/modules/model_persistence.html>`_ format
+Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persistence.html>`_ format
     This is the main flavor that can be loaded back into scikit-learn.
 
 :py:mod:`mlflow.pyfunc`
