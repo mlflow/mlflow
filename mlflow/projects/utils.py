@@ -45,7 +45,7 @@ def _validate_entries_are_allowed(yaml_level, present_entries, allowed_entries):
     """helper to validate that entry keys are in an allowable set"""
     for k in present_entries:
         if k not in allowed_entries:
-            message = "{} item {} not one of allowed keys {}"\
+            message = "{} entry {} not one of allowed entries {{{}}}"\
                 .format(yaml_level, k, ', '.join(allowed_entries))
             raise ExecutionException(BAD_MLPROJECT_MESSAGE.format(message))
 
