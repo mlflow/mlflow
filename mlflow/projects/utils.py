@@ -107,7 +107,7 @@ def _validate_conda_env_yaml(conda_env_yaml):
     if not isinstance(conda_env_yaml, str):
         bad_conda_env_message = (
             "conda_env should be a string representing the relative path to a "
-            "Conda environment YAML file in the MLflow project’s directory"
+            "Conda environment YAML file in the MLflow project's directory"
         )
         raise ExecutionException(BAD_MLPROJECT_MESSAGE.format(bad_conda_env_message))
 
