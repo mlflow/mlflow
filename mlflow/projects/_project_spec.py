@@ -8,6 +8,7 @@ from six.moves import shlex_quote
 
 from mlflow import data
 from mlflow.exceptions import ExecutionException
+from mlflow.projects.utils import validate_project_yaml
 from mlflow.utils.file_utils import get_local_path_or_none
 
 
@@ -17,10 +18,10 @@ DEFAULT_CONDA_FILE_NAME = "conda.yaml"
 
 def load_project(directory):
     mlproject_path = os.path.join(directory, MLPROJECT_FILE_NAME)
-    # TODO: Validate structure of YAML loaded from the file
     if os.path.exists(mlproject_path):
         with open(mlproject_path) as mlproject_file:
             yaml_obj = yaml.safe_load(mlproject_file.read())
+        validate_project_yaml(yaml_obj)
     else:
         yaml_obj = {}
     project_name = yaml_obj.get("name")
