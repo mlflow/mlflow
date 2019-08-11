@@ -305,3 +305,10 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+# Enable nitpicky mode to log warnings for broken references
+nitpicky = True
+nitpick_ignore = [
+    ('py:class', 'object'),
+    # ('py:class', 'mlflow.entities._mlflow_object._MLflowObject'),
+]
