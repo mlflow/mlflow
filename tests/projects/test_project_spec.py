@@ -41,7 +41,6 @@ def test_project_get_unspecified_entry_point():
 
 @pytest.mark.parametrize("mlproject, conda_env_path, conda_env_contents", [
     (None, None, ""),
-    ("key: value", "conda.yaml", "hi"),
     ("conda_env: some-env.yaml", "some-env.yaml", "hi")
 ])
 def test_load_project(tmpdir, mlproject, conda_env_path, conda_env_contents):
@@ -82,11 +81,11 @@ def test_load_docker_project(tmpdir):
     docker_env:
         image: some-image
     conda_env: some-file.yaml
-    """), "cannot contain both a docker and conda env"),
+    """), "Invalid MLproject file:"),
     (textwrap.dedent("""
     docker_env:
         not-image-attribute: blah
-    """), "no image attribute found"),
+    """), "Invalid MLproject file:"),
 ])
 def test_load_invalid_project(tmpdir, invalid_project_contents, expected_error_msg):
     tmpdir.join("MLproject").write(invalid_project_contents)
