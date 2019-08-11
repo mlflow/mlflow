@@ -1,7 +1,17 @@
+import os
+
 from mlflow.exceptions import ExecutionException
 
 MLPROJECT_PARAMETER_TYPES = ('string', 'float', 'path', 'uri')
 BAD_MLPROJECT_MESSAGE = "Invalid MLproject file: %s"
+
+
+def validate_conda_env_path(path):
+    if not os.path.exists(path):
+        bad_conda_path_message = "conda environment file {} not found".format(path)
+        raise ExecutionException(
+            BAD_MLPROJECT_MESSAGE.format(bad_conda_path_message)
+        )
 
 
 def validate_project_yaml(project_yaml):

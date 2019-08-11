@@ -8,7 +8,7 @@ from six.moves import shlex_quote
 
 from mlflow import data
 from mlflow.exceptions import ExecutionException
-from mlflow.projects.utils import validate_project_yaml
+from mlflow.projects.utils import validate_conda_env_path, validate_project_yaml
 from mlflow.utils.file_utils import get_local_path_or_none
 
 
@@ -38,9 +38,7 @@ def load_project(directory):
 
     if conda_path:
         conda_env_path = os.path.join(directory, conda_path)
-        if not os.path.exists(conda_env_path):
-            raise ExecutionException("Project specified conda environment file %s, but no such "
-                                     "file was found." % conda_env_path)
+        validate_conda_env_path(conda_env_path)
         return Project(conda_env_path=conda_env_path, entry_points=entry_points,
                        docker_env=docker_env, name=project_name,)
 
