@@ -3,7 +3,7 @@ import os
 from mlflow.exceptions import ExecutionException
 
 MLPROJECT_PARAMETER_TYPES = ('string', 'float', 'path', 'uri')
-BAD_MLPROJECT_MESSAGE = "Invalid MLproject file: %s"
+BAD_MLPROJECT_MESSAGE = "Invalid MLproject file: {}"
 
 
 def validate_conda_env_path(path):
@@ -70,7 +70,7 @@ def _validate_entry_point_parameter_yaml(entry_point_name, parameter_name, param
     """helper to validate parameter yaml within an entry point"""
     parameter_allowed_entries = ('type', 'default')
 
-    # define this here so we can provide a more informative error message
+    # define this here so we can provide a more informative message
     def check_parameter_type(attempted_type):
         if attempted_type not in MLPROJECT_PARAMETER_TYPES:
             unsupported_parameter_type_message = (
