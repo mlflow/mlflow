@@ -29,6 +29,7 @@ fi
 if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
   pip install -r ./travis/large-requirements.txt
 fi
+pip install "pandas<0.25.0"
 pip install .
 export MLFLOW_HOME=$(pwd)
 # Remove boto config present in Travis VMs (https://github.com/travis-ci/travis-ci/issues/7940)
