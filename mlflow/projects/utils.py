@@ -100,16 +100,16 @@ def _validate_entry_point_parameter_yaml(entry_point_name, parameter_name, param
 
 
 def _validate_docker_env_yaml(docker_env_yaml):
-    docker_env_entries = docker_env_yaml.keys()
-    _validate_entries_are_allowed('docker env', docker_env_entries, ('image',))
 
-    # TODO: make this condition more specific
-    if not isinstance(docker_env_yaml.get('image'), str):
-        missing_image_entry_message = (
+    if not isinstance(docker_env_yaml, dict) or not isinstance(docker_env_yaml.get('image'), str):
+        bad_docker_entry_message = (
             "docker_env must have an 'image' entry representing a Docker image "
             "that is accessible on the system executing the project"
         )
-        raise ExecutionException(BAD_MLPROJECT_MESSAGE.format(missing_image_entry_message))
+        raise ExecutionException(BAD_MLPROJECT_MESSAGE.format(bad_docker_entry_message))
+
+    docker_env_entries = docker_env_yaml.keys()
+    _validate_entries_are_allowed('docker env', docker_env_entries, ('image',))
 
 
 def _validate_conda_env_yaml(conda_env_yaml):

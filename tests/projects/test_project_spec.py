@@ -86,6 +86,9 @@ def test_load_docker_project(tmpdir):
     docker_env:
         not-image-attribute: blah
     """), "Invalid MLproject file:"),
+    (textwrap.dedent("""
+    docker_env: blah
+    """), "Invalid MLproject file:"),
 ])
 def test_load_invalid_project(tmpdir, invalid_project_contents, expected_error_msg):
     tmpdir.join("MLproject").write(invalid_project_contents)
