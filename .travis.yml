@@ -137,3 +137,4 @@ notifications:
         7rzw6+BBe11y9g8p2yiZGKxzWDUDHseAzZllUeUfEAsr1aeG7R4y1do="
     on_success: "change"
     on_failure: "always"
+    on_pull_requests: false
