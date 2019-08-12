@@ -18,7 +18,11 @@ hash -r
 conda config --set always_yes yes --set changeps1 no
 # Useful for debugging any issues with conda
 conda info -a
-conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
+if [[ -n "$TRAVIS_PYTHON_VERSION" ]]; then
+  conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION
+else
+  conda create -q -n test-environment python=3.6
+fi
 source activate test-environment
 python --version
 pip install --upgrade pip
