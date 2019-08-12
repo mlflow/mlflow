@@ -15,9 +15,9 @@ MLflow 1.2 includes the following major features and improvements:
 
 **Bug fixes and documentation updates**
 
-- [Tracking] The Autologging integration is now more resilient to tracking errors (#1690, @apurva-koti)
-- [Tracking] The ``runs`` field in in the ``GetExperiment.Response`` proto has been deprecated. Please use the ``Search Runs`` API for fetching runs instead (#1647, @dbczumar)
-- [Projects] Fixed a bug that prevented MLflow Projects from logging artifacts to the ``LocalArtifactRepository`` (#1450, @nlaille)
+- [Tracking] The Autologging feature is now more resilient to tracking errors (#1690, @apurva-koti)
+- [Tracking] The ``runs`` field in in the ``GetExperiment.Response`` proto has been deprecated & will be removed in MLflow 2.0. Please use the ``Search Runs`` API for fetching runs instead (#1647, @dbczumar)
+- [Projects] Fixed a bug that prevented docker-based MLflow Projects from logging artifacts to the ``LocalArtifactRepository`` (#1450, @nlaille)
 - [Projects] Running MLflow projects with the ``--no-conda`` flag in R no longer requires Anaconda to be installed (#1650, @spadarian)
 - [Models/Scoring] Fixed a bug that prevented Spark UDFs from being loaded on Databricks (#1658, @smurching)
 - [UI] AJAX requests made by the MLFlow Server Frontend now specify correct MIME-Types (#1679, @ynotzort)
@@ -60,7 +60,7 @@ In MLflow Models:
 - Update ``mlflow.spark.log_model()`` to accept descendants of pyspark.Model (#1519, @ankitmathur-db)
 - Support for saving custom Keras models with ``custom_objects``. This field is semantically equivalent to custom_objects parameter of ``keras.models.load_model()`` function (#1525, @ankitmathur-db)
 - New more performant split orient based input format for pyfunc scoring server (#1479, @lennon310)
-- Ability to specify gunicorn options for pyfunc scoring server built with `mlflow models build-docker`. #1428, @lennon310)
+- Ability to specify gunicorn server options for pyfunc scoring server built with `mlflow models build-docker`. #1428, @lennon310)
 
 **Bug fixes and documentation updates**
 
