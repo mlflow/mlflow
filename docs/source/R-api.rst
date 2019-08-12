@@ -32,6 +32,13 @@ install_mlflow() requires Python and Conda to be installed. See
 https://www.python.org/getit/ and
 https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
 
+Alternatively, you can set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment
+variables instead. MLFLOW_PYTHON_BIN should poitn to python executable
+and MLFLOW_BIN to mlflow cli executable. These variables allow you to
+use custom mlflow installation. Note that there may be some
+compatibility issues if the custom mlflow version does not match the
+version of the R package.
+
 Examples
 --------
 
@@ -1055,7 +1062,13 @@ Arguments
 
 Serve an RFunc MLflow Model
 
-Serves an RFunc MLflow model as a local web API.
+Serves an RFunc MLflow model as a local REST API server. This interface
+provides similar functionality to ``mlflow models serve`` cli command,
+however, it can only be used to deploy models that include RFunc flavor.
+The deployed server supports standard mlflow models interface with /ping
+and /invocation endpoints. In addition, R function models also support
+deprecated /predict endpoint for generating predictions. The /predict
+endpoint will be removed in a future version of mlflow.
 
 .. code:: r
 
