@@ -3,7 +3,7 @@
 set -ex
 pushd ../mlflow/R/mlflow
 Rscript -e 'install.packages("devtools", repos = "https://cloud.r-project.org")'
-# Rscript -e 'devtools::install_dev_deps(dependencies = TRUE)'
+Rscript -e 'devtools::install_dev_deps(dependencies = TRUE)'
 # Install Rd2md from source as a temporary fix for the rendering of code examples, until
 # a release is published including the fixes in https://github.com/quantsch/Rd2md/issues/1
 # Note that this commit is equivalent to commit 6b48255 of Rd2md master
