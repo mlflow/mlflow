@@ -70,7 +70,9 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
     if experiment_name and experiment_id:
         raise MlflowException("Specify only one of 'experiment_name' or 'experiment_id'.")
 
-    exp_id = experiment_id
+    if experiment_id:
+        return experiment_id
+
     if experiment_name:
         client = tracking.MlflowClient()
         exp = client.get_experiment_by_name(experiment_name)
@@ -79,7 +81,8 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
         else:
             print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
             return client.create_experiment(experiment_name)
-    return exp_id or _get_experiment_id()
+
+    return _get_experiment_id()
 
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
