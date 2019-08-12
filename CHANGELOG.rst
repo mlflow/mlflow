@@ -12,6 +12,8 @@ MLflow 1.2 includes the following major features and improvements:
 - [Tracking] Backend stores now support run tag values up to 5000 characters in length. Some store implementations may support longer tag values (#1687, @ankitmathur-db)
 - [Scoring] Gunicorn options can now be configured for the ``mlflow models serve`` CLI with the ``GUNICORN_CMD_ARGS`` environment variable (#1557, @LarsDu)
 - [UI] Jsonnet artifacts can now be previewed in the UI (#1683, @ankitmathur-db)
+- [R] Adds an optional ``python_version`` argument to ``mlflow_install`` for specifying the Python version (e.g. "3.5") to use within the conda environment created for installing the MLflow CLI. If ``python_version`` is unspecified, ``mlflow_install`` defaults to using Python 3.6. (#1722, @smurching)
+
 
 **Bug fixes and documentation updates**
 
@@ -24,8 +26,10 @@ MLflow 1.2 includes the following major features and improvements:
 - [UI] Previews now render correctly for artifacts with uppercase file extensions (e.g., ``.JSON``, ``.YAML``) (#1664, @ankitmathur-db)
 - [UI] Fixed a bug that caused search API errors to surface a Niagara Falls page (#1681, @dbczumar)
 - [Installation] MLflow dependencies are now selected properly based on the target installation platform (#1643, @akshaya-a)
+- [UI] Fixed a bug where the "load more" button in the experiment view did not appear on browsers in Windows (#1718, @Zangr)
 
-Small bug fixes and doc updates (#1663, @dbczumar; #1693, @max-allen-db; #1695, #1659, @smurching; #1675, @jdlesage; #1699, @ankitmathur-db; #1696, @aarondav; #1710, #1700, #1656, @apurva-koti)
+
+Small bug fixes and doc updates (#1663, #1719, @dbczumar; #1693, @max-allen-db; #1695, #1659, @smurching; #1675, @jdlesage; #1699, @ankitmathur-db; #1696, @aarondav; #1710, #1700, #1656, @apurva-koti)
 
 
 1.1 (2019-07-22)
