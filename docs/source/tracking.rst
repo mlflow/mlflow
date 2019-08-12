@@ -208,8 +208,8 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 Automatic Logging from TensorFlow and Keras (experimental)
 ==================================================================
 Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
-log statements. See example usages with `Keras <http://www.github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
-`TensorFlow <http://www.github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_. 
+log statements. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
+`TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_. 
 
 Autologging captures the following information:
 
