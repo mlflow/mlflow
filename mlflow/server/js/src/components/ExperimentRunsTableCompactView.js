@@ -610,7 +610,7 @@ class ExperimentRunsTableCompactView extends React.Component {
       scrollTop: grid.state.scrollTop,
     };
     const isRunsListShort = scrollHeight < clientHeight;
-    const isAtScrollBottom = isRunsListShort || (clientHeight + scrollTop === scrollHeight);
+    const isAtScrollBottom = isRunsListShort || (clientHeight + scrollTop >= scrollHeight);
     this.setState({ isAtScrollBottom });
   }, 100);
 }
