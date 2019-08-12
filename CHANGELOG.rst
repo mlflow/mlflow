@@ -9,10 +9,10 @@ MLflow 1.2 includes the following major features and improvements:
 
 **More features and improvements**
 
-- [Tracking] Backend stores now support run tag values up to 5000 characters in length. Some store implementations may support longer tag values (#1687, @ankitmathur-db)
-- [Scoring] Gunicorn options can now be configured for the ``mlflow models serve`` CLI with the ``GUNICORN_CMD_ARGS`` environment variable (#1557, @LarsDu)
-- [UI] Jsonnet artifacts can now be previewed in the UI (#1683, @ankitmathur-db)
-- [R] Adds an optional ``python_version`` argument to ``mlflow_install`` for specifying the Python version (e.g. "3.5") to use within the conda environment created for installing the MLflow CLI. If ``python_version`` is unspecified, ``mlflow_install`` defaults to using Python 3.6. (#1722, @smurching)
+- Backend stores now support run tag values up to 5000 characters in length. Some store implementations may support longer tag values (#1687, @ankitmathur-db)
+- Gunicorn options can now be configured for the ``mlflow models serve`` CLI with the ``GUNICORN_CMD_ARGS`` environment variable (#1557, @LarsDu)
+- Jsonnet artifacts can now be previewed in the UI (#1683, @ankitmathur-db)
+- Adds an optional ``python_version`` argument to ``mlflow_install`` for specifying the Python version (e.g. "3.5") to use within the conda environment created for installing the MLflow CLI. If ``python_version`` is unspecified, ``mlflow_install`` defaults to using Python 3.6. (#1722, @smurching)
 
 
 **Bug fixes and documentation updates**
