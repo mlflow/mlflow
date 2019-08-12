@@ -4,7 +4,7 @@
 R API
 ========
 
-The MLflow `R <https://www.r-project.org/about.html/>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
+The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
 You can use the R API to `install MLflow <install_mlflow_>`_, start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `list experiments <mlflow_list_experiments_>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
 
@@ -31,6 +31,13 @@ Details
 install_mlflow() requires Python and Conda to be installed. See
 https://www.python.org/getit/ and
 https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
+
+Alternatively, you can set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment
+variables instead. MLFLOW_PYTHON_BIN should point to python executable
+and MLFLOW_BIN to mlflow cli executable. These variables allow you to
+use custom mlflow installation. Note that there may be some
+compatibility issues if the custom mlflow version does not match the
+version of the R package.
 
 Examples
 --------
@@ -621,7 +628,7 @@ following are examples of valid model uris:
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
-https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores.
+https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
 
 ``mlflow_log_artifact``
 =======================
@@ -1055,7 +1062,13 @@ Arguments
 
 Serve an RFunc MLflow Model
 
-Serves an RFunc MLflow model as a local web API.
+Serves an RFunc MLflow model as a local REST API server. This interface
+provides similar functionality to ``mlflow models serve`` cli command,
+however, it can only be used to deploy models that include RFunc flavor.
+The deployed server supports standard mlflow models interface with /ping
+and /invocation endpoints. In addition, R function models also support
+deprecated /predict endpoint for generating predictions. The /predict
+endpoint will be removed in a future version of mlflow.
 
 .. code:: r
 
@@ -1111,7 +1124,7 @@ following are examples of valid model uris:
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
-https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores.
+https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
 
 .. _examples-2:
 
@@ -1137,7 +1150,7 @@ Examples
 Run an MLflow Project
 
 Wrapper for the ``mlflow run`` CLI command. See
-https://www.mlflow.org/docs/latest/cli.html#run for more info.
+https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
 
 .. code:: r
 
