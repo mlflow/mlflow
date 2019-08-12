@@ -242,7 +242,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
     """
     Run the MLflow tracking server.
 
-    The server which listen on http://localhost:5000 by default, and only accept connections 
+    The server which listen on http://localhost:5000 by default, and only accept connections
     from the local machine. To let the server accept connections from other machines, you will need
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
