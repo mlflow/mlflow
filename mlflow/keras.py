@@ -341,7 +341,7 @@ def load_model(model_uri, **kwargs):
 @experimental
 def autolog():
     """
-    Enable automatic logging from TensorFlow to MLflow.
+    Enable automatic logging from Keras to MLflow.
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
