@@ -99,7 +99,7 @@ You can then run MLflow's Tracking UI:
 
         mlflow_ui()
 
-and view it at `<http://localhost:5000>`_.
+and view it at http://localhost:5000.
 
 .. note::
     If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.

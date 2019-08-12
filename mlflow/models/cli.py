@@ -34,7 +34,7 @@ def serve(model_uri, port, host, workers, no_conda=False, install_mlflow=False):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port. For
     information about the input data formats accepted by the webserver, see the following
-    documentation: https://www.mlflow.org/docs/latest/models.html#model-deployment.
+    documentation: https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
     You can make requests to ``POST /invocations`` in pandas split- or record-oriented formats.
 
@@ -79,7 +79,7 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
     """
     Generate predictions in json format using a saved MLflow model. For information about the input
     data formats accepted by this function, see the following documentation:
-    https://www.mlflow.org/docs/latest/models.html#model-deployment.
+    https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
     """
     if content_type == "json" and json_format not in ("split", "records"):
         raise Exception("Unsupported json format '{}'.".format(json_format))

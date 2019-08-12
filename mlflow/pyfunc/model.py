@@ -97,8 +97,8 @@ class PythonModelContext(object):
     @property
     def artifacts(self):
         """
-        :return: A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path``
-                 is an absolute filesystem path to the artifact.
+        A dictionary containing ``<name, artifact_path>`` entries, where ``artifact_path`` is an
+        absolute filesystem path to the artifact.
         """
         return self._artifacts
 

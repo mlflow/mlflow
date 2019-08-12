@@ -361,7 +361,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                       artifact-locations>`_.
 
     :param result_type: the return type of the user-defined function. The value can be either a
-        :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string. Only a primitive
+        ``pyspark.sql.types.DataType`` object or a DDL-formatted type string. Only a primitive
         type or an array ``pyspark.sql.types.ArrayType`` of primitive type are allowed.
         The following classes of result type are supported:
 

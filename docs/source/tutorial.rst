@@ -133,7 +133,7 @@ as the one that contains the ``mlruns`` run:
 
         mlflow_ui()
 
-and view it at `<http://localhost:5000>`_.
+and view it at http://localhost:5000.
 
 On this page, you can see a list of experiment runs with metrics you can use to compare the models.
 

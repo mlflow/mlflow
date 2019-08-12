@@ -181,6 +181,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                       :func:`mlflow.keras.get_default_conda_env()` environment is added to
                       the model. The following is an *example* dictionary representation of a
                       Conda environment::
+
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
@@ -190,6 +191,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                                 'tensorflow=1.8.0'
                             ]
                         }
+
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
                            these custom layers using CloudPickle and restores them automatically

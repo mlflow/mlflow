@@ -26,7 +26,7 @@ def commands():
 @click.option("--artifact-location", "-l",
               help="Base location for runs to store artifact results. Artifacts will be stored "
                    "at $artifact_location/$run_id/artifacts. See "
-                   "https://mlflow.org/docs/latest/tracking.html#where-runs-get-recorded for "
+                   "https://mlflow.org/docs/latest/tracking.html#where-runs-are-recorded for "
                    "more info on the properties of artifact location. "
                    "If no location is provided, the tracking server will pick a default.")
 def create(experiment_name, artifact_location):
