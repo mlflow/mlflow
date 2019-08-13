@@ -11,7 +11,7 @@ import pytest
 
 import mlflow
 
-from mlflow.entities import RunStatus, ViewType, Experiment, SourceType
+from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env

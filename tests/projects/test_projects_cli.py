@@ -126,4 +126,3 @@ def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
     with pytest.raises(MlflowException,
                        match="Specify only one of 'experiment_name' or 'experiment_id'."):
         _resolve_experiment_id(experiment_name='experiment_named', experiment_id="44")
-
