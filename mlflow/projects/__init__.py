@@ -64,14 +64,14 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
     :param experiment_name: Name of experiment under which to launch the run.
     :param experiment_id: ID of experiment under which to launch the run.
-    :return: int
+    :return: str
     """
 
     if experiment_name and experiment_id:
         raise MlflowException("Specify only one of 'experiment_name' or 'experiment_id'.")
 
     if experiment_id:
-        return experiment_id
+        return str(experiment_id)
 
     if experiment_name:
         client = tracking.MlflowClient()
