@@ -8,10 +8,11 @@ from six.moves import urllib
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact_repository_registry import get_artifact_repository, \
-    get_artifact_repository_type
+    get_artifact_repository_type, ArtifactRepositoryType
 from mlflow.tracking.utils import _get_store
 from mlflow.utils.validation import _validate_db_type_string
 from mlflow.store.db_artifact_repo import extract_db_uri_and_path
+
 _INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html for " \
                       "format specifications."
 
@@ -59,7 +60,7 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
                         a local output path will be created.
     """
     artifact_repo_type = get_artifact_repository_type(artifact_uri)
-    if artifact_repo_type == 'filesystem':
+    if artifact_repo_type == ArtifactRepositoryType.FileSystem:
         parsed_uri = urllib.parse.urlparse(artifact_uri)
         prefix = ""
         if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
@@ -103,6 +104,3 @@ def extract_db_uri_and_artifact_path_from_uri(artifact_uri):
     _validate_db_type_string(db_type)
 
     return extract_db_uri_and_path(artifact_uri)
-
-
-

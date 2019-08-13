@@ -14,6 +14,12 @@ from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.db_artifact_repo import DBArtifactRepository
 
 from mlflow.utils import get_uri_scheme
+from enum import Enum
+
+
+class ArtifactRepositoryType(Enum):
+    DB = 1
+    FileSystem = 2
 
 
 class ArtifactRepositoryRegistry:
@@ -93,9 +99,9 @@ _artifact_repository_registry.register_entrypoints()
 def get_artifact_repository_type(artifact_uri):
     scheme = get_uri_scheme(artifact_uri)
     if scheme == 'sqlite' or scheme == 'mssql':
-        return "db"
+        return ArtifactRepositoryType.DB
     else:
-        return "filesystem"
+        return ArtifactRepositoryType.FileSystem
 
 
 def get_artifact_repository(artifact_uri):
