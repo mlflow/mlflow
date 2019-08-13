@@ -59,7 +59,7 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
     Verifies either one or other is specified - cannot be both selected.
 
-    If `experiment_name` is provided and does not exist, an experiment
+    If ``experiment_name`` is provided and does not exist, an experiment
     of that name is created and its id is returned.
 
     :param experiment_name: Name of experiment under which to launch the run.
