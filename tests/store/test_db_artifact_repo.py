@@ -10,10 +10,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 import mlflow
 import posixpath
 
-# DB_URI = 'sqlite:///'
-
-
-DB_URI = "mssql+pyodbc://sqluser:Mlflow2019@microsoft@sqltestml.database.windows.net:1433/mlflow_test?driver=ODBC+Driver+17+for+SQL+Server"
+DB_URI = 'sqlite:///'
 
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase):
@@ -23,12 +20,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def setUp(self):
         self.maxDiff = None  # print all differences on assert failures
-        # fd, self.temp_dbfile = tempfile.mkstemp()
+        fd, self.temp_dbfile = tempfile.mkstemp()
         # Close handle immediately so that we can remove the file later on in Windows
-        # os.close(fd)
-        # self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
-        # print(self.db_url)
-        self.db_url = DB_URI
+        os.close(fd)
+        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
         self.store = self._get_store(self.db_url)
 
     def tearDown(self):
@@ -204,25 +199,3 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             local_path = self.store.download_artifacts(artifact_path='artifact')
             assert open(
                 os.path.join(local_path, "file_one.txt")).read() == 'DB store Test One'
-
-    def test_artifact_can_be_downloaded_from_absolute_uri_successfully(self):
-        artifact_file_name = "artifact.txt"
-        artifact_text = "Sample artifact text"
-        with TempDir() as root_dir:
-            with open(root_dir.path(artifact_file_name), "w") as f:
-                f.write(artifact_text)
-
-            # with mlflow.start_run():
-            #     mlflow.log_artifact(local_path=root_dir.path(artifact_file_name),
-            #                         artifact_path=self.db_url)
-            #     artifact_uri = mlflow.get_artifact_uri(artifact_path=self.db_url)
-
-            self.store.log_artifacts(root_dir._path, 'artifact')
-            # path = self.store.download_artifacts(artifact_path='artifact')
-
-            path = _download_artifact_from_uri(posixpath.join(self.db_url, "artifact"))
-            print("path ", path)
-            downloaded_artifact_path = os.path.join(path, artifact_file_name)
-            print("downloaded ", os.path.join(path, artifact_file_name))
-            assert open(
-                downloaded_artifact_path).read() == artifact_text

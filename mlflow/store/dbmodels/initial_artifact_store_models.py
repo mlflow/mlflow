@@ -24,32 +24,26 @@ class SqlArtifact(Base):
     DB model for :py:class:`mlflow.entities.Artifact`. These are recorded in ``artifact`` table.
     """
     __tablename__ = 'artifacts'
-
     artifact_id = Column(Integer, autoincrement=True)
     """
     Artifact ID: `Integer`. *Primary Key* for ``artifact`` table.
     """
-
     artifact_name = Column(String(256), nullable=False)
     """
     Artifact Name: ``String` (limit 256 characters).
     """
-
     group_path = Column(String(256), nullable=False)
     """
-    Group path: `String` (limit 256 characters). 
+    Group path: `String` (limit 256 characters).
     """
-
     artifact_content = Column(VARBINARY, nullable=False)
     """
     Artifact : `VarBinary`. Defined as *Non null* in table schema.
     """
-
     artifact_initial_size = Column(BigInteger, nullable=True)
     """
     Artifact Initial Size : `BigInteger`. Defined as *null* in table schema.
     """
-
     __table_args__ = (
         PrimaryKeyConstraint('artifact_id', name='artifact_pk'),
     )

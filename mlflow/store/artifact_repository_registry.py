@@ -67,7 +67,6 @@ class ArtifactRepositoryRegistry:
         """
         scheme = get_uri_scheme(artifact_uri)
         repository = self._registry.get(scheme)
-        print("Repository ", repository)
         if repository is None:
             raise MlflowException(
                 "Could not find a registered artifact repository for: {}. "

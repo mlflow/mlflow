@@ -75,7 +75,6 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
             artifact_path=artifact_path, dst_path=output_path)
     else:
         db_uri, artifact_path = extract_db_uri_and_artifact_path_from_uri(artifact_uri)
-        print(db_uri, artifact_path)
         return get_artifact_repository(artifact_uri=db_uri).download_artifacts(
             artifact_path=artifact_path, dst_path=output_path)
 
@@ -100,7 +99,5 @@ def extract_db_uri_and_artifact_path_from_uri(artifact_uri):
     else:
         error_msg = "Invalid database scheme in the URI: '%s'. %s" % (scheme, _INVALID_DB_URI_MSG)
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
-
-    _validate_db_type_string(db_type)
 
     return extract_db_uri_and_path(artifact_uri)

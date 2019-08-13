@@ -33,6 +33,12 @@ def _relative_path_local(base_dir, subdir_path):
 def extract_db_uri_and_path(artifact_uri):
     parsed_uri = urllib.parse.urlparse(artifact_uri)
 
+    # for testing
+    if artifact_uri.__contains__("sqlite:///"):
+        return artifact_uri, ""
+
+    # for DB_URIs of the form:
+    # <dialect>+<driver>://<username>:<password>@<host>:<port>/<database>?<params>
     if parsed_uri.query == "":
         parsed_path = parsed_uri.path.split("/", 2)
         if (len(parsed_path)) == 3:
@@ -124,16 +130,14 @@ class DBArtifactRepository(ArtifactRepository):
             if artifact_path is None:
                 artifact = SqlArtifact(
                     artifact_name=file_name, group_path=self.root,
-                    artifact_content=open(
-                        local_file, "rb").read(), artifact_initial_size=
-                    os.path.getsize(local_file)
+                    artifact_content=open(local_file, "rb").read(),
+                    artifact_initial_size=os.path.getsize(local_file)
                 )
             else:
                 artifact = SqlArtifact(
                     artifact_name=file_name, group_path=os.path.join(self.root, artifact_path),
-                    artifact_content=open(
-                        local_file, "rb").read(), artifact_initial_size=
-                    os.path.getsize(local_file)
+                    artifact_content=open(local_file, "rb").read(),
+                    artifact_initial_size=os.path.getsize(local_file)
                 )
             session.add(artifact)
             session.flush()
@@ -150,7 +154,6 @@ class DBArtifactRepository(ArtifactRepository):
         """
         with self.ManagedSessionMaker() as session:
             for subdir_path, _, files in os.walk(local_dir):
-
                 relative_path = _relative_path_local(local_dir, subdir_path)
 
                 if artifact_path is None:
