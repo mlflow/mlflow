@@ -12,7 +12,8 @@ import pytest
 import mlflow
 
 from mlflow.entities import RunStatus, ViewType, SourceType
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.projects import _resolve_experiment_id
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
@@ -137,6 +138,27 @@ def test_fetch_project_validations(local_git_repo_uri):
     # Passing `version` raises an exception for local projects
     with pytest.raises(ExecutionException):
         mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, force_tempdir=False, version="version")
+
+
+@pytest.mark.parametrize('experiment_name,experiment_id,expected', [
+    ('Default', None, '0'),
+    ('add an experiment', None, '1'),
+    (None, 2, '2'),
+    (None, '2', '2'),
+    (None, None, '0')
+])
+def test_resolve_experiment_id(experiment_name,
+                               experiment_id,
+                               expected,
+                               tracking_uri_mock):  # pylint: disable=unused-argument
+    assert expected == _resolve_experiment_id(experiment_name=experiment_name,
+                                              experiment_id=experiment_id)
+
+
+def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
+    with pytest.raises(MlflowException,
+                       match="Specify only one of 'experiment_name' or 'experiment_id'."):
+        _resolve_experiment_id(experiment_name='experiment_named', experiment_id="44")
 
 
 def test_dont_remove_mlruns(tmpdir):

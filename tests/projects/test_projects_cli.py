@@ -9,13 +9,10 @@ from click.testing import CliRunner
 import pytest
 
 from mlflow import cli
-from mlflow.exceptions import MlflowException
 from mlflow.utils import process
-from mlflow.projects import _resolve_experiment_id
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI, \
     TEST_NO_SPEC_PROJECT_DIR
-from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 _logger = logging.getLogger(__name__)
 
@@ -107,22 +104,3 @@ def test_run_databricks_cluster_spec(tmpdir):
         assert res.exit_code != 0
 
 
-@pytest.mark.parametrize('experiment_name,experiment_id,expected', [
-    ('Default', None, '0'),
-    ('add an experiment', None, '1'),
-    (None, 2, '2'),
-    (None, '2', '2'),
-    (None, None, '0')
-])
-def test_resolve_experiment_id(experiment_name,
-                               experiment_id,
-                               expected,
-                               tracking_uri_mock):  # pylint: disable=unused-argument
-    assert expected == _resolve_experiment_id(experiment_name=experiment_name,
-                                              experiment_id=experiment_id)
-
-
-def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
-    with pytest.raises(MlflowException,
-                       match="Specify only one of 'experiment_name' or 'experiment_id'."):
-        _resolve_experiment_id(experiment_name='experiment_named', experiment_id="44")
