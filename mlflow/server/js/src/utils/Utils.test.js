@@ -59,12 +59,6 @@ test("formatDuration", () => {
   expect(Utils.formatDuration(480 * 60 * 60 * 1000)).toEqual("20.0d");
 });
 
-test("formatUser", () => {
-  expect(Utils.formatUser("bob")).toEqual("bob");
-  expect(Utils.formatUser("bob.mcbob")).toEqual("bob.mcbob");
-  expect(Utils.formatUser("bob@example.com")).toEqual("bob");
-});
-
 test("baseName", () => {
   expect(Utils.baseName("foo")).toEqual("foo");
   expect(Utils.baseName("foo/bar/baz")).toEqual("baz");

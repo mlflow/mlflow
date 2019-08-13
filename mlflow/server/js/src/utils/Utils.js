@@ -105,10 +105,6 @@ class Utils {
     }
   }
 
-  static formatUser(userId) {
-    return userId.replace(/@.*/, "");
-  }
-
   static baseName(path) {
     const pieces = path.split("/");
     return pieces[pieces.length - 1];
