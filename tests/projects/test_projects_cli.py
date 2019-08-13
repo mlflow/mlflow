@@ -102,5 +102,3 @@ def test_run_databricks_cluster_spec(tmpdir):
                       json.dumps(cluster_spec) + "JUNK", "-e", "greeter", "-P", "name=hi"],
             env={'MLFLOW_TRACKING_URI': 'databricks://profile'})
         assert res.exit_code != 0
-
-
