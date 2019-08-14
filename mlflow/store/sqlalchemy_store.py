@@ -2,6 +2,7 @@ import logging
 import uuid
 from contextlib import contextmanager
 
+import math
 import posixpath
 from alembic.script import ScriptDirectory
 import sqlalchemy
@@ -9,7 +10,8 @@ import sqlalchemy
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.dbmodels.db_types import MYSQL
-from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag
+from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag, \
+    SqlExperimentTag
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
@@ -21,7 +23,7 @@ from mlflow.utils import extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
-    _validate_run_id, _validate_metric
+    _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag
 from mlflow.store.db.utils import _upgrade_db, _get_alembic_config, _get_schema_version
 from mlflow.store.dbmodels.initial_models import Base as InitialBase
 
@@ -70,7 +72,7 @@ class SqlAlchemyStore(AbstractStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.artifact_root_uri = default_artifact_root
-        self.engine = sqlalchemy.create_engine(db_uri)
+        self.engine = sqlalchemy.create_engine(db_uri, pool_pre_ping=True)
         insp = sqlalchemy.inspect(self.engine)
         # On a completely fresh MLflow installation against an empty database (verify database
         # emptiness by checking that 'experiments' etc aren't in the list of table names), run all
@@ -80,7 +82,8 @@ class SqlAlchemyStore(AbstractStore):
             SqlRun.__tablename__,
             SqlMetric.__tablename__,
             SqlParam.__tablename__,
-            SqlTag.__tablename__
+            SqlTag.__tablename__,
+            SqlExperimentTag.__tablename__
         ])
         if len(expected_tables & set(insp.get_table_names())) == 0:
             SqlAlchemyStore._initialize_tables(self.engine)
@@ -322,10 +325,7 @@ class SqlAlchemyStore(AbstractStore):
     def create_run(self, experiment_id, user_id, start_time, tags):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
-
-            if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
-                raise MlflowException('Experiment id={} must be active'.format(experiment_id),
-                                      INVALID_STATE)
+            self._check_experiment_is_active(experiment)
 
             run_id = uuid.uuid4().hex
             artifact_location = posixpath.join(experiment.artifact_location, run_id,
@@ -344,7 +344,7 @@ class SqlAlchemyStore(AbstractStore):
             run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
             self._save_to_db(objs=run, session=session)
 
-            return run.to_mlflow_entity()
+            return run.to_mlflow_entity(session)
 
     def _get_run(self, session, run_uuid):
         runs = session.query(SqlRun).filter(SqlRun.run_uuid == run_uuid).all()
@@ -361,13 +361,20 @@ class SqlAlchemyStore(AbstractStore):
 
     def _check_run_is_active(self, run):
         if run.lifecycle_stage != LifecycleStage.ACTIVE:
-            raise MlflowException("The run {} must be in 'active' state. Current state is {}."
+            raise MlflowException("The run {} must be in the 'active' state. Current state is {}."
                                   .format(run.run_uuid, run.lifecycle_stage),
+                                  INVALID_PARAMETER_VALUE)
+
+    def _check_experiment_is_active(self, experiment):
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException("The experiment {} must be in the 'active' state. "
+                                  "Current state is {}."
+                                  .format(experiment.experiment_id, experiment.lifecycle_stage),
                                   INVALID_PARAMETER_VALUE)
 
     def _check_run_is_deleted(self, run):
         if run.lifecycle_stage != LifecycleStage.DELETED:
-            raise MlflowException("The run {} must be in 'deleted' state. Current state is {}."
+            raise MlflowException("The run {} must be in the 'deleted' state. Current state is {}."
                                   .format(run.run_uuid, run.lifecycle_stage),
                                   INVALID_PARAMETER_VALUE)
 
@@ -379,14 +386,14 @@ class SqlAlchemyStore(AbstractStore):
             run.end_time = end_time
 
             self._save_to_db(objs=run, session=session)
-            run = run.to_mlflow_entity()
+            run = run.to_mlflow_entity(session)
 
             return run.info
 
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
-            return run.to_mlflow_entity()
+            return run.to_mlflow_entity(session)
 
     def restore_run(self, run_id):
         with self.ManagedSessionMaker() as session:
@@ -404,13 +411,21 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_metric(self, run_id, metric):
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
+        is_nan = math.isnan(metric.value)
+        if is_nan:
+            value = 0
+        elif math.isinf(metric.value):
+            #  NB: Sql can not represent Infs = > We replace +/- Inf with max/min 64b float value
+            value = 1.7976931348623157e308 if metric.value > 0 else -1.7976931348623157e308
+        else:
+            value = metric.value
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
             self._get_or_create(model=SqlMetric, run_uuid=run_id, key=metric.key,
-                                value=metric.value, timestamp=metric.timestamp, step=metric.step,
-                                session=session)
+                                value=value, timestamp=metric.timestamp, step=metric.step,
+                                session=session, is_nan=is_nan)
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -457,8 +472,31 @@ class SqlAlchemyStore(AbstractStore):
                 else:
                     raise
 
-    def set_tag(self, run_id, tag):
+    def set_experiment_tag(self, experiment_id, tag):
+        """
+        Set a tag for the specified experiment
+
+        :param experiment_id: String ID of the experiment
+        :param tag: ExperimentRunTag instance to log
+        """
+        _validate_experiment_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
+            experiment = self._get_experiment(session,
+                                              experiment_id,
+                                              ViewType.ALL).to_mlflow_entity()
+            self._check_experiment_is_active(experiment)
+            session.merge(SqlExperimentTag(experiment_id=experiment_id,
+                                           key=tag.key,
+                                           value=tag.value))
+
+    def set_tag(self, run_id, tag):
+        """
+        Set a tag on a run.
+        :param run_id: String ID of the run
+        :param tag: RunTag instance to log
+        """
+        with self.ManagedSessionMaker() as session:
+            _validate_tag(tag.key, tag.value)
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             session.merge(SqlTag(run_uuid=run_id, key=tag.key, value=tag.value))
@@ -494,7 +532,7 @@ class SqlAlchemyStore(AbstractStore):
                                                                      max_results),
                                   INVALID_PARAMETER_VALUE)
         with self.ManagedSessionMaker() as session:
-            runs = [run.to_mlflow_entity()
+            runs = [run.to_mlflow_entity(session)
                     for exp in experiment_ids
                     for run in self._list_runs(session, exp, run_view_type)]
             filtered = SearchUtils.filter(runs, filter_string)

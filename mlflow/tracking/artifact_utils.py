@@ -60,7 +60,12 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
                         a local output path will be created.
     """
     artifact_repo_type = get_artifact_repository_type(artifact_uri)
-    if artifact_repo_type == ArtifactRepositoryType.FileSystem:
+    print(artifact_repo_type)
+    print(artifact_repo_type == ArtifactRepositoryType.FileSystem)
+    print(artifact_repo_type is ArtifactRepositoryType.FileSystem)
+
+    if artifact_repo_type.value == ArtifactRepositoryType.FileSystem.value:
+        print("Correct path")
         parsed_uri = urllib.parse.urlparse(artifact_uri)
         prefix = ""
         if parsed_uri.scheme and not parsed_uri.path.startswith("/"):
@@ -70,13 +75,13 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         artifact_path = posixpath.basename(parsed_uri.path)
         parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
         root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
-
+        print("returning")
         return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
             artifact_path=artifact_path, dst_path=output_path)
-    else:
-        db_uri, artifact_path = extract_db_uri_and_artifact_path_from_uri(artifact_uri)
-        return get_artifact_repository(artifact_uri=db_uri).download_artifacts(
-            artifact_path=artifact_path, dst_path=output_path)
+    # else:
+    #   db_uri, artifact_path = extract_db_uri_and_artifact_path_from_uri(artifact_uri)
+    #   return get_artifact_repository(artifact_uri=db_uri).download_artifacts(
+    #       artifact_path=artifact_path, dst_path=output_path)
 
 
 def extract_db_uri_and_artifact_path_from_uri(artifact_uri):

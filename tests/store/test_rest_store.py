@@ -5,11 +5,11 @@ import mock
 import six
 
 import mlflow
-from mlflow.entities import Param, Metric, RunTag, SourceType, ViewType
+from mlflow.entities import Param, Metric, RunTag, SourceType, ViewType, ExperimentTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import CreateRun, DeleteExperiment, DeleteRun, LogBatch, \
     LogMetric, LogParam, RestoreExperiment, RestoreRun, RunTag as ProtoRunTag, SearchRuns, \
-    SetTag, DeleteTag
+    SetTag, DeleteTag, SetExperimentTag
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
@@ -160,6 +160,15 @@ class TestRestStore(unittest.TestCase):
                                   "runs/log-parameter", "POST", body)
 
         with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+            store.set_experiment_tag("some_id", ExperimentTag("t1", "abcd"*1000))
+            body = message_to_json(SetExperimentTag(
+                experiment_id="some_id",
+                key="t1",
+                value="abcd"*1000))
+            self._verify_requests(mock_http, creds,
+                                  "experiments/set-experiment-tag", "POST", body)
+
+        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
             store.set_tag("some_uuid", RunTag("t1", "abcd"*1000))
             body = message_to_json(SetTag(
                 run_uuid="some_uuid", run_id="some_uuid", key="t1", value="abcd"*1000))
@@ -231,6 +240,7 @@ class TestRestStore(unittest.TestCase):
                                   "runs/search", "POST",
                                   message_to_json(expected_message))
             assert result.token == "67890fghij"
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -97,9 +97,12 @@ _artifact_repository_registry.register_entrypoints()
 
 def get_artifact_repository_type(artifact_uri):
     scheme = get_uri_scheme(artifact_uri)
+    print(scheme)
     if scheme == 'sqlite' or scheme == 'mssql':
+        print("The repo is a dbms")
         return ArtifactRepositoryType.DB
     else:
+        print("The repo is a filesystem")
         return ArtifactRepositoryType.FileSystem
 
 

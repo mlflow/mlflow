@@ -133,11 +133,12 @@ class RunView extends Component {
       if (this.state.showNotesEditor) {
         return <NoteEditorView
             runUuid={this.props.runUuid}
+            type={"run"}
             noteInfo={noteInfo}
             submitCallback={this.handleSubmittedNote}
             cancelCallback={this.handleNoteEditorViewCancel}/>;
       } else if (noteInfo) {
-        return <NoteShowView content={noteInfo.content}/>;
+        return <NoteShowView content={noteInfo.content} noteType={"run"}/>;
       } else {
         return <em>None</em>;
       }
@@ -168,7 +169,7 @@ class RunView extends Component {
 
   render() {
     const { runUuid, run, params, tags, latestMetrics, getMetricPagePath } = this.props;
-    const noteInfo = NoteInfo.fromRunTags(tags);
+    const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;

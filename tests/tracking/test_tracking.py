@@ -224,6 +224,16 @@ def test_log_batch(tracking_uri_mock, tmpdir):
             assert exact_expected_tags[tag_key] == tag_value
     # Validate params
     assert finished_run.data.params == expected_params
+    # test that log_batch works with fewer params
+    new_tags = {"1": "2", "3": "4", "5": "6"}
+    tags = [RunTag(key=key, value=value) for key, value in new_tags.items()]
+    client.log_batch(run_id=run_id, tags=tags)
+    finished_run_2 = client.get_run(run_id)
+    # Validate tags (for automatically-set tags)
+    assert len(finished_run_2.data.tags) == len(finished_run.data.tags) + 3
+    for tag_key, tag_value in finished_run_2.data.tags.items():
+        if tag_key in new_tags:
+            assert new_tags[tag_key] == tag_value
 
 
 def test_log_metric(tracking_uri_mock):
@@ -373,6 +383,46 @@ def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
                 with pytest.raises(MlflowException) as e:
                     tracking.MlflowClient().log_batch(**final_kwargs)
                 assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
+    # Test log artifact with a directory
+    art_dir = tmpdir.mkdir("parent")
+    file0 = art_dir.join("file0")
+    file0.write("something")
+    file1 = art_dir.join("file1")
+    file1.write("something")
+    sub_dir = art_dir.mkdir("child")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(str(art_dir))
+        base = os.path.basename(str(art_dir))
+        assert os.listdir(run_artifact_dir) == [base]
+        assert set(os.listdir(os.path.join(run_artifact_dir, base))) == \
+            {'child', 'file0', 'file1'}
+        with open(os.path.join(run_artifact_dir, base, "file0")) as f:
+            assert f.read() == "something"
+    # Test log artifact with directory and specified parent folder
+    art_dir = tmpdir.mkdir("dir")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(str(art_dir), "some_parent")
+        assert os.listdir(run_artifact_dir) == [os.path.basename("some_parent")]
+        assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == \
+            [os.path.basename(str(art_dir))]
+    sub_dir = art_dir.mkdir("another_dir")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(str(art_dir), "parent/and_child")
+        assert os.listdir(os.path.join(run_artifact_dir, "parent", "and_child")) == \
+            [os.path.basename(str(art_dir))]
+        assert os.listdir(os.path.join(run_artifact_dir,
+                                       "parent", "and_child",
+                                       os.path.basename(str(art_dir)))) == \
+            [os.path.basename(str(sub_dir))]
 
 
 def test_log_artifact(tracking_uri_mock):

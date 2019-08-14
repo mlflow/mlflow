@@ -34,7 +34,8 @@ setup(
         'databricks-cli>=0.8.7',
         'requests>=2.17.3',
         'six>=1.10.0',
-        'waitress' if sys.platform == 'win32' else 'gunicorn',
+        'waitress; platform_system == "Windows"',
+        'gunicorn; platform_system != "Windows"',
         'Flask',
         'numpy',
         'pandas',
@@ -48,7 +49,8 @@ setup(
         'entrypoints',
         'sqlparse',
         'sqlalchemy',
-        'docker>=3.6.0'
+        'docker>=3.6.0',
+        'gorilla',
     ],
     extras_require={
         'extras':[

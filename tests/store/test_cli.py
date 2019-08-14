@@ -71,6 +71,7 @@ def test_download_from_uri():
 
         for uri, expected_result in pairs:
             actual_result = _download_artifact_from_uri(uri)
+            print (uri, actual_result, expected_result)
             assert expected_result == actual_result
 
 

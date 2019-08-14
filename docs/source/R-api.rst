@@ -4,7 +4,7 @@
 R API
 ========
 
-The MLflow `R <https://www.r-project.org/about.html/>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
+The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
 
 You can use the R API to `install MLflow <install_mlflow_>`_, start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `list experiments <mlflow_list_experiments_>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
 
@@ -31,6 +31,13 @@ Details
 install_mlflow() requires Python and Conda to be installed. See
 https://www.python.org/getit/ and
 https://docs.conda.io/projects/conda/en/latest/user-guide/install/ .
+
+Alternatively, you can set MLFLOW_PYTHON_BIN and MLFLOW_BIN environment
+variables instead. MLFLOW_PYTHON_BIN should point to python executable
+and MLFLOW_BIN to mlflow cli executable. These variables allow you to
+use custom mlflow installation. Note that there may be some
+compatibility issues if the custom mlflow version does not match the
+version of the R package.
 
 Examples
 --------
@@ -303,7 +310,7 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``experiment_id``             | Identifer to get an experiment.      |
+| ``experiment_id``             | ID of the experiment.                |
 +-------------------------------+--------------------------------------+
 | ``name``                      | The experiment name. Only one of     |
 |                               | ``name`` or ``experiment_id`` should |
@@ -621,7 +628,7 @@ following are examples of valid model uris:
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
-https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores.
+https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
 
 ``mlflow_log_artifact``
 =======================
@@ -1055,7 +1062,13 @@ Arguments
 
 Serve an RFunc MLflow Model
 
-Serves an RFunc MLflow model as a local web API.
+Serves an RFunc MLflow model as a local REST API server. This interface
+provides similar functionality to ``mlflow models serve`` cli command,
+however, it can only be used to deploy models that include RFunc flavor.
+The deployed server supports standard mlflow models interface with /ping
+and /invocation endpoints. In addition, R function models also support
+deprecated /predict endpoint for generating predictions. The /predict
+endpoint will be removed in a future version of mlflow.
 
 .. code:: r
 
@@ -1111,7 +1124,7 @@ following are examples of valid model uris:
 
 For more information about supported URI schemes, see the Artifacts
 Documentation at
-https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores.
+https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
 
 .. _examples-2:
 
@@ -1137,7 +1150,7 @@ Examples
 Run an MLflow Project
 
 Wrapper for the ``mlflow run`` CLI command. See
-https://www.mlflow.org/docs/latest/cli.html#run for more info.
+https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
 
 .. code:: r
 
@@ -1343,6 +1356,51 @@ Arguments
 |                               | the path of all static paths.        |
 +-------------------------------+--------------------------------------+
 
+``mlflow_set_experiment_tag``
+=============================
+
+Set Experiment Tag
+
+Sets a tag on an experiment with the specified ID. Tags are experiment
+metadata that can be updated.
+
+.. code:: r
+
+   mlflow_set_experiment_tag(key, value, experiment_id = NULL,
+     client = NULL)
+
+.. _arguments-31:
+
+Arguments
+---------
+
++-------------------------------+--------------------------------------+
+| Argument                      | Description                          |
++===============================+======================================+
+| ``key``                       | Name of the tag. All storage         |
+|                               | backends are guaranteed to support   |
+|                               | key values up to 250 bytes in size.  |
+|                               | This field is required.              |
++-------------------------------+--------------------------------------+
+| ``value``                     | String value of the tag being        |
+|                               | logged. All storage backends are     |
+|                               | guaranteed to support key values up  |
+|                               | to 5000 bytes in size. This field is |
+|                               | required.                            |
++-------------------------------+--------------------------------------+
+| ``experiment_id``             | ID of the experiment.                |
++-------------------------------+--------------------------------------+
+| ``client``                    | (Optional) An MLflow client object   |
+|                               | returned from                        |
+|                               | `mlflow_client <#mlflow-client>`__ . |
+|                               | If specified, MLflow will use the    |
+|                               | tracking server associated with the  |
+|                               | passed-in client. If unspecified     |
+|                               | (the common case), MLflow will use   |
+|                               | the tracking server associated with  |
+|                               | the current tracking URI.            |
++-------------------------------+--------------------------------------+
+
 ``mlflow_set_experiment``
 =========================
 
@@ -1358,7 +1416,7 @@ provided name. Returns the ID of the active experiment.
    mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
      artifact_location = NULL)
 
-.. _arguments-31:
+.. _arguments-32:
 
 Arguments
 ---------
@@ -1388,7 +1446,7 @@ run and after a run completes.
 
    mlflow_set_tag(key, value, run_id = NULL, client = NULL)
 
-.. _arguments-32:
+.. _arguments-33:
 
 Arguments
 ---------
@@ -1428,7 +1486,7 @@ experiments.
 
    mlflow_set_tracking_uri(uri)
 
-.. _arguments-33:
+.. _arguments-34:
 
 Arguments
 ---------
@@ -1451,7 +1509,7 @@ called via ``Rscript`` from the terminal or through the MLflow CLI.
 
    mlflow_source(uri)
 
-.. _arguments-34:
+.. _arguments-35:
 
 Arguments
 ---------
@@ -1478,7 +1536,7 @@ can be provided.
    mlflow_start_run(run_id = NULL, experiment_id = NULL,
      start_time = NULL, tags = NULL, client = NULL)
 
-.. _arguments-35:
+.. _arguments-36:
 
 Arguments
 ---------
@@ -1541,7 +1599,7 @@ Launches the MLflow user interface.
 
    mlflow_ui(client, ...)
 
-.. _arguments-36:
+.. _arguments-37:
 
 Arguments
 ---------
