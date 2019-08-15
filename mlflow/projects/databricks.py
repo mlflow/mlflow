@@ -343,27 +343,30 @@ class DatabricksSubmittedRun(SubmittedRun):
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND
 class DatabricksBackend(ProjectBackend):
     
-    def __init__(self):
-        super().__init__()
+    def __init__(self, project, active_run, backend_config):
+        return super().__init__(project, active_run, backend_config)
 
     def validate(self):
-        return super().validate()
+        pass
 
     def configure(self):
         tracking.MlflowClient().set_tag(self.active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "databricks")
-        return super().configure()
 
-    def submit_run(self, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
-        run = run_databricks(
+    def submit_run(self, uri, entry_point, work_dir, parameters, experiment_id):
+        return run_databricks(
             remote_run=self.active_run,
             uri=uri,
             entry_point=entry_point,
             work_dir=work_dir,
             parameters=parameters,
             experiment_id=experiment_id,
-            cluster_spec=cluster_spec
+            cluster_spec=self.backend_config
         )
+
+    @staticmethod
+    def _parse_config(backend_config):
+        pass
 
     @property
     def backend_type(self):

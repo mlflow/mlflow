@@ -8,11 +8,12 @@ class ProjectBackend(ABC):
     """
 
     def __init__(self, project, active_run, backend_config):
+        self.project = project
         self.active_run = active_run
         self.backend_config = backend_config
 
     @abstractmethod
-    def validate(self, backend_config):
+    def validate(self):
         """
         Validates that the configuration is good. Also checks if supported
         """
@@ -31,6 +32,13 @@ class ProjectBackend(ABC):
         returns a SubmittedRun, like DatabricksSubmittedRun
         """
         pass
+
+    
+    @staticmethod
+    @abstractmethod
+    def _parse_config(backend_config):
+        pass
+
 
     @property
     @abstractmethod

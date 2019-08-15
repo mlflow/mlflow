@@ -31,7 +31,7 @@ from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.projects.databricks import DatabricksBackend
 from mlflow.projects.kubernetes import KubernetesBackend
-from mlfow.projects.utils import _validate_docker_env, _validate_docker_installation
+from mlflow.projects.utils import _validate_docker_env, _validate_docker_installation, _build_docker_image, _get_entry_point_command, _get_run_env_vars 
 from mlflow.utils import process
 from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri, \
     get_local_path_or_none
@@ -119,19 +119,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         for tag in [MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_BRANCH_NAME]:
             tracking.MlflowClient().set_tag(active_run.info.run_id, tag, version)
 
-    if backend_type == "databricks":
-        backend = DatabricksBackend(active_run=active_run, backend_config=backend_config)
-        backend.validate()
-        backend.configure()
-        return backend.run(uri=uri, entry_point=entry_point, work_dir=work_dir, 
-            parameters=parameters, experiment_id=experiment_id, cluster_spec=backend_config)
-    if backend_type == "kubernetes":
-        backend = KubernetesBackend(active_run=active_run, backend_config=backend_config)
-        backend.validate()
-        backend.configure()
-        return backend.submit_run()
-
-    elif backend_type == "local" or backend_type is None:
+    if backend_type == "local" or backend_type is None:
         command = []
         command_separator = " "
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
@@ -169,35 +157,30 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             work_dir=work_dir, entry_point=entry_point, parameters=parameters,
             experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
+    elif backend_type == "databricks":
+        backend = DatabricksBackend(project=project, active_run=active_run, backend_config=backend_config)
+        backend.validate()
+        backend.configure()
+        return backend.submit_run(
+            uri=uri,
+            entry_point=entry_point,
+            work_dir=work_dir, 
+            parameters=parameters,
+            experiment_id=experiment_id,
+        )
     elif backend_type == "kubernetes":
-        from mlflow.projects import kubernetes as kb
-        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
-        tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
-                                        "kubernetes")
-        _validate_docker_env(project)
-        _validate_docker_installation()
-        kube_config = _parse_kubernetes_config(backend_config)
-        image = _build_docker_image(work_dir=work_dir,
-                                    repository_uri=kube_config["repository-uri"],
-                                    base_image=project.docker_env.get('image'),
-                                    run_id=active_run.info.run_id)
-        image_digest = kb.push_image_to_registry(image.tags[0])
-        submitted_run = kb.run_kubernetes_job(project.name,
-                                              active_run,
-                                              image.tags[0],
-                                              image_digest,
-                                              _get_entry_point_command(project, entry_point,
-                                                                       parameters, storage_dir),
-                                              _get_run_env_vars(
-                                                run_id=active_run.info.run_uuid,
-                                                experiment_id=active_run.info.experiment_id),
-                                              kube_config['kube-context'],
-                                              kube_config['kube-job-template'])
-        return submitted_run
+        backend = KubernetesBackend(project=project, active_run=active_run, backend_config=backend_config)
+        backend.validate()
+        backend.configure()
+        return backend.submit_run(
+            entry_point=entry_point,
+            parameters=parameters,
+            storage_dir=storage_dir,
+            work_dir=work_dir
+        )
 
-    supported_backends = ["local", "databricks", "kubernetes"]
     raise ExecutionException("Got unsupported execution mode %s. Supported "
-                             "values: %s" % (backend_type, supported_backends))
+                             "values: %s" % (backend_type, MLFLOW_SUPPORTED_BACKENDS))
 
 
 def run(uri, entry_point="main", version=None, parameters=None,
@@ -313,12 +296,6 @@ def _parse_subdirectory(uri):
     if subdirectory and '.' in subdirectory:
         raise ExecutionException("'.' is not allowed in project subdirectory paths.")
     return parsed_uri, subdirectory
-
-
-def _get_storage_dir(storage_dir):
-    if storage_dir is not None and not os.path.exists(storage_dir):
-        os.makedirs(storage_dir)
-    return tempfile.mkdtemp(dir=storage_dir)
 
 
 def _get_git_repo_url(work_dir):
@@ -529,26 +506,6 @@ def _maybe_set_run_terminated(active_run, status):
     tracking.MlflowClient().set_terminated(run_id, status)
 
 
-def _get_entry_point_command(project, entry_point, parameters, storage_dir):
-    """
-    Returns the shell command to execute in order to run the specified entry point.
-    :param project: Project containing the target entry point
-    :param entry_point: Entry point to run
-    :param parameters: Parameters (dictionary) for the entry point command
-    :param storage_dir: Base local directory to use for downloading remote artifacts passed to
-                        arguments of type 'path'. If None, a temporary base directory is used.
-    """
-    storage_dir_for_run = _get_storage_dir(storage_dir)
-    _logger.info(
-        "=== Created directory %s for downloading remote URIs passed to arguments of"
-        " type 'path' ===",
-        storage_dir_for_run)
-    commands = []
-    commands.append(
-        project.get_entry_point(entry_point).compute_command(parameters, storage_dir_for_run))
-    return commands
-
-
 def _run_entry_point(command, work_dir, experiment_id, run_id):
     """
     Run an entry point command in a subprocess, returning a SubmittedRun that can be used to
@@ -633,18 +590,6 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
 
     active_run = tracking.MlflowClient().create_run(experiment_id=experiment_id, tags=tags)
     return active_run
-
-
-def _get_run_env_vars(run_id, experiment_id):
-    """
-    Returns a dictionary of environment variable key-value pairs to set in subprocess launched
-    to run MLflow projects.
-    """
-    return {
-        tracking._RUN_ID_ENV_VAR: run_id,
-        tracking._TRACKING_URI_ENV_VAR: tracking.get_tracking_uri(),
-        tracking._EXPERIMENT_ID_ENV_VAR: str(experiment_id),
-    }
 
 
 def _invoke_mlflow_run_subprocess(
@@ -741,71 +686,6 @@ def _get_docker_command(image, active_run):
     cmd += [image.tags[0]]
     return cmd
 
-
-def _create_docker_build_ctx(work_dir, dockerfile_contents):
-    """
-    Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
-    """
-    directory = tempfile.mkdtemp()
-    try:
-        dst_path = os.path.join(directory, "mlflow-project-contents")
-        shutil.copytree(src=work_dir, dst=dst_path)
-        with open(os.path.join(dst_path, _GENERATED_DOCKERFILE_NAME), "w") as handle:
-            handle.write(dockerfile_contents)
-        _, result_path = tempfile.mkstemp()
-        file_utils.make_tarfile(
-            output_filename=result_path,
-            source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME)
-    finally:
-        shutil.rmtree(directory)
-    return result_path
-
-
-def _build_docker_image(work_dir, repository_uri, base_image, run_id):
-    """
-    Build a docker image containing the project in `work_dir`, using the base image.
-    """
-    image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
-    dockerfile = (
-        "FROM {imagename}\n"
-        "COPY {build_context_path}/ /mlflow/projects/code/\n"
-        "WORKDIR /mlflow/projects/code/\n"
-    ).format(imagename=base_image, build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
-    build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
-    with open(build_ctx_path, 'rb') as docker_build_ctx:
-        _logger.info("=== Building docker image %s ===", image_uri)
-        client = docker.from_env()
-        image, _ = client.images.build(
-            tag=image_uri, forcerm=True,
-            dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
-            fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
-    try:
-        os.remove(build_ctx_path)
-    except Exception:  # pylint: disable=broad-except
-        _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
-    tracking.MlflowClient().set_tag(run_id,
-                                    MLFLOW_DOCKER_IMAGE_URI,
-                                    image_uri)
-    tracking.MlflowClient().set_tag(run_id,
-                                    MLFLOW_DOCKER_IMAGE_ID,
-                                    image.id)
-    return image
-
-
-def _get_docker_image_uri(repository_uri, work_dir):
-    """
-    Returns an appropriate Docker image URI for a project based on the git hash of the specified
-    working directory.
-
-    :param repository_uri: The URI of the Docker repository with which to tag the image. The
-                           repository URI is used as the prefix of the image URI.
-    :param work_dir: Path to the working directory in which to search for a git commit hash
-    """
-    repository_uri = repository_uri if repository_uri else "docker-project"
-    # Optionally include first 7 digits of git SHA in tag name, if available.
-    git_commit = _get_git_commit(work_dir)
-    version_string = ":" + git_commit[:7] if git_commit else ""
-    return repository_uri + version_string
 
 
 __all__ = [

@@ -378,8 +378,8 @@ def test_storage_dir(tmpdir):
     Test that we correctly handle the `storage_dir` argument, which specifies where to download
     distributed artifacts passed to arguments of type `path`.
     """
-    assert os.path.dirname(mlflow.projects._get_storage_dir(tmpdir.strpath)) == tmpdir.strpath
-    assert os.path.dirname(mlflow.projects._get_storage_dir(None)) == tempfile.gettempdir()
+    assert os.path.dirname(mlflow.projects.utils._get_storage_dir(tmpdir.strpath)) == tmpdir.strpath
+    assert os.path.dirname(mlflow.projects.utils._get_storage_dir(None)) == tempfile.gettempdir()
 
 
 def test_parse_kubernetes_config():

@@ -146,8 +146,8 @@ import mlflow.tracking as tracking
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND, MLFLOW_PROJECT_ENV
 class KubernetesBackend(ProjectBackend):
     
-    def __init__(self):
-        super().__init__()
+    def __init__(self, project, active_run, backend_config):
+        return super().__init__(project, active_run, backend_config)
 
     @staticmethod
     def _parse_config(backend_config):
@@ -188,26 +188,29 @@ class KubernetesBackend(ProjectBackend):
                                         "kubernetes")
         return super().configure()
 
-    def submit_run(self):
+    def submit_run(self, entry_point, parameters, storage_dir, work_dir):
         config = self._parse_config(self.backend_config)
         image = _build_docker_image(work_dir=work_dir,
                                     repository_uri=config["repository-uri"],
                                     base_image=self.project.docker_env.get('image'),
                                     run_id=self.active_run.info.run_id)
         image_digest = push_image_to_registry(image.tags[0])
-        submitted_run = run_kubernetes_job(self.project.name,
-                                              self.active_run,
-                                              image.tags[0],
-                                              image_digest,
-                                              _get_entry_point_command(project, entry_point,
-                                                                       parameters, storage_dir),
-                                              _get_run_env_vars(
-                                                run_id=self.active_run.info.run_uuid,
-                                                experiment_id=self.active_run.info.experiment_id),
-                                              config['kube-context'],
-                                              config['kube-job-template'])
-        return submitted_run
+        return run_kubernetes_job(
+            self.project.name,
+            self.active_run,
+            image.tags[0],
+            image_digest,
+            _get_entry_point_command(self.project, entry_point,
+                                    parameters, storage_dir),
+            _get_run_env_vars(
+            run_id=self.active_run.info.run_uuid,
+            experiment_id=self.active_run.info.experiment_id),
+            config['kube-context'],
+            config['kube-job-template']
+        )
 
     @property
     def backend_type(self):
         return "kubernetes"
+
+from mlflow.projects.utils import _build_docker_image, _get_entry_point_command, _get_run_env_vars
