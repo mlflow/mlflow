@@ -37,12 +37,7 @@ class EditableCell extends React.Component {
             {editing ? (
               <Form.Item style={{ margin: 0 }}>
                 {getFieldDecorator(dataIndex, {
-                  rules: [
-                    {
-                      required: true,
-                      message: `${title} is required.`,
-                    },
-                  ],
+                  rules: [],
                   initialValue: record[dataIndex],
                 })(<Input onKeyDown={this.handleKeyPress} />)}
               </Form.Item>
