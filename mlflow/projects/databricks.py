@@ -11,6 +11,7 @@ from six.moves import shlex_quote
 
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
+from mlflow.projects.backend import ProjectBackend
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
@@ -338,3 +339,32 @@ class DatabricksSubmittedRun(SubmittedRun):
 
     def get_status(self):
         return self._job_runner.get_status(self._databricks_run_id)
+
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND
+class DatabricksBackend(ProjectBackend):
+    
+    def __init__(self):
+        super().__init__()
+
+    def validate(self):
+        return super().validate()
+
+    def configure(self):
+        tracking.MlflowClient().set_tag(self.active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
+                                        "databricks")
+        return super().configure()
+
+    def submit_run(self, uri, entry_point, work_dir, parameters, experiment_id, cluster_spec):
+        run = run_databricks(
+            remote_run=self.active_run,
+            uri=uri,
+            entry_point=entry_point,
+            work_dir=work_dir,
+            parameters=parameters,
+            experiment_id=experiment_id,
+            cluster_spec=cluster_spec
+        )
+
+    @property
+    def backend_type(self):
+        return "databricks"

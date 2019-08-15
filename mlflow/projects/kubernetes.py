@@ -5,8 +5,11 @@ import time
 from threading import RLock
 import kubernetes
 from datetime import datetime
+import os
+import yaml
 
 from mlflow.exceptions import ExecutionException
+from mlflow.projects.backend import ProjectBackend
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.entities import RunStatus
 
@@ -135,3 +138,76 @@ class KubernetesSubmittedRun(SubmittedRun):
                 _logger.info("Job cancelled.")
             else:
                 _logger.info("Attempting to cancel a job that is already terminated.")
+
+
+
+from mlflow.projects.utils import _validate_docker_env, _validate_docker_installation
+import mlflow.tracking as tracking
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND, MLFLOW_PROJECT_ENV
+class KubernetesBackend(ProjectBackend):
+    
+    def __init__(self):
+        super().__init__()
+
+    @staticmethod
+    def _parse_config(backend_config):
+        """
+        Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
+        """
+        if not backend_config:
+            raise ExecutionException("Backend_config file not found.")
+        kube_config = backend_config.copy()
+        if 'kube-job-template-path' not in backend_config.keys():
+            raise ExecutionException("'kube-job-template-path' attribute must be specified in "
+                                    "backend_config.")
+        kube_job_template = backend_config['kube-job-template-path']
+        if os.path.exists(kube_job_template):
+            with open(kube_job_template, 'r') as job_template:
+                yaml_obj = yaml.safe_load(job_template.read())
+            kube_job_template = yaml_obj
+            kube_config['kube-job-template'] = kube_job_template
+        else:
+            raise ExecutionException("Could not find 'kube-job-template-path': {}".format(
+                kube_job_template))
+        if 'kube-context' not in backend_config.keys():
+            raise ExecutionException("Could not find kube-context in backend_config.")
+        if 'repository-uri' not in backend_config.keys():
+            raise ExecutionException("Could not find 'repository-uri' in backend_config.")
+        return kube_config
+
+
+
+    def validate(self):
+        _validate_docker_env(self.project)
+        _validate_docker_installation()
+        return super().validate()
+
+    def configure(self):
+        tracking.MlflowClient().set_tag(self.active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
+        tracking.MlflowClient().set_tag(self.active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
+                                        "kubernetes")
+        return super().configure()
+
+    def submit_run(self):
+        config = self._parse_config(self.backend_config)
+        image = _build_docker_image(work_dir=work_dir,
+                                    repository_uri=config["repository-uri"],
+                                    base_image=self.project.docker_env.get('image'),
+                                    run_id=self.active_run.info.run_id)
+        image_digest = push_image_to_registry(image.tags[0])
+        submitted_run = run_kubernetes_job(self.project.name,
+                                              self.active_run,
+                                              image.tags[0],
+                                              image_digest,
+                                              _get_entry_point_command(project, entry_point,
+                                                                       parameters, storage_dir),
+                                              _get_run_env_vars(
+                                                run_id=self.active_run.info.run_uuid,
+                                                experiment_id=self.active_run.info.experiment_id),
+                                              config['kube-context'],
+                                              config['kube-job-template'])
+        return submitted_run
+
+    @property
+    def backend_type(self):
+        return "kubernetes"

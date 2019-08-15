@@ -111,7 +111,7 @@ def test_docker_image_uri_no_git(get_git_commit_mock):
 def test_docker_valid_project_backend_local():
     work_dir = "./examples/docker"
     project = _project_spec.load_project(work_dir)
-    mlflow.projects._validate_docker_env(project)
+    mlflow.projects.utils._validate_docker_env(project)
 
 
 def test_docker_invalid_project_backend_local():
@@ -119,7 +119,7 @@ def test_docker_invalid_project_backend_local():
     project = _project_spec.load_project(work_dir)
     project.name = None
     with pytest.raises(ExecutionException):
-        mlflow.projects._validate_docker_env(project)
+        mlflow.projects.utils._validate_docker_env(project)
 
 
 @pytest.mark.parametrize("artifact_uri, host_artifact_uri, container_artifact_uri, should_mount", [

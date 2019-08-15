@@ -13,6 +13,7 @@ import mlflow
 
 from mlflow.entities import RunStatus, ViewType, Experiment, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.projects.kubernetes import KubernetesBackend
 from mlflow.store.file_store import FileStore
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
@@ -391,7 +392,7 @@ def test_parse_kubernetes_config():
     yaml_obj = None
     with open(kubernetes_config["kube-job-template-path"], 'r') as job_template:
         yaml_obj = yaml.safe_load(job_template.read())
-    kube_config = mlflow.projects._parse_kubernetes_config(kubernetes_config)
+    kube_config = KubernetesBackend._parse_config(kubernetes_config)
     assert kube_config["kube-context"] == kubernetes_config["kube-context"]
     assert kube_config["kube-job-template-path"] == kubernetes_config["kube-job-template-path"]
     assert kube_config["repository-uri"] == kubernetes_config["repository-uri"]
@@ -404,7 +405,7 @@ def test_parse_kubernetes_config_without_context():
         "kube-job-template-path": "kubernetes_job_template.yaml"
     }
     with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+        KubernetesBackend._parse_config(kubernetes_config)
 
 
 def test_parse_kubernetes_config_without_image_uri():
@@ -413,7 +414,7 @@ def test_parse_kubernetes_config_without_image_uri():
         "kube-job-template-path": "kubernetes_job_template.yaml"
     }
     with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+        KubernetesBackend._parse_config(kubernetes_config)
 
 
 def test_parse_kubernetes_config_invalid_template_job_file():
@@ -423,4 +424,4 @@ def test_parse_kubernetes_config_invalid_template_job_file():
         "kube-job-template-path": "file_not_found.yaml"
     }
     with pytest.raises(ExecutionException):
-        mlflow.projects._parse_kubernetes_config(kubernetes_config)
+        KubernetesBackend._parse_config(kubernetes_config)
