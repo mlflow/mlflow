@@ -11,12 +11,13 @@ from six.moves import shlex_quote
 
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
+from mlflow.projects.backend import ProjectBackend
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
-    MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
+    MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL, MLFLOW_PROJECT_BACKEND
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -338,3 +339,34 @@ class DatabricksSubmittedRun(SubmittedRun):
 
     def get_status(self):
         return self._job_runner.get_status(self._databricks_run_id)
+
+
+class DatabricksBackend(ProjectBackend):
+
+    def validate(self):
+        if self.project.docker_env:
+            raise ExecutionException(
+                "Running docker-based projects on Databricks is not yet supported.")
+
+    def configure(self):
+        tracking.MlflowClient().set_tag(self.active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
+                                        "databricks")
+
+    def submit_run(self):
+        return run_databricks(
+            remote_run=self.active_run,
+            uri=self.uri,
+            entry_point=self.entry_point,
+            work_dir=self.work_dir,
+            parameters=self.parameters,
+            experiment_id=self.experiment_id,
+            cluster_spec=self.backend_config
+        )
+
+    @staticmethod
+    def _parse_config(backend_config):
+        pass
+
+    @property
+    def backend_type(self):
+        return "databricks"

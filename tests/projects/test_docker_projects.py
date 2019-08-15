@@ -7,7 +7,7 @@ from databricks_cli.configure.provider import DatabricksConfig
 
 import mlflow
 from mlflow.entities import ViewType
-from mlflow.projects import ExecutionException, _get_docker_image_uri
+from mlflow.projects.utils import ExecutionException, _get_docker_image_uri
 from mlflow.store import file_store
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID
@@ -92,7 +92,7 @@ def test_docker_uri_mode_validation(
         mlflow.projects.run(TEST_DOCKER_PROJECT_DIR, backend="databricks")
 
 
-@mock.patch('mlflow.projects._get_git_commit')
+@mock.patch('mlflow.projects.utils._get_git_commit')
 def test_docker_image_uri_with_git(get_git_commit_mock):
     get_git_commit_mock.return_value = '1234567890'
     image_uri = _get_docker_image_uri("my_project", "my_workdir")
@@ -100,7 +100,7 @@ def test_docker_image_uri_with_git(get_git_commit_mock):
     get_git_commit_mock.assert_called_with('my_workdir')
 
 
-@mock.patch('mlflow.projects._get_git_commit')
+@mock.patch('mlflow.projects.utils._get_git_commit')
 def test_docker_image_uri_no_git(get_git_commit_mock):
     get_git_commit_mock.return_value = None
     image_uri = _get_docker_image_uri("my_project", "my_workdir")
@@ -111,7 +111,7 @@ def test_docker_image_uri_no_git(get_git_commit_mock):
 def test_docker_valid_project_backend_local():
     work_dir = "./examples/docker"
     project = _project_spec.load_project(work_dir)
-    mlflow.projects._validate_docker_env(project)
+    mlflow.projects.utils._validate_docker_env(project)
 
 
 def test_docker_invalid_project_backend_local():
@@ -119,7 +119,7 @@ def test_docker_invalid_project_backend_local():
     project = _project_spec.load_project(work_dir)
     project.name = None
     with pytest.raises(ExecutionException):
-        mlflow.projects._validate_docker_env(project)
+        mlflow.projects.utils._validate_docker_env(project)
 
 
 @pytest.mark.parametrize("artifact_uri, host_artifact_uri, container_artifact_uri, should_mount", [
