@@ -334,7 +334,8 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
                                order_by)
     info = {'run_id': [], 'experiment_id': [],
-            'status': [], 'artifact_uri': [], }
+            'status': [], 'artifact_uri': [],
+            'start_time': [], 'end_time': []}
     params, metrics, tags = ({}, {}, {})
     PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
     for i, run in enumerate(runs):
@@ -342,6 +343,8 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
         info['experiment_id'].append(run.info.experiment_id)
         info['status'].append(run.info.status)
         info['artifact_uri'].append(run.info.artifact_uri)
+        info['start_time'].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
+        info['end_time'].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
 
         # Params
         param_keys = set(params.keys())
