@@ -4,7 +4,6 @@ import os
 
 import click
 from tabulate import tabulate
-import pandas as pd
 
 from mlflow.data import is_uri
 from mlflow.entities import ViewType
@@ -113,11 +112,14 @@ def rename_experiment(experiment_id, new_name):
 
 @commands.command("csv")
 @EXPERIMENT_ID
-@click.option("--filename_csv", type=click.STRING, required=True)
-def generate_csv_with_runs(experiment_id, filename_csv):
+@click.option("--filename", type=click.STRING, required=True)
+def generate_csv_with_runs(experiment_id, filename):
     # type: (str, str) -> None
     """
     Generate CSV with all runs for an experiment
     """
-    runs = fluent.search_runs(experiment_ids=experiment_id)
-    runs.to_csv(filename_csv)
+    runs = fluent.search_runs(
+        experiment_ids=experiment_id, index=False)
+    runs.to_csv(filename)
+    print(
+        f"Experiment with ID {experiment_id} has been exported as a CSV to file: {filename}")

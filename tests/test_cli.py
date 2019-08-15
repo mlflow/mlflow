@@ -1,9 +1,15 @@
 from click.testing import CliRunner
 from mock import mock
+import numpy as np
+import os
+import pandas as pd
 import pytest
+import tempfile
+import textwrap
 
 from mlflow.cli import run, server, ui
 from mlflow.server import handlers
+from mlflow import experiments
 
 
 def test_server_static_prefix_validation():
@@ -76,3 +82,26 @@ def test_mlflow_run():
                                           "--experiment-name", "name blah", "uri"])
         mock_projects.run.assert_not_called()
         assert "Specify only one of 'experiment-name' or 'experiment-id' options." in result.output
+
+
+def test_csv_generation():
+    with mock.patch('mlflow.experiments.fluent.search_runs') as mock_search_runs:
+        mock_search_runs.return_value = pd.DataFrame({
+            "run_id": np.array(["all_set", "with_none", "with_nan"]),
+            "experiment_id": np.array([1, 1, 1]),
+            "param_optimizer": np.array(["Adam", None, "Adam"]),
+            "avg_loss": np.array([42.0, None, np.nan], dtype=np.float32)
+        })
+        expected_csv = textwrap.dedent("""\
+        ,run_id,experiment_id,param_optimizer,avg_loss
+        0,all_set,1,Adam,42.0
+        1,with_none,1,,
+        2,with_nan,1,Adam,
+        """)
+        with tempfile.TemporaryDirectory() as tempdir:
+            result_filename = os.path.join(tempdir, "result.csv")
+            result = CliRunner().invoke(experiments.generate_csv_with_runs,
+                                        ["--experiment-id", "1",
+                                         "--filename", result_filename])
+            with open(result_filename, 'r') as fd:
+                assert expected_csv == fd.read()
