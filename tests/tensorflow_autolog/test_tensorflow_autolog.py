@@ -16,9 +16,7 @@ import mlflow
 import mlflow.tensorflow
 import mlflow.keras
 
-import ssl
-
-ssl._create_default_https_context = ssl._create_unverified_context
+import os
 
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
@@ -130,8 +128,10 @@ def tf_estimator_random_data_run():
         CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
         SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
-        train = pd.read_csv("iris_training.csv", names=CSV_COLUMN_NAMES, header=0)
-        test = pd.read_csv("iris_test.csv", names=CSV_COLUMN_NAMES, header=0)
+        train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
+                            names=CSV_COLUMN_NAMES, header=0)
+        test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
+                                        names=CSV_COLUMN_NAMES, header=0)
 
         train_y = train.pop('Species')
         test_y = test.pop('Species')
