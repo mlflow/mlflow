@@ -31,7 +31,8 @@ from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.projects.databricks import DatabricksBackend
 from mlflow.projects.kubernetes import KubernetesBackend
-from mlflow.projects.utils import _validate_docker_env, _validate_docker_installation, _build_docker_image, _get_entry_point_command, _get_run_env_vars 
+from mlflow.projects.utils import _validate_docker_env, _validate_docker_installation, \
+    _build_docker_image, _get_entry_point_command, _get_run_env_vars
 from mlflow.utils import process
 from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri, \
     get_local_path_or_none
@@ -157,27 +158,23 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             work_dir=work_dir, entry_point=entry_point, parameters=parameters,
             experiment_id=experiment_id,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
-    elif backend_type == "databricks":
-        backend = DatabricksBackend(project=project, active_run=active_run, backend_config=backend_config)
-        backend.validate()
-        backend.configure()
-        return backend.submit_run(
-            uri=uri,
-            entry_point=entry_point,
-            work_dir=work_dir, 
-            parameters=parameters,
+
+    elif backend_type in MLFLOW_SUPPORTED_BACKENDS:
+        CurrentProjectBackend = _MLFLOW_BACKEND_DICT[backend_type]
+        backend = CurrentProjectBackend(
+            project=project,
+            active_run=active_run,
+            work_dir=work_dir,
             experiment_id=experiment_id,
-        )
-    elif backend_type == "kubernetes":
-        backend = KubernetesBackend(project=project, active_run=active_run, backend_config=backend_config)
-        backend.validate()
-        backend.configure()
-        return backend.submit_run(
             entry_point=entry_point,
             parameters=parameters,
-            storage_dir=storage_dir,
-            work_dir=work_dir
+            backend_config=backend_config,
+            uri=uri,
+            storage_dir=storage_dir
         )
+        backend.validate()
+        backend.configure()
+        return backend.submit_run()
 
     raise ExecutionException("Got unsupported execution mode %s. Supported "
                              "values: %s" % (backend_type, MLFLOW_SUPPORTED_BACKENDS))
@@ -685,7 +682,6 @@ def _get_docker_command(image, active_run):
         cmd += ["-e", "{key}={value}".format(key=key, value=value)]
     cmd += [image.tags[0]]
     return cmd
-
 
 
 __all__ = [

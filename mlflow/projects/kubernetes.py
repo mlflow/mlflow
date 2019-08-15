@@ -11,7 +11,12 @@ import yaml
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.backend import ProjectBackend
 from mlflow.projects.submitted_run import SubmittedRun
+from mlflow.projects.utils import _build_docker_image, _get_entry_point_command, \
+    _get_run_env_vars, _validate_docker_env, _validate_docker_installation
 from mlflow.entities import RunStatus
+import mlflow.tracking as tracking
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND, MLFLOW_PROJECT_ENV
+
 
 _logger = logging.getLogger(__name__)
 
@@ -140,26 +145,26 @@ class KubernetesSubmittedRun(SubmittedRun):
                 _logger.info("Attempting to cancel a job that is already terminated.")
 
 
-
-from mlflow.projects.utils import _validate_docker_env, _validate_docker_installation
-import mlflow.tracking as tracking
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND, MLFLOW_PROJECT_ENV
 class KubernetesBackend(ProjectBackend):
-    
-    def __init__(self, project, active_run, backend_config):
-        return super().__init__(project, active_run, backend_config)
+
+    def __init__(self, project, active_run, work_dir, experiment_id, entry_point='main',
+                 parameters=None, backend_config=None, uri=None, storage_dir=None):
+        return super().__init__(project, active_run, work_dir, experiment_id,
+                                entry_point=entry_point, parameters=parameters,
+                                backend_config=backend_config, uri=uri, storage_dir=storage_dir)
 
     @staticmethod
     def _parse_config(backend_config):
         """
-        Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
+        Creates build context tarfile containing Dockerfile and project code,
+        returning path to tarfile
         """
         if not backend_config:
             raise ExecutionException("Backend_config file not found.")
         kube_config = backend_config.copy()
         if 'kube-job-template-path' not in backend_config.keys():
             raise ExecutionException("'kube-job-template-path' attribute must be specified in "
-                                    "backend_config.")
+                                     "backend_config.")
         kube_job_template = backend_config['kube-job-template-path']
         if os.path.exists(kube_job_template):
             with open(kube_job_template, 'r') as job_template:
@@ -175,22 +180,18 @@ class KubernetesBackend(ProjectBackend):
             raise ExecutionException("Could not find 'repository-uri' in backend_config.")
         return kube_config
 
-
-
     def validate(self):
         _validate_docker_env(self.project)
         _validate_docker_installation()
-        return super().validate()
 
     def configure(self):
         tracking.MlflowClient().set_tag(self.active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
         tracking.MlflowClient().set_tag(self.active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "kubernetes")
-        return super().configure()
 
-    def submit_run(self, entry_point, parameters, storage_dir, work_dir):
+    def submit_run(self):
         config = self._parse_config(self.backend_config)
-        image = _build_docker_image(work_dir=work_dir,
+        image = _build_docker_image(work_dir=self.work_dir,
                                     repository_uri=config["repository-uri"],
                                     base_image=self.project.docker_env.get('image'),
                                     run_id=self.active_run.info.run_id)
@@ -200,17 +201,13 @@ class KubernetesBackend(ProjectBackend):
             self.active_run,
             image.tags[0],
             image_digest,
-            _get_entry_point_command(self.project, entry_point,
-                                    parameters, storage_dir),
-            _get_run_env_vars(
-            run_id=self.active_run.info.run_uuid,
-            experiment_id=self.active_run.info.experiment_id),
+            _get_entry_point_command(self.project, self.entry_point,
+                                     self.parameters, self.storage_dir),
+            _get_run_env_vars(run_id=self.active_run.info.run_uuid,
+                              experiment_id=self.active_run.info.experiment_id),
             config['kube-context'],
-            config['kube-job-template']
-        )
+            config['kube-job-template'])
 
     @property
     def backend_type(self):
         return "kubernetes"
-
-from mlflow.projects.utils import _build_docker_image, _get_entry_point_command, _get_run_env_vars

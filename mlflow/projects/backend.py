@@ -7,10 +7,17 @@ class ProjectBackend(ABC):
     for methods
     """
 
-    def __init__(self, project, active_run, backend_config):
+    def __init__(self, project, active_run, work_dir, experiment_id, entry_point="main",
+                 parameters=None, backend_config=None, uri=None, storage_dir=None):
         self.project = project
         self.active_run = active_run
+        self.work_dir = work_dir
+        self.experiment_id = experiment_id
+        self.entry_point = entry_point
+        self.parameters = parameters
         self.backend_config = backend_config
+        self.uri = uri
+        self.storage_dir = storage_dir
 
     @abstractmethod
     def validate(self):
@@ -33,12 +40,10 @@ class ProjectBackend(ABC):
         """
         pass
 
-    
     @staticmethod
     @abstractmethod
     def _parse_config(backend_config):
         pass
-
 
     @property
     @abstractmethod

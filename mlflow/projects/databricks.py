@@ -17,7 +17,7 @@ from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
 from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
-    MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
+    MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL, MLFLOW_PROJECT_BACKEND
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -340,11 +340,14 @@ class DatabricksSubmittedRun(SubmittedRun):
     def get_status(self):
         return self._job_runner.get_status(self._databricks_run_id)
 
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_BACKEND
+
 class DatabricksBackend(ProjectBackend):
-    
-    def __init__(self, project, active_run, backend_config):
-        return super().__init__(project, active_run, backend_config)
+
+    def __init__(self, project, active_run, work_dir, experiment_id, entry_point='main',
+                 parameters=None, backend_config=None, uri=None, storage_dir=None):
+        return super().__init__(project, active_run, work_dir, experiment_id,
+                                entry_point=entry_point, parameters=parameters,
+                                backend_config=backend_config, uri=uri, storage_dir=storage_dir)
 
     def validate(self):
         pass
@@ -353,14 +356,14 @@ class DatabricksBackend(ProjectBackend):
         tracking.MlflowClient().set_tag(self.active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "databricks")
 
-    def submit_run(self, uri, entry_point, work_dir, parameters, experiment_id):
+    def submit_run(self):
         return run_databricks(
             remote_run=self.active_run,
-            uri=uri,
-            entry_point=entry_point,
-            work_dir=work_dir,
-            parameters=parameters,
-            experiment_id=experiment_id,
+            uri=self.uri,
+            entry_point=self.entry_point,
+            work_dir=self.work_dir,
+            parameters=self.parameters,
+            experiment_id=self.experiment_id,
             cluster_spec=self.backend_config
         )
 
