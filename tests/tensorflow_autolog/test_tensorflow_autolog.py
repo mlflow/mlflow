@@ -131,7 +131,7 @@ def tf_estimator_random_data_run():
         train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
                             names=CSV_COLUMN_NAMES, header=0)
         test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
-                                        names=CSV_COLUMN_NAMES, header=0)
+                           names=CSV_COLUMN_NAMES, header=0)
 
         train_y = train.pop('Species')
         test_y = test.pop('Species')
