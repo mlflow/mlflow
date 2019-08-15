@@ -16,6 +16,10 @@ import mlflow
 import mlflow.tensorflow
 import mlflow.keras
 
+import ssl
+
+ssl._create_default_https_context = ssl._create_unverified_context
+
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
         ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
