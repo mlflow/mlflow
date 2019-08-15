@@ -1,7 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 
-class ProjectBackend(ABC):
+class ProjectBackend():
     """
     Wrapper around an MLflow project remote backend (e.g. databricks, azure)
     for methods
@@ -36,16 +36,22 @@ class ProjectBackend(ABC):
     @abstractmethod
     def submit_run(self):
         """
-        returns a SubmittedRun, like DatabricksSubmittedRun
+        Submits the run to the remote compute, returns SubmittedRun obj
         """
         pass
 
     @staticmethod
     @abstractmethod
     def _parse_config(backend_config):
+        """
+        Parse the backend config
+        """
         pass
 
     @property
     @abstractmethod
     def backend_type(self):
+        """
+        Returns the type of execution backend, i.e kubernetes, azure, ect.
+        """
         pass

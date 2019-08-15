@@ -343,12 +343,6 @@ class DatabricksSubmittedRun(SubmittedRun):
 
 class DatabricksBackend(ProjectBackend):
 
-    def __init__(self, project, active_run, work_dir, experiment_id, entry_point='main',
-                 parameters=None, backend_config=None, uri=None, storage_dir=None):
-        return super().__init__(project, active_run, work_dir, experiment_id,
-                                entry_point=entry_point, parameters=parameters,
-                                backend_config=backend_config, uri=uri, storage_dir=storage_dir)
-
     def validate(self):
         pass
 
