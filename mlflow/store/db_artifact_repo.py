@@ -11,7 +11,7 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.dbmodels.initial_artifact_store_models import Base as InitialBase
-from mlflow.store.dbmodels.initial_artifact_store_models import Base, SqlArtifact
+from mlflow.store.dbmodels.initial_artifact_store_models import SqlArtifact
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from sqlalchemy import or_
 
@@ -77,7 +77,7 @@ class DBArtifactRepository(ArtifactRepository):
         ])
         if len(self.expected_tables & set(insp.get_table_names())) == 0:
             DBArtifactRepository._initialize_tables(self.engine)
-        Base.metadata.bind = self.engine
+        InitialBase.metadata.bind = self.engine
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = self._get_managed_session_maker(SessionMaker)
 

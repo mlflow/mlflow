@@ -97,12 +97,9 @@ _artifact_repository_registry.register_entrypoints()
 
 def get_artifact_repository_type(artifact_uri):
     scheme = get_uri_scheme(artifact_uri)
-    print(scheme)
     if scheme == 'sqlite' or scheme == 'mssql':
-        print("The repo is a dbms")
         return ArtifactRepositoryType.DB
     else:
-        print("The repo is a filesystem")
         return ArtifactRepositoryType.FileSystem
 
 
@@ -116,5 +113,4 @@ def get_artifact_repository(artifact_uri):
     :return: An instance of `mlflow.store.ArtifactRepository` that fulfills the artifact URI
              requirements.
     """
-    print("Artifact_uri", artifact_uri)
     return _artifact_repository_registry.get_artifact_repository(artifact_uri)

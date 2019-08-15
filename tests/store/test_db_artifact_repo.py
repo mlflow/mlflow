@@ -6,9 +6,6 @@ import unittest
 from mlflow.store.dbmodels import initial_artifact_store_models
 from mlflow.store.db_artifact_repo import DBArtifactRepository
 from mlflow.utils.file_utils import TempDir
-from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-import mlflow
-import posixpath
 
 DB_URI = 'sqlite:///'
 
@@ -189,13 +186,3 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             local_path = self.store.download_artifacts(artifact_path='new_path/path')
             assert open(os.path.join(local_path, "file_one.txt")).read() == 'DB store Test One'
             assert open(os.path.join(local_path, "file_two.txt")).read() == 'DB store Test Two'
-
-    def test_download_dir_artifact(self):
-        with TempDir() as root_dir:
-            with open(root_dir.path("file_one.txt"), "w") as f:
-                f.write('DB store Test One')
-
-            self.store.log_artifacts(root_dir._path, 'artifact')
-            local_path = self.store.download_artifacts(artifact_path='artifact')
-            assert open(
-                os.path.join(local_path, "file_one.txt")).read() == 'DB store Test One'

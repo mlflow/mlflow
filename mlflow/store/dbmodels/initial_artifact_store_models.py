@@ -60,7 +60,7 @@ class SqlArtifact(Base):
             file_size=self.artifact_initial_size)
 
     def __repr__(self):
-        return '<SqlArtifact ({}, {}, {}, {})>'.format(self.artifact_id, self.artifact_name,
-                                                       self.group_path,
-                                                       self.artifact_content,
-                                                       self.artifact_initial_size)
+        return '<SqlArtifact ({}, {}, {}, {}, {})>'.format(self.artifact_id, self.artifact_name,
+                                                           self.group_path,
+                                                           self.artifact_content,
+                                                           self.artifact_initial_size)
