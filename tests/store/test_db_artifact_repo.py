@@ -41,7 +41,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='model').first()
                 self.assertEqual(str(test_art.artifact_id), "1")
                 self.assertEqual(test_art.artifact_name, 'model')
-                self.assertEqual(test_art.group_path, 'more_path/some')
+                self.assertEqual(test_art.group_path, os.path.normpath('more_path/some'))
                 self.assertEqual(test_art.artifact_content, open(
                     local_file, "rb").read())
 
@@ -83,7 +83,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='file_one.txt').first()
                 self.assertEqual(str(test_art.artifact_id), "1")
                 self.assertEqual(test_art.artifact_name, 'file_one.txt')
-                self.assertEqual(test_art.group_path, 'new_path/path')
+                self.assertEqual(test_art.group_path, os.path.normpath('new_path/path'))
                 self.assertEqual(test_art.artifact_content, open(
                     root_dir.path("file_one.txt"), "rb").read())
 
@@ -91,9 +91,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='file_two.txt').first()
                 self.assertEqual(str(test_art.artifact_id), "2")
                 self.assertEqual(test_art.artifact_name, 'file_two.txt')
-                self.assertEqual(test_art.group_path, 'new_path/path/subdir')
+                self.assertEqual(test_art.group_path, os.path.normpath('new_path/path/subdir'))
                 self.assertEqual(test_art.artifact_content, open(
-                    root_dir.path("subdir/file_two.txt"), "rb").read())
+                    root_dir.path(os.path.normpath("subdir/file_two.txt")), "rb").read())
 
     def test_log_artifacts_no_artifact_path(self):
         with TempDir() as root_dir:
@@ -124,7 +124,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 self.assertEqual(test_art.artifact_name, 'file_two.txt')
                 self.assertEqual(test_art.group_path, 'subdir')
                 self.assertEqual(test_art.artifact_content, open(
-                    root_dir.path("subdir/file_two.txt"), "rb").read())
+                    root_dir.path(os.path.normpath("subdir/file_two.txt")), "rb").read())
 
     def test_list_artifacts(self):
         with TempDir() as root_dir:
@@ -143,27 +143,47 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
             self.assertEqual(len(self.store.list_artifacts('new_path/path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path/path')]
-            self.assertTrue(filenames.__contains__('new_path/path/file_one.txt'))
-            self.assertTrue(filenames.__contains__('new_path/path/subdir/file_two.txt'))
-            self.assertTrue(filenames.__contains__('new_path/path/subdir/file_three.txt'))
+            self.assertTrue(filenames.__contains__(
+                os.path.join(os.path.normpath('new_path/path'), 'file_one.txt')))
+            self.assertTrue(
+                filenames.__contains__(
+                    os.path.join(os.path.normpath('new_path/path/subdir'), 'file_two.txt')))
+            self.assertTrue(
+                filenames.__contains__(
+                    os.path.join(os.path.normpath('new_path/path/subdir'), 'file_three.txt')))
 
             self.assertEqual(len(self.store.list_artifacts('new_path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path')]
-            self.assertTrue(filenames.__contains__('new_path/path/file_one.txt'))
-            self.assertTrue(filenames.__contains__('new_path/path/subdir/file_two.txt'))
-            self.assertTrue(filenames.__contains__('new_path/path/subdir/file_three.txt'))
+            self.assertTrue(filenames.__contains__(
+                os.path.join(os.path.normpath('new_path/path'), 'file_one.txt')))
+            self.assertTrue(
+                filenames.__contains__(
+                    os.path.join(os.path.normpath('new_path/path/subdir'), 'file_two.txt')))
+            self.assertTrue(
+                filenames.__contains__(
+                    os.path.join(os.path.normpath('new_path/path/subdir'), 'file_three.txt')))
 
             self.assertEqual(len(self.store.list_artifacts('new_path2/path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path2/path')]
-            self.assertTrue(filenames.__contains__('new_path2/path/file_one.txt'))
-            self.assertTrue(filenames.__contains__('new_path2/path/subdir/file_two.txt'))
-            self.assertTrue(filenames.__contains__('new_path2/path/subdir/file_three.txt'))
+            self.assertTrue(filenames.__contains__(
+                os.path.join(os.path.normpath('new_path2/path'), 'file_one.txt')))
+            self.assertTrue(
+                filenames.__contains__(
+                    os.path.join(os.path.normpath('new_path2/path/subdir'), 'file_two.txt')))
+            self.assertTrue(
+                filenames.__contains__(
+                    os.path.join(os.path.normpath('new_path2/path/subdir'), 'file_three.txt')))
 
             self.assertEqual(len(self.store.list_artifacts('new_path2')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path2')]
-            self.assertTrue(filenames.__contains__('new_path2/path/file_one.txt'))
-            self.assertTrue(filenames.__contains__('new_path2/path/subdir/file_two.txt'))
-            self.assertTrue(filenames.__contains__('new_path2/path/subdir/file_three.txt'))
+            self.assertTrue(filenames.__contains__(
+                os.path.join(os.path.normpath('new_path2/path'), 'file_one.txt')))
+            self.assertTrue(
+                filenames.__contains__(
+                    os.path.join(os.path.normpath('new_path2/path/subdir'), 'file_two.txt')))
+            self.assertTrue(
+                filenames.__contains__(
+                    os.path.join(os.path.normpath('new_path2/path/subdir'), 'file_three.txt')))
 
     def test_download_file_artifact(self):
         with TempDir() as root_dir:

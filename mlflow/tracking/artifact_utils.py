@@ -60,7 +60,7 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
     """
     artifact_repo_type = get_artifact_repository_type(artifact_uri)
 
-    if artifact_repo_type.value == ArtifactRepositoryType.FileSystem.value:
+    if artifact_repo_type == ArtifactRepositoryType.FileSystem:
         parsed_uri = urllib.parse.urlparse(artifact_uri)
         prefix = ""
         if parsed_uri.scheme and not parsed_uri.path.startswith("/"):

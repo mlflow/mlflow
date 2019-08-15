@@ -1,8 +1,10 @@
 import logging
 import os
-import posixpath
 from abc import ABCMeta
 import sqlalchemy
+import tempfile
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
+
 from contextlib import contextmanager
 
 from mlflow.utils import extract_db_type_from_uri
@@ -124,6 +126,8 @@ class DBArtifactRepository(ArtifactRepository):
         :param artifact_path: Directory within the run's artifact directory in which to log the
                               artifact.
         """
+        if artifact_path:
+            artifact_path = os.path.normpath(artifact_path)
 
         _, file_name = os.path.split(local_file)
         with self.ManagedSessionMaker() as session:
@@ -152,6 +156,8 @@ class DBArtifactRepository(ArtifactRepository):
         :param artifact_path: Directory within the run's artifact directory in which to log the
                               artifacts
         """
+        if artifact_path:
+            artifact_path = os.path.normpath(artifact_path)
         with self.ManagedSessionMaker() as session:
             for subdir_path, _, files in os.walk(local_dir):
                 relative_path = _relative_path_local(local_dir, subdir_path)
@@ -159,7 +165,7 @@ class DBArtifactRepository(ArtifactRepository):
                 if artifact_path is None:
                     db_subdir_path = relative_path if relative_path else ""
                 else:
-                    db_subdir_path = posixpath.join(artifact_path, relative_path) \
+                    db_subdir_path = os.path.join(artifact_path, relative_path) \
                         if relative_path else artifact_path
 
                 for each_file in files:
@@ -181,13 +187,73 @@ class DBArtifactRepository(ArtifactRepository):
 
         :return: List of artifacts as FileInfo listed directly under path.
         """
+        path = os.path.normpath(path)
         with self.ManagedSessionMaker() as session:
-            regex = path + '/%'
+            regex = path + os.sep + '%'
             return [artifact.to_file_info()
                     for artifact in
                     session.query(SqlArtifact).filter(
                         or_(SqlArtifact.group_path.like(os.path.join(self.root, regex)),
                             SqlArtifact.group_path == path))]
+
+    def download_artifacts(self, artifact_path, dst_path=None):
+        """
+        Download an artifact file or directory to a local directory if applicable, and return a
+        local path for it.
+        The caller is responsible for managing the lifecycle of the downloaded artifacts.
+
+        :param artifact_path: Relative source path to the desired artifacts.
+        :param dst_path: Absolute path of the local filesystem destination directory to which to
+                         download the specified artifacts. This directory must already exist.
+                         If unspecified, the artifacts will either be downloaded to a new
+                         uniquely-named directory on the local filesystem or will be returned
+                         directly in the case of the LocalArtifactRepository.
+
+        :return: Absolute path of the local filesystem location containing the desired artifacts.
+        """
+
+        # TODO: Probably need to add a more efficient method to stream just a single artifact
+        #       without downloading it, or to get a pre-signed URL for cloud storage.
+
+        def download_artifacts_into(artifact_path, dest_dir):
+            basename = os.path.basename(artifact_path)
+            local_path = os.path.join(dest_dir, basename)
+
+            listing = self.list_artifacts(artifact_path)
+            if len(listing) > 0:
+                # Artifact_path is a directory, so make a directory for it and download everything
+                if not os.path.exists(local_path):
+                    os.mkdir(local_path)
+                for file_info in listing:
+                    # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
+                    if file_info.path == "." or file_info.path == artifact_path:
+                        continue
+                    download_artifacts_into(artifact_path=file_info.path, dest_dir=local_path)
+            else:
+                self._download_file(remote_file_path=artifact_path, local_path=local_path)
+            return local_path
+
+        if artifact_path:
+            artifact_path = os.path.normpath(artifact_path)
+
+        if dst_path is None:
+            dst_path = tempfile.mkdtemp()
+        dst_path = os.path.abspath(dst_path)
+
+        if not os.path.exists(dst_path):
+            raise MlflowException(
+                message=(
+                    "The destination path for downloaded artifacts does not"
+                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)),
+                error_code=RESOURCE_DOES_NOT_EXIST)
+        elif not os.path.isdir(dst_path):
+            raise MlflowException(
+                message=(
+                    "The destination path for downloaded artifacts must be a directory!"
+                    " Destination path: {dst_path}".format(dst_path=dst_path)),
+                error_code=INVALID_PARAMETER_VALUE)
+
+        return download_artifacts_into(artifact_path, dst_path)
 
     def _download_file(self, remote_file_path, local_path):
         """

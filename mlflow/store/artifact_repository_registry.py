@@ -14,10 +14,9 @@ from mlflow.store.sftp_artifact_repo import SFTPArtifactRepository
 from mlflow.store.db_artifact_repo import DBArtifactRepository
 
 from mlflow.utils import get_uri_scheme
-from enum import Enum
 
 
-class ArtifactRepositoryType(Enum):
+class ArtifactRepositoryType(object):
     DB = 1
     FileSystem = 2
 
