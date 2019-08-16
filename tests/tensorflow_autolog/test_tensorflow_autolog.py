@@ -16,6 +16,8 @@ import mlflow
 import mlflow.tensorflow
 import mlflow.keras
 
+import os
+
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
         ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
@@ -126,15 +128,10 @@ def tf_estimator_random_data_run():
         CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
         SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
-        train_path = tf.keras.utils.get_file(
-            "iris_training.csv", "https://storage.googleapis.com/download"
-                                 ".tensorflow.org/data/iris_training.csv")
-        test_path = tf.keras.utils.get_file(
-            "iris_test.csv", "https://storage.googleapis.com/download"
-                             ".tensorflow.org/data/iris_test.csv")
-
-        train = pd.read_csv(train_path, names=CSV_COLUMN_NAMES, header=0)
-        test = pd.read_csv(test_path, names=CSV_COLUMN_NAMES, header=0)
+        train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
+                            names=CSV_COLUMN_NAMES, header=0)
+        test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
+                           names=CSV_COLUMN_NAMES, header=0)
 
         train_y = train.pop('Species')
         test_y = test.pop('Species')
