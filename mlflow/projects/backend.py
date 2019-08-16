@@ -4,7 +4,13 @@ from abc import abstractmethod
 class ProjectBackend():
     """
     Wrapper around an MLflow project remote backend (e.g. databricks, azure)
-    for methods
+    This class defines the interface for validateing, setting up logging, 
+    and submitting a run.
+
+    NOTE:
+
+        Subclasses of ``ProjectBackend`` must expose a ``backend_type`` member 
+        containing the str reference name of the backend.
     """
 
     def __init__(self, project, active_run, work_dir, experiment_id, entry_point="main",
