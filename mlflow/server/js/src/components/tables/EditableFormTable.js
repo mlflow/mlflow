@@ -29,7 +29,7 @@ class EditableCell extends React.Component {
   };
 
   render() {
-    const { editing, dataIndex, title, record, children } = this.props;
+    const { editing, dataIndex, record, children } = this.props;
     return (
       <EditableContext.Consumer>
         {({ getFieldDecorator }) => (
