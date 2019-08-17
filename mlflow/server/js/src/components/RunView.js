@@ -59,7 +59,7 @@ class RunView extends Component {
     showParameters: true,
     showMetrics: true,
     showArtifacts: true,
-    showTags: true,
+    showTags: false,
     showRunRenameModal: false,
   };
 

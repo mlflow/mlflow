@@ -104,7 +104,7 @@ export class EditableTagsTableView extends React.Component {
             </Form.Item>
             <Form.Item>
               {getFieldDecorator('value', {
-                rules: [{ required: true, message: 'Value is required.'}]
+                rules: []
               })(
                 <Input placeholder='Value' style={styles.addTagForm.valueInput}/>
               )}
