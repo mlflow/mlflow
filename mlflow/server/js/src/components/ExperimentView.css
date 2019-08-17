@@ -194,10 +194,6 @@ span.error-message {
   cursor: pointer;
 }
 
-.ExperimentView .metric-param-name {
-  font-weight: bold;
-}
-
 .ExperimentView .underline-on-hover:hover {
   text-decoration: underline;
 }
@@ -224,16 +220,17 @@ span.error-message {
 
 .ExperimentView .metric-param-container-cell {
   min-width: 280px;
+  padding: 8px;
 }
 
 .ExperimentView .metric-param-cell {
   display: inline-block;
   width: 250px;
-  padding: 4px;
+  padding: 0;
 }
 
-.ExperimentView .metric-param-content {
-  padding-top: 0px;
+.ExperimentView .tag-cell-item {
+  height: 100%;
 }
 
 .ExperimentView-expander:hover {
@@ -263,8 +260,12 @@ span.error-message {
   padding: 8px;
 }
 
-.ExperimentView .ReactVirtualized__Table  .BaggedCell .run-table-container {
-  padding: 4px;
+.ExperimentView .ReactVirtualized__Table  .run-table-container.metric-param-sort-toggle {
+  padding: 0;
+}
+
+.ExperimentView .ReactVirtualized__Table  .run-table-container.metric-param-value {
+  padding: 0;
 }
 
 /**
