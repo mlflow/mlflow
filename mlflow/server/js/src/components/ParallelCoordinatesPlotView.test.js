@@ -21,20 +21,24 @@ describe('unit tests', () => {
         {
           label: 'param_0',
           values: [1, 2],
+          tickformat: 'f',
         },
         {
           label: 'param_1',
           values: [2, 3],
+          tickformat: 'f',
         },
       ],
       metricDimensions: [
         {
           label: 'metric_0',
           values: [1, 2],
+          tickformat: 'f',
         },
         {
           label: 'metric_1',
           values: [2, 3],
+          tickformat: 'f',
         },
       ],
     };
@@ -124,6 +128,48 @@ describe('unit tests', () => {
     expect(inferType(key, runUuids, entryByRunUuid)).toBe('string');
   });
 
+  test('inferType works with numeric dimension that includes NaNs', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: NaN },
+      },
+      runUuid_1: {
+        metric_0: { value: NaN },
+      },
+    };
+    expect(inferType(key, runUuids, entryByRunUuid)).toBe('number');
+  });
+
+  test('inferType works with numeric dimension specified as strings', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: '1.0' },
+      },
+      runUuid_1: {
+        metric_0: { value: 'NaN' },
+      },
+    };
+    expect(inferType(key, runUuids, entryByRunUuid)).toBe('number');
+  });
+
+  test('inferType works with mixed string and number dimension', () => {
+    const key = 'metric_0';
+    const runUuids = ['runUuid_0', 'runUuid_1'];
+    const entryByRunUuid = {
+      runUuid_0: {
+        metric_0: { value: '1.0' },
+      },
+      runUuid_1: {
+        metric_0: { value: 'this thing is a string' },
+      },
+    };
+    expect(inferType(key, runUuids, entryByRunUuid)).toBe('string');
+  });
+
   test('createDimension should work with numeric dimension', () => {
     const key = 'metric_0';
     const runUuids = ['runUuid_0', 'runUuid_1'];
@@ -138,6 +184,7 @@ describe('unit tests', () => {
     expect(createDimension(key, runUuids, entryByRunUuid)).toEqual({
       label: 'metric_0',
       values: [1, 2],
+      tickformat: 'f',
     });
   });
 
