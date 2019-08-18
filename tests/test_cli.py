@@ -4,6 +4,7 @@ import numpy as np
 import os
 import pandas as pd
 import pytest
+import shutil
 import tempfile
 import textwrap
 
@@ -98,10 +99,13 @@ def test_csv_generation():
         with_none,1,,
         with_nan,1,Adam,
         """)
-        with tempfile.TemporaryDirectory() as tempdir:
+        tempdir = tempfile.mkdtemp()
+        try:
             result_filename = os.path.join(tempdir, "result.csv")
-            result = CliRunner().invoke(experiments.generate_csv_with_runs,
-                                        ["--experiment-id", "1",
-                                         "--filename", result_filename])
+            CliRunner().invoke(experiments.generate_csv_with_runs,
+                               ["--experiment-id", "1",
+                                "--filename", result_filename])
             with open(result_filename, 'r') as fd:
                 assert expected_csv == fd.read()
+        finally:
+            shutil.rmtree(tempdir)
