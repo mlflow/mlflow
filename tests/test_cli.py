@@ -93,10 +93,10 @@ def test_csv_generation():
             "avg_loss": np.array([42.0, None, np.nan], dtype=np.float32)
         })
         expected_csv = textwrap.dedent("""\
-        ,run_id,experiment_id,param_optimizer,avg_loss
-        0,all_set,1,Adam,42.0
-        1,with_none,1,,
-        2,with_nan,1,Adam,
+        run_id,experiment_id,param_optimizer,avg_loss
+        all_set,1,Adam,42.0
+        with_none,1,,
+        with_nan,1,Adam,
         """)
         with tempfile.TemporaryDirectory() as tempdir:
             result_filename = os.path.join(tempdir, "result.csv")

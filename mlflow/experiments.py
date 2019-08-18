@@ -118,8 +118,8 @@ def generate_csv_with_runs(experiment_id, filename):
     """
     Generate CSV with all runs for an experiment
     """
-    runs = fluent.search_runs(
-        experiment_ids=experiment_id, index=False)
-    runs.to_csv(filename)
+    runs = fluent.search_runs(experiment_ids=experiment_id)
+    runs.to_csv(filename, index=False)
     print(
-        f"Experiment with ID {experiment_id} has been exported as a CSV to file: {filename}")
+        "Experiment with ID %s has been exported as a CSV to file: %s." %
+        (experiment_id, filename))
