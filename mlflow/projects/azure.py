@@ -28,9 +28,9 @@ class AzureBackend(ProjectBackend):
     def submit_run(self):
         config = _parse_config(self.backend_config)
         ws = _get_workspace(config)
-        
+
         estimator = Estimator(
-            source_directory=self.work_dir, 
+            source_directory=self.work_dir,
             compute_target=None,
             vm_size=config['vm-size'],
             vm_priority=None,
@@ -62,7 +62,7 @@ class AzureBackend(ProjectBackend):
 
         experiment = Experiment(ws, config['experiment-name'])
         run = experiment.submit(estimator)
-        return run # FIXME: must be a SubbmitedRun child
+        return run  # FIXME: must be a SubbmitedRun child
 
     @staticmethod
     def _parse_config(backend_config):
@@ -72,7 +72,7 @@ class AzureBackend(ProjectBackend):
     def backend_type(self):
         return "azure"
 
-    @static
+    @staticmethod
     def _get_workspace(config):
         return Workspace(
             subscription_id=config['subscription-id'],
