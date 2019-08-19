@@ -5,6 +5,7 @@ MLflow run. This module is exposed to users at the top-level :py:mod:`mlflow` mo
 
 from __future__ import print_function
 
+import inspect
 import os
 
 import atexit
@@ -240,6 +241,85 @@ def log_params(params):
     run_id = _get_or_start_run().info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     MlflowClient().log_batch(run_id=run_id, metrics=[], params=params_arr, tags=[])
+
+
+def log_vars(
+        include=None, exclude=None,
+        include_args=True, include_varargs=True, include_kwargs=True, include_locals=False,
+        varargs_prefix="vararg_",
+        verbose=0):
+    """Log variables extracted from the local scope for the current run, starting a run if no runs are active.
+
+    :param include: list[str], optional, default: None;
+        List of variables to include; Only one, `include` OR `exclude`, can be specified.
+    :param exclude: list[str], optional, default: None;
+        List of variables to exclude; Only one, `include` OR `exclude`, can be specified.
+    :param include_args: bool, optional, default: True;
+        Whether to include regular arguments of the enclosing function
+    :param include_varargs: bool, optional, default: True;
+        Whether to include varargs of the enclosing function
+    :param include_kwargs: bool, optional, default: True;
+        Whether to include keyword arguments of the enclosing function
+    :param include_locals: bool, optional, default: False;
+        Whether to include local variables besides the function arguments of the enclosing function
+    :param varargs_prefix: str, optional, default: "vararg_";
+        Prefix for (unnamed) varargs
+    :param verbose: int, optional, default: 0;
+        1 will print the logged arguments
+
+    :return: dict
+        Dict containing the logged arguments and their values
+
+    """
+
+    if include is not None and exclude is not None:
+        raise Exception("`include` and `exclude` have been set. However, only one can be not `None`.")
+
+    calling_frame = inspect.stack()[1].frame
+    arg_info = inspect.getargvalues(calling_frame)
+
+    args = {}
+
+    if include_args:
+        for arg in arg_info.args:
+            args[arg] = arg_info.locals[arg]
+
+    if include_kwargs and arg_info.keywords is not None:
+        for k, v in arg_info.locals[arg_info.keywords].items():
+            args[k] = v
+
+    if include_varargs is not None and arg_info.varargs is not None:
+        for i, v in enumerate(arg_info.locals[arg_info.varargs]):
+            args["{}{}".format(varargs_prefix, i)] = v
+
+    if include_locals:
+        skip = arg_info.args
+        if arg_info.varargs is not None:
+            skip.append(arg_info.varargs)
+        if arg_info.keywords is not None:
+            skip.append(arg_info.keywords)
+
+        for k, v in arg_info.locals.items():
+            if k not in skip:
+                args[k] = v
+
+    if include is not None:
+        exclude = []
+        for k, v in args.items():
+            if k not in include:
+                exclude.append(k)
+
+    if exclude is not None:
+        for arg in exclude:
+            del args[arg]
+
+    if verbose:
+        print("mlflowhelper: Logging variables:")
+        for k, v in args.items():
+            print("  * {}={}".format(k, v))
+
+    log_params(args)
+    return args
 
 
 def set_tags(tags):
