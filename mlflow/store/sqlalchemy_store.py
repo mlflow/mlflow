@@ -11,7 +11,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.dbmodels.db_types import MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag, \
-    SqlExperimentTag
+    SqlExperimentTag, SqlLatestMetric
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
@@ -84,6 +84,7 @@ class SqlAlchemyStore(AbstractStore):
             SqlParam.__tablename__,
             SqlTag.__tablename__,
             SqlExperimentTag.__tablename__
+            SqlLatestMetric.__tablename__
         ])
         if len(expected_tables & set(insp.get_table_names())) == 0:
             SqlAlchemyStore._initialize_tables(self.engine)
@@ -260,7 +261,6 @@ class SqlAlchemyStore(AbstractStore):
 
         if names and len(names) > 0:
             conditions.append(SqlExperiment.name.in_(names))
-
         return session.query(SqlExperiment).filter(*conditions)
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
@@ -525,20 +525,21 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
-        # TODO: push search query into backend database layer
-        if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
-            raise MlflowException("Invalid value for request parameter max_results. It must be at "
-                                  "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
-                                                                     max_results),
-                                  INVALID_PARAMETER_VALUE)
-        with self.ManagedSessionMaker() as session:
-            runs = [run.to_mlflow_entity(session)
-                    for exp in experiment_ids
-                    for run in self._list_runs(session, exp, run_view_type)]
-            filtered = SearchUtils.filter(runs, filter_string)
-            sorted_runs = SearchUtils.sort(filtered, order_by)
-            runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
-            return runs, next_page_token
+        with profiled():
+            # TODO: push search query into backend database layer
+            if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
+                raise MlflowException("Invalid value for request parameter max_results. It must be at "
+                                      "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
+                                                                         max_results),
+                                      INVALID_PARAMETER_VALUE)
+            with self.ManagedSessionMaker() as session:
+                runs = [run.to_mlflow_entity(session)
+                        for exp in experiment_ids
+                        for run in self._list_runs(session, exp, run_view_type)]
+                filtered = SearchUtils.filter(runs, filter_string)
+                sorted_runs = SearchUtils.sort(filtered, order_by)
+                runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+                return runs, next_page_token
 
     def _list_runs(self, session, experiment_id, run_view_type):
         exp = self._list_experiments(
@@ -564,3 +565,21 @@ class SqlAlchemyStore(AbstractStore):
             raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+import cProfile
+import StringIO
+import pstats
+import contextlib
+
+@contextlib.contextmanager
+def profiled():
+    pr = cProfile.Profile()
+    pr.enable()
+    yield
+    pr.disable()
+    s = StringIO.StringIO()
+    ps = pstats.Stats(pr, stream=s).sort_stats('cumulative')
+    ps.print_stats()
+    # uncomment this to see who's calling what
+    # ps.print_callers()
+    print(s.getvalue())
