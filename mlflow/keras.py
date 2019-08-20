@@ -406,6 +406,5 @@ def autolog():
         return original(self, *args, **kwargs)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    patch = gorilla.Patch(keras.Model, 'fit', fit, settings=settings)
-    patch = gorilla.Patch(keras.Model, 'fit_generator', fit_generator, settings=settings)
-    gorilla.apply(patch)
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit_generator', fit_generator, settings=settings))
