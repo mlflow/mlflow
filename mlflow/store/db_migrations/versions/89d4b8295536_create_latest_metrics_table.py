@@ -59,8 +59,7 @@ def upgrade():
         Column('timestamp', BigInteger, nullable=False),
         Column('step', BigInteger, default=0, nullable=False),
         Column('is_nan', Boolean, default=False, nullable=False),
-        Column('run_uuid', String(length=32), ForeignKey('runs.run_uuid'), 
-                  primary_key=True, nullable=False),
+        Column('run_uuid', String(length=32), ForeignKey('runs.run_uuid'), nullable=False),
         PrimaryKeyConstraint('key', 'run_uuid', name='latest_metric_pk')
     )
 
@@ -68,7 +67,7 @@ def upgrade():
     session = orm.Session(bind=bind)
     all_run_uuids = session.query(SqlRun.run_uuid).all()
     for run_uuid in all_run_uuids:
-        run_latest_metrics = get_latest_metrics_for_run
+        run_latest_metrics = get_latest_metrics_for_run(session=session, run_uuid=run_uuid)
         print(run_latest_metrics)
 
 
