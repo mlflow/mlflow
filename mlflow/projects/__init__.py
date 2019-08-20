@@ -59,20 +59,30 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
     Verifies either one or other is specified - cannot be both selected.
 
+    If ``experiment_name`` is provided and does not exist, an experiment
+    of that name is created and its id is returned.
+
     :param experiment_name: Name of experiment under which to launch the run.
     :param experiment_id: ID of experiment under which to launch the run.
-    :return: int
+    :return: str
     """
 
     if experiment_name and experiment_id:
         raise MlflowException("Specify only one of 'experiment_name' or 'experiment_id'.")
 
-    exp_id = experiment_id
+    if experiment_id:
+        return str(experiment_id)
+
     if experiment_name:
         client = tracking.MlflowClient()
-        exp_id = client.get_experiment_by_name(experiment_name).experiment_id
-    exp_id = exp_id or _get_experiment_id()
-    return exp_id
+        exp = client.get_experiment_by_name(experiment_name)
+        if exp:
+            return exp.experiment_id
+        else:
+            print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+            return client.create_experiment(experiment_name)
+
+    return _get_experiment_id()
 
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
