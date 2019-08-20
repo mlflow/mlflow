@@ -68,7 +68,18 @@ def upgrade():
     all_run_uuids = session.query(SqlRun.run_uuid).all()
     for run_uuid in all_run_uuids:
         run_latest_metrics = get_latest_metrics_for_run(session=session, run_uuid=run_uuid)
-        print(run_latest_metrics)
+        for _, key, step, timestamp, value, is_nan in run_latest_metrics:
+            session.merge(
+                SqlLatestMetric(
+                    run_uuid=run_uuid,
+                    key=key,
+                    step=step,
+                    timestamp=timestamp,
+                    value=value,
+                    is_nan=is_nan
+                )
+            )
+    session.commit()
 
 
 def downgrade():

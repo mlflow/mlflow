@@ -344,7 +344,7 @@ class SqlAlchemyStore(AbstractStore):
             run.tags = [SqlTag(key=key, value=value) for key, value in tags_dict.items()]
             self._save_to_db(objs=run, session=session)
 
-            return run.to_mlflow_entity(session)
+            return run.to_mlflow_entity()
 
     def _get_run(self, session, run_uuid):
         runs = session.query(SqlRun).filter(SqlRun.run_uuid == run_uuid).all()
@@ -386,14 +386,14 @@ class SqlAlchemyStore(AbstractStore):
             run.end_time = end_time
 
             self._save_to_db(objs=run, session=session)
-            run = run.to_mlflow_entity(session)
+            run = run.to_mlflow_entity()
 
             return run.info
 
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             run = self._get_run(run_uuid=run_id, session=session)
-            return run.to_mlflow_entity(session)
+            return run.to_mlflow_entity()
 
     def restore_run(self, run_id):
         with self.ManagedSessionMaker() as session:
@@ -426,6 +426,27 @@ class SqlAlchemyStore(AbstractStore):
             self._get_or_create(model=SqlMetric, run_uuid=run_id, key=metric.key,
                                 value=value, timestamp=metric.timestamp, step=metric.step,
                                 session=session, is_nan=is_nan)
+
+            session \
+                .query(SqlLatestMetric) \
+                .filter(sqlalchemy._and(
+                    SqlLatestMetric.run_uuid == run_uuid,
+                    SqlLatestMetric.key == metric.key))
+                # .union(
+                #
+                # SqlLatestMetric.run_uuid == run_uuid)
+
+
+
+
+
+      # REPLACE latest_metrics
+      # (SELECT runUuid, experimentId, name, value, timestamp, step FROM latest_metrics
+      #   WHERE runUuid = :run_id AND name = :metric_name AND experimentId = :experiment_id)
+      # UNION
+      # (SELECT :run_id, :experiment_id, :metric_name, :metric_value, :timestamp, :step)
+      # ORDER BY step DESC, timestamp DESC, value DESC
+      # LIMIT 1
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -533,7 +554,7 @@ class SqlAlchemyStore(AbstractStore):
                                                                          max_results),
                                       INVALID_PARAMETER_VALUE)
             with self.ManagedSessionMaker() as session:
-                runs = [run.to_mlflow_entity(session)
+                runs = [run.to_mlflow_entity()
                         for exp in experiment_ids
                         for run in self._list_runs(session, exp, run_view_type)]
                 filtered = SearchUtils.filter(runs, filter_string)

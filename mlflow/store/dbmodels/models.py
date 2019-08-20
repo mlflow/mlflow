@@ -153,7 +153,7 @@ class SqlRun(Base):
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
-    def to_mlflow_entity(self, session):
+    def to_mlflow_entity(self):
         """
         Convert DB model to corresponding MLflow entity.
 
@@ -170,68 +170,12 @@ class SqlRun(Base):
             lifecycle_stage=self.lifecycle_stage,
             artifact_uri=self.artifact_uri)
 
-        # only get latest recorded metrics per key
-        last_metrics = self.get_last_recorded_metrics(session)
-
-        all_metrics = [Metric(key=m[1],
-                              value=m[4] if not m[5] else float("nan"),
-                              timestamp=m[3],
-                              step=m[2]) for m in last_metrics]
-        metrics = {}
-        for m in all_metrics:
-            existing_metric = metrics.get(m.key)
-            if (existing_metric is None)\
-                or ((m.step, m.timestamp, m.value) >=
-                    (existing_metric.step, existing_metric.timestamp,
-                        existing_metric.value)):
-                metrics[m.key] = m
-
-        # from datetime import datetime
-        # start = datetime.now()
-        params = [p.to_mlflow_entity() for p in self.params]
-        # end = datetime.now()
-        # print("PARAMS LOAD TIME", (end - start).total_seconds())
-
         run_data = RunData(
-            metrics=list(metrics.values()),
-            params=params,
+            metrics=[m.to_mlflow_entity() for m in self.latest_metrics],
+            params=[p.to_mlflow_entity() for p in self.params],
             tags=[t.to_mlflow_entity() for t in self.tags])
 
         return Run(run_info=run_info, run_data=run_data)
-
-    def get_last_recorded_metrics(self, session):
-        # from datetime import datetime
-        # start = datetime.now()
-        metrics_with_max_step = session \
-            .query(SqlMetric.run_uuid, SqlMetric.key, func.max(SqlMetric.step).label('step')) \
-            .filter(SqlMetric.run_uuid == self.run_uuid) \
-            .group_by(SqlMetric.key, SqlMetric.run_uuid) \
-            .subquery('metrics_with_max_step')
-        metrics_with_max_timestamp = session \
-            .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step,
-                   func.max(SqlMetric.timestamp).label('timestamp')) \
-            .filter(SqlMetric.run_uuid == self.run_uuid) \
-            .join(metrics_with_max_step,
-                  and_(SqlMetric.step == metrics_with_max_step.c.step,
-                       SqlMetric.run_uuid == metrics_with_max_step.c.run_uuid,
-                       SqlMetric.key == metrics_with_max_step.c.key)) \
-            .group_by(SqlMetric.key, SqlMetric.run_uuid, SqlMetric.step) \
-            .subquery('metrics_with_max_timestamp')
-        metrics_with_max_value = session \
-            .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step, SqlMetric.timestamp,
-                   func.max(SqlMetric.value).label('value'), SqlMetric.is_nan) \
-            .filter(SqlMetric.run_uuid == self.run_uuid) \
-            .join(metrics_with_max_timestamp,
-                  and_(SqlMetric.timestamp == metrics_with_max_timestamp.c.timestamp,
-                       SqlMetric.run_uuid == metrics_with_max_timestamp.c.run_uuid,
-                       SqlMetric.key == metrics_with_max_timestamp.c.key,
-                       SqlMetric.step == metrics_with_max_timestamp.c.step)) \
-            .group_by(SqlMetric.run_uuid, SqlMetric.key,
-                      SqlMetric.step, SqlMetric.timestamp, SqlMetric.is_nan) \
-            .all()
-        # end = datetime.now()
-        # print("METRIC LOAD TIME", (end - start).total_seconds())
-        return metrics_with_max_value
 
 
 class SqlExperimentTag(Base):
