@@ -433,7 +433,7 @@ Artifact Stores
   :depth: 1
 
 In addition to local file paths, MLflow supports the following storage systems as artifact
-stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS.
+stores: Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, NFS, and relational databases (RDBMSs).
 
 Amazon S3
 ^^^^^^^^^
@@ -521,6 +521,12 @@ Optionally you can select a different version of the HDFS driver library using:
   export MLFLOW_HDFS_DRIVER=libhdfs3
 
 The default driver is ``libhdfs``.
+
+RDBMS
+^^^^^
+
+To store artifacts in a relational database, specify a URI of the form: ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>?<params>``.
+A table to store the artifacts in binary format will automatically be created in the database. 
 
 
 Networking
