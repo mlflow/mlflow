@@ -237,7 +237,7 @@ class SqlTag(Base):
     """
     Run UUID to which this tag belongs to: *Foreign Key* into ``runs`` table.
     """
-    run = relationship('SqlRun', backref=backref('tags', cascade='all'))
+    run = relationship('SqlRun', backref=backref('tags', cascade='all', lazy="joined"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
@@ -289,7 +289,7 @@ class SqlMetric(Base):
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``metrics`` table.
                                               *Foreign Key* into ``runs`` table.
     """
-    run = relationship('SqlRun', backref=backref('metrics', cascade='all'))
+    run = relationship('SqlRun', backref=backref('metrics', cascade='all', lazy='dynamic'))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
@@ -344,7 +344,7 @@ class SqlLatestMetric(Base):
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``latest_metrics`` table.
                                               *Foreign Key* into ``runs`` table.
     """
-    run = relationship('SqlRun', backref=backref('latest_metrics', cascade='all'))
+    run = relationship('SqlRun', backref=backref('latest_metrics', cascade='all', lazy='joined'))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
@@ -385,7 +385,7 @@ class SqlParam(Base):
     Run UUID to which this metric belongs to: Part of *Primary Key* for ``params`` table.
                                               *Foreign Key* into ``runs`` table.
     """
-    run = relationship('SqlRun', backref=backref('params', cascade='all'))
+    run = relationship('SqlRun', backref=backref('params', cascade='all', lazy='joined'))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
     """
