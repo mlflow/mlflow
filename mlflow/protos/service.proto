@@ -53,8 +53,7 @@ service MlflowService {
     };
   }
 
-  // Get metadata for an experiment and a list of runs for the experiment.
-  // This method works on deleted experiments.
+  // Get metadata for an experiment. This method works on deleted experiments.
   rpc getExperiment (GetExperiment) returns (GetExperiment.Response) {
     option (rpc) = {
       endpoints: [{
