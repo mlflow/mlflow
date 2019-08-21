@@ -57,7 +57,6 @@ if __name__ == "__main__":
         print("  MAE: %s" % mae)
         print("  R2: %s" % r2)
 
-
         mlflow.log_param("alpha", alpha)
         mlflow.log_param("l1_ratio", l1_ratio)
         mlflow.log_metric("rmse", rmse)
