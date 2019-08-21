@@ -423,11 +423,39 @@ class SqlAlchemyStore(AbstractStore):
             run = self._get_run(run_uuid=run_id, session=session)
             self._check_run_is_active(run)
             # ToDo: Consider prior checks for null, type, metric name validations, ... etc.
-            self._get_or_create(model=SqlMetric, run_uuid=run_id, key=metric.key,
-                                value=value, timestamp=metric.timestamp, step=metric.step,
-                                session=session, is_nan=is_nan)
-            # TODO(czumar): Update the value in the `latest_metrics` table. This change cannot be merged
-            # until the value update logic is introduced.
+            logged_metric, just_created = self._get_or_create(
+                model=SqlMetric, run_uuid=run_id, key=metric.key, value=value,
+                timestamp=metric.timestamp, step=metric.step, session=session, is_nan=is_nan)
+            # Conditionally update the ``latest_metrics`` table if the logged metric  was not
+            # already present in the ``metrics`` table. If the logged metric was already present,
+            # we assume that the ``latest_metrics`` table already accounts for its presence
+            if just_created:
+                self._update_latest_metric_if_necessary(logged_metric, session)
+
+    @staticmethod
+    def _update_latest_metric_if_necessary(logged_metric, session):
+        def _compare_metrics(metric_a, metric_b):
+            """
+            :return: True if ``metric_a`` is strictly more recent than ``metric_b``, as determined
+                     by ``step``, ``timestamp``, and ``value``. False otherwise.
+            """
+            return (metric_a.step, metric_a.timestamp, metric_a.value) > \
+                   (metric_b.step, metric_b.timestamp, metric_b.value)
+
+        # Fetch the latest metric value corresponding to the specified run_id and metric key and
+        # lock its associated row for the remainder of the transaction in order to ensure
+        # isolation
+        latest_metric = session \
+            .query(SqlLatestMetric) \
+            .filter(
+                SqlLatestMetric.run_uuid == logged_metric.run_uuid,
+                SqlLatestMetric.key == logged_metric.key) \
+            .with_for_update() \
+            .one_or_none()
+        if latest_metric is None or _compare_metrics(logged_metric, latest_metric):
+            session.merge(SqlLatestMetric(run_uuid=logged_metric.run_uuid, key=logged_metric.key,
+                value=logged_metric.value, timestamp=logged_metric.timestamp,
+                step=logged_metric.step, is_nan=logged_metric.is_nan))
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
