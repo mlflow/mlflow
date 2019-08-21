@@ -26,8 +26,8 @@ class AzureBackend(ProjectBackend):
                                         "azure")
 
     def submit_run(self):
-        config = _parse_config(self.backend_config)
-        ws = _get_workspace(config)
+        config = self._parse_config(self.backend_config)
+        ws = self._get_workspace(config)
 
         estimator = Estimator(
             source_directory=self.work_dir,
@@ -39,7 +39,6 @@ class AzureBackend(ProjectBackend):
             node_count=1,
             process_count_per_node=1,
             distributed_backend=None,
-            distributed_training=None,
             use_gpu=False,
             use_docker=True,
             custom_docker_image=None,
@@ -47,17 +46,11 @@ class AzureBackend(ProjectBackend):
             user_managed=False,
             conda_packages=None,
             pip_packages=None,
-            conda_dependencies_file_path=None,
             pip_requirements_file_path=None,
-            conda_dependencies_file=self.project.conda_env_path,
-            pip_requirements_file=None,
-            environment_variables=None,
+            # conda_dependencies_file=self.project.conda_env_path,
             environment_definition=None,
             inputs=None,
-            source_directory_data_store=None,
-            shm_size=None,
-            resume_from=None,
-            max_run_duration_seconds=None
+            source_directory_data_store=None
         )
 
         experiment = Experiment(ws, config['experiment-name'])

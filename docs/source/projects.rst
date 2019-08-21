@@ -348,10 +348,17 @@ this project:
 There are also additional options for disabling the creation of a Conda environment, which can be
 useful if you quickly want to test a project in your existing shell environment.
 
+.. _backend_execution:
+
+Run Project on Remote Backend (experimental)
+------------------------------------------------------
+
+.. important:: As an experimental feature, the API is subject to change.
+
 .. _databricks_execution:
 
-Run an MLflow Project on Databricks
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Databricks
+^^^^^^^^^^
 
 You can run MLflow Projects remotely on Databricks. To use this feature, you must have an enterprise
 Databricks account (Community Edition is not supported) and you must have set up the
@@ -377,10 +384,8 @@ where ``<project_uri>`` is a Git repository URI or a folder.
 
 .. _kubernetes_execution:
 
-Run an MLflow Project on Kubernetes (experimental)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. important:: As an experimental feature, the API is subject to change.
+Kubernetes
+^^^^^^^^^^
 
 You can run MLflow Projects with :ref:`Docker environments <project-docker-container-environments>`
 on Kubernetes. The following sections provide an overview of the feature, including a simple
@@ -516,6 +521,11 @@ execution. Replaced fields are indicated using bracketed text.
 The ``container.name``, ``container.image``, and ``container.command`` fields are only replaced for
 the *first* container defined in the Job Spec. All subsequent container definitions are applied
 without modification.
+
+Azure
+^^^^^
+
+THIS IS AZURE DOCS
 
 Iterating Quickly
 -----------------
