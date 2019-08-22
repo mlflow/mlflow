@@ -35,6 +35,8 @@ SUPPORTED_FLAVORS = [
     mleap.FLAVOR_NAME
 ]
 
+DISABLE_NGINX = "DISABLE_NGINX"
+
 
 def _init(cmd):
     """
@@ -117,6 +119,10 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False):
 
 
 def _serve_pyfunc(model):
+    def env_var_to_bool(env_var_name: str, default: str) -> bool:
+        from distutils.util import strtobool
+        return strtobool(os.environ.get(key=env_var_name, default=default))
+
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
@@ -124,10 +130,18 @@ def _serve_pyfunc(model):
             _install_pyfunc_deps(MODEL_PATH, install_mlflow=True)
         bash_cmds += ["source /miniconda/bin/activate custom_env"]
     nginx_conf = resource_filename(mlflow.models.__name__, "container/scoring_server/nginx.conf")
-    nginx = Popen(['nginx', '-c', nginx_conf])
-    # link the log streams to stdout/err so they will be logged to the container logs
-    check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
-    check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
+
+    # option to disable manually nginx. The default behavior is to enable nginx.
+    start_nginx = False if os.getenv(DISABLE_NGINX).lower() == 'true' else True
+    nginx = Popen(['nginx', '-c', nginx_conf]) if start_nginx else None
+
+    # link the log streams to stdout/err so they will be logged to the container logs.
+    # Default behavior is to do the redirection unless explicitly specified by environment variable.
+
+    if start_nginx:
+        check_call(['ln', '-sf', '/dev/stdout', '/var/log/nginx/access.log'])
+        check_call(['ln', '-sf', '/dev/stderr', '/var/log/nginx/error.log'])
+
     cpu_count = multiprocessing.cpu_count()
     os.system("pip -V")
     os.system("python -V")
@@ -136,9 +150,12 @@ def _serve_pyfunc(model):
           "${GUNICORN_CMD_ARGS} mlflow.models.container.scoring_server.wsgi:app"
     bash_cmds.append(cmd)
     gunicorn = Popen(["/bin/bash", "-c", " && ".join(bash_cmds)])
-    signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[nginx.pid, gunicorn.pid]))
+
+    procs = [p for p in [nginx, gunicorn] if p]
+
+    signal.signal(signal.SIGTERM, lambda a, b: _sigterm_handler(pids=[p.pid for p in procs]))
     # If either subprocess exits, so do we.
-    awaited_pids = _await_subprocess_exit_any(procs=[nginx, gunicorn])
+    awaited_pids = _await_subprocess_exit_any(procs=procs)
     _sigterm_handler(awaited_pids)
 
 
