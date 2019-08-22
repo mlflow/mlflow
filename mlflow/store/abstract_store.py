@@ -163,6 +163,11 @@ class AbstractStore:
         """
         pass
 
+    @abstractmethod
+    def get_experiment_by_name(self, experiment_name):
+        pass
+
+
     def log_metric(self, run_id, metric):
         """
         Log a metric for the specified run

@@ -12,6 +12,22 @@ option (scalapb.options) = {
 };
 
 service MlflowService {
+
+
+  // Get metadata for an experiment and a list of runs for the experiment.
+  // This method works on deleted experiments.
+  rpc getExperimentByName (GetExperimentByName) returns (GetExperimentByName.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/experiments/get-by-name",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Experiment By Name",
+    };
+  }
+
   // Create an experiment with a name. Returns the ID of the newly created experiment.
   // Validates that another experiment with the same name does not already exist and fails if
   // another experiment with the same name already exists.
@@ -988,3 +1004,20 @@ message LogBatch {
   message Response {
   }
 }
+
+message GetExperimentByName {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the associated experiment.
+  optional string experiment_name = 1 [(validate_required) = true];
+
+  message Response {
+    // Experiment details.
+    optional Experiment experiment = 1;
+
+    // All (max limit to be imposed) active runs associated with this experiment.
+    repeated RunInfo runs = 2;
+  }
+}
+
+
