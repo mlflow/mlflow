@@ -10,3 +10,4 @@ pypi-publisher
 scikit-learn
 scipy
 kubernetes
+azureml==1.0.56

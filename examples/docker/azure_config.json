@@ -1,0 +1,12 @@
+{
+    "subscription-id": "b1c23f06-f9b5-4ccb-8a65-a8cb3dcd6a5a",
+    "resource-group": "myResourceGroup",
+    "workspace-name": "myWorkspaceName",
+    "aml-compute": {
+        "name": "cpu-compute",
+        "max-nodes": 4,
+        "vm-size": "Standard_D4_v2",
+        "vm-priority": "dedicated",
+        "retian-cluster": false
+    }
+}

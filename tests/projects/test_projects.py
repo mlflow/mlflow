@@ -426,3 +426,7 @@ def test_parse_kubernetes_config_invalid_template_job_file():
     }
     with pytest.raises(ExecutionException):
         KubernetesBackend._parse_config(kubernetes_config)
+
+
+def test_parse_azure_config():
+    pass
