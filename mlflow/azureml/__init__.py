@@ -248,7 +248,7 @@ def _create_dockerfile(output_path, mlflow_path=None):
                         Dockerfile command for MLflow installation will install MLflow from this
                         directory. Otherwise, it will install MLflow from pip.
     """
-    docker_cmds = ["RUN apt-get update && apt-get install default-jre"]
+    docker_cmds = ["RUN apt-get update && apt-get install -y default-jre"]
     docker_cmds.append("RUN pip install azureml-sdk")
 
     if mlflow_path is not None:
