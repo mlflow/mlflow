@@ -2,7 +2,6 @@ import React from 'react';
 import { connect } from 'react-redux';
 import Plot from 'react-plotly.js';
 import PropTypes from 'prop-types';
-import Utils from '../utils/Utils';
 import _ from 'lodash';
 
 const AXIS_LABEL_CLS = '.pcp-plot .parcoords .y-axis .axis-heading .axis-title';
@@ -147,9 +146,18 @@ export const generateAttributesForCategoricalDimension = (labels) => {
   return attributes;
 };
 
-// Infer type with the first run's value
+/**
+ * Infer the type of data in a run. If all the values are numbers or castable to numbers, then
+ * treat it as a number column.
+ */
 export const inferType = (key, runUuids, entryByRunUuid) => {
-  return isNaN(entryByRunUuid[runUuids[0]][key].value) ? 'string' : 'number';
+  for (let i = 0; i < runUuids.length; i++) {
+    const value = entryByRunUuid[runUuids[i]][key].value;
+    if (typeof(value) === "string" && isNaN(Number(value)) && value !== "NaN") {
+      return "string";
+    }
+  }
+  return "number";
 };
 
 export const createDimension = (key, runUuids, entryByRunUuid) => {
@@ -162,8 +170,10 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
   } else {
     attributes.values = runUuids.map((runUuid) => {
       const { value } = entryByRunUuid[runUuid][key];
-      return isNaN(value) ? 0 : Number(Utils.formatMetric(value)); // Default NaN to zero here
+      return isNaN(value) ? 0 : Number(value); // Default NaN to zero here
     });
+    // For some reason, Plotly tries to plot these values with SI prefixes by default
+    attributes.tickformat = "f";
   }
   return {
     label: key,
@@ -174,11 +184,17 @@ export const createDimension = (key, runUuids, entryByRunUuid) => {
 const mapStateToProps = (state, ownProps) => {
   const { runUuids, paramKeys, metricKeys } = ownProps;
   const { latestMetricsByRunUuid, paramsByRunUuid } = state.entities;
+  // Show only runs that have all the parameters/metrics we chose to plot, since the parallel
+  // coordinates plot can't easily handle data points that are missing a dimension.
+  const validRunUuids = runUuids.filter((uuid) => {
+    return paramKeys.every((key) => paramsByRunUuid[uuid][key] !== undefined) &&
+      metricKeys.every((key) => latestMetricsByRunUuid[uuid][key] !== undefined);
+  });
   const paramDimensions = paramKeys.map((paramKey) =>
-    createDimension(paramKey, runUuids, paramsByRunUuid),
+    createDimension(paramKey, validRunUuids, paramsByRunUuid),
   );
   const metricDimensions = metricKeys.map((metricKey) =>
-    createDimension(metricKey, runUuids, latestMetricsByRunUuid),
+    createDimension(metricKey, validRunUuids, latestMetricsByRunUuid),
   );
   return { paramDimensions, metricDimensions };
 };

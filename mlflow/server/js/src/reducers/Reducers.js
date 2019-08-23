@@ -329,6 +329,16 @@ export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
         ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
     );
 
+export const getAllParamKeysByRunUuids = (runUuids, state) =>
+    _.union(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+    );
+
+export const getAllMetricKeysByRunUuids = (runUuids, state) =>
+    _.union(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+    );
+
 export const getApis = (requestIds, state) => {
   return requestIds.map((id) => state.apis[id] || {});
 };

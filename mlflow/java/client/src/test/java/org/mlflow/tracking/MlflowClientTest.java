@@ -550,12 +550,22 @@ public class MlflowClientTest {
     String content = "Hello, Worldz!";
 
     File tempFile = Files.createTempFile(getClass().getSimpleName(), ".txt").toFile();
+    File tempDir = Files.createTempDirectory("tempDir").toFile();
+    File tempFileForDir = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
+
+    FileUtils.writeStringToFile(tempFileForDir, content, StandardCharsets.UTF_8);
     FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
     client.logArtifact(runId, tempFile);
+    client.logArtifact(runId, tempDir);
 
     File downloadedArtifact = client.downloadArtifacts(runId, tempFile.getName());
+    File downloadedArtifactFromDir = client.downloadArtifacts(runId, tempDir.getName() + "/" +
+      tempFileForDir.getName());
     String downloadedContent = FileUtils.readFileToString(downloadedArtifact,
       StandardCharsets.UTF_8);
+    String downloadedContentFromDir = FileUtils.readFileToString(downloadedArtifactFromDir,
+      StandardCharsets.UTF_8);
     Assert.assertEquals(content, downloadedContent);
+    Assert.assertEquals(content, downloadedContentFromDir);
   }
 }

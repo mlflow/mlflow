@@ -108,3 +108,33 @@ script:
     else
       ./travis/run-large-python-tests.sh;
     fi
+
+notifications:
+  # Send Slack notifications on build being broken or fixed, and email (Pagerduty) notifications
+  # on build being broken. See
+  # https://docs.travis-ci.com/user/notifications/#changing-notification-frequency for more info.
+  email:
+    recipients:
+    - secure: "UFN6LLWRASxILSKY/hD5ugxP78Bhuq58X4H0ar6BnNl6SS70bhJFbJFuvkWBoLHAhydV876h2nBZLfTUCvf3\
+      RyOz4nvkGfRaFH3ZUnseSZSSXydFOixYjk+byDy7sjzjTKuqtQu2WKqZxT8cdtP2lWc7y/LPlLBR4cYKjQZZZWIGKef/Q\
+      JuHp50HwLq3LKqAsg9EpukBqkfxncDItvr2Fis9krRgc288BZkwQh+G5S9WNFY1Bu7G60bzfbOJJYTV3TQPnPpaMh+IsG\
+      0G+xC/gZV7bEPDHEIUFRDnnXK9msvhu55plkOnAbHWnAYiZruVWpmIj76wayjEafOiTKp8G6lVtfDZdQ+cX4c8pN4Lq37\
+      wolvZ+ZuxMt51D03iUQ5aWi0TXyV6ZMnB7r3k0yWlLr7faHt1b1bvtAPVasKKUHHjvoc0ehz+K2oaJ/my275L+gytZs6b\
+      nLUZQ0Qclcsv/Z5szquf5HwV76WKIy+nMceGYtmMwHMbQv0Z+CEGYqdeD/PwMT7HQc/NwsOQ2CL/WNRqI/7E7EZHY+8Xp\
+      anyvXFez3SsalJ8xJM7kmH2zAAHKciZQMin9ND7kWaqYOdhpPxhWcqUtyAI7N4YMKrnUap2H9OOLeKDyzhR/m9D9w5DoQ\
+      MotE8n5J3OtQQ8Yl304J/uR2QX4YwulMQKr/BmrQs="
+    on_success: "never"
+    on_failure: "always"
+  slack:
+    rooms:
+      - secure: "bs4DSU5ZAkZ30StvWzzQHo+X97YIjPMKy2z2kNpbic1ScujfdkZvnYB/d/0FMWrQUTs7sY/TS918f0HvUU\
+        gMX9bdobPoBOcBLe34pCtidrCbMzm1T3h1aRjeLKXH0IbeiuZjd0MTp0RSvTFyDknAculoZRbtFoAqwOEgkQ9jm9Feu\
+        3cNck6TreSIxA+gf5BCetJhOJvUcCGKAUIfXxOKOp/22E+G5HoJSj9+RIEijOzNAQ9Vd7kehA/s454KSsW5WrbGeX/b\
+        UadLr/y4MkTBH59B7E+ZUHnOUZIuptZb2pR808AvdJW3Fwc6s0sa8hmjjBZH3TgnTHBUwZ9VG+x1Q7gQFG6Ug7WQ+5N\
+        FwIGqgYshaTomFSh9W7ITOPESlYGfW13xCO/bRGNj8DCB09aIiNgF4mPfJIF2H0yuiT4mJ9fIQQi17YuoC1Zb2gsA50\
+        D5zZfYQosnPmgjVDYs4Jr12pAQIrk/XnC8RFA1NlmDtoDe7qguY+wdxKaC0D3yleT2DLWaxB5iSNZlbamGEFfbcB4xb\
+        HHVb7QR2L/t3+ITsUcQ3bf1SOGnIrzVCYFFe+KzshQSaEP9fcRA9cSCbKkdQIgmsN7XOq+rlaR+S3bj2XN0g1fvGy89\
+        7rzw6+BBe11y9g8p2yiZGKxzWDUDHseAzZllUeUfEAsr1aeG7R4y1do="
+    on_success: "change"
+    on_failure: "always"
+    on_pull_requests: false
