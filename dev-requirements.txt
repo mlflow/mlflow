@@ -10,4 +10,3 @@ pypi-publisher
 scikit-learn
 scipy
 kubernetes
-azureml-sdk==1.0.57; python_version >= "3.0"
