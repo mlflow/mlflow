@@ -105,7 +105,7 @@ class TestRestStore(unittest.TestCase):
         return res
 
     def _verify_requests(self, http_request, host_creds, endpoint, method, json_body):
-        http_request.assert_called_with(**(self._args(host_creds, endpoint, method, json_body)))
+        http_request.assert_any_call(**(self._args(host_creds, endpoint, method, json_body)))
 
     @mock.patch('requests.request')
     def test_requestor(self, request):
@@ -255,10 +255,10 @@ class TestRestStore(unittest.TestCase):
                 "experiment": json.loads(message_to_json(experiment.to_proto()))})
             mock_http.return_value = response
             result = store.get_experiment_by_name("abc")
-            expected_message = GetExperimentByName(experiment_name="abc")
+            expected_message0 = GetExperimentByName(experiment_name="abc")
             self._verify_requests(mock_http, creds,
                                   "experiments/get-by-name", "GET",
-                                  message_to_json(expected_message))
+                                  message_to_json(expected_message0))
             assert result.experiment_id == experiment.experiment_id
             assert result.name == experiment.name
             assert result.artifact_location == experiment.artifact_location
@@ -266,6 +266,7 @@ class TestRestStore(unittest.TestCase):
 
             # Test REST client behavior against a mocked old server, which has handler for
             # ListExperiments but not GetExperimentByName
+            mock_http.reset_mock()
             response = mock.MagicMock
             response.text = json.dumps({
                 "experiments": [json.loads(message_to_json(experiment.to_proto()))]})
@@ -279,10 +280,13 @@ class TestRestStore(unittest.TestCase):
 
             mock_http.side_effect = response_fn
             result = store.get_experiment_by_name("abc")
-            expected_message = ListExperiments(view_type=ViewType.ALL)
+            expected_message1 = ListExperiments(view_type=ViewType.ALL)
+            self._verify_requests(mock_http, creds,
+                                  "experiments/get-by-name", "GET",
+                                  message_to_json(expected_message0))
             self._verify_requests(mock_http, creds,
                                   "experiments/list", "GET",
-                                  message_to_json(expected_message))
+                                  message_to_json(expected_message1))
             assert result.experiment_id == experiment.experiment_id
             assert result.name == experiment.name
             assert result.artifact_location == experiment.artifact_location
