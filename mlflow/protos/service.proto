@@ -15,7 +15,8 @@ service MlflowService {
 
 
   // Get metadata for an experiment and a list of runs for the experiment.
-  // This method works on deleted experiments.
+  // This endpoint will return deleted experiments. The server will respond with an error if no
+  // experiment with the specified name exists.
   rpc getExperimentByName (GetExperimentByName) returns (GetExperimentByName.Response) {
     option (rpc) = {
       endpoints: [{
@@ -1014,9 +1015,6 @@ message GetExperimentByName {
   message Response {
     // Experiment details.
     optional Experiment experiment = 1;
-
-    // All (max limit to be imposed) active runs associated with this experiment.
-    repeated RunInfo runs = 2;
   }
 }
 

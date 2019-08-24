@@ -45175,50 +45175,6 @@ public final class Service {
        * <code>optional .mlflow.Experiment experiment = 1;</code>
        */
       org.mlflow.api.proto.Service.ExperimentOrBuilder getExperimentOrBuilder();
-
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      java.util.List<org.mlflow.api.proto.Service.RunInfo> 
-          getRunsList();
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      org.mlflow.api.proto.Service.RunInfo getRuns(int index);
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      int getRunsCount();
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      java.util.List<? extends org.mlflow.api.proto.Service.RunInfoOrBuilder> 
-          getRunsOrBuilderList();
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      org.mlflow.api.proto.Service.RunInfoOrBuilder getRunsOrBuilder(
-          int index);
     }
     /**
      * Protobuf type {@code mlflow.GetExperimentByName.Response}
@@ -45233,7 +45189,6 @@ public final class Service {
         super(builder);
       }
       private Response() {
-        runs_ = java.util.Collections.emptyList();
       }
 
       @java.lang.Override
@@ -45273,15 +45228,6 @@ public final class Service {
                 bitField0_ |= 0x00000001;
                 break;
               }
-              case 18: {
-                if (!((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
-                  runs_ = new java.util.ArrayList<org.mlflow.api.proto.Service.RunInfo>();
-                  mutable_bitField0_ |= 0x00000002;
-                }
-                runs_.add(
-                    input.readMessage(org.mlflow.api.proto.Service.RunInfo.PARSER, extensionRegistry));
-                break;
-              }
               default: {
                 if (!parseUnknownField(
                     input, unknownFields, extensionRegistry, tag)) {
@@ -45297,9 +45243,6 @@ public final class Service {
           throw new com.google.protobuf.InvalidProtocolBufferException(
               e).setUnfinishedMessage(this);
         } finally {
-          if (((mutable_bitField0_ & 0x00000002) == 0x00000002)) {
-            runs_ = java.util.Collections.unmodifiableList(runs_);
-          }
           this.unknownFields = unknownFields.build();
           makeExtensionsImmutable();
         }
@@ -45351,61 +45294,6 @@ public final class Service {
         return experiment_ == null ? org.mlflow.api.proto.Service.Experiment.getDefaultInstance() : experiment_;
       }
 
-      public static final int RUNS_FIELD_NUMBER = 2;
-      private java.util.List<org.mlflow.api.proto.Service.RunInfo> runs_;
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      public java.util.List<org.mlflow.api.proto.Service.RunInfo> getRunsList() {
-        return runs_;
-      }
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      public java.util.List<? extends org.mlflow.api.proto.Service.RunInfoOrBuilder> 
-          getRunsOrBuilderList() {
-        return runs_;
-      }
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      public int getRunsCount() {
-        return runs_.size();
-      }
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.RunInfo getRuns(int index) {
-        return runs_.get(index);
-      }
-      /**
-       * <pre>
-       * All (max limit to be imposed) active runs associated with this experiment.
-       * </pre>
-       *
-       * <code>repeated .mlflow.RunInfo runs = 2;</code>
-       */
-      public org.mlflow.api.proto.Service.RunInfoOrBuilder getRunsOrBuilder(
-          int index) {
-        return runs_.get(index);
-      }
-
       private byte memoizedIsInitialized = -1;
       @java.lang.Override
       public final boolean isInitialized() {
@@ -45423,9 +45311,6 @@ public final class Service {
         if (((bitField0_ & 0x00000001) == 0x00000001)) {
           output.writeMessage(1, getExperiment());
         }
-        for (int i = 0; i < runs_.size(); i++) {
-          output.writeMessage(2, runs_.get(i));
-        }
         unknownFields.writeTo(output);
       }
 
@@ -45438,10 +45323,6 @@ public final class Service {
         if (((bitField0_ & 0x00000001) == 0x00000001)) {
           size += com.google.protobuf.CodedOutputStream
             .computeMessageSize(1, getExperiment());
-        }
-        for (int i = 0; i < runs_.size(); i++) {
-          size += com.google.protobuf.CodedOutputStream
-            .computeMessageSize(2, runs_.get(i));
         }
         size += unknownFields.getSerializedSize();
         memoizedSize = size;
@@ -45464,8 +45345,6 @@ public final class Service {
           result = result && getExperiment()
               .equals(other.getExperiment());
         }
-        result = result && getRunsList()
-            .equals(other.getRunsList());
         result = result && unknownFields.equals(other.unknownFields);
         return result;
       }
@@ -45480,10 +45359,6 @@ public final class Service {
         if (hasExperiment()) {
           hash = (37 * hash) + EXPERIMENT_FIELD_NUMBER;
           hash = (53 * hash) + getExperiment().hashCode();
-        }
-        if (getRunsCount() > 0) {
-          hash = (37 * hash) + RUNS_FIELD_NUMBER;
-          hash = (53 * hash) + getRunsList().hashCode();
         }
         hash = (29 * hash) + unknownFields.hashCode();
         memoizedHashCode = hash;
@@ -45614,7 +45489,6 @@ public final class Service {
           if (com.google.protobuf.GeneratedMessageV3
                   .alwaysUseFieldBuilders) {
             getExperimentFieldBuilder();
-            getRunsFieldBuilder();
           }
         }
         @java.lang.Override
@@ -45626,12 +45500,6 @@ public final class Service {
             experimentBuilder_.clear();
           }
           bitField0_ = (bitField0_ & ~0x00000001);
-          if (runsBuilder_ == null) {
-            runs_ = java.util.Collections.emptyList();
-            bitField0_ = (bitField0_ & ~0x00000002);
-          } else {
-            runsBuilder_.clear();
-          }
           return this;
         }
 
@@ -45667,15 +45535,6 @@ public final class Service {
             result.experiment_ = experiment_;
           } else {
             result.experiment_ = experimentBuilder_.build();
-          }
-          if (runsBuilder_ == null) {
-            if (((bitField0_ & 0x00000002) == 0x00000002)) {
-              runs_ = java.util.Collections.unmodifiableList(runs_);
-              bitField0_ = (bitField0_ & ~0x00000002);
-            }
-            result.runs_ = runs_;
-          } else {
-            result.runs_ = runsBuilder_.build();
           }
           result.bitField0_ = to_bitField0_;
           onBuilt();
@@ -45728,32 +45587,6 @@ public final class Service {
           if (other == org.mlflow.api.proto.Service.GetExperimentByName.Response.getDefaultInstance()) return this;
           if (other.hasExperiment()) {
             mergeExperiment(other.getExperiment());
-          }
-          if (runsBuilder_ == null) {
-            if (!other.runs_.isEmpty()) {
-              if (runs_.isEmpty()) {
-                runs_ = other.runs_;
-                bitField0_ = (bitField0_ & ~0x00000002);
-              } else {
-                ensureRunsIsMutable();
-                runs_.addAll(other.runs_);
-              }
-              onChanged();
-            }
-          } else {
-            if (!other.runs_.isEmpty()) {
-              if (runsBuilder_.isEmpty()) {
-                runsBuilder_.dispose();
-                runsBuilder_ = null;
-                runs_ = other.runs_;
-                bitField0_ = (bitField0_ & ~0x00000002);
-                runsBuilder_ = 
-                  com.google.protobuf.GeneratedMessageV3.alwaysUseFieldBuilders ?
-                     getRunsFieldBuilder() : null;
-              } else {
-                runsBuilder_.addAllMessages(other.runs_);
-              }
-            }
           }
           this.mergeUnknownFields(other.unknownFields);
           onChanged();
@@ -45937,318 +45770,6 @@ public final class Service {
             experiment_ = null;
           }
           return experimentBuilder_;
-        }
-
-        private java.util.List<org.mlflow.api.proto.Service.RunInfo> runs_ =
-          java.util.Collections.emptyList();
-        private void ensureRunsIsMutable() {
-          if (!((bitField0_ & 0x00000002) == 0x00000002)) {
-            runs_ = new java.util.ArrayList<org.mlflow.api.proto.Service.RunInfo>(runs_);
-            bitField0_ |= 0x00000002;
-           }
-        }
-
-        private com.google.protobuf.RepeatedFieldBuilderV3<
-            org.mlflow.api.proto.Service.RunInfo, org.mlflow.api.proto.Service.RunInfo.Builder, org.mlflow.api.proto.Service.RunInfoOrBuilder> runsBuilder_;
-
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public java.util.List<org.mlflow.api.proto.Service.RunInfo> getRunsList() {
-          if (runsBuilder_ == null) {
-            return java.util.Collections.unmodifiableList(runs_);
-          } else {
-            return runsBuilder_.getMessageList();
-          }
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public int getRunsCount() {
-          if (runsBuilder_ == null) {
-            return runs_.size();
-          } else {
-            return runsBuilder_.getCount();
-          }
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public org.mlflow.api.proto.Service.RunInfo getRuns(int index) {
-          if (runsBuilder_ == null) {
-            return runs_.get(index);
-          } else {
-            return runsBuilder_.getMessage(index);
-          }
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public Builder setRuns(
-            int index, org.mlflow.api.proto.Service.RunInfo value) {
-          if (runsBuilder_ == null) {
-            if (value == null) {
-              throw new NullPointerException();
-            }
-            ensureRunsIsMutable();
-            runs_.set(index, value);
-            onChanged();
-          } else {
-            runsBuilder_.setMessage(index, value);
-          }
-          return this;
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public Builder setRuns(
-            int index, org.mlflow.api.proto.Service.RunInfo.Builder builderForValue) {
-          if (runsBuilder_ == null) {
-            ensureRunsIsMutable();
-            runs_.set(index, builderForValue.build());
-            onChanged();
-          } else {
-            runsBuilder_.setMessage(index, builderForValue.build());
-          }
-          return this;
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public Builder addRuns(org.mlflow.api.proto.Service.RunInfo value) {
-          if (runsBuilder_ == null) {
-            if (value == null) {
-              throw new NullPointerException();
-            }
-            ensureRunsIsMutable();
-            runs_.add(value);
-            onChanged();
-          } else {
-            runsBuilder_.addMessage(value);
-          }
-          return this;
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public Builder addRuns(
-            int index, org.mlflow.api.proto.Service.RunInfo value) {
-          if (runsBuilder_ == null) {
-            if (value == null) {
-              throw new NullPointerException();
-            }
-            ensureRunsIsMutable();
-            runs_.add(index, value);
-            onChanged();
-          } else {
-            runsBuilder_.addMessage(index, value);
-          }
-          return this;
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public Builder addRuns(
-            org.mlflow.api.proto.Service.RunInfo.Builder builderForValue) {
-          if (runsBuilder_ == null) {
-            ensureRunsIsMutable();
-            runs_.add(builderForValue.build());
-            onChanged();
-          } else {
-            runsBuilder_.addMessage(builderForValue.build());
-          }
-          return this;
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public Builder addRuns(
-            int index, org.mlflow.api.proto.Service.RunInfo.Builder builderForValue) {
-          if (runsBuilder_ == null) {
-            ensureRunsIsMutable();
-            runs_.add(index, builderForValue.build());
-            onChanged();
-          } else {
-            runsBuilder_.addMessage(index, builderForValue.build());
-          }
-          return this;
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public Builder addAllRuns(
-            java.lang.Iterable<? extends org.mlflow.api.proto.Service.RunInfo> values) {
-          if (runsBuilder_ == null) {
-            ensureRunsIsMutable();
-            com.google.protobuf.AbstractMessageLite.Builder.addAll(
-                values, runs_);
-            onChanged();
-          } else {
-            runsBuilder_.addAllMessages(values);
-          }
-          return this;
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public Builder clearRuns() {
-          if (runsBuilder_ == null) {
-            runs_ = java.util.Collections.emptyList();
-            bitField0_ = (bitField0_ & ~0x00000002);
-            onChanged();
-          } else {
-            runsBuilder_.clear();
-          }
-          return this;
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public Builder removeRuns(int index) {
-          if (runsBuilder_ == null) {
-            ensureRunsIsMutable();
-            runs_.remove(index);
-            onChanged();
-          } else {
-            runsBuilder_.remove(index);
-          }
-          return this;
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public org.mlflow.api.proto.Service.RunInfo.Builder getRunsBuilder(
-            int index) {
-          return getRunsFieldBuilder().getBuilder(index);
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public org.mlflow.api.proto.Service.RunInfoOrBuilder getRunsOrBuilder(
-            int index) {
-          if (runsBuilder_ == null) {
-            return runs_.get(index);  } else {
-            return runsBuilder_.getMessageOrBuilder(index);
-          }
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public java.util.List<? extends org.mlflow.api.proto.Service.RunInfoOrBuilder> 
-             getRunsOrBuilderList() {
-          if (runsBuilder_ != null) {
-            return runsBuilder_.getMessageOrBuilderList();
-          } else {
-            return java.util.Collections.unmodifiableList(runs_);
-          }
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public org.mlflow.api.proto.Service.RunInfo.Builder addRunsBuilder() {
-          return getRunsFieldBuilder().addBuilder(
-              org.mlflow.api.proto.Service.RunInfo.getDefaultInstance());
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public org.mlflow.api.proto.Service.RunInfo.Builder addRunsBuilder(
-            int index) {
-          return getRunsFieldBuilder().addBuilder(
-              index, org.mlflow.api.proto.Service.RunInfo.getDefaultInstance());
-        }
-        /**
-         * <pre>
-         * All (max limit to be imposed) active runs associated with this experiment.
-         * </pre>
-         *
-         * <code>repeated .mlflow.RunInfo runs = 2;</code>
-         */
-        public java.util.List<org.mlflow.api.proto.Service.RunInfo.Builder> 
-             getRunsBuilderList() {
-          return getRunsFieldBuilder().getBuilderList();
-        }
-        private com.google.protobuf.RepeatedFieldBuilderV3<
-            org.mlflow.api.proto.Service.RunInfo, org.mlflow.api.proto.Service.RunInfo.Builder, org.mlflow.api.proto.Service.RunInfoOrBuilder> 
-            getRunsFieldBuilder() {
-          if (runsBuilder_ == null) {
-            runsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
-                org.mlflow.api.proto.Service.RunInfo, org.mlflow.api.proto.Service.RunInfo.Builder, org.mlflow.api.proto.Service.RunInfoOrBuilder>(
-                    runs_,
-                    ((bitField0_ & 0x00000002) == 0x00000002),
-                    getParentForChildren(),
-                    isClean());
-            runs_ = null;
-          }
-          return runsBuilder_;
         }
         @java.lang.Override
         public final Builder setUnknownFields(
@@ -47188,112 +46709,111 @@ public final class Service {
       "\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r." +
       "mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunT" +
       "ag\032\n\n\010Response:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\264\001\n\023GetExperimentByN" +
-      "ame\022\035\n\017experiment_name\030\001 \001(\tB\004\370\206\031\001\032Q\n\010Re" +
+      "RPC[$this.Response]\"\225\001\n\023GetExperimentByN" +
+      "ame\022\035\n\017experiment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Re" +
       "sponse\022&\n\nexperiment\030\001 \001(\0132\022.mlflow.Expe" +
-      "riment\022\035\n\004runs\030\002 \003(\0132\017.mlflow.RunInfo:+\342" +
-      "?(\n&com.databricks.rpc.RPC[$this.Respons" +
-      "e]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELET" +
-      "ED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTE" +
-      "BOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022" +
-      "\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022" +
-      "\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004" +
-      "\022\n\n\006KILLED\020\0052\300\035\n\rMlflowService\022\246\001\n\023getEx" +
-      "perimentByName\022\033.mlflow.GetExperimentByN" +
-      "ame\032$.mlflow.GetExperimentByName.Respons" +
-      "e\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-" +
-      "by-name\032\004\010\002\020\000\020\001*\026Get Experiment By Name\022" +
-      "\306\001\n\020createExperiment\022\030.mlflow.CreateExpe" +
-      "riment\032!.mlflow.CreateExperiment.Respons" +
-      "e\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/cre" +
-      "ate\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/exper" +
-      "iments/create\032\004\010\002\020\000\020\001*\021Create Experiment" +
-      "\022\274\001\n\017listExperiments\022\027.mlflow.ListExperi" +
-      "ments\032 .mlflow.ListExperiments.Response\"" +
-      "n\362\206\031j\n%\n\003GET\022\030/mlflow/experiments/list\032\004" +
-      "\010\002\020\000\n-\n\003GET\022 /preview/mlflow/experiments" +
-      "/list\032\004\010\002\020\000\020\001*\020List Experiments\022\262\001\n\rgetE" +
-      "xperiment\022\025.mlflow.GetExperiment\032\036.mlflo" +
-      "w.GetExperiment.Response\"j\362\206\031f\n$\n\003GET\022\027/" +
-      "mlflow/experiments/get\032\004\010\002\020\000\n,\n\003GET\022\037/pr" +
-      "eview/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Ge" +
-      "t Experiment\022\306\001\n\020deleteExperiment\022\030.mlfl" +
-      "ow.DeleteExperiment\032!.mlflow.DeleteExper" +
-      "iment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/ex" +
-      "periments/delete\032\004\010\002\020\000\n0\n\004POST\022\"/preview" +
-      "/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021Dele" +
-      "te Experiment\022\314\001\n\021restoreExperiment\022\031.ml" +
-      "flow.RestoreExperiment\032\".mlflow.RestoreE" +
-      "xperiment.Response\"x\362\206\031t\n)\n\004POST\022\033/mlflo" +
-      "w/experiments/restore\032\004\010\002\020\000\n1\n\004POST\022#/pr" +
-      "eview/mlflow/experiments/restore\032\004\010\002\020\000\020\001" +
-      "*\022Restore Experiment\022\306\001\n\020updateExperimen" +
-      "t\022\030.mlflow.UpdateExperiment\032!.mlflow.Upd" +
-      "ateExperiment.Response\"u\362\206\031q\n(\n\004POST\022\032/m" +
-      "lflow/experiments/update\032\004\010\002\020\000\n0\n\004POST\022\"" +
-      "/preview/mlflow/experiments/update\032\004\010\002\020\000" +
-      "\020\001*\021Update Experiment\022\234\001\n\tcreateRun\022\021.ml" +
-      "flow.CreateRun\032\032.mlflow.CreateRun.Respon" +
-      "se\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/create\032\004\010" +
-      "\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs/create" +
-      "\032\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\tupdateRun\022\021.mlf" +
-      "low.UpdateRun\032\032.mlflow.UpdateRun.Respons" +
-      "e\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002" +
-      "\020\000\n)\n\004POST\022\033/preview/mlflow/runs/update\032" +
-      "\004\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\tdeleteRun\022\021.mlfl" +
-      "ow.DeleteRun\032\032.mlflow.DeleteRun.Response" +
-      "\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020" +
-      "\000\n)\n\004POST\022\033/preview/mlflow/runs/delete\032\004" +
-      "\010\002\020\000\020\001*\nDelete Run\022\242\001\n\nrestoreRun\022\022.mlfl" +
-      "ow.RestoreRun\032\033.mlflow.RestoreRun.Respon" +
-      "se\"c\362\206\031_\n\"\n\004POST\022\024/mlflow/runs/restore\032\004" +
-      "\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/runs/resto" +
-      "re\032\004\010\002\020\000\020\001*\013Restore Run\022\244\001\n\tlogMetric\022\021." +
-      "mlflow.LogMetric\032\032.mlflow.LogMetric.Resp" +
-      "onse\"h\362\206\031d\n%\n\004POST\022\027/mlflow/runs/log-met" +
-      "ric\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlflow/runs/" +
-      "log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logPa" +
-      "ram\022\020.mlflow.LogParam\032\031.mlflow.LogParam." +
-      "Response\"m\362\206\031i\n(\n\004POST\022\032/mlflow/runs/log" +
-      "-parameter\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflo" +
-      "w/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022" +
-      "\341\001\n\020setExperimentTag\022\030.mlflow.SetExperim" +
-      "entTag\032!.mlflow.SetExperimentTag.Respons" +
-      "e\"\217\001\362\206\031\212\001\n4\n\004POST\022&/mlflow/experiments/s" +
-      "et-experiment-tag\032\004\010\002\020\000\n<\n\004POST\022./previe" +
-      "w/mlflow/experiments/set-experiment-tag\032" +
-      "\004\010\002\020\000\020\001*\022Set Experiment Tag\022\222\001\n\006setTag\022\016" +
-      ".mlflow.SetTag\032\027.mlflow.SetTag.Response\"" +
-      "_\362\206\031[\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020" +
-      "\000\n*\n\004POST\022\034/preview/mlflow/runs/set-tag\032" +
-      "\004\010\002\020\000\020\001*\007Set Tag\022\244\001\n\tdeleteTag\022\021.mlflow." +
-      "DeleteTag\032\032.mlflow.DeleteTag.Response\"h\362" +
-      "\206\031d\n%\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002" +
-      "\020\000\n-\n\004POST\022\037/preview/mlflow/runs/delete-" +
-      "tag\032\004\010\002\020\000\020\001*\nDelete Tag\022\210\001\n\006getRun\022\016.mlf" +
-      "low.GetRun\032\027.mlflow.GetRun.Response\"U\362\206\031" +
-      "Q\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022" +
-      "\030/preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get R" +
-      "un\022\314\001\n\nsearchRuns\022\022.mlflow.SearchRuns\032\033." +
-      "mlflow.SearchRuns.Response\"\214\001\362\206\031\207\001\n!\n\004PO" +
-      "ST\022\023/mlflow/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/" +
-      "preview/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022" +
-      "\033/preview/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Se" +
-      "arch Runs\022\260\001\n\rlistArtifacts\022\025.mlflow.Lis" +
-      "tArtifacts\032\036.mlflow.ListArtifacts.Respon" +
-      "se\"h\362\206\031d\n#\n\003GET\022\026/mlflow/artifacts/list\032" +
-      "\004\010\002\020\000\n+\n\003GET\022\036/preview/mlflow/artifacts/" +
-      "list\032\004\010\002\020\000\020\001*\016List Artifacts\022\307\001\n\020getMetr" +
-      "icHistory\022\030.mlflow.GetMetricHistory\032!.ml" +
-      "flow.GetMetricHistory.Response\"v\362\206\031r\n(\n\003" +
-      "GET\022\033/mlflow/metrics/get-history\032\004\010\002\020\000\n0" +
-      "\n\003GET\022#/preview/mlflow/metrics/get-histo" +
-      "ry\032\004\010\002\020\000\020\001*\022Get Metric History\022\236\001\n\010logBa" +
-      "tch\022\020.mlflow.LogBatch\032\031.mlflow.LogBatch." +
-      "Response\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log" +
-      "-batch\032\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/ru" +
-      "ns/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036\n\024org.m" +
-      "lflow.api.proto\220\001\001\342?\002\020\001"
+      "riment:+\342?(\n&com.databricks.rpc.RPC[$thi" +
+      "s.Response]*6\n\010ViewType\022\017\n\013ACTIVE_ONLY\020\001" +
+      "\022\020\n\014DELETED_ONLY\020\002\022\007\n\003ALL\020\003*I\n\nSourceTyp" +
+      "e\022\014\n\010NOTEBOOK\020\001\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n" +
+      "\005LOCAL\020\004\022\014\n\007UNKNOWN\020\350\007*M\n\tRunStatus\022\013\n\007R" +
+      "UNNING\020\001\022\r\n\tSCHEDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n" +
+      "\006FAILED\020\004\022\n\n\006KILLED\020\0052\300\035\n\rMlflowService\022" +
+      "\246\001\n\023getExperimentByName\022\033.mlflow.GetExpe" +
+      "rimentByName\032$.mlflow.GetExperimentByNam" +
+      "e.Response\"L\362\206\031H\n,\n\003GET\022\037/mlflow/experim" +
+      "ents/get-by-name\032\004\010\002\020\000\020\001*\026Get Experiment" +
+      " By Name\022\306\001\n\020createExperiment\022\030.mlflow.C" +
+      "reateExperiment\032!.mlflow.CreateExperimen" +
+      "t.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experi" +
+      "ments/create\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlf" +
+      "low/experiments/create\032\004\010\002\020\000\020\001*\021Create E" +
+      "xperiment\022\274\001\n\017listExperiments\022\027.mlflow.L" +
+      "istExperiments\032 .mlflow.ListExperiments." +
+      "Response\"n\362\206\031j\n%\n\003GET\022\030/mlflow/experimen" +
+      "ts/list\032\004\010\002\020\000\n-\n\003GET\022 /preview/mlflow/ex" +
+      "periments/list\032\004\010\002\020\000\020\001*\020List Experiments" +
+      "\022\262\001\n\rgetExperiment\022\025.mlflow.GetExperimen" +
+      "t\032\036.mlflow.GetExperiment.Response\"j\362\206\031f\n" +
+      "$\n\003GET\022\027/mlflow/experiments/get\032\004\010\002\020\000\n,\n" +
+      "\003GET\022\037/preview/mlflow/experiments/get\032\004\010" +
+      "\002\020\000\020\001*\016Get Experiment\022\306\001\n\020deleteExperime" +
+      "nt\022\030.mlflow.DeleteExperiment\032!.mlflow.De" +
+      "leteExperiment.Response\"u\362\206\031q\n(\n\004POST\022\032/" +
+      "mlflow/experiments/delete\032\004\010\002\020\000\n0\n\004POST\022" +
+      "\"/preview/mlflow/experiments/delete\032\004\010\002\020" +
+      "\000\020\001*\021Delete Experiment\022\314\001\n\021restoreExperi" +
+      "ment\022\031.mlflow.RestoreExperiment\032\".mlflow" +
+      ".RestoreExperiment.Response\"x\362\206\031t\n)\n\004POS" +
+      "T\022\033/mlflow/experiments/restore\032\004\010\002\020\000\n1\n\004" +
+      "POST\022#/preview/mlflow/experiments/restor" +
+      "e\032\004\010\002\020\000\020\001*\022Restore Experiment\022\306\001\n\020update" +
+      "Experiment\022\030.mlflow.UpdateExperiment\032!.m" +
+      "lflow.UpdateExperiment.Response\"u\362\206\031q\n(\n" +
+      "\004POST\022\032/mlflow/experiments/update\032\004\010\002\020\000\n" +
+      "0\n\004POST\022\"/preview/mlflow/experiments/upd" +
+      "ate\032\004\010\002\020\000\020\001*\021Update Experiment\022\234\001\n\tcreat" +
+      "eRun\022\021.mlflow.CreateRun\032\032.mlflow.CreateR" +
+      "un.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/" +
+      "create\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/ru" +
+      "ns/create\032\004\010\002\020\000\020\001*\nCreate Run\022\234\001\n\tupdate" +
+      "Run\022\021.mlflow.UpdateRun\032\032.mlflow.UpdateRu" +
+      "n.Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/u" +
+      "pdate\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/run" +
+      "s/update\032\004\010\002\020\000\020\001*\nUpdate Run\022\234\001\n\tdeleteR" +
+      "un\022\021.mlflow.DeleteRun\032\032.mlflow.DeleteRun" +
+      ".Response\"`\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/de" +
+      "lete\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs" +
+      "/delete\032\004\010\002\020\000\020\001*\nDelete Run\022\242\001\n\nrestoreR" +
+      "un\022\022.mlflow.RestoreRun\032\033.mlflow.RestoreR" +
+      "un.Response\"c\362\206\031_\n\"\n\004POST\022\024/mlflow/runs/" +
+      "restore\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/r" +
+      "uns/restore\032\004\010\002\020\000\020\001*\013Restore Run\022\244\001\n\tlog" +
+      "Metric\022\021.mlflow.LogMetric\032\032.mlflow.LogMe" +
+      "tric.Response\"h\362\206\031d\n%\n\004POST\022\027/mlflow/run" +
+      "s/log-metric\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlf" +
+      "low/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metric\022" +
+      "\246\001\n\010logParam\022\020.mlflow.LogParam\032\031.mlflow." +
+      "LogParam.Response\"m\362\206\031i\n(\n\004POST\022\032/mlflow" +
+      "/runs/log-parameter\032\004\010\002\020\000\n0\n\004POST\022\"/prev" +
+      "iew/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tL" +
+      "og Param\022\341\001\n\020setExperimentTag\022\030.mlflow.S" +
+      "etExperimentTag\032!.mlflow.SetExperimentTa" +
+      "g.Response\"\217\001\362\206\031\212\001\n4\n\004POST\022&/mlflow/expe" +
+      "riments/set-experiment-tag\032\004\010\002\020\000\n<\n\004POST" +
+      "\022./preview/mlflow/experiments/set-experi" +
+      "ment-tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag\022\222\001\n" +
+      "\006setTag\022\016.mlflow.SetTag\032\027.mlflow.SetTag." +
+      "Response\"_\362\206\031[\n\"\n\004POST\022\024/mlflow/runs/set" +
+      "-tag\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/runs" +
+      "/set-tag\032\004\010\002\020\000\020\001*\007Set Tag\022\244\001\n\tdeleteTag\022" +
+      "\021.mlflow.DeleteTag\032\032.mlflow.DeleteTag.Re" +
+      "sponse\"h\362\206\031d\n%\n\004POST\022\027/mlflow/runs/delet" +
+      "e-tag\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlflow/run" +
+      "s/delete-tag\032\004\010\002\020\000\020\001*\nDelete Tag\022\210\001\n\006get" +
+      "Run\022\016.mlflow.GetRun\032\027.mlflow.GetRun.Resp" +
+      "onse\"U\362\206\031Q\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020" +
+      "\000\n%\n\003GET\022\030/preview/mlflow/runs/get\032\004\010\002\020\000" +
+      "\020\001*\007Get Run\022\314\001\n\nsearchRuns\022\022.mlflow.Sear" +
+      "chRuns\032\033.mlflow.SearchRuns.Response\"\214\001\362\206" +
+      "\031\207\001\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\n)" +
+      "\n\004POST\022\033/preview/mlflow/runs/search\032\004\010\002\020" +
+      "\000\n(\n\003GET\022\033/preview/mlflow/runs/search\032\004\010" +
+      "\002\020\000\020\001*\013Search Runs\022\260\001\n\rlistArtifacts\022\025.m" +
+      "lflow.ListArtifacts\032\036.mlflow.ListArtifac" +
+      "ts.Response\"h\362\206\031d\n#\n\003GET\022\026/mlflow/artifa" +
+      "cts/list\032\004\010\002\020\000\n+\n\003GET\022\036/preview/mlflow/a" +
+      "rtifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts\022\307\001" +
+      "\n\020getMetricHistory\022\030.mlflow.GetMetricHis" +
+      "tory\032!.mlflow.GetMetricHistory.Response\"" +
+      "v\362\206\031r\n(\n\003GET\022\033/mlflow/metrics/get-histor" +
+      "y\032\004\010\002\020\000\n0\n\003GET\022#/preview/mlflow/metrics/" +
+      "get-history\032\004\010\002\020\000\020\001*\022Get Metric History\022" +
+      "\236\001\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlflow." +
+      "LogBatch.Response\"e\362\206\031a\n$\n\004POST\022\026/mlflow" +
+      "/runs/log-batch\032\004\010\002\020\000\n,\n\004POST\022\036/preview/" +
+      "mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch" +
+      "B\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -47614,7 +47134,7 @@ public final class Service {
     internal_static_mlflow_GetExperimentByName_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetExperimentByName_Response_descriptor,
-        new java.lang.String[] { "Experiment", "Runs", });
+        new java.lang.String[] { "Experiment", });
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);

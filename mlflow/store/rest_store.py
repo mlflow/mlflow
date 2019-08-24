@@ -250,9 +250,15 @@ class RestStore(AbstractStore):
         self._call_endpoint(RestoreRun, req_body)
 
     def get_experiment_by_name(self, experiment_name):
-        req_body = message_to_json(GetExperimentByName(experiment_name=experiment_name))
-        response_proto = self._call_endpoint(GetExperimentByName, req_body)
-        return Experiment.from_proto(response_proto.experiment)
+        try:
+            req_body = message_to_json(GetExperimentByName(experiment_name=experiment_name))
+            response_proto = self._call_endpoint(GetExperimentByName, req_body)
+            return Experiment.from_proto(response_proto.experiment)
+        except Exception:  # pylint: disable=broad-except
+            for experiment in self.list_experiments(ViewType.ALL):
+                if experiment.name == experiment_name:
+                    return experiment
+            return None
 
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]

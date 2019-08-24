@@ -5,11 +5,12 @@ import mock
 import six
 
 import mlflow
-from mlflow.entities import Param, Metric, RunTag, SourceType, ViewType, ExperimentTag
+from mlflow.entities import Param, Metric, RunTag, SourceType, ViewType, ExperimentTag, Experiment,\
+    LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import CreateRun, DeleteExperiment, DeleteRun, LogBatch, \
     LogMetric, LogParam, RestoreExperiment, RestoreRun, RunTag as ProtoRunTag, SearchRuns, \
-    SetTag, DeleteTag, SetExperimentTag
+    SetTag, DeleteTag, SetExperimentTag, GetExperimentByName, ListExperiments
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
@@ -94,10 +95,14 @@ class TestRestStore(unittest.TestCase):
         assert experiments[0].name == 'My experiment'
 
     def _args(self, host_creds, endpoint, method, json_body):
-        return {'host_creds': host_creds,
-                'endpoint': "/api/2.0/mlflow/%s" % endpoint,
-                'method': method,
-                'json': json.loads(json_body)}
+        res = {'host_creds': host_creds,
+               'endpoint': "/api/2.0/mlflow/%s" % endpoint,
+               'method': method}
+        if method == "GET":
+            res["params"] = json.loads(json_body)
+        else:
+            res["json"] = json.loads(json_body)
+        return res
 
     def _verify_requests(self, http_request, host_creds, endpoint, method, json_body):
         http_request.assert_called_with(**(self._args(host_creds, endpoint, method, json_body)))
@@ -240,6 +245,48 @@ class TestRestStore(unittest.TestCase):
                                   "runs/search", "POST",
                                   message_to_json(expected_message))
             assert result.token == "67890fghij"
+
+        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+            response = mock.MagicMock
+            experiment = Experiment(
+                experiment_id="123", name="abc", artifact_location="/abc",
+                lifecycle_stage=LifecycleStage.ACTIVE)
+            response.text = json.dumps({
+                "experiment": json.loads(message_to_json(experiment.to_proto()))})
+            mock_http.return_value = response
+            result = store.get_experiment_by_name("abc")
+            expected_message = GetExperimentByName(experiment_name="abc")
+            self._verify_requests(mock_http, creds,
+                                  "experiments/get-by-name", "GET",
+                                  message_to_json(expected_message))
+            assert result.experiment_id == experiment.experiment_id
+            assert result.name == experiment.name
+            assert result.artifact_location == experiment.artifact_location
+            assert result.lifecycle_stage == experiment.lifecycle_stage
+
+            # Test GetExperimentByName against old server, which has ListExperiments
+            # handler but not GetExperimentByName handler
+            response = mock.MagicMock
+            response.text = json.dumps({
+                "experiments": [json.loads(message_to_json(experiment.to_proto()))]})
+
+            def response_fn(*args, **kwargs):
+                # pylint: disable=unused-argument
+                if kwargs.get('endpoint') == "/api/2.0/mlflow/experiments/get-by-name":
+                    raise Exception("GetExperimentByName is not implemented")
+                else:
+                    return response
+
+            mock_http.side_effect = response_fn
+            result = store.get_experiment_by_name("abc")
+            expected_message = ListExperiments(view_type=ViewType.ALL)
+            self._verify_requests(mock_http, creds,
+                                  "experiments/list", "GET",
+                                  message_to_json(expected_message))
+            assert result.experiment_id == experiment.experiment_id
+            assert result.name == experiment.name
+            assert result.artifact_location == experiment.artifact_location
+            assert result.lifecycle_stage == experiment.lifecycle_stage
 
 
 if __name__ == '__main__':

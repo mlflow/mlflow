@@ -15,7 +15,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
-    DeleteTag, SetExperimentTag
+    DeleteTag, SetExperimentTag, GetExperimentByName
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import TrackingStoreRegistry
@@ -158,6 +158,17 @@ def _get_experiment():
     request_message = _get_request_message(GetExperiment())
     response_message = GetExperiment.Response()
     experiment = _get_store().get_experiment(request_message.experiment_id).to_proto()
+    response_message.experiment.MergeFrom(experiment)
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _get_experiment_by_name():
+    request_message = _get_request_message(GetExperimentByName())
+    response_message = GetExperimentByName.Response()
+    experiment = _get_store().get_experiment_by_name(request_message.experiment_name).to_proto()
     response_message.experiment.MergeFrom(experiment)
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
@@ -424,6 +435,7 @@ def get_endpoints():
 HANDLERS = {
     CreateExperiment: _create_experiment,
     GetExperiment: _get_experiment,
+    GetExperimentByName: _get_experiment_by_name,
     DeleteExperiment: _delete_experiment,
     RestoreExperiment: _restore_experiment,
     UpdateExperiment: _update_experiment,

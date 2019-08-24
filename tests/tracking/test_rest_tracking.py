@@ -456,3 +456,19 @@ def test_search_pagination(mlflow_client, backend_store_uri):
     result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=result.token)
     assert [r.info.run_id for r in result] == runs[8:]
     assert result.token is None
+
+
+def test_get_experiment_by_name(mlflow_client, backend_store_uri):
+    name = 'test_get_experiment_by_name'
+    experiment_id = mlflow_client.create_experiment(name)
+    res = mlflow_client.get_experiment_by_name(name)
+    assert res.experiment_id == experiment_id
+    assert res.name == name
+
+
+def test_get_experiment(mlflow_client, backend_store_uri):
+    name = 'test_get_experiment'
+    experiment_id = mlflow_client.create_experiment(name)
+    res = mlflow_client.get_experiment(experiment_id)
+    assert res.experiment_id == experiment_id
+    assert res.name == name
