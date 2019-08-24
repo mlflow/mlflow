@@ -264,8 +264,8 @@ class TestRestStore(unittest.TestCase):
             assert result.artifact_location == experiment.artifact_location
             assert result.lifecycle_stage == experiment.lifecycle_stage
 
-            # Test GetExperimentByName against old server, which has ListExperiments
-            # handler but not GetExperimentByName handler
+            # Test REST client behavior against a mocked old server, which has handler for
+            # ListExperiments but not GetExperimentByName
             response = mock.MagicMock
             response.text = json.dumps({
                 "experiments": [json.loads(message_to_json(experiment.to_proto()))]})
