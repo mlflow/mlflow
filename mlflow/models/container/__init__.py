@@ -119,10 +119,6 @@ def _install_pyfunc_deps(model_path=None, install_mlflow=False):
 
 
 def _serve_pyfunc(model):
-    def env_var_to_bool(env_var_name: str, default: str) -> bool:
-        from distutils.util import strtobool
-        return strtobool(os.environ.get(key=env_var_name, default=default))
-
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
@@ -132,7 +128,7 @@ def _serve_pyfunc(model):
     nginx_conf = resource_filename(mlflow.models.__name__, "container/scoring_server/nginx.conf")
 
     # option to disable manually nginx. The default behavior is to enable nginx.
-    start_nginx = False if os.getenv(DISABLE_NGINX).lower() == 'true' else True
+    start_nginx = False if os.getenv(DISABLE_NGINX, 'false').lower() == 'true' else True
     nginx = Popen(['nginx', '-c', nginx_conf]) if start_nginx else None
 
     # link the log streams to stdout/err so they will be logged to the container logs.
