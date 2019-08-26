@@ -1,6 +1,6 @@
 import json
 
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INVALID_STATE, \
     ENDPOINT_NOT_FOUND, INTERNAL_ERROR, RESOURCE_ALREADY_EXISTS, IO_ERROR
 
@@ -33,3 +33,11 @@ class TestMlflowException(object):
             == 500
         assert MlflowException('test', error_code=RESOURCE_ALREADY_EXISTS).get_http_status_code() \
             == 400
+
+
+def test_rest_exception():
+    mlflow_exception = MlflowException('test', error_code=RESOURCE_ALREADY_EXISTS)
+    json_exception = mlflow_exception.serialize_as_json()
+    deserialized_rest_exception = RestException(json.loads(json_exception))
+    assert deserialized_rest_exception.error_code == "RESOURCE_ALREADY_EXISTS"
+    assert "test" in deserialized_rest_exception.message
