@@ -16,6 +16,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
     DeleteTag, SetExperimentTag, GetExperimentByName
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import TrackingStoreRegistry
@@ -168,7 +169,12 @@ def _get_experiment():
 def _get_experiment_by_name():
     request_message = _get_request_message(GetExperimentByName())
     response_message = GetExperimentByName.Response()
-    experiment = _get_store().get_experiment_by_name(request_message.experiment_name).to_proto()
+    store_exp = _get_store().get_experiment_by_name(request_message.experiment_name)
+    if store_exp is None:
+        raise MlflowException(
+            "Could not find experiment with name '%s'" % request_message.experiment_name,
+            error_code=RESOURCE_DOES_NOT_EXIST)
+    experiment = store_exp.to_proto()
     response_message.experiment.MergeFrom(experiment)
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))

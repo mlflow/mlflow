@@ -256,7 +256,8 @@ class RestStore(AbstractStore):
             response_proto = self._call_endpoint(GetExperimentByName, req_body)
             return Experiment.from_proto(response_proto.experiment)
         except MlflowException as e:
-            if e.error_code == databricks_pb2.RESOURCE_DOES_NOT_EXIST:
+            if e.error_code == databricks_pb2.ErrorCode.Name(
+                    databricks_pb2.RESOURCE_DOES_NOT_EXIST):
                 return None
             # Fall back to using ListExperiments-based implementation
             for experiment in self.list_experiments(ViewType.ALL):

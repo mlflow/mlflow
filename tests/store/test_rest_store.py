@@ -11,6 +11,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import CreateRun, DeleteExperiment, DeleteRun, LogBatch, \
     LogMetric, LogParam, RestoreExperiment, RestoreRun, RunTag as ProtoRunTag, SearchRuns, \
     SetTag, DeleteTag, SetExperimentTag, GetExperimentByName, ListExperiments
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
@@ -263,30 +264,44 @@ class TestRestStore(unittest.TestCase):
             assert result.name == experiment.name
             assert result.artifact_location == experiment.artifact_location
             assert result.lifecycle_stage == experiment.lifecycle_stage
+            # Test GetExperimentByName against nonexistent experiment
+            mock_http.reset_mock()
+            nonexistent_exp_response = mock.MagicMock
+            nonexistent_exp_response.status_code = 404
+            nonexistent_exp_response.text = json.dumps(
+                {"error_code": RESOURCE_DOES_NOT_EXIST, "message": "Exp doesn't exist!"})
+            mock_http.return_value = nonexistent_exp_response
+            assert store.get_experiment_by_name("nonexistent-experiment") is None
+            expected_message1 = GetExperimentByName(experiment_name="nonexistent-experiment")
+            self._verify_requests(mock_http, creds,
+                                  "experiments/get-by-name", "GET",
+                                  message_to_json(expected_message1))
+            assert mock_http.call_count == 1
 
             # Test REST client behavior against a mocked old server, which has handler for
             # ListExperiments but not GetExperimentByName
             mock_http.reset_mock()
-            response = mock.MagicMock
-            response.text = json.dumps({
+            list_exp_response = mock.MagicMock
+            list_exp_response.text = json.dumps({
                 "experiments": [json.loads(message_to_json(experiment.to_proto()))]})
+            list_exp_response.status_code = 200
 
             def response_fn(*args, **kwargs):
                 # pylint: disable=unused-argument
                 if kwargs.get('endpoint') == "/api/2.0/mlflow/experiments/get-by-name":
                     raise MlflowException("GetExperimentByName is not implemented")
                 else:
-                    return response
+                    return list_exp_response
 
             mock_http.side_effect = response_fn
             result = store.get_experiment_by_name("abc")
-            expected_message1 = ListExperiments(view_type=ViewType.ALL)
+            expected_message2 = ListExperiments(view_type=ViewType.ALL)
             self._verify_requests(mock_http, creds,
                                   "experiments/get-by-name", "GET",
                                   message_to_json(expected_message0))
             self._verify_requests(mock_http, creds,
                                   "experiments/list", "GET",
-                                  message_to_json(expected_message1))
+                                  message_to_json(expected_message2))
             assert result.experiment_id == experiment.experiment_id
             assert result.name == experiment.name
             assert result.artifact_location == experiment.artifact_location
