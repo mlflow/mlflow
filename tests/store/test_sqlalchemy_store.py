@@ -327,8 +327,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             'lifecycle_stage': entities.LifecycleStage.ACTIVE,
             'artifact_uri': '//'
         }
-        with self.store.ManagedSessionMaker() as session:
-            run = models.SqlRun(**config).to_mlflow_entity(session)
+        
+        run = models.SqlRun(**config).to_mlflow_entity()
 
         for k, v in config.items():
             # These keys were removed from RunInfo.
