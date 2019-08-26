@@ -330,7 +330,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
         are expanded into their own columns named metrics.*, params.*, and tags.*
         respectively. For runs that don't have a particular metric, parameter, or tag, their
-        value will be (Numpy) Nan, None, or None respectively.
+        value will be (NumPy) Nan, None, or None respectively.
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
