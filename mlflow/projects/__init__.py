@@ -30,7 +30,8 @@ from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
-from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
+from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri, \
+    get_local_path_or_none
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
@@ -58,20 +59,30 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
     Verifies either one or other is specified - cannot be both selected.
 
+    If ``experiment_name`` is provided and does not exist, an experiment
+    of that name is created and its id is returned.
+
     :param experiment_name: Name of experiment under which to launch the run.
     :param experiment_id: ID of experiment under which to launch the run.
-    :return: int
+    :return: str
     """
 
     if experiment_name and experiment_id:
         raise MlflowException("Specify only one of 'experiment_name' or 'experiment_id'.")
 
-    exp_id = experiment_id
+    if experiment_id:
+        return str(experiment_id)
+
     if experiment_name:
         client = tracking.MlflowClient()
-        exp_id = client.get_experiment_by_name(experiment_name).experiment_id
-    exp_id = exp_id or _get_experiment_id()
-    return exp_id
+        exp = client.get_experiment_by_name(experiment_name)
+        if exp:
+            return exp.experiment_id
+        else:
+            print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+            return client.create_experiment(experiment_name)
+
+    return _get_experiment_id()
 
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
@@ -695,9 +706,17 @@ def _get_docker_command(image, active_run):
                                  experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
     local_path, container_tracking_uri = _get_local_uri_or_none(tracking_uri)
+    artifact_uri_local_path = get_local_path_or_none(active_run.info.artifact_uri)
     if local_path is not None:
         cmd += ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
+    if artifact_uri_local_path is not None:
+        container_path = artifact_uri_local_path
+        if not os.path.isabs(container_path):
+            container_path = os.path.join("/mlflow/projects/code/", artifact_uri_local_path)
+            container_path = os.path.normpath(container_path)
+        artifact_uri_local_abspath = os.path.abspath(artifact_uri_local_path)
+        cmd += ["-v", "%s:%s" % (artifact_uri_local_abspath, container_path)]
     if tracking.utils._is_databricks_uri(tracking_uri):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)

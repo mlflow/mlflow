@@ -36,6 +36,7 @@ from mlflow.utils import keyword_only, experimental
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import _copy_file_or_tree
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.autologging_utils import try_mlflow_log
 from mlflow.entities import Metric
 
 
@@ -369,26 +370,23 @@ class __MLflowTfKerasCallback(Callback):
         opt = self.model.optimizer
         if hasattr(opt, 'optimizer'):
             opt = opt.optimizer
-        mlflow.log_param('optimizer_name', type(opt).__name__)
+            try_mlflow_log(mlflow.log_param, 'optimizer_name', type(opt).__name__)
         if hasattr(opt, '_lr'):
             lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
-            mlflow.log_param('learning_rate', lr)
+            try_mlflow_log(mlflow.log_param('learning_rate', lr))
         if hasattr(opt, '_epsilon'):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
-            mlflow.log_param('epsilon', epsilon)
+            try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
         l = []
         self.model.summary(print_fn=l.append)
         summary = '\n'.join(l)
-        mlflow.set_tag('summary', summary)
-        mlflow.keras.log_model(self.model, artifact_path='model')
+        try_mlflow_log(mlflow.set_tag, 'summary', summary)
+        try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
 
 
 def _log_artifacts_with_warning(**kwargs):
-    try:
-        mlflow.log_artifacts(**kwargs)
-    except MlflowException as e:
-        warnings.warn("Logging to MLflow failed: " + str(e))
+    try_mlflow_log(mlflow.log_artifacts, **kwargs)
 
 
 def _assoc_list_to_map(lst):
@@ -407,15 +405,11 @@ def _flush_queue():
     Queue is divided into batches according to run id.
     """
     global _metric_queue
-    try:
-        client = mlflow.tracking.MlflowClient()
-        dic = _assoc_list_to_map(_metric_queue)
-        for key in dic:
-            client.log_batch(key, metrics=dic[key], params=[], tags=[])
-    except MlflowException as e:
-        warnings.warn("Logging to MLflow failed: " + str(e))
-    finally:
-        _metric_queue = []
+    client = mlflow.tracking.MlflowClient()
+    dic = _assoc_list_to_map(_metric_queue)
+    for key in dic:
+        try_mlflow_log(client.log_batch, key, metrics=dic[key], params=[], tags=[])
+    _metric_queue = []
 
 
 atexit.register(_flush_queue)
@@ -514,13 +508,10 @@ def autolog(every_n_iter=100):
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_saved_model')
         serialized = original(self, *args, **kwargs)
-        try:
-            log_model(tf_saved_model_dir=serialized.decode('utf-8'),
-                      tf_meta_graph_tags=[tag_constants.SERVING],
-                      tf_signature_def_key='predict',
-                      artifact_path='model')
-        except MlflowException as e:
-            warnings.warn("Logging to MLflow failed: " + str(e))
+        try_mlflow_log(log_model, tf_saved_model_dir=serialized.decode('utf-8'),
+                       tf_meta_graph_tags=[tag_constants.SERVING],
+                       tf_signature_def_key='predict',
+                       artifact_path='model')
         return serialized
 
     @gorilla.patch(tensorflow.estimator.Estimator)
@@ -528,13 +519,10 @@ def autolog(every_n_iter=100):
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
         serialized = original(self, *args, **kwargs)
-        try:
-            log_model(tf_saved_model_dir=serialized.decode('utf-8'),
-                      tf_meta_graph_tags=[tag_constants.SERVING],
-                      tf_signature_def_key='predict',
-                      artifact_path='model')
-        except MlflowException as e:
-            warnings.warn("Logging to MLflow failed: " + str(e))
+        try_mlflow_log(log_model, tf_saved_model_dir=serialized.decode('utf-8'),
+                       tf_meta_graph_tags=[tag_constants.SERVING],
+                       tf_signature_def_key='predict',
+                       artifact_path='model')
         return serialized
 
     @gorilla.patch(tensorflow.keras.Model)

@@ -494,7 +494,7 @@ public class MlflowClient {
   }
 
   /**
-   * Upload the given local file to the run's root artifact directory. For example,
+   * Upload the given local file or directory to the run's root artifact directory. For example,
    *
    *   <pre>
    *   logArtifact(runId, "/my/localModel")
@@ -502,14 +502,20 @@ public class MlflowClient {
    *   </pre>
    *
    * @param runId Run ID of an existing MLflow run.
-   * @param localFile File to upload. Must exist, and must be a simple file (not a directory).
+   * @param localFile File or directory to upload. Must exist.
    */
   public void logArtifact(String runId, File localFile) {
-    getArtifactRepository(runId).logArtifact(localFile);
+    if (localFile.isDirectory()) {
+      getArtifactRepository(runId).logArtifacts(localFile, localFile.getName());
+    }
+    else {
+      getArtifactRepository(runId).logArtifact(localFile);
+    }
   }
 
   /**
-   * Upload the given local file to an artifactPath within the run's root directory. For example,
+   * Upload the given local file or directory to an artifactPath
+   * within the run's root directory. For example,
    *
    *   <pre>
    *   logArtifact(runId, "/my/localModel", "model")
@@ -517,14 +523,20 @@ public class MlflowClient {
    *   </pre>
    *
    * (i.e., the localModel file is now available in model/localModel).
+   * If logging a directory, the directory is renamed to artifactPath.
    *
    * @param runId Run ID of an existing MLflow run.
-   * @param localFile File to upload. Must exist, and must be a simple file (not a directory).
+   * @param localFile File or directory to upload. Must exist.
    * @param artifactPath Artifact path relative to the run's root directory. Should NOT
    *                     start with a /.
    */
   public void logArtifact(String runId, File localFile, String artifactPath) {
-    getArtifactRepository(runId).logArtifact(localFile, artifactPath);
+    if (localFile.isDirectory()) {
+      getArtifactRepository(runId).logArtifacts(localFile, artifactPath);
+    }
+    else {
+      getArtifactRepository(runId).logArtifact(localFile, artifactPath);
+    }
   }
 
   /**
