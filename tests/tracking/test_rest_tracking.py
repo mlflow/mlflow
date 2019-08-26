@@ -464,6 +464,7 @@ def test_get_experiment_by_name(mlflow_client, backend_store_uri):
     res = mlflow_client.get_experiment_by_name(name)
     assert res.experiment_id == experiment_id
     assert res.name == name
+    assert mlflow_client.get_experiment_by_name("idontexist") is None
 
 
 def test_get_experiment(mlflow_client, backend_store_uri):
