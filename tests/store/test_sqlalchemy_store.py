@@ -12,6 +12,7 @@ import sqlalchemy
 import time
 import mlflow
 import uuid
+import json
 
 import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
@@ -24,6 +25,7 @@ from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import extract_db_type_from_uri, mlflow_tags
+from mlflow.utils.file_utils import TempDir
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
@@ -1275,6 +1277,29 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         for _ in range(3):
             invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
             assert _get_schema_version(engine) == SqlAlchemyStore._get_latest_schema_revision()
+
+    def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
+            self):
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        db_resources_path = os.path.normpath(
+            os.path.join(current_dir, os.pardir, "resources", "db"))
+        expected_metric_values_path = os.path.join(
+            db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json")
+        with TempDir() as tmp_db_dir:
+            db_path = tmp_db_dir.path("tmp_db.sql")
+            db_url = "sqlite:///" + db_path
+            shutil.copyfile(
+                src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
+                dst=db_path)
+
+            invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
+            store = self._get_store(db_uri=db_url)
+            with open(expected_metric_values_path, "r") as f:
+                expected_metric_values = json.load(f)
+
+            for run_id, expected_metrics in expected_metric_values.iteritems():
+                fetched_run = store.get_run(run_id=run_id)
+                assert fetched_run.data.metrics == expected_metrics
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):

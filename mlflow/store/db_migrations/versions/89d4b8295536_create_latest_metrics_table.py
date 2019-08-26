@@ -6,12 +6,11 @@ Create Date: 2019-08-20 11:53:28.178479
 
 """
 from alembic import op
-import sqlalchemy as sa
 from sqlalchemy import orm, func, and_
 from sqlalchemy import (
-    Column, String, ForeignKey, Integer, Float, 
+    Column, String, ForeignKey, Float,
     BigInteger, PrimaryKeyConstraint, Boolean)
-from mlflow.store.dbmodels.models import SqlRun, SqlMetric, SqlLatestMetric 
+from mlflow.store.dbmodels.models import SqlMetric, SqlLatestMetric
 
 
 # revision identifiers, used by Alembic.
@@ -21,16 +20,14 @@ branch_labels = None
 depends_on = None
 
 
-def get_latest_metrics_for_run(session, run_uuid):
+def _get_latest_metrics_for_runs(session):
     metrics_with_max_step = session \
         .query(SqlMetric.run_uuid, SqlMetric.key, func.max(SqlMetric.step).label('step')) \
-        .filter(SqlMetric.run_uuid == run_uuid) \
         .group_by(SqlMetric.key, SqlMetric.run_uuid) \
         .subquery('metrics_with_max_step')
     metrics_with_max_timestamp = session \
         .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step,
                func.max(SqlMetric.timestamp).label('timestamp')) \
-        .filter(SqlMetric.run_uuid == run_uuid) \
         .join(metrics_with_max_step,
               and_(SqlMetric.step == metrics_with_max_step.c.step,
                    SqlMetric.run_uuid == metrics_with_max_step.c.run_uuid,
@@ -40,7 +37,6 @@ def get_latest_metrics_for_run(session, run_uuid):
     metrics_with_max_value = session \
         .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step, SqlMetric.timestamp,
                func.max(SqlMetric.value).label('value'), SqlMetric.is_nan) \
-        .filter(SqlMetric.run_uuid == run_uuid) \
         .join(metrics_with_max_timestamp,
               and_(SqlMetric.timestamp == metrics_with_max_timestamp.c.timestamp,
                    SqlMetric.run_uuid == metrics_with_max_timestamp.c.run_uuid,
@@ -65,20 +61,16 @@ def upgrade():
 
     bind = op.get_bind()
     session = orm.Session(bind=bind)
-    all_run_uuids = session.query(SqlRun.run_uuid).all()
-    for run_uuid in all_run_uuids:
-        run_latest_metrics = get_latest_metrics_for_run(session=session, run_uuid=run_uuid)
-        for _, key, step, timestamp, value, is_nan in run_latest_metrics:
-            session.merge(
-                SqlLatestMetric(
-                    run_uuid=run_uuid,
-                    key=key,
-                    step=step,
-                    timestamp=timestamp,
-                    value=value,
-                    is_nan=is_nan
-                )
-            )
+    all_latest_metrics = _get_latest_metrics_for_runs(session=session)
+    for run_uuid, key, step, timestamp, value, is_nan in all_latest_metrics:
+        session.merge(
+            SqlLatestMetric(
+                run_uuid=run_uuid,
+                key=key,
+                step=step,
+                timestamp=timestamp,
+                value=value,
+                is_nan=is_nan))
     session.commit()
 
 
