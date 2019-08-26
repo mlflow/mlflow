@@ -274,7 +274,7 @@ class TestRestStore(unittest.TestCase):
             def response_fn(*args, **kwargs):
                 # pylint: disable=unused-argument
                 if kwargs.get('endpoint') == "/api/2.0/mlflow/experiments/get-by-name":
-                    raise Exception("GetExperimentByName is not implemented")
+                    raise MlflowException("GetExperimentByName is not implemented")
                 else:
                     return response
 

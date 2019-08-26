@@ -1,6 +1,7 @@
 import json
 
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
+from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
@@ -254,7 +255,10 @@ class RestStore(AbstractStore):
             req_body = message_to_json(GetExperimentByName(experiment_name=experiment_name))
             response_proto = self._call_endpoint(GetExperimentByName, req_body)
             return Experiment.from_proto(response_proto.experiment)
-        except Exception:  # pylint: disable=broad-except
+        except MlflowException as e:
+            if e.error_code == databricks_pb2.RESOURCE_DOES_NOT_EXIST:
+                return None
+            # Fall back to using ListExperiments-based implementation
             for experiment in self.list_experiments(ViewType.ALL):
                 if experiment.name == experiment_name:
                     return experiment
