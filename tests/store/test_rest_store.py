@@ -268,8 +268,8 @@ class TestRestStore(unittest.TestCase):
             mock_http.reset_mock()
             nonexistent_exp_response = mock.MagicMock
             nonexistent_exp_response.status_code = 404
-            nonexistent_exp_response.text = json.dumps(
-                {"error_code": RESOURCE_DOES_NOT_EXIST, "message": "Exp doesn't exist!"})
+            nonexistent_exp_response.text =\
+                MlflowException("Exp doesn't exist!", RESOURCE_DOES_NOT_EXIST).serialize_as_json()
             mock_http.return_value = nonexistent_exp_response
             assert store.get_experiment_by_name("nonexistent-experiment") is None
             expected_message1 = GetExperimentByName(experiment_name="nonexistent-experiment")
