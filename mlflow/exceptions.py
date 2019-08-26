@@ -56,11 +56,10 @@ class MlflowException(Exception):
 class RestException(MlflowException):
     """Exception thrown on non 200-level responses from the REST API"""
     def __init__(self, json):
-        error_code = json.get('error_code', INTERNAL_ERROR)
+        error_code = json.get('error_code', ErrorCode.Name(INTERNAL_ERROR))
         message = "%s: %s" % (error_code,
                               json['message'] if 'message' in json else "Response: " + str(json))
-
-        super(RestException, self).__init__(message, error_code=error_code)
+        super(RestException, self).__init__(message, error_code=ErrorCode.Value(error_code))
         self.json = json
 
 
