@@ -317,17 +317,18 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
 
     :param experiment_ids: List of experiment IDs. None will default to the active experiment.
     :param filter_string: Filter query string, defaults to searching all runs.
-    :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+    :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
                             defined in :py:class:`mlflow.entities.ViewType`.
     :param max_results: The maximum number of runs to put in the dataframe. Default is 100,000
                         to avoid causing out-of-memory issues on the user's machine.
-    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
-                        ordering is to sort by start_time DESC, then run_id.
+    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
+                     can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
+                     The default ordering is to sort by ``start_time DESC``, then ``run_id``.
 
     :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
         are expanded into their own columns named metrics.*, params.*, and tags.*
         respectively. For runs that don't have a particular metric, parameter, or tag, their
-        value will be (Numpy) Nan, None, or None respectively
+        value will be (NumPy) Nan, None, or None respectively.
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
