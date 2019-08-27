@@ -327,7 +327,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             'lifecycle_stage': entities.LifecycleStage.ACTIVE,
             'artifact_uri': '//'
         }
-        
         run = models.SqlRun(**config).to_mlflow_entity()
 
         for k, v in config.items():
