@@ -3,9 +3,9 @@
 Quickstart
 ==========
 
-Follow the quickstart below on your laptop, or run analogous `Python <https://docs.azuredatabricks.net/applications/mlflow/quick-start-python.html>`_ or
-`R notebooks <https://docs.azuredatabricks.net/applications/mlflow/quick-start-r.html>`_ on a Databricks Community Edition cluster to easily get
-started with MLflow on the cloud.
+Follow the quickstart below on your laptop, or run analogous `Python <https://docs.databricks.com/applications/mlflow/quick-start-python.html>`_ or
+`R notebooks <https://docs.databricks.com/applications/mlflow/quick-start-r.html>`_ on `Databricks Community Edition <https://docs.databricks.com/getting-started/try-databricks.html#community-edition>`_
+to get started with hosted MLflow, without the hassle of setting up your own tracking server.
 
 Installing MLflow
 -----------------
