@@ -3,6 +3,10 @@
 Quickstart
 ==========
 
+Follow the quickstart below on your laptop, or run analogous `Python <https://docs.azuredatabricks.net/applications/mlflow/quick-start-python.html>`_ or
+`R notebooks <https://docs.azuredatabricks.net/applications/mlflow/quick-start-r.html>`_ on a Databricks Community Edition cluster to easily get
+started with MLflow on the cloud.
+
 Installing MLflow
 -----------------
 
