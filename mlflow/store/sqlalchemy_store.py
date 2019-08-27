@@ -346,8 +346,18 @@ class SqlAlchemyStore(AbstractStore):
 
             return run.to_mlflow_entity()
 
-    def _get_run(self, session, run_uuid):
-        runs = session.query(SqlRun).filter(SqlRun.run_uuid == run_uuid).all()
+    def _get_run(self, session, run_uuid, eager=False):
+        """
+        :param eager: If ``True``, eagerly loads the run's summary metrics (``latest_metrics``),
+                      params, and tags when fetching the run. If ``False``, these attributes
+                      are not eagerly loaded and will be loaded when their corresponding
+                      object properties are accessed from the resulting ``SqlRun`` object.
+        """
+        query_options = self._get_eager_run_query_options() if eager else []
+        runs = session \
+            .query(SqlRun) \
+            .options(*query_options) \
+            .filter(SqlRun.run_uuid == run_uuid).all()
 
         if len(runs) == 0:
             raise MlflowException('Run with id={} not found'.format(run_uuid),
@@ -358,6 +368,18 @@ class SqlAlchemyStore(AbstractStore):
                                   INVALID_STATE)
 
         return runs[0]
+
+    @staticmethod
+    def _get_eager_run_query_options():
+        """
+        :return: A list of SQLAlchemy query options that can be used to eagerly load the following
+                 run attributes when fetching a run: ``latest_metrics``, ``params``, and ``tags``.
+        """
+        return [
+            sqlalchemy.orm.joinedload(SqlRun.latest_metrics),
+            sqlalchemy.orm.joinedload(SqlRun.params),
+            sqlalchemy.orm.joinedload(SqlRun.tags)
+        ]
 
     def _check_run_is_active(self, run):
         if run.lifecycle_stage != LifecycleStage.ACTIVE:
@@ -392,7 +414,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
-            run = self._get_run(run_uuid=run_id, session=session)
+            # Load the run with the specified id and eagerly load its summary metrics, params, and
+            # tags. These attributes are referenced during the invocation of 
+            # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
+            # that are otherwise executed at attribute access time under a lazy loading model.
+            run = self._get_run(run_uuid=run_id, session=session, eager=True)
             return run.to_mlflow_entity()
 
     def restore_run(self, run_id):
@@ -561,20 +587,26 @@ class SqlAlchemyStore(AbstractStore):
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
                                                                      max_results),
                                   INVALID_PARAMETER_VALUE)
-        with self.ManagedSessionMaker() as session:
-            runs = [run.to_mlflow_entity()
-                    for exp in experiment_ids
-                    for run in self._list_runs(session, exp, run_view_type)]
-            filtered = SearchUtils.filter(runs, filter_string)
-            sorted_runs = SearchUtils.sort(filtered, order_by)
-            runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
-            return runs, next_page_token
 
-    def _list_runs(self, session, experiment_id, run_view_type):
-        exp = self._list_experiments(
-            ids=[experiment_id], view_type=ViewType.ALL, session=session).first()
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
-        return [run for run in exp.runs if run.lifecycle_stage in stages]
+        with self.ManagedSessionMaker() as session:
+            # Fetch the appropriate runs and eagerly load their summary metrics, params, and
+            # tags. These run attributes are referenced during the invocation of 
+            # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
+            # that are otherwise executed at attribute access time under a lazy loading model.
+            queried_runs = session \
+                .query(SqlRun) \
+                .options(*self._get_eager_run_query_options()) \
+                .filter(
+                    SqlRun.experiment_id.in_(experiment_ids),
+                    SqlRun.lifecycle_stage.in_(stages)) \
+                .all()
+            runs = [run.to_mlflow_entity() for run in queried_runs]
+
+        filtered = SearchUtils.filter(runs, filter_string)
+        sorted_runs = SearchUtils.sort(filtered, order_by)
+        runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+        return runs, next_page_token
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
