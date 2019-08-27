@@ -61,16 +61,24 @@ def upgrade():
 
     bind = op.get_bind()
     session = orm.Session(bind=bind)
+
+    from datetime import datetime
+    begin = datetime.now()
     all_latest_metrics = _get_latest_metrics_for_runs(session=session)
-    for run_uuid, key, step, timestamp, value, is_nan in all_latest_metrics:
-        session.merge(
+    session.add_all(
+        [
             SqlLatestMetric(
                 run_uuid=run_uuid,
                 key=key,
                 step=step,
                 timestamp=timestamp,
                 value=value,
-                is_nan=is_nan))
+                is_nan=is_nan)
+            for run_uuid, key, step, timestamp, value, is_nan in all_latest_metrics
+        ]
+    )
+    end = datetime.now()
+    print("MIGRATE TIME: {}".format((end - begin).total_seconds()))
     session.commit()
 
 
