@@ -7,7 +7,7 @@ title: "[DOC-FIX]"
 Thank you for submitting an issue. Please refer to our [issue policy](https://www.github.com/mlflow/mlflow/blob/master/ISSUE_POLICY.md)
 for information on what types of issues we address.
   
-Please do not delete this template unless you are sure your issue is outside its scope.
+Please fill in this template and do not delete it unless you are sure your issue is outside its scope.
 
 ### URL(s) with the issue:
 
