@@ -13,7 +13,7 @@ using a search filter API. This API is a simplified version of the SQL ``WHERE``
 Syntax
 ------
 
-A search filter can be one or more expressions joined by the ``AND`` keyword.
+A search filter is one or more expressions joined by the ``AND`` keyword.
 The syntax does not support ``OR``. Each expression has three parts: an identifier on
 the left-hand side (LHS), a comparator, and constant on the right-hand side (RHS).
 
@@ -145,8 +145,13 @@ multiple experiments, use one of the client APIs.
 Python
 ^^^^^^
 
-Get all active runs from experiments with IDs 3, 4, and 17 that used a CNN model with 10 layers and
-had a prediction accuracy of 94.5% or higher.
+Use the :py:func:`mlflow.tracking.client.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to search programmatically.
+You can specify the list of columns to order by (for example, "metrics.rmse") in the ``order_by`` column.
+The column can contain an optional ``DESC`` or ``ASC`` value; the default is ``ASC``.
+The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+
+For example, to get all `active` runs from experiments IDs 3, 4, and 17 that used a CNN model
+with 10 layers and had a prediction accuracy of 94.5% or higher, use:
 
 .. code-block:: py
 
@@ -155,8 +160,7 @@ had a prediction accuracy of 94.5% or higher.
   query = "params.model = 'CNN' and params.layers = '10' and metrics.'prediction accuracy' >= 0.945"
   runs = MlflowClient().search_runs(["3", "4", "17"], query, ViewType.ACTIVE_ONLY)
 
-
-Search all known experiments for any MLflow runs created using the Inception model architecture.
+To search all known experiments for any MLflow runs created using the Inception model architecture:
 
 .. code-block:: py
 
