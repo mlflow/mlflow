@@ -354,7 +354,8 @@ class SqlLatestMetric(Base):
     )
 
     def __repr__(self):
-        return '<SqlLatestMetric({}, {}, {}, {})>'.format(self.key, self.value, self.timestamp, self.step)
+        return '<SqlLatestMetric({}, {}, {}, {})>'.format(
+            self.key, self.value, self.timestamp, self.step)
 
     def to_mlflow_entity(self):
         """

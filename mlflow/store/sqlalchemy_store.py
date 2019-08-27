@@ -415,7 +415,7 @@ class SqlAlchemyStore(AbstractStore):
     def get_run(self, run_id):
         with self.ManagedSessionMaker() as session:
             # Load the run with the specified id and eagerly load its summary metrics, params, and
-            # tags. These attributes are referenced during the invocation of 
+            # tags. These attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             run = self._get_run(run_uuid=run_id, session=session, eager=True)
@@ -479,9 +479,11 @@ class SqlAlchemyStore(AbstractStore):
             .with_for_update() \
             .one_or_none()
         if latest_metric is None or _compare_metrics(logged_metric, latest_metric):
-            session.merge(SqlLatestMetric(run_uuid=logged_metric.run_uuid, key=logged_metric.key,
-                value=logged_metric.value, timestamp=logged_metric.timestamp,
-                step=logged_metric.step, is_nan=logged_metric.is_nan))
+            session.merge(
+                SqlLatestMetric(
+                    run_uuid=logged_metric.run_uuid, key=logged_metric.key,
+                    value=logged_metric.value, timestamp=logged_metric.timestamp,
+                    step=logged_metric.step, is_nan=logged_metric.is_nan))
 
     def get_metric_history(self, run_id, metric_key):
         with self.ManagedSessionMaker() as session:
@@ -591,7 +593,7 @@ class SqlAlchemyStore(AbstractStore):
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
         with self.ManagedSessionMaker() as session:
             # Fetch the appropriate runs and eagerly load their summary metrics, params, and
-            # tags. These run attributes are referenced during the invocation of 
+            # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             queried_runs = session \
