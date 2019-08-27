@@ -5,19 +5,30 @@ Revises: 7ac759974ad8
 Create Date: 2019-08-20 11:53:28.178479
 
 """
+import logging
+
 from alembic import op
-from sqlalchemy import orm, func, and_
+from sqlalchemy import orm, func, distinct, and_
 from sqlalchemy import (
     Column, String, ForeignKey, Float,
     BigInteger, PrimaryKeyConstraint, Boolean)
 from mlflow.store.dbmodels.models import SqlMetric, SqlLatestMetric
 
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.INFO)  
 
 # revision identifiers, used by Alembic.
 revision = '89d4b8295536'
 down_revision = '7ac759974ad8'
 branch_labels = None
 depends_on = None
+
+
+def _describe_metrics(session):
+    num_metrics = session.query(SqlMetric).count()
+    num_runs_containing_metrics = session.query(distinct(SqlMetric.run_uuid)).count()
+    _logger.info("THIS MANY RUNS: {}".format(num_runs_containing_metrics))
+    _logger.info("THIS MANY METRICS: {}".format(num_metrics))
 
 
 def _get_latest_metrics_for_runs(session):
@@ -49,6 +60,12 @@ def _get_latest_metrics_for_runs(session):
 
 
 def upgrade():
+    bind = op.get_bind()
+    session = orm.Session(bind=bind)
+
+    _describe_metrics(session)
+    all_latest_metrics = _get_latest_metrics_for_runs(session=session)
+
     op.create_table(SqlLatestMetric.__tablename__,
         Column('key', String(length=250)),
         Column('value', Float(precision=53), nullable=False),
@@ -59,12 +76,6 @@ def upgrade():
         PrimaryKeyConstraint('key', 'run_uuid', name='latest_metric_pk')
     )
 
-    bind = op.get_bind()
-    session = orm.Session(bind=bind)
-
-    from datetime import datetime
-    begin = datetime.now()
-    all_latest_metrics = _get_latest_metrics_for_runs(session=session)
     session.add_all(
         [
             SqlLatestMetric(
@@ -77,10 +88,8 @@ def upgrade():
             for run_uuid, key, step, timestamp, value, is_nan in all_latest_metrics
         ]
     )
-    end = datetime.now()
-    print("MIGRATE TIME: {}".format((end - begin).total_seconds()))
     session.commit()
 
 
 def downgrade():
-    pass
+    op.drop_table(SqlLatestMetric.__tablename__)
