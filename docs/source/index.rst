@@ -16,6 +16,8 @@ and :ref:`CLI<cli>`. For convenience, the project also includes a :ref:`python-a
 and :ref:`java_api`.
 
 Get started using the :ref:`quickstart` or by reading about the :ref:`key concepts<concepts>`.
+To quickly get started with hosted MLflow, you can also run `quickstart notebooks <https://docs.databricks.com/applications/mlflow/quick-start.html#notebooks>`_
+on `Databricks Community Edition <https://docs.databricks.com/getting-started/try-databricks.html#community-edition>`_
 
 .. toctree::
     :maxdepth: 1
