@@ -5,7 +5,7 @@ databases, using the Alembic migration library (https://alembic.sqlalchemy.org).
 migrations, use the ``mlflow db upgrade`` CLI command. To add and modify database migration logic,
 see the contributor guide at https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst.
 
-if you encounter failures while executing migrations, please file a GitHub issue at
+If you encounter failures while executing migrations, please file a GitHub issue at
 https://github.com/mlflow/mlflow/issues.
 
 ## Migration descriptions
