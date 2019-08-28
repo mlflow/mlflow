@@ -15,7 +15,7 @@ from sqlalchemy import (
 from mlflow.store.dbmodels.models import SqlMetric, SqlLatestMetric
 
 _logger = logging.getLogger(__name__)
-_logger.setLevel(logging.INFO)  
+_logger.setLevel(logging.INFO)
 
 # revision identifiers, used by Alembic.
 revision = '89d4b8295536'
@@ -24,11 +24,39 @@ branch_labels = None
 depends_on = None
 
 
-def _describe_metrics(session):
+def _describe_migration(session):
+    _logger.warning(
+        "**IMPORTANT**: This migration creates a `latest_metrics` table and populates it with the"
+        " latest metric entry for each (run_id, metric_key) tuple. Latest metric entries are"
+        " computed based on step, timestamp, and value. This migration may take a long time for"
+        " databases containing a large number of metric entries. Please refer to {readme_link} for"
+        " information about this migration, including how to estimate migration size and how to"
+        " restore your database to its original state if the migration is unsuccessful. If you"
+        " encounter failures while executing this migration, please file a GitHub issue at"
+        " {issues_link}.".format(
+            readme_link=(
+                "https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/README"
+            ),
+            issues_link="https://github.com/mlflow/mlflow/issues"))
+
     num_metrics = session.query(SqlMetric).count()
     num_runs_containing_metrics = session.query(distinct(SqlMetric.run_uuid)).count()
-    _logger.info("THIS MANY RUNS: {}".format(num_runs_containing_metrics))
-    _logger.info("THIS MANY METRICS: {}".format(num_metrics))
+    metric_entries_subquery = session \
+        .query(func.count(SqlMetric.key).label("entries_count")) \
+        .group_by(SqlMetric.key, SqlMetric.run_uuid) \
+        .subquery()
+    max_entries_per_metric, avg_entries_per_metric = session \
+        .query(
+            func.max(metric_entries_subquery.c.entries_count),
+            func.avg(metric_entries_subquery.c.entries_count)) \
+        .first()
+
+    _logger.info(
+        "Migrating {num_metrics} metric entries across {num_runs} runs. The average number"
+        " of entries per metric key is {avg_entries}, and the largest number of entries for a"
+        " metric key is {max_entries}.".format(
+            num_metrics=num_metrics, num_runs=num_runs_containing_metrics,
+            avg_entries=int(avg_entries_per_metric), max_entries=max_entries_per_metric))
 
 
 def _get_latest_metrics_for_runs(session):
@@ -63,7 +91,7 @@ def upgrade():
     bind = op.get_bind()
     session = orm.Session(bind=bind)
 
-    _describe_metrics(session)
+    _describe_migration(session)
     all_latest_metrics = _get_latest_metrics_for_runs(session=session)
 
     op.create_table(SqlLatestMetric.__tablename__,
