@@ -27,7 +27,7 @@ depends_on = None
 def _describe_migration(session):
     _logger.warning(
         "**IMPORTANT**: This migration creates a `latest_metrics` table and populates it with the"
-        " latest metric entry for each (run_id, metric_key) tuple. Latest metric entries are"
+        " latest metric entry for each unique (run_id, metric_key) tuple. Latest metric entries are"
         " computed based on step, timestamp, and value. This migration may take a long time for"
         " databases containing a large number of metric entries. Please refer to {readme_link} for"
         " information about this migration, including how to estimate migration size and how to"
