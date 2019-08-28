@@ -84,7 +84,7 @@ class SqlAlchemyStore(AbstractStore):
             SqlParam.__tablename__,
             SqlTag.__tablename__,
             SqlExperimentTag.__tablename__,
-            SqlLatestMetric.__tablename__
+            SqlLatestMetric.__tablename__,
         ])
         if len(expected_tables & set(insp.get_table_names())) == 0:
             SqlAlchemyStore._initialize_tables(self.engine)
