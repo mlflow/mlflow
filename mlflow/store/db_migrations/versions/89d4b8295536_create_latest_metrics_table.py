@@ -39,7 +39,11 @@ def _describe_migration(session):
             ),
             issues_link="https://github.com/mlflow/mlflow/issues"))
 
-    num_metrics = session.query(SqlMetric).count()
+    num_metric_entries = session.query(SqlMetric).count()
+    num_metric_keys = session \
+        .query(SqlMetric.run_uuid, SqlMetric.key) \
+        .group_by(SqlMetric.run_uuid, SqlMetric.key) \
+        .count()
     num_runs_containing_metrics = session.query(distinct(SqlMetric.run_uuid)).count()
     metric_entries_subquery = session \
         .query(func.count(SqlMetric.key).label("entries_count")) \
@@ -52,11 +56,12 @@ def _describe_migration(session):
         .first()
 
     _logger.info(
-        "Migrating {num_metrics} metric entries across {num_runs} runs. The average number"
-        " of entries per metric key is {avg_entries}, and the largest number of entries for a"
-        " metric key is {max_entries}.".format(
-            num_metrics=num_metrics, num_runs=num_runs_containing_metrics,
-            avg_entries=int(avg_entries_per_metric), max_entries=max_entries_per_metric))
+        "Migrating {num_metric_entries} metric entries for {num_metric_keys} unique metrics across"
+        " {num_runs} runs. The average number of entries per unique metric is {avg_entries}, and"
+        " the largest number of entries for a single metric is {max_entries}.".format(
+            num_metric_entries=num_metric_entries, num_metric_keys=num_metric_keys,
+            num_runs=num_runs_containing_metrics, avg_entries=int(avg_entries_per_metric),
+            max_entries=max_entries_per_metric))
 
 
 def _get_latest_metrics_for_runs(session):
