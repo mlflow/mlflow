@@ -22,7 +22,7 @@ def upgrade(url):
     **always take a backup of your database before running migrations**. The migrations README,
     which is located at
     https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/README, describes
-    larger migrations and includes information about how to estimate their performance and
+    large migrations and includes information about how to estimate their performance and
     recover from failures.
     """
     if mlflow.store.db.utils._is_initialized_before_mlflow_1(url):
