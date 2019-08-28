@@ -36,6 +36,7 @@ def _describe_migration(session):
         " {issues_link}.".format(
             readme_link=(
                 "https://github.com/mlflow/mlflow/blob/master/mlflow/store/db_migrations/README"
+                "#89d4b8295536_create_latest_metrics_table"
             ),
             issues_link="https://github.com/mlflow/mlflow/issues"))
 

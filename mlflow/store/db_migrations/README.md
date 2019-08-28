@@ -12,8 +12,8 @@ https://github.com/mlflow/mlflow/issues.
 
 ### 89d4b8295536\_create\_latest\_metrics\_table
 This migration creates a ``latest_metrics`` table and populates it with the latest metric entry for
-each ``(run_id, metric_key)`` tuple. Latest metric entries are computed based on step, timestamp,
-and value.
+each ``(run_id, metric_key)`` tuple. Latest metric entries are computed based on ``step``,
+``timestamp``, and ``value``.
 
 This migration may take a long time for databases containing a large number of metric entries. You
 can determine the total number of metric entries using the following query:
@@ -37,8 +37,8 @@ For reference, migrating a Tracking database with the following attributes takes
 
 * ``3702`` unique metrics
 * ``466860`` total metric entries
-* ``186 runs``
-* An average of ``126`` entries per unique metric
+* ``186`` runs
+* An average of ``125`` entries per unique metric
 
 #### Recovering from a failed migration
 If the **create\_latest\_metrics\_table** migration fails, simply delete the ``latest_metrics``
