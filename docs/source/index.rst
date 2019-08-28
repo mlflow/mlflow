@@ -15,9 +15,11 @@ programming language, since all functions are accessible through a :ref:`rest-ap
 and :ref:`CLI<cli>`. For convenience, the project also includes a :ref:`python-api`, :ref:`R-api`, 
 and :ref:`java_api`.
 
-Get started using the :ref:`quickstart` or by reading about the :ref:`key concepts<concepts>`.
-To quickly get started with hosted MLflow, you can also run `quickstart notebooks <https://docs.databricks.com/applications/mlflow/quick-start.html#notebooks>`_
-on `Databricks Community Edition <https://docs.databricks.com/getting-started/try-databricks.html#community-edition>`_
+Get started using the :ref:`quickstart`, reading about the :ref:`key concepts<concepts>`, or
+running `Python <https://docs.databricks.com/applications/mlflow/quick-start-python.html>`_ &
+`R quickstarts <https://docs.databricks.com/applications/mlflow/quick-start-r.html>`_ using hosted
+MLflow on `Databricks Community Edition <https://docs.databricks.com/getting-started/try-databricks.html#community-edition>`_.
+
 
 .. toctree::
     :maxdepth: 1
