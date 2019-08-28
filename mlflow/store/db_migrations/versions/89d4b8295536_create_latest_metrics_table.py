@@ -57,7 +57,7 @@ def _describe_migration_if_necessary(session):
     num_runs_containing_metrics = session.query(distinct(SqlMetric.run_uuid)).count()
     _logger.info(
         "This tracking database has {num_metric_entries} total metric entries for {num_metric_keys}"
-        " unique metrics across {num_runs} runs".format(
+        " unique metrics across {num_runs} runs.".format(
             num_metric_entries=num_metric_entries, num_metric_keys=num_metric_keys,
             num_runs=num_runs_containing_metrics))
 
@@ -121,6 +121,7 @@ def upgrade():
     )
     session.commit()
 
+    _logger.info("Migration complete!")
 
 def downgrade():
     op.drop_table(SqlLatestMetric.__tablename__)
