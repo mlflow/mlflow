@@ -21,17 +21,18 @@ import docker
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
-import mlflow.tracking.context as context
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.entities import RunStatus, SourceType
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.tracking.context import _get_git_commit
+from mlflow.tracking.context.default_context import _get_user
+from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
-from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_NAME, \
+from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri, \
+    get_local_path_or_none
+from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
     LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, \
@@ -58,20 +59,30 @@ def _resolve_experiment_id(experiment_name=None, experiment_id=None):
 
     Verifies either one or other is specified - cannot be both selected.
 
+    If ``experiment_name`` is provided and does not exist, an experiment
+    of that name is created and its id is returned.
+
     :param experiment_name: Name of experiment under which to launch the run.
     :param experiment_id: ID of experiment under which to launch the run.
-    :return: int
+    :return: str
     """
 
     if experiment_name and experiment_id:
         raise MlflowException("Specify only one of 'experiment_name' or 'experiment_id'.")
 
-    exp_id = experiment_id
+    if experiment_id:
+        return str(experiment_id)
+
     if experiment_name:
         client = tracking.MlflowClient()
-        exp_id = client.get_experiment_by_name(experiment_name).experiment_id
-    exp_id = exp_id or _get_experiment_id()
-    return exp_id
+        exp = client.get_experiment_by_name(experiment_name)
+        if exp:
+            return exp.experiment_id
+        else:
+            print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
+            return client.create_experiment(experiment_name)
+
+    return _get_experiment_id()
 
 
 def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
@@ -131,7 +142,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             _validate_docker_env(project)
             _validate_docker_installation()
             image = _build_docker_image(work_dir=work_dir,
-                                        image_uri=project.name,
+                                        repository_uri=project.name,
                                         base_image=project.docker_env.get('image'),
                                         run_id=active_run.info.run_id)
             command += _get_docker_command(image=image, active_run=active_run)
@@ -165,7 +176,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         _validate_docker_installation()
         kube_config = _parse_kubernetes_config(backend_config)
         image = _build_docker_image(work_dir=work_dir,
-                                    image_uri=kube_config["image-uri"],
+                                    repository_uri=kube_config["repository-uri"],
                                     base_image=project.docker_env.get('image'),
                                     run_id=active_run.info.run_id)
         image_digest = kb.push_image_to_registry(image.tags[0])
@@ -211,17 +222,17 @@ def run(uri, entry_point="main", version=None, parameters=None,
     :param version: For Git-based projects, either a commit hash or a branch name.
     :param experiment_name: Name of experiment under which to launch the run.
     :param experiment_id: ID of experiment under which to launch the run.
-    :param backend: Execution backend for the run: "local" or "databricks". If running against
-                    Databricks, will run against a Databricks workspace determined as follows: if
-                    a Databricks tracking URI of the form ``databricks://profile`` has been set
-                    (e.g. by setting the MLFLOW_TRACKING_URI environment variable), will run
-                    against the workspace specified by <profile>. Otherwise, runs against the
-                    workspace specified by the default Databricks CLI profile.
+    :param backend: Execution backend for the run: "local", "databricks", or "kubernetes"
+                    (experimental). If running against Databricks, will run against a Databricks
+                    workspace determined as follows: if a Databricks tracking URI of the form
+                    ``databricks://profile`` has been set (e.g. by setting the
+                    MLFLOW_TRACKING_URI environment variable), will run against the workspace
+                    specified by <profile>. Otherwise, runs against the workspace specified by
+                    the default Databricks CLI profile.
     :param backend_config: A dictionary, or a path to a JSON file (must end in '.json'), which will
-                           be passed as config to the backend. For the Databricks backend, this
-                           should be a cluster spec: see `Databricks Cluster Specs for Jobs
-                           <https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster>`_
-                           for more information.
+                           be passed as config to the backend. The exact content which should be
+                           provided is different for each execution backend and is documented
+                           at https://www.mlflow.org/docs/latest/projects.html.
     :param use_conda: If True (the default), create a new Conda environment for the run and
                       install project dependencies within that environment. Otherwise, run the
                       project in the current environment without installing any project
@@ -460,6 +471,10 @@ def _get_conda_bin_executable(executable_name):
     conda_home = os.environ.get(MLFLOW_CONDA_HOME)
     if conda_home:
         return os.path.join(conda_home, "bin/%s" % executable_name)
+    # Use CONDA_EXE as per https://github.com/conda/conda/issues/7126
+    if "CONDA_EXE" in os.environ:
+        conda_bin_dir = os.path.dirname(os.environ["CONDA_EXE"])
+        return os.path.join(conda_bin_dir, executable_name)
     return executable_name
 
 
@@ -604,7 +619,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
         parent_run_id = None
 
     tags = {
-        MLFLOW_USER: context._get_user(),
+        MLFLOW_USER: _get_user(),
         MLFLOW_SOURCE_NAME: source_name,
         MLFLOW_SOURCE_TYPE: SourceType.to_string(SourceType.PROJECT),
         MLFLOW_PROJECT_ENTRY_POINT: entry_point
@@ -646,13 +661,21 @@ def _invoke_mlflow_run_subprocess(
 
 
 def _get_conda_command(conda_env_name):
-    activate_path = _get_conda_bin_executable("activate")
-    # in case os name is not 'nt', we are not running on windows. It introduces
-    # bash command otherwise.
-    if os.name != "nt":
-        return ["source %s %s" % (activate_path, conda_env_name)]
+    #  Checking for newer conda versions
+    if 'CONDA_EXE' in os.environ or 'MLFLOW_CONDA_HOME' in os.environ:
+        conda_path = _get_conda_bin_executable("conda")
+        activate_conda_env = ['source ' + os.path.dirname(conda_path) +
+                              '/../etc/profile.d/conda.sh']
+        activate_conda_env += ["conda activate {0} 1>&2".format(conda_env_name)]
     else:
-        return ["conda %s %s" % (activate_path, conda_env_name)]
+        activate_path = _get_conda_bin_executable("activate")
+        # in case os name is not 'nt', we are not running on windows. It introduces
+        # bash command otherwise.
+        if os.name != "nt":
+            return ["source %s %s 1>&2" % (activate_path, conda_env_name)]
+        else:
+            return ["conda %s %s 1>&2" % (activate_path, conda_env_name)]
+    return activate_conda_env
 
 
 def _validate_execution_environment(project, backend):
@@ -683,9 +706,17 @@ def _get_docker_command(image, active_run):
                                  experiment_id=active_run.info.experiment_id)
     tracking_uri = tracking.get_tracking_uri()
     local_path, container_tracking_uri = _get_local_uri_or_none(tracking_uri)
+    artifact_uri_local_path = get_local_path_or_none(active_run.info.artifact_uri)
     if local_path is not None:
         cmd += ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
+    if artifact_uri_local_path is not None:
+        container_path = artifact_uri_local_path
+        if not os.path.isabs(container_path):
+            container_path = os.path.join("/mlflow/projects/code/", artifact_uri_local_path)
+            container_path = os.path.normpath(container_path)
+        artifact_uri_local_abspath = os.path.abspath(artifact_uri_local_path)
+        cmd += ["-v", "%s:%s" % (artifact_uri_local_abspath, container_path)]
     if tracking.utils._is_databricks_uri(tracking_uri):
         db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)
@@ -752,8 +783,8 @@ def _parse_kubernetes_config(backend_config):
             kube_job_template))
     if 'kube-context' not in backend_config.keys():
         raise ExecutionException("Could not find kube-context in backend_config.")
-    if 'image-uri' not in backend_config.keys():
-        raise ExecutionException("Could not find 'image-uri' in backend_config.")
+    if 'repository-uri' not in backend_config.keys():
+        raise ExecutionException("Could not find 'repository-uri' in backend_config.")
     return kube_config
 
 
@@ -776,24 +807,22 @@ def _create_docker_build_ctx(work_dir, dockerfile_contents):
     return result_path
 
 
-def _build_docker_image(work_dir, image_uri, base_image, run_id):
+def _build_docker_image(work_dir, repository_uri, base_image, run_id):
     """
     Build a docker image containing the project in `work_dir`, using the base image.
     """
-    tag_name = _get_docker_tag_name(image_uri, work_dir)
+    image_uri = _get_docker_image_uri(repository_uri=repository_uri, work_dir=work_dir)
     dockerfile = (
         "FROM {imagename}\n"
-        "LABEL Name={tag_name}\n"
         "COPY {build_context_path}/ /mlflow/projects/code/\n"
         "WORKDIR /mlflow/projects/code/\n"
-    ).format(imagename=base_image, tag_name=tag_name,
-             build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
+    ).format(imagename=base_image, build_context_path=_PROJECT_TAR_ARCHIVE_NAME)
     build_ctx_path = _create_docker_build_ctx(work_dir, dockerfile)
     with open(build_ctx_path, 'rb') as docker_build_ctx:
-        _logger.info("=== Building docker image %s ===", tag_name)
+        _logger.info("=== Building docker image %s ===", image_uri)
         client = docker.from_env()
         image, _ = client.images.build(
-            tag=tag_name, forcerm=True,
+            tag=image_uri, forcerm=True,
             dockerfile=posixpath.join(_PROJECT_TAR_ARCHIVE_NAME, _GENERATED_DOCKERFILE_NAME),
             fileobj=docker_build_ctx, custom_context=True, encoding="gzip")
     try:
@@ -801,21 +830,28 @@ def _build_docker_image(work_dir, image_uri, base_image, run_id):
     except Exception:  # pylint: disable=broad-except
         _logger.info("Temporary docker context file %s was not deleted.", build_ctx_path)
     tracking.MlflowClient().set_tag(run_id,
-                                    MLFLOW_DOCKER_IMAGE_NAME,
-                                    tag_name)
+                                    MLFLOW_DOCKER_IMAGE_URI,
+                                    image_uri)
     tracking.MlflowClient().set_tag(run_id,
                                     MLFLOW_DOCKER_IMAGE_ID,
                                     image.id)
     return image
 
 
-def _get_docker_tag_name(imagename, work_dir):
-    """Returns an appropriate Docker tag for a project based on name and git hash."""
-    imagename = imagename if imagename else "docker-project"
+def _get_docker_image_uri(repository_uri, work_dir):
+    """
+    Returns an appropriate Docker image URI for a project based on the git hash of the specified
+    working directory.
+
+    :param repository_uri: The URI of the Docker repository with which to tag the image. The
+                           repository URI is used as the prefix of the image URI.
+    :param work_dir: Path to the working directory in which to search for a git commit hash
+    """
+    repository_uri = repository_uri if repository_uri else "docker-project"
     # Optionally include first 7 digits of git SHA in tag name, if available.
     git_commit = _get_git_commit(work_dir)
     version_string = ":" + git_commit[:7] if git_commit else ""
-    return imagename + version_string
+    return repository_uri + version_string
 
 
 __all__ = [
