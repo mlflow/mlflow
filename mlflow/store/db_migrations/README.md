@@ -5,6 +5,9 @@ databases, using the Alembic migration library (https://alembic.sqlalchemy.org).
 migrations, use the ``mlflow db upgrade`` CLI command. To add and modify database migration logic,
 see the contributor guide at https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.rst.
 
+if you encounter failures while executing migrations, please file a GitHub issue at
+https://github.com/mlflow/mlflow/issues.
+
 ## Migration descriptions
 
 ### 89d4b8295536\_create\_latest\_metrics\_table
@@ -16,7 +19,7 @@ This migration may take a long time for databases containing a large number of m
 can determine the total number of metric entries using the following query:
 
 ```sql
-SELECT count(*) FROM metrics GROUP BY metrics.key, run_uuid 
+SELECT count(*) FROM metrics GROUP BY metrics.key, run_uuid
 ```
 
 Additionally, query join latency during the migration increases with the number of unique
@@ -46,13 +49,10 @@ DROP TABLE latest_metrics;
 ```
 
 Alembic does not stamp the database with an updated version unless the corresponding migration
-completes successfully. Therefore, when this migration fails, the database remains on the 
+completes successfully. Therefore, when this migration fails, the database remains on the
 previous version, and deleting the ``latest_metrics`` table is sufficient to restore the database
 to its prior state.
 
 If the migration fails to complete due to excessive latency, please try executing the
 ``mlflow db upgrade`` command on the same host machine where the database is running. This will
 reduce the overhead of the migration's queries and batch insert operation.
-
-Finally, if you encounter failures while executing this migration, please file a GitHub issue at
-https://github.com/mlflow/mlflow/issues.
