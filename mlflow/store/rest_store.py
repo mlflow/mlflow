@@ -1,6 +1,6 @@
 import json
 
-from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
+from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType, LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
@@ -259,11 +259,18 @@ class RestStore(AbstractStore):
             if e.error_code == databricks_pb2.ErrorCode.Name(
                     databricks_pb2.RESOURCE_DOES_NOT_EXIST):
                 return None
-            # Fall back to using ListExperiments-based implementation
+            # Fall back to using ListExperiments-based implementation. Prefer the undeleted
+            # experiment, if one exists.
+            matching_exps = []
             for experiment in self.list_experiments(ViewType.ALL):
                 if experiment.name == experiment_name:
-                    return experiment
-            return None
+                    matching_exps.append(experiment)
+            if len(matching_exps) == 0:
+                return None
+            for exp in matching_exps:
+                if exp.lifecycle_stage == LifecycleStage.ACTIVE:
+                    return exp
+            return matching_exps[0]
 
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]
