@@ -24,7 +24,17 @@ branch_labels = None
 depends_on = None
 
 
-def _describe_migration(session):
+def _describe_migration_if_necessary(session):
+    """
+    If the targeted database contains any metric entries, this function emits important,
+    database-specific information about the ``create_latest_metrics_table`` migration.
+    If the targeted database does *not* contain any metric entries, this output is omitted
+    in order to avoid superfluous log output when initializing a new Tracking database.
+    """
+    num_metric_entries = session.query(SqlMetric).count()
+    if num_metric_entries == 0:
+        return
+
     _logger.warning(
         "**IMPORTANT**: This migration creates a `latest_metrics` table and populates it with the"
         " latest metric entry for each unique (run_id, metric_key) tuple. Latest metric entries are"
@@ -40,29 +50,16 @@ def _describe_migration(session):
             ),
             issues_link="https://github.com/mlflow/mlflow/issues"))
 
-    num_metric_entries = session.query(SqlMetric).count()
     num_metric_keys = session \
         .query(SqlMetric.run_uuid, SqlMetric.key) \
         .group_by(SqlMetric.run_uuid, SqlMetric.key) \
         .count()
     num_runs_containing_metrics = session.query(distinct(SqlMetric.run_uuid)).count()
-    metric_entries_subquery = session \
-        .query(func.count(SqlMetric.key).label("entries_count")) \
-        .group_by(SqlMetric.key, SqlMetric.run_uuid) \
-        .subquery()
-    max_entries_per_metric, avg_entries_per_metric = session \
-        .query(
-            func.max(metric_entries_subquery.c.entries_count),
-            func.avg(metric_entries_subquery.c.entries_count)) \
-        .first()
-
     _logger.info(
         "Migrating {num_metric_entries} metric entries for {num_metric_keys} unique metrics across"
-        " {num_runs} runs. The average number of entries per unique metric is {avg_entries}, and"
-        " the largest number of entries for a single metric is {max_entries}.".format(
+        " {num_runs} runs.".format(
             num_metric_entries=num_metric_entries, num_metric_keys=num_metric_keys,
-            num_runs=num_runs_containing_metrics, avg_entries=int(avg_entries_per_metric),
-            max_entries=max_entries_per_metric))
+            num_runs=num_runs_containing_metrics))
 
 
 def _get_latest_metrics_for_runs(session):
@@ -97,7 +94,7 @@ def upgrade():
     bind = op.get_bind()
     session = orm.Session(bind=bind)
 
-    _describe_migration(session)
+    _describe_migration_if_necessary(session)
     all_latest_metrics = _get_latest_metrics_for_runs(session=session)
 
     op.create_table(SqlLatestMetric.__tablename__,
