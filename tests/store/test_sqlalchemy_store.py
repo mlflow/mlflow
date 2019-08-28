@@ -1280,24 +1280,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
             self):
         """
-        Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying 
-        the MLflow Tracking SQLite database located at 
+        Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying
+        the MLflow Tracking SQLite database located at
         /mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics.sql. This database contains
         metric entries populated by the following metrics generation script:
         https://gist.github.com/dbczumar/343173c6b8982a0cc9735ff19b5571d9.
 
-        First, the database is upgraded from its HEAD revision of 
-        ``7ac755974ad8_update_run_tags_with_larger_limit`` to the latest revision via 
-        ``mlflow db upgrade``. 
+        First, the database is upgraded from its HEAD revision of
+        ``7ac755974ad8_update_run_tags_with_larger_limit`` to the latest revision via
+        ``mlflow db upgrade``.
 
         Then, the test confirms that the metric entries returned by calls
         to ``SqlAlchemyStore.get_run()`` are consistent between the latest revision and the
         ``7ac755974ad8_update_run_tags_with_larger_limit`` revision. This is confirmed by
-        invoking ``SqlAlchemyStore.get_run()`` for each run id that is present in the upgraded 
+        invoking ``SqlAlchemyStore.get_run()`` for each run id that is present in the upgraded
         database and comparing the resulting runs' metric entries to a JSON dump taken from the
-        SQLite database prior to the upgrade (located at 
-        mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json). 
-        This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the 
+        SQLite database prior to the upgrade (located at
+        mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json).
+        This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the
         following code from the directory containing this test suite:
 
         >>> import json
@@ -1307,7 +1307,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         ...     "sqlite:///../resources/db/db_version_7ac759974ad8_with_metrics.sql")
         >>> client = MlflowClient()
         >>> summary_metrics = {
-        ...     run.info.run_id: run.data.metrics for run 
+        ...     run.info.run_id: run.data.metrics for run
         ...     in client.search_runs(experiment_ids="0")
         ... }
         >>> with open("dump.json", "w") as dump_file:
