@@ -32,7 +32,7 @@ def _describe_migration_if_necessary(session):
     in order to avoid superfluous log output when initializing a new Tracking database.
     """
     num_metric_entries = session.query(SqlMetric).count()
-    if num_metric_entries == 0:
+    if num_metric_entries <= 0:
         return
 
     _logger.warning(
