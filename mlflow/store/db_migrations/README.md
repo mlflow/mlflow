@@ -19,7 +19,7 @@ This migration may take a long time for databases containing a large number of m
 can determine the total number of metric entries using the following query:
 
 ```sql
-SELECT count(*) FROM metrics GROUP BY metrics.key, run_uuid
+SELECT count(*) FROM metrics GROUP BY metrics.key, run_uuid;
 ```
 
 Additionally, query join latency during the migration increases with the number of unique
