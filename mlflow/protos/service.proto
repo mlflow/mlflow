@@ -15,8 +15,7 @@ service MlflowService {
 
 
   // Get metadata for an experiment.
-  // This endpoint will return deleted experiments, but prefers the active experiment if an active
-  // experiment exists with the same name. The server will respond with an error if no
+  // This endpoint will return deleted experiments. The server will respond with an error if no
   // experiment with the specified name exists.
   rpc getExperimentByName (GetExperimentByName) returns (GetExperimentByName.Response) {
     option (rpc) = {
@@ -32,9 +31,7 @@ service MlflowService {
 
   // Create an experiment with a name. Returns the ID of the newly created experiment.
   // Validates that another experiment with the same name does not already exist and fails
-  // if another experiment with the same name already exists. Note that deleted experiments may
-  // be ignored when checking for name conflicts - that is, an active and deleted experiment may
-  // share the same name.
+  // if another experiment with the same name already exists.
   //
   //
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a experiment with the given name exists.

@@ -259,19 +259,11 @@ class RestStore(AbstractStore):
             if e.error_code == databricks_pb2.ErrorCode.Name(
                     databricks_pb2.RESOURCE_DOES_NOT_EXIST):
                 return None
-            # Fall back to using ListExperiments-based implementation. Prefer the undeleted
-            # experiment, if one exists.
-            matching_exps = []
+            # Fall back to using ListExperiments-based implementation.
             for experiment in self.list_experiments(ViewType.ALL):
                 if experiment.name == experiment_name:
-                    matching_exps.append(experiment)
-            if len(matching_exps) == 0:
-                return None
-            for exp in matching_exps:
-                if exp.lifecycle_stage == LifecycleStage.ACTIVE:
-                    return exp
-            return matching_exps[0]
-
+                    return experiment
+            return None
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]
         param_protos = [param.to_proto() for param in params]
