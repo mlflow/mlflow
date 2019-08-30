@@ -202,11 +202,11 @@ class SqlAlchemyStore(AbstractStore):
         values = ", ".join([decorate(default_experiment.get(c)) for c in columns])
 
         try:
-            self._set_no_auto_for_zero_values(session)
+            self._set_zero_value_insertion_for_autoincrement_column(session)
             session.execute("INSERT INTO {} ({}) VALUES ({});".format(
                 table, ", ".join(columns), values))
         finally:
-            self._unset_no_auto_for_zero_values(session)
+            self._unset_zero_value_insertion_for_autoincrement_column(session)
 
     def _save_to_db(self, session, objs):
         """
