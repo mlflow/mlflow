@@ -264,6 +264,7 @@ class RestStore(AbstractStore):
                 if experiment.name == experiment_name:
                     return experiment
             return None
+
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]
         param_protos = [param.to_proto() for param in params]
