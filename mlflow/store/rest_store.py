@@ -1,6 +1,6 @@
 import json
 
-from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType, LifecycleStage
+from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
