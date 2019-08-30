@@ -15,8 +15,10 @@ service MlflowService {
 
 
   // Get metadata for an experiment.
-  // This endpoint will return deleted experiments. The server will respond with an error if no
-  // experiment with the specified name exists.
+  // This endpoint will return deleted experiments.
+
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if no experiment with the specified name exists.
+  //
   rpc getExperimentByName (GetExperimentByName) returns (GetExperimentByName.Response) {
     option (rpc) = {
       endpoints: [{
