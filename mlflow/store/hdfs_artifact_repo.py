@@ -77,18 +77,18 @@ class HdfsArtifactRepository(ArtifactRepository):
             :return: List of FileInfos under given path
         """
         hdfs_base_path = _resolve_base_path(self.path, path)
-        base_path_len = len(hdfs_base_path) + 1
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
             paths = []
-            for file_detail in hdfs.ls(hdfs_base_path, detail=True):
-                file_name = file_detail.get("name")
-                # Strip off anything that comes before the artifact root e.g. hdfs://name
-                offset = file_name.index(self.path)
-                rel_path = _relative_path_remote(self.path, file_name[offset:])
-                is_dir = file_detail.get("kind") == "directory"
-                size = file_detail.get("size")
-                paths.append(FileInfo(rel_path, is_dir, size))
+            if hdfs.exists(hdfs_base_path):
+                for file_detail in hdfs.ls(hdfs_base_path, detail=True):
+                    file_name = file_detail.get("name")
+                    # Strip off anything that comes before the artifact root e.g. hdfs://name
+                    offset = file_name.index(self.path)
+                    rel_path = _relative_path_remote(self.path, file_name[offset:])
+                    is_dir = file_detail.get("kind") == "directory"
+                    size = file_detail.get("size")
+                    paths.append(FileInfo(rel_path, is_dir, size))
             return sorted(paths, key=lambda f: paths)
 
     def _walk_path(self, hdfs, hdfs_path):
