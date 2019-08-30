@@ -79,7 +79,6 @@ class HdfsArtifactRepository(ArtifactRepository):
         hdfs_base_path = _resolve_base_path(self.path, path)
         base_path_len = len(hdfs_base_path) + 1
 
-
         with hdfs_system(host=self.host, port=self.port) as hdfs:
             paths = []
             for file_detail in hdfs.ls(hdfs_base_path, detail=True):
