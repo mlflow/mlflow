@@ -1,8 +1,12 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import ShowArtifactImageView from './ShowArtifactImageView';
-import { getExtension, IMAGE_EXTENSIONS, TEXT_EXTENSIONS } from '../../utils/FileUtils';
+import {
+  getExtension, IMAGE_EXTENSIONS,
+  TEXT_EXTENSIONS, MAP_EXTENSIONS
+} from '../../utils/FileUtils';
 import ShowArtifactTextView from './ShowArtifactTextView';
+import ShowArtifactMapView from './ShowArtifactMapView';
 import previewIcon from '../../static/preview-icon.png';
 import './ShowArtifactPage.css';
 
@@ -21,6 +25,8 @@ class ShowArtifactPage extends Component {
           return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path}/>;
         } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path}/>;
+        } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <ShowArtifactMapView runUuid={this.props.runUuid} path={this.props.path}/>;
         }
       }
     }
