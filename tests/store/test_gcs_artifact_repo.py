@@ -186,7 +186,7 @@ def test_get_anonymous_bucket(gcs_mock):
         repo._get_bucket("gs://test_bucket")
         anon_call_count = gcs_mock.Client\
             .create_anonymous_client.call_count
-        assert call_count == 1
+        assert anon_call_count == 1
         bucket_call_count = gcs_mock.Client\
             .create_anonymous_client.return_value\
             .get_bucket.call_count
