@@ -73,10 +73,10 @@ class ShowArtifactMapView extends Component {
 				return L.marker(latlng, {
 					icon: L.icon({
 						iconRetinaUrl: iconRetina,
-					  iconUrl: icon,
-					  shadowUrl: iconShadow,
+						iconUrl: icon,
+						shadowUrl: iconShadow,
 						iconSize: [24,36],
-      			iconAnchor: [12,36],
+						iconAnchor: [12,36],
 					})
 				});
 			},
