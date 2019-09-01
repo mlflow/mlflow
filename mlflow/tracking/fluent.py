@@ -184,13 +184,13 @@ def set_tag(key, value):
     :param value: Tag value (string, but will be string-ified if not)
     """
     run_id = _get_or_start_run().info.run_id
-    print(run_id)
     MlflowClient().set_tag(run_id, key, value)
 
 
 def delete_tag(key):
     """
     Delete a tag from a run. This is irreversible.
+
     :param key: Name of the tag
     """
     run_id = _get_or_start_run().info.run_id
@@ -257,7 +257,7 @@ def set_tags(tags):
 
 def log_artifact(local_path, artifact_path=None):
     """
-    Log a local file as an artifact of the currently active run.
+    Log a local file or directory as an artifact of the currently active run.
 
     :param local_path: Path to the file to write.
     :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
@@ -317,24 +317,26 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
 
     :param experiment_ids: List of experiment IDs. None will default to the active experiment.
     :param filter_string: Filter query string, defaults to searching all runs.
-    :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+    :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
                             defined in :py:class:`mlflow.entities.ViewType`.
     :param max_results: The maximum number of runs to put in the dataframe. Default is 100,000
                         to avoid causing out-of-memory issues on the user's machine.
-    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
-                        ordering is to sort by start_time DESC, then run_id.
+    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
+                     can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
+                     The default ordering is to sort by ``start_time DESC``, then ``run_id``.
 
     :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
         are expanded into their own columns named metrics.*, params.*, and tags.*
         respectively. For runs that don't have a particular metric, parameter, or tag, their
-        value will be (Numpy) Nan, None, or None respectively
+        value will be (NumPy) Nan, None, or None respectively.
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
     runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
                                order_by)
     info = {'run_id': [], 'experiment_id': [],
-            'status': [], 'artifact_uri': [], }
+            'status': [], 'artifact_uri': [],
+            'start_time': [], 'end_time': []}
     params, metrics, tags = ({}, {}, {})
     PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
     for i, run in enumerate(runs):
@@ -342,6 +344,8 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
         info['experiment_id'].append(run.info.experiment_id)
         info['status'].append(run.info.status)
         info['artifact_uri'].append(run.info.artifact_uri)
+        info['start_time'].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
+        info['end_time'].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
 
         # Params
         param_keys = set(params.keys())
