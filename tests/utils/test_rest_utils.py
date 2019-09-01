@@ -113,7 +113,7 @@ def test_numpy_encoder():
     test_number = numpy.int64(42)
     ne = NumpyEncoder()
     defaulted_val = ne.default(test_number)
-    assert defaulted_val is 42
+    assert defaulted_val == 42
 
 
 def test_numpy_encoder_fail():

@@ -365,7 +365,7 @@ def _is_valid_branch_name(work_dir, version):
         from git.exc import GitCommandError
         repo = Repo(work_dir, search_parent_directories=True)
         try:
-            return repo.git.rev_parse("--verify", "refs/heads/%s" % version) is not ''
+            return repo.git.rev_parse("--verify", "refs/heads/%s" % version) != ''
         except GitCommandError:
             return False
     return False

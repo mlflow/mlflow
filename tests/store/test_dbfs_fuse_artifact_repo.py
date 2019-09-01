@@ -112,7 +112,7 @@ class TestDbfsFuseArtifactRepository(object):
         assert artifacts[1].file_size is None
         assert artifacts[2].path == 'test.txt'
         assert artifacts[2].is_dir is False
-        assert artifacts[2].file_size is 23
+        assert artifacts[2].file_size == 23
 
     def test_download_artifacts(self, dbfs_fuse_artifact_repo, test_dir):
         dbfs_fuse_artifact_repo.log_artifacts(test_dir.strpath)
