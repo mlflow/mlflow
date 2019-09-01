@@ -5,6 +5,7 @@ Revises: 7ac759974ad8
 Create Date: 2019-08-20 11:53:28.178479
 
 """
+import time
 import logging
 
 from alembic import op
@@ -100,7 +101,7 @@ def upgrade():
     op.create_table(SqlLatestMetric.__tablename__,
         Column('key', String(length=250)),
         Column('value', Float(precision=53), nullable=False),
-        Column('timestamp', BigInteger, nullable=False),
+        Column('timestamp', BigInteger, default=lambda: int(time.time())),
         Column('step', BigInteger, default=0, nullable=False),
         Column('is_nan', Boolean, default=False, nullable=False),
         Column('run_uuid', String(length=32), ForeignKey('runs.run_uuid'), nullable=False),

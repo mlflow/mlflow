@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship, backref
 import sqlalchemy as sa
 from sqlalchemy import (
     Column, String, ForeignKey, Integer, CheckConstraint,
-    BigInteger, PrimaryKeyConstraint, Boolean, func, and_)
+    BigInteger, PrimaryKeyConstraint, Boolean)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
     Experiment, RunTag, Metric, Param, RunData, RunInfo,

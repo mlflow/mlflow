@@ -1330,7 +1330,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             with open(expected_metric_values_path, "r") as f:
                 expected_metric_values = json.load(f)
 
-            for run_id, expected_metrics in expected_metric_values.iteritems():
+            for run_id, expected_metrics in expected_metric_values.items():
                 fetched_run = store.get_run(run_id=run_id)
                 assert fetched_run.data.metrics == expected_metrics
 
