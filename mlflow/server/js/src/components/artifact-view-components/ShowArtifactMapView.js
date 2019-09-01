@@ -3,9 +3,11 @@ import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import './ShowArtifactMapView.css';
 import { getRequestHeaders } from '../../setupAjaxHeaders';
-// There is problem with the marker icon so we loaded the latest css directly from unpkg
-// import 'leaflet/dist/leaflet.css';
+import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 
 class ShowArtifactMapView extends Component {
@@ -63,8 +65,20 @@ class ShowArtifactMapView extends Component {
 			pointToLayer: function (feature, latlng) {
 				if (feature.properties && feature.properties.style) {
 					return L.circleMarker(latlng, feature.properties && feature.properties.style);
-				};
-				return L.marker(latlng);
+				} else if (feature.properties && feature.properties.icon) {
+					return L.marker(latlng, {
+						icon: L.icon(feature.properties && feature.properties.icon)
+					});
+				}
+				return L.marker(latlng, {
+					icon: L.icon({
+						iconRetinaUrl: iconRetina,
+					  iconUrl: icon,
+					  shadowUrl: iconShadow,
+						iconSize: [24,36],
+      			iconAnchor: [12,36],
+					})
+				});
 			},
 			onEachFeature: onEachFeature
 		}).addTo(map);
