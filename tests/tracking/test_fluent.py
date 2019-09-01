@@ -42,7 +42,8 @@ class HelperEnv:
             del os.environ[_EXPERIMENT_NAME_ENV_VAR]
 
 
-def create_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None, tags=None,
+def create_run(run_id="", exp_id="", uid="", start=0, end=0,
+               metrics=None, params=None, tags=None,
                status=RunStatus.FINISHED, a_uri=None):
     return Run(
         RunInfo(
@@ -52,7 +53,7 @@ def create_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None,
             user_id=uid,
             status=status,
             start_time=start,
-            end_time=0,
+            end_time=end,
             lifecycle_stage=LifecycleStage.ACTIVE,
             artifact_uri=a_uri
         ), RunData(
@@ -365,7 +366,9 @@ def test_search_runs_attributes():
         data = {'status': [RunStatus.FINISHED, RunStatus.SCHEDULED],
                 'artifact_uri': ["dbfs:/test", "dbfs:/test2"],
                 'run_id': ['abc', 'def'],
-                'experiment_id': ["123", "321"]}
+                'experiment_id': ["123", "321"],
+                'start_time': [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
+                'end_time': [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)]}
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
@@ -375,11 +378,15 @@ def test_search_runs_data():
         create_run(
             metrics=[Metric("mse", 0.2, 0, 0)],
             params=[Param("param", "value")],
-            tags=[RunTag("tag", "value")]),
+            tags=[RunTag("tag", "value")],
+            start=1564675200000,
+            end=1564683035000),
         create_run(
             metrics=[Metric("mse", 0.6, 0, 0), Metric("loss", 1.2, 0, 5)],
             params=[Param("param2", "val"), Param("k", "v")],
-            tags=[RunTag("tag2", "v2")])]
+            tags=[RunTag("tag2", "v2")],
+            start=1564765200000,
+            end=1564783200000)]
     with mock.patch('mlflow.tracking.fluent._get_paginated_runs', return_value=runs):
         pdf = search_runs()
         data = {
@@ -393,7 +400,11 @@ def test_search_runs_data():
             'params.param2': [None, "val"],
             'params.k': [None, "v"],
             'tags.tag': ["value", None],
-            'tags.tag2': [None, "v2"]}
+            'tags.tag2': [None, "v2"],
+            'start_time': [pd.to_datetime(1564675200000, unit="ms", utc=True),
+                           pd.to_datetime(1564765200000, unit="ms", utc=True)],
+            'end_time': [pd.to_datetime(1564683035000, unit="ms", utc=True),
+                         pd.to_datetime(1564783200000, unit="ms", utc=True)]}
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 

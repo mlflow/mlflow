@@ -180,7 +180,9 @@ class ExperimentRunsTableCompactView extends React.Component {
     });
     if (this.shouldShowBaggedColumn(true)) {
       rowContents.push(
-        <div key={"params-container-cell-" + runInfo.run_uuid}>
+        <div key={"params-container-cell-" + runInfo.run_uuid}
+          className="metric-param-container-cell"
+        >
           {paramsCellContents}
         </div>);
     }
@@ -610,7 +612,7 @@ class ExperimentRunsTableCompactView extends React.Component {
       scrollTop: grid.state.scrollTop,
     };
     const isRunsListShort = scrollHeight < clientHeight;
-    const isAtScrollBottom = isRunsListShort || (clientHeight + scrollTop === scrollHeight);
+    const isAtScrollBottom = isRunsListShort || (clientHeight + scrollTop >= scrollHeight);
     this.setState({ isAtScrollBottom });
   }, 100);
 }
