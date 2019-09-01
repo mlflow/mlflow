@@ -50,7 +50,7 @@ CREATE TABLE runs (
 CREATE TABLE latest_metrics (
 	key VARCHAR(250) NOT NULL, 
 	value FLOAT NOT NULL, 
-	timestamp BIGINT NOT NULL, 
+	timestamp BIGINT, 
 	step BIGINT NOT NULL, 
 	is_nan BOOLEAN NOT NULL, 
 	run_uuid VARCHAR(32) NOT NULL, 
