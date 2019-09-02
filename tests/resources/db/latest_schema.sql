@@ -4,12 +4,6 @@ CREATE TABLE alembic_version (
 	CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
 )
 
-CREATE TABLE periodic_jobs (
-    job_name VARCHAR(256) NOT NULL,
-    last_execution BIGINT,
-    CONSTRAINT periodic_jobs_pk PRIMARY KEY (job_name)
-)
-
 
 CREATE TABLE experiments (
 	experiment_id INTEGER NOT NULL, 
@@ -19,6 +13,13 @@ CREATE TABLE experiments (
 	CONSTRAINT experiment_pk PRIMARY KEY (experiment_id), 
 	UNIQUE (name), 
 	CONSTRAINT experiments_lifecycle_stage CHECK (lifecycle_stage IN ('active', 'deleted'))
+)
+
+
+CREATE TABLE periodic_jobs (
+    job_name VARCHAR(256) NOT NULL,
+    last_execution BIGINT,
+    CONSTRAINT periodic_jobs_pk PRIMARY KEY (job_name)
 )
 
 
