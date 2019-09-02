@@ -50,6 +50,7 @@ setup(
         'sqlparse',
         'sqlalchemy',
         'gorilla',
+        'flask-apscheduler'
     ],
     extras_require={
         'extras':[

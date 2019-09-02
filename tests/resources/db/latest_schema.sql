@@ -4,6 +4,12 @@ CREATE TABLE alembic_version (
 	CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
 )
 
+CREATE TABLE periodic_jobs (
+    job_name VARCHAR(256) NOT NULL,
+    last_execution BIGINT,
+    CONSTRAINT periodic_jobs_pk PRIMARY KEY (job_name)
+)
+
 
 CREATE TABLE experiments (
 	experiment_id INTEGER NOT NULL, 

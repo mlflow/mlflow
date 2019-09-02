@@ -1,12 +1,16 @@
 import os
 import shlex
 import sys
+import time
 
 from flask import Flask, send_from_directory
+from flask_apscheduler import APScheduler
 
 from mlflow.server import handlers
-from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix
+from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix\
+    , _get_store
 from mlflow.utils.process import exec_cmd
+from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
 # NB: These are intenrnal environment variables used for communication between
 # the cli and the forked gunicorn processes.
@@ -42,6 +46,30 @@ def serve():
     return send_from_directory(STATIC_DIR, 'index.html')
 
 
+def _add_scheduler_to_server(metrics_retention_time, cleaner_ratio):
+    scheduler = APScheduler()
+
+    class Config(object):
+        SCHEDULER_API_ENABLED = True
+
+    app.config.from_object(Config)
+    scheduler.init_app(app)
+    scheduler.start()
+
+    db_store = _get_store()
+    if type(db_store) == SqlAlchemyStore and len(db_store.get_periodic_job('db_cleaner')) == 0:
+        db_store.create_periodic_job('db_cleaner')
+
+    @scheduler.task('cron', id='db_cleaner', day='*')
+    def db_cleaner():
+        if type(db_store) != SqlAlchemyStore:
+            return
+        last_execution = db_store.get_periodic_job('db_cleaner')[0][1]
+        execution_timestamp = int(time.time()*1000) - metrics_retention_time
+        db_store.sample_oldest_metrics(execution_timestamp, cleaner_ratio, last_execution)
+        db_store.update_periodic_job('db_cleaner', execution_timestamp)
+
+
 def _build_waitress_command(waitress_opts, host, port):
     opts = shlex.split(waitress_opts) if waitress_opts else []
     return ['waitress-serve'] + \
@@ -60,7 +88,8 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
 
 
 def _run_server(file_store_path, default_artifact_root, host, port, static_prefix=None,
-                workers=None, gunicorn_opts=None, waitress_opts=None):
+                workers=None, gunicorn_opts=None, waitress_opts=None, activate_scheduler=False,
+                metrics_retention_time=2628000, cleaner_ratio=0.1):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
     :param static_prefix: If set, the index.html asset will be served from the path static_prefix.
@@ -74,6 +103,9 @@ def _run_server(file_store_path, default_artifact_root, host, port, static_prefi
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
     if static_prefix:
         env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
+
+    if activate_scheduler:
+        _add_scheduler_to_server(metrics_retention_time, cleaner_ratio)
 
     # TODO: eventually may want waitress on non-win32
     if sys.platform == 'win32':
