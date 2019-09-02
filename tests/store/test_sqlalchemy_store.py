@@ -20,6 +20,7 @@ from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import _get_schema_version
 from mlflow.store.dbmodels import models
+from mlflow.store.dbmodels.db_types import MYSQL, MSSQL
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
@@ -1338,29 +1339,31 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
             self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
             self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
 
-from mlflow.store.dbmodels.db_types import MYSQL, MSSQL
-@mock.patch('sqlalchemy.orm.session.Session',spec=True)
+
+@mock.patch('sqlalchemy.orm.session.Session', spec=True)
 class TestZeroValueInsertion(unittest.TestCase):
     def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
         mock_store.db_type = MYSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store,mock_session)
+        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
         mock_session.execute.assert_called_with("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
 
     def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
         mock_store.db_type = MSSQL
-        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store,mock_session)
+        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
         mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments ON;")
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self,mock_session):
+    def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
         mock_store.db_type = MYSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,mock_session)
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,
+                                                                             mock_session)
         mock_session.execute.assert_called_with("SET @@SESSION.sql_mode='';")
 
-    def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self,mock_session):
+    def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
         mock_store = mock.Mock(SqlAlchemyStore)
         mock_store.db_type = MSSQL
-        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,mock_session)
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,
+                                                                             mock_session)
         mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments OFF;")

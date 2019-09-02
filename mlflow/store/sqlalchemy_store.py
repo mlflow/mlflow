@@ -161,10 +161,12 @@ class SqlAlchemyStore(AbstractStore):
 
     def _set_zero_value_insertion_for_autoincrement_column(self, session):
         if self.db_type == MYSQL:
-            #config letting MySQL override default to allow 0 value for experiment ID (auto increment column)
+            # config letting MySQL override default
+            # to allow 0 value for experiment ID (auto increment column)
             session.execute("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
         if self.db_type == MSSQL:
-            #config letting MSSQL override default to allow any manual value inserted into IDENTITY column
+            # config letting MSSQL override default
+            # to allow any manual value inserted into IDENTITY column
             session.execute("SET IDENTITY_INSERT experiments ON;")
 
     # DB helper methods to allow zero values for columns with auto increments
