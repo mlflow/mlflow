@@ -237,8 +237,14 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Additional command line options forwarded to gunicorn processes.")
 @click.option("--waitress-opts", default=None,
               help="Additional command line options for waitress-serve.")
-def server(backend_store_uri, default_artifact_root, host, port,
-           workers, static_prefix, gunicorn_opts, waitress_opts):
+@click.option("--activate-scheduler", default=False,
+              help="Activate periodic job to clean db.")
+@click.option("--metrics-retention-time", default=2628000,
+              help="Retention time for the metrics cleaned by the periodic job.")
+@click.option("--cleaner-ratio", default=0.1,
+              help="Percentage of metrics the database cleaner job will keep.")
+def server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
+           gunicorn_opts, waitress_opts, activate_scheduler, metrics_retention_time, cleaner_ratio):
     """
     Run the MLflow tracking server.
 
@@ -270,8 +276,9 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
     try:
-        _run_server(backend_store_uri, default_artifact_root, host, port,
-                    static_prefix, workers, gunicorn_opts, waitress_opts)
+        _run_server(backend_store_uri, default_artifact_root, host, port, static_prefix, workers,
+                    gunicorn_opts, waitress_opts, activate_scheduler, metrics_retention_time,
+                    cleaner_ratio)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)

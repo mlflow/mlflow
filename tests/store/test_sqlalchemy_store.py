@@ -1276,6 +1276,70 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
             assert _get_schema_version(engine) == SqlAlchemyStore._get_latest_schema_revision()
 
+    def test_sample_metrics_single_step(self):
+        experiment_id = self._experiment_factory('sample_metrics')
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+
+        self.store.log_metric(r1, entities.Metric("measure_a", 1.0, 1, 0))
+
+        self.store.sample_oldest_metrics(int(time.time()*1000), 0.33, None)
+
+        actual = self.store.get_metric_history(r1, "measure_a")
+        expected = [
+            Metric(key="measure_a", value=1.0, timestamp=1, step=0)
+        ]
+        six.assertCountEqual(self,
+                             [(m.key, m.value, m.timestamp, m.step) for m in expected],
+                             [(m.key, m.value, m.timestamp, m.step) for m in actual])
+
+    def test_sample_metrics_multiple_steps(self):
+        experiment_id = self._experiment_factory('sample_metrics')
+        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+
+        self.store.log_metric(r2, entities.Metric("measure_a", 200.0, 2, 1))
+        self.store.log_metric(r2, entities.Metric("measure_a", 400.0, 3, 2))
+        self.store.log_metric(r2, entities.Metric("measure_a", 600.0, 4, 3))
+        self.store.log_metric(r2, entities.Metric("measure_a", 800.0, 5, 4))
+        self.store.log_metric(r2, entities.Metric("measure_a", 1000.0, 6, 5))
+        self.store.log_metric(r2, entities.Metric("measure_a", 1200.0, 7, 6))
+        self.store.log_metric(r2, entities.Metric("measure_a", 1400.0, 8, 7))
+
+        self.store.sample_oldest_metrics(int(time.time()*1000), 0.33, None)
+
+        actual = self.store.get_metric_history(r2, "measure_a")
+        expected = [
+            Metric(key="measure_a", value=200.0, timestamp=2, step=1),
+            Metric(key="measure_a", value=800.0, timestamp=5, step=4),
+            Metric(key="measure_a", value=1400.0, timestamp=8, step=7)
+        ]
+        six.assertCountEqual(self,
+                             [(m.key, m.value, m.timestamp, m.step) for m in expected],
+                             [(m.key, m.value, m.timestamp, m.step) for m in actual])
+
+    def test_sample_metrics_with_gap_in_steps(self):
+        experiment_id = self._experiment_factory('sample_metrics')
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+
+        self.store.log_metric(r1, entities.Metric("measure_a", 200.0, 2, 1))
+        self.store.log_metric(r1, entities.Metric("measure_a", 400.0, 3, 135))
+        self.store.log_metric(r1, entities.Metric("measure_a", 600.0, 4, 236))
+        self.store.log_metric(r1, entities.Metric("measure_a", 800.0, 5, 347))
+        self.store.log_metric(r1, entities.Metric("measure_a", 1000.0, 6, 444))
+        self.store.log_metric(r1, entities.Metric("measure_a", 1200.0, 7, 569))
+
+        self.store.sample_oldest_metrics(int(time.time()*1000), 0.5, None)
+
+        actual = self.store.get_metric_history(r1, "measure_a")
+        expected = [
+            Metric(key="measure_a", value=200.0, timestamp=2, step=1),
+            Metric(key="measure_a", value=400.0, timestamp=3, step=135),
+            Metric(key="measure_a", value=800.0, timestamp=5, step=347),
+            Metric(key="measure_a", value=1200.0, timestamp=7, step=569)
+        ]
+        six.assertCountEqual(self,
+                             [(m.key, m.value, m.timestamp, m.step) for m in expected],
+                             [(m.key, m.value, m.timestamp, m.step) for m in actual])
+
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """

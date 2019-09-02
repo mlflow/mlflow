@@ -6,6 +6,8 @@ import math
 import posixpath
 from alembic.script import ScriptDirectory
 import sqlalchemy
+import pandas as pd
+import numpy as np
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
@@ -564,3 +566,49 @@ class SqlAlchemyStore(AbstractStore):
             raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+    def sample_oldest_metrics(self, timestamp, ratio, last_execution):
+        with self.ManagedSessionMaker() as session:
+            if last_execution:
+                runs = session.query(SqlRun.run_uuid)\
+                    .filter(SqlRun.start_time < timestamp, SqlRun.start_time > last_execution).all()
+            else:
+                runs = session.query(SqlRun.run_uuid).filter(SqlRun.start_time < timestamp).all()
+            runs = list(map(lambda x: x[0], runs))
+            metrics_query = session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))
+            metrics = pd.read_sql(metrics_query.statement, metrics_query.session.bind)
+            sampled_metrics = self._sample_metrics(metrics, runs, ratio)
+            session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))\
+                .delete(synchronize_session=False)
+            session.commit()
+        sampled_metrics.to_sql('metrics', self.engine, if_exists='append', index=False)
+
+    def _sample_metrics(self, metrics, runs, ratio):
+        result_df = pd.DataFrame()
+        for run in runs:
+            df_single_run = metrics.loc[metrics["run_uuid"] == run]
+            unique_metrics = df_single_run["key"].unique().tolist()
+            for metric in unique_metrics:
+                steps = df_single_run[df_single_run["key"] == metric]["step"].unique().tolist()
+                number_of_steps = int(len(steps) * ratio + 1)
+                selected_steps = np.linspace(0, len(steps) - 1, num=number_of_steps, dtype=int)
+                steps_to_keep = [steps[i] for i in selected_steps]
+                lines_to_keep = df_single_run[(df_single_run["key"] == metric) &
+                                              (df_single_run["step"].isin(steps_to_keep))]
+                result_df = pd.concat([result_df, lines_to_keep], ignore_index=True)
+        return result_df
+
+    def update_periodic_job(self, job_name, last_execution):
+        with self.ManagedSessionMaker() as session:
+            session.execute("UPDATE periodic_jobs SET last_execution={} WHERE job_name='{}'"
+                            .format(last_execution, job_name))
+
+    def get_periodic_job(self, job_name):
+        with self.ManagedSessionMaker() as session:
+            job = session.execute("SELECT * FROM periodic_jobs WHERE job_name='{}'"
+                                  .format(job_name)).fetchall()
+        return job
+
+    def create_periodic_job(self, job_name):
+        with self.ManagedSessionMaker() as session:
+            session.execute("INSERT INTO periodic_jobs (job_name) VALUES ('{}')".format(job_name))
