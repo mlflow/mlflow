@@ -7,8 +7,8 @@ from flask import Flask, send_from_directory
 from flask_apscheduler import APScheduler
 
 from mlflow.server import handlers
-from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix\
-    , _get_store
+from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix,\
+    _get_store
 from mlflow.utils.process import exec_cmd
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 
