@@ -234,9 +234,7 @@ class SqlAlchemyStore(AbstractStore):
         return instance, created
 
     def _get_artifact_location(self, experiment_id):
-        artyloc =  str(posixpath.join(self.artifact_root_uri, str(experiment_id)))
-        return artyloc
-        # return posixpath.join(self.artifact_root_uri, str(experiment_id))
+        return posixpath.join(self.artifact_root_uri, str(experiment_id))
 
     def create_experiment(self, name, artifact_location=None):
         if name is None or name == '':
@@ -273,10 +271,10 @@ class SqlAlchemyStore(AbstractStore):
         query_options = self._get_eager_experiment_query_options() if eager else []
 
         return session \
-                .query(SqlExperiment) \
-                .options(*query_options) \
-                .filter(*conditions) \
-                .all()
+            .query(SqlExperiment) \
+            .options(*query_options) \
+            .filter(*conditions) \
+            .all()
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         with self.ManagedSessionMaker() as session:
@@ -289,12 +287,12 @@ class SqlAlchemyStore(AbstractStore):
         query_options = self._get_eager_experiment_query_options() if eager else []
 
         experiment = session \
-                .query(SqlExperiment) \
-                .options(*query_options) \
-                .filter(
-                    SqlExperiment.experiment_id == experiment_id,
-                    SqlExperiment.lifecycle_stage.in_(stages)) \
-                .one_or_none()
+            .query(SqlExperiment) \
+            .options(*query_options) \
+            .filter(
+                SqlExperiment.experiment_id == experiment_id,
+                SqlExperiment.lifecycle_stage.in_(stages)) \
+            .one_or_none()
 
         if experiment is None:
             raise MlflowException('No Experiment with id={} exists'.format(experiment_id),
@@ -324,13 +322,12 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             stages = LifecycleStage.view_type_to_stages(ViewType.ALL)
             experiment = session \
-                    .query(SqlExperiment) \
-                    .options(*self._get_eager_experiment_query_options()) \
-                    .filter(
-                        SqlExperiment.name == experiment_name,
-                        SqlExperiment.lifecycle_stage.in_(stages)) \
-                    .one_or_none()
-
+                .query(SqlExperiment) \
+                .options(*self._get_eager_experiment_query_options()) \
+                .filter(
+                    SqlExperiment.name == experiment_name,
+                    SqlExperiment.lifecycle_stage.in_(stages)) \
+                .one_or_none()
             return experiment.to_mlflow_entity() if experiment is not None else None
 
     def delete_experiment(self, experiment_id):
