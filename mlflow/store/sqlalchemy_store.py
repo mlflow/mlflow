@@ -13,7 +13,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.dbmodels.db_types import MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag, \
-    SqlExperimentTag
+    SqlExperimentTag, SqlPeriodicJobs
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
@@ -600,15 +600,18 @@ class SqlAlchemyStore(AbstractStore):
 
     def update_periodic_job(self, job_name, last_execution):
         with self.ManagedSessionMaker() as session:
-            session.execute("UPDATE periodic_jobs SET last_execution={} WHERE job_name='{}'"
-                            .format(last_execution, job_name))
+            job = session.query(SqlPeriodicJobs).filter(SqlPeriodicJobs.job_name == job_name).one()
+            job.last_execution = last_execution
+            session.add(job)
+            session.commit()
 
     def get_periodic_job(self, job_name):
         with self.ManagedSessionMaker() as session:
-            job = session.execute("SELECT * FROM periodic_jobs WHERE job_name='{}'"
-                                  .format(job_name)).fetchall()
-        return job
+            job = session.query(SqlPeriodicJobs).filter(SqlPeriodicJobs.job_name == job_name).all()
+            return list(map(lambda x: (x.job_name, x.last_execution), job))
 
     def create_periodic_job(self, job_name):
         with self.ManagedSessionMaker() as session:
-            session.execute("INSERT INTO periodic_jobs (job_name) VALUES ('{}')".format(job_name))
+            new_job = SqlPeriodicJobs(job_name=job_name, last_execution=None)
+            session.add(new_job)
+            session.commit()

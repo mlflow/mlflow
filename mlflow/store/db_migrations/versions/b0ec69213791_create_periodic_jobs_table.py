@@ -25,4 +25,4 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table('periodic_jobs')
+    pass
