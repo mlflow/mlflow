@@ -373,7 +373,7 @@ class __MLflowTfKerasCallback(Callback):
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(opt).__name__)
         if hasattr(opt, '_lr'):
             lr = opt._lr if type(opt._lr) is float else tensorflow.keras.backend.eval(opt._lr)
-            try_mlflow_log(mlflow.log_param('learning_rate', lr))
+            try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
         if hasattr(opt, '_epsilon'):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
@@ -439,7 +439,7 @@ def _log_event(event):
                 if (event.step-1) % _LOG_EVERY_N_STEPS == 0:
                     _thread_pool.submit(_add_to_queue, key=v.tag,
                                         value=v.simple_value, step=event.step,
-                                        time=int(time.time())*1000,
+                                        time=int(time.time() * 1000),
                                         run_id=mlflow.active_run().info.run_id)
 
 
