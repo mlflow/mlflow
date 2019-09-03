@@ -41,7 +41,7 @@ class SFTPArtifactRepository(ArtifactRepository):
             if 'hostname' in user_config:
                 self.config['host'] = user_config['hostname']
 
-            if self.config['username'] is None and 'username' in user_config:
+            if self.config.get('username', None) is None and 'username' in user_config:
                 self.config['username'] = user_config['username']
 
             if 'identityfile' in user_config:
