@@ -181,7 +181,7 @@ class SqlAlchemyStore(AbstractStore):
         default_experiment = {
             SqlExperiment.experiment_id.name: int(SqlAlchemyStore.DEFAULT_EXPERIMENT_ID),
             SqlExperiment.name.name: Experiment.DEFAULT_EXPERIMENT_NAME,
-            SqlExperiment.artifact_location.name: self._get_artifact_location(0),
+            SqlExperiment.artifact_location.name: str(self._get_artifact_location(0)),
             SqlExperiment.lifecycle_stage.name: LifecycleStage.ACTIVE
         }
 
