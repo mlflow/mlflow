@@ -314,7 +314,7 @@ class SqlAlchemyStore(AbstractStore):
     def _get_eager_experiment_query_options():
         """
         :return: A list of SQLAlchemy query options that can be used to eagerly load the following
-                 experiment attributes when fetching an experiment: ``tags``
+                 experiment attributes when fetching an experiment: ``tags``.
         """
         return [
             sqlalchemy.orm.joinedload(SqlExperiment.tags),
