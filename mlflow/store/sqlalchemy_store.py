@@ -261,6 +261,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def _list_experiments(self, session, ids=None, names=None, view_type=ViewType.ACTIVE_ONLY,
                           eager=False):
+        """
+        :param eager: If ``True``, eagerly loads each experiments's tags. If ``False``, these tags
+                      are not eagerly loaded and will be loaded if/when their corresponding
+                      object properties are accessed from a resulting ``SqlExperiment`` object.
+        """
         stages = LifecycleStage.view_type_to_stages(view_type)
         conditions = [SqlExperiment.lifecycle_stage.in_(stages)]
         if ids and len(ids) > 0:
@@ -282,6 +287,11 @@ class SqlAlchemyStore(AbstractStore):
                     self._list_experiments(session=session, view_type=view_type, eager=True)]
 
     def _get_experiment(self, session, experiment_id, view_type, eager=False):
+        """
+        :param eager: If ``True``, eagerly loads the experiments's tags. If ``False``, these tags
+                      are not eagerly loaded and will be loaded if/when their corresponding
+                      object properties are accessed from the resulting ``SqlExperiment`` object.
+        """
         experiment_id = experiment_id or SqlAlchemyStore.DEFAULT_EXPERIMENT_ID
         stages = LifecycleStage.view_type_to_stages(view_type)
         query_options = self._get_eager_experiment_query_options() if eager else []
