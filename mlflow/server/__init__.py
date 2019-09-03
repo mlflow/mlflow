@@ -60,7 +60,9 @@ def _add_scheduler_to_server(metrics_retention_time, cleaner_ratio):
     if type(db_store) == SqlAlchemyStore and len(db_store.get_periodic_job('db_cleaner')) == 0:
         db_store.create_periodic_job('db_cleaner')
 
+    # pylint: disable=not-callable
     @scheduler.task('cron', id='db_cleaner', day='*')
+    # pylint: disable=unused-variable
     def db_cleaner():
         if type(db_store) != SqlAlchemyStore:
             return
