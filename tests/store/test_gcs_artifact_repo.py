@@ -7,6 +7,7 @@ from google.cloud.storage import client as gcs_client
 
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.gcs_artifact_repo import GCSArtifactRepository
+from google.auth.exceptions import DefaultCredentialsError
 
 
 @pytest.fixture
@@ -174,6 +175,22 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
     assert len(download_calls) == 1
     download_path_arg = download_calls[0][0][0]
     assert "test.txt" in download_path_arg
+
+
+def test_get_anonymous_bucket(gcs_mock):
+    with pytest.raises(DefaultCredentialsError, match='Test'):
+        gcs_mock.Client.return_value\
+            .get_bucket.side_effect = \
+            mock.Mock(side_effect=DefaultCredentialsError('Test'))
+        repo = GCSArtifactRepository("gs://test_bucket", gcs_mock)
+        repo._get_bucket("gs://test_bucket")
+        anon_call_count = gcs_mock.Client\
+            .create_anonymous_client.call_count
+        assert anon_call_count == 1
+        bucket_call_count = gcs_mock.Client\
+            .create_anonymous_client.return_value\
+            .get_bucket.call_count
+        assert bucket_call_count == 1
 
 
 def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
