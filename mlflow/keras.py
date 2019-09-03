@@ -391,6 +391,20 @@ def autolog():
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
         return original(self, *args, **kwargs)
+
+    @gorilla.patch(keras.Model)
+    def fit_generator(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
+        if len(args) >= 5:
+            l = list(args)
+            l[4] += [__MLflowKerasCallback()]
+            args = tuple(l)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'] += [__MLflowKerasCallback()]
+        else:
+            kwargs['callbacks'] = [__MLflowKerasCallback()]
+        return original(self, *args, **kwargs)
+
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    patch = gorilla.Patch(keras.Model, 'fit', fit, settings=settings)
-    gorilla.apply(patch)
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit_generator', fit_generator, settings=settings))
