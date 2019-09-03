@@ -16,24 +16,6 @@ matrix:
         - pip install -r ./travis/lint-requirements.txt
       script:
         - ./lint.sh
-    - language: python
-      python: 2.7
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-small-python-tests.sh
-    - os: windows
-      name: "Windows"
-      language: sh
-      before_install:
-        - cinst -y python3
-      install:
-        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
-        - pip install -r dev-requirements.txt
-        - pip install -r travis/small-requirements.txt
-        - pip install -e .
-      script:
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects tests
     - language: r
       name: "R"
       cache: packages
@@ -85,6 +67,28 @@ matrix:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
         - ./travis/run-large-python-tests.sh
+    # Run Windows tests in the "large" test builder so that we don't spend Travis executor
+    # time running Windows tests if Python 3 small tests fail.
+    - os: windows
+      name: "Windows"
+      language: sh
+      before_install:
+        - cinst -y python3
+      install:
+        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
+        - pip install -r dev-requirements.txt
+        - pip install -r travis/small-requirements.txt
+        - pip install -e .
+      script:
+        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects tests
+    # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
+    # time running Python 2.7 tests if Python 3 small tests fail.
+    - language: python
+      python: 2.7
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+      script:
+        - ./travis/run-small-python-tests.sh
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
