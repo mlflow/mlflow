@@ -6,7 +6,6 @@ from six.moves import urllib
 from mlflow.entities import FileInfo
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-from google.auth.exceptions import DefaultCredentialsError
 
 
 class GCSArtifactRepository(ArtifactRepository):
@@ -37,6 +36,7 @@ class GCSArtifactRepository(ArtifactRepository):
         return parsed.netloc, path
 
     def _get_bucket(self, bucket):
+        from google.auth.exceptions import DefaultCredentialsError
         try:
             storage_client = self.gcs.Client()
         except DefaultCredentialsError:
