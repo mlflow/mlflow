@@ -12,6 +12,7 @@ import sqlalchemy
 import time
 import mlflow
 import uuid
+import json
 
 import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
@@ -24,6 +25,7 @@ from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import extract_db_type_from_uri, mlflow_tags
+from mlflow.utils.file_utils import TempDir
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
@@ -325,8 +327,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             'lifecycle_stage': entities.LifecycleStage.ACTIVE,
             'artifact_uri': '//'
         }
-        with self.store.ManagedSessionMaker() as session:
-            run = models.SqlRun(**config).to_mlflow_entity(session)
+        run = models.SqlRun(**config).to_mlflow_entity()
 
         for k, v in config.items():
             # These keys were removed from RunInfo.
@@ -1275,6 +1276,63 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         for _ in range(3):
             invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
             assert _get_schema_version(engine) == SqlAlchemyStore._get_latest_schema_revision()
+
+    def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
+            self):
+        """
+        Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying
+        the MLflow Tracking SQLite database located at
+        /mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics.sql. This database contains
+        metric entries populated by the following metrics generation script:
+        https://gist.github.com/dbczumar/343173c6b8982a0cc9735ff19b5571d9.
+
+        First, the database is upgraded from its HEAD revision of
+        ``7ac755974ad8_update_run_tags_with_larger_limit`` to the latest revision via
+        ``mlflow db upgrade``.
+
+        Then, the test confirms that the metric entries returned by calls
+        to ``SqlAlchemyStore.get_run()`` are consistent between the latest revision and the
+        ``7ac755974ad8_update_run_tags_with_larger_limit`` revision. This is confirmed by
+        invoking ``SqlAlchemyStore.get_run()`` for each run id that is present in the upgraded
+        database and comparing the resulting runs' metric entries to a JSON dump taken from the
+        SQLite database prior to the upgrade (located at
+        mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json).
+        This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the
+        following code from the directory containing this test suite:
+
+        >>> import json
+        >>> import mlflow
+        >>> from mlflow.tracking.client import MlflowClient
+        >>> mlflow.set_tracking_uri(
+        ...     "sqlite:///../resources/db/db_version_7ac759974ad8_with_metrics.sql")
+        >>> client = MlflowClient()
+        >>> summary_metrics = {
+        ...     run.info.run_id: run.data.metrics for run
+        ...     in client.search_runs(experiment_ids="0")
+        ... }
+        >>> with open("dump.json", "w") as dump_file:
+        >>>     json.dump(summary_metrics, dump_file, indent=4)
+        """
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        db_resources_path = os.path.normpath(
+            os.path.join(current_dir, os.pardir, "resources", "db"))
+        expected_metric_values_path = os.path.join(
+            db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json")
+        with TempDir() as tmp_db_dir:
+            db_path = tmp_db_dir.path("tmp_db.sql")
+            db_url = "sqlite:///" + db_path
+            shutil.copyfile(
+                src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
+                dst=db_path)
+
+            invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
+            store = self._get_store(db_uri=db_url)
+            with open(expected_metric_values_path, "r") as f:
+                expected_metric_values = json.load(f)
+
+            for run_id, expected_metrics in expected_metric_values.items():
+                fetched_run = store.get_run(run_id=run_id)
+                assert fetched_run.data.metrics == expected_metrics
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
