@@ -266,7 +266,7 @@ def test_log_metric(tracking_uri_mock):
 
 def test_log_metrics_uses_millisecond_timestamp_resolution_fluent(tracking_uri_mock):
     with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = lambda : 123
+        time_mock.side_effect = lambda: 123
         mlflow.log_metrics({
             "name_1": 25,
             "name_2": -3,
@@ -290,6 +290,7 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_fluent(tracking_uri_m
     assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
         (-3, 123 * 1000),
     ])
+
 
 def test_log_metrics_uses_millisecond_timestamp_resolution_client(tracking_uri_mock):
     with start_run() as active_run, mock.patch("time.time") as time_mock:
