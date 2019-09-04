@@ -9,6 +9,7 @@ export const setupAjaxHeaders = () => {
   const requestHeaders = getRequestHeaders(document.cookie);
   $(document).ajaxSend((event, jqXHR) => {
     if (requestHeaders) {
+      // eslint-disable-next-line
       for (const [headerKey, headerValue] of Object.entries(requestHeaders)) {
         jqXHR.setRequestHeader(headerKey, headerValue);
       }
@@ -21,6 +22,7 @@ export const getRequestHeaders = (documentCookie) => {
   const parsedCookie = cookie.parse(documentCookie);
   console.log(parsedCookie);
   const headers = {};
+  // eslint-disable-next-line
   for (const cookieName in parsedCookie) {
     if (cookieName.startsWith(headerCookiePrefix)) {
       headers[cookieName.substring(headerCookiePrefix.length)] = parsedCookie[cookieName];

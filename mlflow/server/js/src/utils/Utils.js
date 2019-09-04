@@ -358,6 +358,7 @@ class Utils {
 
   static getSearchUrlFromState(state) {
     const replaced = {};
+    // eslint-disable-next-line
     for (const key in state) {
       if (state[key] === undefined) {
         replaced[key] = '';
