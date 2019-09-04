@@ -316,6 +316,11 @@ class SqlAlchemyStore(AbstractStore):
         :return: A list of SQLAlchemy query options that can be used to eagerly load the following
                  experiment attributes when fetching an experiment: ``tags``.
         """
+        # Specify ``innerjoin=False`` in order to execute a LEFT OUTER join on each table.
+        # This ensures that experiments without tags are included in query responses.
+        # For more information about the ``innerjoin`` parameter, see
+        # https://docs.sqlalchemy.org/en/latest/orm
+        # /loading_relationships.html#sqlalchemy.orm.joinedload
         return [
             sqlalchemy.orm.joinedload(SqlExperiment.tags, innerjoin=False),
         ]
@@ -415,6 +420,11 @@ class SqlAlchemyStore(AbstractStore):
                  run attributes when fetching a run: ``latest_metrics``, ``params``, and ``tags``.
         """
         return [
+            # Specify ``innerjoin=False`` in order to execute a LEFT OUTER join on each table.
+            # This ensures that runs without metrics, params, or tags are included in query
+            # responses. For more information about the ``innerjoin`` parameter, see
+            # https://docs.sqlalchemy.org/en/latest/orm
+            # /loading_relationships.html#sqlalchemy.orm.joinedload
             sqlalchemy.orm.joinedload(SqlRun.latest_metrics, innerjoin=False),
             sqlalchemy.orm.joinedload(SqlRun.params, innerjoin=False),
             sqlalchemy.orm.joinedload(SqlRun.tags, innerjoin=False)
