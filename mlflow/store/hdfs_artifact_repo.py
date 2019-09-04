@@ -74,17 +74,21 @@ class HdfsArtifactRepository(ArtifactRepository):
 
             :param path: Relative source path. Possible subdirectory existing under
                          hdfs:/some/path/run_id/artifacts
-            :return: List of files and directories under given path -
-                example:
-                    ['conda.yaml', 'MLmodel', 'model.pkl']
+            :return: List of FileInfos under given path
         """
         hdfs_base_path = _resolve_base_path(self.path, path)
-        base_path_len = len(hdfs_base_path) + 1
 
         with hdfs_system(host=self.host, port=self.port) as hdfs:
             paths = []
-            for path, is_dir, size in self._walk_path(hdfs, hdfs_base_path):
-                paths.append(FileInfo(path[base_path_len:], is_dir, size))
+            if hdfs.exists(hdfs_base_path):
+                for file_detail in hdfs.ls(hdfs_base_path, detail=True):
+                    file_name = file_detail.get("name")
+                    # Strip off anything that comes before the artifact root e.g. hdfs://name
+                    offset = file_name.index(self.path)
+                    rel_path = _relative_path_remote(self.path, file_name[offset:])
+                    is_dir = file_detail.get("kind") == "directory"
+                    size = file_detail.get("size")
+                    paths.append(FileInfo(rel_path, is_dir, size))
             return sorted(paths, key=lambda f: paths)
 
     def _walk_path(self, hdfs, hdfs_path):
@@ -202,6 +206,9 @@ def _tmp_dir(local_path):
 
 
 def _download_hdfs_file(hdfs, remote_file_path, local_file_path):
+    # Ensure all required directories exist. Without doing this nested files can't be downloaded.
+    dirs = os.path.dirname(local_file_path)
+    os.makedirs(dirs)
     with open(local_file_path, 'wb') as f:
         f.write(hdfs.open(remote_file_path, 'rb').read())
 
