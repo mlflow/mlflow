@@ -1340,6 +1340,79 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                              [(m.key, m.value, m.timestamp, m.step) for m in expected],
                              [(m.key, m.value, m.timestamp, m.step) for m in actual])
 
+    def test_sample_metrics_must_not_sample_most_recent_runs(self):
+        experiment_id = self._experiment_factory('sample_metrics')
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+
+        self.store.log_metric(r1, entities.Metric("measure_a", 200.0, 2, 1))
+        self.store.log_metric(r1, entities.Metric("measure_a", 400.0, 3, 135))
+        self.store.log_metric(r1, entities.Metric("measure_a", 600.0, 4, 236))
+        self.store.log_metric(r1, entities.Metric("measure_a", 800.0, 5, 347))
+        self.store.log_metric(r1, entities.Metric("measure_a", 1000.0, 6, 444))
+        self.store.log_metric(r1, entities.Metric("measure_a", 1200.0, 7, 569))
+
+        self.store.sample_oldest_metrics(int(time.time()/2), 0.5, None)
+
+        actual = self.store.get_metric_history(r1, "measure_a")
+        expected = [
+            Metric(key="measure_a", value=200.0, timestamp=2, step=1),
+            Metric(key="measure_a", value=400.0, timestamp=3, step=135),
+            Metric(key="measure_a", value=600.0, timestamp=4, step=236),
+            Metric(key="measure_a", value=800.0, timestamp=5, step=347),
+            Metric(key="measure_a", value=1000.0, timestamp=6, step=444),
+            Metric(key="measure_a", value=1200.0, timestamp=7, step=569)
+        ]
+        six.assertCountEqual(self,
+                             [(m.key, m.value, m.timestamp, m.step) for m in expected],
+                             [(m.key, m.value, m.timestamp, m.step) for m in actual])
+
+    def test_sample_metrics_must_not_sample_already_sampled_runs(self):
+        experiment_id = self._experiment_factory('sample_metrics')
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id, start_time=time.time()/2))\
+            .info.run_id
+
+        self.store.log_metric(r1, entities.Metric("measure_a", 200.0, 2, 1))
+        self.store.log_metric(r1, entities.Metric("measure_a", 400.0, 3, 135))
+        self.store.log_metric(r1, entities.Metric("measure_a", 600.0, 4, 236))
+        self.store.log_metric(r1, entities.Metric("measure_a", 800.0, 5, 347))
+        self.store.log_metric(r1, entities.Metric("measure_a", 1000.0, 6, 444))
+        self.store.log_metric(r1, entities.Metric("measure_a", 1200.0, 7, 569))
+
+        self.store.log_metric(r2, entities.Metric("measure_a", 200.0, 2, 1))
+        self.store.log_metric(r2, entities.Metric("measure_a", 400.0, 3, 2))
+        self.store.log_metric(r2, entities.Metric("measure_a", 600.0, 4, 3))
+        self.store.log_metric(r2, entities.Metric("measure_a", 800.0, 5, 4))
+        self.store.log_metric(r2, entities.Metric("measure_a", 1000.0, 6, 5))
+        self.store.log_metric(r2, entities.Metric("measure_a", 1200.0, 7, 6))
+        self.store.log_metric(r2, entities.Metric("measure_a", 1400.0, 8, 7))
+
+        self.store.sample_oldest_metrics(int(time.time()), 0.5, int(time.time()/2))
+
+        actual = self.store.get_metric_history(r1, "measure_a")
+        expected = [
+            Metric(key="measure_a", value=200.0, timestamp=2, step=1),
+            Metric(key="measure_a", value=400.0, timestamp=3, step=135),
+            Metric(key="measure_a", value=600.0, timestamp=4, step=236),
+            Metric(key="measure_a", value=800.0, timestamp=5, step=347),
+            Metric(key="measure_a", value=1000.0, timestamp=6, step=444),
+            Metric(key="measure_a", value=1200.0, timestamp=7, step=569)
+        ]
+        six.assertCountEqual(self,
+                             [(m.key, m.value, m.timestamp, m.step) for m in expected],
+                             [(m.key, m.value, m.timestamp, m.step) for m in actual])
+
+        actual = self.store.get_metric_history(r2, "measure_a")
+        expected = [
+            Metric(key="measure_a", value=200.0, timestamp=2, step=1),
+            Metric(key="measure_a", value=600.0, timestamp=4, step=3),
+            Metric(key="measure_a", value=1000.0, timestamp=6, step=5),
+            Metric(key="measure_a", value=1400.0, timestamp=8, step=7)
+        ]
+        six.assertCountEqual(self,
+                             [(m.key, m.value, m.timestamp, m.step) for m in expected],
+                             [(m.key, m.value, m.timestamp, m.step) for m in actual])
+
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
