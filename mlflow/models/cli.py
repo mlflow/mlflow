@@ -114,6 +114,14 @@ def build_docker(model_uri, name, install_mlflow):
 
         docker run -p 5001:8080 "my-image-name"
 
+    NB: by default, the container will start nginx and gunicorn processes. If you don't need the
+    nginx process to be started (for instance if you deploy your container to Google Cloud Run),
+    you can disable it via the DISABLE_NGINX environment variable:
+
+    .. code:: bash
+        docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
+
+
     See https://www.mlflow.org/docs/latest/python_api/mlflow.pyfunc.html for more information on the
     'python_function' flavor.
 
