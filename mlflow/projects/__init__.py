@@ -690,9 +690,9 @@ def _get_local_uri_or_none(uri):
     if not parsed_uri.netloc and parsed_uri.scheme in ("", "file", "sqlite"):
         path = urllib.request.url2pathname(parsed_uri.path)
         if parsed_uri.scheme == "sqlite":
-            uri = file_utils.path_to_local_sqlite_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
+            uri = path_to_local_sqlite_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
         else:
-            uri = file_utils.path_to_local_file_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
+            uri = path_to_local_file_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
         return path, uri
     else:
         return None, None
