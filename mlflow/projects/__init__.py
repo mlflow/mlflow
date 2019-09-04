@@ -135,10 +135,6 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
         if project.docker_env:
-            from mlflow.projects.docker import _get_docker_image_uri, _build_docker_image, \
-                _validate_docker_installation, \
-                _validate_docker_env, _get_docker_command
-
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV,
                                             "docker")
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
@@ -173,8 +169,6 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             use_conda=use_conda, storage_dir=storage_dir, run_id=active_run.info.run_id)
     elif backend == "kubernetes":
         from mlflow.projects import kubernetes as kb
-        from mlflow.projects.docker import _build_docker_image, _validate_docker_installation, \
-            _validate_docker_env
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_ENV, "docker")
         tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND,
                                         "kubernetes")
@@ -690,6 +684,63 @@ def _validate_execution_environment(project, backend):
             "Running docker-based projects on Databricks is not yet supported.")
 
 
+def _get_local_uri_or_none(uri):
+    if uri == "databricks":
+        return None, None
+    parsed_uri = urllib.parse.urlparse(uri)
+    if not parsed_uri.netloc and parsed_uri.scheme in ("", "file", "sqlite"):
+        path = urllib.request.url2pathname(parsed_uri.path)
+        if parsed_uri.scheme == "sqlite":
+            uri = file_utils.path_to_local_sqlite_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
+        else:
+            uri = file_utils.path_to_local_file_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
+        return path, uri
+    else:
+        return None, None
+
+
+def _get_docker_command(image, active_run):
+    docker_path = "docker"
+    cmd = [docker_path, "run", "--rm"]
+    env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
+                                 experiment_id=active_run.info.experiment_id)
+    tracking_uri = tracking.get_tracking_uri()
+    tracking_cmds, tracking_envs = _get_docker_tracking_cmd_and_envs(tracking_uri)
+    artifact_cmds, artifact_envs = \
+        _get_docker_artifact_storage_cmd_and_envs(active_run.info.artifact_uri)
+
+    cmd += tracking_cmds + artifact_cmds
+    env_vars.update(tracking_envs)
+    env_vars.update(artifact_envs)
+
+    for key, value in env_vars.items():
+        cmd += ["-e", "{key}={value}".format(key=key, value=value)]
+    cmd += [image.tags[0]]
+    return cmd
+
+
+def _validate_docker_installation():
+    """
+    Verify if Docker is installed on host machine.
+    """
+    try:
+        docker_path = "docker"
+        process.exec_cmd([docker_path, "--help"], throw_on_error=False)
+    except EnvironmentError:
+        raise ExecutionException("Could not find Docker executable. "
+                                 "Ensure Docker is installed as per the instructions "
+                                 "at https://docs.docker.com/install/overview/.")
+
+
+def _validate_docker_env(project):
+    if not project.name:
+        raise ExecutionException("Project name in MLProject must be specified when using docker "
+                                 "for image tagging.")
+    if not project.docker_env.get('image'):
+        raise ExecutionException("Project with docker environment must specify the docker image "
+                                 "to use via an 'image' field under the 'docker_env' field.")
+
+
 def _parse_kubernetes_config(backend_config):
     """
     Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
@@ -714,6 +765,25 @@ def _parse_kubernetes_config(backend_config):
     if 'repository-uri' not in backend_config.keys():
         raise ExecutionException("Could not find 'repository-uri' in backend_config.")
     return kube_config
+
+
+def _create_docker_build_ctx(work_dir, dockerfile_contents):
+    """
+    Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
+    """
+    directory = tempfile.mkdtemp()
+    try:
+        dst_path = os.path.join(directory, "mlflow-project-contents")
+        shutil.copytree(src=work_dir, dst=dst_path)
+        with open(os.path.join(dst_path, _GENERATED_DOCKERFILE_NAME), "w") as handle:
+            handle.write(dockerfile_contents)
+        _, result_path = tempfile.mkstemp()
+        file_utils.make_tarfile(
+            output_filename=result_path,
+            source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME)
+    finally:
+        shutil.rmtree(directory)
+    return result_path
 
 
 def _get_docker_image_uri(repository_uri, work_dir):
@@ -763,47 +833,6 @@ def _build_docker_image(work_dir, repository_uri, base_image, run_id):
                                     MLFLOW_DOCKER_IMAGE_ID,
                                     image.id)
     return image
-
-
-def _create_docker_build_ctx(work_dir, dockerfile_contents):
-    """
-    Creates build context tarfile containing Dockerfile and project code, returning path to tarfile
-    """
-    directory = tempfile.mkdtemp()
-    try:
-        dst_path = os.path.join(directory, "mlflow-project-contents")
-        shutil.copytree(src=work_dir, dst=dst_path)
-        with open(os.path.join(dst_path, _GENERATED_DOCKERFILE_NAME), "w") as handle:
-            handle.write(dockerfile_contents)
-        _, result_path = tempfile.mkstemp()
-        file_utils.make_tarfile(
-            output_filename=result_path,
-            source_dir=dst_path, archive_name=_PROJECT_TAR_ARCHIVE_NAME)
-    finally:
-        shutil.rmtree(directory)
-    return result_path
-
-
-def _validate_docker_installation():
-    """
-    Verify if Docker is installed on host machine.
-    """
-    try:
-        docker_path = "docker"
-        process.exec_cmd([docker_path, "--help"], throw_on_error=False)
-    except EnvironmentError:
-        raise ExecutionException("Could not find Docker executable. "
-                                 "Ensure Docker is installed as per the instructions "
-                                 "at https://docs.docker.com/install/overview/.")
-
-
-def _validate_docker_env(project):
-    if not project.name:
-        raise ExecutionException("Project name in MLProject must be specified when using docker "
-                                 "for image tagging.")
-    if not project.docker_env.get('image'):
-        raise ExecutionException("Project with docker environment must specify the docker image "
-                                 "to use via an 'image' field under the 'docker_env' field.")
 
 
 def _get_local_artifact_cmd_and_envs(artifact_repo):
@@ -889,21 +918,6 @@ def _get_docker_artifact_storage_cmd_and_envs(artifact_uri):
         return [], {}
 
 
-def _get_local_uri_or_none(uri):
-    if uri == "databricks":
-        return None, None
-    parsed_uri = urllib.parse.urlparse(uri)
-    if not parsed_uri.netloc and parsed_uri.scheme in ("", "file", "sqlite"):
-        path = urllib.request.url2pathname(parsed_uri.path)
-        if parsed_uri.scheme == "sqlite":
-            uri = file_utils.path_to_local_sqlite_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
-        else:
-            uri = file_utils.path_to_local_file_uri(_MLFLOW_DOCKER_TRACKING_DIR_PATH)
-        return path, uri
-    else:
-        return None, None
-
-
 def _get_docker_tracking_cmd_and_envs(tracking_uri):
     cmds = []
     env_vars = dict()
@@ -929,26 +943,6 @@ def _get_docker_tracking_cmd_and_envs(tracking_uri):
         if config.ignore_tls_verification:
             env_vars['DATABRICKS_INSECURE'] = config.ignore_tls_verification
     return cmds, env_vars
-
-
-def _get_docker_command(image, active_run):
-    docker_path = "docker"
-    cmd = [docker_path, "run", "--rm"]
-    env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
-                                 experiment_id=active_run.info.experiment_id)
-    tracking_uri = tracking.get_tracking_uri()
-    tracking_cmds, tracking_envs = _get_docker_tracking_cmd_and_envs(tracking_uri)
-    artifact_cmds, artifact_envs = \
-        _get_docker_artifact_storage_cmd_and_envs(active_run.info.artifact_uri)
-
-    cmd += tracking_cmds + artifact_cmds
-    env_vars.update(tracking_envs)
-    env_vars.update(artifact_envs)
-
-    for key, value in env_vars.items():
-        cmd += ["-e", "{key}={value}".format(key=key, value=value)]
-    cmd += [image.tags[0]]
-    return cmd
 
 
 __all__ = [
