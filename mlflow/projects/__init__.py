@@ -145,7 +145,10 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                         repository_uri=project.name,
                                         base_image=project.docker_env.get('image'),
                                         run_id=active_run.info.run_id)
-            command += _get_docker_command(image=image, active_run=active_run, options=project.docker_env.get('options'))
+            command += _get_docker_command(
+                    image=image,
+                    active_run=active_run,
+                    options=project.docker_env.get('options'))
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
