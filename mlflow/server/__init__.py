@@ -4,7 +4,6 @@ import sys
 import time
 
 from flask import Flask, send_from_directory
-from flask_apscheduler import APScheduler
 
 from mlflow.server import handlers
 from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix,\
@@ -47,6 +46,7 @@ def serve():
 
 
 def _add_scheduler_to_server(metrics_retention_time, cleaner_ratio):
+    from flask_apscheduler import APScheduler
     scheduler = APScheduler()
 
     class Config(object):
