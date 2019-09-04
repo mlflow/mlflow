@@ -7,7 +7,7 @@ export class NoteInfo {
     this.content = content;
   }
 
-  static fromRunTags = (tags) => {
+  static fromTags = (tags) => {
     const contentTag = Object.values(tags).find((t) => t.getKey() === NOTE_CONTENT_TAG);
     if (contentTag === undefined) {
       return undefined;

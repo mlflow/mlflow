@@ -122,7 +122,7 @@ multiple metrics at once.
 :py:func:`mlflow.set_tag` sets a single key-value tag in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.set_tags` to set multiple tags at once.
 
-:py:func:`mlflow.log_artifact` logs a local file as an artifact, optionally taking an
+:py:func:`mlflow.log_artifact` logs a local file or directory as an artifact, optionally taking an
 ``artifact_path`` to place it in within the run's artifact URI. Run artifacts can be organized into
 directories, so you can place the artifact in a directory this way.
 
@@ -132,33 +132,6 @@ an optional ``artifact_path``.
 :py:func:`mlflow.get_artifact_uri` returns the URI that artifacts from the current run should be
 logged to.
 
-
-Enable Automatic Logging from TensorFlow and Keras (experimental)
--------------------------------------------------------
-MLflow supports automatic logging from TensorFlow and Keras without the need for explicit log
-statements. You can enable this feature by calling one of :py:func:`mlflow.tensorflow.autolog`
-or :py:func:`mlflow.keras.autolog` depending on the framework before your training code.
-Note that ``tensorflow.keras`` is handled by ``mlflow.tensorflow``, not ``mlflow.keras``.
-**Note**: this feature is experimental - the API and format of the logged data are subject to change.
-
-:py:func:`mlflow.tensorflow.autolog` optionally accepts a ``metrics_every_n_steps``
-argument to specify the frequency with which metrics should be logged to MLflow.
-
-The following table details auto-logging capabilities for different TensorFlow workflows:
-
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                        |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end    |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-| ``tf.estimator`` | TensorBoard metrics                                    | --                                                       | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model); on call to ``export_saved_model`` |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                               |
-+------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+------------------------------------------------------------------------------------------------------------------+
-
-For Keras, loss and any metrics specified in the ``metrics`` argument of ``keras.model.fit`` are logged
-as metrics. Learning rate, optimizer name and epsilon are logged as parameters. Model checkpointing
-(as a Keras model) occurs once at training end.
 
 Launching Multiple Runs in One Program
 --------------------------------------
@@ -230,6 +203,31 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
 .. figure:: _static/images/metrics-time-relative.png
 
   X-axis relative time - graphs the time relative to the first metric logged, for each run
+
+
+Automatic Logging from TensorFlow and Keras (experimental)
+==================================================================
+Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
+log statements. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
+`TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_. 
+
+Autologging captures the following information:
+
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Keras            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model); on training end                                   |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end                 |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.estimator`` | TensorBoard metrics                                    | --                                                       | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model); on call to ``tf.estimator.export_saved_model`` |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                                            |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+
+Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`. 
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
 
 
 .. _organizing_runs_in_experiments:

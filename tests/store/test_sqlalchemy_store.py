@@ -12,6 +12,7 @@ import sqlalchemy
 import time
 import mlflow
 import uuid
+import json
 
 import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
@@ -24,6 +25,7 @@ from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import extract_db_type_from_uri, mlflow_tags
+from mlflow.utils.file_utils import TempDir
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
@@ -539,6 +541,45 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.log_param(run.info.run_id, param)
         assert exception_context.exception.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
+    def test_set_experiment_tag(self):
+        exp_id = self._experiment_factory('setExperimentTagExp')
+        tag = entities.ExperimentTag("tag0", "value0")
+        new_tag = entities.RunTag("tag0", "value00000")
+        self.store.set_experiment_tag(exp_id, tag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["tag0"] == "value0")
+        # test that updating a tag works
+        self.store.set_experiment_tag(exp_id, new_tag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        # test that setting a tag on 1 experiment does not impact another experiment.
+        exp_id_2 = self._experiment_factory('setExperimentTagExp2')
+        experiment2 = self.store.get_experiment(exp_id_2)
+        self.assertTrue(len(experiment2.tags) == 0)
+        # setting a tag on different experiments maintains different values across experiments
+        different_tag = entities.RunTag("tag0", "differentValue")
+        self.store.set_experiment_tag(exp_id_2, different_tag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["tag0"] == "value00000")
+        experiment2 = self.store.get_experiment(exp_id_2)
+        self.assertTrue(experiment2.tags["tag0"] == "differentValue")
+        # test can set multi-line tags
+        multiLineTag = entities.ExperimentTag("multiline tag", "value2\nvalue2\nvalue2")
+        self.store.set_experiment_tag(exp_id, multiLineTag)
+        experiment = self.store.get_experiment(exp_id)
+        self.assertTrue(experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2")
+        # test cannot set tags that are too long
+        longTag = entities.ExperimentTag("longTagKey", "a" * 5001)
+        with pytest.raises(MlflowException):
+            self.store.set_experiment_tag(exp_id, longTag)
+        # test can set tags that are somewhat long
+        longTag = entities.ExperimentTag("longTagKey", "a" * 4999)
+        self.store.set_experiment_tag(exp_id, longTag)
+        # test cannot set tags on deleted experiments
+        self.store.delete_experiment(exp_id)
+        with pytest.raises(MlflowException):
+            self.store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
+
     def test_set_tag(self):
         run = self._run_factory()
 
@@ -550,7 +591,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.set_tag(run.info.run_id, tag)
         # Overwriting tags is allowed
         self.store.set_tag(run.info.run_id, new_tag)
-
+        # test setting tags that are too long fails.
+        with pytest.raises(MlflowException):
+            self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 5001))
+        # test can set tags that are somewhat long
+        self.store.set_tag(run.info.run_id, entities.RunTag("longTagKey", "a" * 4999))
         run = self.store.get_run(run.info.run_id)
         self.assertTrue(tkey in run.data.tags and run.data.tags[tkey] == new_val)
 
@@ -666,12 +711,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         with self.assertRaises(MlflowException) as e:
             self.store.restore_run(run.info.run_id)
-        self.assertIn("must be in 'deleted' state", e.exception.message)
+        self.assertIn("must be in the 'deleted' state", e.exception.message)
 
         self.store.delete_run(run.info.run_id)
         with self.assertRaises(MlflowException) as e:
             self.store.delete_run(run.info.run_id)
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         deleted = self.store.get_run(run.info.run_id)
         self.assertEqual(deleted.info.run_id, run.info.run_id)
@@ -680,7 +725,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.restore_run(run.info.run_id)
         with self.assertRaises(MlflowException) as e:
             self.store.restore_run(run.info.run_id)
-            self.assertIn("must be in 'deleted' state", e.exception.message)
+            self.assertIn("must be in the 'deleted' state", e.exception.message)
         restored = self.store.get_run(run.info.run_id)
         self.assertEqual(restored.info.run_id, run.info.run_id)
         self.assertEqual(restored.info.lifecycle_stage, entities.LifecycleStage.ACTIVE)
@@ -694,15 +739,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          entities.LifecycleStage.DELETED)
         with self.assertRaises(MlflowException) as e:
             self.store.log_param(run_id, entities.Param("p1345", "v1"))
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
             self.store.log_metric(run_id, entities.Metric("m1345", 1.0, 123, 0))
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         with self.assertRaises(MlflowException) as e:
             self.store.set_tag(run_id, entities.RunTag("t1345", "tv1"))
-        self.assertIn("must be in 'active' state", e.exception.message)
+        self.assertIn("must be in the 'active' state", e.exception.message)
 
         # restore this run and try again
         self.store.restore_run(run_id)
@@ -1231,6 +1276,63 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         for _ in range(3):
             invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
             assert _get_schema_version(engine) == SqlAlchemyStore._get_latest_schema_revision()
+
+    def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
+            self):
+        """
+        Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying
+        the MLflow Tracking SQLite database located at
+        /mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics.sql. This database contains
+        metric entries populated by the following metrics generation script:
+        https://gist.github.com/dbczumar/343173c6b8982a0cc9735ff19b5571d9.
+
+        First, the database is upgraded from its HEAD revision of
+        ``7ac755974ad8_update_run_tags_with_larger_limit`` to the latest revision via
+        ``mlflow db upgrade``.
+
+        Then, the test confirms that the metric entries returned by calls
+        to ``SqlAlchemyStore.get_run()`` are consistent between the latest revision and the
+        ``7ac755974ad8_update_run_tags_with_larger_limit`` revision. This is confirmed by
+        invoking ``SqlAlchemyStore.get_run()`` for each run id that is present in the upgraded
+        database and comparing the resulting runs' metric entries to a JSON dump taken from the
+        SQLite database prior to the upgrade (located at
+        mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json).
+        This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the
+        following code from the directory containing this test suite:
+
+        >>> import json
+        >>> import mlflow
+        >>> from mlflow.tracking.client import MlflowClient
+        >>> mlflow.set_tracking_uri(
+        ...     "sqlite:///../resources/db/db_version_7ac759974ad8_with_metrics.sql")
+        >>> client = MlflowClient()
+        >>> summary_metrics = {
+        ...     run.info.run_id: run.data.metrics for run
+        ...     in client.search_runs(experiment_ids="0")
+        ... }
+        >>> with open("dump.json", "w") as dump_file:
+        >>>     json.dump(summary_metrics, dump_file, indent=4)
+        """
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        db_resources_path = os.path.normpath(
+            os.path.join(current_dir, os.pardir, "resources", "db"))
+        expected_metric_values_path = os.path.join(
+            db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json")
+        with TempDir() as tmp_db_dir:
+            db_path = tmp_db_dir.path("tmp_db.sql")
+            db_url = "sqlite:///" + db_path
+            shutil.copyfile(
+                src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
+                dst=db_path)
+
+            invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
+            store = self._get_store(db_uri=db_url)
+            with open(expected_metric_values_path, "r") as f:
+                expected_metric_values = json.load(f)
+
+            for run_id, expected_metrics in expected_metric_values.items():
+                fetched_run = store.get_run(run_id=run_id)
+                assert fetched_run.data.metrics == expected_metrics
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):

@@ -185,7 +185,7 @@ def _resolve_base_path(path, artifact_path):
 
 def _relative_path(base_dir, subdir_path, path_module):
     relative_path = path_module.relpath(subdir_path, base_dir)
-    return relative_path if relative_path is not '.' else None
+    return relative_path if relative_path != '.' else None
 
 
 def _relative_path_local(base_dir, subdir_path):

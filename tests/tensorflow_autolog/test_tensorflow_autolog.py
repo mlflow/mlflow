@@ -16,6 +16,8 @@ import mlflow
 import mlflow.tensorflow
 import mlflow.keras
 
+import os
+
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
         ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
@@ -30,7 +32,7 @@ def random_train_data():
 
 @pytest.fixture
 def tf_keras_random_data_run(random_train_data):
-    mlflow.tensorflow.autolog(metrics_every_n_steps=5)
+    mlflow.tensorflow.autolog(every_n_iter=5)
 
     def random_one_hot_labels(shape):
         n, n_class = shape
@@ -85,7 +87,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
 
 @pytest.fixture
 def tf_core_random_tensors():
-    mlflow.tensorflow.autolog(metrics_every_n_steps=4)
+    mlflow.tensorflow.autolog(every_n_iter=4)
     with mlflow.start_run() as run:
         sess = tf.Session()
         a = tf.constant(3.0, dtype=tf.float32)
@@ -126,15 +128,10 @@ def tf_estimator_random_data_run():
         CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
         SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
-        train_path = tf.keras.utils.get_file(
-            "iris_training.csv", "https://storage.googleapis.com/download"
-                                 ".tensorflow.org/data/iris_training.csv")
-        test_path = tf.keras.utils.get_file(
-            "iris_test.csv", "https://storage.googleapis.com/download"
-                             ".tensorflow.org/data/iris_test.csv")
-
-        train = pd.read_csv(train_path, names=CSV_COLUMN_NAMES, header=0)
-        test = pd.read_csv(test_path, names=CSV_COLUMN_NAMES, header=0)
+        train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
+                            names=CSV_COLUMN_NAMES, header=0)
+        test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
+                           names=CSV_COLUMN_NAMES, header=0)
 
         train_y = train.pop('Species')
         test_y = test.pop('Species')
@@ -196,7 +193,7 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_
 
 @pytest.fixture
 def duplicate_autolog_tf_estimator_run():
-    mlflow.tensorflow.autolog(metrics_every_n_steps=23)  # 23 is prime; no false positives in test
+    mlflow.tensorflow.autolog(every_n_iter=23)  # 23 is prime; no false positives in test
     run = tf_estimator_random_data_run()
     return run  # should be autologged every 4 steps
 
