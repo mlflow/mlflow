@@ -317,7 +317,7 @@ class SqlAlchemyStore(AbstractStore):
                  experiment attributes when fetching an experiment: ``tags``.
         """
         return [
-            sqlalchemy.orm.joinedload(SqlExperiment.tags),
+            sqlalchemy.orm.joinedload(SqlExperiment.tags, innerjoin=False),
         ]
 
     def get_experiment(self, experiment_id):
@@ -415,9 +415,9 @@ class SqlAlchemyStore(AbstractStore):
                  run attributes when fetching a run: ``latest_metrics``, ``params``, and ``tags``.
         """
         return [
-            sqlalchemy.orm.joinedload(SqlRun.latest_metrics),
-            sqlalchemy.orm.joinedload(SqlRun.params),
-            sqlalchemy.orm.joinedload(SqlRun.tags)
+            sqlalchemy.orm.joinedload(SqlRun.latest_metrics, innerjoin=False),
+            sqlalchemy.orm.joinedload(SqlRun.params, innerjoin=False),
+            sqlalchemy.orm.joinedload(SqlRun.tags, innerjoin=False)
         ]
 
     def _check_run_is_active(self, run):
