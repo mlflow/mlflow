@@ -567,30 +567,31 @@ class SqlAlchemyStore(AbstractStore):
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
-    def sample_oldest_metrics(self, timestamp, ratio, last_execution):
-        with self.ManagedSessionMaker() as session:
-            if last_execution:
-                runs = session.query(SqlRun.run_uuid)\
-                    .filter(SqlRun.start_time < timestamp, SqlRun.start_time > last_execution).all()
-            else:
-                runs = session.query(SqlRun.run_uuid).filter(SqlRun.start_time < timestamp).all()
-            runs = list(map(lambda x: x[0], runs))
-            metrics_query = session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))
-            metrics = pd.read_sql(metrics_query.statement, metrics_query.session.bind)
-            sampled_metrics = self._sample_metrics(metrics, runs, ratio)
-            session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))\
-                .delete(synchronize_session=False)
-            session.commit()
+    def sample_oldest_metrics(self, max_timestamp, min_timestamp, nb_steps_to_keep, session):
+        if min_timestamp:
+            runs = session.query(SqlRun.run_uuid)\
+                .filter(SqlRun.start_time < max_timestamp, SqlRun.start_time > min_timestamp,
+                        SqlRun.status == 'FINISHED').all()
+        else:
+            runs = session.query(SqlRun.run_uuid)\
+                .filter(SqlRun.start_time < max_timestamp, SqlRun.status == 'FINISHED').all()
+        runs = list(map(lambda x: x[0], runs))
+        metrics_query = session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))
+        metrics = pd.read_sql(metrics_query.statement, metrics_query.session.bind)
+        sampled_metrics = self._sample_metrics(metrics, runs, nb_steps_to_keep)
+        session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))\
+            .delete(synchronize_session=False)
+        session.commit()
         sampled_metrics.to_sql('metrics', self.engine, if_exists='append', index=False)
 
-    def _sample_metrics(self, metrics, runs, ratio):
+    def _sample_metrics(self, metrics, runs, nb_steps_to_keep):
         result_df = pd.DataFrame()
         for run in runs:
             df_single_run = metrics.loc[metrics["run_uuid"] == run]
             unique_metrics = df_single_run["key"].unique().tolist()
             for metric in unique_metrics:
                 steps = df_single_run[df_single_run["key"] == metric]["step"].unique().tolist()
-                number_of_steps = int(len(steps) * ratio + 1)
+                number_of_steps = min(len(steps), nb_steps_to_keep)
                 selected_steps = np.linspace(0, len(steps) - 1, num=number_of_steps, dtype=int)
                 steps_to_keep = [steps[i] for i in selected_steps]
                 lines_to_keep = df_single_run[(df_single_run["key"] == metric) &
@@ -598,12 +599,11 @@ class SqlAlchemyStore(AbstractStore):
                 result_df = pd.concat([result_df, lines_to_keep], ignore_index=True)
         return result_df
 
-    def update_periodic_job(self, job_name, last_execution):
-        with self.ManagedSessionMaker() as session:
-            job = session.query(SqlPeriodicJobs).filter(SqlPeriodicJobs.job_name == job_name).one()
-            job.last_execution = last_execution
-            session.add(job)
-            session.commit()
+    def update_periodic_job(self, job_name, last_execution, session):
+        job = session.query(SqlPeriodicJobs).filter(SqlPeriodicJobs.job_name == job_name).one()
+        job.last_execution = last_execution
+        session.add(job)
+        session.commit()
 
     def get_periodic_job(self, job_name):
         with self.ManagedSessionMaker() as session:

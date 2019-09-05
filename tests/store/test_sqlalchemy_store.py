@@ -1282,7 +1282,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         self.store.log_metric(r1, entities.Metric("measure_a", 1.0, 1, 0))
 
-        self.store.sample_oldest_metrics(int(time.time()*1000), 0.33, None)
+        endtime = int(time.time())
+        self.store.update_run_info(r1, 3, endtime)
+
+        with self.store.ManagedSessionMaker() as session:
+            self.store.sample_oldest_metrics(int(time.time()*1000), None, 5, session)
 
         actual = self.store.get_metric_history(r1, "measure_a")
         expected = [
@@ -1304,7 +1308,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.log_metric(r2, entities.Metric("measure_a", 1200.0, 7, 6))
         self.store.log_metric(r2, entities.Metric("measure_a", 1400.0, 8, 7))
 
-        self.store.sample_oldest_metrics(int(time.time()*1000), 0.33, None)
+        endtime = int(time.time())
+        self.store.update_run_info(r2, 3, endtime)
+
+        with self.store.ManagedSessionMaker() as session:
+            self.store.sample_oldest_metrics(int(time.time()*1000), None, 3, session)
 
         actual = self.store.get_metric_history(r2, "measure_a")
         expected = [
@@ -1327,7 +1335,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.log_metric(r1, entities.Metric("measure_a", 1000.0, 6, 444))
         self.store.log_metric(r1, entities.Metric("measure_a", 1200.0, 7, 569))
 
-        self.store.sample_oldest_metrics(int(time.time()*1000), 0.5, None)
+        endtime = int(time.time())
+        self.store.update_run_info(r1, 3, endtime)
+
+        with self.store.ManagedSessionMaker() as session:
+            self.store.sample_oldest_metrics(int(time.time()*1000), None, 4, session)
 
         actual = self.store.get_metric_history(r1, "measure_a")
         expected = [
@@ -1351,7 +1363,11 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.log_metric(r1, entities.Metric("measure_a", 1000.0, 6, 444))
         self.store.log_metric(r1, entities.Metric("measure_a", 1200.0, 7, 569))
 
-        self.store.sample_oldest_metrics(int(time.time()/2), 0.5, None)
+        endtime = int(time.time())
+        self.store.update_run_info(r1, 3, endtime)
+
+        with self.store.ManagedSessionMaker() as session:
+            self.store.sample_oldest_metrics(int(time.time()/2), None, 1, session)
 
         actual = self.store.get_metric_history(r1, "measure_a")
         expected = [
@@ -1368,9 +1384,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def test_sample_metrics_must_not_sample_already_sampled_runs(self):
         experiment_id = self._experiment_factory('sample_metrics')
-        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
-        r2 = self._run_factory(self._get_run_configs(experiment_id, start_time=time.time()/2))\
+        r1 = self._run_factory(self._get_run_configs(experiment_id, start_time=int(time.time()/2)))\
             .info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
 
         self.store.log_metric(r1, entities.Metric("measure_a", 200.0, 2, 1))
         self.store.log_metric(r1, entities.Metric("measure_a", 400.0, 3, 135))
@@ -1387,7 +1403,12 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.log_metric(r2, entities.Metric("measure_a", 1200.0, 7, 6))
         self.store.log_metric(r2, entities.Metric("measure_a", 1400.0, 8, 7))
 
-        self.store.sample_oldest_metrics(int(time.time()), 0.5, int(time.time()/2))
+        endtime = int(time.time())
+        self.store.update_run_info(r1, 3, endtime)
+        self.store.update_run_info(r2, 3, endtime)
+
+        with self.store.ManagedSessionMaker() as session:
+            self.store.sample_oldest_metrics(int(time.time()*1000), int(time.time()/2), 4, session)
 
         actual = self.store.get_metric_history(r1, "measure_a")
         expected = [
