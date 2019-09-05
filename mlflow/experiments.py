@@ -112,14 +112,17 @@ def rename_experiment(experiment_id, new_name):
 
 @commands.command("csv")
 @EXPERIMENT_ID
-@click.option("--filename", type=click.STRING, required=True)
+@click.option("--filename", "-o", type=click.STRING)
 def generate_csv_with_runs(experiment_id, filename):
     # type: (str, str) -> None
     """
     Generate CSV with all runs for an experiment
     """
     runs = fluent.search_runs(experiment_ids=experiment_id)
-    runs.to_csv(filename, index=False)
-    print(
-        "Experiment with ID %s has been exported as a CSV to file: %s." %
-        (experiment_id, filename))
+    if filename:
+        runs.to_csv(filename, index=False)
+        print(
+            "Experiment with ID %s has been exported as a CSV to file: %s." %
+            (experiment_id, filename))
+    else:
+        print(runs.to_csv(index=False))
