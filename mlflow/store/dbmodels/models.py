@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship, backref
 import sqlalchemy as sa
 from sqlalchemy import (
     Column, String, ForeignKey, Integer, CheckConstraint,
-    BigInteger, PrimaryKeyConstraint, Boolean, func, and_)
+    BigInteger, PrimaryKeyConstraint, Boolean)
 from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
     Experiment, RunTag, Metric, Param, RunData, RunInfo,
@@ -153,7 +153,7 @@ class SqlRun(Base):
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
-    def to_mlflow_entity(self, session):
+    def to_mlflow_entity(self):
         """
         Convert DB model to corresponding MLflow entity.
 
@@ -170,58 +170,12 @@ class SqlRun(Base):
             lifecycle_stage=self.lifecycle_stage,
             artifact_uri=self.artifact_uri)
 
-        # only get latest recorded metrics per key
-        last_metrics = self.get_last_recorded_metrics(session)
-
-        all_metrics = [Metric(key=m[1],
-                              value=m[4] if not m[5] else float("nan"),
-                              timestamp=m[3],
-                              step=m[2]) for m in last_metrics]
-        metrics = {}
-        for m in all_metrics:
-            existing_metric = metrics.get(m.key)
-            if (existing_metric is None)\
-                or ((m.step, m.timestamp, m.value) >=
-                    (existing_metric.step, existing_metric.timestamp,
-                        existing_metric.value)):
-                metrics[m.key] = m
-
         run_data = RunData(
-            metrics=list(metrics.values()),
+            metrics=[m.to_mlflow_entity() for m in self.latest_metrics],
             params=[p.to_mlflow_entity() for p in self.params],
             tags=[t.to_mlflow_entity() for t in self.tags])
 
         return Run(run_info=run_info, run_data=run_data)
-
-    def get_last_recorded_metrics(self, session):
-        metrics_with_max_step = session \
-            .query(SqlMetric.run_uuid, SqlMetric.key, func.max(SqlMetric.step).label('step')) \
-            .filter(SqlMetric.run_uuid == self.run_uuid) \
-            .group_by(SqlMetric.key, SqlMetric.run_uuid) \
-            .subquery('metrics_with_max_step')
-        metrics_with_max_timestamp = session \
-            .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step,
-                   func.max(SqlMetric.timestamp).label('timestamp')) \
-            .filter(SqlMetric.run_uuid == self.run_uuid) \
-            .join(metrics_with_max_step,
-                  and_(SqlMetric.step == metrics_with_max_step.c.step,
-                       SqlMetric.run_uuid == metrics_with_max_step.c.run_uuid,
-                       SqlMetric.key == metrics_with_max_step.c.key)) \
-            .group_by(SqlMetric.key, SqlMetric.run_uuid, SqlMetric.step) \
-            .subquery('metrics_with_max_timestamp')
-        metrics_with_max_value = session \
-            .query(SqlMetric.run_uuid, SqlMetric.key, SqlMetric.step, SqlMetric.timestamp,
-                   func.max(SqlMetric.value).label('value'), SqlMetric.is_nan) \
-            .filter(SqlMetric.run_uuid == self.run_uuid) \
-            .join(metrics_with_max_timestamp,
-                  and_(SqlMetric.timestamp == metrics_with_max_timestamp.c.timestamp,
-                       SqlMetric.run_uuid == metrics_with_max_timestamp.c.run_uuid,
-                       SqlMetric.key == metrics_with_max_timestamp.c.key,
-                       SqlMetric.step == metrics_with_max_timestamp.c.step)) \
-            .group_by(SqlMetric.run_uuid, SqlMetric.key,
-                      SqlMetric.step, SqlMetric.timestamp, SqlMetric.is_nan) \
-            .all()
-        return metrics_with_max_value
 
 
 class SqlExperimentTag(Base):
@@ -347,6 +301,61 @@ class SqlMetric(Base):
 
     def __repr__(self):
         return '<SqlMetric({}, {}, {}, {})>'.format(self.key, self.value, self.timestamp, self.step)
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        :return: :py:class:`mlflow.entities.Metric`.
+        """
+        return Metric(
+            key=self.key,
+            value=self.value if not self.is_nan else float("nan"),
+            timestamp=self.timestamp,
+            step=self.step)
+
+
+class SqlLatestMetric(Base):
+    __tablename__ = 'latest_metrics'
+
+    key = Column(String(250))
+    """
+    Metric key: `String` (limit 250 characters). Part of *Primary Key* for ``latest_metrics`` table.
+    """
+    value = Column(sa.types.Float(precision=53), nullable=False)
+    """
+    Metric value: `Float`. Defined as *Non-null* in schema.
+    """
+    timestamp = Column(BigInteger, default=lambda: int(time.time()))
+    """
+    Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
+                                               ``latest_metrics`` table.
+    """
+    step = Column(BigInteger, default=0, nullable=False)
+    """
+    Step recorded for this metric entry: `BigInteger`.
+    """
+    is_nan = Column(Boolean, nullable=False, default=False)
+    """
+    True if the value is in fact NaN.
+    """
+    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
+    """
+    Run UUID to which this metric belongs to: Part of *Primary Key* for ``latest_metrics`` table.
+                                              *Foreign Key* into ``runs`` table.
+    """
+    run = relationship('SqlRun', backref=backref('latest_metrics', cascade='all'))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint('key', 'run_uuid', name='latest_metric_pk'),
+    )
+
+    def __repr__(self):
+        return '<SqlLatestMetric({}, {}, {}, {})>'.format(
+            self.key, self.value, self.timestamp, self.step)
 
     def to_mlflow_entity(self):
         """
