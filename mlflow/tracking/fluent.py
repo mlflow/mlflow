@@ -289,6 +289,24 @@ def create_experiment(name, artifact_location=None):
     return MlflowClient().create_experiment(name, artifact_location)
 
 
+def delete_experiment(experiment_id):
+    """
+    Delete an experiment from the backend store.
+
+    :param experiment_id: The experiment ID returned from ``create_experiment``.
+    """
+    MlflowClient().delete_experiment(experiment_id)
+
+
+def delete_run(run_id):
+    """
+    Deletes a run with the given ID.
+
+    :param run_id: Unique identifier for the run to delete.
+    """
+    MlflowClient().delete_run(run_id)
+
+
 def get_artifact_uri(artifact_path=None):
     """
     Get the absolute URI of the specified artifact in the currently active run.
