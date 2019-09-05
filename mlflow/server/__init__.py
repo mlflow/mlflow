@@ -69,7 +69,7 @@ def _add_scheduler_to_server(scheduler_configuration):
         nb_metrics_to_keep = configuration['db_cleaner'].get('nb_metrics_to_keep', 5)
 
         # pylint: disable=not-callable
-        @scheduler.task('cron', id='db_cleaner', minute='*')
+        @scheduler.task('cron', id='db_cleaner', day='*')
         # pylint: disable=unused-variable
         def db_cleaner():
             if type(db_store) != SqlAlchemyStore:
