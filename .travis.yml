@@ -66,7 +66,7 @@ matrix:
       install:
         - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
-        - ./travis/run-large-python-tests.sh
+        - travis_wait 20 ./travis/run-large-python-tests.sh
     # Run Windows tests in the "large" test builder so that we don't spend Travis executor
     # time running Windows tests if Python 3 small tests fail.
     - os: windows
@@ -110,7 +110,7 @@ script:
     elif [[ "$TRAVIS_BUILD_STAGE_NAME" == "Small" ]]; then
       ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
     else
-      ./travis/run-large-python-tests.sh;
+      travis_wait 20 ./travis/run-large-python-tests.sh;
     fi
 
 notifications:
