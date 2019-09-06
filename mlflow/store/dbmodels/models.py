@@ -411,7 +411,7 @@ class SqlParam(Base):
 
 class SqlPeriodicJobs(Base):
     """
-    DB model for periodic jobs. These are recorded in ``periodic_jobs`` table.
+    DB model for periodic jobs. These are recorded in `periodic_jobs` table.
     """
     __tablename__ = 'periodic_jobs'
 
