@@ -16,7 +16,7 @@ from mlflow.store.abstract_store import PagedList
 from mlflow.tracking.client import MlflowClient
 import mlflow.tracking.fluent
 import mlflow.tracking.context.registry
-from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experiment_id_from_env, \
+from mlflow.tracking.fluent import set_experiment, start_run, _get_experiment_id, _get_experiment_id_from_env, \
     search_runs, _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR, \
     _get_paginated_runs, NUM_RUNS_PER_PAGE_PANDAS, SEARCH_MAX_RESULTS_PANDAS
 from mlflow.utils.file_utils import TempDir
@@ -345,6 +345,19 @@ def test_start_run_existing_run_from_environment(empty_active_run_stack):
 
         assert is_from_run(active_run, mock_run)
         MlflowClient.get_run.assert_called_once_with(run_id)
+
+
+def test_start_run_existing_run_from_environment_with_set_environment(empty_active_run_stack):
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+
+    run_id = uuid.uuid4().hex
+    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
+
+    with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        with pytest.raises(MlflowException):
+                set_experiment("test-run")
+                active_run = start_run()
 
 
 def test_start_run_existing_run_deleted(empty_active_run_stack):
