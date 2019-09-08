@@ -264,9 +264,9 @@ def test_log_metric(tracking_uri_mock):
     ])
 
 
-def test_log_metrics_uses_millisecond_timestamp_resolution(tracking_uri_mock):
+def test_log_metrics_uses_millisecond_timestamp_resolution_fluent(tracking_uri_mock):
     with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = [123 for _ in range(100)]
+        time_mock.side_effect = lambda: 123
         mlflow.log_metrics({
             "name_1": 25,
             "name_2": -3,
@@ -278,7 +278,7 @@ def test_log_metrics_uses_millisecond_timestamp_resolution(tracking_uri_mock):
             "name_1": 40,
         })
         run_id = active_run.info.run_id
-    finished_run = tracking.MlflowClient().get_run(run_id)
+
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
     assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set([
@@ -287,6 +287,29 @@ def test_log_metrics_uses_millisecond_timestamp_resolution(tracking_uri_mock):
         (40, 123 * 1000),
     ])
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
+        (-3, 123 * 1000),
+    ])
+
+
+def test_log_metrics_uses_millisecond_timestamp_resolution_client(tracking_uri_mock):
+    with start_run() as active_run, mock.patch("time.time") as time_mock:
+        time_mock.side_effect = lambda: 123
+        mlflow_client = tracking.MlflowClient()
+        run_id = active_run.info.run_id
+
+        mlflow_client.log_metric(run_id=run_id, key="name_1", value=25)
+        mlflow_client.log_metric(run_id=run_id, key="name_2", value=-3)
+        mlflow_client.log_metric(run_id=run_id, key="name_1", value=30)
+        mlflow_client.log_metric(run_id=run_id, key="name_1", value=40)
+
+    metric_history_name1 = mlflow_client.get_metric_history(run_id, "name_1")
+    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set([
+        (25, 123 * 1000),
+        (30, 123 * 1000),
+        (40, 123 * 1000),
+    ])
+    metric_history_name2 = mlflow_client.get_metric_history(run_id, "name_2")
     assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
         (-3, 123 * 1000),
     ])

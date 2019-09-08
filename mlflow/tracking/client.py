@@ -165,7 +165,7 @@ class MlflowClient(object):
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
-        timestamp = timestamp if timestamp is not None else int(time.time())
+        timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
         step = step if step is not None else 0
         _validate_metric(key, value, timestamp, step)
         metric = Metric(key, value, timestamp, step)
