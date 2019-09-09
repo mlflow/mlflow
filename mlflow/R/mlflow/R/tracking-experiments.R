@@ -190,10 +190,12 @@ mlflow_rename_experiment <- function(new_name, experiment_id = NULL, client = NU
 #'
 #' @param experiment_name Name of experiment to be activated.
 #' @param experiment_id ID of experiment to be activated.
+#' @param client MLFlow client for tracking server where experiments are located.
 #' @param artifact_location Location where all artifacts for this experiment are stored. If
 #'   not provided, the remote server will select an appropriate default.
 #' @export
-mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, artifact_location = NULL) {
+mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL,
+                                  client = NULL, artifact_location = NULL) {
   if (!is.null(experiment_name) && !is.null(experiment_id)) {
     stop("Only one of `experiment_name` or `experiment_id` should be specified.",
          call. = FALSE
@@ -205,7 +207,7 @@ mlflow_set_experiment <- function(experiment_name = NULL, experiment_id = NULL, 
          call. = FALSE)
   }
 
-  client <- mlflow_client()
+  client <- resolve_client(client)
 
   final_experiment_id <- if (!is.null(experiment_name)) {
     tryCatch(

@@ -5,12 +5,14 @@
 \title{Set Experiment}
 \usage{
 mlflow_set_experiment(experiment_name = NULL, experiment_id = NULL,
-  artifact_location = NULL)
+  client = NULL, artifact_location = NULL)
 }
 \arguments{
 \item{experiment_name}{Name of experiment to be activated.}
 
 \item{experiment_id}{ID of experiment to be activated.}
+
+\item{client}{MLFlow client for tracking server where experiments are located.}
 
 \item{artifact_location}{Location where all artifacts for this experiment are stored. If
 not provided, the remote server will select an appropriate default.}

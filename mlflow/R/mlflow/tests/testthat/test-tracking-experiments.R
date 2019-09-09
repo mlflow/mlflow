@@ -17,11 +17,13 @@ test_that("mlflow_create/get_experiment() basic functionality (client)", {
 
   client <- mlflow_client()
 
-  experiment_1_id <- mlflow_create_experiment(client = client, "exp_name", "art_loc")
-  experiment_1a <- mlflow_get_experiment(client = client, experiment_id = experiment_1_id)
+  experiment_1_id_a <- mlflow_create_experiment(client = client, "exp_name", "art_loc")
+  experiment_1a <- mlflow_get_experiment(client = client, experiment_id = experiment_1_id_a)
   experiment_1b <- mlflow_get_experiment(client = client, name = "exp_name")
+  experiment_1_id_b <- mlflow_set_experiment(client = client, experiment_name = "exp_name")
 
   expect_identical(experiment_1a, experiment_1b)
+  expect_identical(experiment_1_id_a, experiment_1_id_b)
   expect_identical(experiment_1a$artifact_location, "art_loc")
   expect_identical(experiment_1a$name, "exp_name")
 })
