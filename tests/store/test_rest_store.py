@@ -310,8 +310,8 @@ class TestRestStore(unittest.TestCase):
             assert result.artifact_location == experiment.artifact_location
             assert result.lifecycle_stage == experiment.lifecycle_stage
 
-            # Verify that REST client won't fall back to ListExperiments for other types of
-            # server errors, e.g. a 429
+            # Verify that REST client won't fall back to ListExperiments for 429 errors (hitting
+            # rate limits)
             mock_http.reset_mock()
 
             def rate_limit_response_fn(*args, **kwargs):

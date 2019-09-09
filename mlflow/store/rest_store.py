@@ -259,19 +259,14 @@ class RestStore(AbstractStore):
             if e.error_code == databricks_pb2.ErrorCode.Name(
                     databricks_pb2.RESOURCE_DOES_NOT_EXIST):
                 return None
-            # Could raise on RESOURCE_LIMIT_EXCEEDED explicitly, but hard to raise on INTERNAL_ERROR,
-            # since we deserialize XML 404s from the OSS server as INTERNAL_ERROR. We could use
-            # lower-level REST API methods & only fall back on 500-level error codes from the server
-            # but other implementors of the OSS REST API might not follow this practice
             elif e.error_code == databricks_pb2.ErrorCode.Name(
-                    databricks_pb2.ENDPOINT_NOT_FOUND):
-                # Fall back to using ListExperiments-based implementation.
-                for experiment in self.list_experiments(ViewType.ALL):
-                    if experiment.name == experiment_name:
-                        return experiment
-                return None
-            else:
+                    databricks_pb2.RESOURCE_LIMIT_EXCEEDED):
                 raise e
+            # Fall back to using ListExperiments-based implementation.
+            for experiment in self.list_experiments(ViewType.ALL):
+                if experiment.name == experiment_name:
+                    return experiment
+            return None
 
     def log_batch(self, run_id, metrics, params, tags):
         metric_protos = [metric.to_proto() for metric in metrics]
