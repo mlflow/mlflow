@@ -361,8 +361,8 @@ def test_start_run_existing_run_from_environment_with_set_environment(empty_acti
 
     with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         with pytest.raises(MlflowException):
-                set_experiment("test-run")
-                active_run = start_run()
+            set_experiment("test-run")
+            active_run = start_run()
 
 
 def test_start_run_existing_run_deleted(empty_active_run_stack):
