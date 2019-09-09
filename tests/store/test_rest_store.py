@@ -2,6 +2,7 @@ import json
 import unittest
 
 import mock
+import pytest
 import six
 
 import mlflow
@@ -11,7 +12,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.service_pb2 import CreateRun, DeleteExperiment, DeleteRun, LogBatch, \
     LogMetric, LogParam, RestoreExperiment, RestoreRun, RunTag as ProtoRunTag, SearchRuns, \
     SetTag, DeleteTag, SetExperimentTag, GetExperimentByName, ListExperiments
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ENDPOINT_NOT_FOUND,\
+    REQUEST_LIMIT_EXCEEDED, ErrorCode
 from mlflow.store.rest_store import RestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
@@ -289,7 +291,8 @@ class TestRestStore(unittest.TestCase):
             def response_fn(*args, **kwargs):
                 # pylint: disable=unused-argument
                 if kwargs.get('endpoint') == "/api/2.0/mlflow/experiments/get-by-name":
-                    raise MlflowException("GetExperimentByName is not implemented")
+                    raise MlflowException("GetExperimentByName is not implemented",
+                                          ENDPOINT_NOT_FOUND)
                 else:
                     return list_exp_response
 
@@ -306,6 +309,20 @@ class TestRestStore(unittest.TestCase):
             assert result.name == experiment.name
             assert result.artifact_location == experiment.artifact_location
             assert result.lifecycle_stage == experiment.lifecycle_stage
+
+            # Verify that REST client won't fall back to ListExperiments for other types of
+            # server errors, e.g. a 429
+            mock_http.reset_mock()
+
+            def rate_limit_response_fn(*args, **kwargs):
+                # pylint: disable=unused-argument
+                raise MlflowException("Hit rate limit on GetExperimentByName",
+                                      REQUEST_LIMIT_EXCEEDED)
+
+            mock_http.side_effect = rate_limit_response_fn
+            with pytest.raises(MlflowException) as exc_info:
+                store.get_experiment_by_name("abc")
+            assert exc_info.value.error_code == ErrorCode.Name(REQUEST_LIMIT_EXCEEDED)
 
 
 if __name__ == '__main__':
