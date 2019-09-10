@@ -15,7 +15,7 @@ class SFTPArtifactRepository(ArtifactRepository):
         parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
             'host': parsed.hostname,
-            'port': 22 if parsed.port is None else parsed.port,
+            'port': parsed.port,
             'username': parsed.username,
             'password': parsed.password
         }
@@ -41,8 +41,14 @@ class SFTPArtifactRepository(ArtifactRepository):
             if 'hostname' in user_config:
                 self.config['host'] = user_config['hostname']
 
-            if self.config.get('username', None) is None and 'username' in user_config:
-                self.config['username'] = user_config['username']
+            if self.config.get('username', None) is None and 'user' in user_config:
+                self.config['username'] = user_config['user']
+
+            if self.config.get('port', None) is None:
+                if 'port' in user_config:
+                    self.config['port'] = int(user_config['port'])
+                else:
+                    self.config['port'] = 22
 
             if 'identityfile' in user_config:
                 self.config['private_key'] = user_config['identityfile'][0]
