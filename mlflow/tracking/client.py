@@ -10,7 +10,7 @@ from six import iteritems
 
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import utils
-from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
+from mlflow.utils.validation import _validate_param, _validate_tag_name, _validate_run_id, \
     _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
 from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
 from mlflow.store.artifact_repository_registry import get_artifact_repository
@@ -175,7 +175,7 @@ class MlflowClient(object):
         """
         Log a parameter against the run ID. Value is converted to a string.
         """
-        _validate_param_name(key)
+        _validate_param(key,value)
         param = Param(key, str(value))
         self.store.log_param(run_id, param)
 
@@ -227,7 +227,7 @@ class MlflowClient(object):
         for metric in metrics:
             _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:
-            _validate_param_name(param.key)
+            _validate_param(param.key,param.value)
         for tag in tags:
             _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)

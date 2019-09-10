@@ -88,7 +88,7 @@ def _validate_param(key, value):
     """
     _validate_param_name(key)
     _validate_length_limit("Param key", MAX_ENTITY_KEY_LENGTH, key)
-    _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, value)
+    _validate_length_limit("Param value", MAX_PARAM_VAL_LENGTH, str(value))
 
 
 def _validate_tag(key, value):
