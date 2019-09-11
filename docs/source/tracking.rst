@@ -536,6 +536,8 @@ You can then pass authentication headers to MLflow using these :ref:`environment
 Additionally, you should ensure that the ``--backend-store-uri`` (which defaults to the
 ``./mlruns`` directory) points to a persistent (non-ephemeral) disk or database connection.
 
+.. _logging_to_a_tracking_server:
+
 Logging to a Tracking Server
 ----------------------------
 
@@ -545,12 +547,25 @@ along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :
 The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls 
 then make API requests to your remote tracking server.
 
-.. code-block:: py
+  .. code-section::
 
-    import mlflow
-    with mlflow.start_run():
-        mlflow.log_param("a", 1)
-        mlflow.log_metric("b", 2)
+    .. code-block:: python
+
+        import mlflow
+        remote_server_uri = "..." # set to your server URI
+        mlflow.set_tracking_uri(remote_server_uri)
+        with mlflow.start_run():
+            mlflow.log_param("a", 1)
+            mlflow.log_metric("b", 2)
+
+    .. code-block:: R
+
+        library(mlflow)
+        install_mlflow()
+        remote_server_uri = "..." # set to your server URI
+        mlflow_set_tracking_uri(remote_server_uri)
+        mlflow_log_param("a", "1")
+
 
 .. _tracking_auth:
 
