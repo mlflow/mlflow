@@ -328,6 +328,7 @@ class TestRestStore(object):
             with pytest.raises(MlflowException) as exc_info:
                 store.get_experiment_by_name("abc")
             assert exc_info.value.error_code == ErrorCode.Name(REQUEST_LIMIT_EXCEEDED)
+            assert mock_http.call_count == 1
 
     def test_databricks_rest_store_get_experiment_by_name(self):
         creds = MlflowHostCreds('https://hello')
@@ -344,6 +345,11 @@ class TestRestStore(object):
                 store.get_experiment_by_name("abc")
             assert exc_info.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
             assert exc_info.value.message == "Some internal error!"
+            expected_message0 = GetExperimentByName(experiment_name="abc")
+            self._verify_requests(mock_http, creds,
+                                  "experiments/get-by-name", "GET",
+                                  message_to_json(expected_message0))
+            assert mock_http.call_count == 1
 
 
 if __name__ == '__main__':
