@@ -104,35 +104,6 @@ and view it at http://localhost:5000.
 .. note::
     If you see message ``[CRITICAL] WORKER TIMEOUT`` in the MLflow UI or error logs, try using ``http://localhost:5000`` instead of ``http://127.0.0.1:5000``.
 
-Logging to a Remote Tracking Server
------------------------------------
-To manage results centrally or share them across a team, you can configure MLflow to log to a remote
-tracking server. To get access to a remote tracking server:
-
-- :ref:`Launch a tracking server <tracking_server>` on a remote machine.
-
-- Alternatively, sign up for `Databricks Community Edition <https://databricks.com/try-databricks>`_,
-  which comes bundled with a hosted, auto-updating tracking server that lies behind authentication.
-  Then, run ``databricks configure`` to create a credentials file for MLflow, specifying
-  https://community.cloud.databricks.com as the host.
-
-
-To log to the remote server, add the following to the start of your program, where
-``remote_server_uri`` is a string like ``"http://your-remote-server-uri.com"`` or ``"databricks"``
-if running against Community Edition.
-
-  .. code-section::
-
-    .. code-block:: python
-
-        import mlflow
-        mlflow.set_tracking_uri(remote_server_uri)
-
-    .. code-block:: R
-
-        library(mlflow)
-        mlflow_set_tracking_uri(remote_server_uri)
-
 
 Running MLflow Projects
 -----------------------
@@ -212,3 +183,34 @@ which returns::
     {"predictions": [1, 0]}
 
 For more information, see :doc:`models`.
+
+
+Logging to a Remote Tracking Server
+-----------------------------------
+In the examples above, MLflow logs data to the local filesystem of the machine it's running on.
+To manage results centrally or share them across a team, you can configure MLflow to log to a remote
+tracking server. To get access to a remote tracking server:
+
+- :ref:`Launch a tracking server <tracking_server>` on a remote machine.
+
+- Alternatively, sign up for `Databricks Community Edition <https://databricks.com/try-databricks>`_,
+  which comes bundled with a hosted, auto-updating tracking server that lies behind authentication.
+  Then, run ``databricks configure`` to create a credentials file for MLflow, specifying
+  https://community.cloud.databricks.com as the host.
+
+
+To log to the remote server, add the following to the start of your program, where
+``remote_server_uri`` is a string like ``"http://your-remote-server-uri.com"`` or ``"databricks"``
+if running against Community Edition.
+
+  .. code-section::
+
+    .. code-block:: python
+
+        import mlflow
+        mlflow.set_tracking_uri(remote_server_uri)
+
+    .. code-block:: R
+
+        library(mlflow)
+        mlflow_set_tracking_uri(remote_server_uri)
