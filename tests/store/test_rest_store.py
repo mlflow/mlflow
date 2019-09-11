@@ -61,9 +61,9 @@ class TestRestStore(object):
         request.return_value = response
 
         store = RestStore(lambda: MlflowHostCreds('https://hello'))
-        with self.assertRaises(MlflowException) as cm:
+        with pytest.raises(MlflowException) as cm:
             store.list_experiments()
-        self.assertIn("RESOURCE_DOES_NOT_EXIST: No experiment", str(cm.exception))
+        assert "RESOURCE_DOES_NOT_EXIST: No experiment" in str(cm.value)
 
     @mock.patch('requests.request')
     def test_failed_http_request_custom_handler(self, request):
@@ -73,7 +73,7 @@ class TestRestStore(object):
         request.return_value = response
 
         store = CustomErrorHandlingRestStore(lambda: MlflowHostCreds('https://hello'))
-        with self.assertRaises(MyCoolException):
+        with pytest.raises(MyCoolException):
             store.list_experiments()
 
     @mock.patch('requests.request')
@@ -326,7 +326,7 @@ class TestRestStore(object):
 
             mock_http.side_effect = rate_limit_response_fn
             with pytest.raises(MlflowException) as exc_info:
-                store.get_experiment_by_name("abc")
+                store.get_experiment_by_name("imspamming")
             assert exc_info.value.error_code == ErrorCode.Name(REQUEST_LIMIT_EXCEEDED)
             assert mock_http.call_count == 1
 

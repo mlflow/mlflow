@@ -260,7 +260,7 @@ class RestStore(AbstractStore):
                     databricks_pb2.RESOURCE_DOES_NOT_EXIST):
                 return None
             elif e.error_code == databricks_pb2.ErrorCode.Name(
-                    databricks_pb2.RESOURCE_LIMIT_EXCEEDED):
+                    databricks_pb2.REQUEST_LIMIT_EXCEEDED):
                 raise e
             # Fall back to using ListExperiments-based implementation.
             for experiment in self.list_experiments(ViewType.ALL):
