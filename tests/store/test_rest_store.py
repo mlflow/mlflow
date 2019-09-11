@@ -13,8 +13,8 @@ from mlflow.protos.service_pb2 import CreateRun, DeleteExperiment, DeleteRun, Lo
     LogMetric, LogParam, RestoreExperiment, RestoreRun, RunTag as ProtoRunTag, SearchRuns, \
     SetTag, DeleteTag, SetExperimentTag, GetExperimentByName, ListExperiments
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ENDPOINT_NOT_FOUND,\
-    REQUEST_LIMIT_EXCEEDED, ErrorCode
-from mlflow.store.rest_store import RestStore
+    REQUEST_LIMIT_EXCEEDED, INTERNAL_ERROR, ErrorCode
+from mlflow.store.rest_store import RestStore, DatabricksRestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
 
@@ -29,7 +29,7 @@ class CustomErrorHandlingRestStore(RestStore):
             raise MyCoolException()
 
 
-class TestRestStore(unittest.TestCase):
+class TestRestStore(object):
     @mock.patch('requests.request')
     def test_successful_http_request(self, request):
         def mock_request(**kwargs):
@@ -249,8 +249,13 @@ class TestRestStore(unittest.TestCase):
                                   message_to_json(expected_message))
             assert result.token == "67890fghij"
 
+    @pytest.mark.parametrize("store_class", [RestStore, DatabricksRestStore])
+    def test_get_experiment_by_name(self, store_class):
+        creds = MlflowHostCreds('https://hello')
+        store = store_class(lambda: creds)
         with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
             response = mock.MagicMock
+            response.status_code = 200
             experiment = Experiment(
                 experiment_id="123", name="abc", artifact_location="/abc",
                 lifecycle_stage=LifecycleStage.ACTIVE)
@@ -323,6 +328,22 @@ class TestRestStore(unittest.TestCase):
             with pytest.raises(MlflowException) as exc_info:
                 store.get_experiment_by_name("abc")
             assert exc_info.value.error_code == ErrorCode.Name(REQUEST_LIMIT_EXCEEDED)
+
+    def test_databricks_rest_store_get_experiment_by_name(self):
+        creds = MlflowHostCreds('https://hello')
+        store = DatabricksRestStore(lambda: creds)
+        with mock.patch('mlflow.store.rest_store.http_request') as mock_http:
+            # Verify that Databricks REST client won't fall back to ListExperiments for 500-level
+            # errors that are not ENDPOINT_NOT_FOUND
+
+            def rate_limit_response_fn(*args, **kwargs):
+                # pylint: disable=unused-argument
+                raise MlflowException("Some internal error!", INTERNAL_ERROR)
+            mock_http.side_effect = rate_limit_response_fn
+            with pytest.raises(MlflowException) as exc_info:
+                store.get_experiment_by_name("abc")
+            assert exc_info.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
+            assert exc_info.value.message == "Some internal error!"
 
 
 if __name__ == '__main__':

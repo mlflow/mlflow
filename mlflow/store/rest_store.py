@@ -275,3 +275,30 @@ class RestStore(AbstractStore):
         req_body = message_to_json(
             LogBatch(metrics=metric_protos, params=param_protos, tags=tag_protos, run_id=run_id))
         self._call_endpoint(LogBatch, req_body)
+
+
+class DatabricksRestStore(RestStore):
+    """
+    Databricks-specific RestStore implementation that provides different fallback
+    behavior when hitting the GetExperimentByName REST API fails - in particular, we only
+    fall back to ListExperiments when the server responds with ENDPOINT_NOT_FOUND, rather than
+    on all internal server errors. This implementation should be deprecated once
+    GetExperimentByName is available everywhere.
+    """
+    def get_experiment_by_name(self, experiment_name):
+        try:
+            req_body = message_to_json(GetExperimentByName(experiment_name=experiment_name))
+            response_proto = self._call_endpoint(GetExperimentByName, req_body)
+            return Experiment.from_proto(response_proto.experiment)
+        except MlflowException as e:
+            if e.error_code == databricks_pb2.ErrorCode.Name(
+                    databricks_pb2.RESOURCE_DOES_NOT_EXIST):
+                return None
+            elif e.error_code == databricks_pb2.ErrorCode.Name(
+                    databricks_pb2.ENDPOINT_NOT_FOUND):
+                # Fall back to using ListExperiments-based implementation.
+                for experiment in self.list_experiments(ViewType.ALL):
+                    if experiment.name == experiment_name:
+                        return experiment
+                return None
+            raise e
