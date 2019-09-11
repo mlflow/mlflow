@@ -264,9 +264,9 @@ def test_log_metric(tracking_uri_mock):
     ])
 
 
-def test_log_metrics_uses_millisecond_timestamp_resolution(tracking_uri_mock):
+def test_log_metrics_uses_millisecond_timestamp_resolution_fluent(tracking_uri_mock):
     with start_run() as active_run, mock.patch("time.time") as time_mock:
-        time_mock.side_effect = [123 for _ in range(100)]
+        time_mock.side_effect = lambda: 123
         mlflow.log_metrics({
             "name_1": 25,
             "name_2": -3,
@@ -278,7 +278,7 @@ def test_log_metrics_uses_millisecond_timestamp_resolution(tracking_uri_mock):
             "name_1": 40,
         })
         run_id = active_run.info.run_id
-    finished_run = tracking.MlflowClient().get_run(run_id)
+
     client = tracking.MlflowClient()
     metric_history_name1 = client.get_metric_history(run_id, "name_1")
     assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set([
@@ -287,6 +287,29 @@ def test_log_metrics_uses_millisecond_timestamp_resolution(tracking_uri_mock):
         (40, 123 * 1000),
     ])
     metric_history_name2 = client.get_metric_history(run_id, "name_2")
+    assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
+        (-3, 123 * 1000),
+    ])
+
+
+def test_log_metrics_uses_millisecond_timestamp_resolution_client(tracking_uri_mock):
+    with start_run() as active_run, mock.patch("time.time") as time_mock:
+        time_mock.side_effect = lambda: 123
+        mlflow_client = tracking.MlflowClient()
+        run_id = active_run.info.run_id
+
+        mlflow_client.log_metric(run_id=run_id, key="name_1", value=25)
+        mlflow_client.log_metric(run_id=run_id, key="name_2", value=-3)
+        mlflow_client.log_metric(run_id=run_id, key="name_1", value=30)
+        mlflow_client.log_metric(run_id=run_id, key="name_1", value=40)
+
+    metric_history_name1 = mlflow_client.get_metric_history(run_id, "name_1")
+    assert set([(m.value, m.timestamp) for m in metric_history_name1]) == set([
+        (25, 123 * 1000),
+        (30, 123 * 1000),
+        (40, 123 * 1000),
+    ])
+    metric_history_name2 = mlflow_client.get_metric_history(run_id, "name_2")
     assert set([(m.value, m.timestamp) for m in metric_history_name2]) == set([
         (-3, 123 * 1000),
     ])
@@ -383,6 +406,46 @@ def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
                 with pytest.raises(MlflowException) as e:
                     tracking.MlflowClient().log_batch(**final_kwargs)
                 assert e.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+
+
+def test_log_artifact_with_dirs(tracking_uri_mock, tmpdir):
+    # Test log artifact with a directory
+    art_dir = tmpdir.mkdir("parent")
+    file0 = art_dir.join("file0")
+    file0.write("something")
+    file1 = art_dir.join("file1")
+    file1.write("something")
+    sub_dir = art_dir.mkdir("child")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(str(art_dir))
+        base = os.path.basename(str(art_dir))
+        assert os.listdir(run_artifact_dir) == [base]
+        assert set(os.listdir(os.path.join(run_artifact_dir, base))) == \
+            {'child', 'file0', 'file1'}
+        with open(os.path.join(run_artifact_dir, base, "file0")) as f:
+            assert f.read() == "something"
+    # Test log artifact with directory and specified parent folder
+    art_dir = tmpdir.mkdir("dir")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(str(art_dir), "some_parent")
+        assert os.listdir(run_artifact_dir) == [os.path.basename("some_parent")]
+        assert os.listdir(os.path.join(run_artifact_dir, "some_parent")) == \
+            [os.path.basename(str(art_dir))]
+    sub_dir = art_dir.mkdir("another_dir")
+    with start_run():
+        artifact_uri = mlflow.get_artifact_uri()
+        run_artifact_dir = local_file_uri_to_path(artifact_uri)
+        mlflow.log_artifact(str(art_dir), "parent/and_child")
+        assert os.listdir(os.path.join(run_artifact_dir, "parent", "and_child")) == \
+            [os.path.basename(str(art_dir))]
+        assert os.listdir(os.path.join(run_artifact_dir,
+                                       "parent", "and_child",
+                                       os.path.basename(str(art_dir)))) == \
+            [os.path.basename(str(sub_dir))]
 
 
 def test_log_artifact(tracking_uri_mock):

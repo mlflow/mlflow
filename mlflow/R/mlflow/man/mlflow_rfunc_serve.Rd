@@ -23,7 +23,12 @@ are not blocked to handle requests. To terminate a daemonized server, call
 \item{...}{Optional arguments passed to `mlflow_predict()`.}
 }
 \description{
-Serves an RFunc MLflow model as a local web API.
+Serves an RFunc MLflow model as a local REST API server. This interface provides similar
+functionality to ``mlflow models serve`` cli command, however, it can only be used to deploy
+models that include RFunc flavor. The deployed server supports standard mlflow models interface
+with /ping and /invocation endpoints. In addition, R function models also support deprecated
+/predict endpoint for generating predictions. The /predict endpoint will be removed in a future
+version of mlflow.
 }
 \details{
 The URI scheme must be supported by MLflow - i.e. there has to be an MLflow artifact
@@ -36,7 +41,7 @@ The URI scheme must be supported by MLflow - i.e. there has to be an MLflow arti
                  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
  For more information about supported URI schemes, see the Artifacts Documentation at
- https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores.
+ https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
 }
 \examples{
 \dontrun{

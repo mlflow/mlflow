@@ -62,7 +62,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
     :param description: A string description to associate with the Azure Container Image and the
                         Azure Model that will be created. For more information, see
                         `<https://docs.microsoft.com/en-us/python/api/azureml-core/
-                        azureml.core.image.container.containerimageconfig>`_ and
+                        azureml.core.image.container.containerimageconfig?view=azure-ml-py>`_ and
                         `<https://docs.microsoft.com/en-us/python/api/azureml-core/
                         azureml.core.model.model?view=azure-ml-py#register>`_.
     :param tags: A collection of tags, represented as a dictionary of string key-value pairs, to
@@ -70,7 +70,7 @@ def build_image(model_uri, workspace, image_name=None, model_name=None,
                  These tags are added to a set of default tags that include the model uri,
                  and more. For more information, see
                  `<https://docs.microsoft.com/en-us/python/api/azureml-core/
-                 azureml.core.image.container.containerimageconfig>`_ and
+                 azureml.core.image.container.containerimageconfig?view-azure-ml-py>`_ and
                  `<https://docs.microsoft.com/en-us/python/api/azureml-core/
                  azureml.core.model.model?view=azure-ml-py#register>`_.
     :param synchronous: If ``True``, this method blocks until the image creation procedure
@@ -248,7 +248,8 @@ def _create_dockerfile(output_path, mlflow_path=None):
                         Dockerfile command for MLflow installation will install MLflow from this
                         directory. Otherwise, it will install MLflow from pip.
     """
-    docker_cmds = ["RUN pip install azureml-sdk"]
+    docker_cmds = ["RUN apt-get update && apt-get install -y default-jre"]
+    docker_cmds.append("RUN pip install azureml-sdk")
 
     if mlflow_path is not None:
         mlflow_install_cmd = "RUN pip install -e {mlflow_path}".format(

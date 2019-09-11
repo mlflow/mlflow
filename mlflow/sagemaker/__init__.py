@@ -213,9 +213,10 @@ def deploy(app_name, model_uri, execution_role_arn=None, bucket=None,
     :param vpc_config: A dictionary specifying the VPC configuration to use when creating the
                        new SageMaker model associated with this application. The acceptable values
                        for this parameter are identical to those of the ``VpcConfig`` parameter in
-                       the SageMaker boto3 client (https://boto3.readthedocs.io/en/latest/reference/
-                       services/sagemaker.html#SageMaker.Client.create_model). For more information,
-                       see https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
+                       the `SageMaker boto3 client's create_model method
+                       <https://boto3.readthedocs.io/en/latest/reference/services/sagemaker.html
+                       #SageMaker.Client.create_model>`_. For more information, see
+                       https://docs.aws.amazon.com/sagemaker/latest/dg/API_VpcConfig.html.
 
                        Example:
 

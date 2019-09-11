@@ -181,6 +181,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                       :func:`mlflow.keras.get_default_conda_env()` environment is added to
                       the model. The following is an *example* dictionary representation of a
                       Conda environment::
+
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
@@ -190,6 +191,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                                 'tensorflow=1.8.0'
                             ]
                         }
+
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
                            these custom layers using CloudPickle and restores them automatically
@@ -339,7 +341,7 @@ def load_model(model_uri, **kwargs):
 @experimental
 def autolog():
     """
-    Enable automatic logging from TensorFlow to MLflow.
+    Enable automatic logging from Keras to MLflow.
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
@@ -389,6 +391,20 @@ def autolog():
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
         return original(self, *args, **kwargs)
+
+    @gorilla.patch(keras.Model)
+    def fit_generator(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
+        if len(args) >= 5:
+            l = list(args)
+            l[4] += [__MLflowKerasCallback()]
+            args = tuple(l)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'] += [__MLflowKerasCallback()]
+        else:
+            kwargs['callbacks'] = [__MLflowKerasCallback()]
+        return original(self, *args, **kwargs)
+
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    patch = gorilla.Patch(keras.Model, 'fit', fit, settings=settings)
-    gorilla.apply(patch)
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit_generator', fit_generator, settings=settings))

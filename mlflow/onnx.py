@@ -196,8 +196,8 @@ def load_model(model_uri):
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
                       For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/
+                      tracking.html#artifact-stores>`_.
 
     :return: An ONNX model instance.
 
