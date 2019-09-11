@@ -175,7 +175,7 @@ class MlflowClient(object):
         """
         Log a parameter against the run ID. Value is converted to a string.
         """
-        _validate_param(key,value)
+        _validate_param(key, value)
         param = Param(key, str(value))
         self.store.log_param(run_id, param)
 
@@ -227,7 +227,7 @@ class MlflowClient(object):
         for metric in metrics:
             _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         for param in params:
-            _validate_param(param.key,param.value)
+            _validate_param(param.key, param.value)
         for tag in tags:
             _validate_tag_name(tag.key)
         self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
