@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import './ShowArtifactHtmlView.css';
 import { getRequestHeaders } from '../../setupAjaxHeaders';
-import renderHTML from 'react-render-html';
+import Iframe from 'react-iframe'
 
 class ShowArtifactHtmlView extends Component {
   constructor(props) {
@@ -48,11 +48,22 @@ class ShowArtifactHtmlView extends Component {
       );
     } else {
       return (
-        <div className="html-outer-container">
-          {renderHTML(this.state.html)}
-        </div>
+        <Iframe url=""
+                src={this.getBlobURL(this.state.html, 'text/html')}
+                width="100%"
+                height="500px"
+                id="html"
+                className="html-iframe"
+                display="block"
+                position="relative"/>
+              
       );
     }
+  }
+
+  getBlobURL = (code, type) => {
+    const blob = new Blob([code], { type })
+    return URL.createObjectURL(blob)
   }
 
   fetchArtifacts() {
