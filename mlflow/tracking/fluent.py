@@ -291,51 +291,52 @@ def log_vars(
         raise Exception(
             "`include` and `exclude` have been set. However, only one can be not `None`.")
 
-    calling_frame = inspect.stack()[1].frame
-    arg_info = inspect.getargvalues(calling_frame)
+    calling_frame = inspect.currentframe().f_back
+    args, varargs, kwargs = inspect.getargs(calling_frame.f_code)
+    local_values = calling_frame.f_locals
 
-    args = {}
+    params = {}
 
     if include_args:
-        for arg in arg_info.args:
-            args[arg] = arg_info.locals[arg]
+        for arg in args:
+            params[arg] = local_values[arg]
 
-    if include_kwargs and arg_info.keywords is not None:
-        for k, v in arg_info.locals[arg_info.keywords].items():
-            args[k] = v
+    if include_kwargs and kwargs is not None:
+        for k, v in local_values[kwargs].items():
+            params[k] = v
 
-    if include_varargs is not None and arg_info.varargs is not None:
-        for i, v in enumerate(arg_info.locals[arg_info.varargs]):
-            args["{}{}".format(varargs_prefix, i)] = v
+    if include_varargs is not None and varargs is not None:
+        for i, v in enumerate(local_values[varargs]):
+            params["{}{}".format(varargs_prefix, i)] = v
 
     if include_locals:
-        skip = arg_info.args
-        if arg_info.varargs is not None:
-            skip.append(arg_info.varargs)
-        if arg_info.keywords is not None:
-            skip.append(arg_info.keywords)
+        skip = args
+        if varargs is not None:
+            skip.append(varargs)
+        if kwargs is not None:
+            skip.append(kwargs)
 
-        for k, v in arg_info.locals.items():
+        for k, v in local_values.items():
             if k not in skip:
-                args[k] = v
+                params[k] = v
 
     if include is not None:
         exclude = []
-        for k, v in args.items():
+        for k, v in params.items():
             if k not in include:
                 exclude.append(k)
 
     if exclude is not None:
         for arg in exclude:
-            del args[arg]
+            del params[arg]
 
     if verbose:
         print("mlflowhelper: Logging variables:")
-        for k, v in args.items():
+        for k, v in params.items():
             print("  * {}={}".format(k, v))
 
-    log_params(args)
-    return args
+    log_params(params)
+    return params
 
 
 def set_tags(tags):
