@@ -2,6 +2,7 @@
 Utilities for dealing with artifacts in the context of a Run.
 """
 import posixpath
+import os
 
 from six.moves import urllib
 
@@ -73,12 +74,13 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
             artifact_path=artifact_path, dst_path=output_path)
     else:
-        db_uri, artifact_path = extract_db_uri_and_artifact_path_from_uri(artifact_uri)
-        return get_artifact_repository(artifact_uri=db_uri).download_artifacts(
-            artifact_path=artifact_path, dst_path=output_path)
+        root_uri, relative_path = extract_root_uri_and_relative_artifact_path(artifact_uri)
+        print ("OOO", root_uri, relative_path)
+        return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
+            artifact_path=relative_path, dst_path=output_path)
 
 
-def extract_db_uri_and_artifact_path_from_uri(artifact_uri):
+def extract_root_uri_and_relative_artifact_path(artifact_uri):
     """
     Parse the specified artifact URI to extract the artifact path from the DB_URI.
     The DB_URIs are of the form:
@@ -87,11 +89,16 @@ def extract_db_uri_and_artifact_path_from_uri(artifact_uri):
     confirm it passes a plausible regex.
     """
 
-    parsed_uri = urllib.parse.urlparse(artifact_uri)
-    scheme = parsed_uri.scheme
-    scheme_plus_count = scheme.count('+')
-    if scheme_plus_count == 0 or scheme_plus_count == 1:
-        return extract_db_uri_and_path(artifact_uri)
-    else:
-        error_msg = "Invalid database scheme in the URI: '%s'. %s" % (scheme, _INVALID_DB_URI_MSG)
-        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
+    print("artifact_uri", artifact_uri)
+    split_uri = artifact_uri.split("artifacts" + os.sep, 1)
+    root_uri = split_uri[0] + "artifacts"
+    relative_path = split_uri[1]
+    return root_uri, relative_path
+    # parsed_uri = urllib.parse.urlparse(artifact_uri)
+    # scheme = parsed_uri.scheme
+    # scheme_plus_count = scheme.count('+')
+    # if scheme_plus_count == 0 or scheme_plus_count == 1:
+    #     return extract_db_uri_and_path(artifact_uri)
+    # else:
+    #     error_msg = "Invalid database scheme in the URI: '%s'. %s" % (scheme, _INVALID_DB_URI_MSG)
+    #     raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)

@@ -7,7 +7,8 @@ from mlflow.store.dbmodels import initial_artifact_store_models
 from mlflow.store.db_artifact_repo import DBArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
-DB_URI = 'sqlite:///'
+DB_URI = 'mssql+pyodbc://sqluser:Mlflow2019@microsoft@sqltestml.database.windows.net:1433/mlflow_test?driver=ODBC+Driver+17+for+SQL+Server'
+root_uri = 'artifacts'
 
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase):
@@ -19,8 +20,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.maxDiff = None  # print all differences on assert failures
         fd, self.temp_dbfile = tempfile.mkstemp()
         # Close handle immediately so that we can remove the file later on in Windows
-        os.close(fd)
-        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        # os.close(fd)
+        # self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        self.db_url = os.path.join(DB_URI, root_uri)
         self.store = self._get_store(self.db_url)
 
     def tearDown(self):
@@ -41,7 +43,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='model').first()
                 self.assertEqual(str(test_art.artifact_id), "1")
                 self.assertEqual(test_art.artifact_name, 'model')
-                self.assertEqual(test_art.group_path, os.path.normpath('more_path/some'))
+                self.assertEqual(test_art.group_path,
+                                 os.path.normpath(os.path.join(root_uri, 'more_path/some')))
                 self.assertEqual(test_art.artifact_content, open(
                     local_file, "rb").read())
 
@@ -60,7 +63,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='model').first()
                 self.assertEqual(str(test_art.artifact_id), "1")
                 self.assertEqual(test_art.artifact_name, 'model')
-                self.assertEqual(test_art.group_path, '')
+                self.assertEqual(test_art.group_path, root_uri)
                 self.assertEqual(test_art.artifact_content, open(
                     local_file, "rb").read())
 
@@ -83,7 +86,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='file_one.txt').first()
                 self.assertEqual(str(test_art.artifact_id), "1")
                 self.assertEqual(test_art.artifact_name, 'file_one.txt')
-                self.assertEqual(test_art.group_path, os.path.normpath('new_path/path'))
+                self.assertEqual(test_art.group_path,
+                                 os.path.normpath(os.path.join(root_uri, 'new_path/path')))
                 self.assertEqual(test_art.artifact_content, open(
                     root_dir.path("file_one.txt"), "rb").read())
 
@@ -91,7 +95,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='file_two.txt').first()
                 self.assertEqual(str(test_art.artifact_id), "2")
                 self.assertEqual(test_art.artifact_name, 'file_two.txt')
-                self.assertEqual(test_art.group_path, os.path.normpath('new_path/path/subdir'))
+                self.assertEqual(test_art.group_path,
+                                 os.path.normpath(os.path.join(root_uri, 'new_path/path/subdir')))
                 self.assertEqual(test_art.artifact_content, open(
                     root_dir.path(os.path.normpath("subdir/file_two.txt")), "rb").read())
 
@@ -114,7 +119,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='file_one.txt').first()
                 self.assertEqual(str(test_art.artifact_id), "1")
                 self.assertEqual(test_art.artifact_name, 'file_one.txt')
-                self.assertEqual(test_art.group_path, '')
+                self.assertEqual(test_art.group_path, root_uri)
                 self.assertEqual(test_art.artifact_content, open(
                     root_dir.path("file_one.txt"), "rb").read())
 
@@ -122,7 +127,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     filter_by(artifact_name='file_two.txt').first()
                 self.assertEqual(str(test_art.artifact_id), "2")
                 self.assertEqual(test_art.artifact_name, 'file_two.txt')
-                self.assertEqual(test_art.group_path, 'subdir')
+                self.assertEqual(test_art.group_path,
+                                 os.path.normpath(os.path.join(root_uri, 'subdir')))
                 self.assertEqual(test_art.artifact_content, open(
                     root_dir.path(os.path.normpath("subdir/file_two.txt")), "rb").read())
 
@@ -139,51 +145,61 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 f.write('DB store Test Three')
 
             self.store.log_artifacts(root_dir._path, 'new_path/path')
-            self.store.log_artifacts(root_dir._path, 'new_path2/path')
 
+            self.store.log_artifacts(root_dir._path, 'new_path2/path')
+            print(os.path.normpath(os.path.join(root_uri, 'new_path/path')))
             self.assertEqual(len(self.store.list_artifacts('new_path/path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path/path')]
+            print (filenames)
             self.assertTrue(filenames.__contains__(
-                os.path.join(os.path.normpath('new_path/path'), 'file_one.txt')))
+                os.path.join(root_uri, os.path.normpath('new_path/path'), 'file_one.txt')))
             self.assertTrue(
                 filenames.__contains__(
-                    os.path.join(os.path.normpath('new_path/path/subdir'), 'file_two.txt')))
+                    os.path.join(root_uri, os.path.normpath('new_path/path/subdir'),
+                                 'file_two.txt')))
             self.assertTrue(
                 filenames.__contains__(
-                    os.path.join(os.path.normpath('new_path/path/subdir'), 'file_three.txt')))
+                    os.path.join(root_uri, os.path.normpath('new_path/path/subdir'),
+                                 'file_three.txt')))
 
             self.assertEqual(len(self.store.list_artifacts('new_path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path')]
             self.assertTrue(filenames.__contains__(
-                os.path.join(os.path.normpath('new_path/path'), 'file_one.txt')))
+                os.path.join(root_uri, os.path.normpath('new_path/path'), 'file_one.txt')))
             self.assertTrue(
                 filenames.__contains__(
-                    os.path.join(os.path.normpath('new_path/path/subdir'), 'file_two.txt')))
+                    os.path.join(root_uri, os.path.normpath('new_path/path/subdir'),
+                                 'file_two.txt')))
             self.assertTrue(
                 filenames.__contains__(
-                    os.path.join(os.path.normpath('new_path/path/subdir'), 'file_three.txt')))
+                    os.path.join(root_uri, os.path.normpath('new_path/path/subdir'),
+                                 'file_three.txt')))
 
             self.assertEqual(len(self.store.list_artifacts('new_path2/path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path2/path')]
             self.assertTrue(filenames.__contains__(
-                os.path.join(os.path.normpath('new_path2/path'), 'file_one.txt')))
+                os.path.join(root_uri, os.path.normpath('new_path2/path'), 'file_one.txt')))
             self.assertTrue(
                 filenames.__contains__(
-                    os.path.join(os.path.normpath('new_path2/path/subdir'), 'file_two.txt')))
+                    os.path.join(root_uri, os.path.normpath('new_path2/path/subdir'),
+                                 'file_two.txt')))
             self.assertTrue(
                 filenames.__contains__(
-                    os.path.join(os.path.normpath('new_path2/path/subdir'), 'file_three.txt')))
+                    os.path.join(root_uri, os.path.normpath('new_path2/path/subdir'),
+                                 'file_three.txt')))
 
             self.assertEqual(len(self.store.list_artifacts('new_path2')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path2')]
             self.assertTrue(filenames.__contains__(
-                os.path.join(os.path.normpath('new_path2/path'), 'file_one.txt')))
+                os.path.join(root_uri, os.path.normpath('new_path2/path'), 'file_one.txt')))
             self.assertTrue(
                 filenames.__contains__(
-                    os.path.join(os.path.normpath('new_path2/path/subdir'), 'file_two.txt')))
+                    os.path.join(root_uri, os.path.normpath('new_path2/path/subdir'),
+                                 'file_two.txt')))
             self.assertTrue(
                 filenames.__contains__(
-                    os.path.join(os.path.normpath('new_path2/path/subdir'), 'file_three.txt')))
+                    os.path.join(root_uri, os.path.normpath('new_path2/path/subdir'),
+                                 'file_three.txt')))
 
     def test_download_file_artifact(self):
         with TempDir() as root_dir:

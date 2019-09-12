@@ -34,7 +34,7 @@ def _relative_path_local(base_dir, subdir_path):
 
 def extract_db_uri_and_path(artifact_uri):
     parsed_uri = urllib.parse.urlparse(artifact_uri)
-
+    print("IN db artifact ", parsed_uri)
     # for testing
     if artifact_uri.__contains__("sqlite:///"):
         return artifact_uri, ""
@@ -69,6 +69,7 @@ class DBArtifactRepository(ArtifactRepository):
 
     def __init__(self, artifact_uri):
         self.db_uri, self.root = extract_db_uri_and_path(artifact_uri)
+        print("Root LALAL " + self.root)
         self.db_type = extract_db_type_from_uri(self.db_uri)
         self.engine = sqlalchemy.create_engine(self.db_uri)
         super(DBArtifactRepository, self).__init__(self.db_uri)
@@ -138,6 +139,7 @@ class DBArtifactRepository(ArtifactRepository):
                     artifact_initial_size=os.path.getsize(local_file)
                 )
             else:
+                print(self.root, artifact_path)
                 artifact = SqlArtifact(
                     artifact_name=file_name, group_path=os.path.join(self.root, artifact_path),
                     artifact_content=open(local_file, "rb").read(),
@@ -170,11 +172,19 @@ class DBArtifactRepository(ArtifactRepository):
 
                 for each_file in files:
                     source = os.path.join(subdir_path, each_file)
-                    artifact = SqlArtifact(
-                        artifact_name=each_file, group_path=os.path.join(self.root, db_subdir_path),
-                        artifact_content=open(source, "rb").read(),
-                        artifact_initial_size=os.path.getsize(source)
-                    )
+                    if db_subdir_path == "":
+                        artifact = SqlArtifact(
+                            artifact_name=each_file, group_path=self.root,
+                            artifact_content=open(source, "rb").read(),
+                            artifact_initial_size=os.path.getsize(source)
+                        )
+                    else:
+                        artifact = SqlArtifact(
+                            artifact_name=each_file,
+                            group_path=os.path.join(self.root, db_subdir_path),
+                            artifact_content=open(source, "rb").read(),
+                            artifact_initial_size=os.path.getsize(source)
+                        )
                     session.add(artifact)
         session.flush()
 
@@ -189,12 +199,14 @@ class DBArtifactRepository(ArtifactRepository):
         """
         path = os.path.normpath(path)
         with self.ManagedSessionMaker() as session:
-            regex = path + os.sep + '%'
+            regex = os.path.join(path, '%')
             return [artifact.to_file_info()
                     for artifact in
                     session.query(SqlArtifact).filter(
-                        or_(SqlArtifact.group_path.like(os.path.join(self.root, regex)),
-                            SqlArtifact.group_path == path))]
+                        or_(SqlArtifact.group_path.like(
+                            os.path.normpath(os.path.join(self.root, regex))),
+                            SqlArtifact.group_path == os.path.normpath(
+                                os.path.join(self.root, path))))]
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
@@ -216,10 +228,12 @@ class DBArtifactRepository(ArtifactRepository):
         #       without downloading it, or to get a pre-signed URL for cloud storage.
 
         def download_artifacts_into(artifact_path, dest_dir):
+            print("ARTIFACT_PATH", artifact_path)
             basename = os.path.basename(artifact_path)
             local_path = os.path.join(dest_dir, basename)
 
             listing = self.list_artifacts(artifact_path)
+            print(listing)
             if len(listing) > 0:
                 # Artifact_path is a directory, so make a directory for it and download everything
                 if not os.path.exists(local_path):
@@ -228,7 +242,8 @@ class DBArtifactRepository(ArtifactRepository):
                     # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
                     if file_info.path == "." or file_info.path == artifact_path:
                         continue
-                    download_artifacts_into(artifact_path=file_info.path, dest_dir=local_path)
+                    relative_file_path = file_info.path.split(self.root + os.sep, 1)[1]
+                    download_artifacts_into(artifact_path=relative_file_path, dest_dir=local_path)
             else:
                 self._download_file(remote_file_path=artifact_path, local_path=local_path)
             return local_path
@@ -264,6 +279,7 @@ class DBArtifactRepository(ArtifactRepository):
                                  directory of the artifact repository.
         :param local_path: The path to which to save the downloaded file.
         """
+        print ("remote file path ", remote_file_path)
         group, file_name = os.path.split(remote_file_path)
 
         with self.ManagedSessionMaker() as session:
@@ -272,6 +288,7 @@ class DBArtifactRepository(ArtifactRepository):
                             SqlArtifact.group_path == os.path.join(self.root, group),
                             SqlArtifact.artifact_name == file_name)]
             if len(contents) == 1:
+                print("YES")
                 with open(local_path, 'wb') as f:
                     f.write(contents[0])
 
