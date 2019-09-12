@@ -194,8 +194,9 @@ tracking server. To get access to a remote tracking server:
 - :ref:`Launch a tracking server <tracking_server>` on a remote machine.
 
 - Alternatively, sign up for `Databricks Community Edition <https://databricks.com/try-databricks>`_,
-  which comes bundled with a hosted, auto-updating tracking server that lies behind authentication.
-  Then, run ``databricks configure`` to create a credentials file for MLflow, specifying
+  which comes bundled with a hosted, auto-updating tracking server that lies behind authentication. Note that
+  Community Edition is intended for quick experimentation rather than production use cases.
+  After signing up, run ``databricks configure`` to create a credentials file for MLflow, specifying
   https://community.cloud.databricks.com as the host.
 
 You can then :ref:`log to the remote tracking server <logging_to_a_tracking_server>`, e.g. by
