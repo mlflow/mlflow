@@ -1,4 +1,4 @@
-Contributing to MLflow
+pip install -r requirements.txt Contributing to MLflow
 ======================
 We welcome community contributions to MLflow. This page describes how to develop/test your changes
 to MLflow locally.

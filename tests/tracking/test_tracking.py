@@ -386,6 +386,102 @@ def test_log_params(tracking_uri_mock):
     assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested/nested/name": "5"}
 
 
+def test_log_vars(tracking_uri_mock):
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+
+        def main(name_1, name_2, nested_nested_name):
+            mlflow.log_vars()
+
+        main("c", "b", 5)
+    finished_run = tracking.MlflowClient().get_run(run_id)
+    # Validate params
+    assert finished_run.data.params == {"name_1": "c", "name_2": "b", "nested_nested_name": "5"}
+
+
+def test_log_vars_complete(tracking_uri_mock):
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+
+        def main(name_1, name_2, nested_nested_name, *args, **kwargs):
+            mlflow.log_vars()
+
+        main("c", "b", 5, "arg_1", 77, kw_1="kw1", kw_2=99)
+    finished_run = tracking.MlflowClient().get_run(run_id)
+    # Validate params
+    assert finished_run.data.params == {
+        "name_1": "c",
+        "name_2": "b",
+        "nested_nested_name": "5",
+        "vararg_0": "arg_1",
+        "vararg_1": "77",
+        "kw_1": "kw1",
+        "kw_2": "99"}
+
+
+def test_log_vars_rename(tracking_uri_mock):
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+
+        def main(name_1, name_2, nested_nested_name, *args, **kwargs):
+            mlflow.log_vars(varargs_prefix="test_")
+
+        main("c", "b", 5, "arg_1", 77)
+    finished_run = tracking.MlflowClient().get_run(run_id)
+    # Validate params
+    assert finished_run.data.params == {
+        "name_1": "c",
+        "name_2": "b",
+        "nested_nested_name": "5",
+        "test_0": "arg_1",
+        "test_1": "77"}
+
+
+def test_log_vars_locals(tracking_uri_mock):
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+
+        def main():
+            name_1 = "c"
+            name_2 = "b"
+            nested_nested_name = 5
+            mlflow.log_vars(include_locals=True)
+        main()
+
+    finished_run = tracking.MlflowClient().get_run(run_id)
+    # Validate params
+    assert finished_run.data.params == {
+        "name_1": "c",
+        "name_2": "b",
+        "nested_nested_name": "5"}
+
+
+def test_log_vars_include(tracking_uri_mock):
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+
+        def main(name_1, name_2, nested_nested_name):
+            mlflow.log_vars(include=["name_1", "name_2"])
+
+        main("c", "b", 5)
+    finished_run = tracking.MlflowClient().get_run(run_id)
+    # Validate params
+    assert finished_run.data.params == {"name_1": "c", "name_2": "b"}
+
+
+def test_log_vars_exclude(tracking_uri_mock):
+    with start_run() as active_run:
+        run_id = active_run.info.run_id
+
+        def main(name_1, name_2, nested_nested_name):
+            mlflow.log_vars(exclude=["nested_nested_name"])
+
+        main("c", "b", 5)
+    finished_run = tracking.MlflowClient().get_run(run_id)
+    # Validate params
+    assert finished_run.data.params == {"name_1": "c", "name_2": "b"}
+
+
 def test_log_batch_validates_entity_names_and_values(tracking_uri_mock):
     bad_kwargs = {
         "metrics": [

@@ -257,24 +257,30 @@ def log_vars(
         include_args=True, include_varargs=True, include_kwargs=True, include_locals=False,
         varargs_prefix="vararg_",
         verbose=0):
-    """Log variables extracted from the local scope for the current run, starting a run if no runs are active.
+    """Log variables automatically extracted from the local scope for the current run,
+    starting a run if no runs are active.
 
-    :param include: list[str], optional, default: None;
-        List of variables to include; Only one, `include` OR `exclude`, can be specified.
-    :param exclude: list[str], optional, default: None;
-        List of variables to exclude; Only one, `include` OR `exclude`, can be specified.
-    :param include_args: bool, optional, default: True;
-        Whether to include regular arguments of the enclosing function
-    :param include_varargs: bool, optional, default: True;
-        Whether to include varargs of the enclosing function
-    :param include_kwargs: bool, optional, default: True;
-        Whether to include keyword arguments of the enclosing function
-    :param include_locals: bool, optional, default: False;
-        Whether to include local variables besides the function arguments of the enclosing function
-    :param varargs_prefix: str, optional, default: "vararg_";
-        Prefix for (unnamed) varargs
-    :param verbose: int, optional, default: 0;
-        1 will print the logged arguments
+    Example:
+
+    >>> import mlflow
+    >>> def run(p1, p2, *varargs, **kwargs):
+    >>>     local = 10
+    >>>     with mlflow.start_run() as active_run:
+    >>>         mlflow.log_vars(include_locals=True)
+    >>> run("a", "b", "c", test=77)
+    >>> # logs: { "p1": "a", "p2": "b", "varargs_0": "c", "test": "77", "local": "10" }
+
+    :param include: List of variables to include (list[str]).
+        Note that only one, `include` OR `exclude`, can be specified.
+    :param exclude: List of variables to exclude (list[str]).
+        Note that only one, `include` OR `exclude`, can be specified.
+    :param include_args: Whether to include regular arguments of the enclosing function (bool).
+    :param include_varargs: Whether to include varargs of the enclosing function (bool).
+    :param include_kwargs: Whether to include keyword arguments of the enclosing function (bool).
+    :param include_locals: Whether to include local variables
+        in addition to the function arguments of the enclosing function (bool).
+    :param varargs_prefix: Prefix for (unnamed) varargs (str).
+    :param verbose: `1` will print the logged arguments.
 
     :return: dict
         Dict containing the logged arguments and their values
@@ -282,7 +288,8 @@ def log_vars(
     """
 
     if include is not None and exclude is not None:
-        raise Exception("`include` and `exclude` have been set. However, only one can be not `None`.")
+        raise Exception(
+            "`include` and `exclude` have been set. However, only one can be not `None`.")
 
     calling_frame = inspect.stack()[1].frame
     arg_info = inspect.getargvalues(calling_frame)
