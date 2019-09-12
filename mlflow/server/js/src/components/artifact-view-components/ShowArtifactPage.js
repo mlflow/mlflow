@@ -1,6 +1,9 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
-import { getExtension, IMAGE_EXTENSIONS, TEXT_EXTENSIONS, HTML_EXTENSIONS} from '../../utils/FileUtils';
+import { getExtension, 
+  IMAGE_EXTENSIONS, 
+  TEXT_EXTENSIONS, 
+  HTML_EXTENSIONS} from '../../utils/FileUtils';
 import ShowArtifactImageView from './ShowArtifactImageView';
 import ShowArtifactTextView from './ShowArtifactTextView';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
@@ -36,7 +39,7 @@ class ShowArtifactPage extends Component {
           <div className="select-preview-text">
             <span className="select-preview-header">Select a file to preview</span>
             <span className="select-preview-supported-formats">
-              Supported formats: image and text files
+              Supported formats: image, text, html files
             </span>
           </div>
         </div>
