@@ -9,13 +9,12 @@ import icon from 'leaflet/dist/images/marker-icon.png';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-
 class ShowArtifactMapView extends Component {
   constructor(props) {
     super(props);
     this.fetchArtifacts = this.fetchArtifacts.bind(this);
-
-    };
+    this.leafletMap = undefined;
+  }
 
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
@@ -28,7 +27,7 @@ class ShowArtifactMapView extends Component {
     features: undefined,
   };
 
-  componentWillMount() {
+  componentDidMount() {
     this.fetchArtifacts();
   }
 
@@ -37,73 +36,71 @@ class ShowArtifactMapView extends Component {
       this.fetchArtifacts();
     }
 
-    if (window.map !== undefined) {
-      if (window.map.hasOwnProperty('_layers')) {
-        window.map.off();
-        window.map.remove();
+    if (this.leafletMap !== undefined) {
+      if (this.leafletMap.hasOwnProperty('_layers')) {
+        this.leafletMap.off();
+        this.leafletMap.remove();
         document.getElementsByClassName('map-container')[0].innerHTML = "<div id='map'></div>";
-        window.map = undefined;
-      };
-    };
+        this.leafletMap = undefined;
+      }
+    }
 
     const map = L.map('map');
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+
+    // Load tiles from OSM with the corresponding attribution
+    // Potentially, these could be set in an ENV VAR to use a custom map
+    const tilesURL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const attr = '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors';
+
+    L.tileLayer(tilesURL, {
+      attribution: attr,
     }).addTo(map);
 
     function onEachFeature(feature, layer) {
-			if (feature.properties && feature.properties.popupContent) {
-				var popupContent = feature.properties.popupContent;
-				layer.bindPopup(popupContent);
-			};
-		};
+      if (feature.properties && feature.properties.popupContent) {
+        const popupContent = feature.properties.popupContent;
+        layer.bindPopup(popupContent);
+      }
+    }
 
-    var geojsonLayer = L.geoJSON(this.state.features, {
-			style: function (feature) {
-				return feature.properties && feature.properties.style;
-			},
-			pointToLayer: function (feature, latlng) {
-				if (feature.properties && feature.properties.style) {
-					return L.circleMarker(latlng, feature.properties && feature.properties.style);
-				} else if (feature.properties && feature.properties.icon) {
-					return L.marker(latlng, {
-						icon: L.icon(feature.properties && feature.properties.icon)
-					});
-				}
-				return L.marker(latlng, {
-					icon: L.icon({
-						iconRetinaUrl: iconRetina,
-						iconUrl: icon,
-						shadowUrl: iconShadow,
-						iconSize: [24,36],
-						iconAnchor: [12,36],
-					})
-				});
-			},
-			onEachFeature: onEachFeature
-		}).addTo(map);
+    const geojsonLayer = L.geoJSON(this.state.features, {
+      style: function(feature) {
+        return feature.properties && feature.properties.style;
+      },
+      pointToLayer: function(feature, latlng) {
+        if (feature.properties && feature.properties.style) {
+          return L.circleMarker(latlng, feature.properties && feature.properties.style);
+        } else if (feature.properties && feature.properties.icon) {
+          return L.marker(latlng, {
+            icon: L.icon(feature.properties && feature.properties.icon),
+          });
+        }
+        return L.marker(latlng, {
+          icon: L.icon({
+            iconRetinaUrl: iconRetina,
+            iconUrl: icon,
+            shadowUrl: iconShadow,
+            iconSize: [24, 36],
+            iconAnchor: [12, 36],
+          }),
+        });
+      },
+      onEachFeature: onEachFeature,
+    }).addTo(map);
     map.fitBounds(geojsonLayer.getBounds());
-    window.map = map;
+    this.leafletMap = map;
   }
 
   render() {
     if (this.state.loading) {
-      return (
-        <div>
-          Loading...
-        </div>
-      );
+      return <div>Loading...</div>;
     }
     if (this.state.error) {
-      return (
-        <div>
-          Oops we couldn't load your file because of an error.
-        </div>
-      );
+      return <div>Oops we couldn't load your file because of an error.</div>;
     } else {
       return (
-        <div className="map-container">
-          <div id="map"></div>
+        <div className='map-container'>
+          <div id='map'></div>
         </div>
       );
     }
@@ -113,17 +110,19 @@ class ShowArtifactMapView extends Component {
     const getArtifactRequest = new Request(getSrc(this.props.path, this.props.runUuid), {
       method: 'GET',
       redirect: 'follow',
-      headers: new Headers(getRequestHeaders(document.cookie))
+      headers: new Headers(getRequestHeaders(document.cookie)),
     });
-    fetch(getArtifactRequest).then((response) => {
-      return response.blob();
-    }).then((blob) => {
-      const fileReader = new FileReader();
-      fileReader.onload = (event) => {
-        this.setState({ features: JSON.parse(event.target.result), loading: false });
-      };
-      fileReader.readAsText(blob);
-    });
+    fetch(getArtifactRequest)
+      .then((response) => {
+        return response.blob();
+      })
+      .then((blob) => {
+        const fileReader = new FileReader();
+        fileReader.onload = (event) => {
+          this.setState({ features: JSON.parse(event.target.result), loading: false });
+        };
+        fileReader.readAsText(blob);
+      });
   }
 }
 
