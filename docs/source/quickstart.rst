@@ -198,5 +198,28 @@ tracking server. To get access to a remote tracking server:
   Then, run ``databricks configure`` to create a credentials file for MLflow, specifying
   https://community.cloud.databricks.com as the host.
 
-You can then :ref:`log to the remote tracking server <logging_to_a_tracking_server>`,
-using ``"databricks"`` as your tracking URI if using Community Edition.
+You can then :ref:`log to the remote tracking server <logging_to_a_tracking_server>`, e.g. by
+adding the following to the start of your program:
+
+  .. code-section::
+
+    .. code-block:: python
+
+        import mlflow
+        # Set "databricks" as the tracking URI if running against Community Edition - otherwise,
+        # update this to your tracking server's URI
+        mlflow.set_tracking_uri("databricks")
+        # Note: on Databricks, the experiment name passed to set_experiment must be a valid path
+        # in the workspace
+        mlflow.set_experiment("/my-experiment")
+
+    .. code-block:: R
+
+        library(mlflow)
+        install_mlflow()
+        # Set "databricks" as the tracking URI if running against Community Edition - otherwise,
+        # update this to your tracking server's URI
+        mlflow_set_tracking_uri("databricks")
+        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
+        # valid path in the workspace
+        mlflow_set_experiment("/my-experiment")

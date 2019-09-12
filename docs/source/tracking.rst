@@ -554,6 +554,9 @@ then make API requests to your remote tracking server.
         import mlflow
         remote_server_uri = "..." # set to your server URI
         mlflow.set_tracking_uri(remote_server_uri)
+        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
+        # valid path in the workspace
+        mlflow.set_experiment("/my-experiment")
         with mlflow.start_run():
             mlflow.log_param("a", 1)
             mlflow.log_metric("b", 2)
@@ -564,6 +567,9 @@ then make API requests to your remote tracking server.
         install_mlflow()
         remote_server_uri = "..." # set to your server URI
         mlflow_set_tracking_uri(remote_server_uri)
+        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
+        # valid path in the workspace
+        mlflow_set_experiment("/my-experiment")
         mlflow_log_param("a", "1")
 
 
