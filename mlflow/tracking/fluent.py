@@ -119,6 +119,15 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     if existing_run_id:
         _validate_run_id(existing_run_id)
         active_run_obj = MlflowClient().get_run(existing_run_id)
+        # Check to see if experiment_id from environment matches experiment_id from set_experiment()
+        if (_active_experiment_id is not None and
+                _active_experiment_id != active_run_obj.info.experiment_id):
+            raise MlflowException("Cannot start run with ID {} because active run ID "
+                                  "does not match environment run ID. Make sure --experiment-name "
+                                  "or --experiment-id matches experiment set with "
+                                  "set_experiment(), or just use command-line "
+                                  "arguments".format(existing_run_id))
+        # Check to see if current run isn't deleted
         if active_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
             raise MlflowException("Cannot start run with ID {} because it is in the "
                                   "deleted state.".format(existing_run_id))
