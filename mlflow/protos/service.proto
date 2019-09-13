@@ -15,8 +15,11 @@ service MlflowService {
 
 
   // Get metadata for an experiment.
-  // This endpoint will return deleted experiments.
-
+  //
+  // This endpoint will return deleted experiments, but prefers the active experiment
+  // if an active and deleted experiment share the same name. If multiple deleted
+  // experiments share the same name, the API will return one of them.
+  //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if no experiment with the specified name exists.
   //
   rpc getExperimentByName (GetExperimentByName) returns (GetExperimentByName.Response) {
