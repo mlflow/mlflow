@@ -185,6 +185,8 @@ which returns::
 For more information, see :doc:`models`.
 
 
+.. _quickstart_logging_to_remote_server:
+
 Logging to a Remote Tracking Server
 -----------------------------------
 In the examples above, MLflow logs data to the local filesystem of the machine it's running on.
@@ -194,7 +196,7 @@ tracking server. To get access to a remote tracking server:
 - :ref:`Launch a tracking server <tracking_server>` on a remote machine.
 
 - Alternatively, sign up for `Databricks Community Edition <https://databricks.com/try-databricks>`_,
-  which comes bundled with a hosted, auto-updating tracking server that lies behind authentication.
+  which comes bundled with a hosted tracking server.
   Then, run ``databricks configure`` to create a credentials file for MLflow, specifying
   https://community.cloud.databricks.com as the host.
 
