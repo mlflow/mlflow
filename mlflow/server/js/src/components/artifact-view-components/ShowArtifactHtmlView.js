@@ -55,7 +55,8 @@ class ShowArtifactHtmlView extends Component {
                 id="html"
                 className="html-iframe"
                 display="block"
-                position="relative"/>
+                position="relative"
+                sandbox="allow-scripts"/>
               
       );
     }
