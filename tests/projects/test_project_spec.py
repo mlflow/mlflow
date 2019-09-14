@@ -146,7 +146,7 @@ bad_ml_project_file_test_cases = (
     ),
     # docker env has only a string image entry
     (
-        "must have an 'image' entry",
+        "must be a YAML object with a string 'image' entry",
         (
             """
             docker_env: blah

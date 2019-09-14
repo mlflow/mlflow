@@ -1,6 +1,10 @@
 import os
+import logging
 
 from mlflow.exceptions import ExecutionException
+
+_logger = logging.getLogger(__name__)
+
 
 MLPROJECT_PARAMETER_TYPES = ('string', 'float', 'path', 'uri')
 BAD_MLPROJECT_MESSAGE = "Invalid MLproject file: {}"
@@ -74,9 +78,10 @@ def _validate_entry_point_parameter_yaml(entry_point_name, parameter_name, param
     def check_parameter_type(attempted_type):
         if attempted_type not in MLPROJECT_PARAMETER_TYPES:
             unsupported_parameter_type_message = (
-                "unsupported type for parameter {} in entry point {} will be converted to string"
+                "unsupported type for parameter {} in entry point {}, "
+                "parameter value will be converted to string"
             ).format(parameter_name, entry_point_name)
-            print(unsupported_parameter_type_message)
+            _logger.warning(unsupported_parameter_type_message)
 
     # interpret the entry as a type if it's a single string
     if isinstance(parameter_yaml, str):
@@ -103,8 +108,8 @@ def _validate_docker_env_yaml(docker_env_yaml):
 
     if not isinstance(docker_env_yaml, dict) or not isinstance(docker_env_yaml.get('image'), str):
         bad_docker_entry_message = (
-            "docker_env must have an 'image' entry representing a Docker image "
-            "that is accessible on the system executing the project"
+            "docker_env must be a YAML object with a string 'image' entry representing "
+            "a Docker image that is accessible on the system executing the project"
         )
         raise ExecutionException(BAD_MLPROJECT_MESSAGE.format(bad_docker_entry_message))
 

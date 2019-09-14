@@ -17,10 +17,10 @@ DEFAULT_CONDA_FILE_NAME = "conda.yaml"
 
 
 def load_project(directory):
-
     mlproject_path = os.path.join(directory, MLPROJECT_FILE_NAME)
     if os.path.exists(mlproject_path):
-        yaml_obj = yaml.safe_load(open(mlproject_path))
+        with open(mlproject_path) as mlproject_file:
+            yaml_obj = yaml.safe_load(mlproject_file.read())
     else:
         yaml_obj = {}
 
@@ -30,7 +30,6 @@ def load_project(directory):
     conda_path = yaml_obj.get("conda_env")
     docker_env = yaml_obj.get("docker_env")
     entry_points = {}
-
     for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
         parameters = entry_point_yaml.get("parameters", {})
         command = entry_point_yaml.get("command")
