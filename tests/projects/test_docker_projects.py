@@ -235,3 +235,11 @@ def test_docker_databricks_tracking_cmd_and_envs(ProfileConfigProvider):
                     "DATABRICKS_INSECURE": True,
                     mlflow.tracking._TRACKING_URI_ENV_VAR: "databricks"}
     assert cmds == []
+
+
+@mock.patch('databricks_cli.configure.provider.ProfileConfigProvider')
+def test_docker_unknown_uri_artifact_cmd_and_envs():
+    cmd, envs = mlflow.projects._get_docker_artifact_storage_cmd_and_envs(
+        "file-plugin://some_path")
+    assert cmd == []
+    assert envs == {}
