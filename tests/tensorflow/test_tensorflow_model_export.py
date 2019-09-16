@@ -60,8 +60,10 @@ def saved_tf_iris_model(tmpdir):
                                           hidden_units=[1])
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(input_train, steps=10)
-    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)]).ravel()
-    estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
+    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)])
+    estimator_preds_df = pd.DataFrame(estimator_preds,
+                                      columns=["predictions_{}".format(column)
+                                               for column in range(estimator_preds.shape[1])])
 
     # Define a function for estimator inference
     feature_spec = {}
@@ -126,8 +128,10 @@ def saved_tf_categorical_model(tmpdir):
 
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(input_fn=input_train, steps=10)
-    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)]).ravel()
-    estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
+    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)])
+    estimator_preds_df = pd.DataFrame(estimator_preds,
+                                      columns=["predictions_{}".format(column)
+                                               for column in range(estimator_preds.shape[1])])
 
     # Define a function for estimator inference
     feature_spec = {
@@ -268,7 +272,7 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
             outputs_list = tf_sess.run(output_tensors, feed_dict=feed_dict)
             assert len(outputs_list) == 1
             outputs = outputs_list[0]
-            assert len(outputs.ravel()) == input_length
+            assert len(outputs) == input_length
 
     tf_graph_1 = tf.Graph()
     tf_sess_1 = tf.Session(graph=tf_graph_1)

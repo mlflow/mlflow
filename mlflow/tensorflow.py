@@ -21,6 +21,7 @@ import atexit
 import time
 import tempfile
 
+import numpy
 import pandas
 
 import mlflow
@@ -344,8 +345,15 @@ class _TFWrapper(object):
                     for tensor_column_name in self.input_tensor_mapping.keys()
             }
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
-            pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
-            return pandas.DataFrame(data=pred_dict)
+            # Output tensors can be multidimensional (e.g., softmax), so return in DataFrame with
+            # columns tensor0_0, tensor0_1, ..., tensor0_n, tensor1_0, tensor1_1, ..., tensor1_n
+            pred_df = pandas.DataFrame()
+            for output_name, output_values in raw_preds.items():
+                if output_values.ndim == 1:
+                    output_values = numpy.expand_dims(output_values, axis=1)
+                for column in range(output_values.shape[1]):
+                    pred_df['{}_{}'.format(output_name, column)] = output_values[:, column]
+            return pred_df
 
 
 class __MLflowTfKerasCallback(Callback):
