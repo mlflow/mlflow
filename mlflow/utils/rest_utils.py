@@ -21,10 +21,11 @@ _DEFAULT_HEADERS = {
 def http_request(host_creds, endpoint, retries=3, retry_interval=3,
                  max_rate_limit_interval=60, **kwargs):
     """
-    Makes an HTTP request with the specified method to the specified hostname/endpoint. Retries
-    up to `retries` times if a request fails with a server error (e.g. error code 500), waiting
-    `retry_interval` seconds between successive retries. Parses the API response (assumed to be
-    JSON) into a Python object and returns it.
+    Makes an HTTP request with the specified method to the specified hostname/endpoint. Ratelimit
+    error code (429) will be retried with an exponential back off (1, 2, 4, ... seconds) for at most
+    `max_rate_limit_interval` seconds.  Internal errors (500s) will be retried up to `retries` times,
+    waiting `retry_interval` seconds between successive retries. Parses the API response
+    (assumed to be JSON) into a Python object and returns it.
 
     :param host_creds: A :py:class:`mlflow.rest_utils.MlflowHostCreds` object containing
         hostname and optional authentication.
