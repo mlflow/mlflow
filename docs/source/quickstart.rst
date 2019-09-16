@@ -213,7 +213,8 @@ adding the following to the start of your program:
         # update this to your tracking server's URI
         mlflow.set_tracking_uri("databricks")
         # Note: on Databricks, the experiment name passed to set_experiment must be a valid path
-        # in the workspace
+        # in the workspace, like '/Users/<your-username>/my-experiment'. See
+        # https://docs.databricks.com/user-guide/workspace.html for more info.
         mlflow.set_experiment("/my-experiment")
 
     .. code-block:: R
@@ -224,5 +225,6 @@ adding the following to the start of your program:
         # update this to your tracking server's URI
         mlflow_set_tracking_uri("databricks")
         # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
-        # valid path in the workspace
+        # valid path in the workspace.  See https://docs.databricks.com/user-guide/workspace.html
+        # for more info.
         mlflow_set_experiment("/my-experiment")
