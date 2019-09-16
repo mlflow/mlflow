@@ -1,5 +1,7 @@
 import { MlflowService } from './sdk/MlflowService';
 import ErrorCodes from './sdk/ErrorCodes';
+import $ from 'jquery';
+
 
 export const SEARCH_MAX_RESULTS = 100;
 
@@ -190,7 +192,21 @@ const wrapDeferred = (deferred, data) => {
     deferred({
       data,
       success: response => resolve(response),
-      error: xhr => {
+      error: (xhr) => {
+        if (this.tryCount === undefined) {
+          this.tryCount = 0;
+        }
+        if (xhr.status === 429) {
+          this.tryCount++;
+          // Retry requests up to 3 times on 429
+          if (this.tryCount <= 3) {
+            // Try again
+            const thisHolder = this;
+            return new Promise(resolve => setTimeout(resolve, 5000)).then(() => {
+              $.ajax(thisHolder);
+            });
+          }
+        }
         console.error("XHR failed", xhr);
         // We can't throw the XHR itself because it looks like a promise to the
         // redux-promise-middleware.
