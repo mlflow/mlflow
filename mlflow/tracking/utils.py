@@ -8,7 +8,7 @@ from six.moves import urllib
 from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.store.file_store import FileStore
-from mlflow.store.rest_store import RestStore
+from mlflow.store.rest_store import RestStore, DatabricksRestStore
 from mlflow.tracking.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -124,7 +124,7 @@ def get_db_profile_from_uri(uri):
 
 def _get_databricks_rest_store(store_uri, **_):
     profile = get_db_profile_from_uri(store_uri)
-    return RestStore(lambda: get_databricks_host_creds(profile))
+    return DatabricksRestStore(lambda: get_databricks_host_creds(profile))
 
 
 _tracking_store_registry = TrackingStoreRegistry()
