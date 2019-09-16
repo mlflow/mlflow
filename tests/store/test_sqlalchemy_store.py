@@ -186,6 +186,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         actual_by_name = self.store.get_experiment_by_name(name)
         self.assertEqual(actual_by_name.name, name)
         self.assertEqual(actual_by_name.experiment_id, experiment_id)
+        self.assertEqual(self.store.get_experiment_by_name("idontexist"), None)
 
     def test_list_experiments(self):
         testnames = ['blue', 'red', 'green']
