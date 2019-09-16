@@ -4,11 +4,11 @@ import tempfile
 import unittest
 
 from mlflow.store.dbmodels import initial_artifact_store_models
-from mlflow.store.db_artifact_repo import DBArtifactRepository
+from mlflow.store.db_artifact_repo import DBArtifactRepository, extract_db_uri_and_root_path
 from mlflow.utils.file_utils import TempDir
 
-DB_URI = 'mssql+pyodbc://sqluser:Mlflow2019@microsoft@sqltestml.database.windows.net:1433/mlflow_test?driver=ODBC+Driver+17+for+SQL+Server'
-root_uri = 'artifacts'
+DB_URI = 'sqlite:///'
+root_uri = ''
 
 
 class TestSqlAlchemyStoreSqlite(unittest.TestCase):
@@ -20,9 +20,9 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.maxDiff = None  # print all differences on assert failures
         fd, self.temp_dbfile = tempfile.mkstemp()
         # Close handle immediately so that we can remove the file later on in Windows
-        # os.close(fd)
-        # self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
-        self.db_url = os.path.join(DB_URI, root_uri)
+        os.close(fd)
+        self.db_url = "%s%s" % (DB_URI, self.temp_dbfile)
+        # self.db_url = os.path.join(DB_URI, root_uri)
         self.store = self._get_store(self.db_url)
 
     def tearDown(self):
@@ -147,10 +147,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             self.store.log_artifacts(root_dir._path, 'new_path/path')
 
             self.store.log_artifacts(root_dir._path, 'new_path2/path')
-            print(os.path.normpath(os.path.join(root_uri, 'new_path/path')))
             self.assertEqual(len(self.store.list_artifacts('new_path/path')), 3)
             filenames = [f.path for f in self.store.list_artifacts('new_path/path')]
-            print (filenames)
             self.assertTrue(filenames.__contains__(
                 os.path.join(root_uri, os.path.normpath('new_path/path'), 'file_one.txt')))
             self.assertTrue(
@@ -210,6 +208,20 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             local_path = self.store.download_artifacts(artifact_path='new_path/path/file_one.txt')
             assert open(local_path).read() == 'DB store Test One'
 
+    def test_download_file_artifact_multiple_versions(self):
+        with TempDir() as root_dir:
+            with open(root_dir.path("file_one.txt"), "w") as f:
+                f.write('DB store Test One')
+
+            self.store.log_artifacts(root_dir._path, 'new_path/path')
+
+            with open(root_dir.path("file_one.txt"), "w") as f:
+                f.write('DB store Test One version 2')
+
+            self.store.log_artifacts(root_dir._path, 'new_path/path')
+            local_path = self.store.download_artifacts(artifact_path='new_path/path/file_one.txt')
+            assert open(local_path).read() == 'DB store Test One version 2'
+
     def test_download_dir_artifact(self):
         with TempDir() as root_dir:
             with open(root_dir.path("file_one.txt"), "w") as f:
@@ -222,3 +234,33 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             local_path = self.store.download_artifacts(artifact_path='new_path/path')
             assert open(os.path.join(local_path, "file_one.txt")).read() == 'DB store Test One'
             assert open(os.path.join(local_path, "file_two.txt")).read() == 'DB store Test Two'
+
+    def test_db_uri_path(self):
+        db_uri, root_path = extract_db_uri_and_root_path("sqlite:////temp/temp.db/abc/artifacts")
+        self.assertEqual(db_uri, "sqlite:////temp/temp.db")
+        self.assertEqual(root_path, os.path.normpath("abc/artifacts"))
+
+        db_uri, root_path = extract_db_uri_and_root_path(
+            "sqlite:////temp1/temp2/temp.db/abc/artifacts")
+        self.assertEqual(db_uri, "sqlite:////temp1/temp2/temp.db")
+        self.assertEqual(root_path, os.path.normpath("abc/artifacts"))
+
+        db_uri, root_path = extract_db_uri_and_root_path("sqlite://")
+        self.assertEqual(db_uri, "sqlite://")
+        self.assertEqual(root_path, "")
+
+        db_uri, root_path = extract_db_uri_and_root_path(
+            "mssql+pyodbc://user:password@test.database.address.net:0000/"
+            "test_db?driver=ODBC+Driver+17+for+SQL+Server/abc/artifacts")
+        self.assertEqual(db_uri,
+                         "mssql+pyodbc://user:password@test.database.address.net:0000/"
+                         "test_db?driver=ODBC+Driver+17+for+SQL+Server")
+        self.assertEqual(root_path, os.path.normpath("abc/artifacts"))
+
+        db_uri, root_path = extract_db_uri_and_root_path(
+            "mssql+pyodbc://user:password@test.database.address.net:0000/"
+            "test_db?driver=random+driver/abc/artifacts")
+        self.assertEqual(db_uri,
+                         "mssql+pyodbc://user:password@test.database.address.net:0000/"
+                         "test_db?driver=random+driver")
+        self.assertEqual(root_path, os.path.normpath("abc/artifacts"))

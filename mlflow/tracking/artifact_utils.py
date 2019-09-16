@@ -11,10 +11,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact_repository_registry import get_artifact_repository, \
     get_artifact_repository_type, ArtifactRepositoryType
 from mlflow.tracking.utils import _get_store
-from mlflow.store.db_artifact_repo import extract_db_uri_and_path
-
-_INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html for " \
-                      "format specifications."
+from mlflow.store.db_artifact_repo import ROOT_PATH_BASE
 
 
 def get_artifact_uri(run_id, artifact_path=None):
@@ -29,7 +26,7 @@ def get_artifact_uri(run_id, artifact_path=None):
                           specified run will be returned.
     :return: An *absolute* URI referring to the specified artifact or the specified run's artifact
              root. For example, if an artifact path is provided and the specified run uses an
-             S3-backed  store, this may be a uri of the form
+             S3-backed store, this may be a uri of the form
              ``s3://<bucket_name>/path/to/artifact/root/path/to/artifact``. If an artifact path
              is not provided and the specified run uses an S3-backed store, this may be a URI of
              the form ``s3://<bucket_name>/path/to/artifact/root``.
@@ -74,31 +71,20 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
             artifact_path=artifact_path, dst_path=output_path)
     else:
-        root_uri, relative_path = extract_root_uri_and_relative_artifact_path(artifact_uri)
-        print ("OOO", root_uri, relative_path)
-        return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
+        repo_uri, relative_path = extract_repo_uri_and_relative_artifact_path(artifact_uri)
+        return get_artifact_repository(artifact_uri=repo_uri).download_artifacts(
             artifact_path=relative_path, dst_path=output_path)
 
 
-def extract_root_uri_and_relative_artifact_path(artifact_uri):
+def extract_repo_uri_and_relative_artifact_path(artifact_uri):
     """
-    Parse the specified artifact URI to extract the artifact path from the DB_URI.
-    The DB_URIs are of the form:
+    Parse the specified artifact URI to extract the repository uri and the
+    relative artifact path.
+    The repo_uri is of the form DB_URI/runID/ROOT_PATH_BASE where DB_URI:
     <dialect>+<driver>://<username>:<password>@<host>:<port>/<database>?<query>.
-    Confirm the database type is supported. If a driver is specified,
-    confirm it passes a plausible regex.
     """
 
-    print("artifact_uri", artifact_uri)
-    split_uri = artifact_uri.split("artifacts" + os.sep, 1)
-    root_uri = split_uri[0] + "artifacts"
+    split_uri = artifact_uri.split(ROOT_PATH_BASE + os.sep, 1)
+    repo_uri = split_uri[0] + ROOT_PATH_BASE
     relative_path = split_uri[1]
-    return root_uri, relative_path
-    # parsed_uri = urllib.parse.urlparse(artifact_uri)
-    # scheme = parsed_uri.scheme
-    # scheme_plus_count = scheme.count('+')
-    # if scheme_plus_count == 0 or scheme_plus_count == 1:
-    #     return extract_db_uri_and_path(artifact_uri)
-    # else:
-    #     error_msg = "Invalid database scheme in the URI: '%s'. %s" % (scheme, _INVALID_DB_URI_MSG)
-    #     raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
+    return repo_uri, relative_path

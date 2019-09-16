@@ -10,14 +10,17 @@ from contextlib import contextmanager
 from mlflow.utils import extract_db_type_from_uri
 from mlflow.store.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
-
 from mlflow.exceptions import MlflowException
 from mlflow.store.dbmodels.initial_artifact_store_models import Base as InitialBase
 from mlflow.store.dbmodels.initial_artifact_store_models import SqlArtifact
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from sqlalchemy import or_
-
 from six.moves import urllib
+
+ROOT_PATH_BASE = "artifacts"
+
+_INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html for " \
+                      "format specifications."
 
 _logger = logging.getLogger(__name__)
 
@@ -32,31 +35,37 @@ def _relative_path_local(base_dir, subdir_path):
     return relative_path_to_artifact_path(rel_path) if rel_path is not None else None
 
 
-def extract_db_uri_and_path(artifact_uri):
-    parsed_uri = urllib.parse.urlparse(artifact_uri)
-    print("IN db artifact ", parsed_uri)
-    # for testing
-    if artifact_uri.__contains__("sqlite:///"):
-        return artifact_uri, ""
+# Extracts the db_uri and root_path from the repo_uri.
+# The repo_uri is of the form DB_URI/runID/ROOT_PATH_BASE where DB_URI:
+# <dialect>+<driver>://<username>:<password>@<host>:<port>/<database>?<query>.
+def extract_db_uri_and_root_path(repo_uri):
+    parsed_uri = urllib.parse.urlparse(repo_uri)
+    scheme = parsed_uri.scheme
+    scheme_plus_count = scheme.count('+')
+    if scheme_plus_count != 0 and scheme_plus_count != 1:
+        error_msg = "Invalid database scheme in the URI: '%s'. %s" % (scheme, _INVALID_DB_URI_MSG)
+        raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
-    # for DB_URIs of the form:
-    # <dialect>+<driver>://<username>:<password>@<host>:<port>/<database>?<params>
     if parsed_uri.query == "":
-        parsed_path = parsed_uri.path.split("/", 2)
-        if (len(parsed_path)) == 3:
-            path = parsed_uri.path.split("/", 2)[2]
-            parsed_uri = parsed_uri._replace(path="/" + parsed_uri.path.split("/", 1)[1])
+        if parsed_uri.path == "":
+            return repo_uri, ""
         else:
-            path = ""
+            parsed_path = parsed_uri.path.split(ROOT_PATH_BASE, 1)
+            if len(parsed_path) == 2:
+                db_uri = os.path.dirname(os.path.dirname(repo_uri))
+                path = os.path.normpath(repo_uri.split(db_uri)[1])
+                path = path.split(os.sep, 1)[1]
+                return db_uri, path
+            else:
+                return repo_uri, ""
     else:
         parsed_query = parsed_uri.query.split("/", 1)
         if len(parsed_query) == 2:
-            path = parsed_uri.query.split("/", 1)[1]
-            parsed_uri = parsed_uri._replace(query=parsed_uri.query.split("/", 1)[0])
+            path = os.path.normpath(parsed_query[1])
+            parsed_uri = parsed_uri._replace(query=parsed_query[0])
         else:
             path = ""
-
-    return urllib.parse.urlunparse(parsed_uri), path
+        return urllib.parse.urlunparse(parsed_uri), path
 
 
 class DBArtifactRepository(ArtifactRepository):
@@ -64,12 +73,10 @@ class DBArtifactRepository(ArtifactRepository):
     Abstract artifact repo that defines how to upload (log) and download potentially large
     artifacts from a database backend.
     """
-
     __metaclass__ = ABCMeta
 
     def __init__(self, artifact_uri):
-        self.db_uri, self.root = extract_db_uri_and_path(artifact_uri)
-        print("Root LALAL " + self.root)
+        self.db_uri, self.root = extract_db_uri_and_root_path(artifact_uri)
         self.db_type = extract_db_type_from_uri(self.db_uri)
         self.engine = sqlalchemy.create_engine(self.db_uri)
         super(DBArtifactRepository, self).__init__(self.db_uri)
@@ -129,7 +136,6 @@ class DBArtifactRepository(ArtifactRepository):
         """
         if artifact_path:
             artifact_path = os.path.normpath(artifact_path)
-
         _, file_name = os.path.split(local_file)
         with self.ManagedSessionMaker() as session:
             if artifact_path is None:
@@ -139,7 +145,6 @@ class DBArtifactRepository(ArtifactRepository):
                     artifact_initial_size=os.path.getsize(local_file)
                 )
             else:
-                print(self.root, artifact_path)
                 artifact = SqlArtifact(
                     artifact_name=file_name, group_path=os.path.join(self.root, artifact_path),
                     artifact_content=open(local_file, "rb").read(),
@@ -160,6 +165,7 @@ class DBArtifactRepository(ArtifactRepository):
         """
         if artifact_path:
             artifact_path = os.path.normpath(artifact_path)
+
         with self.ManagedSessionMaker() as session:
             for subdir_path, _, files in os.walk(local_dir):
                 relative_path = _relative_path_local(local_dir, subdir_path)
@@ -179,6 +185,7 @@ class DBArtifactRepository(ArtifactRepository):
                             artifact_initial_size=os.path.getsize(source)
                         )
                     else:
+
                         artifact = SqlArtifact(
                             artifact_name=each_file,
                             group_path=os.path.join(self.root, db_subdir_path),
@@ -228,12 +235,10 @@ class DBArtifactRepository(ArtifactRepository):
         #       without downloading it, or to get a pre-signed URL for cloud storage.
 
         def download_artifacts_into(artifact_path, dest_dir):
-            print("ARTIFACT_PATH", artifact_path)
             basename = os.path.basename(artifact_path)
             local_path = os.path.join(dest_dir, basename)
 
             listing = self.list_artifacts(artifact_path)
-            print(listing)
             if len(listing) > 0:
                 # Artifact_path is a directory, so make a directory for it and download everything
                 if not os.path.exists(local_path):
@@ -242,8 +247,13 @@ class DBArtifactRepository(ArtifactRepository):
                     # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
                     if file_info.path == "." or file_info.path == artifact_path:
                         continue
-                    relative_file_path = file_info.path.split(self.root + os.sep, 1)[1]
-                    download_artifacts_into(artifact_path=relative_file_path, dest_dir=local_path)
+                    if self.root == "":
+                        download_artifacts_into(artifact_path=file_info.path,
+                                                dest_dir=local_path)
+                    else:
+                        relative_file_path = file_info.path.split(self.root + os.sep, 1)[1]
+                        download_artifacts_into(artifact_path=relative_file_path,
+                                                dest_dir=local_path)
             else:
                 self._download_file(remote_file_path=artifact_path, local_path=local_path)
             return local_path
@@ -279,18 +289,16 @@ class DBArtifactRepository(ArtifactRepository):
                                  directory of the artifact repository.
         :param local_path: The path to which to save the downloaded file.
         """
-        print ("remote file path ", remote_file_path)
         group, file_name = os.path.split(remote_file_path)
-
         with self.ManagedSessionMaker() as session:
-            contents = [r.artifact_content for r in
-                        session.query(SqlArtifact.artifact_content).filter(
+            contents = [(r.artifact_content, r.artifact_id) for r in
+                        session.query(SqlArtifact.artifact_content, SqlArtifact.artifact_id).filter(
                             SqlArtifact.group_path == os.path.join(self.root, group),
                             SqlArtifact.artifact_name == file_name)]
-            if len(contents) == 1:
-                print("YES")
+            if len(contents) >= 1:
+                position = [y[1] for y in contents].index(max(contents)[1])
                 with open(local_path, 'wb') as f:
-                    f.write(contents[0])
+                    f.write(contents[position][0])
 
     def clean(self):
         InitialBase.metadata.drop_all(self.engine)
