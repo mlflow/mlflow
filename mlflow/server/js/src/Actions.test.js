@@ -25,15 +25,20 @@ test('wrapDeferred retries on 429s', (done) => {
   wrapDeferred(getMockAjax([429, 429, 200]), {}, 1000, 10).then((result) => {
     expect(result).toEqual({requestIndex: 2});
   }).then(() => done());
-  // return expect(wrapDeferred(mockAjax, {})).resolves.toEqual({requestIndex: 1});
 });
 
 test('wrapDeferred responds with 429 after timeout period', (done) => {
   // First request responds with 429, we then retry and receive another 429, but don't have time to
   // retry again, so we propagate the 429
+  let caughtError = false;
   wrapDeferred(getMockAjax([429, 429, 200]), {}, 10, 10).catch((result) => {
     expect(result.xhr.status).toEqual(429);
-  }).then(() => done());
+    caughtError = true;
+  }).then(() => {
+    if (caughtError) {
+      done();
+    }
+  });
 });
 
 test('wrapDeferred does not retry on 200s', (done) => {
