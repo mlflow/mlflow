@@ -1,0 +1,53 @@
+{
+    "fields": [
+        {
+            "nullable": true, 
+            "type": "integer",
+            "name": "age",
+            "metadata": {}
+        },
+        {
+            "nullable": true,
+            "type": "string",
+            "name": "workclass",
+            "metadata": {}
+        },
+        {
+            "nullable": true,
+            "type": "integer",
+            "name": "fnlwgt",
+            "metadata": {}
+        },
+        {
+            "nullable": true,
+            "type": "string",
+            "name": "education",
+            "metadata": {}
+        },
+        {
+            "nullable": true,
+            "type": "string",
+            "name": "marital_status",
+            "metadata": {}
+        },
+        {
+            "nullable": true,
+            "type": "integer",
+            "name": "capital_gain",
+            "metadata": {}
+        },
+        {
+            "nullable": true, 
+            "type": "integer",
+            "name": "hours_per_week",
+            "metadata": {}
+        },
+        {
+            "nullable": true,
+            "type": "string",
+            "name": "income",
+            "metadata": {}
+        }
+    ], 
+    "type": "struct"
+}
