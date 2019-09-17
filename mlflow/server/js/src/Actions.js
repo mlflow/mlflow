@@ -185,7 +185,7 @@ export const getUUID = () => {
  * Jquery's ajax promise is a bit weird so I chose to create a new Promise which resolves and
  * rejects using the ajax callbacks `success` and `error`.
  */
-export const wrapDeferred = (deferred, data, timeLeftMs = 10000, sleepMs = 1000) => {
+export const wrapDeferred = (deferred, data, timeLeftMs = 60000, sleepMs = 1000) => {
   return new Promise((resolve, reject) => {
     deferred({
       data,
@@ -198,7 +198,7 @@ export const wrapDeferred = (deferred, data, timeLeftMs = 10000, sleepMs = 1000)
           if (timeLeftMs > 0) {
             console.warn("Request failed with status code 429, message " +
                 new ErrorWrapper(xhr).getUserVisibleError() + ". Retrying after " +
-                sleepMs + " ms. On additional 429s, will continue to retry for up " +
+                sleepMs + " ms. On additional 429 errors, will continue to retry for up " +
                 "to " + timeLeftMs + " ms.");
             // Try again
             const newTimeLeft = timeLeftMs - sleepMs;
@@ -214,7 +214,7 @@ export const wrapDeferred = (deferred, data, timeLeftMs = 10000, sleepMs = 1000)
         console.error("XHR failed", xhr);
         // We can't throw the XHR itself because it looks like a promise to the
         // redux-promise-middleware.
-        reject(new ErrorWrapper(xhr));
+        return reject(new ErrorWrapper(xhr));
       }
     });
   });

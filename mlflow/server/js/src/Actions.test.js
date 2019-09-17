@@ -6,7 +6,7 @@ import { ErrorWrapper, wrapDeferred } from './Actions';
  */
 const getMockAjax = (responseStatusCodes) => {
   let i = 0;
-  return ({data, success, error}) => {
+  return ({success, error}) => {
     const statusCode = responseStatusCodes[i % responseStatusCodes.length];
     if (statusCode === 200) {
       success({requestIndex: i});
