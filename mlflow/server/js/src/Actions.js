@@ -194,13 +194,13 @@ export const wrapDeferred = (deferred, data, timeLeftMs = 60000, sleepMs = 1000)
       },
       error: (xhr) => {
         if (xhr.status === 429) {
-          // Retry requests up to 60s
           if (timeLeftMs > 0) {
             console.warn("Request failed with status code 429, message " +
                 new ErrorWrapper(xhr).getUserVisibleError() + ". Retrying after " +
                 sleepMs + " ms. On additional 429 errors, will continue to retry for up " +
                 "to " + timeLeftMs + " ms.");
-            // Try again
+            // Retry the request, subtracting the current sleep duration from the remaining time
+            // and doubling the sleep duration
             const newTimeLeft = timeLeftMs - sleepMs;
             const newSleepMs = Math.min(newTimeLeft, sleepMs * 2);
             return new Promise(resolveRetry => setTimeout(resolveRetry, sleepMs)).then(() => {
