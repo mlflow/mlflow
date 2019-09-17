@@ -100,24 +100,25 @@ class FlavorBackend(object):
                            stdin.
         :param output_path: Path to the file with output predictions. If not specified, data is
                             written to stdout.
-        :param content_type: Specifies the input format. Can be one of {'json', 'csv'}
-        :param json_format: Only applies if content_type == 'json'. Specifies how is the input data
-                            encoded in json. Can be one of {'split', 'records'} mirroring the
-                            behavior of Pandas orient attribute. The default is 'split' which
+        :param content_type: Specifies the input format. Can be one of {``json``, ``csv``}
+        :param json_format: Only applies if ``content_type == json``. Specifies how is the input
+                            data encoded in json. Can be one of {``split``, ``records``} mirroring
+                            the behavior of Pandas orient attribute. The default is ``split`` which
                             expects dict like data: ``{'index' -> [index], 'columns' -> [columns],
                             'data' -> [values]}``, where index is optional.
-                            For more information see "https://pandas.pydata.org/
-                            pandas-docs/stable/reference/api/pandas.read_json.html"
+                            For more information see
+                            https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json.html
         """
         pass
 
     @abstractmethod
     def serve(self, model_uri, port, host):
         """
-        Serve saved MLflow model locally.
+        Serve the specified MLflow model locally.
+
         :param model_uri: URI pointing to the MLflow model to be used for scoring.
-        :param port: Port to deploy the model to.
-        :param host: Host to use for the model deployment. Defaults to 'localhost'.
+        :param port: Port to use for the model deployment.
+        :param host: Host to use for the model deployment. Defaults to ``localhost``.
         """
         pass
 

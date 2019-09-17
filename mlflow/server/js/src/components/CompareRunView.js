@@ -11,6 +11,10 @@ import { getLatestMetrics } from '../reducers/MetricReducer';
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import CompareRunUtil from './CompareRunUtil';
 import Utils from '../utils/Utils';
+import { Tabs } from 'antd';
+import ParallelCoordinatesPlotPanel from './ParallelCoordinatesPlotPanel';
+
+const TabPane = Tabs.TabPane;
 
 class CompareRunView extends Component {
   static propTypes = {
@@ -112,11 +116,17 @@ class CompareRunView extends Component {
             </tbody>
           </table>
         </div>
-
-        <CompareRunScatter
-          runUuids={this.props.runUuids}
-          runDisplayNames={this.props.runDisplayNames}
-        />
+        <Tabs>
+          <TabPane tab="Scatter Plot" key="1">
+            <CompareRunScatter
+              runUuids={this.props.runUuids}
+              runDisplayNames={this.props.runDisplayNames}
+            />
+          </TabPane>
+          <TabPane tab="Parallel Coordinates Plot" key="2">
+            <ParallelCoordinatesPlotPanel runUuids={this.props.runUuids}/>
+          </TabPane>
+        </Tabs>
       </div>
     );
   }

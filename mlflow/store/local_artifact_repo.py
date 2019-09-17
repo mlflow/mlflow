@@ -12,7 +12,11 @@ class LocalArtifactRepository(ArtifactRepository):
 
     def __init__(self, *args, **kwargs):
         super(LocalArtifactRepository, self).__init__(*args, **kwargs)
-        self.artifact_dir = local_file_uri_to_path(self.artifact_uri)
+        self._artifact_dir = local_file_uri_to_path(self.artifact_uri)
+
+    @property
+    def artifact_dir(self):
+        return self._artifact_dir
 
     def log_artifact(self, local_file, artifact_path=None):
         verify_artifact_path(artifact_path)

@@ -52,6 +52,7 @@ class App extends Component {
               <Route exact path={Routes.runPageRoute} component={RunPage}/>
               <Route exact path={Routes.metricPageRoute} component={MetricPage}/>
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage}/>
+              <Route path={Routes.experimentPageSearchRoute} component={HomePage}/>
               <Route component={PageNotFoundView}/>
             </Switch>
           </AppErrorBoundary>

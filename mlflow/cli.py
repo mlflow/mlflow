@@ -58,23 +58,20 @@ def cli():
               help="ID of the experiment under which to launch the run.")
 # TODO: Add tracking server argument once we have it working.
 @click.option("--backend", "-b", metavar="BACKEND",
-              help="Execution backend to use for run. Supported values: 'local' (runs project "
-                   "locally) and 'databricks' (runs project on a Databricks cluster). "
-                   "Defaults to 'local'. If running against Databricks, will run against a "
-                   "Databricks workspace determined as follows: if a Databricks tracking URI "
-                   "of the form 'databricks://profile' has been set (e.g. by setting "
-                   "the MLFLOW_TRACKING_URI environment variable), will run against the "
-                   "workspace specified by <profile>. Otherwise, runs against the workspace "
-                   "specified by the default Databricks CLI profile. See "
+              help="Execution backend to use for run. Supported values: 'local', 'databricks', "
+                   "kubernetes (experimental). Defaults to 'local'. If running against "
+                   "Databricks, will run against a Databricks workspace determined as follows: "
+                   "if a Databricks tracking URI of the form 'databricks://profile' has been set "
+                   "(e.g. by setting the MLFLOW_TRACKING_URI environment variable), will run "
+                   "against the workspace specified by <profile>. Otherwise, runs against the "
+                   "workspace specified by the default Databricks CLI profile. See "
                    "https://github.com/databricks/databricks-cli for more info on configuring a "
                    "Databricks CLI profile.")
 @click.option("--backend-config", "-c", metavar="FILE",
               help="Path to JSON file (must end in '.json') or JSON string which will be passed "
-                   "as config to the backend. For the Databricks backend, this should be a "
-                   "cluster spec: see "
-                   "https://docs.databricks.com/api/latest/jobs.html#jobsclusterspecnewcluster "
-                   "for more information. Note that MLflow runs are currently launched against "
-                   "a new cluster.")
+                   "as config to the backend. The exact content which should be "
+                   "provided is different for each execution backend and is documented "
+                   "at https://www.mlflow.org/docs/latest/projects.html.")
 @cli_args.NO_CONDA
 @click.option("--storage-dir", envvar="MLFLOW_TMP_DIR",
               help="Only valid when ``backend`` is local."
@@ -114,13 +111,16 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             eprint("Repeated parameter: '%s'" % name)
             sys.exit(1)
         param_dict[name] = value
-    cluster_spec_arg = backend_config
     if backend_config is not None and os.path.splitext(backend_config)[-1] != ".json":
         try:
-            cluster_spec_arg = json.loads(backend_config)
+            backend_config = json.loads(backend_config)
         except ValueError as e:
-            eprint("Invalid cluster spec JSON. Parse error: %s" % e)
+            eprint("Invalid backend config JSON. Parse error: %s" % e)
             raise
+    if backend == "kubernetes":
+        if backend_config is None:
+            eprint("Specify 'backend_config' when using kubernetes mode.")
+            sys.exit(1)
     try:
         projects.run(
             uri,
@@ -130,15 +130,28 @@ def run(uri, entry_point, version, param_list, experiment_name, experiment_id, b
             experiment_id=experiment_id,
             parameters=param_dict,
             backend=backend,
-            backend_config=cluster_spec_arg,
+            backend_config=backend_config,
             use_conda=(not no_conda),
             storage_dir=storage_dir,
-            synchronous=backend == "local" or backend is None,
-            run_id=run_id,
+            synchronous=backend in ("local", "kubernetes") or backend is None,
+            run_id=run_id
         )
     except projects.ExecutionException as e:
         _logger.error("=== %s ===", e)
         sys.exit(1)
+
+
+def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None):
+    if sys.platform == "win32":
+        if gunicorn_opts is not None or workers is not None:
+            raise NotImplementedError(
+                "waitress replaces gunicorn on Windows, "
+                "cannot specify --gunicorn-opts or --workers")
+    else:
+        if waitress_opts is not None:
+            raise NotImplementedError(
+                "gunicorn replaces waitress on non-Windows platforms, "
+                "cannot specify --waitress-opts")
 
 
 @cli.command()
@@ -162,6 +175,7 @@ def ui(backend_store_uri, default_artifact_root, port):
 
     The UI will be visible at http://localhost:5000 by default.
     """
+
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -181,7 +195,7 @@ def ui(backend_store_uri, default_artifact_root, port):
 
     # TODO: We eventually want to disable the write path in this version of the server.
     try:
-        _run_server(backend_store_uri, default_artifact_root, "127.0.0.1", port, 1, None, [])
+        _run_server(backend_store_uri, default_artifact_root, "127.0.0.1", port, None, 1)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
@@ -221,15 +235,20 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="A prefix which will be prepended to the path of all static paths.")
 @click.option("--gunicorn-opts", default=None,
               help="Additional command line options forwarded to gunicorn processes.")
+@click.option("--waitress-opts", default=None,
+              help="Additional command line options for waitress-serve.")
 def server(backend_store_uri, default_artifact_root, host, port,
-           workers, static_prefix, gunicorn_opts):
+           workers, static_prefix, gunicorn_opts, waitress_opts):
     """
     Run the MLflow tracking server.
 
-    The server which listen on http://localhost:5000 by default, and only accept connections from
-    the local machine. To let the server accept connections from other machines, you will need to
-    pass --host 0.0.0.0 to listen on all network interfaces (or a specific interface address).
+    The server which listen on http://localhost:5000 by default, and only accept connections
+    from the local machine. To let the server accept connections from other machines, you will need
+    to pass ``--host 0.0.0.0`` to listen on all network interfaces
+    (or a specific interface address).
     """
+
+    _validate_server_args(gunicorn_opts=gunicorn_opts, workers=workers, waitress_opts=waitress_opts)
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
@@ -251,8 +270,8 @@ def server(backend_store_uri, default_artifact_root, host, port,
         sys.exit(1)
 
     try:
-        _run_server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
-                    gunicorn_opts)
+        _run_server(backend_store_uri, default_artifact_root, host, port,
+                    static_prefix, workers, gunicorn_opts, waitress_opts)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)

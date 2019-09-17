@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import Colors from '../styles/Colors';
+import permissionDeniedLock from '../static/permission-denied-lock.svg';
 
 export default class PermissionDeniedView extends Component {
   static propTypes = {
@@ -11,7 +12,13 @@ export default class PermissionDeniedView extends Component {
     const defaultMessage = 'The current user does not have permission to view this page.';
     return (
       <div>
-        <h1 className="center" style={{ paddingTop: '100px' }}>
+        <img
+          className='center'
+          style={{ height: 300, marginTop: 80 }}
+          src={permissionDeniedLock}
+          alt='permission denied'
+        />
+        <h1 className="center" style={{ paddingTop: 10 }}>
           Permission Denied
         </h1>
         <h2 className="center" style={{ color: Colors.secondaryText }}>

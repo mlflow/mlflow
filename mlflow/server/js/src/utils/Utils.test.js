@@ -59,12 +59,6 @@ test("formatDuration", () => {
   expect(Utils.formatDuration(480 * 60 * 60 * 1000)).toEqual("20.0d");
 });
 
-test("formatUser", () => {
-  expect(Utils.formatUser("bob")).toEqual("bob");
-  expect(Utils.formatUser("bob.mcbob")).toEqual("bob.mcbob");
-  expect(Utils.formatUser("bob@example.com")).toEqual("bob");
-});
-
 test("baseName", () => {
   expect(Utils.baseName("foo")).toEqual("foo");
   expect(Utils.baseName("foo/bar/baz")).toEqual("baz");
@@ -210,4 +204,30 @@ test('getPlotMetricKeysFromUrl', () => {
   expect(Utils.getPlotMetricKeysFromUrl(url0)).toEqual([]);
   expect(Utils.getPlotMetricKeysFromUrl(url1)).toEqual(['metric_1']);
   expect(Utils.getPlotMetricKeysFromUrl(url2)).toEqual(['metric_1', 'metric_2']);
+});
+
+test('getSearchParamsFromUrl', () => {
+  const url0 = '?paramKeyFilterString=filt&metricKeyFilterString=metrics&searchInput=';
+  const url1 = '?p=&q=&r=';
+  const url2 = '?';
+  const url3 = '?paramKeyFilterString=some=param&metricKeyFilterString=somemetric&searchInput=some-Input';
+  expect(Utils.getSearchParamsFromUrl(url0)).toEqual({paramKeyFilterString: "filt",
+    metricKeyFilterString: "metrics",
+    searchInput: ""});
+  expect(Utils.getSearchParamsFromUrl(url1)).toEqual({p: "", q: "", r: ""});
+  expect(Utils.getSearchParamsFromUrl(url2)).toEqual({});
+  expect(Utils.getSearchParamsFromUrl(url3)).toEqual({paramKeyFilterString: "some=param",
+    metricKeyFilterString: "somemetric",
+    searchInput: "some-Input"});
+});
+
+test('getSearchUrlFromState', () => {
+  const st0 = {};
+  const st1 = {a: "example"};
+  const st2 = {b: "bbbbbb"};
+  const st3 = {param: "params", metrics: undefined, searchInput: "someExpression"};
+  expect(Utils.getSearchUrlFromState(st0)).toEqual("");
+  expect(Utils.getSearchUrlFromState(st1)).toEqual("a=example");
+  expect(Utils.getSearchUrlFromState(st2)).toEqual("b=bbbbbb");
+  expect(Utils.getSearchUrlFromState(st3)).toEqual("param=params&metrics=&searchInput=someExpression");
 });

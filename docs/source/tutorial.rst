@@ -32,7 +32,7 @@ To run this tutorial, you'll need to:
            1. Install MLflow with extra dependencies, including scikit-learn
               (via ``pip install mlflow[extras]``)
            2. Install MLflow (via ``pip install mlflow``) and install scikit-learn separately
-              (via ``pip install sckit-learn``)
+              (via ``pip install scikit-learn``)
 
        - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
@@ -133,7 +133,7 @@ as the one that contains the ``mlruns`` run:
 
         mlflow_ui()
 
-and view it at `<http://localhost:5000>`_.
+and view it at http://localhost:5000.
 
 On this page, you can see a list of experiment runs with metrics you can use to compare the models.
 

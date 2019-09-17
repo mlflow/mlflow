@@ -10,12 +10,15 @@ import os
 import atexit
 import time
 import logging
+import numpy as np
+import pandas as pd
 
-from mlflow.entities import Run, RunStatus, Param, RunTag, Metric
+from mlflow.entities import Run, RunStatus, Param, RunTag, Metric, ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking import artifact_utils, context
+from mlflow.tracking import artifact_utils
+from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import env
 from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_notebook_id
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
@@ -27,6 +30,8 @@ _RUN_ID_ENV_VAR = "MLFLOW_RUN_ID"
 _active_run_stack = []
 _active_experiment_id = None
 
+SEARCH_MAX_RESULTS_PANDAS = 100000
+NUM_RUNS_PER_PAGE_PANDAS = 10000
 
 _logger = logging.getLogger(__name__)
 
@@ -114,6 +119,15 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     if existing_run_id:
         _validate_run_id(existing_run_id)
         active_run_obj = MlflowClient().get_run(existing_run_id)
+        # Check to see if experiment_id from environment matches experiment_id from set_experiment()
+        if (_active_experiment_id is not None and
+                _active_experiment_id != active_run_obj.info.experiment_id):
+            raise MlflowException("Cannot start run with ID {} because active run ID "
+                                  "does not match environment run ID. Make sure --experiment-name "
+                                  "or --experiment-id matches experiment set with "
+                                  "set_experiment(), or just use command-line "
+                                  "arguments".format(existing_run_id))
+        # Check to see if current run isn't deleted
         if active_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
             raise MlflowException("Cannot start run with ID {} because it is in the "
                                   "deleted state.".format(existing_run_id))
@@ -131,7 +145,7 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
         if run_name is not None:
             user_specified_tags[MLFLOW_RUN_NAME] = run_name
 
-        tags = context.resolve_tags(user_specified_tags)
+        tags = context_registry.resolve_tags(user_specified_tags)
 
         active_run_obj = MlflowClient().create_run(
             experiment_id=exp_id_for_run,
@@ -182,12 +196,24 @@ def set_tag(key, value):
     MlflowClient().set_tag(run_id, key, value)
 
 
+def delete_tag(key):
+    """
+    Delete a tag from a run. This is irreversible.
+
+    :param key: Name of the tag
+    """
+    run_id = _get_or_start_run().info.run_id
+    MlflowClient().delete_tag(run_id, key)
+
+
 def log_metric(key, value, step=None):
     """
     Log a metric under the current run, creating a run if necessary.
 
     :param key: Metric name (string).
-    :param value: Metric value (float).
+    :param value: Metric value (float). Note that some special values such as +/- Infinity may be
+                  replaced by other values depending on the store. For example, sFor example, the
+                  SQLAlchemy store replaces +/- Inf with max / min float values.
     :param step: Metric step (int). Defaults to zero if unspecified.
     """
     run_id = _get_or_start_run().info.run_id
@@ -197,7 +223,10 @@ def log_metric(key, value, step=None):
 def log_metrics(metrics, step=None):
     """
     Log multiple metrics for the current run, starting a run if no runs are active.
-    :param metrics: Dictionary of metric_name: String -> value: Float
+
+    :param metrics: Dictionary of metric_name: String -> value: Float. Note that some special values
+                    such as +/- Infinity may be replaced by other values depending on the store.
+                    For example, sql based store may replace +/- Inf with max / min float values.
     :param step: A single integer step at which to log the specified
                  Metrics. If unspecified, each metric is logged at step zero.
 
@@ -212,6 +241,7 @@ def log_metrics(metrics, step=None):
 def log_params(params):
     """
     Log a batch of params for the current run, starting a run if no runs are active.
+
     :param params: Dictionary of param_name: String -> value: (String, but will be string-ified if
                    not)
     :returns: None
@@ -224,6 +254,7 @@ def log_params(params):
 def set_tags(tags):
     """
     Log a batch of tags for the current run, starting a run if no runs are active.
+
     :param tags: Dictionary of tag_name: String -> value: (String, but will be string-ified if
                  not)
     :returns: None
@@ -267,6 +298,24 @@ def create_experiment(name, artifact_location=None):
     return MlflowClient().create_experiment(name, artifact_location)
 
 
+def delete_experiment(experiment_id):
+    """
+    Delete an experiment from the backend store.
+
+    :param experiment_id: The experiment ID returned from ``create_experiment``.
+    """
+    MlflowClient().delete_experiment(experiment_id)
+
+
+def delete_run(run_id):
+    """
+    Deletes a run with the given ID.
+
+    :param run_id: Unique identifier for the run to delete.
+    """
+    MlflowClient().delete_run(run_id)
+
+
 def get_artifact_uri(artifact_path=None):
     """
     Get the absolute URI of the specified artifact in the currently active run.
@@ -286,6 +335,110 @@ def get_artifact_uri(artifact_path=None):
     """
     return artifact_utils.get_artifact_uri(run_id=_get_or_start_run().info.run_id,
                                            artifact_path=artifact_path)
+
+
+def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
+                max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None):
+    """
+    Get a pandas DataFrame of runs that fit the search criteria.
+
+    :param experiment_ids: List of experiment IDs. None will default to the active experiment.
+    :param filter_string: Filter query string, defaults to searching all runs.
+    :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
+                            defined in :py:class:`mlflow.entities.ViewType`.
+    :param max_results: The maximum number of runs to put in the dataframe. Default is 100,000
+                        to avoid causing out-of-memory issues on the user's machine.
+    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
+                     can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
+                     The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+
+    :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
+        are expanded into their own columns named metrics.*, params.*, and tags.*
+        respectively. For runs that don't have a particular metric, parameter, or tag, their
+        value will be (NumPy) Nan, None, or None respectively.
+    """
+    if not experiment_ids:
+        experiment_ids = _get_experiment_id()
+    runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
+                               order_by)
+    info = {'run_id': [], 'experiment_id': [],
+            'status': [], 'artifact_uri': [],
+            'start_time': [], 'end_time': []}
+    params, metrics, tags = ({}, {}, {})
+    PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
+    for i, run in enumerate(runs):
+        info['run_id'].append(run.info.run_id)
+        info['experiment_id'].append(run.info.experiment_id)
+        info['status'].append(run.info.status)
+        info['artifact_uri'].append(run.info.artifact_uri)
+        info['start_time'].append(pd.to_datetime(run.info.start_time, unit="ms", utc=True))
+        info['end_time'].append(pd.to_datetime(run.info.end_time, unit="ms", utc=True))
+
+        # Params
+        param_keys = set(params.keys())
+        for key in param_keys:
+            if key in run.data.params:
+                params[key].append(run.data.params[key])
+            else:
+                params[key].append(PARAM_NULL)
+        new_params = set(run.data.params.keys()) - param_keys
+        for p in new_params:
+            params[p] = [PARAM_NULL]*i  # Fill in null values for all previous runs
+            params[p].append(run.data.params[p])
+
+        # Metrics
+        metric_keys = set(metrics.keys())
+        for key in metric_keys:
+            if key in run.data.metrics:
+                metrics[key].append(run.data.metrics[key])
+            else:
+                metrics[key].append(METRIC_NULL)
+        new_metrics = set(run.data.metrics.keys()) - metric_keys
+        for m in new_metrics:
+            metrics[m] = [METRIC_NULL]*i
+            metrics[m].append(run.data.metrics[m])
+
+        # Tags
+        tag_keys = set(tags.keys())
+        for key in tag_keys:
+            if key in run.data.tags:
+                tags[key].append(run.data.tags[key])
+            else:
+                tags[key].append(TAG_NULL)
+        new_tags = set(run.data.tags.keys()) - tag_keys
+        for t in new_tags:
+            tags[t] = [TAG_NULL]*i
+            tags[t].append(run.data.tags[t])
+
+    data = {}
+    data.update(info)
+    for key in metrics:
+        data['metrics.' + key] = metrics[key]
+    for key in params:
+        data['params.' + key] = params[key]
+    for key in tags:
+        data['tags.' + key] = tags[key]
+    return pd.DataFrame(data)
+
+
+def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
+                        order_by):
+    all_runs = []
+    next_page_token = None
+    while(len(all_runs) < max_results):
+        runs_to_get = max_results-len(all_runs)
+        if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
+            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+                                              runs_to_get, order_by, next_page_token)
+        else:
+            runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
+                                              NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
+        all_runs.extend(runs)
+        if hasattr(runs, 'token') and runs.token != '' and runs.token is not None:
+            next_page_token = runs.token
+        else:
+            break
+    return all_runs
 
 
 def _get_or_start_run():

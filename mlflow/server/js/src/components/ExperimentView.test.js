@@ -4,8 +4,13 @@ import { ExperimentView, mapStateToProps } from './ExperimentView';
 import Fixtures from "../test-utils/Fixtures";
 import {LIFECYCLE_FILTER} from "./ExperimentPage";
 import KeyFilter from "../utils/KeyFilter";
-import {addApiToState, addExperimentToState, createPendingApi, emptyState} from "../test-utils/ReduxStoreFixtures";
-import {getUUID, SEARCH_MAX_RESULTS} from "../Actions";
+import {
+  addApiToState,
+  addExperimentToState,
+  addExperimentTagsToState,
+  createPendingApi,
+  emptyState} from "../test-utils/ReduxStoreFixtures";
+import {getUUID} from "../Actions";
 import {Spinner} from "./Spinner";
 
 let onSearchSpy;
@@ -25,15 +30,30 @@ const getExperimentViewMock = () => {
     paramsList={[]}
     metricsList={[]}
     tagsList={[]}
+    experimentTags={{}}
     paramKeyFilter={new KeyFilter("")}
     metricKeyFilter={new KeyFilter("")}
     lifecycleFilter={LIFECYCLE_FILTER.ACTIVE}
     searchInput={""}
     searchRunsError={''}
     isLoading
+    loadingMore={false}
+    handleLoadMoreRuns={jest.fn()}
+    orderByKey={null}
+    orderByAsc={false}
   />);
 };
-
+test(`Clearing filter state calls search handler with correct arguments`, () => {
+  const wrapper = getExperimentViewMock();
+  wrapper.instance().onClear();
+  expect(onSearchSpy.mock.calls.length).toBe(1);
+  expect(onSearchSpy.mock.calls[0][0]).toBe('');
+  expect(onSearchSpy.mock.calls[0][1]).toBe('');
+  expect(onSearchSpy.mock.calls[0][2]).toBe('');
+  expect(onSearchSpy.mock.calls[0][3]).toBe(LIFECYCLE_FILTER.ACTIVE);
+  expect(onSearchSpy.mock.calls[0][4]).toBe(null);
+  expect(onSearchSpy.mock.calls[0][5]).toBe(true);
+});
 test('Entering filter input updates component state', () => {
   const wrapper = getExperimentViewMock();
   wrapper.instance().setState = jest.fn();
@@ -64,6 +84,7 @@ test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
   const experiment = Fixtures.createExperiment();
   state = addApiToState(state, createPendingApi(searchRunsId));
   state = addExperimentToState(state, experiment);
+  state = addExperimentTagsToState(state, experiment.experiment_id, []);
   const newProps = mapStateToProps(state, {
     lifecycleFilter: LIFECYCLE_FILTER.ACTIVE,
     searchRunsRequestId: searchRunsId,
@@ -77,17 +98,6 @@ test("mapStateToProps doesn't blow up if the searchRunsApi is pending", () => {
     metricsList: [],
     paramsList: [],
     tagsList: [],
+    experimentTags: {},
   });
-});
-
-test(`Says that the SEARCH_RUNS_LIMIT is hit when more than ${SEARCH_MAX_RESULTS} runs are returned`, () => {
-  const wrapper = getExperimentViewMock();
-  wrapper.setProps({ runInfos: Array(SEARCH_MAX_RESULTS + 1) });
-  expect(wrapper.find('.run-count').text()).toEqual(`Showing the latest ${SEARCH_MAX_RESULTS} matching runs`);
-});
-
-test(`Doesn't say the SEARCH_RUNS_LIMIT is hit when <= than ${SEARCH_MAX_RESULTS} runs are returned`, () => {
-  const wrapper = getExperimentViewMock();
-  wrapper.setProps({ runInfos: Array(SEARCH_MAX_RESULTS) });
-  expect(wrapper.find('.run-count').text()).toEqual(`${SEARCH_MAX_RESULTS} matching runs`);
 });

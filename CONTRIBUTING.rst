@@ -23,8 +23,9 @@ by running the following from your checkout of MLflow:
     pip install -r test-requirements.txt
     pip install -e .  # installs mlflow from current checkout
 
+Ensure `Docker <https://www.docker.com/>`_ is installed.
 
-``npm`` is required to run the Javascript dev server.
+``npm`` is required to run the Javascript dev server and the tracking UI.
 You can verify that ``npm`` is on the PATH by running ``npm -v``, and
 `install npm <https://www.npmjs.com/get-npm>`_ if needed.
 
@@ -195,8 +196,8 @@ checkout of MLflow:
     ~/mlflow
     $ cd mlflow
     # MLflow relies on Alembic (https://alembic.sqlalchemy.org) for schema migrations.
-    $ alembic revision -m "add new field to db"
-      Generating ~/mlflow/mlflow/alembic/versions/12341123_add_new_field_to_db.py
+    $ alembic -c mlflow/store/db_migrations/alembic.ini revision -m "add new field to db"
+      Generating ~/mlflow/mlflow/store/db_migrations/versions/b446d3984cfa_add_new_field_to_db.py
 
 
 These commands generate a new migration script (e.g. at

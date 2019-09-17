@@ -2,6 +2,7 @@ import json
 import hashlib
 import mock
 import os
+import shutil
 import logging
 
 from click.testing import CliRunner
@@ -24,6 +25,14 @@ def test_run_local_params(tracking_uri_mock):  # pylint: disable=unused-argument
     invoke_cli_runner(cli.run, [TEST_PROJECT_DIR, "-e", "greeter", "-P",
                                 "greeting=hi", "-P", "name=%s" % name,
                                 "-P", "excitement=%s" % excitement_arg])
+
+
+@pytest.fixture(scope="module", autouse=True)
+def clean_mlruns_dir():
+    yield
+    dir_path = os.path.join(TEST_PROJECT_DIR, "mlruns")
+    if os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
 
 
 @pytest.mark.large

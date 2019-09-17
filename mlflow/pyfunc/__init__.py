@@ -72,7 +72,7 @@ following parameters:
   ├── MLmodel
   ├── code
   │   ├── sklearn_iris.py
-  │  
+  │
   ├── data
   │   └── model.pkl
   └── mlflow_env.yml
@@ -199,7 +199,6 @@ from copy import deepcopy
 import mlflow
 import mlflow.pyfunc.model
 import mlflow.pyfunc.utils
-from mlflow.tracking.fluent import active_run, log_artifacts
 from mlflow.models import Model
 from mlflow.pyfunc.model import PythonModel, PythonModelContext, get_default_conda_env
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -282,7 +281,7 @@ def load_model(model_uri, suppress_warnings=False):
     return load_pyfunc(model_uri, suppress_warnings)
 
 
-@deprecated("pyfunc.load_model", 1.0)
+@deprecated("mlflow.pyfunc.load_model", 1.0)
 def load_pyfunc(model_uri, suppress_warnings=False):
     """
     Load a model stored in Python function format.
@@ -362,7 +361,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                       artifact-locations>`_.
 
     :param result_type: the return type of the user-defined function. The value can be either a
-        :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string. Only a primitive
+        ``pyspark.sql.types.DataType`` object or a DDL-formatted type string. Only a primitive
         type or an array ``pyspark.sql.types.ArrayType`` of primitive type are allowed.
         The following classes of result type are supported:
 
@@ -415,8 +414,10 @@ def spark_udf(spark, model_uri, result_type="double"):
                     "of the following types types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE)
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    archive_path = SparkModelCache.add_local_model(spark, local_model_path)
+    with TempDir() as local_tmpdir:
+        local_model_path = _download_artifact_from_uri(
+            artifact_uri=model_uri, output_path=local_tmpdir.path())
+        archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
@@ -436,10 +437,10 @@ def spark_udf(spark, model_uri, result_type="double"):
             result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, np.int, np.long])
 
         elif type(elem_type) == FloatType:
-            result = result.select_dtypes(include=np.number).astype(np.float32)
+            result = result.select_dtypes(include=(np.number,)).astype(np.float32)
 
         elif type(elem_type) == DoubleType:
-            result = result.select_dtypes(include=np.number).astype(np.float64)
+            result = result.select_dtypes(include=(np.number,)).astype(np.float64)
 
         if len(result.columns) == 0:
             raise MlflowException(
@@ -460,15 +461,19 @@ def spark_udf(spark, model_uri, result_type="double"):
 
 
 def save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-               model=Model(), python_model=None, artifacts=None):
+               mlflow_model=Model(), python_model=None, artifacts=None, **kwargs):
     """
-    Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
+    save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
+               mlflow_model=Model(), python_model=None, artifacts=None)
+
+    Save a Pyfunc model with custom inference logic and optional data dependencies to a path on the
+    local filesystem.
 
     For information about the workflows that this method supports, please see :ref:`"workflows for
     creating custom pyfunc models" <pyfunc-create-custom-workflows>` and
     :ref:`"which workflow is right for my use case?" <pyfunc-create-custom-selecting-workflow>`.
-    Note that the parameters for the first workflow: ``loader_module``, ``data_path`` and the
-    parameters for the second workflow: ``python_model``, ``artifacts``, cannot be
+    Note that the parameters for the second workflow: ``loader_module``, ``data_path`` and the
+    parameters for the first workflow: ``python_model``, ``artifacts``, cannot be
     specified together.
 
     :param path: The path to which to save the Python model.
@@ -503,7 +508,8 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
                                 'cloudpickle==0.5.8'
                             ]
                         }
-
+    :param mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
+                         **python_function** flavor.
     :param python_model: An instance of a subclass of :class:`~PythonModel`. This class is
                          serialized using the CloudPickle library. Any dependencies of the class
                          should be included in one of the following locations:
@@ -534,6 +540,9 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
                       If ``None``, no artifacts are added to the model.
     """
+    mlflow_model = kwargs.pop('model', mlflow_model)
+    if len(kwargs) > 0:
+        raise TypeError("save_model() got unexpected keyword arguments: {}".format(kwargs))
     first_argument_set = {
         "loader_module": loader_module,
         "data_path": data_path,
@@ -563,23 +572,24 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
                 path=path, loader_module=loader_module, data_path=data_path,
-                code_paths=code_path, conda_env=conda_env, mlflow_model=model)
+                code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path, python_model=python_model, artifacts=artifacts, conda_env=conda_env,
-            code_paths=code_path, mlflow_model=model)
+            code_paths=code_path, mlflow_model=mlflow_model)
 
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
               python_model=None, artifacts=None):
     """
-    Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
+    Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
+    artifact for the current run.
 
     For information about the workflows that this method supports, see :ref:`Workflows for
     creating custom pyfunc models <pyfunc-create-custom-workflows>` and
     :ref:`Which workflow is right for my use case? <pyfunc-create-custom-selecting-workflow>`.
-    You cannot specify the parameters for the first workflow: ``loader_module``, ``data_path``
-    and the parameters for the second workflow: ``python_model``, ``artifacts`` together.
+    You cannot specify the parameters for the second workflow: ``loader_module``, ``data_path``
+    and the parameters for the first workflow: ``python_model``, ``artifacts`` together.
 
     :param artifact_path: The run-relative artifact path to which to log the Python model.
     :param loader_module: The name of the Python module that is used to load the model
@@ -644,13 +654,14 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
 
                       If ``None``, no artifacts are added to the model.
     """
-    with TempDir() as tmp:
-        local_path = tmp.path(artifact_path)
-        run_id = active_run().info.run_id
-        save_model(path=local_path, model=Model(artifact_path=artifact_path, run_id=run_id),
-                   loader_module=loader_module, data_path=data_path, code_path=code_path,
-                   conda_env=conda_env, python_model=python_model, artifacts=artifacts)
-        log_artifacts(local_path, artifact_path)
+    return Model.log(artifact_path=artifact_path,
+                     flavor=mlflow.pyfunc,
+                     loader_module=loader_module,
+                     data_path=data_path,
+                     code_path=code_path,
+                     python_model=python_model,
+                     artifacts=artifacts,
+                     conda_env=conda_env)
 
 
 def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,

@@ -8,21 +8,30 @@ from functools import wraps
 from flask import Response, request, send_file
 from querystring_parser import parser
 
-from mlflow.entities import Metric, Param, RunTag, ViewType
+from mlflow.entities import Metric, Param, RunTag, ViewType, ExperimentTag
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
-    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch
+    DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
+    DeleteTag, SetExperimentTag, GetExperimentByName
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact_repository_registry import get_artifact_repository
 from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.search_utils import SearchFilter
 from mlflow.utils.validation import _validate_batch_log_api_req
 
 _store = None
+STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
+
+
+def _add_static_prefix(route):
+    prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
+    if prefix:
+        return prefix + route
+    return route
 
 
 def _get_file_store(store_uri, artifact_uri):
@@ -40,6 +49,8 @@ _tracking_store_registry.register('', _get_file_store)
 _tracking_store_registry.register('file', _get_file_store)
 for scheme in DATABASE_ENGINES:
     _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+
+_tracking_store_registry.register_entrypoints()
 
 
 def _get_store(backend_store_uri=None, default_artifact_root=None):
@@ -92,7 +103,7 @@ def catch_mlflow_exception(func):
         except MlflowException as e:
             response = Response(mimetype='application/json')
             response.set_data(e.serialize_as_json())
-            response.status_code = 500
+            response.status_code = e.get_http_status_code()
             return response
     return wrapper
 
@@ -149,9 +160,22 @@ def _get_experiment():
     response_message = GetExperiment.Response()
     experiment = _get_store().get_experiment(request_message.experiment_id).to_proto()
     response_message.experiment.MergeFrom(experiment)
-    run_info_entities = _get_store().list_run_infos(request_message.experiment_id,
-                                                    run_view_type=ViewType.ACTIVE_ONLY)
-    response_message.runs.extend([r.to_proto() for r in run_info_entities])
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _get_experiment_by_name():
+    request_message = _get_request_message(GetExperimentByName())
+    response_message = GetExperimentByName.Response()
+    store_exp = _get_store().get_experiment_by_name(request_message.experiment_name)
+    if store_exp is None:
+        raise MlflowException(
+            "Could not find experiment with name '%s'" % request_message.experiment_name,
+            error_code=RESOURCE_DOES_NOT_EXIST)
+    experiment = store_exp.to_proto()
+    response_message.experiment.MergeFrom(experiment)
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response
@@ -264,12 +288,33 @@ def _log_param():
 
 
 @catch_mlflow_exception
+def _set_experiment_tag():
+    request_message = _get_request_message(SetExperimentTag())
+    tag = ExperimentTag(request_message.key, request_message.value)
+    _get_store().set_experiment_tag(request_message.experiment_id, tag)
+    response_message = SetExperimentTag.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _set_tag():
     request_message = _get_request_message(SetTag())
     tag = RunTag(request_message.key, request_message.value)
     run_id = request_message.run_id or request_message.run_uuid
     _get_store().set_tag(run_id, tag)
     response_message = SetTag.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
+def _delete_tag():
+    request_message = _get_request_message(DeleteTag())
+    _get_store().delete_tag(request_message.run_id, request_message.key)
+    response_message = DeleteTag.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response
@@ -293,11 +338,16 @@ def _search_runs():
     run_view_type = ViewType.ACTIVE_ONLY
     if request_message.HasField('run_view_type'):
         run_view_type = ViewType.from_proto(request_message.run_view_type)
-    sf = SearchFilter(filter_string=request_message.filter)
+    filter_string = request_message.filter
     max_results = request_message.max_results
     experiment_ids = request_message.experiment_ids
-    run_entities = _get_store().search_runs(experiment_ids, sf, run_view_type, max_results)
+    order_by = request_message.order_by
+    page_token = request_message.page_token
+    run_entities = _get_store().search_runs(experiment_ids, filter_string, run_view_type,
+                                            max_results, order_by, page_token)
     response_message.runs.extend([r.to_proto() for r in run_entities])
+    if run_entities.token:
+        response_message.next_page_token = run_entities.token
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
     return response
@@ -370,7 +420,7 @@ def _get_paths(base_path):
     We should register paths like /api/2.0/preview/mlflow/experiment and
     /ajax-api/2.0/preview/mlflow/experiment in the Flask router.
     """
-    return ['/api/2.0{}'.format(base_path), '/ajax-api/2.0{}'.format(base_path)]
+    return ['/api/2.0{}'.format(base_path), _add_static_prefix('/ajax-api/2.0{}'.format(base_path))]
 
 
 def get_endpoints():
@@ -391,6 +441,7 @@ def get_endpoints():
 HANDLERS = {
     CreateExperiment: _create_experiment,
     GetExperiment: _get_experiment,
+    GetExperimentByName: _get_experiment_by_name,
     DeleteExperiment: _delete_experiment,
     RestoreExperiment: _restore_experiment,
     UpdateExperiment: _update_experiment,
@@ -400,7 +451,9 @@ HANDLERS = {
     RestoreRun: _restore_run,
     LogParam: _log_param,
     LogMetric: _log_metric,
+    SetExperimentTag: _set_experiment_tag,
     SetTag: _set_tag,
+    DeleteTag: _delete_tag,
     LogBatch: _log_batch,
     GetRun: _get_run,
     SearchRuns: _search_runs,

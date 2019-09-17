@@ -1,5 +1,86 @@
 Changelog
 =========
+1.2 (2019-08-09)
+----------------
+MLflow 1.2 includes the following major features and improvements:
+
+- Experiments now have editable tags and descriptions (#1630, #1632, #1678, @ankitmathur-db)
+- Search latency has been significantly reduced in the SQLAlchemyStore (#1660, @t-henri)
+
+**More features and improvements**
+
+- Backend stores now support run tag values up to 5000 characters in length. Some store implementations may support longer tag values (#1687, @ankitmathur-db)
+- Gunicorn options can now be configured for the ``mlflow models serve`` CLI with the ``GUNICORN_CMD_ARGS`` environment variable (#1557, @LarsDu)
+- Jsonnet artifacts can now be previewed in the UI (#1683, @ankitmathur-db)
+- Adds an optional ``python_version`` argument to ``mlflow_install`` for specifying the Python version (e.g. "3.5") to use within the conda environment created for installing the MLflow CLI. If ``python_version`` is unspecified, ``mlflow_install`` defaults to using Python 3.6. (#1722, @smurching)
+
+
+**Bug fixes and documentation updates**
+
+- [Tracking] The Autologging feature is now more resilient to tracking errors (#1690, @apurva-koti)
+- [Tracking] The ``runs`` field in in the ``GetExperiment.Response`` proto has been deprecated & will be removed in MLflow 2.0. Please use the ``Search Runs`` API for fetching runs instead (#1647, @dbczumar)
+- [Projects] Fixed a bug that prevented docker-based MLflow Projects from logging artifacts to the ``LocalArtifactRepository`` (#1450, @nlaille)
+- [Projects] Running MLflow projects with the ``--no-conda`` flag in R no longer requires Anaconda to be installed (#1650, @spadarian)
+- [Models/Scoring] Fixed a bug that prevented Spark UDFs from being loaded on Databricks (#1658, @smurching)
+- [UI] AJAX requests made by the MLFlow Server Frontend now specify correct MIME-Types (#1679, @ynotzort)
+- [UI] Previews now render correctly for artifacts with uppercase file extensions (e.g., ``.JSON``, ``.YAML``) (#1664, @ankitmathur-db)
+- [UI] Fixed a bug that caused search API errors to surface a Niagara Falls page (#1681, @dbczumar)
+- [Installation] MLflow dependencies are now selected properly based on the target installation platform (#1643, @akshaya-a)
+- [UI] Fixed a bug where the "load more" button in the experiment view did not appear on browsers in Windows (#1718, @Zangr)
+
+
+Small bug fixes and doc updates (#1663, #1719, @dbczumar; #1693, @max-allen-db; #1695, #1659, @smurching; #1675, @jdlesage; #1699, @ankitmathur-db; #1696, @aarondav; #1710, #1700, #1656, @apurva-koti)
+
+
+1.1 (2019-07-22)
+----------------
+MLflow 1.1 includes several major features and improvements: 
+
+In MLflow Tracking: 
+
+- Experimental support for autologging from Tensorflow and Keras. Using ``mlflow.tensorflow.autolog()`` will enable automatic logging of metrics and optimizer parameters from TensorFlow to MLflow. The feature will work with TensorFlow versions ``1.12 <= v < 2.0``. (#1520, #1601, @apurva-koti)
+- Parallel coordinates plot in the MLflow compare run UI. Adds out of the box support for a parallel coordinates plot. The plot allows users to observe relationships between a n-dimensional set of parameters to metrics. It visualizes all runs as lines that are color-coded based on the value of a metric (e.g. accuracy), and shows what parameter values each run took on. (#1497, @Zangr)
+- Pandas based search API. Adds the ability to return the results of a search as a pandas dataframe using the new ``mlflow.search_runs`` API. (#1483, #1548, @max-allen-db)
+- Java fluent API. Adds a new set of APIs to create and log to MLflow runs. This API contrasts with the existing low level ``MlflowClient`` API which simply wraps the REST APIs. The new fluent API allows you to create and log runs similar to how you would using the Python fluent API. (#1508, @andrewmchen)
+- Run tags improvements. Adds the ability to add and edit tags from the run view UI, delete tags from the API, and view tags in the experiment search view. (#1400, #1426, @Zangr; #1548, #1558, @ankitmathur-db)
+- Search API improvements. Adds order by and pagination to the search API. Pagination allows you to read a large set of runs in small page sized chunks. This allows clients and backend implementations to handle an unbounded set of runs in a scalable manner. (#1444, @sueann; #1437, #1455, #1482, #1485, #1542, @aarondav; #1567, @max-allen-db; #1217, @mparkhe)
+- Windows support for running the MLflow tracking server and UI. (#1080, @akshaya-a)
+
+In MLflow Projects:
+
+- Experimental support to run Docker based MLprojects in Kubernetes. Adds the first fully open source remote execution backend for MLflow projects. With this, you can leverage elastic compute resources managed by kubernetes for their ML training purposes. For example, you can run grid search over a set of hyperparameters by running several instances of an MLproject in parallel. (#1181, @marcusrehm, @tomasatdatabricks, @andrewmchen; #1566, @stbof, @dbczumar; #1574 @dbczumar)
+
+
+**More features and improvements**
+
+In MLflow Tracking: 
+
+- Paginated “load more” and backend sorting for experiment search view UI. This change allows the UI to scalably display the sorted runs from large experiments. (#1564, @Zangr)
+- Search results are encoded in the URL. This allows you to share searches through their URL and to deep link to them. (#1416, @apurva-koti)
+- Ability to serve MLflow UI behind ``jupyter-server-proxy`` or outside of the root path ``/``. Previous to MLflow 1.1, the UI could only be hosted on `/` since the Javascript makes requests directly to ``/ajax-api/...``. With this patch, MLflow will make requests to ``ajax-api/...`` or a path relative to where the HTML is being served. (#1413, @xhochy)
+
+In MLflow Models: 
+
+- Update ``mlflow.spark.log_model()`` to accept descendants of pyspark.Model (#1519, @ankitmathur-db)
+- Support for saving custom Keras models with ``custom_objects``. This field is semantically equivalent to custom_objects parameter of ``keras.models.load_model()`` function (#1525, @ankitmathur-db)
+- New more performant split orient based input format for pyfunc scoring server (#1479, @lennon310)
+- Ability to specify gunicorn server options for pyfunc scoring server built with `mlflow models build-docker`. #1428, @lennon310)
+
+**Bug fixes and documentation updates**
+
+- [Tracking] Fix database migration for MySQL. ``mlflow db upgrade`` should now work for MySQL backends. (#1404, @sueann)
+- [Tracking] Make CLI ``mlflow server`` and ``mlflow ui`` commands to work with SQLAlchemy URIs that specify a database driver. (#1411, @sueann)
+- [Tracking] Fix usability bugs related to FTP artifact repository. (#1398, @kafendt; #1421, @nlaille)
+- [Tracking] Return appropriate HTTP status codes for MLflowException (#1434, @max-allen-db)
+- [Tracking] Fix sorting by user ID in the experiment search view. (#1401, @andrewmchen)
+- [Tracking] Allow calling log_metric with NaNs and infs. (#1573, @tomasatdatabricks)
+- [Tracking] Fixes an infinite loop in downloading artifacts logged via dbfs and retrieved via S3. (#1605, @sueann)
+- [Projects] Docker projects should preserve directory structure (#1436, @ahutterTA)
+- [Projects] Fix conda activation for newer versions of conda. (#1576, @avinashraghuthu, @smurching)
+- [Models] Allow you to log Tensorflow keras models from the ``tf.keras`` module. (#1546, @tomasatdatabricks)
+
+Small bug fixes and doc updates (#1463, @mateiz; #1641, #1622, #1418, @sueann; #1607, #1568, #1536, #1478, #1406, #1408, @smurching; #1504, @LizaShak; #1490, @acroz; #1633, #1631, #1603, #1589, #1569, #1526, #1446, #1438, @apurva-koti; #1456, @Taur1ne; #1547, #1495, @aarondav; #1610, #1600, #1492, #1493, #1447, @tomasatdatabricks; #1430, @javierluraschi; #1424, @nathansuh; #1488, @henningsway; #1590, #1427, @Zangr; #1629, #1614, #1574, #1521, #1522, @dbczumar; #1577, #1514, @ankitmathur-db; #1588, #1566, @stbof; #1575, #1599, @max-allen-db; #1592, @abaveja313; #1606, @andrewmchen)
+
 
 1.0 (2019-06-03)
 ----------------

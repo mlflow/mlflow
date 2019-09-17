@@ -133,7 +133,7 @@ resolve_client_and_run_id <- function(client, run_id) {
 parse_run <- function(r) {
   info <- parse_run_info(r$info)
 
-  info$metrics <- parse_run_data(r$data$metrics)
+  info$metrics <- parse_metric_data(r$data$metrics)
   info$params <- parse_run_data(r$data$params)
   info$tags <- parse_run_data(r$data$tags)
 
@@ -157,13 +157,23 @@ parse_run_info <- function(r) {
     tibble::as_tibble()
 }
 
-parse_run_data <- function(d) {
+parse_metric_data <- function(d) {
   if (is.null(d)) return(NA)
   d %>%
     purrr::transpose() %>%
     purrr::map(unlist) %>%
     purrr::map_at("timestamp", milliseconds_to_date) %>%
     purrr::map_at("step", as.double) %>%
+    purrr::map_at("value", as.double) %>%
+    tibble::as_tibble() %>%
+    list()
+}
+
+parse_run_data <- function(d) {
+  if (is.null(d)) return(NA)
+  d %>%
+    purrr::transpose() %>%
+    purrr::map(unlist) %>%
     tibble::as_tibble() %>%
     list()
 }

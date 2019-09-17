@@ -264,3 +264,22 @@ def test_download_artifacts(ftp_mock):
     assert ftp_mock.nlst.call_count == 2
     assert ftp_mock.retrbinary.call_args_list[0][0][0] == 'RETR ' + model_file_path_full
     assert ftp_mock.retrbinary.call_args_list[1][0][0] == 'RETR ' + subfile_path_full
+
+
+def test_log_artifact_reuse_ftp_client(ftp_mock, tmpdir):
+    repo = FTPArtifactRepository("ftp://test_ftp/some/path")
+
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
+
+    d = tmpdir.mkdir("data")
+    file = d.join("test.txt")
+    file.write("hello world!")
+    fpath = file.strpath
+
+    repo.log_artifact(fpath)
+    repo.log_artifact(fpath, "subdir1/subdir2")
+    repo.log_artifact(fpath, "subdir3")
+
+    assert repo.get_ftp_client.call_count == 3

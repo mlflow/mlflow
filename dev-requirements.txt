@@ -7,3 +7,6 @@ nose
 codecov
 coverage
 pypi-publisher
+scikit-learn
+scipy
+kubernetes
