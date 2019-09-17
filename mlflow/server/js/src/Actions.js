@@ -1,7 +1,5 @@
 import { MlflowService } from './sdk/MlflowService';
 import ErrorCodes from './sdk/ErrorCodes';
-import $ from 'jquery';
-
 
 export const SEARCH_MAX_RESULTS = 100;
 
@@ -187,24 +185,30 @@ export const getUUID = () => {
  * Jquery's ajax promise is a bit weird so I chose to create a new Promise which resolves and
  * rejects using the ajax callbacks `success` and `error`.
  */
-const wrapDeferred = (deferred, data) => {
+export const wrapDeferred = (deferred, data, timeLeftMs = 10000, sleepMs = 1000) => {
   return new Promise((resolve, reject) => {
     deferred({
       data,
-      success: response => resolve(response),
+      success: response => {
+        resolve(response);
+      },
       error: (xhr) => {
-        if (this.tryCount === undefined) {
-          this.tryCount = 0;
-        }
         if (xhr.status === 429) {
-          this.tryCount++;
-          // Retry requests up to 3 times on 429
-          if (this.tryCount <= 3) {
+          // Retry requests up to 60s
+          if (timeLeftMs > 0) {
+            console.warn("Request failed with status code 429, message " +
+                new ErrorWrapper(xhr).getUserVisibleError() + ". Retrying after " +
+                sleepMs + " ms. On additional 429s, will continue to retry for up " +
+                "to " + timeLeftMs + " ms.");
             // Try again
-            const thisHolder = this;
-            return new Promise(resolve => setTimeout(resolve, 5000)).then(() => {
-              $.ajax(thisHolder);
-            });
+            const newTimeLeft = timeLeftMs - sleepMs;
+            const newSleepMs = Math.min(newTimeLeft, sleepMs * 2);
+            return new Promise(resolveRetry => setTimeout(resolveRetry, sleepMs)).then(() => {
+              return wrapDeferred(deferred, data, newTimeLeft, newSleepMs);
+            }).then(
+                (successResponse) => resolve(successResponse),
+                (failureResponse) => reject(failureResponse)
+            );
           }
         }
         console.error("XHR failed", xhr);
