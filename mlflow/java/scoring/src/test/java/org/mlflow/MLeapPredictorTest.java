@@ -37,6 +37,20 @@ public class MLeapPredictorTest {
   }
 
   @Test
+  public void testMLeapPredictorEvaluatesMinimalInputCorrectly()
+          throws IOException, PredictorEvaluationException {
+    String modelPath = MLflowRootResourceProvider.getResourcePath("regression_model");
+    MLeapPredictor predictor = (MLeapPredictor) new MLeapLoader().load(modelPath);
+
+    String sampleInputPath =
+            MLflowRootResourceProvider.getResourcePath("regression_model/sample_input.json");
+    String sampleInputJson = new String(Files.readAllBytes(Paths.get(sampleInputPath)));
+    PredictorDataWrapper inputData =
+            new PredictorDataWrapper(sampleInputJson, PredictorDataWrapper.ContentType.Json);
+    PredictorDataWrapper outputData = predictor.predict(inputData);
+  }
+
+  @Test
   public void testMLeapPredictorThrowsPredictorEvaluationExceptionWhenInputIsMissingField()
       throws IOException {
     String modelPath = MLflowRootResourceProvider.getResourcePath("mleap_model");

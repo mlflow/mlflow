@@ -1,0 +1,13 @@
+{
+  "name": "strIdx_54654fcd63ff",
+  "shape": {
+    "inputs": [{
+      "port": "input",
+      "name": "income"
+    }],
+    "outputs": [{
+      "port": "output",
+      "name": "label"
+    }]
+  }
+}

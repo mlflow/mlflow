@@ -19,7 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** A {@link org.mlflow.sagemaker.Predictor} implementation for the MLeap model flavor */
-public class MLeapPredictor extends Predictor {
+public class MLeapPredictor implements Predictor {
   private final Transformer pipelineTransformer;
 
   // As in the `pyfunc` wrapper for Spark models, we expect output dataframes
@@ -35,29 +35,43 @@ public class MLeapPredictor extends Predictor {
   /**
    * Constructs an {@link MLeapPredictor}
    *
+   * @deprecated Use {@link #MLeapPredictor(String)} instead.
    * @param modelDataPath The path to the serialized MLeap model
-   * @param inputSchemaPath The path to JSON-formatted file containing the input schema that the
-   *     model accepts
+   * @param inputSchemaPath The path to the serialized MLeap schema
    */
+  @java.lang.Deprecated
   public MLeapPredictor(String modelDataPath, String inputSchemaPath) {
     MleapContext mleapContext = new ContextBuilder().createMleapContext();
     BundleBuilder bundleBuilder = new BundleBuilder();
-    MLeapSchemaReader schemaReader = new MLeapSchemaReader();
     this.leapFrameSupport = new LeapFrameSupport();
 
     this.pipelineTransformer = bundleBuilder.load(new File(modelDataPath), mleapContext).root();
     try {
-      this.inputSchema = schemaReader.fromFile(inputSchemaPath);
+      this.inputSchema = new MLeapSchemaReader().fromFile(inputSchemaPath);
     } catch (Exception e) {
       logger.error("Could not read the model input schema from the specified path", e);
       throw new PredictorLoadingException(
               String.format(
-                  "Failed to load model input schema from specified path: %s", inputSchemaPath));
+                "Failed to load model input schema from specified path: %s", inputSchemaPath));
     }
   }
 
+  /**
+   * Constructs an {@link MLeapPredictor}
+   *
+   * @param modelDataPath The path to the serialized MLeap model
+   */
+  public MLeapPredictor(String modelDataPath) {
+    MleapContext mleapContext = new ContextBuilder().createMleapContext();
+    BundleBuilder bundleBuilder = new BundleBuilder();
+    this.leapFrameSupport = new LeapFrameSupport();
+
+    this.pipelineTransformer = bundleBuilder.load(new File(modelDataPath), mleapContext).root();
+    this.inputSchema = this.pipelineTransformer.inputSchema();
+  }
+
   @Override
-  protected PredictorDataWrapper predict(PredictorDataWrapper input)
+  public PredictorDataWrapper predict(PredictorDataWrapper input)
       throws PredictorEvaluationException {
     PandasSplitOrientedDataFrame pandasFrame;
     try {
