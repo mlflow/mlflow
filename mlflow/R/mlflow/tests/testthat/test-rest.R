@@ -65,7 +65,6 @@ test_that("429s are retried", {
       ), class = "response"
     )
   }
-  print("A")
   responses <- list(new_response(429), new_response(429), new_response(200))
   with_mock(.env = "httr", GET = function(...) {
     res <- responses[[next_id]]
@@ -96,5 +95,4 @@ test_that("429s are retried", {
       TRUE
     })
   })
-  print("B")
 })
