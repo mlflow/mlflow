@@ -55,30 +55,46 @@ test_that("insecure is used", {
 
 
 test_that("429s are retried", {
-  responses = list(list(status_code = 429), list(status_code = 429), list(status_code = 200))
-  next_id <- 1
-  client <- client1 <- mlflow:::mlflow_client("local")
-  with_mock(GET = function(...) {
+  next_id <<- 1
+  client <- mlflow:::mlflow_client("local")
+  new_response <- function(status_code) {
+    structure(
+      list(status_code = status_code,
+           content = charToRaw('{"text":"text"}'),
+           headers = list(`Content-Type` = "raw")
+      ), class = "response"
+    )
+  }
+  print("A")
+  responses <- list(new_response(429), new_response(429), new_response(200))
+  with_mock(.env = "httr", GET = function(...) {
     res <- responses[[next_id]]
-    next_id <- next_id
+    next_id <<- next_id + 1
     res
   }, {
     tryCatch({
-      mlflow_rest(client, max_rate_limit_interval=0)
+      mlflow_rest(client = client, max_rate_limit_interval = 0)
       stop("The rest call should have returned 429 and the function should have thrown.")
+    }, error = function(cnd) {
+      # pass
+      TRUE
     })
-    x <- mlflow_rest(client, max_rate_limit_interval=2)
-    expect_equal(200, x$status_code)
-    next_id <- 1
-    x <- mlflow_rest(client, max_rate_limit_interval=2)
-    expect_equal(200, x$status_code)
-    next_id <- 1
-    x <- mlflow_rest(client, max_rate_limit_interval=3)
-    expect_equal(200, x$status_code)
-    next_id <- 1
+    x <- mlflow_rest(client = client, max_rate_limit_interval = 2)
+    expect_equal(x$text, "text")
+    next_id <<- 1
+    x <- mlflow_rest(client = client, max_rate_limit_interval = 2)
+    expect_equal(x$text, "text")
+    next_id <<- 1
+    x <- mlflow_rest(client = client, max_rate_limit_interval = 3)
+    expect_equal(x$text, "text")
+    next_id <<- 1
     tryCatch({
-      mlflow_rest(client, max_rate_limit_interval=1)
+      mlflow_rest(client = client, max_rate_limit_interval = 1)
       stop("The rest call should have returned 429 and the function should have thrown.")
+    }, error = function(cnd) {
+      # pass
+      TRUE
     })
   })
+  print("B")
 })
