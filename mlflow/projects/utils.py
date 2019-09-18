@@ -8,6 +8,7 @@ _logger = logging.getLogger(__name__)
 
 MLPROJECT_PARAMETER_TYPES = ('string', 'float', 'path', 'uri')
 BAD_MLPROJECT_MESSAGE = "Invalid MLproject file: {}"
+MLPROJECT_MESSAGE = "MLproject file: %s"
 
 
 def validate_conda_env_path(path):
@@ -47,11 +48,11 @@ def validate_project_yaml(project_yaml):
 
 def _validate_entries_are_allowed(yaml_level, present_entries, allowed_entries):
     """helper to validate that entry keys are in an allowable set"""
-    for k in present_entries:
-        if k not in allowed_entries:
-            message = "{} entry {} not one of allowed entries {{{}}}"\
-                .format(yaml_level, k, ', '.join(allowed_entries))
-            raise ExecutionException(BAD_MLPROJECT_MESSAGE.format(message))
+    unparsed_entries = set(present_entries) - set(allowed_entries)
+    if unparsed_entries:
+        message = "{} entries {{{}}} will not be parsed by MLflow projects"\
+            .format(yaml_level, ', '.join(sorted(unparsed_entries)))
+        _logger.info(MLPROJECT_MESSAGE, message)
 
 
 def _validate_entry_point_yaml(entry_point_name, entry_point_yaml):

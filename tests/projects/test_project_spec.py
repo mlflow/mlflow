@@ -85,41 +85,6 @@ def test_validate_conda_env_path():
 
 
 bad_ml_project_file_test_cases = (
-    # bad sub-entries at various points
-    (
-        "not one of allowed entries",
-        (
-            """
-            name: test
-            blah: blah
-            """,
-            """
-            docker_env:
-              image: some-image
-              some_entry: shrug
-            """,
-            """
-            entry_points:
-              ep:
-                parameters:
-                  p:
-                    type: test
-                    blah: test
-                command: pass
-            """,
-            """
-            entry_points:
-              ep:
-                command: pass
-                blah: blah
-            """,
-            """
-            docker_env:
-              image: hi
-              blah: blah
-            """
-        )
-    ),
     # conda and docker in the same project
     (
         "conda_env and docker_env in the same project",
