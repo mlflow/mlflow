@@ -46,7 +46,8 @@ get_rest_config <- function(host_creds) {
 }
 
 #' @importFrom httr GET POST add_headers config content
-mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", version = "2.0") {
+mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", version = "2.0",
+                         max_rate_limit_interval=60) {
   host_creds <- client$get_host_creds()
   rest_config <- get_rest_config(host_creds)
   args <- list(...)
@@ -55,25 +56,37 @@ mlflow_rest <- function( ..., client, query = NULL, data = NULL, verb = "GET", v
     mlflow_rest_path(version),
     paste(args, collapse = "/")
   )
-
-  response <- switch(
+  req_headers <- do.call(add_headers, rest_config$headers)
+  get_response <- switch(
     verb,
-    GET = GET(
-      api_url,
-      query = query,
-      mlflow_rest_timeout(),
-      config = rest_config$config,
-      do.call(add_headers, rest_config$headers)),
-    POST = POST(
-      api_url,
-      body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
-      encode = "json",
-      mlflow_rest_timeout(),
-      config = rest_config$config,
-      do.call(add_headers, rest_config$headers)
-    ),
+    GET = function() {
+      GET( api_url, query = query, mlflow_rest_timeout(), config = rest_config$config,
+           req_headers)
+    },
+    POST = function(){
+      POST( api_url,
+            body = if (is.null(data)) NULL else rapply(data, as.character, how = "replace"),
+            encode = "json",
+            mlflow_rest_timeout(),
+            config = rest_config$config,
+            req_headers
+      )
+    },
     stop("Verb '", verb, "' is unsupported.", call. = FALSE)
   )
+  sleep_for <<- 1
+  time_left <<- max_rate_limit_interval
+  response <<- get_response()
+  while (response$status_code == 429 && time_left > 0) {
+    time_left <<- time_left - sleep_for
+    warning(paste("Request returned with status code 429 (Rate limit exceeded). Retrying after ",
+                  sleep_for, " seconds. Will continue to retry 429s for up to ", time_left,
+                  " second.", sep = ""))
+    Sys.sleep(sleep_for)
+    sleep_for <<- min(time_left, sleep_for * 2)
+    response <<- get_response()
+  }
+
   if (response$status_code != 200) {
     message_body <- tryCatch(
       paste(content(response, "parsed", type = "application/json"), collapse = "; "),
