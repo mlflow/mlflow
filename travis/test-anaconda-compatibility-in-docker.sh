@@ -15,7 +15,7 @@ pip install --upgrade-strategy only-if-needed -e /mnt/mlflow
 pip freeze > /tmp/after.txt
 diff /tmp/before.txt /tmp/after.txt > /tmp/diff.txt || true
 if [[ ! -z $(grep "<" /tmp/diff.txt) ]]; then
-  echo "MLflow installation modified the Anaconda distribution:\n" 1>&2
+  echo "MLflow installation modified the Anaconda distribution:" 1>&2
   cat /tmp/diff.txt 1>&2
   exit 1
 else
