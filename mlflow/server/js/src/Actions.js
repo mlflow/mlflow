@@ -182,8 +182,17 @@ export const getUUID = () => {
 };
 
 /**
- * Jquery's ajax promise is a bit weird so I chose to create a new Promise which resolves and
- * rejects using the ajax callbacks `success` and `error`.
+ * Wraps a Jquery AJAX request (passed via `deferred`) in a new Promise which resolves and
+ * rejects using the ajax callbacks `success` and `error`. Retries with exponential backoff
+ * if the server responds with a 429 (Too Many Requests).
+ * @param {function} deferred - Function with signature ({data, success, error}) => Any, where
+ *   data is a JSON payload for an AJAX request, success is a callback to execute on request
+ *   success, and error is a callback to execute on request failure.
+ * @param {object} data - Data argument to pass to `deferred`
+ * @param {int} timeLeftMs - Time left to retry the AJAX request in ms, if we receive a 429
+ * response from the server. Defaults to 60 seconds.
+ * @param {int} sleepMs - Time to sleep before retrying the AJAX request if we receive a 429
+ * response from the server. Defaults to 1 second.
  */
 export const wrapDeferred = (deferred, data, timeLeftMs = 60000, sleepMs = 1000) => {
   return new Promise((resolve, reject) => {
