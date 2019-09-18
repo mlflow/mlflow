@@ -1,7 +1,7 @@
 import pytest
 import mock
 
-from mlflow.entities import RunTag, SourceType, ViewType
+from mlflow.entities import SourceType, ViewType, RunTag
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import MlflowClient
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \

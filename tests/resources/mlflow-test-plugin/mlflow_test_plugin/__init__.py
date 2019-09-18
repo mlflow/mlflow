@@ -2,7 +2,7 @@ from six.moves import urllib
 
 from mlflow.store.file_store import FileStore
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
-from mlflow.tracking.context import RunContextProvider
+from mlflow.tracking.context.abstract_context import RunContextProvider
 
 
 class PluginFileStore(FileStore):

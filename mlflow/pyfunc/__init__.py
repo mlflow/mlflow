@@ -72,7 +72,7 @@ following parameters:
   ├── MLmodel
   ├── code
   │   ├── sklearn_iris.py
-  │  
+  │
   ├── data
   │   └── model.pkl
   └── mlflow_env.yml
@@ -281,7 +281,7 @@ def load_model(model_uri, suppress_warnings=False):
     return load_pyfunc(model_uri, suppress_warnings)
 
 
-@deprecated("pyfunc.load_model", 1.0)
+@deprecated("mlflow.pyfunc.load_model", 1.0)
 def load_pyfunc(model_uri, suppress_warnings=False):
     """
     Load a model stored in Python function format.
@@ -361,7 +361,7 @@ def spark_udf(spark, model_uri, result_type="double"):
                       artifact-locations>`_.
 
     :param result_type: the return type of the user-defined function. The value can be either a
-        :class:`pyspark.sql.types.DataType` object or a DDL-formatted type string. Only a primitive
+        ``pyspark.sql.types.DataType`` object or a DDL-formatted type string. Only a primitive
         type or an array ``pyspark.sql.types.ArrayType`` of primitive type are allowed.
         The following classes of result type are supported:
 
@@ -414,8 +414,10 @@ def spark_udf(spark, model_uri, result_type="double"):
                     "of the following types types: {}".format(str(elem_type), str(supported_types)),
             error_code=INVALID_PARAMETER_VALUE)
 
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    archive_path = SparkModelCache.add_local_model(spark, local_model_path)
+    with TempDir() as local_tmpdir:
+        local_model_path = _download_artifact_from_uri(
+            artifact_uri=model_uri, output_path=local_tmpdir.path())
+        archive_path = SparkModelCache.add_local_model(spark, local_model_path)
 
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
@@ -464,13 +466,14 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
     save_model(path, loader_module=None, data_path=None, code_path=None, conda_env=None,\
                mlflow_model=Model(), python_model=None, artifacts=None)
 
-    Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
+    Save a Pyfunc model with custom inference logic and optional data dependencies to a path on the
+    local filesystem.
 
     For information about the workflows that this method supports, please see :ref:`"workflows for
     creating custom pyfunc models" <pyfunc-create-custom-workflows>` and
     :ref:`"which workflow is right for my use case?" <pyfunc-create-custom-selecting-workflow>`.
-    Note that the parameters for the first workflow: ``loader_module``, ``data_path`` and the
-    parameters for the second workflow: ``python_model``, ``artifacts``, cannot be
+    Note that the parameters for the second workflow: ``loader_module``, ``data_path`` and the
+    parameters for the first workflow: ``python_model``, ``artifacts``, cannot be
     specified together.
 
     :param path: The path to which to save the Python model.
@@ -579,13 +582,14 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
               python_model=None, artifacts=None):
     """
-    Create a custom Pyfunc model, incorporating custom inference logic and data dependencies.
+    Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
+    artifact for the current run.
 
     For information about the workflows that this method supports, see :ref:`Workflows for
     creating custom pyfunc models <pyfunc-create-custom-workflows>` and
     :ref:`Which workflow is right for my use case? <pyfunc-create-custom-selecting-workflow>`.
-    You cannot specify the parameters for the first workflow: ``loader_module``, ``data_path``
-    and the parameters for the second workflow: ``python_model``, ``artifacts`` together.
+    You cannot specify the parameters for the second workflow: ``loader_module``, ``data_path``
+    and the parameters for the first workflow: ``python_model``, ``artifacts`` together.
 
     :param artifact_path: The run-relative artifact path to which to log the Python model.
     :param loader_module: The name of the Python module that is used to load the model

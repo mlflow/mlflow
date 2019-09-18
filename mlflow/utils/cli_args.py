@@ -12,7 +12,7 @@ MODEL_URI = click.option("--model-uri", "-m", default=None, metavar="URI", requi
                               " remote storage URI (e.g., an 's3://' URI). For more information"
                               " about supported remote URIs for model artifacts, see"
                               " https://mlflow.org/docs/latest/tracking.html"
-                              "#supported-artifact-stores")
+                              "#artifact-stores")
 
 MLFLOW_HOME = click.option("--mlflow-home", default=None, metavar="PATH",
                            help="Path to local clone of MLflow project. Use for development only.")
@@ -36,6 +36,7 @@ HOST = click.option("--host", "-h", metavar="HOST", default="127.0.0.1",
                     help="The network address to listen on (default: 127.0.0.1). "
                          "Use 0.0.0.0 to bind to all addresses if you want to access the tracking "
                          "server from other machines.")
+
 PORT = click.option("--port", "-p", default=5000,
                     help="The port to listen on (default: 5000).")
 

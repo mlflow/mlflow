@@ -2,10 +2,14 @@
 import mlflow
 import os
 import sys
+import tempfile
 
 
 def call_tracking_apis():
     mlflow.log_metric("some_key", 3)
+    with tempfile.NamedTemporaryFile("w") as temp_file:
+        temp_file.write("Temporary content.")
+        mlflow.log_artifact(temp_file.name)
 
 
 def main(use_start_run):

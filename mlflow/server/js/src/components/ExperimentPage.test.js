@@ -1,8 +1,13 @@
 import React from 'react';
 import qs from 'qs';
 import { shallow } from 'enzyme';
+import ErrorCodes from '../sdk/ErrorCodes';
+import { ErrorWrapper } from '../Actions';
 import { ExperimentPage } from './ExperimentPage';
+import ExperimentView from "./ExperimentView";
+import PermissionDeniedView from "./PermissionDeniedView";
 import { ViewType } from '../sdk/MlflowEnums';
+import { MemoryRouter as Router } from 'react-router-dom';
 
 
 const BASE_PATH = "/experiments/17/s";
@@ -10,12 +15,14 @@ const EXPERIMENT_ID = 17;
 
 let searchRunsApi;
 let getExperimentApi;
+let loadMoreRunsApi;
 let history;
 let location;
 
 beforeEach(() => {
-  searchRunsApi = jest.fn();
-  getExperimentApi = jest.fn();
+  searchRunsApi = jest.fn(() => Promise.resolve());
+  getExperimentApi = jest.fn(() => Promise.resolve());
+  loadMoreRunsApi = jest.fn(() => Promise.resolve());
   location = {};
 
   history = {};
@@ -30,6 +37,7 @@ const getExperimentPageMock = () => {
     experimentId={EXPERIMENT_ID}
     searchRunsApi={searchRunsApi}
     getExperimentApi={getExperimentApi}
+    loadMoreRunsApi={loadMoreRunsApi}
     history={history}
     location={location}
   />);
@@ -102,4 +110,84 @@ test('Loading state with all URL params', () => {
   expect(state.persistedState.searchInput).toEqual("c");
   expect(state.persistedState.orderByKey).toEqual("d");
   expect(state.persistedState.orderByAsc).toEqual(false);
+});
+
+test('should render permission denied view when getExperiment yields permission error', () => {
+  const experimentPageInstance = getExperimentPageMock().instance();
+  const errorMessage = "Access Denied";
+  const responseErrorWrapper = new ErrorWrapper({
+    responseText: `{"error_code": "${ErrorCodes.PERMISSION_DENIED}", "message": "${errorMessage}"}`
+  });
+  const searchRunsErrorRequest = {
+    id: experimentPageInstance.searchRunsRequestId,
+    active: false,
+    error: responseErrorWrapper,
+  };
+  const getExperimentErrorRequest = {
+    id: experimentPageInstance.getExperimentRequestId,
+    active: false,
+    error: responseErrorWrapper,
+  };
+  const experimentViewInstance = shallow(experimentPageInstance.renderExperimentView(
+    false,
+    true,
+    [searchRunsErrorRequest, getExperimentErrorRequest],
+  )).instance();
+  expect(experimentViewInstance).toBeInstanceOf(PermissionDeniedView);
+  expect(experimentViewInstance.props.errorMessage).toEqual(errorMessage);
+});
+
+test('should render experiment view when search error occurs', () => {
+  const experimentPageInstance = getExperimentPageMock().instance();
+  const responseErrorWrapper = new ErrorWrapper({
+    responseText: `{"error_code": "${ErrorCodes.INVALID_PARAMETER_VALUE}", "message": "Invalid"}`
+  });
+  const searchRunsErrorRequest = {
+    id: experimentPageInstance.searchRunsRequestId,
+    active: false,
+    error: responseErrorWrapper,
+  };
+  const getExperimentErrorRequest = {
+    id: experimentPageInstance.getExperimentRequestId,
+    active: false,
+  };
+  const renderedView = shallow(
+    <Router>
+      {experimentPageInstance.renderExperimentView(
+      false,
+      true,
+      [searchRunsErrorRequest, getExperimentErrorRequest])}
+    </Router>
+  );
+  expect(renderedView.find(ExperimentView)).toHaveLength(1);
+});
+
+test('should update next page token initially', () => {
+  const promise = Promise.resolve({ value: { next_page_token: 'token_1' } });
+  searchRunsApi = jest.fn(() => promise);
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  return promise.then(() => expect(instance.state.nextPageToken).toBe('token_1'));
+});
+
+test('should update next page token after load-more', () => {
+  const promise = Promise.resolve({ value: { next_page_token: 'token_1' } });
+  loadMoreRunsApi = jest.fn(() => promise);
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  instance.handleLoadMoreRuns();
+  return promise.then(() => expect(instance.state.nextPageToken).toBe('token_1'));
+});
+
+test('should update next page token to null when load-more response has no token', () => {
+  const promise1 = Promise.resolve({ value: { next_page_token: 'token_1' } });
+  const promise2 = Promise.resolve({ value: {} });
+  searchRunsApi = jest.fn(() => promise1);
+  loadMoreRunsApi = jest.fn(() => promise2);
+  const wrapper = getExperimentPageMock();
+  const instance = wrapper.instance();
+  instance.handleLoadMoreRuns();
+  return Promise.all([promise1, promise2]).then(() =>
+    expect(instance.state.nextPageToken).toBe(null),
+  );
 });

@@ -24,7 +24,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='mlflow',
   syntax='proto2',
   serialized_options=_b('\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001'),
-  serialized_pb=_b('\n\rservice.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"H\n\x06Metric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\"#\n\x05Param\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"C\n\x03Run\x12\x1d\n\x04info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo\x12\x1d\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x0f.mlflow.RunData\"g\n\x07RunData\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x02 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x03 \x03(\x0b\x32\x0e.mlflow.RunTag\"$\n\x06RunTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xcb\x01\n\x07RunInfo\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x0f \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0f\n\x07user_id\x18\x06 \x01(\t\x12!\n\x06status\x18\x07 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x12\n\nstart_time\x18\x08 \x01(\x03\x12\x10\n\x08\x65nd_time\x18\t \x01(\x03\x12\x14\n\x0c\x61rtifact_uri\x18\r \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x0e \x01(\t\"\x96\x01\n\nExperiment\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x19\n\x11\x61rtifact_location\x18\x03 \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x04 \x01(\t\x12\x18\n\x10last_update_time\x18\x05 \x01(\x03\x12\x15\n\rcreation_time\x18\x06 \x01(\x03\"\x91\x01\n\x10\x43reateExperiment\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x11\x61rtifact_location\x18\x02 \x01(\t\x1a!\n\x08Response\x12\x15\n\rexperiment_id\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x98\x01\n\x0fListExperiments\x12#\n\tview_type\x18\x01 \x01(\x0e\x32\x10.mlflow.ViewType\x1a\x33\n\x08Response\x12\'\n\x0b\x65xperiments\x18\x01 \x03(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xac\x01\n\rGetExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1aQ\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment\x12\x1d\n\x04runs\x18\x02 \x03(\x0b\x32\x0f.mlflow.RunInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"h\n\x10\x44\x65leteExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"i\n\x11RestoreExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"z\n\x10UpdateExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x01\n\tCreateRun\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x12\n\nstart_time\x18\x07 \x01(\x03\x12\x1c\n\x04tags\x18\t \x03(\x0b\x32\x0e.mlflow.RunTag\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xbe\x01\n\tUpdateRun\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12!\n\x06status\x18\x02 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\x03\x1a-\n\x08Response\x12!\n\x08run_info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"Z\n\tDeleteRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"[\n\nRestoreRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x01\n\tLogMetric\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\x01\x42\x04\xf8\x86\x19\x01\x12\x17\n\ttimestamp\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x04step\x18\x05 \x01(\x03:\x01\x30\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\x08LogParam\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8b\x01\n\x06SetTag\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"}\n\x06GetRun\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x98\x02\n\nSearchRuns\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x04 \x01(\t\x12\x34\n\rrun_view_type\x18\x03 \x01(\x0e\x32\x10.mlflow.ViewType:\x0b\x41\x43TIVE_ONLY\x12\x19\n\x0bmax_results\x18\x05 \x01(\x05:\x04\x31\x30\x30\x30\x12\x10\n\x08order_by\x18\x06 \x03(\t\x12\x12\n\npage_token\x18\x07 \x01(\t\x1a>\n\x08Response\x12\x19\n\x04runs\x18\x01 \x03(\x0b\x32\x0b.mlflow.Run\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xab\x01\n\rListArtifacts\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x1a=\n\x08Response\x12\x10\n\x08root_uri\x18\x01 \x01(\t\x12\x1f\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x10.mlflow.FileInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\"\xa8\x01\n\x10GetMetricHistory\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a+\n\x08Response\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb1\x01\n\x08LogBatch\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x1f\n\x07metrics\x18\x02 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x03 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x04 \x03(\x0b\x32\x0e.mlflow.RunTag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*6\n\x08ViewType\x12\x0f\n\x0b\x41\x43TIVE_ONLY\x10\x01\x12\x10\n\x0c\x44\x45LETED_ONLY\x10\x02\x12\x07\n\x03\x41LL\x10\x03*I\n\nSourceType\x12\x0c\n\x08NOTEBOOK\x10\x01\x12\x07\n\x03JOB\x10\x02\x12\x0b\n\x07PROJECT\x10\x03\x12\t\n\x05LOCAL\x10\x04\x12\x0c\n\x07UNKNOWN\x10\xe8\x07*M\n\tRunStatus\x12\x0b\n\x07RUNNING\x10\x01\x12\r\n\tSCHEDULED\x10\x02\x12\x0c\n\x08\x46INISHED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\n\n\x06KILLED\x10\x05\x32\x8c\x19\n\rMlflowService\x12\xc6\x01\n\x10\x63reateExperiment\x12\x18.mlflow.CreateExperiment\x1a!.mlflow.CreateExperiment.Response\"u\xf2\x86\x19q\n0\n\x04POST\x12\"/preview/mlflow/experiments/create\x1a\x04\x08\x02\x10\x00\n(\n\x04POST\x12\x1a/mlflow/experiments/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x43reate Experiment\x12\xbc\x01\n\x0flistExperiments\x12\x17.mlflow.ListExperiments\x1a .mlflow.ListExperiments.Response\"n\xf2\x86\x19j\n-\n\x03GET\x12 /preview/mlflow/experiments/list\x1a\x04\x08\x02\x10\x00\n%\n\x03GET\x12\x18/mlflow/experiments/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x10List Experiments\x12\xb2\x01\n\rgetExperiment\x12\x15.mlflow.GetExperiment\x1a\x1e.mlflow.GetExperiment.Response\"j\xf2\x86\x19\x66\n,\n\x03GET\x12\x1f/preview/mlflow/experiments/get\x1a\x04\x08\x02\x10\x00\n$\n\x03GET\x12\x17/mlflow/experiments/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eGet Experiment\x12\xc6\x01\n\x10\x64\x65leteExperiment\x12\x18.mlflow.DeleteExperiment\x1a!.mlflow.DeleteExperiment.Response\"u\xf2\x86\x19q\n0\n\x04POST\x12\"/preview/mlflow/experiments/delete\x1a\x04\x08\x02\x10\x00\n(\n\x04POST\x12\x1a/mlflow/experiments/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44\x65lete Experiment\x12\xcc\x01\n\x11restoreExperiment\x12\x19.mlflow.RestoreExperiment\x1a\".mlflow.RestoreExperiment.Response\"x\xf2\x86\x19t\n1\n\x04POST\x12#/preview/mlflow/experiments/restore\x1a\x04\x08\x02\x10\x00\n)\n\x04POST\x12\x1b/mlflow/experiments/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Restore Experiment\x12\xc6\x01\n\x10updateExperiment\x12\x18.mlflow.UpdateExperiment\x1a!.mlflow.UpdateExperiment.Response\"u\xf2\x86\x19q\n0\n\x04POST\x12\"/preview/mlflow/experiments/update\x1a\x04\x08\x02\x10\x00\n(\n\x04POST\x12\x1a/mlflow/experiments/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x11Update Experiment\x12\x9c\x01\n\tcreateRun\x12\x11.mlflow.CreateRun\x1a\x1a.mlflow.CreateRun.Response\"`\xf2\x86\x19\\\n)\n\x04POST\x12\x1b/preview/mlflow/runs/create\x1a\x04\x08\x02\x10\x00\n!\n\x04POST\x12\x13/mlflow/runs/create\x1a\x04\x08\x02\x10\x00\x10\x01*\nCreate Run\x12\x9c\x01\n\tupdateRun\x12\x11.mlflow.UpdateRun\x1a\x1a.mlflow.UpdateRun.Response\"`\xf2\x86\x19\\\n)\n\x04POST\x12\x1b/preview/mlflow/runs/update\x1a\x04\x08\x02\x10\x00\n!\n\x04POST\x12\x13/mlflow/runs/update\x1a\x04\x08\x02\x10\x00\x10\x01*\nUpdate Run\x12\x9c\x01\n\tdeleteRun\x12\x11.mlflow.DeleteRun\x1a\x1a.mlflow.DeleteRun.Response\"`\xf2\x86\x19\\\n)\n\x04POST\x12\x1b/preview/mlflow/runs/delete\x1a\x04\x08\x02\x10\x00\n!\n\x04POST\x12\x13/mlflow/runs/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Run\x12\xa2\x01\n\nrestoreRun\x12\x12.mlflow.RestoreRun\x1a\x1b.mlflow.RestoreRun.Response\"c\xf2\x86\x19_\n*\n\x04POST\x12\x1c/preview/mlflow/runs/restore\x1a\x04\x08\x02\x10\x00\n\"\n\x04POST\x12\x14/mlflow/runs/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bRestore Run\x12\xa4\x01\n\tlogMetric\x12\x11.mlflow.LogMetric\x1a\x1a.mlflow.LogMetric.Response\"h\xf2\x86\x19\x64\n-\n\x04POST\x12\x1f/preview/mlflow/runs/log-metric\x1a\x04\x08\x02\x10\x00\n%\n\x04POST\x12\x17/mlflow/runs/log-metric\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Metric\x12\xa6\x01\n\x08logParam\x12\x10.mlflow.LogParam\x1a\x19.mlflow.LogParam.Response\"m\xf2\x86\x19i\n0\n\x04POST\x12\"/preview/mlflow/runs/log-parameter\x1a\x04\x08\x02\x10\x00\n(\n\x04POST\x12\x1a/mlflow/runs/log-parameter\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Param\x12\x92\x01\n\x06setTag\x12\x0e.mlflow.SetTag\x1a\x17.mlflow.SetTag.Response\"_\xf2\x86\x19[\n*\n\x04POST\x12\x1c/preview/mlflow/runs/set-tag\x1a\x04\x08\x02\x10\x00\n\"\n\x04POST\x12\x14/mlflow/runs/set-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Set Tag\x12\x88\x01\n\x06getRun\x12\x0e.mlflow.GetRun\x1a\x17.mlflow.GetRun.Response\"U\xf2\x86\x19Q\n%\n\x03GET\x12\x18/preview/mlflow/runs/get\x1a\x04\x08\x02\x10\x00\n\x1d\n\x03GET\x12\x10/mlflow/runs/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Get Run\x12\xcc\x01\n\nsearchRuns\x12\x12.mlflow.SearchRuns\x1a\x1b.mlflow.SearchRuns.Response\"\x8c\x01\xf2\x86\x19\x87\x01\n)\n\x04POST\x12\x1b/preview/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\n!\n\x04POST\x12\x13/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\n(\n\x03GET\x12\x1b/preview/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bSearch Runs\x12\xb0\x01\n\rlistArtifacts\x12\x15.mlflow.ListArtifacts\x1a\x1e.mlflow.ListArtifacts.Response\"h\xf2\x86\x19\x64\n+\n\x03GET\x12\x1e/preview/mlflow/artifacts/list\x1a\x04\x08\x02\x10\x00\n#\n\x03GET\x12\x16/mlflow/artifacts/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\x12\xc7\x01\n\x10getMetricHistory\x12\x18.mlflow.GetMetricHistory\x1a!.mlflow.GetMetricHistory.Response\"v\xf2\x86\x19r\n0\n\x03GET\x12#/preview/mlflow/metrics/get-history\x1a\x04\x08\x02\x10\x00\n(\n\x03GET\x12\x1b/mlflow/metrics/get-history\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Get Metric History\x12\x9e\x01\n\x08logBatch\x12\x10.mlflow.LogBatch\x1a\x19.mlflow.LogBatch.Response\"e\xf2\x86\x19\x61\n,\n\x04POST\x12\x1e/preview/mlflow/runs/log-batch\x1a\x04\x08\x02\x10\x00\n$\n\x04POST\x12\x16/mlflow/runs/log-batch\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog BatchB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  serialized_pb=_b('\n\rservice.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"H\n\x06Metric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\"#\n\x05Param\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"C\n\x03Run\x12\x1d\n\x04info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo\x12\x1d\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x0f.mlflow.RunData\"g\n\x07RunData\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x02 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x03 \x03(\x0b\x32\x0e.mlflow.RunTag\"$\n\x06RunTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"+\n\rExperimentTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xcb\x01\n\x07RunInfo\x12\x0e\n\x06run_id\x18\x0f \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0f\n\x07user_id\x18\x06 \x01(\t\x12!\n\x06status\x18\x07 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x12\n\nstart_time\x18\x08 \x01(\x03\x12\x10\n\x08\x65nd_time\x18\t \x01(\x03\x12\x14\n\x0c\x61rtifact_uri\x18\r \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x0e \x01(\t\"\xbb\x01\n\nExperiment\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x19\n\x11\x61rtifact_location\x18\x03 \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x04 \x01(\t\x12\x18\n\x10last_update_time\x18\x05 \x01(\x03\x12\x15\n\rcreation_time\x18\x06 \x01(\x03\x12#\n\x04tags\x18\x07 \x03(\x0b\x32\x15.mlflow.ExperimentTag\"\x91\x01\n\x10\x43reateExperiment\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x11\x61rtifact_location\x18\x02 \x01(\t\x1a!\n\x08Response\x12\x15\n\rexperiment_id\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x98\x01\n\x0fListExperiments\x12#\n\tview_type\x18\x01 \x01(\x0e\x32\x10.mlflow.ViewType\x1a\x33\n\x08Response\x12\'\n\x0b\x65xperiments\x18\x01 \x03(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb0\x01\n\rGetExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1aU\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment\x12!\n\x04runs\x18\x02 \x03(\x0b\x32\x0f.mlflow.RunInfoB\x02\x18\x01:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"h\n\x10\x44\x65leteExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"i\n\x11RestoreExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"z\n\x10UpdateExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x01\n\tCreateRun\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x12\n\nstart_time\x18\x07 \x01(\x03\x12\x1c\n\x04tags\x18\t \x03(\x0b\x32\x0e.mlflow.RunTag\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xbe\x01\n\tUpdateRun\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12!\n\x06status\x18\x02 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\x03\x1a-\n\x08Response\x12!\n\x08run_info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"Z\n\tDeleteRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"[\n\nRestoreRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x01\n\tLogMetric\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\x01\x42\x04\xf8\x86\x19\x01\x12\x17\n\ttimestamp\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x04step\x18\x05 \x01(\x03:\x01\x30\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\x08LogParam\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x90\x01\n\x10SetExperimentTag\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8b\x01\n\x06SetTag\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"m\n\tDeleteTag\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"}\n\x06GetRun\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x98\x02\n\nSearchRuns\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x04 \x01(\t\x12\x34\n\rrun_view_type\x18\x03 \x01(\x0e\x32\x10.mlflow.ViewType:\x0b\x41\x43TIVE_ONLY\x12\x19\n\x0bmax_results\x18\x05 \x01(\x05:\x04\x31\x30\x30\x30\x12\x10\n\x08order_by\x18\x06 \x03(\t\x12\x12\n\npage_token\x18\x07 \x01(\t\x1a>\n\x08Response\x12\x19\n\x04runs\x18\x01 \x03(\x0b\x32\x0b.mlflow.Run\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xab\x01\n\rListArtifacts\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x1a=\n\x08Response\x12\x10\n\x08root_uri\x18\x01 \x01(\t\x12\x1f\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x10.mlflow.FileInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\"\xa8\x01\n\x10GetMetricHistory\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a+\n\x08Response\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb1\x01\n\x08LogBatch\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x1f\n\x07metrics\x18\x02 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x03 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x04 \x03(\x0b\x32\x0e.mlflow.RunTag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x95\x01\n\x13GetExperimentByName\x12\x1d\n\x0f\x65xperiment_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x32\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*6\n\x08ViewType\x12\x0f\n\x0b\x41\x43TIVE_ONLY\x10\x01\x12\x10\n\x0c\x44\x45LETED_ONLY\x10\x02\x12\x07\n\x03\x41LL\x10\x03*I\n\nSourceType\x12\x0c\n\x08NOTEBOOK\x10\x01\x12\x07\n\x03JOB\x10\x02\x12\x0b\n\x07PROJECT\x10\x03\x12\t\n\x05LOCAL\x10\x04\x12\x0c\n\x07UNKNOWN\x10\xe8\x07*M\n\tRunStatus\x12\x0b\n\x07RUNNING\x10\x01\x12\r\n\tSCHEDULED\x10\x02\x12\x0c\n\x08\x46INISHED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\n\n\x06KILLED\x10\x05\x32\xc0\x1d\n\rMlflowService\x12\xa6\x01\n\x13getExperimentByName\x12\x1b.mlflow.GetExperimentByName\x1a$.mlflow.GetExperimentByName.Response\"L\xf2\x86\x19H\n,\n\x03GET\x12\x1f/mlflow/experiments/get-by-name\x1a\x04\x08\x02\x10\x00\x10\x01*\x16Get Experiment By Name\x12\xc6\x01\n\x10\x63reateExperiment\x12\x18.mlflow.CreateExperiment\x1a!.mlflow.CreateExperiment.Response\"u\xf2\x86\x19q\n(\n\x04POST\x12\x1a/mlflow/experiments/create\x1a\x04\x08\x02\x10\x00\n0\n\x04POST\x12\"/preview/mlflow/experiments/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x43reate Experiment\x12\xbc\x01\n\x0flistExperiments\x12\x17.mlflow.ListExperiments\x1a .mlflow.ListExperiments.Response\"n\xf2\x86\x19j\n%\n\x03GET\x12\x18/mlflow/experiments/list\x1a\x04\x08\x02\x10\x00\n-\n\x03GET\x12 /preview/mlflow/experiments/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x10List Experiments\x12\xb2\x01\n\rgetExperiment\x12\x15.mlflow.GetExperiment\x1a\x1e.mlflow.GetExperiment.Response\"j\xf2\x86\x19\x66\n$\n\x03GET\x12\x17/mlflow/experiments/get\x1a\x04\x08\x02\x10\x00\n,\n\x03GET\x12\x1f/preview/mlflow/experiments/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eGet Experiment\x12\xc6\x01\n\x10\x64\x65leteExperiment\x12\x18.mlflow.DeleteExperiment\x1a!.mlflow.DeleteExperiment.Response\"u\xf2\x86\x19q\n(\n\x04POST\x12\x1a/mlflow/experiments/delete\x1a\x04\x08\x02\x10\x00\n0\n\x04POST\x12\"/preview/mlflow/experiments/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44\x65lete Experiment\x12\xcc\x01\n\x11restoreExperiment\x12\x19.mlflow.RestoreExperiment\x1a\".mlflow.RestoreExperiment.Response\"x\xf2\x86\x19t\n)\n\x04POST\x12\x1b/mlflow/experiments/restore\x1a\x04\x08\x02\x10\x00\n1\n\x04POST\x12#/preview/mlflow/experiments/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Restore Experiment\x12\xc6\x01\n\x10updateExperiment\x12\x18.mlflow.UpdateExperiment\x1a!.mlflow.UpdateExperiment.Response\"u\xf2\x86\x19q\n(\n\x04POST\x12\x1a/mlflow/experiments/update\x1a\x04\x08\x02\x10\x00\n0\n\x04POST\x12\"/preview/mlflow/experiments/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x11Update Experiment\x12\x9c\x01\n\tcreateRun\x12\x11.mlflow.CreateRun\x1a\x1a.mlflow.CreateRun.Response\"`\xf2\x86\x19\\\n!\n\x04POST\x12\x13/mlflow/runs/create\x1a\x04\x08\x02\x10\x00\n)\n\x04POST\x12\x1b/preview/mlflow/runs/create\x1a\x04\x08\x02\x10\x00\x10\x01*\nCreate Run\x12\x9c\x01\n\tupdateRun\x12\x11.mlflow.UpdateRun\x1a\x1a.mlflow.UpdateRun.Response\"`\xf2\x86\x19\\\n!\n\x04POST\x12\x13/mlflow/runs/update\x1a\x04\x08\x02\x10\x00\n)\n\x04POST\x12\x1b/preview/mlflow/runs/update\x1a\x04\x08\x02\x10\x00\x10\x01*\nUpdate Run\x12\x9c\x01\n\tdeleteRun\x12\x11.mlflow.DeleteRun\x1a\x1a.mlflow.DeleteRun.Response\"`\xf2\x86\x19\\\n!\n\x04POST\x12\x13/mlflow/runs/delete\x1a\x04\x08\x02\x10\x00\n)\n\x04POST\x12\x1b/preview/mlflow/runs/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Run\x12\xa2\x01\n\nrestoreRun\x12\x12.mlflow.RestoreRun\x1a\x1b.mlflow.RestoreRun.Response\"c\xf2\x86\x19_\n\"\n\x04POST\x12\x14/mlflow/runs/restore\x1a\x04\x08\x02\x10\x00\n*\n\x04POST\x12\x1c/preview/mlflow/runs/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bRestore Run\x12\xa4\x01\n\tlogMetric\x12\x11.mlflow.LogMetric\x1a\x1a.mlflow.LogMetric.Response\"h\xf2\x86\x19\x64\n%\n\x04POST\x12\x17/mlflow/runs/log-metric\x1a\x04\x08\x02\x10\x00\n-\n\x04POST\x12\x1f/preview/mlflow/runs/log-metric\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Metric\x12\xa6\x01\n\x08logParam\x12\x10.mlflow.LogParam\x1a\x19.mlflow.LogParam.Response\"m\xf2\x86\x19i\n(\n\x04POST\x12\x1a/mlflow/runs/log-parameter\x1a\x04\x08\x02\x10\x00\n0\n\x04POST\x12\"/preview/mlflow/runs/log-parameter\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Param\x12\xe1\x01\n\x10setExperimentTag\x12\x18.mlflow.SetExperimentTag\x1a!.mlflow.SetExperimentTag.Response\"\x8f\x01\xf2\x86\x19\x8a\x01\n4\n\x04POST\x12&/mlflow/experiments/set-experiment-tag\x1a\x04\x08\x02\x10\x00\n<\n\x04POST\x12./preview/mlflow/experiments/set-experiment-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Set Experiment Tag\x12\x92\x01\n\x06setTag\x12\x0e.mlflow.SetTag\x1a\x17.mlflow.SetTag.Response\"_\xf2\x86\x19[\n\"\n\x04POST\x12\x14/mlflow/runs/set-tag\x1a\x04\x08\x02\x10\x00\n*\n\x04POST\x12\x1c/preview/mlflow/runs/set-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Set Tag\x12\xa4\x01\n\tdeleteTag\x12\x11.mlflow.DeleteTag\x1a\x1a.mlflow.DeleteTag.Response\"h\xf2\x86\x19\x64\n%\n\x04POST\x12\x17/mlflow/runs/delete-tag\x1a\x04\x08\x02\x10\x00\n-\n\x04POST\x12\x1f/preview/mlflow/runs/delete-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Tag\x12\x88\x01\n\x06getRun\x12\x0e.mlflow.GetRun\x1a\x17.mlflow.GetRun.Response\"U\xf2\x86\x19Q\n\x1d\n\x03GET\x12\x10/mlflow/runs/get\x1a\x04\x08\x02\x10\x00\n%\n\x03GET\x12\x18/preview/mlflow/runs/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Get Run\x12\xcc\x01\n\nsearchRuns\x12\x12.mlflow.SearchRuns\x1a\x1b.mlflow.SearchRuns.Response\"\x8c\x01\xf2\x86\x19\x87\x01\n!\n\x04POST\x12\x13/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\n)\n\x04POST\x12\x1b/preview/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\n(\n\x03GET\x12\x1b/preview/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bSearch Runs\x12\xb0\x01\n\rlistArtifacts\x12\x15.mlflow.ListArtifacts\x1a\x1e.mlflow.ListArtifacts.Response\"h\xf2\x86\x19\x64\n#\n\x03GET\x12\x16/mlflow/artifacts/list\x1a\x04\x08\x02\x10\x00\n+\n\x03GET\x12\x1e/preview/mlflow/artifacts/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\x12\xc7\x01\n\x10getMetricHistory\x12\x18.mlflow.GetMetricHistory\x1a!.mlflow.GetMetricHistory.Response\"v\xf2\x86\x19r\n(\n\x03GET\x12\x1b/mlflow/metrics/get-history\x1a\x04\x08\x02\x10\x00\n0\n\x03GET\x12#/preview/mlflow/metrics/get-history\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Get Metric History\x12\x9e\x01\n\x08logBatch\x12\x10.mlflow.LogBatch\x1a\x19.mlflow.LogBatch.Response\"e\xf2\x86\x19\x61\n$\n\x04POST\x12\x16/mlflow/runs/log-batch\x1a\x04\x08\x02\x10\x00\n,\n\x04POST\x12\x1e/preview/mlflow/runs/log-batch\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog BatchB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
   ,
   dependencies=[scalapb_dot_scalapb__pb2.DESCRIPTOR,databricks__pb2.DESCRIPTOR,])
 
@@ -49,8 +49,8 @@ _VIEWTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=3597,
-  serialized_end=3651,
+  serialized_start=4093,
+  serialized_end=4147,
 )
 _sym_db.RegisterEnumDescriptor(_VIEWTYPE)
 
@@ -84,8 +84,8 @@ _SOURCETYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=3653,
-  serialized_end=3726,
+  serialized_start=4149,
+  serialized_end=4222,
 )
 _sym_db.RegisterEnumDescriptor(_SOURCETYPE)
 
@@ -119,8 +119,8 @@ _RUNSTATUS = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=3728,
-  serialized_end=3805,
+  serialized_start=4224,
+  serialized_end=4301,
 )
 _sym_db.RegisterEnumDescriptor(_RUNSTATUS)
 
@@ -352,6 +352,44 @@ _RUNTAG = _descriptor.Descriptor(
 )
 
 
+_EXPERIMENTTAG = _descriptor.Descriptor(
+  name='ExperimentTag',
+  full_name='mlflow.ExperimentTag',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.ExperimentTag.key', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='mlflow.ExperimentTag.value', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=389,
+  serialized_end=432,
+)
+
+
 _RUNINFO = _descriptor.Descriptor(
   name='RunInfo',
   full_name='mlflow.RunInfo',
@@ -360,15 +398,15 @@ _RUNINFO = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='run_uuid', full_name='mlflow.RunInfo.run_uuid', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='run_id', full_name='mlflow.RunInfo.run_id', index=0,
+      number=15, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='run_id', full_name='mlflow.RunInfo.run_id', index=1,
-      number=15, type=9, cpp_type=9, label=1,
+      name='run_uuid', full_name='mlflow.RunInfo.run_uuid', index=1,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -434,8 +472,8 @@ _RUNINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=390,
-  serialized_end=593,
+  serialized_start=435,
+  serialized_end=638,
 )
 
 
@@ -488,6 +526,13 @@ _EXPERIMENT = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='tags', full_name='mlflow.Experiment.tags', index=6,
+      number=7, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -500,8 +545,8 @@ _EXPERIMENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=596,
-  serialized_end=746,
+  serialized_start=641,
+  serialized_end=828,
 )
 
 
@@ -531,8 +576,8 @@ _CREATEEXPERIMENT_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=849,
+  serialized_start=898,
+  serialized_end=931,
 )
 
 _CREATEEXPERIMENT = _descriptor.Descriptor(
@@ -568,8 +613,8 @@ _CREATEEXPERIMENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=749,
-  serialized_end=894,
+  serialized_start=831,
+  serialized_end=976,
 )
 
 
@@ -599,8 +644,8 @@ _LISTEXPERIMENTS_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=953,
-  serialized_end=1004,
+  serialized_start=1035,
+  serialized_end=1086,
 )
 
 _LISTEXPERIMENTS = _descriptor.Descriptor(
@@ -629,8 +674,8 @@ _LISTEXPERIMENTS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=897,
-  serialized_end=1049,
+  serialized_start=979,
+  serialized_end=1131,
 )
 
 
@@ -654,7 +699,7 @@ _GETEXPERIMENT_RESPONSE = _descriptor.Descriptor(
       has_default_value=False, default_value=[],
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
-      serialized_options=None, file=DESCRIPTOR),
+      serialized_options=_b('\030\001'), file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -667,8 +712,8 @@ _GETEXPERIMENT_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1098,
-  serialized_end=1179,
+  serialized_start=1180,
+  serialized_end=1265,
 )
 
 _GETEXPERIMENT = _descriptor.Descriptor(
@@ -697,8 +742,8 @@ _GETEXPERIMENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1052,
-  serialized_end=1224,
+  serialized_start=1134,
+  serialized_end=1310,
 )
 
 
@@ -721,8 +766,8 @@ _DELETEEXPERIMENT_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=826,
+  serialized_start=898,
+  serialized_end=908,
 )
 
 _DELETEEXPERIMENT = _descriptor.Descriptor(
@@ -751,8 +796,8 @@ _DELETEEXPERIMENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1226,
-  serialized_end=1330,
+  serialized_start=1312,
+  serialized_end=1416,
 )
 
 
@@ -775,8 +820,8 @@ _RESTOREEXPERIMENT_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=826,
+  serialized_start=898,
+  serialized_end=908,
 )
 
 _RESTOREEXPERIMENT = _descriptor.Descriptor(
@@ -805,8 +850,8 @@ _RESTOREEXPERIMENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1332,
-  serialized_end=1437,
+  serialized_start=1418,
+  serialized_end=1523,
 )
 
 
@@ -829,8 +874,8 @@ _UPDATEEXPERIMENT_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=826,
+  serialized_start=898,
+  serialized_end=908,
 )
 
 _UPDATEEXPERIMENT = _descriptor.Descriptor(
@@ -866,8 +911,8 @@ _UPDATEEXPERIMENT = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1439,
-  serialized_end=1561,
+  serialized_start=1525,
+  serialized_end=1647,
 )
 
 
@@ -897,8 +942,8 @@ _CREATERUN_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1667,
-  serialized_end=1703,
+  serialized_start=1753,
+  serialized_end=1789,
 )
 
 _CREATERUN = _descriptor.Descriptor(
@@ -948,8 +993,8 @@ _CREATERUN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1564,
-  serialized_end=1748,
+  serialized_start=1650,
+  serialized_end=1834,
 )
 
 
@@ -979,8 +1024,8 @@ _UPDATERUN_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1851,
-  serialized_end=1896,
+  serialized_start=1937,
+  serialized_end=1982,
 )
 
 _UPDATERUN = _descriptor.Descriptor(
@@ -991,15 +1036,15 @@ _UPDATERUN = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='run_uuid', full_name='mlflow.UpdateRun.run_uuid', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='run_id', full_name='mlflow.UpdateRun.run_id', index=0,
+      number=4, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='run_id', full_name='mlflow.UpdateRun.run_id', index=1,
-      number=4, type=9, cpp_type=9, label=1,
+      name='run_uuid', full_name='mlflow.UpdateRun.run_uuid', index=1,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -1030,8 +1075,8 @@ _UPDATERUN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1751,
-  serialized_end=1941,
+  serialized_start=1837,
+  serialized_end=2027,
 )
 
 
@@ -1054,8 +1099,8 @@ _DELETERUN_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=826,
+  serialized_start=898,
+  serialized_end=908,
 )
 
 _DELETERUN = _descriptor.Descriptor(
@@ -1084,8 +1129,8 @@ _DELETERUN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1943,
-  serialized_end=2033,
+  serialized_start=2029,
+  serialized_end=2119,
 )
 
 
@@ -1108,8 +1153,8 @@ _RESTORERUN_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=826,
+  serialized_start=898,
+  serialized_end=908,
 )
 
 _RESTORERUN = _descriptor.Descriptor(
@@ -1138,8 +1183,8 @@ _RESTORERUN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2035,
-  serialized_end=2126,
+  serialized_start=2121,
+  serialized_end=2212,
 )
 
 
@@ -1162,8 +1207,8 @@ _LOGMETRIC_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=826,
+  serialized_start=898,
+  serialized_end=908,
 )
 
 _LOGMETRIC = _descriptor.Descriptor(
@@ -1174,15 +1219,15 @@ _LOGMETRIC = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='run_uuid', full_name='mlflow.LogMetric.run_uuid', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='run_id', full_name='mlflow.LogMetric.run_id', index=0,
+      number=6, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='run_id', full_name='mlflow.LogMetric.run_id', index=1,
-      number=6, type=9, cpp_type=9, label=1,
+      name='run_uuid', full_name='mlflow.LogMetric.run_uuid', index=1,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -1227,8 +1272,8 @@ _LOGMETRIC = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2129,
-  serialized_end=2313,
+  serialized_start=2215,
+  serialized_end=2399,
 )
 
 
@@ -1251,8 +1296,8 @@ _LOGPARAM_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=826,
+  serialized_start=898,
+  serialized_end=908,
 )
 
 _LOGPARAM = _descriptor.Descriptor(
@@ -1263,15 +1308,15 @@ _LOGPARAM = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='run_uuid', full_name='mlflow.LogParam.run_uuid', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='run_id', full_name='mlflow.LogParam.run_id', index=0,
+      number=4, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='run_id', full_name='mlflow.LogParam.run_id', index=1,
-      number=4, type=9, cpp_type=9, label=1,
+      name='run_uuid', full_name='mlflow.LogParam.run_uuid', index=1,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -1302,8 +1347,76 @@ _LOGPARAM = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2316,
-  serialized_end=2457,
+  serialized_start=2402,
+  serialized_end=2543,
+)
+
+
+_SETEXPERIMENTTAG_RESPONSE = _descriptor.Descriptor(
+  name='Response',
+  full_name='mlflow.SetExperimentTag.Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=898,
+  serialized_end=908,
+)
+
+_SETEXPERIMENTTAG = _descriptor.Descriptor(
+  name='SetExperimentTag',
+  full_name='mlflow.SetExperimentTag',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='experiment_id', full_name='mlflow.SetExperimentTag.experiment_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.SetExperimentTag.key', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='value', full_name='mlflow.SetExperimentTag.value', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[_SETEXPERIMENTTAG_RESPONSE, ],
+  enum_types=[
+  ],
+  serialized_options=_b('\342?(\n&com.databricks.rpc.RPC[$this.Response]'),
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2546,
+  serialized_end=2690,
 )
 
 
@@ -1326,8 +1439,8 @@ _SETTAG_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=826,
+  serialized_start=898,
+  serialized_end=908,
 )
 
 _SETTAG = _descriptor.Descriptor(
@@ -1338,15 +1451,15 @@ _SETTAG = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='run_uuid', full_name='mlflow.SetTag.run_uuid', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='run_id', full_name='mlflow.SetTag.run_id', index=0,
+      number=4, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='run_id', full_name='mlflow.SetTag.run_id', index=1,
-      number=4, type=9, cpp_type=9, label=1,
+      name='run_uuid', full_name='mlflow.SetTag.run_uuid', index=1,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -1377,8 +1490,69 @@ _SETTAG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2460,
-  serialized_end=2599,
+  serialized_start=2693,
+  serialized_end=2832,
+)
+
+
+_DELETETAG_RESPONSE = _descriptor.Descriptor(
+  name='Response',
+  full_name='mlflow.DeleteTag.Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=898,
+  serialized_end=908,
+)
+
+_DELETETAG = _descriptor.Descriptor(
+  name='DeleteTag',
+  full_name='mlflow.DeleteTag',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='run_id', full_name='mlflow.DeleteTag.run_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='key', full_name='mlflow.DeleteTag.key', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[_DELETETAG_RESPONSE, ],
+  enum_types=[
+  ],
+  serialized_options=_b('\342?(\n&com.databricks.rpc.RPC[$this.Response]'),
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=2834,
+  serialized_end=2943,
 )
 
 
@@ -1408,8 +1582,8 @@ _GETRUN_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1667,
-  serialized_end=1703,
+  serialized_start=1753,
+  serialized_end=1789,
 )
 
 _GETRUN = _descriptor.Descriptor(
@@ -1420,15 +1594,15 @@ _GETRUN = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='run_uuid', full_name='mlflow.GetRun.run_uuid', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='run_id', full_name='mlflow.GetRun.run_id', index=0,
+      number=2, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='run_id', full_name='mlflow.GetRun.run_id', index=1,
-      number=2, type=9, cpp_type=9, label=1,
+      name='run_uuid', full_name='mlflow.GetRun.run_uuid', index=1,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -1445,8 +1619,8 @@ _GETRUN = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2601,
-  serialized_end=2726,
+  serialized_start=2945,
+  serialized_end=3070,
 )
 
 
@@ -1483,8 +1657,8 @@ _SEARCHRUNS_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2902,
-  serialized_end=2964,
+  serialized_start=3246,
+  serialized_end=3308,
 )
 
 _SEARCHRUNS = _descriptor.Descriptor(
@@ -1548,8 +1722,8 @@ _SEARCHRUNS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=2729,
-  serialized_end=3009,
+  serialized_start=3073,
+  serialized_end=3353,
 )
 
 
@@ -1586,8 +1760,8 @@ _LISTARTIFACTS_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3077,
-  serialized_end=3138,
+  serialized_start=3421,
+  serialized_end=3482,
 )
 
 _LISTARTIFACTS = _descriptor.Descriptor(
@@ -1598,15 +1772,15 @@ _LISTARTIFACTS = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='run_uuid', full_name='mlflow.ListArtifacts.run_uuid', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='run_id', full_name='mlflow.ListArtifacts.run_id', index=0,
+      number=3, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='run_id', full_name='mlflow.ListArtifacts.run_id', index=1,
-      number=3, type=9, cpp_type=9, label=1,
+      name='run_uuid', full_name='mlflow.ListArtifacts.run_uuid', index=1,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -1630,8 +1804,8 @@ _LISTARTIFACTS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3012,
-  serialized_end=3183,
+  serialized_start=3356,
+  serialized_end=3527,
 )
 
 
@@ -1675,8 +1849,8 @@ _FILEINFO = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3185,
-  serialized_end=3244,
+  serialized_start=3529,
+  serialized_end=3588,
 )
 
 
@@ -1706,8 +1880,8 @@ _GETMETRICHISTORY_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3327,
-  serialized_end=3370,
+  serialized_start=3671,
+  serialized_end=3714,
 )
 
 _GETMETRICHISTORY = _descriptor.Descriptor(
@@ -1718,15 +1892,15 @@ _GETMETRICHISTORY = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='run_uuid', full_name='mlflow.GetMetricHistory.run_uuid', index=0,
-      number=1, type=9, cpp_type=9, label=1,
+      name='run_id', full_name='mlflow.GetMetricHistory.run_id', index=0,
+      number=3, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='run_id', full_name='mlflow.GetMetricHistory.run_id', index=1,
-      number=3, type=9, cpp_type=9, label=1,
+      name='run_uuid', full_name='mlflow.GetMetricHistory.run_uuid', index=1,
+      number=1, type=9, cpp_type=9, label=1,
       has_default_value=False, default_value=_b("").decode('utf-8'),
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -1750,8 +1924,8 @@ _GETMETRICHISTORY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3247,
-  serialized_end=3415,
+  serialized_start=3591,
+  serialized_end=3759,
 )
 
 
@@ -1774,8 +1948,8 @@ _LOGBATCH_RESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=816,
-  serialized_end=826,
+  serialized_start=898,
+  serialized_end=908,
 )
 
 _LOGBATCH = _descriptor.Descriptor(
@@ -1825,8 +1999,69 @@ _LOGBATCH = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=3418,
-  serialized_end=3595,
+  serialized_start=3762,
+  serialized_end=3939,
+)
+
+
+_GETEXPERIMENTBYNAME_RESPONSE = _descriptor.Descriptor(
+  name='Response',
+  full_name='mlflow.GetExperimentByName.Response',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='experiment', full_name='mlflow.GetExperimentByName.Response.experiment', index=0,
+      number=1, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=1180,
+  serialized_end=1230,
+)
+
+_GETEXPERIMENTBYNAME = _descriptor.Descriptor(
+  name='GetExperimentByName',
+  full_name='mlflow.GetExperimentByName',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='experiment_name', full_name='mlflow.GetExperimentByName.experiment_name', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=_b('\370\206\031\001'), file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[_GETEXPERIMENTBYNAME_RESPONSE, ],
+  enum_types=[
+  ],
+  serialized_options=_b('\342?(\n&com.databricks.rpc.RPC[$this.Response]'),
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=3942,
+  serialized_end=4091,
 )
 
 _RUN.fields_by_name['info'].message_type = _RUNINFO
@@ -1835,6 +2070,7 @@ _RUNDATA.fields_by_name['metrics'].message_type = _METRIC
 _RUNDATA.fields_by_name['params'].message_type = _PARAM
 _RUNDATA.fields_by_name['tags'].message_type = _RUNTAG
 _RUNINFO.fields_by_name['status'].enum_type = _RUNSTATUS
+_EXPERIMENT.fields_by_name['tags'].message_type = _EXPERIMENTTAG
 _CREATEEXPERIMENT_RESPONSE.containing_type = _CREATEEXPERIMENT
 _LISTEXPERIMENTS_RESPONSE.fields_by_name['experiments'].message_type = _EXPERIMENT
 _LISTEXPERIMENTS_RESPONSE.containing_type = _LISTEXPERIMENTS
@@ -1855,7 +2091,9 @@ _DELETERUN_RESPONSE.containing_type = _DELETERUN
 _RESTORERUN_RESPONSE.containing_type = _RESTORERUN
 _LOGMETRIC_RESPONSE.containing_type = _LOGMETRIC
 _LOGPARAM_RESPONSE.containing_type = _LOGPARAM
+_SETEXPERIMENTTAG_RESPONSE.containing_type = _SETEXPERIMENTTAG
 _SETTAG_RESPONSE.containing_type = _SETTAG
+_DELETETAG_RESPONSE.containing_type = _DELETETAG
 _GETRUN_RESPONSE.fields_by_name['run'].message_type = _RUN
 _GETRUN_RESPONSE.containing_type = _GETRUN
 _SEARCHRUNS_RESPONSE.fields_by_name['runs'].message_type = _RUN
@@ -1869,11 +2107,14 @@ _LOGBATCH_RESPONSE.containing_type = _LOGBATCH
 _LOGBATCH.fields_by_name['metrics'].message_type = _METRIC
 _LOGBATCH.fields_by_name['params'].message_type = _PARAM
 _LOGBATCH.fields_by_name['tags'].message_type = _RUNTAG
+_GETEXPERIMENTBYNAME_RESPONSE.fields_by_name['experiment'].message_type = _EXPERIMENT
+_GETEXPERIMENTBYNAME_RESPONSE.containing_type = _GETEXPERIMENTBYNAME
 DESCRIPTOR.message_types_by_name['Metric'] = _METRIC
 DESCRIPTOR.message_types_by_name['Param'] = _PARAM
 DESCRIPTOR.message_types_by_name['Run'] = _RUN
 DESCRIPTOR.message_types_by_name['RunData'] = _RUNDATA
 DESCRIPTOR.message_types_by_name['RunTag'] = _RUNTAG
+DESCRIPTOR.message_types_by_name['ExperimentTag'] = _EXPERIMENTTAG
 DESCRIPTOR.message_types_by_name['RunInfo'] = _RUNINFO
 DESCRIPTOR.message_types_by_name['Experiment'] = _EXPERIMENT
 DESCRIPTOR.message_types_by_name['CreateExperiment'] = _CREATEEXPERIMENT
@@ -1888,13 +2129,16 @@ DESCRIPTOR.message_types_by_name['DeleteRun'] = _DELETERUN
 DESCRIPTOR.message_types_by_name['RestoreRun'] = _RESTORERUN
 DESCRIPTOR.message_types_by_name['LogMetric'] = _LOGMETRIC
 DESCRIPTOR.message_types_by_name['LogParam'] = _LOGPARAM
+DESCRIPTOR.message_types_by_name['SetExperimentTag'] = _SETEXPERIMENTTAG
 DESCRIPTOR.message_types_by_name['SetTag'] = _SETTAG
+DESCRIPTOR.message_types_by_name['DeleteTag'] = _DELETETAG
 DESCRIPTOR.message_types_by_name['GetRun'] = _GETRUN
 DESCRIPTOR.message_types_by_name['SearchRuns'] = _SEARCHRUNS
 DESCRIPTOR.message_types_by_name['ListArtifacts'] = _LISTARTIFACTS
 DESCRIPTOR.message_types_by_name['FileInfo'] = _FILEINFO
 DESCRIPTOR.message_types_by_name['GetMetricHistory'] = _GETMETRICHISTORY
 DESCRIPTOR.message_types_by_name['LogBatch'] = _LOGBATCH
+DESCRIPTOR.message_types_by_name['GetExperimentByName'] = _GETEXPERIMENTBYNAME
 DESCRIPTOR.enum_types_by_name['ViewType'] = _VIEWTYPE
 DESCRIPTOR.enum_types_by_name['SourceType'] = _SOURCETYPE
 DESCRIPTOR.enum_types_by_name['RunStatus'] = _RUNSTATUS
@@ -1934,6 +2178,13 @@ RunTag = _reflection.GeneratedProtocolMessageType('RunTag', (_message.Message,),
   # @@protoc_insertion_point(class_scope:mlflow.RunTag)
   ))
 _sym_db.RegisterMessage(RunTag)
+
+ExperimentTag = _reflection.GeneratedProtocolMessageType('ExperimentTag', (_message.Message,), dict(
+  DESCRIPTOR = _EXPERIMENTTAG,
+  __module__ = 'service_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.ExperimentTag)
+  ))
+_sym_db.RegisterMessage(ExperimentTag)
 
 RunInfo = _reflection.GeneratedProtocolMessageType('RunInfo', (_message.Message,), dict(
   DESCRIPTOR = _RUNINFO,
@@ -2129,6 +2380,21 @@ LogParam = _reflection.GeneratedProtocolMessageType('LogParam', (_message.Messag
 _sym_db.RegisterMessage(LogParam)
 _sym_db.RegisterMessage(LogParam.Response)
 
+SetExperimentTag = _reflection.GeneratedProtocolMessageType('SetExperimentTag', (_message.Message,), dict(
+
+  Response = _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), dict(
+    DESCRIPTOR = _SETEXPERIMENTTAG_RESPONSE,
+    __module__ = 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SetExperimentTag.Response)
+    ))
+  ,
+  DESCRIPTOR = _SETEXPERIMENTTAG,
+  __module__ = 'service_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.SetExperimentTag)
+  ))
+_sym_db.RegisterMessage(SetExperimentTag)
+_sym_db.RegisterMessage(SetExperimentTag.Response)
+
 SetTag = _reflection.GeneratedProtocolMessageType('SetTag', (_message.Message,), dict(
 
   Response = _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), dict(
@@ -2143,6 +2409,21 @@ SetTag = _reflection.GeneratedProtocolMessageType('SetTag', (_message.Message,),
   ))
 _sym_db.RegisterMessage(SetTag)
 _sym_db.RegisterMessage(SetTag.Response)
+
+DeleteTag = _reflection.GeneratedProtocolMessageType('DeleteTag', (_message.Message,), dict(
+
+  Response = _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), dict(
+    DESCRIPTOR = _DELETETAG_RESPONSE,
+    __module__ = 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteTag.Response)
+    ))
+  ,
+  DESCRIPTOR = _DELETETAG,
+  __module__ = 'service_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.DeleteTag)
+  ))
+_sym_db.RegisterMessage(DeleteTag)
+_sym_db.RegisterMessage(DeleteTag.Response)
 
 GetRun = _reflection.GeneratedProtocolMessageType('GetRun', (_message.Message,), dict(
 
@@ -2226,11 +2507,27 @@ LogBatch = _reflection.GeneratedProtocolMessageType('LogBatch', (_message.Messag
 _sym_db.RegisterMessage(LogBatch)
 _sym_db.RegisterMessage(LogBatch.Response)
 
+GetExperimentByName = _reflection.GeneratedProtocolMessageType('GetExperimentByName', (_message.Message,), dict(
+
+  Response = _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), dict(
+    DESCRIPTOR = _GETEXPERIMENTBYNAME_RESPONSE,
+    __module__ = 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.GetExperimentByName.Response)
+    ))
+  ,
+  DESCRIPTOR = _GETEXPERIMENTBYNAME,
+  __module__ = 'service_pb2'
+  # @@protoc_insertion_point(class_scope:mlflow.GetExperimentByName)
+  ))
+_sym_db.RegisterMessage(GetExperimentByName)
+_sym_db.RegisterMessage(GetExperimentByName.Response)
+
 
 DESCRIPTOR._options = None
 _CREATEEXPERIMENT.fields_by_name['name']._options = None
 _CREATEEXPERIMENT._options = None
 _LISTEXPERIMENTS._options = None
+_GETEXPERIMENT_RESPONSE.fields_by_name['runs']._options = None
 _GETEXPERIMENT.fields_by_name['experiment_id']._options = None
 _GETEXPERIMENT._options = None
 _DELETEEXPERIMENT.fields_by_name['experiment_id']._options = None
@@ -2252,15 +2549,24 @@ _LOGMETRIC._options = None
 _LOGPARAM.fields_by_name['key']._options = None
 _LOGPARAM.fields_by_name['value']._options = None
 _LOGPARAM._options = None
+_SETEXPERIMENTTAG.fields_by_name['experiment_id']._options = None
+_SETEXPERIMENTTAG.fields_by_name['key']._options = None
+_SETEXPERIMENTTAG.fields_by_name['value']._options = None
+_SETEXPERIMENTTAG._options = None
 _SETTAG.fields_by_name['key']._options = None
 _SETTAG.fields_by_name['value']._options = None
 _SETTAG._options = None
+_DELETETAG.fields_by_name['run_id']._options = None
+_DELETETAG.fields_by_name['key']._options = None
+_DELETETAG._options = None
 _GETRUN._options = None
 _SEARCHRUNS._options = None
 _LISTARTIFACTS._options = None
 _GETMETRICHISTORY.fields_by_name['metric_key']._options = None
 _GETMETRICHISTORY._options = None
 _LOGBATCH._options = None
+_GETEXPERIMENTBYNAME.fields_by_name['experiment_name']._options = None
+_GETEXPERIMENTBYNAME._options = None
 
 _MLFLOWSERVICE = _descriptor.ServiceDescriptor(
   name='MlflowService',
@@ -2268,170 +2574,197 @@ _MLFLOWSERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=3808,
-  serialized_end=7020,
+  serialized_start=4304,
+  serialized_end=8080,
   methods=[
+  _descriptor.MethodDescriptor(
+    name='getExperimentByName',
+    full_name='mlflow.MlflowService.getExperimentByName',
+    index=0,
+    containing_service=None,
+    input_type=_GETEXPERIMENTBYNAME,
+    output_type=_GETEXPERIMENTBYNAME_RESPONSE,
+    serialized_options=_b('\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-by-name\032\004\010\002\020\000\020\001*\026Get Experiment By Name'),
+  ),
   _descriptor.MethodDescriptor(
     name='createExperiment',
     full_name='mlflow.MlflowService.createExperiment',
-    index=0,
+    index=1,
     containing_service=None,
     input_type=_CREATEEXPERIMENT,
     output_type=_CREATEEXPERIMENT_RESPONSE,
-    serialized_options=_b('\362\206\031q\n0\n\004POST\022\"/preview/mlflow/experiments/create\032\004\010\002\020\000\n(\n\004POST\022\032/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Create Experiment'),
+    serialized_options=_b('\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/create\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experiments/create\032\004\010\002\020\000\020\001*\021Create Experiment'),
   ),
   _descriptor.MethodDescriptor(
     name='listExperiments',
     full_name='mlflow.MlflowService.listExperiments',
-    index=1,
+    index=2,
     containing_service=None,
     input_type=_LISTEXPERIMENTS,
     output_type=_LISTEXPERIMENTS_RESPONSE,
-    serialized_options=_b('\362\206\031j\n-\n\003GET\022 /preview/mlflow/experiments/list\032\004\010\002\020\000\n%\n\003GET\022\030/mlflow/experiments/list\032\004\010\002\020\000\020\001*\020List Experiments'),
+    serialized_options=_b('\362\206\031j\n%\n\003GET\022\030/mlflow/experiments/list\032\004\010\002\020\000\n-\n\003GET\022 /preview/mlflow/experiments/list\032\004\010\002\020\000\020\001*\020List Experiments'),
   ),
   _descriptor.MethodDescriptor(
     name='getExperiment',
     full_name='mlflow.MlflowService.getExperiment',
-    index=2,
+    index=3,
     containing_service=None,
     input_type=_GETEXPERIMENT,
     output_type=_GETEXPERIMENT_RESPONSE,
-    serialized_options=_b('\362\206\031f\n,\n\003GET\022\037/preview/mlflow/experiments/get\032\004\010\002\020\000\n$\n\003GET\022\027/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Get Experiment'),
+    serialized_options=_b('\362\206\031f\n$\n\003GET\022\027/mlflow/experiments/get\032\004\010\002\020\000\n,\n\003GET\022\037/preview/mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Get Experiment'),
   ),
   _descriptor.MethodDescriptor(
     name='deleteExperiment',
     full_name='mlflow.MlflowService.deleteExperiment',
-    index=3,
+    index=4,
     containing_service=None,
     input_type=_DELETEEXPERIMENT,
     output_type=_DELETEEXPERIMENT_RESPONSE,
-    serialized_options=_b('\362\206\031q\n0\n\004POST\022\"/preview/mlflow/experiments/delete\032\004\010\002\020\000\n(\n\004POST\022\032/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021Delete Experiment'),
+    serialized_options=_b('\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/delete\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experiments/delete\032\004\010\002\020\000\020\001*\021Delete Experiment'),
   ),
   _descriptor.MethodDescriptor(
     name='restoreExperiment',
     full_name='mlflow.MlflowService.restoreExperiment',
-    index=4,
+    index=5,
     containing_service=None,
     input_type=_RESTOREEXPERIMENT,
     output_type=_RESTOREEXPERIMENT_RESPONSE,
-    serialized_options=_b('\362\206\031t\n1\n\004POST\022#/preview/mlflow/experiments/restore\032\004\010\002\020\000\n)\n\004POST\022\033/mlflow/experiments/restore\032\004\010\002\020\000\020\001*\022Restore Experiment'),
+    serialized_options=_b('\362\206\031t\n)\n\004POST\022\033/mlflow/experiments/restore\032\004\010\002\020\000\n1\n\004POST\022#/preview/mlflow/experiments/restore\032\004\010\002\020\000\020\001*\022Restore Experiment'),
   ),
   _descriptor.MethodDescriptor(
     name='updateExperiment',
     full_name='mlflow.MlflowService.updateExperiment',
-    index=5,
+    index=6,
     containing_service=None,
     input_type=_UPDATEEXPERIMENT,
     output_type=_UPDATEEXPERIMENT_RESPONSE,
-    serialized_options=_b('\362\206\031q\n0\n\004POST\022\"/preview/mlflow/experiments/update\032\004\010\002\020\000\n(\n\004POST\022\032/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021Update Experiment'),
+    serialized_options=_b('\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/update\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021Update Experiment'),
   ),
   _descriptor.MethodDescriptor(
     name='createRun',
     full_name='mlflow.MlflowService.createRun',
-    index=6,
+    index=7,
     containing_service=None,
     input_type=_CREATERUN,
     output_type=_CREATERUN_RESPONSE,
-    serialized_options=_b('\362\206\031\\\n)\n\004POST\022\033/preview/mlflow/runs/create\032\004\010\002\020\000\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run'),
+    serialized_options=_b('\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs/create\032\004\010\002\020\000\020\001*\nCreate Run'),
   ),
   _descriptor.MethodDescriptor(
     name='updateRun',
     full_name='mlflow.MlflowService.updateRun',
-    index=7,
+    index=8,
     containing_service=None,
     input_type=_UPDATERUN,
     output_type=_UPDATERUN_RESPONSE,
-    serialized_options=_b('\362\206\031\\\n)\n\004POST\022\033/preview/mlflow/runs/update\032\004\010\002\020\000\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run'),
+    serialized_options=_b('\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs/update\032\004\010\002\020\000\020\001*\nUpdate Run'),
   ),
   _descriptor.MethodDescriptor(
     name='deleteRun',
     full_name='mlflow.MlflowService.deleteRun',
-    index=8,
+    index=9,
     containing_service=None,
     input_type=_DELETERUN,
     output_type=_DELETERUN_RESPONSE,
-    serialized_options=_b('\362\206\031\\\n)\n\004POST\022\033/preview/mlflow/runs/delete\032\004\010\002\020\000\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\020\001*\nDelete Run'),
+    serialized_options=_b('\362\206\031\\\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs/delete\032\004\010\002\020\000\020\001*\nDelete Run'),
   ),
   _descriptor.MethodDescriptor(
     name='restoreRun',
     full_name='mlflow.MlflowService.restoreRun',
-    index=9,
+    index=10,
     containing_service=None,
     input_type=_RESTORERUN,
     output_type=_RESTORERUN_RESPONSE,
-    serialized_options=_b('\362\206\031_\n*\n\004POST\022\034/preview/mlflow/runs/restore\032\004\010\002\020\000\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\020\001*\013Restore Run'),
+    serialized_options=_b('\362\206\031_\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/runs/restore\032\004\010\002\020\000\020\001*\013Restore Run'),
   ),
   _descriptor.MethodDescriptor(
     name='logMetric',
     full_name='mlflow.MlflowService.logMetric',
-    index=10,
+    index=11,
     containing_service=None,
     input_type=_LOGMETRIC,
     output_type=_LOGMETRIC_RESPONSE,
-    serialized_options=_b('\362\206\031d\n-\n\004POST\022\037/preview/mlflow/runs/log-metric\032\004\010\002\020\000\n%\n\004POST\022\027/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metric'),
+    serialized_options=_b('\362\206\031d\n%\n\004POST\022\027/mlflow/runs/log-metric\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlflow/runs/log-metric\032\004\010\002\020\000\020\001*\nLog Metric'),
   ),
   _descriptor.MethodDescriptor(
     name='logParam',
     full_name='mlflow.MlflowService.logParam',
-    index=11,
+    index=12,
     containing_service=None,
     input_type=_LOGPARAM,
     output_type=_LOGPARAM_RESPONSE,
-    serialized_options=_b('\362\206\031i\n0\n\004POST\022\"/preview/mlflow/runs/log-parameter\032\004\010\002\020\000\n(\n\004POST\022\032/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param'),
+    serialized_options=_b('\362\206\031i\n(\n\004POST\022\032/mlflow/runs/log-parameter\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param'),
+  ),
+  _descriptor.MethodDescriptor(
+    name='setExperimentTag',
+    full_name='mlflow.MlflowService.setExperimentTag',
+    index=13,
+    containing_service=None,
+    input_type=_SETEXPERIMENTTAG,
+    output_type=_SETEXPERIMENTTAG_RESPONSE,
+    serialized_options=_b('\362\206\031\212\001\n4\n\004POST\022&/mlflow/experiments/set-experiment-tag\032\004\010\002\020\000\n<\n\004POST\022./preview/mlflow/experiments/set-experiment-tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag'),
   ),
   _descriptor.MethodDescriptor(
     name='setTag',
     full_name='mlflow.MlflowService.setTag',
-    index=12,
+    index=14,
     containing_service=None,
     input_type=_SETTAG,
     output_type=_SETTAG_RESPONSE,
-    serialized_options=_b('\362\206\031[\n*\n\004POST\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag'),
+    serialized_options=_b('\362\206\031[\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\n*\n\004POST\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag'),
+  ),
+  _descriptor.MethodDescriptor(
+    name='deleteTag',
+    full_name='mlflow.MlflowService.deleteTag',
+    index=15,
+    containing_service=None,
+    input_type=_DELETETAG,
+    output_type=_DELETETAG_RESPONSE,
+    serialized_options=_b('\362\206\031d\n%\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\n-\n\004POST\022\037/preview/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelete Tag'),
   ),
   _descriptor.MethodDescriptor(
     name='getRun',
     full_name='mlflow.MlflowService.getRun',
-    index=13,
+    index=16,
     containing_service=None,
     input_type=_GETRUN,
     output_type=_GETRUN_RESPONSE,
-    serialized_options=_b('\362\206\031Q\n%\n\003GET\022\030/preview/mlflow/runs/get\032\004\010\002\020\000\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run'),
+    serialized_options=_b('\362\206\031Q\n\035\n\003GET\022\020/mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/preview/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run'),
   ),
   _descriptor.MethodDescriptor(
     name='searchRuns',
     full_name='mlflow.MlflowService.searchRuns',
-    index=14,
+    index=17,
     containing_service=None,
     input_type=_SEARCHRUNS,
     output_type=_SEARCHRUNS_RESPONSE,
-    serialized_options=_b('\362\206\031\207\001\n)\n\004POST\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs'),
+    serialized_options=_b('\362\206\031\207\001\n!\n\004POST\022\023/mlflow/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/preview/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs'),
   ),
   _descriptor.MethodDescriptor(
     name='listArtifacts',
     full_name='mlflow.MlflowService.listArtifacts',
-    index=15,
+    index=18,
     containing_service=None,
     input_type=_LISTARTIFACTS,
     output_type=_LISTARTIFACTS_RESPONSE,
-    serialized_options=_b('\362\206\031d\n+\n\003GET\022\036/preview/mlflow/artifacts/list\032\004\010\002\020\000\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts'),
+    serialized_options=_b('\362\206\031d\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\n+\n\003GET\022\036/preview/mlflow/artifacts/list\032\004\010\002\020\000\020\001*\016List Artifacts'),
   ),
   _descriptor.MethodDescriptor(
     name='getMetricHistory',
     full_name='mlflow.MlflowService.getMetricHistory',
-    index=16,
+    index=19,
     containing_service=None,
     input_type=_GETMETRICHISTORY,
     output_type=_GETMETRICHISTORY_RESPONSE,
-    serialized_options=_b('\362\206\031r\n0\n\003GET\022#/preview/mlflow/metrics/get-history\032\004\010\002\020\000\n(\n\003GET\022\033/mlflow/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metric History'),
+    serialized_options=_b('\362\206\031r\n(\n\003GET\022\033/mlflow/metrics/get-history\032\004\010\002\020\000\n0\n\003GET\022#/preview/mlflow/metrics/get-history\032\004\010\002\020\000\020\001*\022Get Metric History'),
   ),
   _descriptor.MethodDescriptor(
     name='logBatch',
     full_name='mlflow.MlflowService.logBatch',
-    index=17,
+    index=20,
     containing_service=None,
     input_type=_LOGBATCH,
     output_type=_LOGBATCH_RESPONSE,
-    serialized_options=_b('\362\206\031a\n,\n\004POST\022\036/preview/mlflow/runs/log-batch\032\004\010\002\020\000\n$\n\004POST\022\026/mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch'),
+    serialized_options=_b('\362\206\031a\n$\n\004POST\022\026/mlflow/runs/log-batch\032\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog Batch'),
   ),
 ])
 _sym_db.RegisterServiceDescriptor(_MLFLOWSERVICE)

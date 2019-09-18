@@ -15,10 +15,13 @@ class ShowArtifactPage extends Component {
 
   render() {
     if (this.props.path) {
-      if (IMAGE_EXTENSIONS.has(getExtension(this.props.path))) {
-        return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path}/>;
-      } else if (TEXT_EXTENSIONS.has(getExtension(this.props.path))) {
-        return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path}/>;
+      const normalizedExtension = getExtension(this.props.path);
+      if (normalizedExtension) {
+        if (IMAGE_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <ShowArtifactImageView runUuid={this.props.runUuid} path={this.props.path}/>;
+        } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
+          return <ShowArtifactTextView runUuid={this.props.runUuid} path={this.props.path}/>;
+        }
       }
     }
     return (

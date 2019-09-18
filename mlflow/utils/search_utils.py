@@ -1,3 +1,5 @@
+import base64
+import json
 import sqlparse
 from sqlparse.sql import Identifier, Token, Comparison, Statement
 from sqlparse.tokens import Token as TokenType
@@ -5,6 +7,8 @@ from sqlparse.tokens import Token as TokenType
 from mlflow.entities import RunInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+import math
 
 
 class SearchUtils(object):
@@ -256,6 +260,7 @@ class SearchUtils(object):
 
         def run_matches(run):
             return all([cls._does_run_match_clause(run, s) for s in parsed])
+
         return [run for run in runs if run_matches(run)]
 
     @classmethod
@@ -301,9 +306,11 @@ class SearchUtils(object):
                                   error_code=INVALID_PARAMETER_VALUE)
 
         # Return a key such that None values are always at the end.
+        is_null_or_nan = sort_value is None or (isinstance(sort_value, float)
+                                                and math.isnan(sort_value))
         if ascending:
-            return (sort_value is None, sort_value)
-        return (sort_value is not None, sort_value)
+            return (is_null_or_nan, sort_value)
+        return (not is_null_or_nan, sort_value)
 
     @classmethod
     def sort(cls, runs, order_by_list):
@@ -322,3 +329,58 @@ class SearchUtils(object):
                           key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
                           reverse=not ascending)
         return runs
+
+    @classmethod
+    def _parse_start_offset_from_page_token(cls, page_token):
+        # Note: the page_token is expected to be a base64-encoded JSON that looks like
+        # { "offset": xxx }. However, this format is not stable, so it should not be
+        # relied upon outside of this method.
+        if not page_token:
+            return 0
+
+        try:
+            decoded_token = base64.b64decode(page_token)
+        except TypeError:
+            raise MlflowException("Invalid page token, could not base64-decode",
+                                  error_code=INVALID_PARAMETER_VALUE)
+        except base64.binascii.Error:
+            raise MlflowException("Invalid page token, could not base64-decode",
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        try:
+            parsed_token = json.loads(decoded_token)
+        except ValueError:
+            raise MlflowException("Invalid page token, decoded value=%s" % decoded_token,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        offset_str = parsed_token.get("offset")
+        if not offset_str:
+            raise MlflowException("Invalid page token, parsed value=%s" % parsed_token,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        try:
+            offset = int(offset_str)
+        except ValueError:
+            raise MlflowException("Invalid page token, not stringable %s" % offset_str,
+                                  error_code=INVALID_PARAMETER_VALUE)
+
+        return offset
+
+    @classmethod
+    def _create_page_token(cls, offset):
+        return base64.b64encode(json.dumps({"offset": offset}).encode("utf-8"))
+
+    @classmethod
+    def paginate(cls, runs, page_token, max_results):
+        """Paginates a set of runs based on an offset encoded into the page_token and a max
+        results limit. Returns a pair containing the set of paginated runs, followed by
+        an optional next_page_token if there are further results that need to be returned.
+        """
+        start_offset = cls._parse_start_offset_from_page_token(page_token)
+        final_offset = start_offset + max_results
+
+        paginated_runs = runs[start_offset:final_offset]
+        next_page_token = None
+        if final_offset < len(runs):
+            next_page_token = cls._create_page_token(final_offset)
+        return (paginated_runs, next_page_token)

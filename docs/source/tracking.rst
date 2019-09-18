@@ -72,6 +72,10 @@ There are different kinds of remote tracking URIs:
 - Database encoded as ``<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>``. Mlflow supports the dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``. For more details, see `SQLAlchemy database uri <https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls>`_.
 - HTTP server (specified as ``https://my-server:5000``), which is a server hosting an :ref:`MLFlow tracking server <tracking_server>`.
 - Databricks workspace (specified as ``databricks`` or as ``databricks://<profileName>``, a `Databricks CLI profile <https://github.com/databricks/databricks-cli#installation>`_.
+  `See docs <http://docs.databricks.com/applications/mlflow/logging-from-outside-databricks.html>`_ on
+  logging to Databricks-hosted MLflow, or :ref:`the quickstart <quickstart_logging_to_remote_server>` to
+  easily get started with hosted MLflow on Databricks Community Edition.
+
 
 Logging Data to Runs
 ====================
@@ -122,7 +126,7 @@ multiple metrics at once.
 :py:func:`mlflow.set_tag` sets a single key-value tag in the currently active run. The key and
 value are both strings. Use :py:func:`mlflow.set_tags` to set multiple tags at once.
 
-:py:func:`mlflow.log_artifact` logs a local file as an artifact, optionally taking an
+:py:func:`mlflow.log_artifact` logs a local file or directory as an artifact, optionally taking an
 ``artifact_path`` to place it in within the run's artifact URI. Run artifacts can be organized into
 directories, so you can place the artifact in a directory this way.
 
@@ -205,6 +209,31 @@ Here is an example plot of the :ref:`quick start tutorial <quickstart>` with the
   X-axis relative time - graphs the time relative to the first metric logged, for each run
 
 
+Automatic Logging from TensorFlow and Keras (experimental)
+==================================================================
+Call :py:func:`mlflow.tensorflow.autolog` or :py:func:`mlflow.keras.autolog` before your training code to enable automatic logging of metrics and parameters without the need for explicit
+log statements. See example usages with `Keras <https://github.com/mlflow/mlflow/tree/master/examples/keras>`_ and
+`TensorFlow <https://github.com/mlflow/mlflow/tree/master/examples/tensorflow>`_. 
+
+Autologging captures the following information:
+
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Framework        | Metrics                                                | Parameters                                               | Tags          | Artifacts                                                                                                                     |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| Keras            | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model); on training end                                   |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.keras``     | Training loss; validation loss; user-specified metrics | Number of layers; optimizer name; learning rate; epsilon | Model summary | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (Keras model), TensorBoard logs; on training end                 |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| ``tf.estimator`` | TensorBoard metrics                                    | --                                                       | --            | `MLflow Model <https://mlflow.org/docs/latest/models.html>`_ (TF saved model); on call to ``tf.estimator.export_saved_model`` |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+| TensorFlow Core  | All ``tf.summary.scalar`` calls                        | --                                                       | --            | --                                                                                                                            |
++------------------+--------------------------------------------------------+----------------------------------------------------------+---------------+-------------------------------------------------------------------------------------------------------------------------------+
+
+Note that autologging for ``tf.keras`` is handled by :py:func:`mlflow.tensorflow.autolog`, not :py:func:`mlflow.keras.autolog`. 
+
+**Note**: this feature is experimental - the API and format of the logged data are subject to change.
+
+
 .. _organizing_runs_in_experiments:
 
 Organizing Runs in Experiments
@@ -255,7 +284,7 @@ add tags to a run, and more.
 Adding Tags to Runs
 ~~~~~~~~~~~~~~~~~~~
 
-The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. For example:
+The :py:func:`mlflow.tracking.MlflowClient.set_tag` function lets you add custom tags to runs. A tag can only have a single unique value mapped to it at a time. For example:
 
 .. code-block:: py
 
@@ -314,7 +343,7 @@ For example:
 
 .. code-block:: py
 
-  mlflow.tracking.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
+  mlflow.log_artifacts("<mlflow_run_id>", "/path/to/artifact")
   
 .. rubric:: Models API
 
@@ -474,11 +503,7 @@ the client in order to enforce this property.
 HDFS
 ^^^^
 
-To store artifacts in HDFS, specify a ``hdfs:`` URI. It can contain host and port:
-
-|     ``hdfs://<host>:<port>/<path>`` or just the path:
-|     ``hdfs://<path>``
-|
+To store artifacts in HDFS, specify a ``hdfs:`` URI. It can contain host and port: ``hdfs://<host>:<port>/<path>`` or just the path: ``hdfs://<path>``.
 
 There are also two ways to authenticate to HDFS:
 
@@ -490,16 +515,16 @@ There are also two ways to authenticate to HDFS:
   export MLFLOW_KERBEROS_TICKET_CACHE=/tmp/krb5cc_22222222
   export MLFLOW_KERBEROS_USER=user_name_to_use
 
-Most of the cluster contest settings is read from ```hdfs-site.xml``` accessed by the HDFS native driver
+Most of the cluster contest settings are read from ``hdfs-site.xml`` accessed by the HDFS native 
 driver using the ``CLASSPATH`` environment variable.
 
-Optionally one can select a different version of the HDFS driver library using:
+Optionally you can select a different version of the HDFS driver library using:
 
 .. code-block:: bash
 
   export MLFLOW_HDFS_DRIVER=libhdfs3
 
-The default one is ```libhdfs```.
+The default driver is ``libhdfs``.
 
 
 Networking
@@ -513,6 +538,8 @@ You can then pass authentication headers to MLflow using these :ref:`environment
 Additionally, you should ensure that the ``--backend-store-uri`` (which defaults to the
 ``./mlruns`` directory) points to a persistent (non-ephemeral) disk or database connection.
 
+.. _logging_to_a_tracking_server:
+
 Logging to a Tracking Server
 ----------------------------
 
@@ -522,12 +549,31 @@ along with its scheme and port (for example, ``http://10.0.0.1:5000``) or call :
 The :py:func:`mlflow.start_run`, :py:func:`mlflow.log_param`, and :py:func:`mlflow.log_metric` calls 
 then make API requests to your remote tracking server.
 
-.. code-block:: py
+  .. code-section::
 
-    import mlflow
-    with mlflow.start_run():
-        mlflow.log_param("a", 1)
-        mlflow.log_metric("b", 2)
+    .. code-block:: python
+
+        import mlflow
+        remote_server_uri = "..." # set to your server URI
+        mlflow.set_tracking_uri(remote_server_uri)
+        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
+        # valid path in the workspace
+        mlflow.set_experiment("/my-experiment")
+        with mlflow.start_run():
+            mlflow.log_param("a", 1)
+            mlflow.log_metric("b", 2)
+
+    .. code-block:: R
+
+        library(mlflow)
+        install_mlflow()
+        remote_server_uri = "..." # set to your server URI
+        mlflow_set_tracking_uri(remote_server_uri)
+        # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
+        # valid path in the workspace
+        mlflow_set_experiment("/my-experiment")
+        mlflow_log_param("a", "1")
+
 
 .. _tracking_auth:
 
@@ -558,8 +604,8 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.user``               | Identifier of the user who created the run.                                            |
 +-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.source.type``        | Source type (possible values are ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,             |
-|                               | ``"LOCAL"``, and ``"UNKNOWN"``)                                                        |
+| ``mlflow.source.type``        | Source type. Possible values: ``"NOTEBOOK"``, ``"JOB"``, ``"PROJECT"``,                |
+|                               | ``"LOCAL"``, and ``"UNKNOWN"``                                                         |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.source.name``        | Source identifier (e.g., GitHub URL, local Python filename, name of notebook)          |
 +-------------------------------+----------------------------------------------------------------------------------------+
@@ -569,7 +615,8 @@ internal use. The following tags are set automatically by MLflow, when appropria
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.source.git.repoURL`` | URL that the executed code was cloned from.                                            |
 +-------------------------------+----------------------------------------------------------------------------------------+
-| ``mlflow.project.env``        | One of "docker" or "conda", indicating the runtime context used by the MLflow project. |
+| ``mlflow.project.env``        | The runtime context used by the MLflow project.                                        |
+|                               | Possible values: ``"docker"`` and ``"conda"``.                                         |
 +-------------------------------+----------------------------------------------------------------------------------------+
 | ``mlflow.project.entryPoint`` | Name of the project entry point associated with the current run, if any.               |
 +-------------------------------+----------------------------------------------------------------------------------------+

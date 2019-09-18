@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.mlflow</groupId>
   <artifactId>mlflow-parent</artifactId>
-  <version>1.0.0</version>
+  <version>1.2.1-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>MLflow Parent POM</name>
   <url>http://mlflow.org</url>
@@ -56,7 +56,7 @@
   </distributionManagement>
 
   <properties>
-    <mlflow-version>1.0.0</mlflow-version>
+    <mlflow-version>1.2.1-SNAPSHOT</mlflow-version>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
     <scala.version>2.11.12</scala.version>
@@ -84,19 +84,25 @@
         <scope>test</scope>
       </dependency>
       <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-core</artifactId>
+        <version>2.28.2</version>
+        <scope>test</scope>
+      </dependency>
+      <dependency>
         <groupId>com.fasterxml.jackson.dataformat</groupId>
         <artifactId>jackson-dataformat-yaml</artifactId>
-        <version>2.9.8</version>
+        <version>2.9.9</version>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-databind</artifactId>
-        <version>2.9.8</version>
+        <version>2.9.9.3</version>
       </dependency>
       <dependency>
         <groupId>com.fasterxml.jackson.core</groupId>
         <artifactId>jackson-annotations</artifactId>
-        <version>2.9.8</version>
+        <version>2.9.9</version>
       </dependency>
       <dependency>
         <groupId>ml.combust.mleap</groupId>
@@ -257,7 +263,7 @@
         <plugin>
           <groupId>net.alchim31.maven</groupId>
           <artifactId>scala-maven-plugin</artifactId>
-          <version>4.0.2</version>
+          <version>4.2.0</version>
         </plugin>
       </plugins>
     </pluginManagement>

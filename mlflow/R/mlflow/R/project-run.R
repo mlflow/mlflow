@@ -1,7 +1,7 @@
 #' Run an MLflow Project
 #'
-#' Wrapper for the `mlflow run` CLI command. See https://www.mlflow.org/docs/latest/cli.html#run
-#' for more info.
+#' Wrapper for the `mlflow run` CLI command. See
+#' https://www.mlflow.org/docs/latest/cli.html#mlflow-run for more info.
 #'
 #' @examples
 #' \dontrun{

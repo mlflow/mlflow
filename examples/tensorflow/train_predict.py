@@ -12,6 +12,8 @@ import tensorflow as tf
 from tensorflow.python.saved_model import tag_constants
 import mlflow.tensorflow
 
+# Enable auto-logging to MLflow to capture TensorBoard metrics.
+mlflow.tensorflow.autolog()
 
 def main(argv):
     # Builds, trains and evaluates a tf.estimator. Then, exports it for inference, logs the exported model

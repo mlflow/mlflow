@@ -17,13 +17,16 @@ class HomePage extends Component {
   };
 
   componentWillMount() {
-    this.props.dispatchListExperimentsApi(this.state.listExperimentsRequestId);
+    if (process.env.HIDE_EXPERIMENT_LIST !== 'true') {
+      this.props.dispatchListExperimentsApi(this.state.listExperimentsRequestId);
+    }
   }
 
   render() {
-    return (
+    const homeView = <HomeView experimentId={this.props.experimentId}/>;
+    return process.env.HIDE_EXPERIMENT_LIST === 'true' ? homeView : (
       <RequestStateWrapper requestIds={[this.state.listExperimentsRequestId]}>
-        <HomeView experimentId={this.props.experimentId}/>
+        {homeView}
       </RequestStateWrapper>
     );
   }

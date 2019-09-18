@@ -4,7 +4,6 @@ import Utils from "../utils/Utils";
 import { Link } from 'react-router-dom';
 import Routes from '../Routes';
 import { DEFAULT_EXPANDED_VALUE } from './ExperimentView';
-import { SEARCH_MAX_RESULTS } from '../Actions';
 import { CollapsibleTagsCell } from './CollapsibleTagsCell';
 
 export default class ExperimentViewUtil {
@@ -45,7 +44,7 @@ export default class ExperimentViewUtil {
    */
   static getRunInfoCellsForRow(runInfo, tags, isParent, cellType, handleCellToggle) {
     const CellComponent = `${cellType}`;
-    const user = Utils.formatUser(Utils.getUser(runInfo, tags));
+    const user = Utils.getUser(runInfo, tags);
     const queryParams = window.location && window.location.search ? window.location.search : "";
     const sourceType = Utils.renderSource(tags, queryParams);
     const startTime = runInfo.start_time;
@@ -292,7 +291,7 @@ export default class ExperimentViewUtil {
       const sortValue = (sortState.isMetric ? metricsMap : paramsMap)[sortState.key];
       return (sortValue === undefined ? undefined : sortValue.value);
     } else if (sortState.key === 'user_id') {
-      return Utils.formatUser(Utils.getUser(runInfo, tags));
+      return Utils.getUser(runInfo, tags);
     } else if (sortState.key === 'source') {
       return Utils.formatSource(runInfo, tags);
     } else if (sortState.key === 'run_name') {
@@ -403,7 +402,7 @@ export default class ExperimentViewUtil {
         }
       }
     });
-    return mergedRows.slice(0, SEARCH_MAX_RESULTS);
+    return mergedRows.slice(0);
   }
 
   static getRows({ runInfos, tagsList, runsExpanded, getRow }) {
