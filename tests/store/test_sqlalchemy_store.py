@@ -43,7 +43,7 @@ class TestParseDbUri(unittest.TestCase):
             'postgresql': ('psycopg2', 'pg8000', 'psycopg2cffi',
                            'pypostgresql', 'pygresql', 'zxjdbc'),
             'mysql': ('mysqldb', 'pymysql', 'mysqlconnector', 'cymysql',
-                      'oursql', 'mysqldb', 'gaerdbms', 'pyodbc', 'zxjdbc'),
+                      'oursql', 'gaerdbms', 'pyodbc', 'zxjdbc'),
             'mssql': ('pyodbc', 'mxodbc', 'pymssql', 'zxjdbc', 'adodbapi')
         }
         for target_db_type, drivers in target_db_type_uris.items():
