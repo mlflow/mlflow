@@ -82,7 +82,7 @@ class ShowArtifactHtmlView extends Component {
         this.setState({ html: event.target.result, loading: false });
       };
       fileReader.readAsText(blob);
-    });
+    }).catch(error => this.setState({ error: error, loading: false }));;
   }
 }
 
