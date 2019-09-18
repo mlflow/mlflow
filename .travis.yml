@@ -111,6 +111,7 @@ script:
       ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
     else
       ./travis/run-large-python-tests.sh;
+      ./travis/test-anaconda-compatibility.sh;
     fi
 
 notifications:
