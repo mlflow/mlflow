@@ -61,11 +61,10 @@ class MlflowHttpCaller {
 
 
   HttpResponse executeRequest(HttpRequestBase request) throws IOException {
-    HttpResponse response = httpClient.execute(request);
     int timeLeft = maxRateLimitIntervalMillis;
     int sleepFor = rateLimitRetrySleepInitMillis;
+    HttpResponse response = httpClient.execute(request);
     while (response.getStatusLine().getStatusCode() == 429 && timeLeft > 0) {
-      timeLeft -= sleepFor;
       logger.warn("Request returned with status code 429 (Rate limit exceeded). Retrying after "
                   + sleepFor
                   + " milliseconds. Will continue to retry 429s for up to "
@@ -74,8 +73,9 @@ class MlflowHttpCaller {
       try {
         Thread.sleep(sleepFor);
       } catch (InterruptedException e) {
-        logger.warn("interrupted while waiting for retry.");
+        throw new RuntimeException(e);
       }
+      timeLeft -= sleepFor;
       sleepFor = Math.min(timeLeft, 2 * sleepFor);
       response = httpClient.execute(request);
     }
