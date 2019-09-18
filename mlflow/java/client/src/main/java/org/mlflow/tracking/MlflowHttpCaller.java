@@ -30,11 +30,57 @@ import org.mlflow.tracking.creds.MlflowHostCredsProvider;
 class MlflowHttpCaller {
   private static final Logger logger = LoggerFactory.getLogger(MlflowHttpCaller.class);
   private static final String BASE_API_PATH = "api/2.0/preview/mlflow";
-  private HttpClient httpClient;
+  protected HttpClient httpClient;
   private final MlflowHostCredsProvider hostCredsProvider;
+  private final int maxRateLimitIntervalMillis;
+  private final int rateLimitRetrySleepInitMillis;
 
   MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider) {
+    this(hostCredsProvider, 60000);
+  }
+
+  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider, int maxRateLimitIntervalSeconds) {
+    this(hostCredsProvider, maxRateLimitIntervalSeconds, 1000);
+  }
+
+  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
+                   int maxRateLimitIntervalSeconds,
+                   int rateLimitRetrySleepInitMs) {
     this.hostCredsProvider = hostCredsProvider;
+    this.maxRateLimitIntervalMillis = maxRateLimitIntervalSeconds;
+    this.rateLimitRetrySleepInitMillis = rateLimitRetrySleepInitMs;
+  }
+
+  MlflowHttpCaller(MlflowHostCredsProvider hostCredsProvider,
+                   int maxRateLimitIntervalSeconds,
+                   int rateLimitRetrySleepInitMs,
+                   HttpClient client) {
+    this(hostCredsProvider, maxRateLimitIntervalSeconds, rateLimitRetrySleepInitMs);
+    this.httpClient = client;
+  }
+
+
+  HttpResponse executeRequest(HttpRequestBase request) throws IOException {
+    int timeLeft = maxRateLimitIntervalMillis;
+    int sleepFor = rateLimitRetrySleepInitMillis;
+    HttpResponse response = httpClient.execute(request);
+    while (response.getStatusLine().getStatusCode() == 429 && timeLeft > 0) {
+      logger.warn("Request returned with status code 429 (Rate limit exceeded). Retrying after "
+                  + sleepFor
+                  + " milliseconds. Will continue to retry 429s for up to "
+                  + timeLeft
+                  + " milliseconds.");
+      try {
+        Thread.sleep(sleepFor);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+      timeLeft -= sleepFor;
+      sleepFor = Math.min(timeLeft, 2 * sleepFor);
+      response = httpClient.execute(request);
+    }
+    checkError(response);
+    return response;
   }
 
   String get(String path) {
@@ -42,8 +88,7 @@ class MlflowHttpCaller {
     HttpGet request = new HttpGet();
     fillRequestSettings(request, path);
     try {
-      HttpResponse response = httpClient.execute(request);
-      checkError(response);
+      HttpResponse response = executeRequest(request);
       String responseJosn = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
       logger.debug("Response: " + responseJosn);
       return responseJosn;
@@ -58,8 +103,7 @@ class MlflowHttpCaller {
     HttpGet request = new HttpGet();
     fillRequestSettings(request, path);
     try {
-      HttpResponse response = httpClient.execute(request);
-      checkError(response);
+      HttpResponse response = executeRequest(request);
       byte[] bytes = EntityUtils.toByteArray(response.getEntity());
       logger.debug("response: #bytes=" + bytes.length);
       return bytes;
@@ -75,8 +119,7 @@ class MlflowHttpCaller {
     request.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
     request.setHeader("Content-Type", "application/json");
     try {
-      HttpResponse response = httpClient.execute(request);
-      checkError(response);
+      HttpResponse response = executeRequest(request);
       String responseJson = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
       logger.debug("Response: " + responseJson);
       return responseJson;
