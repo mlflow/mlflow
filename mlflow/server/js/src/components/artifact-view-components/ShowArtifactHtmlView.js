@@ -28,7 +28,6 @@ class ShowArtifactHtmlView extends Component {
 
   componentDidUpdate(prevProps) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
-      this.setState({ loading: true })
       this.fetchArtifacts();
     }
   }
