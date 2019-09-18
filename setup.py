@@ -45,11 +45,10 @@ setup(
         'pyyaml',
         'querystring_parser',
         'simplejson',
-        'docker>=3.6.0',
+        'docker>=4.0.0',
         'entrypoints',
         'sqlparse',
         'sqlalchemy',
-        'docker>=3.6.0',
         'gorilla',
     ],
     extras_require={

@@ -119,6 +119,15 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     if existing_run_id:
         _validate_run_id(existing_run_id)
         active_run_obj = MlflowClient().get_run(existing_run_id)
+        # Check to see if experiment_id from environment matches experiment_id from set_experiment()
+        if (_active_experiment_id is not None and
+                _active_experiment_id != active_run_obj.info.experiment_id):
+            raise MlflowException("Cannot start run with ID {} because active run ID "
+                                  "does not match environment run ID. Make sure --experiment-name "
+                                  "or --experiment-id matches experiment set with "
+                                  "set_experiment(), or just use command-line "
+                                  "arguments".format(existing_run_id))
+        # Check to see if current run isn't deleted
         if active_run_obj.info.lifecycle_stage == LifecycleStage.DELETED:
             raise MlflowException("Cannot start run with ID {} because it is in the "
                                   "deleted state.".format(existing_run_id))
@@ -289,6 +298,24 @@ def create_experiment(name, artifact_location=None):
     return MlflowClient().create_experiment(name, artifact_location)
 
 
+def delete_experiment(experiment_id):
+    """
+    Delete an experiment from the backend store.
+
+    :param experiment_id: The experiment ID returned from ``create_experiment``.
+    """
+    MlflowClient().delete_experiment(experiment_id)
+
+
+def delete_run(run_id):
+    """
+    Deletes a run with the given ID.
+
+    :param run_id: Unique identifier for the run to delete.
+    """
+    MlflowClient().delete_run(run_id)
+
+
 def get_artifact_uri(artifact_path=None):
     """
     Get the absolute URI of the specified artifact in the currently active run.
@@ -317,17 +344,18 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
 
     :param experiment_ids: List of experiment IDs. None will default to the active experiment.
     :param filter_string: Filter query string, defaults to searching all runs.
-    :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
+    :param run_view_type: one of enum values ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL`` runs
                             defined in :py:class:`mlflow.entities.ViewType`.
     :param max_results: The maximum number of runs to put in the dataframe. Default is 100,000
                         to avoid causing out-of-memory issues on the user's machine.
-    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
-                        ordering is to sort by start_time DESC, then run_id.
+    :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
+                     can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
+                     The default ordering is to sort by ``start_time DESC``, then ``run_id``.
 
     :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
         are expanded into their own columns named metrics.*, params.*, and tags.*
         respectively. For runs that don't have a particular metric, parameter, or tag, their
-        value will be (Numpy) Nan, None, or None respectively
+        value will be (NumPy) Nan, None, or None respectively.
     """
     if not experiment_ids:
         experiment_ids = _get_experiment_id()

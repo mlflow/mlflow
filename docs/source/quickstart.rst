@@ -3,6 +3,14 @@
 Quickstart
 ==========
 
+You can run the quickstart below:
+
+- On your laptop or other environment.
+- In a `Python <https://docs.databricks.com/applications/mlflow/quick-start-python.html>`_ or
+  `R notebook <https://docs.databricks.com/applications/mlflow/quick-start-r.html>`_ on
+  `Databricks Community Edition <https://docs.databricks.com/getting-started/try-databricks.html#community-edition>`_,
+  with hosted MLflow. With hosted MLflow you don't need to set up your own tracking server to track runs.
+
 Installing MLflow
 -----------------
 
