@@ -54,7 +54,7 @@ def http_request(host_creds, endpoint, retries=3, retry_interval=3,
                 "API request to {path} returned status code 429 (Rate limit exceeded). "
                 "Retrying in {sleep} seconds. "
                 "Will continue to retry 429s for up to {time_left} seconds."
-            ).format(sleep=sleep, time_left=time_left)
+            ).format(sleep=sleep, time_left=time_left, path=endpoint)
             time.sleep(sleep)
             time_left -= sleep
             response = requests.request(**kwargs)
