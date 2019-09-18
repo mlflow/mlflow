@@ -202,8 +202,8 @@ tracking server. To get access to a remote tracking server:
   https://community.cloud.databricks.com as the host.
 
 You can then :ref:`log to the remote tracking server <logging_to_a_tracking_server>` by
-adding the following to the start of your program. If logging to your own tracking server,
-update the tracking URI in the example to point to your own server:
+adding the following to the start of your program (if logging to your own tracking server,
+update the tracking URI to your server's URI):
 
   .. code-section::
 
