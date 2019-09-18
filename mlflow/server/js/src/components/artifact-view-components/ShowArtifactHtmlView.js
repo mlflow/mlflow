@@ -19,7 +19,7 @@ class ShowArtifactHtmlView extends Component {
   state = {
     loading: true,
     error: undefined,
-    html: undefined,
+    html: undefined
   };
 
   componentWillMount() {
@@ -28,6 +28,7 @@ class ShowArtifactHtmlView extends Component {
 
   componentDidUpdate(prevProps) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+      this.setState({ loading: true })
       this.fetchArtifacts();
     }
   }
@@ -41,6 +42,7 @@ class ShowArtifactHtmlView extends Component {
       );
     }
     if (this.state.error) {
+      console.error("Unable to load HTML artifact, got error " + this.state.error);
       return (
         <div>
           Oops we couldn't load your file because of an error.
