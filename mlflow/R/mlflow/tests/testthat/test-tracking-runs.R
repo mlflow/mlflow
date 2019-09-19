@@ -291,7 +291,7 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
     dir.create(source_dir)
     file_path <- file.path(source_dir, "my-file")
     contents <- "File contents\n"
-    cat(contents, file=file_path, sep="")
+    cat(contents, file = file_path, sep = "")
     # Log file, file with path, directory with path argument
     mlflow_log_artifact(file_path)
     mlflow_log_artifact(file_path, "directory_for_file")
@@ -312,7 +312,7 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
     artifact_list1 <- mlflow_list_artifacts("artifact_subdirectory")
     expect_equal(nrow(artifact_list1), 1)
     logged_file2 <- artifact_list1[artifact_list1$path ==
-      paste("artifact_subdirectory", "my-file", sep="/"), ]
+      paste("artifact_subdirectory", "my-file", sep = "/"), ]
     expect_equal(nrow(logged_file2), 1)
     expect_equal(logged_file2$is_dir, FALSE)
     expect_equal(strtoi(logged_file2$file_size), nchar(contents))
@@ -320,7 +320,7 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
     artifact_list2 <- mlflow_list_artifacts("directory_for_file")
     expect_equal(nrow(artifact_list2), 1)
     logged_file3 <- artifact_list2[artifact_list2$path ==
-    paste("directory_for_file", "my-file", sep="/"), ]
+    paste("directory_for_file", "my-file", sep = "/"), ]
     expect_equal(nrow(logged_file3), 1)
     expect_equal(logged_file3$is_dir, FALSE)
     expect_equal(strtoi(logged_file3$file_size), nchar(contents))
