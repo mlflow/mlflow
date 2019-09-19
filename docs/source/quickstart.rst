@@ -226,7 +226,8 @@ Community Edition is intended for quick experimentation rather than production u
 After signing up, run ``databricks configure`` to create a credentials file for MLflow, specifying
 https://community.cloud.databricks.com as the host.
 
-Add the following to the start of your program to log to the Community Edition server:
+To log to the Community Edition server, set the ``MLFLOW_TRACKING_URI`` environment variable
+to "databricks", or add the following to the start of your program:
 
   .. code-section::
 
