@@ -45,50 +45,52 @@ class ShowArtifactMapView extends Component {
       }
     }
 
-    const map = L.map('map');
+    if (this.state.features !== undefined) {
+      const map = L.map('map');
 
-    // Load tiles from OSM with the corresponding attribution
-    // Potentially, these could be set in an ENV VAR to use a custom map
-    const tilesURL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    const attr = '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors';
+      // Load tiles from OSM with the corresponding attribution
+      // Potentially, these could be set in an ENV VAR to use a custom map
+      const tilesURL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+      const attr = '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors';
 
-    L.tileLayer(tilesURL, {
-      attribution: attr,
-    }).addTo(map);
+      L.tileLayer(tilesURL, {
+        attribution: attr,
+      }).addTo(map);
 
-    function onEachFeature(feature, layer) {
-      if (feature.properties && feature.properties.popupContent) {
-        const popupContent = feature.properties.popupContent;
-        layer.bindPopup(popupContent);
-      }
-    }
-
-    const geojsonLayer = L.geoJSON(this.state.features, {
-      style: function(feature) {
-        return feature.properties && feature.properties.style;
-      },
-      pointToLayer: function(feature, latlng) {
-        if (feature.properties && feature.properties.style) {
-          return L.circleMarker(latlng, feature.properties && feature.properties.style);
-        } else if (feature.properties && feature.properties.icon) {
-          return L.marker(latlng, {
-            icon: L.icon(feature.properties && feature.properties.icon),
-          });
+      function onEachFeature(feature, layer) {
+        if (feature.properties && feature.properties.popupContent) {
+          const popupContent = feature.properties.popupContent;
+          layer.bindPopup(popupContent);
         }
-        return L.marker(latlng, {
-          icon: L.icon({
-            iconRetinaUrl: iconRetina,
-            iconUrl: icon,
-            shadowUrl: iconShadow,
-            iconSize: [24, 36],
-            iconAnchor: [12, 36],
-          }),
-        });
-      },
-      onEachFeature: onEachFeature,
-    }).addTo(map);
-    map.fitBounds(geojsonLayer.getBounds());
-    this.leafletMap = map;
+      }
+
+      const geojsonLayer = L.geoJSON(this.state.features, {
+        style: function(feature) {
+          return feature.properties && feature.properties.style;
+        },
+        pointToLayer: function(feature, latlng) {
+          if (feature.properties && feature.properties.style) {
+            return L.circleMarker(latlng, feature.properties && feature.properties.style);
+          } else if (feature.properties && feature.properties.icon) {
+            return L.marker(latlng, {
+              icon: L.icon(feature.properties && feature.properties.icon),
+            });
+          }
+          return L.marker(latlng, {
+            icon: L.icon({
+              iconRetinaUrl: iconRetina,
+              iconUrl: icon,
+              shadowUrl: iconShadow,
+              iconSize: [24, 36],
+              iconAnchor: [12, 36],
+            }),
+          });
+        },
+        onEachFeature: onEachFeature,
+      }).addTo(map);
+      map.fitBounds(geojsonLayer.getBounds());
+      this.leafletMap = map;
+    }
   }
 
   render() {
@@ -122,7 +124,8 @@ class ShowArtifactMapView extends Component {
           this.setState({ features: JSON.parse(event.target.result), loading: false });
         };
         fileReader.readAsText(blob);
-      });
+      })
+      .catch((error) => this.setState({ error, loading: false, features: undefined }));
   }
 }
 
