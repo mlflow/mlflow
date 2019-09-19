@@ -193,31 +193,27 @@ In the examples above, MLflow logs data to the local filesystem of the machine i
 To manage results centrally or share them across a team, you can configure MLflow to log to a remote
 tracking server. To get access to a remote tracking server:
 
-Launch a tracking server on a remote machine
+Launch a Tracking Server on a Remote Machine
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 :ref:`Launch a tracking server <tracking_server>` on a remote machine.
 
-You can then :ref:`log to the remote tracking server <logging_to_a_tracking_server>`. If
-running your own tracking server, add the following to the start of your program, updating
-``tracking_uri`` to your server's URI:
+You can then :ref:`log to the remote tracking server <logging_to_a_tracking_server>` by
+setting the ``MLFLOW_TRACKING_URI`` environment variable to your server's URI, or
+by adding the following to the start of your program:
 
   .. code-section::
 
     .. code-block:: python
 
         import mlflow
-        # Update this to your tracking server's URI
-        tracking_uri = "..."
-        mlflow.set_tracking_uri(tracking_uri)
-        mlflow.set_experiment("/my-experiment")
+        mlflow.set_tracking_uri("http://YOUR-SERVER:4040")
+        mlflow.set_experiment("my-experiment")
 
     .. code-block:: R
 
         library(mlflow)
         install_mlflow()
-        # Update this to your tracking server's URI
-        tracking_uri = "..."
-        mlflow_set_tracking_uri(tracking_uri)
+        mlflow_set_tracking_uri("http://YOUR-SERVER:4040")
         mlflow_set_experiment("/my-experiment")
 
 
@@ -225,7 +221,7 @@ Log to Databricks Community Edition
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Alternatively, sign up for `Databricks Community Edition <https://databricks.com/try-databricks>`_,
-which comes bundled with a hosted tracking server. Note that
+a free service that includes a hosted tracking server. Note that
 Community Edition is intended for quick experimentation rather than production use cases.
 After signing up, run ``databricks configure`` to create a credentials file for MLflow, specifying
 https://community.cloud.databricks.com as the host.
@@ -249,6 +245,6 @@ Add the following to the start of your program to log to the Community Edition s
         install_mlflow()
         mlflow_set_tracking_uri("databricks")
         # Note: on Databricks, the experiment name passed to mlflow_set_experiment must be a
-        # valid path in the workspace.  See https://docs.databricks.com/user-guide/workspace.html
-        # for more info.
+        # valid path in the workspace, like '/Users/<your-username>/my-experiment'.  See
+        # https://docs.databricks.com/user-guide/workspace.html for more info.
         mlflow_set_experiment("/my-experiment")
