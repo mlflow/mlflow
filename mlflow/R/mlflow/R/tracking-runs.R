@@ -354,7 +354,8 @@ mlflow_list_artifacts <- function(path = NULL, run_id = NULL, client = NULL) {
 
   message(glue::glue("Root URI: {uri}", uri = response$root_uri))
 
-  response$files %>%
+  files_list <- if (!is.null(response$files)) response$files else list()
+  files_list %>%
     purrr::transpose() %>%
     purrr::map(unlist) %>%
     tibble::as_tibble()
@@ -479,7 +480,7 @@ mlflow_log_artifact <- function(path, artifact_path = NULL, run_id = NULL, clien
              client = client
   )
 
-  mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client)
+  invisible(mlflow_list_artifacts(run_id = run_id, path = artifact_path, client = client))
 }
 
 #' Start Run
