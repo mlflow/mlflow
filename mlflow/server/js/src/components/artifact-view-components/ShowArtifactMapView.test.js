@@ -34,7 +34,7 @@ describe('Render test', () => {
     wrapper.setState({ loading: false });
     wrapper.update();
     wrapper.setState({ features: geojson });
-    let center = wrapper.instance().leafletMap.getCenter();
+    const center = wrapper.instance().leafletMap.getCenter();
     expect(center.lat).toBeCloseTo(10.1);
     expect(center.lng).toBeCloseTo(125.6);
   });

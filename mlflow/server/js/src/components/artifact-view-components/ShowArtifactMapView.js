@@ -9,6 +9,13 @@ import icon from 'leaflet/dist/images/marker-icon.png';
 import iconRetina from 'leaflet/dist/images/marker-icon-2x.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
+function onEachFeature(feature, layer) {
+  if (feature.properties && feature.properties.popupContent) {
+    const popupContent = feature.properties.popupContent;
+    layer.bindPopup(popupContent);
+  }
+}
+
 class ShowArtifactMapView extends Component {
   constructor(props) {
     super(props);
@@ -57,18 +64,11 @@ class ShowArtifactMapView extends Component {
         attribution: attr,
       }).addTo(map);
 
-      function onEachFeature(feature, layer) {
-        if (feature.properties && feature.properties.popupContent) {
-          const popupContent = feature.properties.popupContent;
-          layer.bindPopup(popupContent);
-        }
-      }
-
       const geojsonLayer = L.geoJSON(this.state.features, {
-        style: function(feature) {
+        style(feature) {
           return feature.properties && feature.properties.style;
         },
-        pointToLayer: function(feature, latlng) {
+        pointToLayer(feature, latlng) {
           if (feature.properties && feature.properties.style) {
             return L.circleMarker(latlng, feature.properties && feature.properties.style);
           } else if (feature.properties && feature.properties.icon) {
