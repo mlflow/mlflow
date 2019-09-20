@@ -58,13 +58,14 @@ class ShowArtifactHtmlView extends Component {
                 display="block"
                 position="relative"
                 sandbox="allow-scripts"/>
+              
       );
     }
   }
 
   getBlobURL = (code, type) => {
-    const blob = new Blob([code], { type });
-    return URL.createObjectURL(blob);
+    const blob = new Blob([code], { type })
+    return URL.createObjectURL(blob)
   }
 
   fetchArtifacts() {
