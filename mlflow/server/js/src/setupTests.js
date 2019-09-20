@@ -9,3 +9,4 @@ require('jest-localstorage-mock');
 // for plotly.js to work
 //
 window.URL.createObjectURL = function createObjectURL() {};
+
