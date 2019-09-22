@@ -50,6 +50,7 @@ export class ExperimentPage extends Component {
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
 
+    this.getExperimentRequestId = getUUID();
     this.props
       .getExperimentApi(experimentId, this.getExperimentRequestId)
       .catch((e) => {
@@ -80,6 +81,7 @@ export class ExperimentPage extends Component {
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
     const viewType = lifecycleFilterToRunViewType(lifecycleFilter);
     this.setState({ loadingMore: true });
+    this.loadMoreRunsRequestId = getUUID();
     this.props
       .loadMoreRunsApi(
         [experimentId],
@@ -162,6 +164,7 @@ export class ExperimentPage extends Component {
     });
 
     const orderBy = ExperimentPage.getOrderByExpr(orderByKey, orderByAsc);
+    this.searchRunsRequestId = getUUID();
     this.props
       .searchRunsApi(
         [this.props.experimentId],
@@ -262,6 +265,7 @@ export class ExperimentPage extends Component {
       nextPageToken={this.state.nextPageToken}
       handleLoadMoreRuns={this.handleLoadMoreRuns}
       loadingMore={this.state.loadingMore}
+      key={this.searchRunsRequestId}
     />;
   }
 

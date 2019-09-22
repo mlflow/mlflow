@@ -68,6 +68,9 @@ export class ExperimentView extends Component {
       persistedState: persistedState.toJSON(),
       showNotesEditor: false,
       showNotes: true,
+      searchInput: this.props.searchInput,
+      paramKeyFilterInput: this.props.paramKeyFilter.getFilterString(),
+      metricKeyFilterInput: this.props.metricKeyFilter.getFilterString(),
     };
   }
 
@@ -122,7 +125,7 @@ export class ExperimentView extends Component {
       // Text entered into the metric filter field
       metricKeyFilterInput: '',
       // Lifecycle stage of runs to display
-      lifecycleFilterInput: '',
+      lifecycleFilterInput: LIFECYCLE_FILTER.ACTIVE,
       // Text entered into the runs-search field
       searchInput: '',
       // String error message, if any, from an attempted search
@@ -179,29 +182,6 @@ export class ExperimentView extends Component {
     // Snapshot component state on unmounts to ensure we've captured component state in cases where
     // componentDidUpdate doesn't fire.
     this.snapshotComponentState();
-  }
-
-  static getDerivedStateFromProps(nextProps, prevState) {
-    // Compute the actual runs selected. (A run cannot be selected if it is not passed in as a
-    // prop)
-    const newRunsSelected = {};
-    nextProps.runInfos.forEach((rInfo) => {
-      const prevRunSelected = prevState.runsSelected[rInfo.run_uuid];
-      if (prevRunSelected) {
-        newRunsSelected[rInfo.run_uuid] = prevRunSelected;
-      }
-    });
-    const { searchInput, paramKeyFilter, metricKeyFilter, lifecycleFilter } = nextProps;
-    const paramKeyFilterInput = paramKeyFilter.getFilterString();
-    const metricKeyFilterInput = metricKeyFilter.getFilterString();
-    return {
-      ...prevState,
-      searchInput,
-      paramKeyFilterInput,
-      metricKeyFilterInput,
-      lifecycleFilterInput: lifecycleFilter,
-      runsSelected: newRunsSelected,
-    };
   }
 
   onDeleteRun() {
