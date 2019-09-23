@@ -35,6 +35,14 @@ class GCSArtifactRepository(ArtifactRepository):
             path = path[1:]
         return parsed.netloc, path
 
+    def _get_bucket(self, bucket):
+        from google.auth.exceptions import DefaultCredentialsError
+        try:
+            storage_client = self.gcs.Client()
+        except DefaultCredentialsError:
+            storage_client = self.gcs.Client.create_anonymous_client()
+        return storage_client.get_bucket(bucket)
+
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
@@ -42,7 +50,7 @@ class GCSArtifactRepository(ArtifactRepository):
         dest_path = posixpath.join(
             dest_path, os.path.basename(local_file))
 
-        gcs_bucket = self.gcs.Client().get_bucket(bucket)
+        gcs_bucket = self._get_bucket(bucket)
         blob = gcs_bucket.blob(dest_path)
         blob.upload_from_filename(local_file)
 
@@ -50,7 +58,7 @@ class GCSArtifactRepository(ArtifactRepository):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
-        gcs_bucket = self.gcs.Client().get_bucket(bucket)
+        gcs_bucket = self._get_bucket(bucket)
 
         local_dir = os.path.abspath(local_dir)
         for (root, _, filenames) in os.walk(local_dir):
@@ -70,7 +78,7 @@ class GCSArtifactRepository(ArtifactRepository):
             dest_path = posixpath.join(dest_path, path)
         prefix = dest_path + "/"
 
-        bkt = self.gcs.Client().get_bucket(bucket)
+        bkt = self._get_bucket(bucket)
 
         infos = self._list_folders(bkt, prefix, artifact_path)
 
@@ -92,5 +100,5 @@ class GCSArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         (bucket, remote_root_path) = self.parse_gcs_uri(self.artifact_uri)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
-        gcs_bucket = self.gcs.Client().get_bucket(bucket)
+        gcs_bucket = self._get_bucket(bucket)
         gcs_bucket.get_blob(remote_full_path).download_to_filename(local_path)

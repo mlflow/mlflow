@@ -105,19 +105,47 @@ def test_log_artifacts(hdfs_system_mock):
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
-def test_list_artifacts(hdfs_system_mock):
-    repo = HdfsArtifactRepository('hdfs:/some/path')
+def test_list_artifacts_root(hdfs_system_mock):
+    repo = HdfsArtifactRepository('hdfs://host/some/path')
 
-    expected = [FileInfo('conda.yaml', False, 33),
-                FileInfo('model.pkl', False, 33),
-                FileInfo('MLmodel', False, 33)]
+    expected = [FileInfo('model', True, 0)]
 
-    hdfs_system_mock.return_value.walk.return_value = [
-        ('/some/path', False, ['conda.yaml', 'model.pkl', 'MLmodel'])]
-    hdfs_system_mock.return_value.info.return_value.get.return_value = 33
-    hdfs_system_mock.return_value.isdir.side_effect = [True, False, False, False]
+    hdfs_system_mock.return_value.ls.return_value = [{
+            'kind': 'directory',
+            'name': 'hdfs://host/some/path/model',
+            'size': 0,
+            }]
 
     actual = repo.list_artifacts()
+
+    assert actual == expected
+
+
+@mock.patch('pyarrow.hdfs.HadoopFileSystem')
+def test_list_artifacts_nested(hdfs_system_mock):
+    repo = HdfsArtifactRepository('hdfs:://host/some/path')
+
+    expected = [FileInfo('model/conda.yaml', False, 33),
+                FileInfo('model/model.pkl', False, 33),
+                FileInfo('model/MLmodel', False, 33)]
+
+    hdfs_system_mock.return_value.ls.return_value = [{
+            'kind': 'file',
+            'name': 'hdfs://host/some/path/model/conda.yaml',
+            'size': 33,
+            },
+            {
+            'kind': 'file',
+            'name': 'hdfs://host/some/path/model/model.pkl',
+            'size': 33,
+            },
+            {
+            'kind': 'file',
+            'name': 'hdfs://host/some/path/model/MLmodel',
+            'size': 33,
+            }]
+
+    actual = repo.list_artifacts('model')
 
     assert actual == expected
 

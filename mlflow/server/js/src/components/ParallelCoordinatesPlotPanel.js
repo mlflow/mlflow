@@ -3,7 +3,8 @@ import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import ParallelCoordinatesPlotView from './ParallelCoordinatesPlotView';
 import { ParallelCoordinatesPlotControls } from './ParallelCoordinatesPlotControls';
-import { getSharedMetricKeysByRunUuids, getSharedParamKeysByRunUuids } from '../reducers/Reducers';
+import { getAllParamKeysByRunUuids, getAllMetricKeysByRunUuids, getSharedMetricKeysByRunUuids,
+         getSharedParamKeysByRunUuids } from '../reducers/Reducers';
 import _ from 'lodash';
 import { Empty } from 'antd';
 
@@ -12,6 +13,10 @@ import './ParallelCoordinatesPlotPanel.css';
 export class ParallelCoordinatesPlotPanel extends React.Component {
   static propTypes = {
     runUuids: PropTypes.arrayOf(String).isRequired,
+    // An array of all parameter keys across runs
+    allParamKeys: PropTypes.arrayOf(String).isRequired,
+    // An array of all metric keys across runs
+    allMetricKeys: PropTypes.arrayOf(String).isRequired,
     // An array of parameter keys shared by all runs
     sharedParamKeys: PropTypes.arrayOf(String).isRequired,
     // An array of metric keys shared by all runs
@@ -35,13 +40,13 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
   };
 
   render() {
-    const { runUuids, sharedParamKeys, sharedMetricKeys } = this.props;
+    const { runUuids, allParamKeys, allMetricKeys } = this.props;
     const { selectedParamKeys, selectedMetricKeys } = this.state;
     return (
       <div className='parallel-coorinates-plot-panel'>
         <ParallelCoordinatesPlotControls
-          paramKeys={sharedParamKeys}
-          metricKeys={sharedMetricKeys}
+          paramKeys={allParamKeys}
+          metricKeys={allMetricKeys}
           selectedParamKeys={selectedParamKeys}
           selectedMetricKeys={selectedMetricKeys}
           handleMetricsSelectChange={this.handleMetricsSelectChange}
@@ -61,9 +66,11 @@ export class ParallelCoordinatesPlotPanel extends React.Component {
 
 const mapStateToProps = (state, ownProps) => {
   const { runUuids } = ownProps;
+  const allParamKeys = getAllParamKeysByRunUuids(runUuids, state);
+  const allMetricKeys = getAllMetricKeysByRunUuids(runUuids, state);
   const sharedParamKeys = getSharedParamKeysByRunUuids(runUuids, state);
   const sharedMetricKeys = getSharedMetricKeysByRunUuids(runUuids, state);
-  return { sharedParamKeys, sharedMetricKeys };
+  return { allParamKeys, allMetricKeys, sharedParamKeys, sharedMetricKeys };
 };
 
 export default connect(mapStateToProps)(ParallelCoordinatesPlotPanel);

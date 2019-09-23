@@ -32,5 +32,5 @@ The URI scheme must be supported by MLflow - i.e. there has to be an MLflow arti
                  - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
  For more information about supported URI schemes, see the Artifacts Documentation at
- https://www.mlflow.org/docs/latest/tracking.html#supported-artifact-stores.
+ https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
 }

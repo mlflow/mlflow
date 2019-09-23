@@ -14,7 +14,6 @@ import importlib
 import os
 import yaml
 import gorilla
-import warnings
 
 import pandas as pd
 
@@ -26,6 +25,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.annotations import experimental
+from mlflow.utils.autologging_utils import try_mlflow_log
 
 
 FLAVOR_NAME = "keras"
@@ -181,6 +181,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                       :func:`mlflow.keras.get_default_conda_env()` environment is added to
                       the model. The following is an *example* dictionary representation of a
                       Conda environment::
+
                         {
                             'name': 'mlflow-env',
                             'channels': ['defaults'],
@@ -190,6 +191,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
                                 'tensorflow=1.8.0'
                             ]
                         }
+
     :param custom_objects: A Keras ``custom_objects`` dictionary mapping names (strings) to
                            custom classes or functions associated with the Keras model. MLflow saves
                            these custom layers using CloudPickle and restores them automatically
@@ -339,7 +341,7 @@ def load_model(model_uri, **kwargs):
 @experimental
 def autolog():
     """
-    Enable automatic logging from TensorFlow to MLflow.
+    Enable automatic logging from Keras to MLflow.
     Logs loss and any other metrics specified in the fit
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
@@ -356,32 +358,26 @@ def autolog():
         def on_epoch_end(self, epoch, logs=None):
             if not logs:
                 return
-            try:
-                mlflow.log_metrics(logs, step=epoch)
-            except mlflow.exceptions.MlflowException as e:
-                warnings.warn("Logging to MLflow failed: " + str(e))
+            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
         def on_train_end(self, logs=None):
-            try:
-                mlflow.log_param('num_layers', len(self.model.layers))
-                mlflow.log_param('optimizer_name', type(self.model.optimizer).__name__)
-                if hasattr(self.model.optimizer, 'lr'):
-                    lr = self.model.optimizer.lr if \
-                        type(self.model.optimizer.lr) is float \
-                        else keras.backend.eval(self.model.optimizer.lr)
-                    mlflow.log_param('learning_rate', lr)
-                if hasattr(self.model.optimizer, 'epsilon'):
-                    epsilon = self.model.optimizer.epsilon if \
-                        type(self.model.optimizer.epsilon) is float \
-                        else keras.backend.eval(self.model.optimizer.epsilon)
-                    mlflow.log_param('epsilon', epsilon)
-                sum_list = []
-                self.model.summary(print_fn=sum_list.append)
-                summary = '\n'.join(sum_list)
-                mlflow.set_tag('summary', summary)
-                log_model(self.model, artifact_path='model')
-            except mlflow.exceptions.MlflowException as e:
-                warnings.warn("Logging to Mlflow failed: " + str(e))
+            try_mlflow_log(mlflow.log_param, 'num_layers', len(self.model.layers))
+            try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.model.optimizer).__name__)
+            if hasattr(self.model.optimizer, 'lr'):
+                lr = self.model.optimizer.lr if \
+                    type(self.model.optimizer.lr) is float \
+                    else keras.backend.eval(self.model.optimizer.lr)
+                try_mlflow_log(mlflow.log_param, 'learning_rate', lr)
+            if hasattr(self.model.optimizer, 'epsilon'):
+                epsilon = self.model.optimizer.epsilon if \
+                    type(self.model.optimizer.epsilon) is float \
+                    else keras.backend.eval(self.model.optimizer.epsilon)
+                try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+            sum_list = []
+            self.model.summary(print_fn=sum_list.append)
+            summary = '\n'.join(sum_list)
+            try_mlflow_log(mlflow.set_tag, 'summary', summary)
+            try_mlflow_log(log_model, self.model, artifact_path='model')
 
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):
@@ -395,6 +391,20 @@ def autolog():
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
         return original(self, *args, **kwargs)
+
+    @gorilla.patch(keras.Model)
+    def fit_generator(self, *args, **kwargs):
+        original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
+        if len(args) >= 5:
+            l = list(args)
+            l[4] += [__MLflowKerasCallback()]
+            args = tuple(l)
+        elif 'callbacks' in kwargs:
+            kwargs['callbacks'] += [__MLflowKerasCallback()]
+        else:
+            kwargs['callbacks'] = [__MLflowKerasCallback()]
+        return original(self, *args, **kwargs)
+
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    patch = gorilla.Patch(keras.Model, 'fit', fit, settings=settings)
-    gorilla.apply(patch)
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
+    gorilla.apply(gorilla.Patch(keras.Model, 'fit_generator', fit_generator, settings=settings))

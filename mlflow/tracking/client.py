@@ -5,6 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import time
+import os
 from six import iteritems
 
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
@@ -164,7 +165,7 @@ class MlflowClient(object):
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
-        timestamp = timestamp if timestamp is not None else int(time.time())
+        timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
         step = step if step is not None else 0
         _validate_metric(key, value, timestamp, step)
         metric = Metric(key, value, timestamp, step)
@@ -233,14 +234,20 @@ class MlflowClient(object):
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
-        Write a local file to the remote ``artifact_uri``.
+        Write a local file or directory to the remote ``artifact_uri``.
 
-        :param local_path: Path to the file to write.
+        :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
         run = self.get_run(run_id)
         artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.log_artifact(local_path, artifact_path)
+        if os.path.isdir(local_path):
+            dir_name = os.path.basename(os.path.normpath(local_path))
+            path_name = os.path.join(artifact_path, dir_name) \
+                if artifact_path is not None else dir_name
+            artifact_repo.log_artifacts(local_path, path_name)
+        else:
+            artifact_repo.log_artifact(local_path, artifact_path)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """
@@ -319,8 +326,9 @@ class MlflowClient(object):
         :param run_view_type: one of enum values ACTIVE_ONLY, DELETED_ONLY, or ALL runs
                               defined in :py:class:`mlflow.entities.ViewType`.
         :param max_results: Maximum number of runs desired.
-        :param order_by: List of columns to order by (e.g., "metrics.rmse"). The default
-                         ordering is to sort by start_time DESC, then run_id.
+        :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
+                     can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
+                     The default ordering is to sort by ``start_time DESC``, then ``run_id``.
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
 

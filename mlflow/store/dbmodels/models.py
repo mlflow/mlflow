@@ -170,19 +170,8 @@ class SqlRun(Base):
             lifecycle_stage=self.lifecycle_stage,
             artifact_uri=self.artifact_uri)
 
-        # only get latest recorded metrics per key
-        all_metrics = [m.to_mlflow_entity() for m in self.metrics]
-        metrics = {}
-        for m in all_metrics:
-            existing_metric = metrics.get(m.key)
-            if (existing_metric is None)\
-                or ((m.step, m.timestamp, m.value) >=
-                    (existing_metric.step, existing_metric.timestamp,
-                        existing_metric.value)):
-                metrics[m.key] = m
-
         run_data = RunData(
-            metrics=list(metrics.values()),
+            metrics=[m.to_mlflow_entity() for m in self.latest_metrics],
             params=[p.to_mlflow_entity() for p in self.params],
             tags=[t.to_mlflow_entity() for t in self.tags])
 
@@ -312,6 +301,61 @@ class SqlMetric(Base):
 
     def __repr__(self):
         return '<SqlMetric({}, {}, {}, {})>'.format(self.key, self.value, self.timestamp, self.step)
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        :return: :py:class:`mlflow.entities.Metric`.
+        """
+        return Metric(
+            key=self.key,
+            value=self.value if not self.is_nan else float("nan"),
+            timestamp=self.timestamp,
+            step=self.step)
+
+
+class SqlLatestMetric(Base):
+    __tablename__ = 'latest_metrics'
+
+    key = Column(String(250))
+    """
+    Metric key: `String` (limit 250 characters). Part of *Primary Key* for ``latest_metrics`` table.
+    """
+    value = Column(sa.types.Float(precision=53), nullable=False)
+    """
+    Metric value: `Float`. Defined as *Non-null* in schema.
+    """
+    timestamp = Column(BigInteger, default=lambda: int(time.time()))
+    """
+    Timestamp recorded for this metric entry: `BigInteger`. Part of *Primary Key* for
+                                               ``latest_metrics`` table.
+    """
+    step = Column(BigInteger, default=0, nullable=False)
+    """
+    Step recorded for this metric entry: `BigInteger`.
+    """
+    is_nan = Column(Boolean, nullable=False, default=False)
+    """
+    True if the value is in fact NaN.
+    """
+    run_uuid = Column(String(32), ForeignKey('runs.run_uuid'))
+    """
+    Run UUID to which this metric belongs to: Part of *Primary Key* for ``latest_metrics`` table.
+                                              *Foreign Key* into ``runs`` table.
+    """
+    run = relationship('SqlRun', backref=backref('latest_metrics', cascade='all'))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlRun`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint('key', 'run_uuid', name='latest_metric_pk'),
+    )
+
+    def __repr__(self):
+        return '<SqlLatestMetric({}, {}, {}, {})>'.format(
+            self.key, self.value, self.timestamp, self.step)
 
     def to_mlflow_entity(self):
         """

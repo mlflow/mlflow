@@ -2,25 +2,30 @@ import os
 import random
 import uuid
 
-import pytest
 import mock
 import numpy as np
 import pandas as pd
+import pytest
 from six.moves import reload_module as reload
 
 import mlflow
-from mlflow.entities import LifecycleStage, SourceType, Run, RunInfo, RunData, RunStatus, Metric, \
-    Param, RunTag, ViewType
+import mlflow.tracking.context.registry
+import mlflow.tracking.fluent
+from mlflow.entities import (LifecycleStage, Metric, Param, Run, RunData,
+                             RunInfo, RunStatus, RunTag, SourceType, ViewType)
 from mlflow.exceptions import MlflowException
 from mlflow.store.abstract_store import PagedList
 from mlflow.tracking.client import MlflowClient
-import mlflow.tracking.fluent
-import mlflow.tracking.context.registry
-from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experiment_id_from_env, \
-    search_runs, _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR, \
-    _get_paginated_runs, NUM_RUNS_PER_PAGE_PANDAS, SEARCH_MAX_RESULTS_PANDAS
-from mlflow.utils.file_utils import TempDir
+from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
+                                    _EXPERIMENT_NAME_ENV_VAR, _RUN_ID_ENV_VAR,
+                                    NUM_RUNS_PER_PAGE_PANDAS,
+                                    SEARCH_MAX_RESULTS_PANDAS,
+                                    _get_experiment_id,
+                                    _get_experiment_id_from_env,
+                                    _get_paginated_runs, search_runs,
+                                    set_experiment, start_run)
 from mlflow.utils import mlflow_tags
+from mlflow.utils.file_utils import TempDir
 
 
 class HelperEnv:
@@ -42,7 +47,8 @@ class HelperEnv:
             del os.environ[_EXPERIMENT_NAME_ENV_VAR]
 
 
-def create_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None, tags=None,
+def create_run(run_id="", exp_id="", uid="", start=0, end=0,
+               metrics=None, params=None, tags=None,
                status=RunStatus.FINISHED, a_uri=None):
     return Run(
         RunInfo(
@@ -52,7 +58,7 @@ def create_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None,
             user_id=uid,
             status=status,
             start_time=start,
-            end_time=0,
+            end_time=end,
             lifecycle_stage=LifecycleStage.ACTIVE,
             artifact_uri=a_uri
         ), RunData(
@@ -346,6 +352,19 @@ def test_start_run_existing_run_from_environment(empty_active_run_stack):
         MlflowClient.get_run.assert_called_once_with(run_id)
 
 
+def test_start_run_existing_run_from_environment_with_set_environment(empty_active_run_stack):
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+
+    run_id = uuid.uuid4().hex
+    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
+
+    with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        with pytest.raises(MlflowException):
+            set_experiment("test-run")
+            active_run = start_run()
+
+
 def test_start_run_existing_run_deleted(empty_active_run_stack):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.DELETED
@@ -365,7 +384,9 @@ def test_search_runs_attributes():
         data = {'status': [RunStatus.FINISHED, RunStatus.SCHEDULED],
                 'artifact_uri': ["dbfs:/test", "dbfs:/test2"],
                 'run_id': ['abc', 'def'],
-                'experiment_id': ["123", "321"]}
+                'experiment_id': ["123", "321"],
+                'start_time': [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
+                'end_time': [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)]}
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
@@ -375,11 +396,15 @@ def test_search_runs_data():
         create_run(
             metrics=[Metric("mse", 0.2, 0, 0)],
             params=[Param("param", "value")],
-            tags=[RunTag("tag", "value")]),
+            tags=[RunTag("tag", "value")],
+            start=1564675200000,
+            end=1564683035000),
         create_run(
             metrics=[Metric("mse", 0.6, 0, 0), Metric("loss", 1.2, 0, 5)],
             params=[Param("param2", "val"), Param("k", "v")],
-            tags=[RunTag("tag2", "v2")])]
+            tags=[RunTag("tag2", "v2")],
+            start=1564765200000,
+            end=1564783200000)]
     with mock.patch('mlflow.tracking.fluent._get_paginated_runs', return_value=runs):
         pdf = search_runs()
         data = {
@@ -393,7 +418,11 @@ def test_search_runs_data():
             'params.param2': [None, "val"],
             'params.k': [None, "v"],
             'tags.tag': ["value", None],
-            'tags.tag2': [None, "v2"]}
+            'tags.tag2': [None, "v2"],
+            'start_time': [pd.to_datetime(1564675200000, unit="ms", utc=True),
+                           pd.to_datetime(1564765200000, unit="ms", utc=True)],
+            'end_time': [pd.to_datetime(1564683035000, unit="ms", utc=True),
+                         pd.to_datetime(1564783200000, unit="ms", utc=True)]}
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
