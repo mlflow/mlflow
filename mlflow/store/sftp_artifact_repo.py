@@ -4,7 +4,7 @@ import posixpath
 from six.moves import urllib
 
 from mlflow.entities import FileInfo
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository, ArtifactStorageCredentialsContext
 
 
 class SFTPArtifactRepository(ArtifactRepository):
@@ -90,3 +90,7 @@ class SFTPArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         remote_full_path = posixpath.join(self.path, remote_file_path)
         self.sftp.get(remote_full_path, local_path)
+
+    def get_credentials_context(self):
+        # TODO: handle $HOME/path
+        return ArtifactStorageCredentialsContext()

@@ -4,7 +4,7 @@ import json
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository, ArtifactStorageCredentialsContext
 from mlflow.store.rest_store import RestStore
 from mlflow.store.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracking import utils
@@ -132,6 +132,9 @@ class DbfsRestArtifactRepository(ArtifactRepository):
     def _download_file(self, remote_file_path, local_path):
         self._dbfs_download(output_path=local_path,
                             endpoint=self._get_dbfs_endpoint(remote_file_path))
+
+    def get_credentials_context(self):
+        return ArtifactStorageCredentialsContext()
 
 
 def _get_host_creds_from_default_store():

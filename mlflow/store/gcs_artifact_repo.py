@@ -4,7 +4,7 @@ import posixpath
 from six.moves import urllib
 
 from mlflow.entities import FileInfo
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository, ArtifactStorageCredentialsContext
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
@@ -102,3 +102,8 @@ class GCSArtifactRepository(ArtifactRepository):
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
         gcs_bucket = self._get_bucket(bucket)
         gcs_bucket.get_blob(remote_full_path).download_to_filename(local_path)
+
+    def get_credentials_context(self):
+        return ArtifactStorageCredentialsContext(
+            file_env_names=["GOOGLE_APPLICATION_CREDENTIALS"]
+        )

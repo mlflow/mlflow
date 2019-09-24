@@ -7,7 +7,7 @@ from six.moves import urllib
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository, ArtifactStorageCredentialsContext
 from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
 
 
@@ -146,6 +146,18 @@ class HdfsArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path, local_path):
         raise MlflowException('This is not implemented. Should never be called.')
+
+    def get_credentials_context(self):
+        return ArtifactStorageCredentialsContext(
+            env_names=[
+                "MLFLOW_HDFS_DRIVER",
+                "MLFLOW_KERBEROS_USER",
+                "MLFLOW_PYARROW_EXTRA_CONF"
+            ],
+            file_env_names=[
+                "MLFLOW_KERBEROS_TICKET_CACHE"
+            ]
+        )
 
 
 @contextmanager

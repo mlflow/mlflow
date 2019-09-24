@@ -113,3 +113,6 @@ class RunsArtifactRepository(ArtifactRepository):
         :param local_path: The path to which to save the downloaded file.
         """
         self.repo._download_file(remote_file_path, local_path)
+
+    def get_credentials_context(self):
+        return self.repo.get_credentials_context()

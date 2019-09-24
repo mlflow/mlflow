@@ -6,7 +6,7 @@ from six.moves import urllib
 from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository, ArtifactStorageCredentialsContext
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
@@ -100,3 +100,14 @@ class S3ArtifactRepository(ArtifactRepository):
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
         s3_client.download_file(bucket, s3_full_path, local_path)
+
+    def get_credentials_context(self):
+        # TODO: handle $HOME/path
+        #aws_path = posixpath.expanduser("~/.aws")
+        return ArtifactStorageCredentialsContext(
+            env_names=[
+                "AWS_SECRET_ACCESS_KEY",
+                "AWS_ACCESS_KEY_ID",
+                "MLFLOW_S3_ENDPOINT_URL"
+            ]
+        )

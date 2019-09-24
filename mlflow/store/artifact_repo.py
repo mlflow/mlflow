@@ -124,6 +124,35 @@ class ArtifactRepository:
         """
         pass
 
+    @abstractmethod
+    def get_credentials_context(self):
+        """
+        Return artifact storage credentials object holding files and environment variables
+
+        :return: ArtifactStorageCredentialsContext, an object holding files and environment
+        variables needed to connect to the artifact storage.
+        """
+        pass
+
+
+class ArtifactStorageCredentialsContext:
+    """
+    A representation of artifact storage credentials.
+    It meant to share credentials information like files and environment variable which
+    are mandatory to connect to an artifact storage.
+    """
+
+    def __init__(self, files=None, env_names=None, file_env_names=None):
+        """
+
+        :param files: path to files
+        :param env_names: environment variable names
+        :param file_env_names: environment variable names related to file path
+        """
+        self.files = files
+        self.env_names = env_names
+        self.file_env_names = file_env_names
+
 
 def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):

@@ -7,7 +7,7 @@ import posixpath
 from six.moves import urllib
 
 from mlflow.entities.file_info import FileInfo
-from mlflow.store.artifact_repo import ArtifactRepository
+from mlflow.store.artifact_repo import ArtifactRepository, ArtifactStorageCredentialsContext
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 
@@ -122,3 +122,6 @@ class FTPArtifactRepository(ArtifactRepository):
         with self.get_ftp_client() as ftp:
             with open(local_path, 'wb') as f:
                 ftp.retrbinary('RETR ' + remote_full_path, f.write)
+
+    def get_credentials_context(self):
+        return ArtifactStorageCredentialsContext()

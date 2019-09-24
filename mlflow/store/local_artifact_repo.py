@@ -2,7 +2,8 @@ import distutils.dir_util as dir_util
 import os
 import shutil
 
-from mlflow.store.artifact_repo import ArtifactRepository, verify_artifact_path
+from mlflow.store.artifact_repo import ArtifactRepository, ArtifactStorageCredentialsContext, \
+    verify_artifact_path
 from mlflow.utils.file_utils import mkdir, list_all, get_file_info, local_file_uri_to_path, \
     relative_path_to_artifact_path
 
@@ -86,3 +87,6 @@ class LocalArtifactRepository(ArtifactRepository):
         # Posix paths work fine on windows but just in case we normalize it here.
         remote_file_path = os.path.join(self.artifact_dir, os.path.normpath(remote_file_path))
         shutil.copyfile(remote_file_path, local_path)
+
+    def get_credentials_context(self):
+        return ArtifactStorageCredentialsContext()
