@@ -245,23 +245,19 @@ def load_model(model_uri, tf_sess=None):
             tf_sess = tensorflow.get_default_session()
             if not tf_sess:
                 raise ValueError("No active session found while trying to use load_model().")
-        local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-        tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key = \
-            _get_and_parse_flavor_configuration(model_path=local_model_path)
-        return _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir, tf_sess=tf_sess,
-                                            tf_meta_graph_tags=tf_meta_graph_tags,
-                                            tf_signature_def_key=tf_signature_def_key)
+
     else:
         if tf_sess:
             warnings.warn("A TensorFlow session was passed into load_model, but the " +
                           "currently used version is TF 2.0 where sessions are deprecated. " +
                           "The tf_sess argument will be ignored.", FutureWarning)
-        local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-        tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key =\
-            _get_and_parse_flavor_configuration(model_path=local_model_path)
-        return _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir,
-                                            tf_meta_graph_tags=tf_meta_graph_tags,
-                                            tf_signature_def_key=tf_signature_def_key)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key =\
+        _get_and_parse_flavor_configuration(model_path=local_model_path)
+    return _load_tensorflow_saved_model(tf_saved_model_dir=tf_saved_model_dir,
+                                        tf_meta_graph_tags=tf_meta_graph_tags,
+                                        tf_signature_def_key=tf_signature_def_key,
+                                        tf_sess=tf_sess)
 
 
 def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key,
