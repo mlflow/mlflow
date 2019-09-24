@@ -40,7 +40,7 @@ def _get_alembic_config(db_url, alembic_dir=None):
 def _upgrade_db(url):
     """
     Upgrade the schema of an MLflow tracking database to the latest supported version.
-    version. Note that schema migrations can be slow and are not guaranteed to be transactional -
+    Note that schema migrations can be slow and are not guaranteed to be transactional -
     we recommend taking a backup of your database before running migrations.
 
     :param url Database URL, like sqlite:///<absolute-path-to-local-db-file>. See
