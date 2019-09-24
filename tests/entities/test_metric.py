@@ -15,7 +15,7 @@ def _check(metric, key, value, timestamp, step):
 def test_creation_and_hydration():
     key = random_str()
     value = 10000
-    ts = int(time.time())
+    ts = int(1000 * time.time())
     step = random_int()
 
     metric = Metric(key, value, ts, step)

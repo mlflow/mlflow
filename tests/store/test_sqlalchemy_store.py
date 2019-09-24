@@ -420,8 +420,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         tkey = 'blahmetric'
         tval = 100.0
-        metric = entities.Metric(tkey, tval, int(time.time()), 0)
-        metric2 = entities.Metric(tkey, tval, int(time.time()) + 2, 0)
+        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
         nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
         pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
         neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
@@ -482,7 +482,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         tkey = 'blahmetric'
         tval = None
-        metric = entities.Metric(tkey, tval, int(time.time()), 0)
+        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
 
         warnings.simplefilter("ignore")
         with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
