@@ -192,7 +192,6 @@ def load_and_evaluate(model_path, tf_sess, tf_graph):
     assert len(outputs.ravel()) == input_length
 
 
-
 @pytest.mark.large
 def test_save_and_load_model_persists_and_restores_model_in_default_graph_context_successfully(
         saved_tf_iris_model, model_path):
@@ -305,7 +304,6 @@ def test_load_model_with_no_default_session_throws_exception(saved_tf_iris_model
                                  path=model_path)
     with pytest.raises(ValueError):
         mlflow.tensorflow.load_model(model_uri=model_path)
-
 
 
 @pytest.mark.large
