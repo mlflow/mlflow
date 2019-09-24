@@ -1372,7 +1372,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         params.to_sql('params', self.store.engine, if_exists='append', index=False)
         tags = pd.DataFrame(tags_list)
         tags.to_sql('tags', self.store.engine, if_exists='append', index=False)
-        print("searching runs")
         runs = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
 
 
