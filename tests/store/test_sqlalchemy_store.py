@@ -1347,7 +1347,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         tags_list = []
         params_list = []
         for run_uuid in run_uuids:
-            for i in range(50):
+            for i in range(60):
                 metric = {
                     'key': 'key',
                     'value': i,
