@@ -1338,7 +1338,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def test_big_experiment(self):
         experiment_id = self.store.create_experiment('test_experiment')
         run_uuids = []
-        for nb_run in range(2000):
+        for nb_run in range(1000):
             run_uuids.append(self.store.create_run(experiment_id=experiment_id,
                                                    start_time=time.time(),
                                                    tags=(),
@@ -1347,7 +1347,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         tags_list = []
         params_list = []
         for run_uuid in run_uuids:
-            for i in range(60):
+            for i in range(100):
                 metric = {
                     'key': 'key',
                     'value': i,
