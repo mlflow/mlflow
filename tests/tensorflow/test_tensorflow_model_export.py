@@ -162,6 +162,37 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
+def load_and_evaluate(model_path, tf_sess, tf_graph):
+    expected_input_keys = ["sepallengthcm", "sepalwidthcm"]
+    expected_output_keys = ["predictions"]
+    input_length = 10
+    signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
+    if not tf_sess:
+        tf_sess = tf.get_default_session()
+        tf_graph = tf.get_default_graph()
+    input_signature = signature_def.inputs.items()
+    assert len(input_signature) == len(expected_input_keys)
+    feed_dict = {}
+    for input_key, input_signature in signature_def.inputs.items():
+        assert input_key in expected_input_keys
+        t_input = tf_graph.get_tensor_by_name(input_signature.name)
+        feed_dict[t_input] = np.array(range(input_length), dtype=np.float32)
+
+    output_signature = signature_def.outputs.items()
+    assert len(output_signature) == len(expected_output_keys)
+    output_tensors = []
+    for output_key, output_signature in signature_def.outputs.items():
+        assert output_key in expected_output_keys
+        t_output = tf_graph.get_tensor_by_name(output_signature.name)
+        output_tensors.append(t_output)
+
+    outputs_list = tf_sess.run(output_tensors, feed_dict=feed_dict)
+    assert len(outputs_list) == 1
+    outputs = outputs_list[0]
+    assert len(outputs.ravel()) == input_length
+
+
+
 @pytest.mark.large
 def test_save_and_load_model_persists_and_restores_model_in_default_graph_context_successfully(
         saved_tf_iris_model, model_path):
@@ -241,44 +272,40 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                  path=model_path)
 
-    expected_input_keys = ["sepallengthcm", "sepalwidthcm"]
-    expected_output_keys = ["predictions"]
-    input_length = 10
-
-    def load_and_evaluate(tf_sess, tf_graph, tf_context):
-        with tf_context:
-            signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
-
-            input_signature = signature_def.inputs.items()
-            assert len(input_signature) == len(expected_input_keys)
-            feed_dict = {}
-            for input_key, input_signature in signature_def.inputs.items():
-                assert input_key in expected_input_keys
-                t_input = tf_graph.get_tensor_by_name(input_signature.name)
-                feed_dict[t_input] = np.array(range(input_length), dtype=np.float32)
-
-            output_signature = signature_def.outputs.items()
-            assert len(output_signature) == len(expected_output_keys)
-            output_tensors = []
-            for output_key, output_signature in signature_def.outputs.items():
-                assert output_key in expected_output_keys
-                t_output = tf_graph.get_tensor_by_name(output_signature.name)
-                output_tensors.append(t_output)
-
-            outputs_list = tf_sess.run(output_tensors, feed_dict=feed_dict)
-            assert len(outputs_list) == 1
-            outputs = outputs_list[0]
-            assert len(outputs.ravel()) == input_length
-
     tf_graph_1 = tf.Graph()
     tf_sess_1 = tf.Session(graph=tf_graph_1)
-    load_and_evaluate(tf_sess=tf_sess_1, tf_graph=tf_graph_1, tf_context=tf_graph_1.as_default())
+    with tf_graph_1.as_default():
+        load_and_evaluate(model_path=model_path, tf_sess=tf_sess_1, tf_graph=tf_graph_1)
 
     tf_graph_2 = tf.Graph()
     tf_sess_2 = tf.Session(graph=tf_graph_2)
-    load_and_evaluate(tf_sess=tf_sess_2,
-                      tf_graph=tf_graph_2,
-                      tf_context=tf_graph_1.device("/cpu:0"))
+    with tf_graph_1.device("/cpu:0"):
+        load_and_evaluate(model_path=model_path, tf_sess=tf_sess_2, tf_graph=tf_graph_2)
+
+
+@pytest.mark.large
+def test_load_model_session_exists_but_not_passed_in_loads_and_evaluates(saved_tf_iris_model,
+                                                                         model_path):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path)
+
+    tf_graph = tf.Graph()
+    tf_sess = tf.Session(graph=tf_graph)
+    with tf_sess:
+        load_and_evaluate(model_path=model_path, tf_sess=None, tf_graph=None)
+
+
+@pytest.mark.large
+def test_load_model_with_no_default_session_throws_exception(saved_tf_iris_model, model_path):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                 path=model_path)
+    with pytest.raises(ValueError):
+        mlflow.tensorflow.load_model(model_uri=model_path)
+
 
 
 @pytest.mark.large

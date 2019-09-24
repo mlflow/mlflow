@@ -241,6 +241,10 @@ def load_model(model_uri, tf_sess=None):
     """
 
     if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
+        if not tf_sess:
+            tf_sess = tensorflow.get_default_session()
+            if not tf_sess:
+                raise ValueError("No active session found while trying to use load_model().")
         local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
         tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key = \
             _get_and_parse_flavor_configuration(model_path=local_model_path)
