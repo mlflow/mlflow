@@ -299,7 +299,7 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_sign
         return meta_graph_def.signature_def[tf_signature_def_key]
     else:
         trackable = tensorflow.saved_model.load(
-                sess = None
+                sess=None,
                 tags=tf_meta_graph_tags,
                 export_dir=tf_saved_model_dir)
         if tf_signature_def_key not in trackable.signatures:
