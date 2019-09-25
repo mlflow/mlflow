@@ -60,10 +60,8 @@ def saved_tf_iris_model(tmpdir):
                                           hidden_units=[1])
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(input_train, steps=10)
-    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)])
-    estimator_preds_df = pd.DataFrame(estimator_preds,
-                                      columns=["predictions_{}".format(column)
-                                               for column in range(estimator_preds.shape[1])])
+    estimator_preds = [s["predictions"] for s in estimator.predict(input_train)]
+    estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
 
     # Define a function for estimator inference
     feature_spec = {}
@@ -128,10 +126,8 @@ def saved_tf_categorical_model(tmpdir):
 
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(input_fn=input_train, steps=10)
-    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)])
-    estimator_preds_df = pd.DataFrame(estimator_preds,
-                                      columns=["predictions_{}".format(column)
-                                               for column in range(estimator_preds.shape[1])])
+    estimator_preds = [s["predictions"] for s in estimator.predict(input_train)]
+    estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
 
     # Define a function for estimator inference
     feature_spec = {
