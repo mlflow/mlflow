@@ -348,70 +348,75 @@ def _load_pyfunc(path):
     else:
         loaded_model = tensorflow.saved_model.load(export_dir=tf_saved_model_dir,
                                                    tags=tf_meta_graph_tags)
-        return _TFWrapper(infer=loaded_model.signatures[tf_signature_def_key])
+        return _TF2Wrapper(infer=loaded_model.signatures[tf_signature_def_key])
 
 
 class _TFWrapper(object):
     """
     Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that
-    ``predict(data: pandas.DataFrame) -> pandas.DataFrame``.
+    ``predict(data: pandas.DataFrame) -> pandas.DataFrame``. For TensorFlow versions < 2.0.0.
     """
-    def __init__(self, infer=None, tf_sess=None, tf_graph=None, signature_def=None):
+    def __init__(self, tf_sess, tf_graph, signature_def):
         """
-        :param infer: Tensorflow function returned by a saved model that is used for inference.
-                      Required in TensorFlow versions >= 2.0.0.
         :param tf_sess: The TensorFlow session used to evaluate the model.
-                        Required in TensorFlow versions < 2.0.0.
         :param tf_graph: The TensorFlow graph containing the model.
-                         Required in TensorFlow versions < 2.0.0.
         :param signature_def: The TensorFlow signature definition used to transform input dataframes
                               into tensors and output vectors into dataframes.
-                              Required in TensorFlow versions < 2.0.0.
         """
-        self.infer = infer
-        if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
-            self.tf_sess = tf_sess
-            self.tf_graph = tf_graph
-            # We assume that input keys in the signature definition correspond to
-            # input DataFrame column names
-            self.input_tensor_mapping = {
-                tensor_column_name: tf_graph.get_tensor_by_name(tensor_info.name)
-                for tensor_column_name, tensor_info in signature_def.inputs.items()
-            }
-            # We assume that output keys in the signature definition correspond to
-            # output DataFrame column names
-            self.output_tensors = {
-                sigdef_output: tf_graph.get_tensor_by_name(tnsr_info.name)
-                for sigdef_output, tnsr_info in signature_def.outputs.items()
-            }
+        self.tf_sess = tf_sess
+        self.tf_graph = tf_graph
+        # We assume that input keys in the signature definition correspond to
+        # input DataFrame column names
+        self.input_tensor_mapping = {
+            tensor_column_name: tf_graph.get_tensor_by_name(tensor_info.name)
+            for tensor_column_name, tensor_info in signature_def.inputs.items()
+        }
+        # We assume that output keys in the signature definition correspond to
+        # output DataFrame column names
+        self.output_tensors = {
+            sigdef_output: tf_graph.get_tensor_by_name(tnsr_info.name)
+            for sigdef_output, tnsr_info in signature_def.outputs.items()
+        }
 
     def predict(self, df):
-        if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
-            with self.tf_graph.as_default():
-                # Build the feed dict, mapping input tensors to DataFrame column values.
-                feed_dict = {
-                    self.input_tensor_mapping[tensor_column_name]: df[tensor_column_name].values
-                    for tensor_column_name in self.input_tensor_mapping.keys()
-                }
-                raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
-                pred_dict = {column_name: values.ravel() for
-                             column_name, values in raw_preds.items()}
-                return pandas.DataFrame(data=pred_dict)
-        else:
+        with self.tf_graph.as_default():
+            # Build the feed dict, mapping input tensors to DataFrame column values.
             feed_dict = {
-                df_col_name: tensorflow.constant(df[df_col_name]) for df_col_name in list(df)
+                self.input_tensor_mapping[tensor_column_name]: df[tensor_column_name].values
+                for tensor_column_name in self.input_tensor_mapping.keys()
             }
-            raw_preds = self.infer(**feed_dict)
-            pred_dict = {
-                col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()
-            }
-            for col in pred_dict.keys():
-                if all(len(element) == 1 for element in pred_dict[col]):
-                    pred_dict[col] = pred_dict[col].ravel()
-                else:
-                    pred_dict[col] = pred_dict[col].tolist()
+            raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
+            pred_dict = {column_name: values.ravel() for
+                         column_name, values in raw_preds.items()}
+            return pandas.DataFrame(data=pred_dict)
 
-            return pandas.DataFrame.from_dict(data=pred_dict)
+
+class _TF2Wrapper(object):
+    """
+    Wrapper class that exposes a TensorFlow model for inference via a ``predict`` function such that
+    ``predict(data: pandas.DataFrame) -> pandas.DataFrame``. For TensorFlow versions >= 2.0.0.
+    """
+    def __init__(self, infer):
+        """
+        :param infer: Tensorflow function returned by a saved model that is used for inference.
+        """
+        self.infer = infer
+
+    def predict(self, df):
+        feed_dict = {
+            df_col_name: tensorflow.constant(df[df_col_name]) for df_col_name in list(df)
+        }
+        raw_preds = self.infer(**feed_dict)
+        pred_dict = {
+            col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()
+        }
+        for col in pred_dict.keys():
+            if all(len(element) == 1 for element in pred_dict[col]):
+                pred_dict[col] = pred_dict[col].ravel()
+            else:
+                pred_dict[col] = pred_dict[col].tolist()
+
+        return pandas.DataFrame.from_dict(data=pred_dict)
 
 
 class __MLflowTfKerasCallback(Callback):
