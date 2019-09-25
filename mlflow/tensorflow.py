@@ -218,14 +218,17 @@ def load_model(model_uri, tf_sess=None):
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
 
-    For TensorFlow versions < 2.0.0:
-    :param tf_sess: The TensorFlow session in which to load the model.
-    :return: A TensorFlow signature definition of type:
+
+    :param tf_sess: The TensorFlow session in which to load the model. Since in TensorFlow
+                    version < 2.0.0 a session is required, if no session is passed to this
+                    function, then MLflow will try to obtain a default session. If no
+                    session is available, then the function raises an exception.
+                    In TensorFlow version >= 2.0.0, this argument is ignored.
+    :return: For TensorFlow < 2.0.0, a TensorFlow signature definition of type:
              ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines the input and
              output tensors for model inference.
-
-    For TensorFlow versions >= 2.0.0:
-    :return: A callable graph (tf.function) that takes inputs and returns inferences.
+             For TensorFlow >= 2.0.0, A callable graph (tf.function) that takes inputs and
+             returns inferences.
 
     >>> import mlflow.tensorflow
     >>> import tensorflow as tf
@@ -267,8 +270,6 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_sign
     from a serialized TensorFlow ``SavedModel`` collection.
 
     :param tf_saved_model_dir: The local filesystem path or run-relative artifact path to the model.
-    For TensorFlow versions < 2.0.0:
-    :param tf_sess: The TensorFlow session in which to load the metagraph.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
                                serialized ``SavedModel`` object. For more information, see the
                                ``tags`` parameter of the `tf.saved_model.builder.SavedModelBuilder
@@ -279,13 +280,14 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_sign
                                  signature definition mapping. For more information, see the
                                  ``signature_def_map`` parameter of the
                                  ``tf.saved_model.builder.SavedModelBuilder`` method.
-    For TensorFlow versions < 2.0.0:
-    :return: A TensorFlow signature definition of type:
+    :param tf_sess: The TensorFlow session in which to load the metagraph.
+                    Required in TensorFlow versions < 2.0.0. Unused in TensorFlow versions >= 2.0.0
+    :return: For TensorFlow versions < 2.0.0:
+             A TensorFlow signature definition of type:
              ``tensorflow.core.protobuf.meta_graph_pb2.SignatureDef``. This defines input and
              output tensors within the specified metagraph for inference.
-
-    For TensorFlow versions >= 2.0.0:
-    :return: A callable graph (tensorflow.function) that takes inputs and returns inferences.
+             For TensorFlow versions >= 2.0.0:
+             A callable graph (tensorflow.function) that takes inputs and returns inferences.
     """
     if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
         meta_graph_def = tensorflow.saved_model.loader.load(
@@ -356,14 +358,15 @@ class _TFWrapper(object):
     """
     def __init__(self, infer=None, tf_sess=None, tf_graph=None, signature_def=None):
         """
-        For TensorFlow versions >= 2.0.0:
         :param infer: Tensorflow function returned by a saved model that is used for inference.
-
-        For TensorFlow versions < 2.0.0:
+                      Required in TensorFlow versions >= 2.0.0.
         :param tf_sess: The TensorFlow session used to evaluate the model.
+                        Required in TensorFlow versions < 2.0.0.
         :param tf_graph: The TensorFlow graph containing the model.
+                         Required in TensorFlow versions < 2.0.0.
         :param signature_def: The TensorFlow signature definition used to transform input dataframes
                               into tensors and output vectors into dataframes.
+                              Required in TensorFlow versions < 2.0.0.
         """
         self.infer = infer
         if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
