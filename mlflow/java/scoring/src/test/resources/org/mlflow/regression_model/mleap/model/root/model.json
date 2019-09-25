@@ -1,0 +1,9 @@
+{
+  "op": "pipeline",
+  "attributes": {
+    "nodes": {
+      "string": ["strIdx_54654fcd63ff", "vecAssembler_12e7441917c8", "logreg_56075162c6aa"],
+      "type": "list"
+    }
+  }
+}
