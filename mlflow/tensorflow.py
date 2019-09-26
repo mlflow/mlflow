@@ -219,7 +219,10 @@ def load_model(model_uri, tf_sess=None):
                       artifact-locations>`_.
 
 
-    :param tf_sess: The TensorFlow session in which to load the model. Since in TensorFlow
+    :param tf_sess: The TensorFlow session in which to load the model. If using TensorFlow version >= 2.0.0, this 
+    argument is ignored. If using TensorFlow <2.0.0, if no session is passed to this function, MLflow will attempt to 
+    load the model using the default TensorFlow session.  If no default session is available, then the function
+    raises an exception.
                     version < 2.0.0 a session is required, if no session is passed to this
                     function, then MLflow will try to obtain a default session. If no
                     session is available, then the function raises an exception.
