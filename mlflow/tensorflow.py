@@ -294,20 +294,20 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_sign
              A callable graph (tensorflow.function) that takes inputs and returns inferences.
     """
     if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
-        meta_graph_def = tensorflow.saved_model.loader.load(
+        loaded = tensorflow.saved_model.loader.load(
             sess=tf_sess,
             tags=tf_meta_graph_tags,
             export_dir=tf_saved_model_dir)
-        if tf_signature_def_key not in meta_graph_def.signature_def:
-            raise MlflowException("Could not find signature def key %s" % tf_signature_def_key)
-        return meta_graph_def.signature_def[tf_signature_def_key]
+        loaded_sig = loaded.signature_def
     else:
-        trackable = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
+        loaded = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
                 tags=tf_meta_graph_tags,
                 export_dir=tf_saved_model_dir)
-        if tf_signature_def_key not in trackable.signatures:
-            raise MlflowException("Could not find signature def key %s" % tf_signature_def_key)
-        return trackable.signatures[tf_signature_def_key]
+        loaded_sig = loaded.signatures
+    if tf_signature_def_key not in loaded_sig:
+        raise MlflowException("Could not find signature def key %s. Available keys are: %s"
+                              % (tf_signature_def_key, list(loaded_sig.keys())))
+    return loaded_sig[tf_signature_def_key]
 
 
 def _get_and_parse_flavor_configuration(model_path):

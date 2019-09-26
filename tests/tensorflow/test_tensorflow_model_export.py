@@ -302,7 +302,7 @@ def test_load_model_with_no_default_session_throws_exception(saved_tf_iris_model
                                  tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                  path=model_path)
-    with pytest.raises(ValueError):
+    with pytest.raises(MlflowException):
         mlflow.tensorflow.load_model(model_uri=model_path)
 
 
