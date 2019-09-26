@@ -298,7 +298,7 @@ def _load_tensorflow_saved_model(tf_saved_model_dir, tf_meta_graph_tags, tf_sign
             raise MlflowException("Could not find signature def key %s" % tf_signature_def_key)
         return meta_graph_def.signature_def[tf_signature_def_key]
     else:
-        trackable = tensorflow.saved_model.load(
+        trackable = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
                 tags=tf_meta_graph_tags,
                 export_dir=tf_saved_model_dir)
         if tf_signature_def_key not in trackable.signatures:
@@ -346,7 +346,8 @@ def _load_pyfunc(path):
 
         return _TFWrapper(tf_sess=tf_sess, tf_graph=tf_graph, signature_def=signature_def)
     else:
-        loaded_model = tensorflow.saved_model.load(export_dir=tf_saved_model_dir,
+        loaded_model = tensorflow.saved_model.load(  # pylint: disable=no-value-for-parameter
+                                                   export_dir=tf_saved_model_dir,
                                                    tags=tf_meta_graph_tags)
         return _TF2Wrapper(infer=loaded_model.signatures[tf_signature_def_key])
 
