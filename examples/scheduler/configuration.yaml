@@ -1,0 +1,5 @@
+# Example configuration for the scheduler
+db_cleaner: # Name of the periodic job
+  active: true # To activate the job (desactivated by default)
+  nb_metrics_to_keep: 3 # Number of step to keep by metrics after sampling
+  retention_time: 2628000000 # Start sampling metrics for runs older than retention_time

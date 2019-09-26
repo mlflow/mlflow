@@ -6,6 +6,8 @@ import math
 import posixpath
 from alembic.script import ScriptDirectory
 import sqlalchemy
+import pandas as pd
+import numpy as np
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
@@ -677,6 +679,40 @@ class SqlAlchemyStore(AbstractStore):
             raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+    def sample_oldest_metrics(self, max_timestamp, min_timestamp, nb_metrics_to_keep, session):
+        if min_timestamp:
+            runs = session.query(SqlRun.run_uuid)\
+                .filter(SqlRun.start_time < max_timestamp, SqlRun.start_time > min_timestamp,
+                        SqlRun.status == 'FINISHED').all()
+        else:
+            runs = session.query(SqlRun.run_uuid)\
+                .filter(SqlRun.start_time < max_timestamp, SqlRun.status == 'FINISHED').all()
+        runs = list(map(lambda x: x[0], runs))
+        metrics_query = session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))
+        metrics = pd.read_sql(metrics_query.statement, metrics_query.session.bind)
+        sampled_metrics = self._sample_metrics(metrics, runs, nb_metrics_to_keep)
+        session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))\
+            .delete(synchronize_session=False)
+        session.commit()
+        sampled_metrics.to_sql('metrics', self.engine, if_exists='append', index=False)
+
+    def _sample_metrics(self, metrics, runs, nb_metrics_to_keep):
+        result_df = pd.DataFrame()
+        for run in runs:
+            df_single_run = metrics.loc[metrics["run_uuid"] == run]
+            unique_metrics = df_single_run["key"].unique().tolist()
+            for metric in unique_metrics:
+                timestamps = sorted(df_single_run[df_single_run["key"] == metric]["timestamp"]
+                                    .unique().tolist())
+                number_of_timestamps = min(len(timestamps), nb_metrics_to_keep)
+                selected_timestamps = np.linspace(0, len(timestamps) - 1,
+                                                  num=number_of_timestamps, dtype=int)
+                timestamps_to_keep = [timestamps[i] for i in selected_timestamps]
+                lines_to_keep = df_single_run[(df_single_run["key"] == metric) &
+                                              (df_single_run["timestamp"].isin(timestamps_to_keep))]
+                result_df = pd.concat([result_df, lines_to_keep], ignore_index=True)
+        return result_df
 
     def update_periodic_job(self, job_name, last_execution, session):
         job = session.query(SqlPeriodicJobs).filter(SqlPeriodicJobs.job_name == job_name).one()
