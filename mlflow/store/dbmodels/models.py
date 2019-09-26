@@ -407,27 +407,3 @@ class SqlParam(Base):
         return Param(
             key=self.key,
             value=self.value)
-
-
-class SqlPeriodicJobs(Base):
-    """
-    DB model for periodic jobs. These are recorded in `periodic_jobs` table.
-    """
-    __tablename__ = 'periodic_jobs'
-
-    job_name = Column(String(256), nullable=False)
-    """
-    Periodic job name: `String` (limit 256 characters). Defined as *Unique* and *Non null* in
-                     table schema.
-    """
-    last_execution = Column(BigInteger, nullable=True)
-    """
-    Last execution of the periodic job: `BigInt`
-    """
-
-    __table_args__ = (
-        PrimaryKeyConstraint('job_name', name='periodic_jobs_pk'),
-    )
-
-    def __repr__(self):
-        return '<SqlPeriodicJobs ({}, {})>'.format(self.job_name, self.last_execution)

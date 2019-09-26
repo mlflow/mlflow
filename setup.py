@@ -49,8 +49,7 @@ setup(
         'entrypoints',
         'sqlparse',
         'sqlalchemy',
-        'gorilla',
-        'flask-apscheduler'
+        'gorilla'
     ],
     extras_require={
         'extras':[

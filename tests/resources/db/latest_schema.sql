@@ -16,13 +16,6 @@ CREATE TABLE experiments (
 )
 
 
-CREATE TABLE periodic_jobs (
-    job_name VARCHAR(256) NOT NULL,
-    last_execution BIGINT,
-    CONSTRAINT periodic_jobs_pk PRIMARY KEY (job_name)
-)
-
-
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL, 
 	value VARCHAR(5000), 

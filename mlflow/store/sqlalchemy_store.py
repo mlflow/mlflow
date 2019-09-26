@@ -13,7 +13,7 @@ from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store import SEARCH_MAX_RESULTS_THRESHOLD
 from mlflow.store.dbmodels.db_types import MYSQL
 from mlflow.store.dbmodels.models import Base, SqlExperiment, SqlRun, SqlMetric, SqlParam, SqlTag, \
-    SqlExperimentTag, SqlLatestMetric, SqlPeriodicJobs
+    SqlExperimentTag, SqlLatestMetric
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.abstract_store import AbstractStore
 from mlflow.entities import ViewType
@@ -680,24 +680,35 @@ class SqlAlchemyStore(AbstractStore):
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
-    def sample_oldest_metrics(self, max_timestamp, min_timestamp, nb_metrics_to_keep, session):
-        if min_timestamp:
-            runs = session.query(SqlRun.run_uuid)\
-                .filter(SqlRun.start_time < max_timestamp, SqlRun.start_time > min_timestamp,
-                        SqlRun.status == 'FINISHED').all()
-        else:
-            runs = session.query(SqlRun.run_uuid)\
-                .filter(SqlRun.start_time < max_timestamp, SqlRun.status == 'FINISHED').all()
-        runs = list(map(lambda x: x[0], runs))
-        metrics_query = session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))
-        metrics = pd.read_sql(metrics_query.statement, metrics_query.session.bind)
-        sampled_metrics = self._sample_metrics(metrics, runs, nb_metrics_to_keep)
-        session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))\
-            .delete(synchronize_session=False)
-        session.commit()
-        sampled_metrics.to_sql('metrics', self.engine, if_exists='append', index=False)
+    def sample_metrics_in_interval(self, min_timestampms, max_timestampms, nb_metrics_to_keep):
+        """
+        Get the runs that started in the interval [min_timestampms:max_timestampms] and sample their
+        metrics to keep nb_metrics_to_keep for each unique individual metric of these runs.
+        :param min_timestampms: Lower bound of the time inverval we get the runs in
+        :param max_timestampms: Upper bound of the time interval we get the runs in
+        :param nb_metrics_to_keep: Number of steps to keep for each unique metrics
+        :param session: SqlAlchemy session connected to the db where the runs are stored
+        :return: Nothing
+        """
+        with self.ManagedSessionMaker() as session:
+            runs = self._get_runs_in_interval(min_timestampms, max_timestampms, session)
+            metrics_query = session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs))
+            metrics = pd.read_sql(metrics_query.statement, metrics_query.session.bind)
+            sampled_metrics = self._sample_metrics(metrics, runs, nb_metrics_to_keep)
+            session.query(SqlMetric).filter(SqlMetric.run_uuid.in_(runs)) \
+                .delete(synchronize_session=False)
+            session.commit()
+            sampled_metrics.to_sql('metrics', session.get_bind(), if_exists='append', index=False)
 
     def _sample_metrics(self, metrics, runs, nb_metrics_to_keep):
+        """
+        Given a list of runs and a dataframe of metrics, sample each unique metric to keep 5 steps
+        by metric.
+        :param metrics: pandas dataframe filled with runs metrics
+        :param runs: List of runs present in the metrics dataframe
+        :param nb_metrics_to_keep:
+        :return: pandas dataframe with only the sampled metrics
+        """
         result_df = pd.DataFrame()
         for run in runs:
             df_single_run = metrics.loc[metrics["run_uuid"] == run]
@@ -714,19 +725,19 @@ class SqlAlchemyStore(AbstractStore):
                 result_df = pd.concat([result_df, lines_to_keep], ignore_index=True)
         return result_df
 
-    def update_periodic_job(self, job_name, last_execution, session):
-        job = session.query(SqlPeriodicJobs).filter(SqlPeriodicJobs.job_name == job_name).one()
-        job.last_execution = last_execution
-        session.add(job)
-        session.commit()
-
-    def get_periodic_job(self, job_name):
-        with self.ManagedSessionMaker() as session:
-            job = session.query(SqlPeriodicJobs).filter(SqlPeriodicJobs.job_name == job_name).all()
-            return list(map(lambda x: (x.job_name, x.last_execution), job))
-
-    def create_periodic_job(self, job_name):
-        with self.ManagedSessionMaker() as session:
-            new_job = SqlPeriodicJobs(job_name=job_name, last_execution=None)
-            session.add(new_job)
-            session.commit()
+    def _get_runs_in_interval(self, min_timestampms, max_timestampms, session):
+        """
+        Get the runs that started in a time interval
+        :param min_timestampms: Lower bound of the time interval we get the runs in
+        :param max_timestampms: Upper bound of the time interval we get the runs in
+        :param session: SqlAlchemy session connected to the db where the runs are stored
+        :return: List of runs
+        """
+        if min_timestampms:
+            runs = session.query(SqlRun.run_uuid) \
+                .filter(SqlRun.start_time < max_timestampms, SqlRun.start_time > min_timestampms,
+                        SqlRun.status == 'FINISHED').all()
+        else:
+            runs = session.query(SqlRun.run_uuid) \
+                .filter(SqlRun.start_time < max_timestampms, SqlRun.status == 'FINISHED').all()
+        return list(map(lambda x: x[0], runs))

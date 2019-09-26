@@ -1344,7 +1344,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.update_run_info(r1, 3, endtime)
 
         with self.store.ManagedSessionMaker() as session:
-            self.store.sample_oldest_metrics(int(time.time()*1000), None, 5, session)
+            self.store.sample_metrics_in_interval(None, int(time.time()*1000), 5)
 
         actual = self.store.get_metric_history(r1, "measure_a")
         expected = [
@@ -1370,7 +1370,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.update_run_info(r2, 3, endtime)
 
         with self.store.ManagedSessionMaker() as session:
-            self.store.sample_oldest_metrics(int(time.time()*1000), None, 3, session)
+            self.store.sample_metrics_in_interval(None, int(time.time()*1000), 3)
 
         actual = self.store.get_metric_history(r2, "measure_a")
         expected = [
@@ -1397,7 +1397,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.update_run_info(r1, 3, endtime)
 
         with self.store.ManagedSessionMaker() as session:
-            self.store.sample_oldest_metrics(int(time.time()*1000), None, 4, session)
+            self.store.sample_metrics_in_interval(None, int(time.time()*1000), 4)
 
         actual = self.store.get_metric_history(r1, "measure_a")
         expected = [
@@ -1425,7 +1425,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.update_run_info(r1, 3, endtime)
 
         with self.store.ManagedSessionMaker() as session:
-            self.store.sample_oldest_metrics(int(time.time()/2), None, 1, session)
+            self.store.sample_metrics_in_interval(None, int(time.time()/2), 1)
 
         actual = self.store.get_metric_history(r1, "measure_a")
         expected = [
@@ -1466,7 +1466,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store.update_run_info(r2, 3, endtime)
 
         with self.store.ManagedSessionMaker() as session:
-            self.store.sample_oldest_metrics(int(time.time()*1000), int(time.time()/2), 4, session)
+            self.store.sample_metrics_in_interval(int(time.time()/2), int(time.time()*1000), 4)
 
         actual = self.store.get_metric_history(r1, "measure_a")
         expected = [

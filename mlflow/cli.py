@@ -237,12 +237,8 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Additional command line options forwarded to gunicorn processes.")
 @click.option("--waitress-opts", default=None,
               help="Additional command line options for waitress-serve.")
-@click.option("--scheduler-configuration", default=None,
-              help="Path to the periodic jobs configuration file. If a file is provided,"
-                   "the scheduler will be activated with the jobs set as active in the "
-                   "configuration.")
 def server(backend_store_uri, default_artifact_root, host, port, workers, static_prefix,
-           gunicorn_opts, waitress_opts, scheduler_configuration):
+           gunicorn_opts, waitress_opts):
     """
     Run the MLflow tracking server.
 
@@ -275,7 +271,7 @@ def server(backend_store_uri, default_artifact_root, host, port, workers, static
 
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port, static_prefix, workers,
-                    gunicorn_opts, waitress_opts, scheduler_configuration)
+                    gunicorn_opts, waitress_opts)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)
