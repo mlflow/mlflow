@@ -5,6 +5,7 @@ from __future__ import print_function
 import collections
 import os
 import shutil
+import sys
 import pytest
 import yaml
 import json
@@ -75,7 +76,10 @@ def saved_tf_iris_model(tmpdir):
                                                                         batch_size))
 
     # Building a dictionary of the predictions by the estimator.
-    estimator_preds_dict = estimator_preds.__next__()
+    if sys.version_info < (3, 0):
+        estimator_preds_dict = estimator_preds.next()
+    else:
+        estimator_preds_dict = next(estimator_preds)
     for row in estimator_preds:
         for key in row.keys():
             estimator_preds_dict[key] = np.vstack((estimator_preds_dict[key], row[key]))
