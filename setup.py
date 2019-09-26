@@ -49,7 +49,7 @@ setup(
         'entrypoints',
         'sqlparse',
         'sqlalchemy',
-        'gorilla'
+        'gorilla',
     ],
     extras_require={
         'extras':[
