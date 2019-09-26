@@ -28,6 +28,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
+from tests.pyfunc.test_spark import score_model_as_udf
 
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
@@ -146,6 +147,43 @@ def saved_tf_categorical_model(tmpdir):
                           signature_def_key="predict",
                           inference_df=df,
                           expected_results_df=estimator_preds_df)
+
+
+@pytest.fixture
+def saved_tf_spark_model(tmpdir):
+    # TensorFlow models currently only work as Spark UDFs with ordinally named inputs,
+    # so we use a dummy model with a "0" input instead of one of the other fixtures here
+    inputs = tf.placeholder(tf.float32, [None])
+    weights = tf.Variable(tf.random.normal([1]))
+    outputs = inputs * weights
+    signature = (
+        tf.saved_model.signature_def_utils.build_signature_def(
+            inputs={"0": tf.saved_model.utils.build_tensor_info(inputs)},
+            outputs={"outputs": tf.saved_model.utils.build_tensor_info(outputs)},
+            method_name="predict"
+        )
+    )
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+
+        X = np.random.rand(100)
+        y = sess.run(outputs, feed_dict={inputs: X})
+
+        saved_model_path = os.path.join(str(tmpdir), "saved_model")
+        builder = tf.saved_model.builder.SavedModelBuilder(saved_model_path)
+        builder.add_meta_graph_and_variables(
+            sess,
+            [tf.saved_model.tag_constants.SERVING],
+            signature_def_map={"predict": signature}
+        )
+        builder.save()
+
+        return SavedModelInfo(path=saved_model_path,
+                              meta_graph_tags=[tf.saved_model.tag_constants.SERVING],
+                              signature_def_key="predict",
+                              inference_df=pd.DataFrame({"0": X}),
+                              expected_results_df=pd.Series(y))
 
 
 @pytest.fixture
@@ -490,6 +528,20 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
     pandas.testing.assert_frame_equal(
         results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=6)
+
+
+@pytest.mark.large
+def test_spark_model_can_be_loaded_and_evaluated_as_spark_udf(saved_tf_spark_model, model_path):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_spark_model.path,
+                                 tf_meta_graph_tags=saved_tf_spark_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_spark_model.signature_def_key,
+                                 path=model_path)
+
+    spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
+                                         pandas_df=saved_tf_spark_model.inference_df,
+                                         result_type="float")
+    np.testing.assert_array_almost_equal(
+        np.array(spark_udf_preds), saved_tf_spark_model.expected_results_df.values, decimal=4)
 
 
 @pytest.mark.release
