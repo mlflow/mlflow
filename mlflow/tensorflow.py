@@ -247,7 +247,7 @@ def load_model(model_uri, tf_sess=None):
         if not tf_sess:
             tf_sess = tensorflow.get_default_session()
             if not tf_sess:
-                raise ValueError("No active session found while trying to use load_model().")
+                raise MlflowException("No TensorFlow session found while calling load_model(). You can set the default Tensorflow session before calling load_model via `session.as_default()`, or directly pass a session in which to load the model via the tf_sess argument.")
 
     else:
         if tf_sess:
