@@ -123,7 +123,12 @@ class ShowArtifactMapView extends Component {
       .then((blob) => {
         const fileReader = new FileReader();
         fileReader.onload = (event) => {
-          this.setState({ features: JSON.parse(event.target.result), loading: false });
+try {
+  this.setState({ features: JSON.parse(event.target.result), loading: false });
+}
+catch(error) {
+  this.setState({ error, loading: false, features: undefined }
+}
         };
         fileReader.readAsText(blob);
       })
