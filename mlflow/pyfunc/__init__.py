@@ -337,7 +337,10 @@ def spark_udf(spark, model_uri, result_type="double"):
     A Spark UDF that can be used to invoke the Python function formatted model.
 
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
-    ordinals (0, 1, ...).
+    ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
+    struct. In that case, the data will be passed as a DataFrame with column names given by the
+    struct definition (e.g. when invoked as my_udf(struct('x', 'y'), the model will ge the data as a
+    pandas DataFrame with 2 columns 'x' and 'y').
 
     The predictions are filtered to contain only the columns that can be represented as the
     ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
@@ -422,11 +425,12 @@ def spark_udf(spark, model_uri, result_type="double"):
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
         schema = {str(i): arg for i, arg in enumerate(args)}
-        if type(args[0]) == pandas.DataFrame:
-            if len(args) != 1:
-                raise Exception("If the input is DataFrame, there should be only one, "
-                                "got %d" % len(args))
-            pdf = args[0]
+        for x in args:
+            if type(x) == pandas.DataFrame:
+                if len(args) != 1:
+                    raise Exception("If the input is DataFrame, there should be only one, "
+                                    "got %d" % len(args))
+                pdf = x
         else:
             # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
             columns = [str(i) for i, _ in enumerate(args)]
