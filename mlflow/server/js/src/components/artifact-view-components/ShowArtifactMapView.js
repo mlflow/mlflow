@@ -21,6 +21,7 @@ class ShowArtifactMapView extends Component {
     super(props);
     this.fetchArtifacts = this.fetchArtifacts.bind(this);
     this.leafletMap = undefined;
+    this.mapDivId = 'map';
   }
 
   static propTypes = {
@@ -47,13 +48,14 @@ class ShowArtifactMapView extends Component {
       if (this.leafletMap.hasOwnProperty('_layers')) {
         this.leafletMap.off();
         this.leafletMap.remove();
-        document.getElementsByClassName('map-container')[0].innerHTML = "<div id='map'></div>";
+        const inner = "<div id='" + this.mapDivId + "'></div>";
+        document.getElementsByClassName('map-container')[0].innerHTML = inner;
         this.leafletMap = undefined;
       }
     }
 
     if (this.state.features !== undefined) {
-      const map = L.map('map');
+      const map = L.map(this.mapDivId);
 
       // Load tiles from OSM with the corresponding attribution
       // Potentially, these could be set in an ENV VAR to use a custom map
@@ -102,7 +104,7 @@ class ShowArtifactMapView extends Component {
     } else {
       return (
         <div className='map-container'>
-          <div id='map'></div>
+          <div id={this.mapDivId}></div>
         </div>
       );
     }
