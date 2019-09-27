@@ -1358,7 +1358,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         for run_id in run_ids:
             for i in range(100):
                 metric = {
-                    'key': 'key',
+                    'key': 'mkey-%s' % i,
                     'value': i,
                     'timestamp': i * 2,
                     'step': i * 3,
@@ -1386,8 +1386,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         tags.to_sql('tags', self.store.engine, if_exists='append', index=False)
 
         run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
-        assert len(run_results > 0)
-        assert set(run_ids).contains(set([run.info.run_id for run in run_results]))
+        assert len(run_results) > 0
+        assert set([run.info.run_id for run in run_results]).issubset(set(run_ids))
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
