@@ -408,9 +408,13 @@ class _TF2Wrapper(object):
         self.infer = infer
 
     def predict(self, df):
-        feed_dict = {
-            df_col_name: tensorflow.constant(df[df_col_name]) for df_col_name in list(df)
-        }
+        feed_dict = {}
+        for df_col_name in list(df):
+            val = df[df_col_name]
+            # TensorFlow cannot make eager tensors out of pandas DataFrames.
+            if isinstance(val, pandas.DataFrame):
+                val = val.values
+            feed_dict[df_col_name] = tensorflow.constant(val)
         raw_preds = self.infer(**feed_dict)
         pred_dict = {
             col_name: raw_preds[col_name].numpy() for col_name in raw_preds.keys()
