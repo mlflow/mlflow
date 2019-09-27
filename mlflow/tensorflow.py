@@ -77,6 +77,16 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
     format, see the TensorFlow documentation:
     https://www.tensorflow.org/guide/saved_model#save_and_restore_models.
 
+    This method saves a model with both ``python_function`` and ``tensorflow`` flavors.
+    If loaded back using the ``python_function`` flavor, the model can be used to predict on
+    pandas DataFrames, producing a pandas DataFrame whose output columns correspond to the
+    TensorFlow model's outputs. The python_function model will flatten outputs that are length-one,
+    one-dimensional tensors of a single scalar value (e.g.
+    ``{"predictions": [[1.0], [2.0], [3.0]]}``) into the scalar values (e.g.
+    ``{"predictions": [1, 2, 3]}``), so that the resulting output column is a column of scalars
+    rather than lists of length one. All other model output types are included as-is in the output
+    DataFrame.
+
     :param tf_saved_model_dir: Path to the directory containing serialized TensorFlow variables and
                                graphs in ``SavedModel`` format.
     :param tf_meta_graph_tags: A list of tags identifying the model's metagraph within the
