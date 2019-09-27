@@ -422,9 +422,12 @@ def spark_udf(spark, model_uri, result_type="double"):
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
         schema = {str(i): arg for i, arg in enumerate(args)}
-        # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
-        columns = [str(i) for i, _ in enumerate(args)]
-        pdf = pandas.DataFrame(schema, columns=columns)
+        if type(args[0]) == pandas.DataFrame:
+            pdf = args[0]
+        else:
+            # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
+            columns = [str(i) for i, _ in enumerate(args)]
+            pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
@@ -571,8 +574,8 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
-                path=path, loader_module=loader_module, data_path=data_path,
-                code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
+            path=path, loader_module=loader_module, data_path=data_path,
+            code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path, python_model=python_model, artifacts=artifacts, conda_env=conda_env,
@@ -684,8 +687,8 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
     """
     if os.path.exists(path):
         raise MlflowException(
-                message="Path '{}' already exists".format(path),
-                error_code=RESOURCE_ALREADY_EXISTS)
+            message="Path '{}' already exists".format(path),
+            error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
 
     code = None
