@@ -420,8 +420,11 @@ class _TF2Wrapper(object):
     def predict(self, df):
         feed_dict = {}
         for df_col_name in list(df):
+            # If there are multiple columns with the same name, selecting the shared name
+            # from the DataFrame will result in another DataFrame containing the columns
+            # with the shared name. TensorFlow cannot make eager tensors out of pandas
+            # DataFrames, so we convert the DataFrame to a numpy array here.
             val = df[df_col_name]
-            # TensorFlow cannot make eager tensors out of pandas DataFrames.
             if isinstance(val, pandas.DataFrame):
                 val = val.values
             feed_dict[df_col_name] = tensorflow.constant(val)
