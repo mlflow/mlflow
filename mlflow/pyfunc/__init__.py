@@ -423,6 +423,9 @@ def spark_udf(spark, model_uri, result_type="double"):
         model = SparkModelCache.get_or_load(archive_path)
         schema = {str(i): arg for i, arg in enumerate(args)}
         if type(args[0]) == pandas.DataFrame:
+            if len(args) != 1:
+                raise Exception("If the input is DataFrame, there should be only one, "
+                                "got %d" % len(args))
             pdf = args[0]
         else:
             # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
