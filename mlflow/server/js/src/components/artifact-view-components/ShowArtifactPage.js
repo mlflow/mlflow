@@ -35,19 +35,19 @@ class ShowArtifactPage extends Component {
       }
     }
     return (
-            <div className="select-preview-outer-container">
-                <div className="select-preview-container">
-                    <div className="select-preview-image-container">
-                      <img className="select-preview-image" alt="Preview icon." src={previewIcon}/>
-                    </div>
-                    <div className="select-preview-text">
-                        <span className="select-preview-header">Select a file to preview</span>
-                        <span className="select-preview-supported-formats">
-              Supported formats: image, text, html files
+      <div className="select-preview-outer-container">
+        <div className="select-preview-container">
+          <div className="select-preview-image-container">
+            <img className="select-preview-image" alt="Preview icon." src={previewIcon}/>
+          </div>
+          <div className="select-preview-text">
+            <span className="select-preview-header">Select a file to preview</span>
+            <span className="select-preview-supported-formats">
+              Supported formats: image, text, html, geojson files
             </span>
-                    </div>
-                </div>
-            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 }
