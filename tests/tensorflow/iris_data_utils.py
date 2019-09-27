@@ -1,5 +1,5 @@
 # From https://github.com/tensorflow/models/blob/master/samples/core/get_started/iris_data.py
-
+# This file is the example used by TensorFlow to get users started. This code is used for testing.
 import pandas as pd
 import tensorflow as tf
 

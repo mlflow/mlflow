@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 import pandas.testing
 import tensorflow as tf
-import iris_data
+import iris_data_utils
 
 import mlflow
 import mlflow.tensorflow
@@ -41,7 +41,7 @@ SavedModelInfo = collections.namedtuple(
 def saved_tf_iris_model(tmpdir):
     # Following code from
     # https://github.com/tensorflow/models/blob/master/samples/core/get_started/premade_estimator.py
-    (train_x, train_y), (test_x, test_y) = iris_data.load_data()
+    (train_x, train_y), (test_x, test_y) = iris_data_utils.load_data()
 
     # Feature columns describe how to use the input.
     my_feature_columns = []
@@ -60,7 +60,7 @@ def saved_tf_iris_model(tmpdir):
     batch_size = 100
     train_steps = 1000
     estimator.train(
-        input_fn=lambda: iris_data.train_input_fn(train_x, train_y, batch_size),
+        input_fn=lambda: iris_data_utils.train_input_fn(train_x, train_y, batch_size),
         steps=train_steps)
 
     # Generate predictions from the model
@@ -72,8 +72,8 @@ def saved_tf_iris_model(tmpdir):
         'PetalWidth': [0.5, 1.5, 2.1],
     }
 
-    estimator_preds = estimator.predict(lambda: iris_data.eval_input_fn(predict_x, None,
-                                                                        batch_size))
+    estimator_preds = estimator.predict(lambda: iris_data_utils.eval_input_fn(predict_x, None,
+                                                                              batch_size))
 
     # Building a dictionary of the predictions by the estimator.
     if sys.version_info < (3, 0):
@@ -94,7 +94,8 @@ def saved_tf_iris_model(tmpdir):
 
     # Building a DataFrame that contains the names of the flowers predicted.
     estimator_preds_df = pandas.DataFrame.from_dict(data=estimator_preds_df)
-    estimator_preds_results = [iris_data.SPECIES[id[0]] for id in estimator_preds_dict['class_ids']]
+    estimator_preds_results = [iris_data_utils.SPECIES[id[0]]
+                               for id in estimator_preds_dict['class_ids']]
     estimator_preds_results_df = pd.DataFrame({"predictions": estimator_preds_results})
 
     # Define a function for estimator inference
@@ -160,12 +161,13 @@ def saved_tf_categorical_model(tmpdir):
         hidden_units=[20, 20], feature_columns=feature_columns)
 
     # Train the estimator and obtain expected predictions on the training dataset
-    estimator.train(input_fn=lambda: iris_data.train_input_fn(trainingFeatures, y_train, 1),
+    estimator.train(input_fn=lambda: iris_data_utils.train_input_fn(trainingFeatures, y_train, 1),
                     steps=10)
     estimator_preds = np.array([s["predictions"] for s in
-                                estimator.predict(lambda: iris_data.eval_input_fn(trainingFeatures,
-                                                                                  None,
-                                                                                  1))]).ravel()
+                                estimator.predict(lambda:
+                                                  iris_data_utils.eval_input_fn(trainingFeatures,
+                                                                                None,
+                                                                                1))]).ravel()
     estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
 
     # Define a function for estimator inference
