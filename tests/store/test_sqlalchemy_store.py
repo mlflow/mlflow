@@ -1335,19 +1335,25 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 fetched_run = store.get_run(run_id=run_id)
                 assert fetched_run.data.metrics == expected_metrics
 
-    def test_big_experiment(self):
+    def test_search_runs_returns_expected_results_with_large_experiment(self):
+        """
+        This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
+        that search queries over an experiment containing many runs, each with a large number
+        of metrics, parameters, and tags, are performant and return the expected results.
+        """
         experiment_id = self.store.create_experiment('test_experiment')
-        run_uuids = []
-        # pylint: disable=W0612
-        for nb_run in range(1000):
-            run_uuids.append(self.store.create_run(experiment_id=experiment_id,
-                                                   start_time=time.time(),
-                                                   tags=(),
-                                                   user_id='Anderson').info.run_uuid)
+        run_ids = []
+        for _ in range(1000):
+            run_ids.append(self.store.create_run(
+                experiment_id=experiment_id,
+                start_time=time.time(),
+                tags=(),
+                user_id='Anderson').info.run_uuid)
+
         metrics_list = []
         tags_list = []
         params_list = []
-        for run_uuid in run_uuids:
+        for run_id in run_ids:
             for i in range(100):
                 metric = {
                     'key': 'key',
@@ -1355,19 +1361,19 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     'timestamp': i * 2,
                     'step': i * 3,
                     'is_nan': 0,
-                    'run_uuid': run_uuid
+                    'run_uuid': run_id,
                 }
                 metrics_list.append(metric)
                 tag = {
                     'key': "tkey-%s" % i,
                     'value': "tval-%s" % i,
-                    'run_uuid': run_uuid
+                    'run_uuid': run_id,
                 }
                 tags_list.append(tag)
                 param = {
                     'key': "pkey-%s" % i,
                     'value': "pval-%s" % i,
-                    'run_uuid': run_uuid
+                    'run_uuid': run_id,
                 }
                 params_list.append(param)
         metrics = pd.DataFrame(metrics_list)
@@ -1376,8 +1382,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         params.to_sql('params', self.store.engine, if_exists='append', index=False)
         tags = pd.DataFrame(tags_list)
         tags.to_sql('tags', self.store.engine, if_exists='append', index=False)
-        self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
-        assert True
+
+        run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
+        assert len(run_results > 0)
+        assert set(run_ids).contains(set([run.info.run_id for run in run_results]))
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
