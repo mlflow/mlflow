@@ -100,7 +100,7 @@ class ShowArtifactMapView extends Component {
       return <div>Loading...</div>;
     }
     if (this.state.error) {
-      return <div>Oops we couldn't load your file because of an error.</div>;
+      return <div>Oops, we couldn't load your file because of an error.</div>;
     } else {
       return (
         <div className='map-container'>
@@ -123,16 +123,19 @@ class ShowArtifactMapView extends Component {
       .then((blob) => {
         const fileReader = new FileReader();
         fileReader.onload = (event) => {
-try {
-  this.setState({ features: JSON.parse(event.target.result), loading: false });
-}
-catch(error) {
-  this.setState({ error, loading: false, features: undefined }
-}
+          try {
+            this.setState({ features: JSON.parse(event.target.result), loading: false });
+          } catch (error) {
+            console.error(error);
+            this.setState({ error, loading: false, features: undefined });
+          }
         };
         fileReader.readAsText(blob);
       })
-      .catch((error) => this.setState({ error, loading: false, features: undefined }));
+      .catch((error) => {
+        console.error(error);
+        this.setState({ error, loading: false, features: undefined });
+      });
   }
 }
 
