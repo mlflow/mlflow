@@ -150,12 +150,13 @@ def saved_tf_categorical_model(tmpdir):
 
 
 @pytest.fixture
-def saved_tf_spark_model(tmpdir):
+def saved_tf_2d_output_model(tmpdir):
     # TensorFlow models currently only work as Spark UDFs with ordinally named inputs,
     # so we use a dummy model with a "0" input instead of one of the other fixtures here
     inputs = tf.placeholder(tf.float32, [None])
     weights = tf.Variable(tf.random.normal([1]))
-    outputs = inputs * weights
+    outputs = tf.concat([-tf.expand_dims(inputs, axis=1)*weights,
+                         tf.expand_dims(inputs, axis=1)*weights], axis=1)
     signature = (
         tf.saved_model.signature_def_utils.build_signature_def(
             inputs={"0": tf.saved_model.utils.build_tensor_info(inputs)},
@@ -182,8 +183,8 @@ def saved_tf_spark_model(tmpdir):
         return SavedModelInfo(path=saved_model_path,
                               meta_graph_tags=[tf.saved_model.tag_constants.SERVING],
                               signature_def_key="predict",
-                              inference_df=pd.DataFrame({"0": X}),
-                              expected_results_df=pd.Series(y))
+                              inference_df=pd.DataFrame(X, columns=["0"]),
+                              expected_results_df=pd.DataFrame(y))
 
 
 @pytest.fixture
@@ -531,17 +532,23 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
 
 
 @pytest.mark.large
-def test_spark_model_can_be_loaded_and_evaluated_as_spark_udf(saved_tf_spark_model, model_path):
-    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_spark_model.path,
-                                 tf_meta_graph_tags=saved_tf_spark_model.meta_graph_tags,
-                                 tf_signature_def_key=saved_tf_spark_model.signature_def_key,
+def test_2d_output_model_can_be_loaded_and_evaluated_as_spark_udf(
+        saved_tf_2d_output_model, model_path):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_2d_output_model.path,
+                                 tf_meta_graph_tags=saved_tf_2d_output_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_2d_output_model.signature_def_key,
                                  path=model_path)
 
     spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
-                                         pandas_df=saved_tf_spark_model.inference_df,
-                                         result_type="float")
+                                         pandas_df=saved_tf_2d_output_model.inference_df,
+                                         result_type="string")
+    parsed_preds = []
+    for pred in spark_udf_preds:
+        parsed_preds.append(
+            [np.float32(s) for s in pred.replace("[", "").replace("]", "").split()]
+        )
     np.testing.assert_array_almost_equal(
-        np.array(spark_udf_preds), saved_tf_spark_model.expected_results_df.values, decimal=4)
+        np.array(parsed_preds), saved_tf_2d_output_model.expected_results_df.values, decimal=4)
 
 
 @pytest.mark.release
