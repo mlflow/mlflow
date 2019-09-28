@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { getSrc } from './ShowArtifactPage';
 import './ShowArtifactHtmlView.css';
 import { getRequestHeaders } from '../../setupAjaxHeaders';
-import Iframe from 'react-iframe'
+import Iframe from 'react-iframe';
 
 class ShowArtifactHtmlView extends Component {
   constructor(props) {
@@ -58,14 +58,14 @@ class ShowArtifactHtmlView extends Component {
                 display="block"
                 position="relative"
                 sandbox="allow-scripts"/>
-              
+
       );
     }
   }
 
   getBlobURL = (code, type) => {
-    const blob = new Blob([code], { type })
-    return URL.createObjectURL(blob)
+    const blob = new Blob([code], { type });
+    return URL.createObjectURL(blob);
   }
 
   fetchArtifacts() {
@@ -82,7 +82,7 @@ class ShowArtifactHtmlView extends Component {
         this.setState({ html: event.target.result, loading: false });
       };
       fileReader.readAsText(blob);
-    }).catch(error => this.setState({ error: error, loading: false }));;
+    }).catch(error => this.setState({ error: error, loading: false }));
   }
 }
 
