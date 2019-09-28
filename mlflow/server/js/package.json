@@ -15,6 +15,7 @@
     "immutable": "3.8.1",
     "jquery": "3.0.0",
     "json-bigint": "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658",
+    "leaflet": "^1.5.1",
     "lodash": "^4.17.11",
     "merge": "1.2.1",
     "plotly.js": "1.42.5",
