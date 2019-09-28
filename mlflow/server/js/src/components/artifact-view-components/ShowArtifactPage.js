@@ -52,9 +52,13 @@ class ShowArtifactPage extends Component {
   }
 }
 
-export const getSrc = (path, runUuid) => {
+export const getSrc = (path, runUuid, CSSEscape=false) => {
   const basePath = "get-artifact";
-  return `${basePath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
+  if(CSSEscape) {
+    return `${basePath}?path=${CSS.escape(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
+  } else {
+    return `${basePath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
+  }
 };
 
 

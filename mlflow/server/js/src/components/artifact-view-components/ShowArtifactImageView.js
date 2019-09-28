@@ -13,7 +13,7 @@ class ShowArtifactImageView extends Component {
     return (
       <div className="image-outer-container">
         <div className="image-container"
-             style={{ backgroundImage: `url(${getSrc(path, runUuid)})` }}/>
+             style={{ backgroundImage: `url(${getSrc(path, runUuid, true)})` }}/>
       </div>
     );
   }
