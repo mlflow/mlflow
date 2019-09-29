@@ -344,8 +344,13 @@ class _TFWrapper(object):
                     for tensor_column_name in self.input_tensor_mapping.keys()
             }
             raw_preds = self.tf_sess.run(self.output_tensors, feed_dict=feed_dict)
-            pred_dict = {column_name: values.ravel() for column_name, values in raw_preds.items()}
-            return pandas.DataFrame(data=pred_dict)
+            pred_df = pandas.DataFrame()
+            for output_name, output_values in raw_preds.items():
+                if output_values.ndim == 1:
+                    pred_df[output_name] = output_values
+                else:
+                    pred_df[output_name] = [value for value in output_values]
+            return pred_df
 
 
 class __MLflowTfKerasCallback(Callback):

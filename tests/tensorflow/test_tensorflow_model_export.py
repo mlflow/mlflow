@@ -28,6 +28,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
+from tests.pyfunc.test_spark import score_model_as_udf
 
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
@@ -60,7 +61,7 @@ def saved_tf_iris_model(tmpdir):
                                           hidden_units=[1])
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(input_train, steps=10)
-    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)]).ravel()
+    estimator_preds = [s["predictions"] for s in estimator.predict(input_train)]
     estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
 
     # Define a function for estimator inference
@@ -126,7 +127,7 @@ def saved_tf_categorical_model(tmpdir):
 
     # Train the estimator and obtain expected predictions on the training dataset
     estimator.train(input_fn=input_train, steps=10)
-    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)]).ravel()
+    estimator_preds = [s["predictions"] for s in estimator.predict(input_train)]
     estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
 
     # Define a function for estimator inference
@@ -146,6 +147,44 @@ def saved_tf_categorical_model(tmpdir):
                           signature_def_key="predict",
                           inference_df=df,
                           expected_results_df=estimator_preds_df)
+
+
+@pytest.fixture
+def saved_tf_2d_output_model(tmpdir):
+    # TensorFlow models currently only work as Spark UDFs with ordinally named inputs,
+    # so we use a dummy model with a "0" input instead of one of the other fixtures here
+    inputs = tf.placeholder(tf.float32, [None])
+    weights = tf.Variable(tf.random.normal([1]))
+    outputs = tf.concat([-tf.expand_dims(inputs, axis=1)*weights,
+                         tf.expand_dims(inputs, axis=1)*weights], axis=1)
+    signature = (
+        tf.saved_model.signature_def_utils.build_signature_def(
+            inputs={"0": tf.saved_model.utils.build_tensor_info(inputs)},
+            outputs={"outputs": tf.saved_model.utils.build_tensor_info(outputs)},
+            method_name="predict"
+        )
+    )
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+
+        X = np.random.rand(100)
+        y = sess.run(outputs, feed_dict={inputs: X})
+
+        saved_model_path = os.path.join(str(tmpdir), "saved_model")
+        builder = tf.saved_model.builder.SavedModelBuilder(saved_model_path)
+        builder.add_meta_graph_and_variables(
+            sess,
+            [tf.saved_model.tag_constants.SERVING],
+            signature_def_map={"predict": signature}
+        )
+        builder.save()
+
+        return SavedModelInfo(path=saved_model_path,
+                              meta_graph_tags=[tf.saved_model.tag_constants.SERVING],
+                              signature_def_key="predict",
+                              inference_df=pd.DataFrame(X, columns=["0"]),
+                              expected_results_df=pd.DataFrame(y))
 
 
 @pytest.fixture
@@ -268,7 +307,7 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
             outputs_list = tf_sess.run(output_tensors, feed_dict=feed_dict)
             assert len(outputs_list) == 1
             outputs = outputs_list[0]
-            assert len(outputs.ravel()) == input_length
+            assert len(outputs) == input_length
 
     tf_graph_1 = tf.Graph()
     tf_sess_1 = tf.Session(graph=tf_graph_1)
@@ -490,6 +529,26 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
     results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
     pandas.testing.assert_frame_equal(
         results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=6)
+
+
+@pytest.mark.large
+def test_2d_output_model_can_be_loaded_and_evaluated_as_spark_udf(
+        saved_tf_2d_output_model, model_path):
+    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_2d_output_model.path,
+                                 tf_meta_graph_tags=saved_tf_2d_output_model.meta_graph_tags,
+                                 tf_signature_def_key=saved_tf_2d_output_model.signature_def_key,
+                                 path=model_path)
+
+    spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
+                                         pandas_df=saved_tf_2d_output_model.inference_df,
+                                         result_type="string")
+    parsed_preds = []
+    for pred in spark_udf_preds:
+        parsed_preds.append(
+            [np.float32(s) for s in pred.replace("[", "").replace("]", "").split()]
+        )
+    np.testing.assert_array_almost_equal(
+        np.array(parsed_preds), saved_tf_2d_output_model.expected_results_df.values, decimal=4)
 
 
 @pytest.mark.release
