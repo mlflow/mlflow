@@ -8,7 +8,7 @@ Features:
 
 - The Python client now supports logging & loading models using TensorFlow 2.0 (#1872, @juntai-zheng)
 - Dramatic performance improvements when fetching runs and experiments in MLflow servers that use SQL database-backed storage (#1767, #1878, #1805 @dbczumar)
-- The REST API contains a new ``GetExperimentByName`` endpoint, callable via the Python client (#1775, @smurching)
+- New ``GetExperimentByName`` REST API endpoint, callable via the Python client (#1775, @smurching)
 - New ``mlflow.delete_run``, ``mlflow.delete_experiment`` fluent APIs in the Python client(#1396, @MerelTheisenQB)
 - New CLI command (``mlflow experiments csv``) to export runs of an experiment into a CSV (#1705, @jdlesage)
 - Directories can now be logged as artifacts via ``mlflow.log_artifact`` in the Python fluent API (#1697, @apurva-koti)
@@ -21,7 +21,7 @@ Features:
 
 Bug fixes and documentation updates:
 
-- [R] The R ``mlflow_list_artifact`` API no longer throws when listing artifacts for an empty run (#1862, @smurching)
+- The R ``mlflow_list_artifact`` API no longer throws when listing artifacts for an empty run (#1862, @smurching)
 - Fixed a bug preventing running the MLflow server against an MS SQL database (#1758, @sifanLV)
 - MLmodel files (artifacts) now correctly display in the run UI (#1819, @ankitmathur-db)
 - The Python ``mlflow.start_run`` API now throws when resuming a run whose experiment ID differs from the
