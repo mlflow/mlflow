@@ -1,5 +1,31 @@
 Changelog
 =========
+1.2.1.dev0 (2019-09-30)
+-----------------------
+MLflow 1.2.1.dev0 includes several major features and improvements:
+
+Features:
+
+- Implementing TensorFlow 2.0 Compatibility (#1872, @juntai-zheng)
+- Fix SqlAlchemyStore search memory usage (#1878, @dbczumar)
+- Retry 429s in MLflow UI  (#1847, @smurching)
+- Propagate artifact storage configuration to container when executing docker-based MLflow projects locally (#1621, @nlaille)
+- Add GetExperimentByName REST API & call it from the Python client (#1775, @smurching)
+- SQLAlchemy: Improve performance of experiment list / get functions (#1805, @dbczumar)
+- Added fit_generator hooks for autolog (#1757, @charnger)
+- Log directories as artifacts with log_artifact (#1697, @apurva-koti)
+
+Bug fixes and documentation updates:
+
+- [R] Fix bug where mlflow_list_artifact throws when listing artifacts for a run without any logged (#1862, @smurching)
+- Fix RestException bug (#1780, @smurching)
+- Fix experiment id resolution in projects (#1715, @drewmcdonald)
+- [Docs] Clarify Mlflow quickstart code snippet for logging to your own tracking server vs CE (#1860, @smurching)
+- [Docs] Streamline docs for getting started with hosted MLflow (#1834, @smurching)
+- [Docs] Mention getting started with MLflow on CE (#1785, @smurching)
+
+Small bug fixes and doc updates (#1876, #1852, #1801, #1754, #1726, @smurching; #1737, @apurva-koti)
+
 1.2 (2019-08-09)
 ----------------
 MLflow 1.2 includes the following major features and improvements:
