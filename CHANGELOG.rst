@@ -1,5 +1,55 @@
 Changelog
 =========
+1.3.0 (2019-09-30)
+------------------
+MLflow 1.3.0 includes several major features and improvements:
+
+Features:
+
+- Implementing TensorFlow 2.0 Compatibility (#1872, @juntai-zheng)
+- Show geojson files on leaflet map (#1803, @spadarian)
+- Fix SqlAlchemyStore search memory usage (#1878, @dbczumar)
+- [Feature] html artifact view (#1838, @sim-san)
+- Add CLI command to export runs of an experiment into a csv (#1705, @jdlesage)
+- Retry 429s in MLflow UI  (#1847, @smurching)
+- Retry 429s in REST Client  (#1846, @tomasatdatabricks)
+- Propagate artifact storage configuration to container when executing docker-based MLflow projects locally (#1621, @nlaille)
+- Add GetExperimentByName REST API & call it from the Python client (#1775, @smurching)
+- reading port and user configuration from ~/.ssh/config (#1727, @cfmcgrady)
+- Expose deletes in higher level python api (#1396, @MerelTheisenQB)
+- SQLAlchemy: Improve performance of experiment list / get functions (#1805, @dbczumar)
+- Add support to use mlflow with Google Cloud Run (#1778, @ngallot)
+- Create materialized `latest_metrics` table (#1767, @dbczumar)
+- Added support for public google cloud bucket access without having to configure client (#1716, @axsaucedo)
+- Added fit_generator hooks for autolog (#1757, @charnger)
+- Include start_time, end_time into mlflow.search_runs result (#1714, @fhoering)
+- Log directories as artifacts with log_artifact (#1697, @apurva-koti)
+
+Bug fixes and documentation updates:
+
+- [R] Fix bug where mlflow_list_artifact throws when listing artifacts for a run without any logged (#1862, @smurching)
+- #1278 [Option2] Remove input schema from MLeap  (#1405, @ancasarb)
+- Fix [SETUP-BUG] #1748 (#1758, @sifanLV)
+- fix bug that causes MLmodel files to not be previewed in artifact preview (#1819, @ankitmathur-db)
+- Fix bug when environment run id overrides set_experiment (#1820, @mcminnra)
+- Fix issue #1798 (#1804, @ustcscgyer)
+- Small fixes for TF autologging (#1807, @smurching)
+- Properly display HDFS artifacts in UI (#1800, @ahutterTA)
+- Fix create default experiment error (#1502, @jimthompson5802)
+- fix:check keyerror (#1720, @jke-zq)
+- Require docker py version 4.0.0 or greater (#1788, @dbczumar)
+- Fix RestException bug (#1780, @smurching)
+- Fix [BUG] #1750 (#1769, @Ben-Epstein)
+- Fix experiment id resolution in projects (#1715, @drewmcdonald)
+- Update parallel coordinates plot to show all fields available in compared runs (#1753, @mateiz)
+- [Docs] Fix minor typo error in help message (#1871, @mehdi254)
+- [Docs] Clarify Mlflow quickstart code snippet for logging to your own tracking server vs CE (#1860, @smurching)
+- [Docs] Streamline docs for getting started with hosted MLflow (#1834, @smurching)
+- [Docs] Mention getting started with MLflow on CE (#1785, @smurching)
+- Document how to use order_by in search_runs (#1782, @stbof)
+
+Small bug fixes and doc updates (#1848, @pingsutw; #1868, @iver56; #1787, @apurvakoti; #1741, #1737, @apurva-koti; #1876, #1861, #1852, #1801, #1754, #1726, @smurching; #1859, #1858, #1851, @tomasatdatabricks; #1841, @ankitmathur-db; #1744, #1746, #1751, @mateiz; #1821, #1730, @dbczumar)
+
 1.2 (2019-08-09)
 ----------------
 MLflow 1.2 includes the following major features and improvements:
