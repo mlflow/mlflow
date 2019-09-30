@@ -31,6 +31,13 @@ class LocalArtifactRepository(ArtifactRepository):
             mkdir(artifact_dir)
         shutil.copy(local_file, artifact_dir)
 
+    def _is_directory(self, artifact_path):
+        # NOTE: The path is expected to be in posix format.
+        # Posix paths work fine on windows but just in case we normalize it here.
+        path = os.path.normpath(artifact_path) if artifact_path else ""
+        list_dir = os.path.join(self.artifact_dir, path) if path else self.artifact_dir
+        return os.path.isdir(list_dir)
+
     def log_artifacts(self, local_dir, artifact_path=None):
         verify_artifact_path(artifact_path)
         # NOTE: The artifact_path is expected to be in posix format.

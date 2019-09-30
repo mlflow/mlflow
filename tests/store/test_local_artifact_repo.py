@@ -41,7 +41,7 @@ def test_log_artifacts(local_artifact_repo, local_artifact_root):
 
     artifacts_list = local_artifact_repo.list_artifacts()
     assert len(artifacts_list) == 1
-    assert artifacts_list[0].path == artifact_rel_path
+    assert (artifacts_list[0].path == artifact_rel_path)
 
     artifact_dst_path = os.path.join(local_artifact_root, artifact_rel_path)
     assert os.path.exists(artifact_dst_path)
@@ -52,13 +52,19 @@ def test_log_artifacts(local_artifact_repo, local_artifact_root):
 def test_download_artifacts(local_artifact_repo):
     artifact_rel_path = "test.txt"
     artifact_text = "hello world!"
+    empty_dir_path = "empty_dir"
     with TempDir(chdr=True) as local_dir:
         artifact_src_path = local_dir.path(artifact_rel_path)
+        os.mkdir(local_dir.path(empty_dir_path))
         with open(artifact_src_path, "w") as f:
             f.write(artifact_text)
-        local_artifact_repo.log_artifact(artifact_src_path)
+        local_artifact_repo.log_artifacts(local_dir.path())
         dst_path = local_artifact_repo.download_artifacts(artifact_path=artifact_rel_path)
         assert open(dst_path).read() == artifact_text
+        dst_dir = local_artifact_repo.download_artifacts(artifact_path="")
+        empty_dir_dst_path = os.path.join(dst_dir, empty_dir_path)
+        assert os.path.isdir(empty_dir_dst_path)
+        assert len(os.listdir(empty_dir_dst_path)) == 0
 
 
 def test_download_artifacts_does_not_copy(local_artifact_repo):

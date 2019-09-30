@@ -57,6 +57,10 @@ class ArtifactRepository:
         """
         pass
 
+    def _is_directory(self, artifact_path):
+        listing = self.list_artifacts(artifact_path)
+        return len(listing) > 0
+
     def download_artifacts(self, artifact_path, dst_path=None):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
@@ -79,12 +83,12 @@ class ArtifactRepository:
         def download_artifacts_into(artifact_path, dest_dir):
             basename = posixpath.basename(artifact_path)
             local_path = os.path.join(dest_dir, basename)
-            listing = self.list_artifacts(artifact_path)
-            if len(listing) > 0:
+
+            if self._is_directory(artifact_path):
                 # Artifact_path is a directory, so make a directory for it and download everything
                 if not os.path.exists(local_path):
                     os.mkdir(local_path)
-                for file_info in listing:
+                for file_info in self.list_artifacts(artifact_path):
                     # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
                     if file_info.path == "." or file_info.path == artifact_path:
                         continue
