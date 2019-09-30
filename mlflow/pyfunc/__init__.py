@@ -429,8 +429,8 @@ def spark_udf(spark, model_uri, result_type="double"):
         for x in args:
             if type(x) == pandas.DataFrame:
                 if len(args) != 1:
-                    raise Exception("If the input is DataFrame, there should be only one, "
-                                    "got %d" % len(args))
+                    raise Exception("If passing a StructType column, there should be only one "
+                                    "input column, but got %d" % len(args))
                 pdf = x
         if pdf is None:
             # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
