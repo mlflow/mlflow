@@ -33,7 +33,10 @@ pytest --verbose tests/sagemaker --large
 pytest --verbose tests/sagemaker/mock --large
 pytest --verbose tests/sklearn --large
 pytest --verbose tests/spark --large
-pytest --verbose tests/tensorflow --large
+pytest --verbose tests/tensorflow/test_tensorflow_model_export.py --large
+pip install 'tensorflow>=2.0.0rc2'
+pytest --verbose tests/tensorflow/test_tensorflow2_model_export.py --large
+pip install 'tensorflow==1.12'
 pytest --verbose tests/azureml --large
 pytest --verbose tests/models --large
 pytest --verbose tests/tensorflow_autolog --large

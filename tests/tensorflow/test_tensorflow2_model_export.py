@@ -5,15 +5,17 @@ from __future__ import print_function
 import collections
 import os
 import shutil
+import sys
 import pytest
 import yaml
 import json
+import copy
 
 import numpy as np
 import pandas as pd
 import pandas.testing
-import sklearn.datasets as datasets
 import tensorflow as tf
+import iris_data_utils
 
 import mlflow
 import mlflow.tensorflow
@@ -27,57 +29,95 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 
 from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
+from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-imxport
 
 SavedModelInfo = collections.namedtuple(
     "SavedModelInfo",
-    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
+    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df",
+     "raw_results", "raw_df"])
 
 
 @pytest.fixture
 def saved_tf_iris_model(tmpdir):
-    iris = datasets.load_iris()
-    X = iris.data[:, :2]  # we only take the first two features
-    y = iris.target
-    trainingFeatures = {}
-    for i in range(0, 2):
-        # TensorFlow is fickle about feature names, so we remove offending characters
-        iris.feature_names[i] = iris.feature_names[i].replace(" ", "")
-        iris.feature_names[i] = iris.feature_names[i].replace("(", "")
-        iris.feature_names[i] = iris.feature_names[i].replace(")", "")
-        trainingFeatures[iris.feature_names[i]] = iris.data[:, i:i+1]
-    tf_feat_cols = []
-    feature_names = iris.feature_names[:2]
-    # Create TensorFlow-specific numeric columns for input.
-    for col in iris.feature_names[:2]:
-        tf_feat_cols.append(tf.feature_column.numeric_column(col))
-    # Create a training function for the estimator
-    input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
-                                                     y,
-                                                     shuffle=False,
-                                                     batch_size=1)
-    estimator = tf.estimator.DNNRegressor(feature_columns=tf_feat_cols,
-                                          hidden_units=[1])
-    # Train the estimator and obtain expected predictions on the training dataset
-    estimator.train(input_train, steps=10)
-    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)]).ravel()
-    estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
+    # Following code from
+    # https://github.com/tensorflow/models/blob/master/samples/core/get_started/premade_estimator.py
+    (train_x, train_y), (test_x, test_y) = iris_data_utils.load_data()
+
+    # Feature columns describe how to use the input.
+    my_feature_columns = []
+    for key in train_x.keys():
+        my_feature_columns.append(tf.feature_column.numeric_column(key=key))
+
+    # Build 2 hidden layer DNN with 10, 10 units respectively.
+    estimator = tf.estimator.DNNClassifier(
+        feature_columns=my_feature_columns,
+        # Two hidden layers of 10 nodes each.
+        hidden_units=[10, 10],
+        # The model must choose between 3 classes.
+        n_classes=3)
+
+    # Train the Model.
+    batch_size = 100
+    train_steps = 1000
+    estimator.train(
+        input_fn=lambda: iris_data_utils.train_input_fn(train_x, train_y, batch_size),
+        steps=train_steps)
+
+    # Generate predictions from the model
+    expected = ['Setosa', 'Versicolor', 'Virginica']
+    predict_x = {
+        'SepalLength': [5.1, 5.9, 6.9],
+        'SepalWidth': [3.3, 3.0, 3.1],
+        'PetalLength': [1.7, 4.2, 5.4],
+        'PetalWidth': [0.5, 1.5, 2.1],
+    }
+
+    estimator_preds = estimator.predict(lambda: iris_data_utils.eval_input_fn(predict_x, None,
+                                                                              batch_size))
+
+    # Building a dictionary of the predictions by the estimator.
+    if sys.version_info < (3, 0):
+        estimator_preds_dict = estimator_preds.next()
+    else:
+        estimator_preds_dict = next(estimator_preds)
+    for row in estimator_preds:
+        for key in row.keys():
+            estimator_preds_dict[key] = np.vstack((estimator_preds_dict[key], row[key]))
+
+    # Building a pandas DataFrame out of the prediction dictionary.
+    estimator_preds_df = copy.deepcopy(estimator_preds_dict)
+    for col in estimator_preds_df.keys():
+        if all(len(element) == 1 for element in estimator_preds_df[col]):
+            estimator_preds_df[col] = estimator_preds_df[col].ravel()
+        else:
+            estimator_preds_df[col] = estimator_preds_df[col].tolist()
+
+    # Building a DataFrame that contains the names of the flowers predicted.
+    estimator_preds_df = pandas.DataFrame.from_dict(data=estimator_preds_df)
+    estimator_preds_results = [iris_data_utils.SPECIES[id[0]]
+                               for id in estimator_preds_dict['class_ids']]
+    estimator_preds_results_df = pd.DataFrame({"predictions": estimator_preds_results})
 
     # Define a function for estimator inference
     feature_spec = {}
-    for name in feature_names:
-        feature_spec[name] = tf.placeholder("float", name=name, shape=[150])
+    for name in my_feature_columns:
+        feature_spec[name.key] = tf.Variable([], dtype=tf.float64, name=name.key)
+
     receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
     saved_estimator_path = str(tmpdir.mkdir("saved_model"))
-    saved_estimator_path = estimator.export_savedmodel(saved_estimator_path,
-                                                       receiver_fn).decode("utf-8")
+    saved_estimator_path = estimator.export_saved_model(saved_estimator_path,
+                                                        receiver_fn).decode("utf-8")
     return SavedModelInfo(path=saved_estimator_path,
-                          meta_graph_tags=[tf.saved_model.tag_constants.SERVING],
+                          meta_graph_tags=["serve"],
                           signature_def_key="predict",
-                          inference_df=pd.DataFrame(data=X, columns=feature_names),
-                          expected_results_df=estimator_preds_df)
+                          inference_df=pd.DataFrame(data=predict_x,
+                                                    columns=[name.key for name in
+                                                             my_feature_columns]),
+                          expected_results_df=estimator_preds_results_df,
+                          raw_results=estimator_preds_dict,
+                          raw_df=estimator_preds_df)
 
 
 @pytest.fixture
@@ -102,10 +142,6 @@ def saved_tf_categorical_model(tmpdir):
     trainingFeatures = {}
     for i in df:
         trainingFeatures[i] = df[i].values
-    input_train = tf.estimator.inputs.numpy_input_fn(trainingFeatures,
-                                                     y_train.values,
-                                                     shuffle=False,
-                                                     batch_size=1)
 
     # Create the feature columns required for the DNNRegressor
     body_style_vocab = ["hardtop", "wagon", "sedan", "hatchback", "convertible"]
@@ -119,33 +155,40 @@ def saved_tf_categorical_model(tmpdir):
         tf.feature_column.indicator_column(body_style)
     ]
 
-    # Build a DNNRegressor, with 2x20-unit hidden layers, with the feature columns
+    # Build a DNNRegressor, with 20x20-unit hidden layers, with the feature columns
     # defined above as input
     estimator = tf.estimator.DNNRegressor(
         hidden_units=[20, 20], feature_columns=feature_columns)
 
     # Train the estimator and obtain expected predictions on the training dataset
-    estimator.train(input_fn=input_train, steps=10)
-    estimator_preds = np.array([s["predictions"] for s in estimator.predict(input_train)]).ravel()
+    estimator.train(input_fn=lambda: iris_data_utils.train_input_fn(trainingFeatures, y_train, 1),
+                    steps=10)
+    estimator_preds = np.array([s["predictions"] for s in
+                                estimator.predict(lambda:
+                                                  iris_data_utils.eval_input_fn(trainingFeatures,
+                                                                                None,
+                                                                                1))]).ravel()
     estimator_preds_df = pd.DataFrame({"predictions": estimator_preds})
 
     # Define a function for estimator inference
     feature_spec = {
-        "body-style": tf.placeholder("string", name="body-style", shape=[None]),
-        "curb-weight": tf.placeholder("float", name="curb-weight", shape=[None]),
-        "highway-mpg": tf.placeholder("float", name="highway-mpg", shape=[None])
+        "body-style": tf.Variable([], dtype=tf.string, name="body-style"),
+        "curb-weight": tf.Variable([], dtype=tf.float64, name="curb-weight"),
+        "highway-mpg": tf.Variable([], dtype=tf.float64, name="highway-mpg")
     }
     receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
     # Save the estimator and its inference function
     saved_estimator_path = str(tmpdir.mkdir("saved_model"))
-    saved_estimator_path = estimator.export_savedmodel(saved_estimator_path,
-                                                       receiver_fn).decode("utf-8")
+    saved_estimator_path = estimator.export_saved_model(saved_estimator_path,
+                                                        receiver_fn).decode("utf-8")
     return SavedModelInfo(path=saved_estimator_path,
-                          meta_graph_tags=[tf.saved_model.tag_constants.SERVING],
+                          meta_graph_tags=["serve"],
                           signature_def_key="predict",
-                          inference_df=df,
-                          expected_results_df=estimator_preds_df)
+                          inference_df=trainingFeatures,
+                          expected_results_df=estimator_preds_df,
+                          raw_results=None,
+                          raw_df=None)
 
 
 @pytest.fixture
@@ -162,58 +205,6 @@ def model_path(tmpdir):
     return os.path.join(str(tmpdir), "model")
 
 
-def load_and_evaluate(model_path, tf_sess, tf_graph):
-    expected_input_keys = ["sepallengthcm", "sepalwidthcm"]
-    expected_output_keys = ["predictions"]
-    input_length = 10
-    signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
-    if not tf_sess:
-        tf_sess = tf.get_default_session()
-        tf_graph = tf.get_default_graph()
-    input_signature = signature_def.inputs.items()
-    assert len(input_signature) == len(expected_input_keys)
-    feed_dict = {}
-    for input_key, input_signature in signature_def.inputs.items():
-        assert input_key in expected_input_keys
-        t_input = tf_graph.get_tensor_by_name(input_signature.name)
-        feed_dict[t_input] = np.array(range(input_length), dtype=np.float32)
-
-    output_signature = signature_def.outputs.items()
-    assert len(output_signature) == len(expected_output_keys)
-    output_tensors = []
-    for output_key, output_signature in signature_def.outputs.items():
-        assert output_key in expected_output_keys
-        t_output = tf_graph.get_tensor_by_name(output_signature.name)
-        output_tensors.append(t_output)
-
-    outputs_list = tf_sess.run(output_tensors, feed_dict=feed_dict)
-    assert len(outputs_list) == 1
-    outputs = outputs_list[0]
-    assert len(outputs.ravel()) == input_length
-
-
-@pytest.mark.large
-def test_save_and_load_model_persists_and_restores_model_in_default_graph_context_successfully(
-        saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
-                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-                                 path=model_path)
-
-    tf_graph = tf.Graph()
-    tf_sess = tf.Session(graph=tf_graph)
-    with tf_graph.as_default():
-        signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
-
-        for _, input_signature in signature_def.inputs.items():
-            t_input = tf_graph.get_tensor_by_name(input_signature.name)
-            assert t_input is not None
-
-        for _, output_signature in signature_def.outputs.items():
-            t_output = tf_graph.get_tensor_by_name(output_signature.name)
-            assert t_output is not None
-
-
 @pytest.mark.large
 def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mock_s3_bucket):
     mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
@@ -227,41 +218,17 @@ def test_load_model_from_remote_uri_succeeds(saved_tf_iris_model, model_path, mo
     artifact_repo.log_artifacts(model_path, artifact_path=artifact_path)
 
     model_uri = artifact_root + "/" + artifact_path
-    tf_graph = tf.Graph()
-    tf_sess = tf.Session(graph=tf_graph)
-    with tf_graph.as_default():
-        signature_def = mlflow.tensorflow.load_model(model_uri=model_uri, tf_sess=tf_sess)
-
-        for _, input_signature in signature_def.inputs.items():
-            t_input = tf_graph.get_tensor_by_name(input_signature.name)
-            assert t_input is not None
-
-        for _, output_signature in signature_def.outputs.items():
-            t_output = tf_graph.get_tensor_by_name(output_signature.name)
-            assert t_output is not None
-
-
-@pytest.mark.large
-def test_save_and_load_model_persists_and_restores_model_in_custom_graph_context_successfully(
-        saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
-                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-                                 path=model_path)
-
-    tf_graph = tf.Graph()
-    tf_sess = tf.Session(graph=tf_graph)
-    custom_tf_context = tf_graph.device("/cpu:0")
-    with custom_tf_context:
-        signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
-
-        for _, input_signature in signature_def.inputs.items():
-            t_input = tf_graph.get_tensor_by_name(input_signature.name)
-            assert t_input is not None
-
-        for _, output_signature in signature_def.outputs.items():
-            t_output = tf_graph.get_tensor_by_name(output_signature.name)
-            assert t_output is not None
+    infer = mlflow.tensorflow.load_model(model_uri=model_uri)
+    feed_dict = {
+        df_column_name: tf.constant(
+            saved_tf_iris_model.inference_df[df_column_name])
+        for df_column_name in list(saved_tf_iris_model.inference_df)
+    }
+    raw_preds = infer(**feed_dict)
+    pred_dict = {column_name: raw_preds[column_name].numpy() for column_name in raw_preds.keys()}
+    for col in pred_dict:
+        assert(np.allclose(np.array(pred_dict[col], dtype=np.float),
+                           np.array(saved_tf_iris_model.raw_results[col], dtype=np.float)))
 
 
 @pytest.mark.large
@@ -271,39 +238,24 @@ def test_iris_model_can_be_loaded_and_evaluated_successfully(saved_tf_iris_model
                                  tf_signature_def_key=saved_tf_iris_model.signature_def_key,
                                  path=model_path)
 
-    tf_graph_1 = tf.Graph()
-    tf_sess_1 = tf.Session(graph=tf_graph_1)
-    with tf_graph_1.as_default():
-        load_and_evaluate(model_path=model_path, tf_sess=tf_sess_1, tf_graph=tf_graph_1)
+    def load_and_evaluate():
 
-    tf_graph_2 = tf.Graph()
-    tf_sess_2 = tf.Session(graph=tf_graph_2)
-    with tf_graph_1.device("/cpu:0"):
-        load_and_evaluate(model_path=model_path, tf_sess=tf_sess_2, tf_graph=tf_graph_2)
+        infer = mlflow.tensorflow.load_model(model_uri=model_path)
+        feed_dict = {
+            df_column_name: tf.constant(
+                saved_tf_iris_model.inference_df[df_column_name])
+            for df_column_name in list(saved_tf_iris_model.inference_df)
+        }
+        raw_preds = infer(**feed_dict)
+        pred_dict = {column_name: raw_preds[column_name].numpy()
+                     for column_name in raw_preds.keys()}
+        for col in pred_dict:
+            assert(np.array_equal(pred_dict[col], saved_tf_iris_model.raw_results[col]))
 
+    load_and_evaluate()
 
-@pytest.mark.large
-def test_load_model_session_exists_but_not_passed_in_loads_and_evaluates(saved_tf_iris_model,
-                                                                         model_path):
-    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
-                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-                                 path=model_path)
-
-    tf_graph = tf.Graph()
-    tf_sess = tf.Session(graph=tf_graph)
-    with tf_sess:
-        load_and_evaluate(model_path=model_path, tf_sess=None, tf_graph=None)
-
-
-@pytest.mark.large
-def test_load_model_with_no_default_session_throws_exception(saved_tf_iris_model, model_path):
-    mlflow.tensorflow.save_model(tf_saved_model_dir=saved_tf_iris_model.path,
-                                 tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
-                                 tf_signature_def_key=saved_tf_iris_model.signature_def_key,
-                                 path=model_path)
-    with pytest.raises(MlflowException):
-        mlflow.tensorflow.load_model(model_uri=model_path)
+    with tf.device("/CPU:0"):
+        load_and_evaluate()
 
 
 @pytest.mark.large
@@ -345,8 +297,8 @@ def test_load_model_loads_artifacts_from_specified_model_directory(saved_tf_iris
     # directory that was used to create it, implying that the artifacts were copied to and are
     # loaded from the specified MLflow model path
     shutil.rmtree(saved_tf_iris_model.path)
-    with tf.Session(graph=tf.Graph()) as tf_sess:
-        signature_def = mlflow.tensorflow.load_model(model_uri=model_path, tf_sess=tf_sess)
+
+    model_function = mlflow.tensorflow.load_model(model_uri=model_path)
 
 
 def test_log_model_with_non_keyword_args_fails(saved_tf_iris_model):
@@ -371,18 +323,7 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
             run_id=mlflow.active_run().info.run_id,
             artifact_path=artifact_path)
 
-    tf_graph = tf.Graph()
-    tf_sess = tf.Session(graph=tf_graph)
-    with tf_graph.as_default():
-        signature_def = mlflow.tensorflow.load_model(model_uri=model_uri, tf_sess=tf_sess)
-
-        for _, input_signature in signature_def.inputs.items():
-            t_input = tf_graph.get_tensor_by_name(input_signature.name)
-            assert t_input is not None
-
-        for _, output_signature in signature_def.outputs.items():
-            t_output = tf_graph.get_tensor_by_name(output_signature.name)
-            assert t_output is not None
+    infer_fn = mlflow.tensorflow.load_model(model_uri=model_uri)
 
 
 @pytest.mark.large
@@ -470,7 +411,7 @@ def test_save_model_without_specified_conda_env_uses_default_env_with_expected_d
 
 @pytest.mark.large
 def test_log_model_without_specified_conda_env_uses_default_env_with_expected_dependencies(
-        saved_tf_iris_model, model_path):
+        saved_tf_iris_model):
     artifact_path = "model"
     with mlflow.start_run():
         mlflow.tensorflow.log_model(tf_saved_model_dir=saved_tf_iris_model.path,
@@ -500,7 +441,8 @@ def test_iris_data_model_can_be_loaded_and_evaluated_as_pyfunc(saved_tf_iris_mod
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
     results_df = pyfunc_wrapper.predict(saved_tf_iris_model.inference_df)
-    assert results_df.equals(saved_tf_iris_model.expected_results_df)
+    for key in results_df.keys():
+        assert(np.array_equal(results_df[key], saved_tf_iris_model.raw_df[key]))
 
 
 @pytest.mark.large
@@ -513,8 +455,9 @@ def test_categorical_model_can_be_loaded_and_evaluated_as_pyfunc(
 
     pyfunc_wrapper = pyfunc.load_model(model_path)
     results_df = pyfunc_wrapper.predict(saved_tf_categorical_model.inference_df)
+    # Precision is less accurate for the categorical model when we load back the saved model.
     pandas.testing.assert_frame_equal(
-        results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=6)
+        results_df, saved_tf_categorical_model.expected_results_df, check_less_precise=3)
 
 
 @pytest.mark.release
