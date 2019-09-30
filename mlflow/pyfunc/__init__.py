@@ -425,13 +425,14 @@ def spark_udf(spark, model_uri, result_type="double"):
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
         schema = {str(i): arg for i, arg in enumerate(args)}
+        pdf = None
         for x in args:
             if type(x) == pandas.DataFrame:
                 if len(args) != 1:
                     raise Exception("If the input is DataFrame, there should be only one, "
                                     "got %d" % len(args))
                 pdf = x
-        else:
+        if pdf is None:
             # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
             columns = [str(i) for i, _ in enumerate(args)]
             pdf = pandas.DataFrame(schema, columns=columns)
