@@ -128,16 +128,17 @@ notifications:
       MotE8n5J3OtQQ8Yl304J/uR2QX4YwulMQKr/BmrQs="
     on_success: "never"
     on_failure: "always"
-  slack:
-    rooms:
-      - secure: "bs4DSU5ZAkZ30StvWzzQHo+X97YIjPMKy2z2kNpbic1ScujfdkZvnYB/d/0FMWrQUTs7sY/TS918f0HvUU\
-        gMX9bdobPoBOcBLe34pCtidrCbMzm1T3h1aRjeLKXH0IbeiuZjd0MTp0RSvTFyDknAculoZRbtFoAqwOEgkQ9jm9Feu\
-        3cNck6TreSIxA+gf5BCetJhOJvUcCGKAUIfXxOKOp/22E+G5HoJSj9+RIEijOzNAQ9Vd7kehA/s454KSsW5WrbGeX/b\
-        UadLr/y4MkTBH59B7E+ZUHnOUZIuptZb2pR808AvdJW3Fwc6s0sa8hmjjBZH3TgnTHBUwZ9VG+x1Q7gQFG6Ug7WQ+5N\
-        FwIGqgYshaTomFSh9W7ITOPESlYGfW13xCO/bRGNj8DCB09aIiNgF4mPfJIF2H0yuiT4mJ9fIQQi17YuoC1Zb2gsA50\
-        D5zZfYQosnPmgjVDYs4Jr12pAQIrk/XnC8RFA1NlmDtoDe7qguY+wdxKaC0D3yleT2DLWaxB5iSNZlbamGEFfbcB4xb\
-        HHVb7QR2L/t3+ITsUcQ3bf1SOGnIrzVCYFFe+KzshQSaEP9fcRA9cSCbKkdQIgmsN7XOq+rlaR+S3bj2XN0g1fvGy89\
-        7rzw6+BBe11y9g8p2yiZGKxzWDUDHseAzZllUeUfEAsr1aeG7R4y1do="
-    on_success: "change"
-    on_failure: "always"
-    on_pull_requests: false
+# TODO(sid): Reenable Slack notifications on build failures once we've de-noised them
+#   slack:
+#     rooms:
+#       - secure: "bs4DSU5ZAkZ30StvWzzQHo+X97YIjPMKy2z2kNpbic1ScujfdkZvnYB/d/0FMWrQUTs7sY/TS918f0HvUU\
+#         gMX9bdobPoBOcBLe34pCtidrCbMzm1T3h1aRjeLKXH0IbeiuZjd0MTp0RSvTFyDknAculoZRbtFoAqwOEgkQ9jm9Feu\
+#         3cNck6TreSIxA+gf5BCetJhOJvUcCGKAUIfXxOKOp/22E+G5HoJSj9+RIEijOzNAQ9Vd7kehA/s454KSsW5WrbGeX/b\
+#         UadLr/y4MkTBH59B7E+ZUHnOUZIuptZb2pR808AvdJW3Fwc6s0sa8hmjjBZH3TgnTHBUwZ9VG+x1Q7gQFG6Ug7WQ+5N\
+#         FwIGqgYshaTomFSh9W7ITOPESlYGfW13xCO/bRGNj8DCB09aIiNgF4mPfJIF2H0yuiT4mJ9fIQQi17YuoC1Zb2gsA50\
+#         D5zZfYQosnPmgjVDYs4Jr12pAQIrk/XnC8RFA1NlmDtoDe7qguY+wdxKaC0D3yleT2DLWaxB5iSNZlbamGEFfbcB4xb\
+#         HHVb7QR2L/t3+ITsUcQ3bf1SOGnIrzVCYFFe+KzshQSaEP9fcRA9cSCbKkdQIgmsN7XOq+rlaR+S3bj2XN0g1fvGy89\
+#         7rzw6+BBe11y9g8p2yiZGKxzWDUDHseAzZllUeUfEAsr1aeG7R4y1do="
+#     on_success: "change"
+#     on_failure: "always"
+#     on_pull_requests: false
