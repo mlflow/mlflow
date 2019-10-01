@@ -225,6 +225,7 @@ def test_download_artifacts(ftp_mock):
     # mocked file structure
     #  |- model
     #     |- model.pb
+    #     |- empty_dir
     #     |- variables
     #        |- test.txt
     dir_path = posixpath.join(artifact_root_path, 'model')
@@ -232,6 +233,8 @@ def test_download_artifacts(ftp_mock):
     # list artifacts at sub directory level
     model_file_path_sub = 'model.pb'
     model_file_path_full = posixpath.join(dir_path, model_file_path_sub)
+    empty_dir_name = "empty_dir"
+    empty_dir_path = posixpath.join(dir_path, empty_dir_name)
     subdir_name = 'variables'
     subdir_path_full = posixpath.join(dir_path, subdir_name)
     subfile_name = 'test.txt'
@@ -239,29 +242,41 @@ def test_download_artifacts(ftp_mock):
 
     is_dir_mapping = {
         dir_path: True,
+        empty_dir_path: True,
         model_file_path_full: False,
         subdir_path_full: True,
         subfile_path_full: False,
     }
 
     is_dir_call_args = [
-        dir_path, model_file_path_full, subdir_path_full,
+        dir_path, model_file_path_full, empty_dir_path, subdir_path_full,
         model_file_path_full,
         subdir_path_full, subfile_path_full,
         subfile_path_full
     ]
 
-    cwd_side_effect = [
-        None if is_dir_mapping[call_arg] else ftplib.error_perm for call_arg in is_dir_call_args
-    ]
+    def cwd_side_effect(call_arg):
+        if not is_dir_mapping[call_arg]:
+            raise ftplib.error_perm
     ftp_mock.cwd = MagicMock(side_effect=cwd_side_effect)
-    ftp_mock.nlst = MagicMock(side_effect=[[model_file_path_sub, subdir_name], [subfile_name]])
 
+    def nlst_side_effect(call_arg):
+        if call_arg == dir_path:
+            return [model_file_path_sub, subdir_name, empty_dir_name]
+        elif call_arg == subdir_path_full:
+            return [subfile_name]
+        elif call_arg == empty_dir_path:
+            return []
+        else:
+            raise Exception("should never call nlst for non-directories {}".format(call_arg))
+
+    ftp_mock.nlst = MagicMock(side_effect=nlst_side_effect)
     repo.download_artifacts("model")
 
     cwd_call_args = [arg_entry[0][0] for arg_entry in ftp_mock.cwd.call_args_list]
-    assert cwd_call_args == is_dir_call_args
-    assert ftp_mock.nlst.call_count == 2
+
+    assert set(cwd_call_args) == set(is_dir_call_args)
+    assert ftp_mock.nlst.call_count == 3
     assert ftp_mock.retrbinary.call_args_list[0][0][0] == 'RETR ' + model_file_path_full
     assert ftp_mock.retrbinary.call_args_list[1][0][0] == 'RETR ' + subfile_path_full
 
