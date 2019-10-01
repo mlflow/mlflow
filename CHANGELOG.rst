@@ -7,7 +7,7 @@ MLflow 1.3.0 includes several major features and improvements:
 Features:
 
 - The Python client now supports logging & loading models using TensorFlow 2.0 (#1872, @juntai-zheng)
-- Dramatic performance improvements when fetching runs and experiments in MLflow servers that use SQL database-backed storage (#1767, #1878, #1805 @dbczumar)
+- Significant performance improvements when fetching runs and experiments in MLflow servers that use SQL database-backed storage (#1767, #1878, #1805 @dbczumar)
 - New ``GetExperimentByName`` REST API endpoint, used in the Python client to speed up ``set_experiment`` and ``get_experiment_by_name`` (#1775, @smurching)
 - New ``mlflow.delete_run``, ``mlflow.delete_experiment`` fluent APIs in the Python client(#1396, @MerelTheisenQB)
 - New CLI command (``mlflow experiments csv``) to export runs of an experiment into a CSV (#1705, @jdlesage)
