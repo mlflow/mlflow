@@ -208,7 +208,8 @@ def _tmp_dir(local_path):
 def _download_hdfs_file(hdfs, remote_file_path, local_file_path):
     # Ensure all required directories exist. Without doing this nested files can't be downloaded.
     dirs = os.path.dirname(local_file_path)
-    os.makedirs(dirs)
+    if not os.path.exists(dirs):
+        os.makedirs(dirs)
     with open(local_file_path, 'wb') as f:
         f.write(hdfs.open(remote_file_path, 'rb').read())
 
