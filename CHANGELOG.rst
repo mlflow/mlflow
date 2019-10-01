@@ -27,7 +27,7 @@ Bug fixes and documentation updates:
 - The Python ``mlflow.start_run`` API now throws when resuming a run whose experiment ID differs from the
   active experiment ID set via ``mlflow.set_experiment`` (#1820, @mcminnra).
 - ``MlflowClient.log_metric`` now logs metric timestamps with millisecond (as opposed to second) resolution (#1804, @ustcscgyer)
-- Fixed a bug when listing artifacts stored in HDFS (#1800, @ahutterTA)
+- Fixed bugs when listing (#1800, @ahutterTA) and downloading (#1890, @jdlesage) artifacts stored in HDFS.
 - Fixed a bug preventing Kubernetes Projects from pushing to private Docker repositories (#1788, @dbczumar)
 - Fixed a bug preventing deploying Spark models to AzureML (#1769, @Ben-Epstein)
 - Fixed experiment id resolution in projects (#1715, @drewmcdonald)
