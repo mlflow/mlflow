@@ -4,12 +4,12 @@ from tempfile import NamedTemporaryFile
 
 import mock
 import pytest
-from mock import call
+from mock import call, mock_open
 from pyarrow import HadoopFileSystem
 
 from mlflow.entities import FileInfo
 from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository, _resolve_base_path, \
-    _relative_path_remote, _parse_extra_conf
+    _relative_path_remote, _parse_extra_conf, _download_hdfs_file
 from mlflow.utils.file_utils import TempDir
 
 
@@ -177,3 +177,17 @@ def test_parse_extra_conf():
 
     with pytest.raises(Exception):
         _parse_extra_conf("missing_equals_sign")
+
+
+def test_download_artifacts():
+    expected_data = b"hello"
+    artifact_path = "test.txt"
+    # mock hdfs
+    hdfs = mock.Mock()
+    hdfs.open = mock_open(read_data=expected_data)
+
+    with TempDir() as tmp_dir:
+        _download_hdfs_file(hdfs, artifact_path,
+                            os.path.join(tmp_dir.path(), artifact_path))
+        with open(os.path.join(tmp_dir.path(), artifact_path), "rb") as fd:
+            assert expected_data == fd.read()
