@@ -51,7 +51,7 @@ def tf_keras_random_data_run(random_train_data):
         model.add(layers.Dense(64, activation='relu'))
         model.add(layers.Dense(10, activation='softmax'))
 
-        model.compile(optimizer=tf.train.AdamOptimizer(0.001),
+        model.compile(optimizer=tf.compat.v1.train.AdamOptimizer(0.001),
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
 
@@ -63,7 +63,8 @@ def tf_keras_random_data_run(random_train_data):
 @pytest.mark.large
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
-
+    import pdb
+    pdb.set_trace()
     assert 'epoch_acc' in data.metrics
     assert 'epoch_loss' in data.metrics
     assert 'optimizer_name' in data.params

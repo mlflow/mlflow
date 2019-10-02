@@ -457,6 +457,7 @@ class __MLflowTfKerasCallback(Callback):
         pass
 
     def on_epoch_end(self, epoch, logs=None):
+        try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
         pass
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
@@ -549,6 +550,8 @@ def _setup_callbacks(lst):
     input list, and returns the new list and appropriate log directory.
     """
     tb = _get_tensorboard_callback(lst)
+    import pdb
+    pdb.set_trace()
     if tb is None:
         log_dir = tempfile.mkdtemp()
         l = lst + [TensorBoard(log_dir)]
@@ -590,7 +593,7 @@ def autolog(every_n_iter=100):
         from tensorflow.python.summary.writer.writer import FileWriter
     except ImportError:
         warnings.warn("Could not log to MLflow. Only TensorFlow versions" +
-                      "1.12 <= v < 2.0.0 are supported.")
+                      "1.12 <= v <= 2.0.0 are supported.")
         return
 
     @gorilla.patch(tensorflow.estimator.Estimator)
@@ -618,6 +621,7 @@ def autolog(every_n_iter=100):
     @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
+        # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
             l = list(args)
             l[5], log_dir = _setup_callbacks(l[5])
