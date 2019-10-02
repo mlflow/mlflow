@@ -157,6 +157,7 @@ class DatabricksJobRunner(object):
                  `Runs Get <https://docs.databricks.com/api/latest/jobs.html#runs-get>`_ API.
         """
         # Make jobs API request to launch run.
+        extra_libraries = cluster_spec.pop("libraries", [])
         req_body_json = {
             'run_name': 'MLflow Run for %s' % project_uri,
             'new_cluster': cluster_spec,
@@ -167,7 +168,8 @@ class DatabricksJobRunner(object):
             # NB: We use <= on the version specifier to allow running projects on pre-release
             # versions, where we will select the most up-to-date mlflow version available.
             # Also note, that we escape this so '<' is not treated as a shell pipe.
-            "libraries": [{"pypi": {"package": "'mlflow<=%s'" % VERSION}}],
+            "libraries": [{"pypi": {"package": "'mlflow<=%s'" % VERSION}},
+                          *extra_libraries],
         }
         run_submit_res = self._jobs_runs_submit(req_body_json)
         databricks_run_id = run_submit_res["run_id"]
