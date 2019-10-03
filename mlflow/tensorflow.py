@@ -461,6 +461,8 @@ class __MLflowTfKerasCallback(Callback):
         pass
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+        import pdb
+        pdb.set_trace()
         opt = self.model.optimizer
         if hasattr(opt, 'optimizer'):
             opt = opt.optimizer
@@ -631,6 +633,8 @@ def autolog(every_n_iter=100):
         else:
             kwargs['callbacks'], log_dir = _setup_callbacks([])
         result = original(self, *args, **kwargs)
+        import pdb
+        pdb.set_trace()
         _flush_queue()
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
         shutil.rmtree(log_dir)

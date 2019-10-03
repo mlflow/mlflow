@@ -51,10 +51,11 @@ def tf_keras_random_data_run(random_train_data):
         model.add(layers.Dense(64, activation='relu'))
         model.add(layers.Dense(10, activation='softmax'))
 
-        model.compile(optimizer=tf.compat.v1.train.AdamOptimizer(0.001),
+        model.compile(optimizer=tf.keras.optimizers.Adam(),
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
-
+        import pdb
+        pdb.set_trace()
         model.fit(data, labels, epochs=10)
 
     return client.get_run(run.info.run_id)
@@ -106,6 +107,22 @@ def tf_core_random_tensors():
         shutil.rmtree(dir)
         writer.close()
         sess.close()
+
+    @tf.function
+    def total(a, b):
+        return a + b
+
+    with mlflow.start_run() as run:
+        dir = tempfile.mkdtemp()
+        writer = tf.summary.create_file_writer(dir)
+        with writer.as_default():
+            a = tf.constant(3.0, dtype=tf.float32)
+            b = tf.constant(4.0)
+            tf.summary.scalar('a', a, step=0)
+            tf.summary.scalar('b', b, step=0)
+            for i in range(40):
+
+
 
     return client.get_run(run.info.run_id)
 
