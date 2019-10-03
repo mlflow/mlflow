@@ -18,6 +18,7 @@ from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import MlflowHostCreds, _DEFAULT_HEADERS
 
+
 class MyCoolException(Exception):
     pass
 

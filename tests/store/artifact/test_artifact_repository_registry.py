@@ -3,6 +3,7 @@ import pytest
 from six.moves import reload_module as reload
 
 import mlflow
+from mlflow.store.artifact import artifact_repository_registry
 from mlflow.store.artifact.artifact_repository_registry import ArtifactRepositoryRegistry
 
 
@@ -16,7 +17,7 @@ def test_standard_artifact_registry():
         # Entrypoints are registered at import time, so we need to reload the
         # module to register the entrypoint given by the mocked
         # extrypoints.get_group_all
-        reload(mlflow.store.artifact.artifact_repository_registry)
+        reload(artifact_repository_registry)
 
         expected_artifact_repository_registry = {
             '',
@@ -30,7 +31,7 @@ def test_standard_artifact_registry():
         }
 
     assert expected_artifact_repository_registry.issubset(
-        mlflow.store.artifact.artifact_repository_registry._artifact_repository_registry._registry.keys()
+        artifact_repository_registry._artifact_repository_registry._registry.keys()
     )
 
 
@@ -38,18 +39,18 @@ def test_standard_artifact_registry():
 def test_plugin_registration_via_installed_package():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    reload(mlflow.store.artifact.artifact_repository_registry)
+    reload(artifact_repository_registry)
 
     assert (
         "file-plugin" in
-        mlflow.store.artifact.artifact_repository_registry._artifact_repository_registry._registry
+        artifact_repository_registry._artifact_repository_registry._registry
     )
 
     from mlflow_test_plugin import PluginLocalArtifactRepository
 
     test_uri = "file-plugin:test-path"
 
-    plugin_repo = mlflow.store.artifact.artifact_repository_registry.get_artifact_repository(test_uri)
+    plugin_repo = artifact_repository_registry.get_artifact_repository(test_uri)
 
     assert isinstance(plugin_repo, PluginLocalArtifactRepository)
     assert plugin_repo.is_plugin

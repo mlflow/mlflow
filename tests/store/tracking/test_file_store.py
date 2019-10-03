@@ -26,6 +26,7 @@ from tests.helper_functions import random_int, random_str, safe_edit_yaml
 
 FILESTORE_PACKAGE = "mlflow.store.tracking.file_store"
 
+
 class TestFileStore(unittest.TestCase):
     ROOT_LOCATION = tempfile.gettempdir()
 
