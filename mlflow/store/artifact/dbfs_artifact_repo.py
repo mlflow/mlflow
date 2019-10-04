@@ -4,8 +4,8 @@ import json
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.tracking.rest_store import RestStore
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracking import utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path

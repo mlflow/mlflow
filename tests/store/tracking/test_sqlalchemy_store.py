@@ -16,13 +16,14 @@ import json
 import pandas as pd
 
 import mlflow.db
+import mlflow.store.db.base_sql_model
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import _get_schema_version
 from mlflow.store.tracking.dbmodels import models
-from mlflow.store.db_types import MYSQL, MSSQL
+from mlflow.store.db.db_types import MYSQL, MSSQL
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -89,7 +90,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         self.store = self._get_store(self.db_url)
 
     def tearDown(self):
-        models.Base.metadata.drop_all(self.store.engine)
+        mlflow.store.db.base_sql_model.Base.metadata.drop_all(self.store.engine)
         os.remove(self.temp_dbfile)
         shutil.rmtree(ARTIFACT_URI)
 

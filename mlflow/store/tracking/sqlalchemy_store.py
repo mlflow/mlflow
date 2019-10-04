@@ -9,9 +9,10 @@ import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
-from mlflow.store.db_types import MYSQL, MSSQL
-from mlflow.store.tracking.dbmodels.models import Base, SqlExperiment, SqlRun, \
+from mlflow.store.db.db_types import MYSQL, MSSQL
+from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlRun, \
     SqlMetric, SqlParam, SqlTag, SqlExperimentTag, SqlLatestMetric
+from mlflow.store.db.base_sql_model import Base
 from mlflow.entities import RunStatus, SourceType, Experiment
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.entities import ViewType

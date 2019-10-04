@@ -5,7 +5,7 @@ from six.moves import urllib
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
-from mlflow.store.db_types import DATABASE_ENGINES
+from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.annotations import deprecated, experimental, keyword_only
 from mlflow.utils.validation import _validate_db_type_string
 

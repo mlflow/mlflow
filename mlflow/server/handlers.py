@@ -18,7 +18,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     DeleteTag, SetExperimentTag, GetExperimentByName
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.db_types import DATABASE_ENGINES
+from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req

@@ -4,14 +4,11 @@ import sqlalchemy as sa
 from sqlalchemy import (
     Column, String, ForeignKey, Integer, CheckConstraint,
     BigInteger, PrimaryKeyConstraint, Boolean)
-from sqlalchemy.ext.declarative import declarative_base
 from mlflow.entities import (
     Experiment, RunTag, Metric, Param, RunData, RunInfo,
     SourceType, RunStatus, Run, ViewType, ExperimentTag)
 from mlflow.entities.lifecycle_stage import LifecycleStage
-
-Base = declarative_base()
-
+from mlflow.store.db.base_sql_model import Base
 
 SourceTypes = [
     SourceType.to_string(SourceType.NOTEBOOK),

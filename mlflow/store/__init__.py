@@ -1,6 +1,10 @@
-from mlflow.store.tracking import file_store, rest_store
+from mlflow.store.tracking import abstract_store
+from mlflow.store.artifact import artifact_repo
 
 __all__ = [
-    "file_store",
-    "rest_store",
+    # tracking server meta-data stores
+    "abstract_store",
+
+    # artifact repository stores
+    "artifact_repo",
 ]

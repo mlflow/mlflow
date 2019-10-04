@@ -4,7 +4,7 @@ import pytest
 from six.moves import reload_module as reload
 
 import mlflow
-from mlflow.store.db_types import DATABASE_ENGINES
+from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore

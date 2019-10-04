@@ -6,7 +6,7 @@ import sys
 from six.moves import urllib
 
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow.store.db_types import DATABASE_ENGINES
+from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
 from mlflow.tracking.registry import TrackingStoreRegistry
