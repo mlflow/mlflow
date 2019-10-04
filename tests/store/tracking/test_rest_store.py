@@ -130,7 +130,7 @@ class TestRestStore(object):
             "mlflow.tracking.context.default_context._get_source_type",
             return_value=SourceType.LOCAL
         )
-        with mock.patch('mlflow.store.rest_store.http_request') as mock_http, \
+        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http, \
                 mock.patch('mlflow.tracking.utils._get_store', return_value=store), \
                 mock.patch('mlflow.tracking.context.default_context._get_user',
                            return_value=user_name), \
