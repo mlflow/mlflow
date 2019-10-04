@@ -13,7 +13,7 @@ from sqlalchemy import orm, func, distinct, and_
 from sqlalchemy import (
     Column, String, ForeignKey, Float,
     BigInteger, PrimaryKeyConstraint, Boolean)
-from mlflow.store.dbmodels.models import SqlMetric, SqlLatestMetric
+from mlflow.store.tracking.dbmodels.models import SqlMetric, SqlLatestMetric
 
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.INFO)

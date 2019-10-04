@@ -1,7 +1,7 @@
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
+from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils import get_unique_resource_id, extract_db_type_from_uri, get_uri_scheme
 
 

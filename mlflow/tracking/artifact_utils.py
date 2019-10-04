@@ -7,7 +7,7 @@ from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.tracking.utils import _get_store
 
 
