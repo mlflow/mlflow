@@ -11,7 +11,7 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.server.handlers import get_endpoints, _create_experiment, _get_request_message, \
     _search_runs, _log_batch, catch_mlflow_exception
 from mlflow.server import BACKEND_STORE_URI_ENV_VAR
-from mlflow.store.abstract_store import PagedList
+from mlflow.store.tracking.abstract_store import PagedList
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
 

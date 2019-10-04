@@ -17,8 +17,8 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
     DeleteTag, SetExperimentTag, GetExperimentByName
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.store.artifact_repository_registry import get_artifact_repository
-from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
@@ -35,12 +35,12 @@ def _add_static_prefix(route):
 
 
 def _get_file_store(store_uri, artifact_uri):
-    from mlflow.store.file_store import FileStore
+    from mlflow.store.tracking.file_store import FileStore
     return FileStore(store_uri, artifact_uri)
 
 
 def _get_sqlalchemy_store(store_uri, artifact_uri):
-    from mlflow.store.sqlalchemy_store import SqlAlchemyStore
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     return SqlAlchemyStore(store_uri, artifact_uri)
 
 

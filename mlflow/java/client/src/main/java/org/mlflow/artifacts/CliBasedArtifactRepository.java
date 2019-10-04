@@ -43,6 +43,9 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
   private final String PYTHON_EXECUTABLE =
     Optional.ofNullable(System.getenv("MLFLOW_PYTHON_EXECUTABLE")).orElse("python");
 
+  // Python CLI command
+  private final String PYTHON_COMMAND = "mlflow.store.artifact.cli";
+
   // Base directory of the artifactory, used to let the user know why this repository was chosen.
   private final String artifactBaseDir;
 
@@ -174,10 +177,10 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
       logger.info("Found local mlflow executable");
       mlflowSuccessfullyLoaded.set(true);
     } catch (MlflowClientException e) {
-      String errorMessage = String.format("Failed to exec '%s -m mlflow.store.cli', needed to" +
+      String errorMessage = String.format("Failed to exec '%s -m %s', needed to" +
           " access artifacts within the non-Java-native artifact store at '%s'. Please make" +
           " sure mlflow is available on your local system path (e.g., from 'pip install mlflow')",
-        PYTHON_EXECUTABLE, artifactBaseDir);
+        PYTHON_EXECUTABLE, PYTHON_COMMAND, artifactBaseDir);
       throw new MlflowClientException(errorMessage, e);
     }
   }
@@ -197,7 +200,7 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     Process process = null;
     try {
       MlflowHostCreds hostCreds = hostCredsProvider.getHostCreds();
-      List<String> fullCommand = Lists.newArrayList(PYTHON_EXECUTABLE, "-m", "mlflow.store.cli");
+      List<String> fullCommand = Lists.newArrayList(PYTHON_EXECUTABLE, "-m", PYTHON_COMMAND);
       fullCommand.addAll(mlflowCommand);
       ProcessBuilder pb = new ProcessBuilder(fullCommand);
       setProcessEnvironment(pb.environment(), hostCreds);

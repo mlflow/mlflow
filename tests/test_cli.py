@@ -52,7 +52,7 @@ def test_tracking_uri_validation_failure(command):
 def test_tracking_uri_validation_sql_driver_uris(command):
     handlers._store = None
     with mock.patch("mlflow.cli._run_server") as run_server_mock,\
-            mock.patch("mlflow.store.sqlalchemy_store.SqlAlchemyStore") as sql_store:
+            mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore") as sql_store:
         CliRunner().invoke(command,
                            ["--backend-store-uri", "mysql+pymysql://user:pwd@host:5432/mydb",
                             "--default-artifact-root", "./mlruns"])

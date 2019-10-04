@@ -9,7 +9,7 @@ from databricks_cli.configure.provider import DatabricksConfig
 import mlflow
 from mlflow.entities import ViewType
 from mlflow.projects import ExecutionException, _get_docker_image_uri
-from mlflow.store import file_store
+from mlflow.store.tracking import file_store
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID
 

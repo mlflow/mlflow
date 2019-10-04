@@ -7,7 +7,7 @@ import sqlalchemy
 from sqlalchemy.schema import CreateTable, MetaData
 import tempfile
 
-from mlflow.store.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 
 def dump_db_schema(db_url, dst_file):

@@ -10,7 +10,6 @@ from click import UsageError
 
 import mlflow.azureml.cli
 import mlflow.projects as projects
-import mlflow.data
 import mlflow.experiments
 import mlflow.models.cli
 
@@ -25,9 +24,9 @@ from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args
 from mlflow.server import _run_server
 from mlflow.server.handlers import _get_store
-from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow import tracking
-import mlflow.store.cli
+import mlflow.store.artifact.cli
 
 _logger = logging.getLogger(__name__)
 
@@ -280,7 +279,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 cli.add_command(mlflow.models.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
-cli.add_command(mlflow.store.cli.commands)
+cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)

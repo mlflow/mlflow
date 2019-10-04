@@ -24,7 +24,7 @@ from mlflow import tracking
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
-from mlflow.store.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir

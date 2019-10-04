@@ -15,7 +15,7 @@ from mlflow.entities import RunStatus
 from mlflow.projects import databricks, ExecutionException
 from mlflow.tracking import MlflowClient
 from mlflow.utils import file_utils
-from mlflow.store.file_store import FileStore
+from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, \
     MLFLOW_DATABRICKS_WEBAPP_URL
