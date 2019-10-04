@@ -31,15 +31,14 @@ from mlflow.tracking.context.git_context import _get_git_commit
 import mlflow.projects.databricks
 from mlflow.utils import process
 
-from mlflow.store.local_artifact_repo import LocalArtifactRepository
-from mlflow.store.s3_artifact_repo import S3ArtifactRepository
-from mlflow.store.azure_blob_artifact_repo import AzureBlobArtifactRepository
-from mlflow.store.gcs_artifact_repo import GCSArtifactRepository
-from mlflow.store.hdfs_artifact_repo import HdfsArtifactRepository
-from mlflow.store.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository
+from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri, \
-    get_local_path_or_none
+from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
     MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
