@@ -108,22 +108,6 @@ def tf_core_random_tensors():
         writer.close()
         sess.close()
 
-    @tf.function
-    def total(a, b):
-        return a + b
-
-    with mlflow.start_run() as run:
-        dir = tempfile.mkdtemp()
-        writer = tf.summary.create_file_writer(dir)
-        with writer.as_default():
-            a = tf.constant(3.0, dtype=tf.float32)
-            b = tf.constant(4.0)
-            tf.summary.scalar('a', a, step=0)
-            tf.summary.scalar('b', b, step=0)
-            for i in range(40):
-
-
-
     return client.get_run(run.info.run_id)
 
 
