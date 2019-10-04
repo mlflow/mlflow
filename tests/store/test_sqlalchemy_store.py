@@ -12,6 +12,8 @@ import sqlalchemy
 import time
 import mlflow
 import uuid
+import json
+import pandas as pd
 
 import mlflow.db
 from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment, Metric, Param
@@ -20,10 +22,12 @@ from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
 from mlflow.store import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.db.utils import _get_schema_version
 from mlflow.store.dbmodels import models
+from mlflow.store.dbmodels.db_types import MYSQL, MSSQL
 from mlflow import entities
 from mlflow.exceptions import MlflowException
 from mlflow.store.sqlalchemy_store import SqlAlchemyStore
 from mlflow.utils import extract_db_type_from_uri, mlflow_tags
+from mlflow.utils.file_utils import TempDir
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.integration.utils import invoke_cli_runner
 
@@ -40,7 +44,7 @@ class TestParseDbUri(unittest.TestCase):
             'postgresql': ('psycopg2', 'pg8000', 'psycopg2cffi',
                            'pypostgresql', 'pygresql', 'zxjdbc'),
             'mysql': ('mysqldb', 'pymysql', 'mysqlconnector', 'cymysql',
-                      'oursql', 'mysqldb', 'gaerdbms', 'pyodbc', 'zxjdbc'),
+                      'oursql', 'gaerdbms', 'pyodbc', 'zxjdbc'),
             'mssql': ('pyodbc', 'mxodbc', 'pymssql', 'zxjdbc', 'adodbapi')
         }
         for target_db_type, drivers in target_db_type_uris.items():
@@ -184,6 +188,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         actual_by_name = self.store.get_experiment_by_name(name)
         self.assertEqual(actual_by_name.name, name)
         self.assertEqual(actual_by_name.experiment_id, experiment_id)
+        self.assertEqual(self.store.get_experiment_by_name("idontexist"), None)
 
     def test_list_experiments(self):
         testnames = ['blue', 'red', 'green']
@@ -325,8 +330,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             'lifecycle_stage': entities.LifecycleStage.ACTIVE,
             'artifact_uri': '//'
         }
-        with self.store.ManagedSessionMaker() as session:
-            run = models.SqlRun(**config).to_mlflow_entity(session)
+        run = models.SqlRun(**config).to_mlflow_entity()
 
         for k, v in config.items():
             # These keys were removed from RunInfo.
@@ -417,8 +421,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         tkey = 'blahmetric'
         tval = 100.0
-        metric = entities.Metric(tkey, tval, int(time.time()), 0)
-        metric2 = entities.Metric(tkey, tval, int(time.time()) + 2, 0)
+        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
+        metric2 = entities.Metric(tkey, tval, int(1000 * time.time()) + 2, 0)
         nan_metric = entities.Metric("NaN", float("nan"), 0, 0)
         pos_inf_metric = entities.Metric("PosInf", float("inf"), 0, 0)
         neg_inf_metric = entities.Metric("NegInf", -float("inf"), 0, 0)
@@ -479,7 +483,7 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         tkey = 'blahmetric'
         tval = None
-        metric = entities.Metric(tkey, tval, int(time.time()), 0)
+        metric = entities.Metric(tkey, tval, int(1000 * time.time()), 0)
 
         warnings.simplefilter("ignore")
         with self.assertRaises(MlflowException) as exception_context, warnings.catch_warnings():
@@ -1276,6 +1280,115 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
             invoke_cli_runner(mlflow.db.commands, ['upgrade', self.db_url])
             assert _get_schema_version(engine) == SqlAlchemyStore._get_latest_schema_revision()
 
+    def test_metrics_materialization_upgrade_succeeds_and_produces_expected_latest_metric_values(
+            self):
+        """
+        Tests the ``89d4b8295536_create_latest_metrics_table`` migration by migrating and querying
+        the MLflow Tracking SQLite database located at
+        /mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics.sql. This database contains
+        metric entries populated by the following metrics generation script:
+        https://gist.github.com/dbczumar/343173c6b8982a0cc9735ff19b5571d9.
+
+        First, the database is upgraded from its HEAD revision of
+        ``7ac755974ad8_update_run_tags_with_larger_limit`` to the latest revision via
+        ``mlflow db upgrade``.
+
+        Then, the test confirms that the metric entries returned by calls
+        to ``SqlAlchemyStore.get_run()`` are consistent between the latest revision and the
+        ``7ac755974ad8_update_run_tags_with_larger_limit`` revision. This is confirmed by
+        invoking ``SqlAlchemyStore.get_run()`` for each run id that is present in the upgraded
+        database and comparing the resulting runs' metric entries to a JSON dump taken from the
+        SQLite database prior to the upgrade (located at
+        mlflow/tests/resources/db/db_version_7ac759974ad8_with_metrics_expected_values.json).
+        This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the
+        following code from the directory containing this test suite:
+
+        >>> import json
+        >>> import mlflow
+        >>> from mlflow.tracking.client import MlflowClient
+        >>> mlflow.set_tracking_uri(
+        ...     "sqlite:///../resources/db/db_version_7ac759974ad8_with_metrics.sql")
+        >>> client = MlflowClient()
+        >>> summary_metrics = {
+        ...     run.info.run_id: run.data.metrics for run
+        ...     in client.search_runs(experiment_ids="0")
+        ... }
+        >>> with open("dump.json", "w") as dump_file:
+        >>>     json.dump(summary_metrics, dump_file, indent=4)
+        """
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        db_resources_path = os.path.normpath(
+            os.path.join(current_dir, os.pardir, "resources", "db"))
+        expected_metric_values_path = os.path.join(
+            db_resources_path, "db_version_7ac759974ad8_with_metrics_expected_values.json")
+        with TempDir() as tmp_db_dir:
+            db_path = tmp_db_dir.path("tmp_db.sql")
+            db_url = "sqlite:///" + db_path
+            shutil.copyfile(
+                src=os.path.join(db_resources_path, "db_version_7ac759974ad8_with_metrics.sql"),
+                dst=db_path)
+
+            invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
+            store = self._get_store(db_uri=db_url)
+            with open(expected_metric_values_path, "r") as f:
+                expected_metric_values = json.load(f)
+
+            for run_id, expected_metrics in expected_metric_values.items():
+                fetched_run = store.get_run(run_id=run_id)
+                assert fetched_run.data.metrics == expected_metrics
+
+    def test_search_runs_returns_expected_results_with_large_experiment(self):
+        """
+        This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
+        that search queries over an experiment containing many runs, each with a large number
+        of metrics, parameters, and tags, are performant and return the expected results.
+        """
+        experiment_id = self.store.create_experiment('test_experiment')
+        run_ids = []
+        for _ in range(1000):
+            run_ids.append(self.store.create_run(
+                experiment_id=experiment_id,
+                start_time=time.time(),
+                tags=(),
+                user_id='Anderson').info.run_uuid)
+
+        metrics_list = []
+        tags_list = []
+        params_list = []
+        for run_id in run_ids:
+            for i in range(100):
+                metric = {
+                    'key': 'mkey-%s' % i,
+                    'value': i,
+                    'timestamp': i * 2,
+                    'step': i * 3,
+                    'is_nan': 0,
+                    'run_uuid': run_id,
+                }
+                metrics_list.append(metric)
+                tag = {
+                    'key': "tkey-%s" % i,
+                    'value': "tval-%s" % i,
+                    'run_uuid': run_id,
+                }
+                tags_list.append(tag)
+                param = {
+                    'key': "pkey-%s" % i,
+                    'value': "pval-%s" % i,
+                    'run_uuid': run_id,
+                }
+                params_list.append(param)
+        metrics = pd.DataFrame(metrics_list)
+        metrics.to_sql('metrics', self.store.engine, if_exists='append', index=False)
+        params = pd.DataFrame(params_list)
+        params.to_sql('params', self.store.engine, if_exists='append', index=False)
+        tags = pd.DataFrame(tags_list)
+        tags.to_sql('tags', self.store.engine, if_exists='append', index=False)
+
+        run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
+        assert len(run_results) > 0
+        assert set([run.info.run_id for run in run_results]).issubset(set(run_ids))
+
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
@@ -1337,3 +1450,32 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
             self.store.log_metric(run.info.run_id, entities.Metric("key", i, i * 2, i * 3))
             self.store.log_param(run.info.run_id, entities.Param("pkey-%s" % i, "pval-%s" % i))
             self.store.set_tag(run.info.run_id, entities.RunTag("tkey-%s" % i, "tval-%s" % i))
+
+
+@mock.patch('sqlalchemy.orm.session.Session', spec=True)
+class TestZeroValueInsertion(unittest.TestCase):
+    def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
+        mock_store = mock.Mock(SqlAlchemyStore)
+        mock_store.db_type = MYSQL
+        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+        mock_session.execute.assert_called_with("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+
+    def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
+        mock_store = mock.Mock(SqlAlchemyStore)
+        mock_store.db_type = MSSQL
+        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+        mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments ON;")
+
+    def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(self, mock_session):
+        mock_store = mock.Mock(SqlAlchemyStore)
+        mock_store.db_type = MYSQL
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,
+                                                                             mock_session)
+        mock_session.execute.assert_called_with("SET @@SESSION.sql_mode='';")
+
+    def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(self, mock_session):
+        mock_store = mock.Mock(SqlAlchemyStore)
+        mock_store.db_type = MSSQL
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,
+                                                                             mock_session)
+        mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments OFF;")
