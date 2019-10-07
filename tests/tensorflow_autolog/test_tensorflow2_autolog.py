@@ -54,8 +54,7 @@ def tf_keras_random_data_run(random_train_data):
         model.compile(optimizer=tf.keras.optimizers.Adam(),
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
-        import pdb
-        pdb.set_trace()
+
         model.fit(data, labels, epochs=10)
 
     return client.get_run(run.info.run_id)
@@ -64,15 +63,21 @@ def tf_keras_random_data_run(random_train_data):
 @pytest.mark.large
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
-    import pdb
-    pdb.set_trace()
-    assert 'epoch_acc' in data.metrics
-    assert 'epoch_loss' in data.metrics
-    assert 'optimizer_name' in data.params
-    assert data.params['optimizer_name'] == 'AdamOptimizer'
+    assert 'accuracy' in data.metrics
+    assert 'loss' in data.metrics
+    assert 'name' in data.params
+    assert data.params['name'] == 'Adam'
+    assert 'learning_rate' in data.params
+    assert 'decay' in data.params
+    assert 'beta_1' in data.params
+    assert 'beta_2' in data.params
+    assert 'epsilon' in data.params
+    assert 'amsgrad' in data.params
+    assert data.params['amsgrad'] == 'False'
+    print(data.params)
     assert 'summary' in tf_keras_random_data_run.data.tags
     assert 'Total params: 6,922' in tf_keras_random_data_run.data.tags['summary']
-    all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'epoch_acc')
+    all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'accuracy')
     assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
 
 
@@ -120,7 +125,7 @@ def tf_estimator_random_data_run():
 
         feature_spec = {}
         for feature in CSV_COLUMN_NAMES:
-            feature_spec[feature] = tf.placeholder(dtype="float", name=feature, shape=[150])
+            feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
 
         receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
@@ -149,13 +154,12 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 
 
 @pytest.mark.large
-def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
+def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts
-    session = tf.Session()
     model = mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id +
-                                         "/model", session)
+                                         "/model")
 
 
 @pytest.fixture

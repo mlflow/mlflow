@@ -443,7 +443,7 @@ class _TF2Wrapper(object):
 
 class __MLflowTfKerasCallback(Callback):
     """
-        Callback for auto-logging parameters (we rely on TensorBoard for metrics).
+        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
         Records model structural information as params after training finishes.
     """
     def __init__(self):
@@ -457,12 +457,9 @@ class __MLflowTfKerasCallback(Callback):
         pass
 
     def on_epoch_end(self, epoch, logs=None):
-        try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
         pass
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        import pdb
-        pdb.set_trace()
         opt = self.model.optimizer
         if hasattr(opt, 'optimizer'):
             opt = opt.optimizer
@@ -474,6 +471,37 @@ class __MLflowTfKerasCallback(Callback):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+        l = []
+        self.model.summary(print_fn=l.append)
+        summary = '\n'.join(l)
+        try_mlflow_log(mlflow.set_tag, 'summary', summary)
+        try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
+
+
+class __MLflowTfKeras2Callback(Callback):
+    """
+        Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
+        Records model structural information as params after training finishes.
+    """
+    def __init__(self):
+        if mlflow.active_run() is None:
+            mlflow.start_run()
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
+            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+
+    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+        opt = self.model.optimizer
+        config = opt.get_config()
+        for attribute in config:
+            try_mlflow_log(mlflow.log_param, attribute, config[attribute])
         l = []
         self.model.summary(print_fn=l.append)
         summary = '\n'.join(l)
@@ -552,15 +580,16 @@ def _setup_callbacks(lst):
     input list, and returns the new list and appropriate log directory.
     """
     tb = _get_tensorboard_callback(lst)
-    import pdb
-    pdb.set_trace()
     if tb is None:
         log_dir = tempfile.mkdtemp()
         l = lst + [TensorBoard(log_dir)]
     else:
         log_dir = tb.log_dir
         l = lst
-    l += [__MLflowTfKerasCallback()]
+    if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
+        l += [__MLflowTfKerasCallback()]
+    else:
+        l += [__MLflowTfKeras2Callback()]
     return l, log_dir
 
 
@@ -633,8 +662,6 @@ def autolog(every_n_iter=100):
         else:
             kwargs['callbacks'], log_dir = _setup_callbacks([])
         result = original(self, *args, **kwargs)
-        import pdb
-        pdb.set_trace()
         _flush_queue()
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
         shutil.rmtree(log_dir)
