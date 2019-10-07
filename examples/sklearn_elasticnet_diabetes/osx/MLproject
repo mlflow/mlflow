@@ -7,4 +7,4 @@ entry_points:
     parameters:
       alpha: {type: float, default: 0.01}
       l1_ratio: {type: float, default: 0.1}
-    command: "pythonw train_diabetes.py {alpha} {l1_ratio}"
+    command: "python train_diabetes.py {alpha} {l1_ratio}"
