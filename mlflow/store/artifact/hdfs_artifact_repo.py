@@ -1,6 +1,7 @@
 import os
 import posixpath
 import tempfile
+import logging
 from contextlib import contextmanager
 
 from six.moves import urllib
@@ -9,6 +10,9 @@ from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import mkdir, relative_path_to_artifact_path
+
+_logger = logging.getLogger(__name__)
+HAR_EXTENSION = ".har"
 
 
 class HdfsArtifactRepository(ArtifactRepository):
@@ -159,7 +163,12 @@ def hdfs_system(host, port):
     """
     import pyarrow as pa
 
-    driver = os.getenv('MLFLOW_HDFS_DRIVER') or 'libhdfs'
+    if host and host.startswith("har://"):
+        _logger.info(
+            "Hadoop archive can be open only by libhdfs. Ignoring MLFLOW_HDFS_DRIVER setting.")
+        driver = "libhdfs"
+    else:
+        driver = os.getenv('MLFLOW_HDFS_DRIVER') or 'libhdfs'
     kerb_ticket = os.getenv('MLFLOW_KERBEROS_TICKET_CACHE')
     kerberos_user = os.getenv('MLFLOW_KERBEROS_USER')
     extra_conf = _parse_extra_conf(os.getenv('MLFLOW_PYARROW_EXTRA_CONF'))
@@ -174,9 +183,25 @@ def hdfs_system(host, port):
     connected.close()
 
 
+class HdfsArtifactRepositoryException(Exception):
+    pass
+
+
 def _resolve_connection_params(artifact_uri):
     parsed = urllib.parse.urlparse(artifact_uri)
+    if parsed.scheme == "har":
+        return _parse_har_filesystem(artifact_uri)
     return parsed.hostname, parsed.port, parsed.path
+
+
+def _parse_har_filesystem(artifact_uri):
+    har_extension_index = artifact_uri.find(HAR_EXTENSION)
+    if har_extension_index < 0:
+        error_msg = "{0} is not valid hadoop archive path: no .har extension in path.".format(
+            artifact_uri)
+        raise HdfsArtifactRepositoryException(error_msg)
+    archive_path = artifact_uri[:har_extension_index + len(HAR_EXTENSION)]
+    return archive_path, 0, artifact_uri
 
 
 def _resolve_base_path(path, artifact_path):
