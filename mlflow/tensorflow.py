@@ -501,7 +501,7 @@ class __MLflowTfKeras2Callback(Callback):
         opt = self.model.optimizer
         config = opt.get_config()
         for attribute in config:
-            try_mlflow_log(mlflow.log_param, attribute, config[attribute])
+            try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
         l = []
         self.model.summary(print_fn=l.append)
         summary = '\n'.join(l)

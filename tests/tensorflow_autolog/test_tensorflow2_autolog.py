@@ -65,15 +65,15 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
     assert 'accuracy' in data.metrics
     assert 'loss' in data.metrics
-    assert 'name' in data.params
-    assert data.params['name'] == 'Adam'
-    assert 'learning_rate' in data.params
-    assert 'decay' in data.params
-    assert 'beta_1' in data.params
-    assert 'beta_2' in data.params
-    assert 'epsilon' in data.params
-    assert 'amsgrad' in data.params
-    assert data.params['amsgrad'] == 'False'
+    assert 'opt_name' in data.params
+    assert data.params['opt_name'] == 'Adam'
+    assert 'opt_learning_rate' in data.params
+    assert 'opt_decay' in data.params
+    assert 'opt_beta_1' in data.params
+    assert 'opt_beta_2' in data.params
+    assert 'opt_epsilon' in data.params
+    assert 'opt_amsgrad' in data.params
+    assert data.params['opt_amsgrad'] == 'False'
     assert 'summary' in tf_keras_random_data_run.data.tags
     assert 'Total params: 6,922' in tf_keras_random_data_run.data.tags['summary']
     all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'accuracy')
