@@ -18,7 +18,7 @@ import mlflow.runs
 import mlflow.store.db.utils
 import mlflow.db
 
-from mlflow.tracking.utils import _is_local_uri
+from mlflow.utils.uri import _is_local_uri
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
 from mlflow.utils import cli_args

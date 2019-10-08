@@ -22,8 +22,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_S
     MLFLOW_SOURCE_TYPE
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
-from tests.projects.utils import tracking_uri_mock
-
 
 def test_create_experiment(tracking_uri_mock):
     with pytest.raises(TypeError):
@@ -484,31 +482,6 @@ def test_log_artifact(tracking_uri_mock):
         assert len(dir_comparison.right_only) == 0
         assert len(dir_comparison.diff_files) == 0
         assert len(dir_comparison.funny_files) == 0
-
-
-def test_uri_types():
-    from mlflow.tracking import utils
-    assert utils._is_local_uri("mlruns")
-    assert utils._is_local_uri("./mlruns")
-    assert utils._is_local_uri("file:///foo/mlruns")
-    assert utils._is_local_uri("file:foo/mlruns")
-    assert not utils._is_local_uri("https://whatever")
-    assert not utils._is_local_uri("http://whatever")
-    assert not utils._is_local_uri("databricks")
-    assert not utils._is_local_uri("databricks:whatever")
-    assert not utils._is_local_uri("databricks://whatever")
-
-    assert utils._is_databricks_uri("databricks")
-    assert utils._is_databricks_uri("databricks:whatever")
-    assert utils._is_databricks_uri("databricks://whatever")
-    assert not utils._is_databricks_uri("mlruns")
-    assert not utils._is_databricks_uri("http://whatever")
-
-    assert utils._is_http_uri("http://whatever")
-    assert utils._is_http_uri("https://whatever")
-    assert not utils._is_http_uri("file://whatever")
-    assert not utils._is_http_uri("databricks://whatever")
-    assert not utils._is_http_uri("mlruns")
 
 
 def test_with_startrun():

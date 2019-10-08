@@ -21,6 +21,7 @@ import docker
 
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
+import mlflow.utils.uri
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
 from mlflow.projects import _project_spec
 from mlflow.exceptions import ExecutionException, MlflowException
@@ -934,8 +935,8 @@ def _get_docker_tracking_cmd_and_envs(tracking_uri):
     if local_path is not None:
         cmds = ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
-    if tracking.utils._is_databricks_uri(tracking_uri):
-        db_profile = mlflow.tracking.utils.get_db_profile_from_uri(tracking_uri)
+    if mlflow.utils.uri._is_databricks_uri(tracking_uri):
+        db_profile = mlflow.utils.uri.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)
         # We set these via environment variables so that only the current profile is exposed, rather
         # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary
