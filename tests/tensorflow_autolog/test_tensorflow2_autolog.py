@@ -74,7 +74,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert 'epsilon' in data.params
     assert 'amsgrad' in data.params
     assert data.params['amsgrad'] == 'False'
-    print(data.params)
     assert 'summary' in tf_keras_random_data_run.data.tags
     assert 'Total params: 6,922' in tf_keras_random_data_run.data.tags['summary']
     all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'accuracy')
