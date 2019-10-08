@@ -49,9 +49,9 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     if keras_module.__name__ == "keras":
         keras_dependency = ["keras=={}".format(keras_module.__version__)]
     pip_deps = None
-    if include_cloudpickle:
-        import cloudpickle
-        pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
+    # if include_cloudpickle:
+    #     import cloudpickle
+    #     pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
     return _mlflow_conda_env(
         additional_conda_deps=keras_dependency + [
             # The Keras pyfunc representation requires the TensorFlow
@@ -120,6 +120,8 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
         def _is_tf_keras(model):
             try:
                 # NB: Network is not exposed in tf.keras, we check for Model instead.
+                import pdb
+                pdb.set_trace()
                 import tensorflow.keras.models
                 return isinstance(model, tensorflow.keras.models.Model)
             except ImportError:
@@ -130,12 +132,15 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
         elif _is_tf_keras(keras_model):
             keras_module = importlib.import_module("tensorflow.keras")
         else:
+            print("WHOOPS")
             raise MlflowException("Unable to infer keras module from the model, please specify "
                                   "which keras module ('keras' or 'tensorflow.keras') is to be "
                                   "used to save and load the model.")
     elif type(keras_module) == str:
         keras_module = importlib.import_module(keras_module)
 
+    import pdb
+    pdb.set_trace()
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise MlflowException("Path '{}' already exists".format(path))
@@ -290,7 +295,7 @@ def _load_pyfunc(path):
         keras_module = keras
 
     K = importlib.import_module(keras_module.__name__ + ".backend")
-    if keras_module.__name__ == "tensorflow.keras" or K._BACKEND == 'tensorflow':
+    if keras_module.__name__ == "tensorflow.keras" or K.backend() == 'tensorflow':
         import tensorflow as tf
         graph = tf.Graph()
         sess = tf.Session(graph=graph)
