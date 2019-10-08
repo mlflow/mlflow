@@ -5,10 +5,10 @@ import sys
 
 from six.moves import urllib
 
-from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
-from mlflow.store.file_store import FileStore
-from mlflow.store.rest_store import RestStore, DatabricksRestStore
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.tracking.file_store import FileStore
+from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
 from mlflow.tracking.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
@@ -92,7 +92,7 @@ def _get_file_store(store_uri, **_):
 
 
 def _get_sqlalchemy_store(store_uri, artifact_uri):
-    from mlflow.store.sqlalchemy_store import SqlAlchemyStore
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
     if artifact_uri is None:
         artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
     return SqlAlchemyStore(store_uri, artifact_uri)

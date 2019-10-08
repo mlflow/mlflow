@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import {
   getBasename, getExtension, IMAGE_EXTENSIONS,
-  TEXT_EXTENSIONS
+  TEXT_EXTENSIONS, MAP_EXTENSIONS
 } from '../utils/FileUtils';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
@@ -293,6 +293,8 @@ decorators.Header = ({style, node}) => {
       iconType = 'file-image';
     } else if (TEXT_EXTENSIONS.has(extension)) {
       iconType = 'file-code';
+    } else if (MAP_EXTENSIONS.has(extension)) {
+      iconType = 'map-marker-alt';
     } else {
       iconType = 'file-alt';
     }
