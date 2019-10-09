@@ -1,7 +1,6 @@
 from sys import version_info
 
 from mlflow.utils.annotations import deprecated, experimental, keyword_only
-from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import _validate_db_type_string
 
 PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,

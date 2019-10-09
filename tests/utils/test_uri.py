@@ -2,9 +2,8 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.utils import extract_db_type_from_uri
 from mlflow.utils.uri import _is_databricks_uri, _is_http_uri, _is_local_uri, \
-    get_db_profile_from_uri, get_uri_scheme
+    extract_db_type_from_uri, get_db_profile_from_uri, get_uri_scheme
 
 
 def test_extract_db_type_from_uri():
