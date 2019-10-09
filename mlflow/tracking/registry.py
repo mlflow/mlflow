@@ -3,7 +3,7 @@ import warnings
 import entrypoints
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils import get_uri_scheme
+from mlflow.utils.uri import get_uri_scheme
 
 
 class TrackingStoreRegistry:
