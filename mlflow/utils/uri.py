@@ -1,21 +1,23 @@
+from six.moves import urllib
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils import _INVALID_DB_URI_MSG, _validate_db_type_string
 
 
-def _is_local_uri(uri):
+def is_local_uri(uri):
     """Returns true if this is a local file path (/foo or file:/foo)."""
     scheme = urllib.parse.urlparse(uri).scheme
     return uri != 'databricks' and (scheme == '' or scheme == 'file')
 
 
-def _is_http_uri(uri):
+def is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == 'http' or scheme == 'https'
 
 
-def _is_databricks_uri(uri):
+def is_databricks_uri(uri):
     """Databricks URIs look like 'databricks' (default profile) or 'databricks://profile'"""
     scheme = urllib.parse.urlparse(uri).scheme
     return scheme == 'databricks' or uri == 'databricks'

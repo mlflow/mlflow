@@ -24,7 +24,7 @@ from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils.uri import _is_local_uri
+from mlflow.utils.uri import is_local_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -178,7 +178,7 @@ def ui(backend_store_uri, default_artifact_root, port):
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     if not default_artifact_root:
-        if _is_local_uri(backend_store_uri):
+        if is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
         else:
             default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -252,7 +252,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     if not default_artifact_root:
-        if _is_local_uri(backend_store_uri):
+        if is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
         else:
             eprint("Option 'default-artifact-root' is required, when backend store is not "

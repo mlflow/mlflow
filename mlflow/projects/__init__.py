@@ -932,7 +932,7 @@ def _get_docker_tracking_cmd_and_envs(tracking_uri):
     if local_path is not None:
         cmds = ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
-    if utils.uri._is_databricks_uri(tracking_uri):
+    if utils.uri.is_databricks_uri(tracking_uri):
         db_profile = utils.uri.get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)
         # We set these via environment variables so that only the current profile is exposed, rather
