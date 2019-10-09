@@ -19,8 +19,7 @@ from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST, INTERNAL_ERROR
-from mlflow.tracking.utils import _is_local_uri
-from mlflow.utils import extract_db_type_from_uri
+from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
@@ -102,7 +101,7 @@ class SqlAlchemyStore(AbstractStore):
         self.ManagedSessionMaker = self._get_managed_session_maker(SessionMaker)
         SqlAlchemyStore._verify_schema(self.engine)
 
-        if _is_local_uri(default_artifact_root):
+        if is_local_uri(default_artifact_root):
             mkdir(local_file_uri_to_path(default_artifact_root))
 
         if len(self.list_experiments()) == 0:

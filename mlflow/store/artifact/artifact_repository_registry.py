@@ -12,7 +12,7 @@ from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.sftp_artifact_repo import SFTPArtifactRepository
 
-from mlflow.utils import get_uri_scheme
+from mlflow.utils.uri import get_uri_scheme
 
 
 class ArtifactRepositoryRegistry:

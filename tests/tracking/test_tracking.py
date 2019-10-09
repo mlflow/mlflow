@@ -486,31 +486,6 @@ def test_log_artifact(tracking_uri_mock):
         assert len(dir_comparison.funny_files) == 0
 
 
-def test_uri_types():
-    from mlflow.tracking import utils
-    assert utils._is_local_uri("mlruns")
-    assert utils._is_local_uri("./mlruns")
-    assert utils._is_local_uri("file:///foo/mlruns")
-    assert utils._is_local_uri("file:foo/mlruns")
-    assert not utils._is_local_uri("https://whatever")
-    assert not utils._is_local_uri("http://whatever")
-    assert not utils._is_local_uri("databricks")
-    assert not utils._is_local_uri("databricks:whatever")
-    assert not utils._is_local_uri("databricks://whatever")
-
-    assert utils._is_databricks_uri("databricks")
-    assert utils._is_databricks_uri("databricks:whatever")
-    assert utils._is_databricks_uri("databricks://whatever")
-    assert not utils._is_databricks_uri("mlruns")
-    assert not utils._is_databricks_uri("http://whatever")
-
-    assert utils._is_http_uri("http://whatever")
-    assert utils._is_http_uri("https://whatever")
-    assert not utils._is_http_uri("file://whatever")
-    assert not utils._is_http_uri("databricks://whatever")
-    assert not utils._is_http_uri("mlruns")
-
-
 def test_with_startrun():
     run_id = None
     import time

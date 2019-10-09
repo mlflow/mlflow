@@ -9,14 +9,15 @@ import logging
 
 from six.moves import shlex_quote
 
+from mlflow import tracking
 from mlflow.entities import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.projects.submitted_run import SubmittedRun
 from mlflow.utils import rest_utils, file_utils, databricks_utils
 from mlflow.exceptions import ExecutionException
-from mlflow import tracking
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_RUN_URL, MLFLOW_DATABRICKS_SHELL_JOB_ID, \
     MLFLOW_DATABRICKS_SHELL_JOB_RUN_ID, MLFLOW_DATABRICKS_WEBAPP_URL
+from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri, is_http_uri
 from mlflow.version import VERSION
 
 # Base directory within driver container for storing files related to MLflow
@@ -40,8 +41,8 @@ def before_run_validations(tracking_uri, backend_config):
     if backend_config is None:
         raise ExecutionException("Backend spec must be provided when launching MLflow project "
                                  "runs on Databricks.")
-    if not tracking.utils._is_databricks_uri(tracking_uri) and \
-            not tracking.utils._is_http_uri(tracking_uri):
+    if not is_databricks_uri(tracking_uri) and \
+            not is_http_uri(tracking_uri):
         raise ExecutionException(
             "When running on Databricks, the MLflow tracking URI must be of the form "
             "'databricks' or 'databricks://profile', or a remote HTTP URI accessible to both the "
@@ -270,7 +271,7 @@ def run_databricks(remote_run, uri, entry_point, work_dir, parameters, experimen
     Run the project at the specified URI on Databricks, returning a ``SubmittedRun`` that can be
     used to query the run's status or wait for the resulting Databricks Job run to terminate.
     """
-    profile = tracking.utils.get_db_profile_from_uri(tracking.get_tracking_uri())
+    profile = get_db_profile_from_uri(tracking.get_tracking_uri())
     run_id = remote_run.info.run_id
     db_job_runner = DatabricksJobRunner(databricks_profile=profile)
     db_run_id = db_job_runner.run_databricks(
