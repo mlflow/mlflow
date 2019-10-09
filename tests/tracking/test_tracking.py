@@ -22,6 +22,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_S
     MLFLOW_SOURCE_TYPE
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
+from tests.projects.utils import tracking_uri_mock
+
 
 def test_create_experiment(tracking_uri_mock):
     with pytest.raises(TypeError):

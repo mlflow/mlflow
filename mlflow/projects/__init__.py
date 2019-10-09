@@ -22,7 +22,6 @@ import docker
 import mlflow.projects.databricks
 import mlflow.tracking as tracking
 import mlflow.tracking.fluent as fluent
-from mlflow import utils
 from mlflow.entities import RunStatus, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _project_spec
@@ -43,6 +42,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI
     MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
     LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, \
     MLFLOW_PROJECT_BACKEND
+from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
 _GIT_URI_REGEX = re.compile(r"^[^/]*:")
@@ -932,8 +932,8 @@ def _get_docker_tracking_cmd_and_envs(tracking_uri):
     if local_path is not None:
         cmds = ["-v", "%s:%s" % (local_path, _MLFLOW_DOCKER_TRACKING_DIR_PATH)]
         env_vars[tracking._TRACKING_URI_ENV_VAR] = container_tracking_uri
-    if utils.uri.is_databricks_uri(tracking_uri):
-        db_profile = utils.uri.get_db_profile_from_uri(tracking_uri)
+    if is_databricks_uri(tracking_uri):
+        db_profile = get_db_profile_from_uri(tracking_uri)
         config = databricks_utils.get_databricks_host_creds(db_profile)
         # We set these via environment variables so that only the current profile is exposed, rather
         # than all profiles in ~/.databrickscfg; maybe better would be to mount the necessary

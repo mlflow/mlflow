@@ -1,13 +1,10 @@
 from sys import version_info
 
 from mlflow.utils.annotations import deprecated, experimental, keyword_only
-from mlflow.utils.validation import _validate_db_type_string
 
 PYTHON_VERSION = "{major}.{minor}.{micro}".format(major=version_info.major,
                                                   minor=version_info.minor,
                                                   micro=version_info.micro)
-_INVALID_DB_URI_MSG = "Please refer to https://mlflow.org/docs/latest/tracking.html#storage for " \
-                      "format specifications."
 
 
 def get_major_minor_py_version(py_version):
