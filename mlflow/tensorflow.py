@@ -443,7 +443,7 @@ class _TF2Wrapper(object):
 
 class __MLflowTfKerasCallback(Callback):
     """
-        Callback for auto-logging parameters (we rely on TensorBoard for metrics).
+        Callback for auto-logging parameters (we rely on TensorBoard for metrics) in TensorFlow < 2.
         Records model structural information as params after training finishes.
     """
     def __init__(self):
@@ -471,6 +471,37 @@ class __MLflowTfKerasCallback(Callback):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+        l = []
+        self.model.summary(print_fn=l.append)
+        summary = '\n'.join(l)
+        try_mlflow_log(mlflow.set_tag, 'summary', summary)
+        try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
+
+
+class __MLflowTfKeras2Callback(Callback):
+    """
+        Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
+        Records model structural information as params after training finishes.
+    """
+    def __init__(self):
+        if mlflow.active_run() is None:
+            mlflow.start_run()
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        pass
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
+            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+
+    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+        opt = self.model.optimizer
+        config = opt.get_config()
+        for attribute in config:
+            try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
         l = []
         self.model.summary(print_fn=l.append)
         summary = '\n'.join(l)
@@ -555,7 +586,10 @@ def _setup_callbacks(lst):
     else:
         log_dir = tb.log_dir
         l = lst
-    l += [__MLflowTfKerasCallback()]
+    if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
+        l += [__MLflowTfKerasCallback()]
+    else:
+        l += [__MLflowTfKeras2Callback()]
     return l, log_dir
 
 
@@ -590,7 +624,7 @@ def autolog(every_n_iter=100):
         from tensorflow.python.summary.writer.writer import FileWriter
     except ImportError:
         warnings.warn("Could not log to MLflow. Only TensorFlow versions" +
-                      "1.12 <= v < 2.0.0 are supported.")
+                      "1.12 <= v <= 2.0.0 are supported.")
         return
 
     @gorilla.patch(tensorflow.estimator.Estimator)
@@ -618,6 +652,7 @@ def autolog(every_n_iter=100):
     @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
+        # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
             l = list(args)
             l[5], log_dir = _setup_callbacks(l[5])
