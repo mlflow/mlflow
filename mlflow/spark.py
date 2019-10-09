@@ -26,7 +26,6 @@ import yaml
 import logging
 
 import mlflow
-import mlflow.utils.uri
 from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
@@ -35,6 +34,7 @@ from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 from mlflow.utils.file_utils import TempDir
+from mlflow.utils.uri import _is_local_uri
 
 FLAVOR_NAME = "spark"
 
@@ -123,7 +123,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     # writing to `file:/uri` will write to the local filesystem from each executor, which will
     # be incorrect on multi-node clusters - to avoid such issues we just use the Model.log() path
     # here.
-    if mlflow.utils.uri._is_local_uri(run_root_artifact_uri):
+    if _is_local_uri(run_root_artifact_uri):
         return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
                          conda_env=conda_env, dfs_tmpdir=dfs_tmpdir,
                          sample_input=sample_input)

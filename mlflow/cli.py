@@ -9,24 +9,22 @@ import click
 from click import UsageError
 
 import mlflow.azureml.cli
-import mlflow.projects as projects
+import mlflow.db
 import mlflow.experiments
 import mlflow.models.cli
-
-import mlflow.sagemaker.cli
+import mlflow.projects as projects
 import mlflow.runs
+import mlflow.sagemaker.cli
+import mlflow.store.artifact.cli
 import mlflow.store.db.utils
-import mlflow.db
-
-from mlflow.utils.uri import _is_local_uri
-from mlflow.utils.logging_utils import eprint
-from mlflow.utils.process import ShellCommandException
-from mlflow.utils import cli_args
+from mlflow import tracking
 from mlflow.server import _run_server
 from mlflow.server.handlers import _get_store
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow import tracking
-import mlflow.store.artifact.cli
+from mlflow.utils import cli_args
+from mlflow.utils.logging_utils import eprint
+from mlflow.utils.process import ShellCommandException
+from mlflow.utils.uri import _is_local_uri
 
 _logger = logging.getLogger(__name__)
 
