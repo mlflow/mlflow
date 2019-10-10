@@ -36,7 +36,7 @@ NUM_RUNS_PER_PAGE_PANDAS = 10000
 _logger = logging.getLogger(__name__)
 
 
-def set_experiment(experiment_name):
+def set_experiment(experiment_name, artifact_location=None):
     """
     Set given experiment as active experiment. If experiment does not exist, create an experiment
     with provided name.
@@ -48,7 +48,7 @@ def set_experiment(experiment_name):
     exp_id = experiment.experiment_id if experiment else None
     if exp_id is None:  # id can be 0
         print("INFO: '{}' does not exist. Creating a new experiment".format(experiment_name))
-        exp_id = client.create_experiment(experiment_name)
+        exp_id = client.create_experiment(experiment_name, artifact_location)
     elif experiment.lifecycle_stage == LifecycleStage.DELETED:
         raise MlflowException(
             "Cannot set a deleted experiment '%s' as the active experiment."
