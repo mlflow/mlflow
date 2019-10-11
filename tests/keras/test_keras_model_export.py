@@ -131,55 +131,55 @@ def keras_custom_env(tmpdir):
     return conda_env
 
 
-# def test_that_keras_module_arg_works(model_path):
-#     class MyModel(object):
-#         def __init__(self, x):
-#             self._x = x
-#
-#         def __eq__(self, other):
-#             return self._x == other._x
-#
-#         def save(self, path, **kwargs):
-#             with h5py.File(path, "w") as f:
-#                 f.create_dataset(name="x", data=self._x)
-#
-#     class FakeKerasModule(object):
-#         __name__ = "some.test.keras.module"
-#         __version__ = "42.42.42"
-#
-#         @staticmethod
-#         def load_model(file, **kwars):
-#             return MyModel(file.get("x").value)
-#
-#     def _import_module(name, **kwargs):
-#         if name.startswith(FakeKerasModule.__name__):
-#             return FakeKerasModule
-#         else:
-#             return importlib.import_module(name, **kwargs)
-#
-#     with mock.patch("importlib.import_module") as import_module_mock:
-#         import_module_mock.side_effect = _import_module
-#         x = MyModel("x123")
-#         path0 = os.path.join(model_path, "0")
-#         with pytest.raises(MlflowException):
-#             mlflow.keras.save_model(x, path0)
-#         mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule)
-#         y = mlflow.keras.load_model(path0)
-#         assert x == y
-#         path1 = os.path.join(model_path, "1")
-#         mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__)
-#         z = mlflow.keras.load_model(path1)
-#         assert x == z
-#         # Tets model log
-#         with mlflow.start_run() as active_run:
-#             with pytest.raises(MlflowException):
-#                 mlflow.keras.log_model(x, "model0")
-#             mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule)
-#             a = mlflow.keras.load_model("runs:/{}/model0".format(active_run.info.run_id))
-#             assert x == a
-#             mlflow.keras.log_model(x, "model1", keras_module=FakeKerasModule.__name__)
-#             b = mlflow.keras.load_model("runs:/{}/model1".format(active_run.info.run_id))
-#             assert x == b
+def test_that_keras_module_arg_works(model_path):
+    class MyModel(object):
+        def __init__(self, x):
+            self._x = x
+
+        def __eq__(self, other):
+            return self._x == other._x
+
+        def save(self, path, **kwargs):
+            with h5py.File(path, "w") as f:
+                f.create_dataset(name="x", data=self._x)
+
+    class FakeKerasModule(object):
+        __name__ = "some.test.keras.module"
+        __version__ = "42.42.42"
+
+        @staticmethod
+        def load_model(file, **kwars):
+            return MyModel(file.get("x").value)
+
+    def _import_module(name, **kwargs):
+        if name.startswith(FakeKerasModule.__name__):
+            return FakeKerasModule
+        else:
+            return importlib.import_module(name, **kwargs)
+
+    with mock.patch("importlib.import_module") as import_module_mock:
+        import_module_mock.side_effect = _import_module
+        x = MyModel("x123")
+        path0 = os.path.join(model_path, "0")
+        with pytest.raises(MlflowException):
+            mlflow.keras.save_model(x, path0)
+        mlflow.keras.save_model(x, path0, keras_module=FakeKerasModule)
+        y = mlflow.keras.load_model(path0)
+        assert x == y
+        path1 = os.path.join(model_path, "1")
+        mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__)
+        z = mlflow.keras.load_model(path1)
+        assert x == z
+        # Tests model log
+        with mlflow.start_run() as active_run:
+            with pytest.raises(MlflowException):
+                mlflow.keras.log_model(x, "model0")
+            mlflow.keras.log_model(x, "model0", keras_module=FakeKerasModule)
+            a = mlflow.keras.load_model("runs:/{}/model0".format(active_run.info.run_id))
+            assert x == a
+            mlflow.keras.log_model(x, "model1", keras_module=FakeKerasModule.__name__)
+            b = mlflow.keras.load_model("runs:/{}/model1".format(active_run.info.run_id))
+            assert x == b
 
 
 @pytest.mark.parametrize("build_model", [model, tf_keras_model])
