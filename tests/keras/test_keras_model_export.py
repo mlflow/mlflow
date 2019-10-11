@@ -206,7 +206,8 @@ def test_model_save_load(build_model, model_path, data):
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
+    assert all(pd.read_json(scoring_response.content, orient="records",
+                            encoding="utf8").values.astype(np.float32)
                == expected)
     # test spark udf
     spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
@@ -231,7 +232,8 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert np.allclose(
-        pd.read_json(scoring_response.content, orient="records").values.astype(np.float32),
+        pd.read_json(scoring_response.content, orient="records",
+                     encoding="utf8").values.astype(np.float32),
         custom_predicted,
         rtol=1e-5,
         atol=1e-9)
