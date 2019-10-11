@@ -1,4 +1,6 @@
+from mlflow.utils.file_utils import TempDir
 import os
+import shlex
 import sys
 from tempfile import NamedTemporaryFile
 
@@ -11,8 +13,7 @@ from mlflow.entities import FileInfo
 
 from mlflow.store.artifact.hdfs_artifact_repo import HdfsArtifactRepository, _resolve_base_path, \
     _relative_path_remote, _parse_extra_conf, _download_hdfs_file, _parse_har_filesystem, \
-    HdfsArtifactRepositoryException
-from mlflow.utils.file_utils import TempDir
+    HdfsArtifactRepositoryException, archive_artifacts
 
 
 @mock.patch('pyarrow.hdfs.HadoopFileSystem')
@@ -214,3 +215,22 @@ def test_har_resolve_connection_params(uri, expected_path, expected_uri):
                                  "har:///hdfs-root/user/j.doe/har/"])
 def test_har_resolve_wrong_path(uri):
     _parse_har_filesystem(uri)
+
+
+@mock.patch("subprocess.check_output")
+@mock.patch("mlflow.store.artifact.hdfs_artifact_repo.remove_folder")
+def test_archive_artifacts(mock_remove_folder, mock_checkoutput):
+    run_folder = "hdfs://root/user/j.doe/experiment/1/xxxyyy"
+    mock_hdfs_artifact_repo = mock.Mock(spec=HdfsArtifactRepository)
+    mock_hdfs_artifact_repo.list_artifacts.return_value = [
+        FileInfo("foo", True, 0), FileInfo("bar", True, 0)]
+    mock_hdfs_artifact_repo.host = "root"
+    mock_hdfs_artifact_repo.path = "{run_folder}/artifacts".format(run_folder=run_folder)
+    expected_har_path = "har://hdfs-root/user/j.doe/experiment/1/xxxyyy/artifacts.har"
+    expected_package_cmd = "hadoop archive -archiveName artifacts.har "\
+        "-p hdfs://root/user/j.doe/experiment/1/xxxyyy/artifacts foo bar "\
+        "hdfs://root/user/j.doe/experiment/1/xxxyyy"
+    assert expected_har_path == archive_artifacts(
+        mock_hdfs_artifact_repo, run_folder, "artifacts.har")
+    mock_remove_folder.assert_called_once()
+    mock_checkoutput.assert_called_once_with(shlex.split(expected_package_cmd))

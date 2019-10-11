@@ -3,6 +3,8 @@ import posixpath
 import tempfile
 import logging
 from contextlib import contextmanager
+import subprocess
+import shlex
 
 from six.moves import urllib
 
@@ -24,7 +26,8 @@ class HdfsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        self.host, self.port, self.path = _resolve_connection_params(artifact_uri)
+        self.host, self.port, self.path = _resolve_connection_params(
+            artifact_uri)
         super(HdfsArtifactRepository, self).__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -89,7 +92,8 @@ class HdfsArtifactRepository(ArtifactRepository):
                     file_name = file_detail.get("name")
                     # Strip off anything that comes before the artifact root e.g. hdfs://name
                     offset = file_name.index(self.path)
-                    rel_path = _relative_path_remote(self.path, file_name[offset:])
+                    rel_path = _relative_path_remote(
+                        self.path, file_name[offset:])
                     is_dir = file_detail.get("kind") == "directory"
                     size = file_detail.get("size")
                     paths.append(FileInfo(rel_path, is_dir, size))
@@ -132,7 +136,8 @@ class HdfsArtifactRepository(ArtifactRepository):
         with hdfs_system(host=self.host, port=self.port) as hdfs:
 
             if not hdfs.isdir(hdfs_base_path):
-                local_path = os.path.join(local_dir, os.path.normpath(artifact_path))
+                local_path = os.path.join(
+                    local_dir, os.path.normpath(artifact_path))
                 _download_hdfs_file(hdfs, hdfs_base_path, local_path)
                 return local_path
 
@@ -149,7 +154,8 @@ class HdfsArtifactRepository(ArtifactRepository):
             return local_dir
 
     def _download_file(self, remote_file_path, local_path):
-        raise MlflowException('This is not implemented. Should never be called.')
+        raise MlflowException(
+            'This is not implemented. Should never be called.')
 
 
 @contextmanager
@@ -248,3 +254,44 @@ def _parse_extra_conf(extra_conf):
         list_of_key_val = [as_pair(conf) for conf in extra_conf.split(',')]
         return dict(list_of_key_val)
     return None
+
+
+def archive_artifacts(hdfs_artifact_repository, dest_path, archive_name):
+    """
+    Use hadoop archive to store all artifacts of a run in a har
+
+    :param artifact_path: String path of run artifacts
+    :param dest_path: String path directory where to create the archive
+    :param archive_name: String name of the archive
+
+    :return: path to the new artifact
+    :note: It overrides existing archive.
+    """
+    # clean existing archive if exists
+    remove_folder(dest_path + '/' + archive_name)
+
+    list_artifacts = " ".join(
+        [file_info.path for file_info in hdfs_artifact_repository.list_artifacts()])
+    cmd = "hadoop archive -archiveName {archive_name} -p {artifact_path} "\
+        "{list_artifacts} {dest_path}".format(
+            archive_name=archive_name, artifact_path=hdfs_artifact_repository.path,
+            list_artifacts=list_artifacts, dest_path=dest_path)
+    _logger.info("Command to execute to archive artifacts: %s", cmd)
+    subprocess.check_output(shlex.split(cmd))
+    _, _, path_in_hdfs = _resolve_connection_params(dest_path)
+    return "har://hdfs-{host}{path_in_hdfs}/{archive_name}".format(
+        host=hdfs_artifact_repository.host, path_in_hdfs=path_in_hdfs,
+        archive_name=archive_name)
+
+
+def remove_folder(hdfs_folder):
+    """
+    Remove recursively a folder on hdfs
+
+    :param hdfs_folder: folder to remove
+    """
+    folder_path = _resolve_base_path(hdfs_folder, hdfs_folder)
+    host, port, path = _resolve_connection_params(folder_path)
+    with hdfs_system(host, port) as hdfs:
+        if hdfs.exists(path):
+            hdfs.rm(path, recursive=True)
