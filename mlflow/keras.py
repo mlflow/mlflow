@@ -78,7 +78,6 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
         additional_conda_channels=None)
 
 
-
 def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_objects=None,
                keras_module=None, **kwargs):
     """
