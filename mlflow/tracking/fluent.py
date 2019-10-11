@@ -305,7 +305,7 @@ def log_artifacts(local_dir, artifact_path=None):
 
 def list_run_infos(experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
     """:return: List of :py:class:`mlflow.entities.RunInfo`"""
-    return self.store.list_run_infos(experiment_id, run_view_type)
+    return MlflowClient().list_run_infos(experiment_id, run_view_type)
 
 
 def list_experiments(view_type=None):
