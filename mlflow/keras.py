@@ -285,10 +285,12 @@ class _KerasModelWrapper:
         self._sess = sess
 
     def predict(self, dataframe):
+        # In TensorFlow < 2.0, we use a graph and session to predict
         if self._graph is not None:
             with self._graph.as_default():
                 with self._sess.as_default():
                     predicted = pd.DataFrame(self.keras_model.predict(dataframe))
+        # In TensorFlow >= 2.0, we do not use a graph and session to predict
         else:
             predicted = pd.DataFrame(self.keras_model.predict(dataframe))
         predicted.index = dataframe.index
@@ -309,8 +311,7 @@ def _load_pyfunc(path):
         import keras
         keras_module = keras
 
-    import_keras_target = keras_module.__name__ + ".backend"
-    K = importlib.import_module(import_keras_target)
+    K = importlib.import_module(keras_module.__name__ + ".backend")
     if keras_module.__name__ == "tensorflow.keras" or K.backend() == 'tensorflow':
         if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
             graph = tf.Graph()
