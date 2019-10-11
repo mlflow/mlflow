@@ -72,8 +72,6 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
         else:
             pip_deps = ["tensorflow=={}".format(tf.__version__)]
 
-    print("KERAS_MODULE: " + keras_module.__name__)
-    print("PIP DEPS: " + str(pip_deps))
     return _mlflow_conda_env(
         additional_conda_deps=keras_dependency,
         additional_pip_deps=pip_deps,
