@@ -238,7 +238,7 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
         rtol=1e-5,
         atol=1e-9)
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert all(pyfunc_loaded.predict(x).values == custom_predicted)
     # test spark udf
     spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
@@ -296,7 +296,7 @@ def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disabl
             assert all(model_loaded.predict(x) == predicted)
 
             # Loading pyfunc model
-            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+            pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
             assert all(pyfunc_loaded.predict(x).values == predicted)
         finally:
             mlflow.end_run()
