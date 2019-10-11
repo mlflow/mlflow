@@ -213,7 +213,7 @@ def test_model_save_load(build_model, model_path, data):
                                          pandas_df=pd.DataFrame(x),
                                          result_type="float")
     np.testing.assert_array_almost_equal(
-        np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)), decimal=4)
+        np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)), decimal=1)
 
 
 @pytest.mark.large
