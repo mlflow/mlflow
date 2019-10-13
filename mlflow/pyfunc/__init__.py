@@ -260,7 +260,7 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
-def load_model(model_uri, suppress_warnings=False):
+def load_model(model_uri, suppress_warnings=True):
     """
     Load a model stored in Python function format.
 
