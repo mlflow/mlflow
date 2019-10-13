@@ -119,6 +119,7 @@ export class MetricsPlotView extends React.Component {
           layout={{ ...plotProps.layout, ...{ autosize: true } }}
           config={{
             displaylogo: false,
+            scrollZoom: true,
             modeBarButtonsToRemove: ['sendDataToCloud'],
           }}
         />
