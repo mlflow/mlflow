@@ -54,7 +54,7 @@ The example contains the following files:
    Main entry point of the projects. Handles command line arguments and possibly downloads the
    dataset.
 
- * keras_image_classifier.py
+ * image_pyfunc.py
    The implementation of the model train and also of the outputed custom python flavor model. Note
    that the same preprocessing code that is used during model training is packaged with the output
    model and is used during scoring.
