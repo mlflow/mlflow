@@ -56,7 +56,7 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
             pip_deps.append("keras=={}".format(keras_module.__version__))
     if include_cloudpickle:
         import cloudpickle
-        if pip_deps is not None:
+        pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
             pip_deps += ["cloudpickle=={}".format(cloudpickle.__version__)]
         else:
             pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
