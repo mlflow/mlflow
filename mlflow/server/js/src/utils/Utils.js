@@ -126,10 +126,15 @@ class Utils {
     return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
   }
 
+  static getGerritRegex() {
+    return /[@/]review.crto.in[:/](\d*)\/([\w\W]+)/;
+  }
+
   static getGitRepoUrl(sourceName) {
     const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
     const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
+    const gerritMatch = sourceName.match(Utils.getGerritRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
@@ -144,6 +149,8 @@ class Utils {
       if (bitbucketMatch[3]) {
         url = url + "/src/master/" + bitbucketMatch[3];
       }
+    } else if (gerritMatch) {
+        url = "https://review.crto.in/gitweb?p=" + gerritMatch[2];
     }
     return url;
   }
@@ -152,6 +159,7 @@ class Utils {
     const gitHubMatch = sourceName.match(Utils.getGitHubRegex());
     const gitLabMatch = sourceName.match(Utils.getGitLabRegex());
     const bitbucketMatch = sourceName.match(Utils.getBitbucketRegex());
+    const gerritMatch = sourceName.match(Utils.getGerritRegex());
     let url = null;
     if (gitHubMatch || gitLabMatch) {
       const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
@@ -162,6 +170,8 @@ class Utils {
       const baseUrl = "https://bitbucket.org/";
       url = (baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '') +
             "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
+    } else if (gerritMatch) {
+        url = "https://review.crto.in/gitweb?p=" + gerritMatch[2] + ";a=commit;h=" + sourceVersion;
     }
     return url;
   }
