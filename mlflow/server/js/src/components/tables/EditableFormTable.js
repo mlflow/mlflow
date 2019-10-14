@@ -56,6 +56,7 @@ export class EditableTable extends React.Component {
     columns: PropTypes.arrayOf(Object).isRequired,
     data: PropTypes.arrayOf(Object).isRequired,
     onSaveEdit: PropTypes.func.isRequired,
+    onDelete: PropTypes.func.isRequired,
     form: PropTypes.object.isRequired,
   };
 
@@ -98,6 +99,7 @@ export class EditableTable extends React.Component {
             <a onClick={() => this.save(record.key)} style={{ marginRight: 10 }}>
               Save
             </a>
+            <a onClick={() => this.delete(record.key)} style={{ marginRight: 10 }}>Delete</a>
             <a onClick={() => this.cancel(record.key)}>Cancel</a>
           </span>
         ) : (
@@ -128,6 +130,16 @@ export class EditableTable extends React.Component {
       }
     });
   };
+
+  delete = (key) => {
+    const record = this.props.data.find((r) => r.key === key);
+    if (record) {
+      this.setState({ isRequestPending: true });
+      this.props.onDelete({ ...record }).then(() => {
+        this.setState({ editingKey: '', isRequestPending: false });
+      });
+    }
+  }
 
   edit = (key) => {
     this.setState({ editingKey: key });
