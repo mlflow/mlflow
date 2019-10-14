@@ -253,6 +253,9 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         def __init__(self):
             pass
 
+        def __call__(self):
+            pass
+
     incorrect_custom_objects = {'MyDense': DifferentCustomLayer()}
     correct_custom_objects = {'MyDense': custom_layer}
     mlflow.keras.save_model(custom_model, model_path, custom_objects=incorrect_custom_objects)
