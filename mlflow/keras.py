@@ -44,7 +44,7 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     """
     import tensorflow as tf
     keras_dependency = []  # if we use tf.keras we only need to declare dependency on tensorflow
-    pip_deps = None
+    pip_deps = []
     if keras_module is None:
         import keras
         keras_module = keras
