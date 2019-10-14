@@ -53,7 +53,7 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
         if LooseVersion(keras_module.__version__) < LooseVersion('2.3.1'):
             keras_dependency = ["keras=={}".format(keras_module.__version__)]
         else:
-            pip_deps = ["keras=={}".format(keras_module.__version__)]
+            pip_deps.append("keras=={}".format(keras_module.__version__))
     if include_cloudpickle:
         import cloudpickle
         if pip_deps is not None:
