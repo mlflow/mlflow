@@ -71,7 +71,10 @@ def _get_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "RUN mvn "
             " --batch-mode dependency:copy"
             " -Dartifact=org.mlflow:mlflow-scoring:{version}:jar"
-            " -DoutputDirectory=/opt/java/jars"
+            " -DoutputDirectory=/opt/java/jars\n"
+            "RUN cp /opt/java/mlflow-scoring-{version}.pom /opt/java/pom.xml\n"
+            "RUN cd /opt/java && mvn "
+            "--batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars\n"
         ).format(version=mlflow.version.VERSION)
 
 
