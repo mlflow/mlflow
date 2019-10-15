@@ -43,7 +43,7 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
              :func:`save_model()` and :func:`log_model()`.
     """
     import tensorflow as tf
-    keras_dependency = []  # if we use tf.keras we only need to declare dependency on tensorflow
+    conda_deps = []  # if we use tf.keras we only need to declare dependency on tensorflow
     pip_deps = []
     if keras_module is None:
         import keras
@@ -51,7 +51,7 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     if keras_module.__name__ == "keras":
         # Temporary fix: the created conda environment has issues installing keras >= 2.3.1
         if LooseVersion(keras_module.__version__) < LooseVersion('2.3.1'):
-            keras_dependency = ["keras=={}".format(keras_module.__version__)]
+            conda_deps.append("keras=={}".format(keras_module.__version__))
         else:
             pip_deps.append("keras=={}".format(keras_module.__version__))
     if include_cloudpickle:
@@ -62,15 +62,15 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     # backend for Keras. Therefore, the conda environment must
     # include TensorFlow
     if LooseVersion(tf.__version__) < LooseVersion('2.0.0'):
-        keras_dependency += ["tensorflow=={}".format(tf.__version__)]
+        conda_deps.append("tensorflow=={}".format(tf.__version__))
     else:
         if pip_deps is not None:
-            pip_deps += ["tensorflow=={}".format(tf.__version__)]
+            pip_deps.append("tensorflow=={}".format(tf.__version__))
         else:
-            pip_deps = ["tensorflow=={}".format(tf.__version__)]
+            pip_deps.append("tensorflow=={}".format(tf.__version__))
 
     return _mlflow_conda_env(
-        additional_conda_deps=keras_dependency,
+        additional_conda_deps=conda_deps,
         additional_pip_deps=pip_deps,
         additional_conda_channels=None)
 
