@@ -57,9 +57,6 @@ def get_default_conda_env(include_cloudpickle=False, keras_module=None):
     if include_cloudpickle:
         import cloudpickle
         pip_deps.append("cloudpickle=={}".format(cloudpickle.__version__))
-            pip_deps += ["cloudpickle=={}".format(cloudpickle.__version__)]
-        else:
-            pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
     # Temporary fix: conda-forge currently does not have tensorflow > 1.14
     # The Keras pyfunc representation requires the TensorFlow
     # backend for Keras. Therefore, the conda environment must
