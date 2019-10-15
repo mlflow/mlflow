@@ -7,20 +7,6 @@ div.MetricView h1 {
   margin-bottom: 24px;
 }
 
-
-div.MetricView .recharts-tooltip-item-name {
-  max-width: 100px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: inline-block;
-  vertical-align: bottom;
-}
-
-div.MetricView .recharts-tooltip-item-value, .recharts-tooltip-item-separator {
-  display: inline-block;
-  margin-left: 4px;
-}
-
 .metrics-plot-container {
   display: flex;
   width: 100%;
@@ -37,7 +23,7 @@ div.MetricView .recharts-tooltip-item-value, .recharts-tooltip-item-separator {
   display: block;
 }
 
-.metrics-plot-container .plot-controls .metrics-select input[type=text] {
+.metrics-plot-container .plot-controls .metrics-select input[type='text'] {
   padding: 0;
 }
 
