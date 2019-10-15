@@ -60,10 +60,7 @@ def keras_random_data_run(random_train_data, fit_variant):
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_keras_autolog_logs_expected_data(keras_random_data_run):
     data = keras_random_data_run.data
-    if LooseVersion(keras_module.__version__) < LooseVersion('2.3.1'):
-        assert 'acc' in data.metrics
-    else:
-        assert 'accuracy' in data.metrics
+    assert 'accuracy' in data.metrics
     assert 'loss' in data.metrics
     assert 'optimizer_name' in data.params
     assert data.params['optimizer_name'] == 'Adam'
