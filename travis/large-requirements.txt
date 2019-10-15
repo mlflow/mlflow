@@ -24,7 +24,7 @@ torchvision==0.2.2
 # Install typing to fix torch on Python 2.7 (see https://github.com/pytorch/pytorch/issues/16775)
 typing==3.6.6
 pysftp==0.2.9
-keras==2.2.4
+keras==2.3.1
 attrdict==2.0.0
 azureml-sdk==1.0.17; python_version >= "3.0"
 cloudpickle==0.8.0
