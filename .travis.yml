@@ -72,7 +72,7 @@ matrix:
       name: "Windows"
       language: sh
       before_install:
-        - cinst -y python3
+        - choco install python3 --version=3.7.4
       install:
         - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
         - pip install -r dev-requirements.txt
