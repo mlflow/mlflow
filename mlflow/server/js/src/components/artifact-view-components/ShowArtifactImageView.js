@@ -23,20 +23,19 @@ class ShowArtifactImageView extends Component {
     return getSrc(path, runUuid);
   };
 
-  updateShape = () => {
-    this.setState({ width: 0, height: 0 });
+  resize = () => {
     const img = new Image();
     img.src = this.getSrc();
     img.onload = () => this.setState({ width: img.width, height: img.height });
   };
 
   componentDidMount = () => {
-    this.updateShape();
+    this.resize();
   };
 
   componentDidUpdate = prevProps => {
     if (prevProps.path !== this.props.path) {
-      this.updateShape();
+      this.resize();
     }
   };
 
@@ -46,7 +45,7 @@ class ShowArtifactImageView extends Component {
     return (
       <div className="image-outer-container">
         <div className="image-container">
-          {width && height && (
+          {
             <Plot
               data={[
                 {
@@ -59,22 +58,21 @@ class ShowArtifactImageView extends Component {
                 },
               ]}
               layout={{
-                autosize: true,
                 width: width * (500 / height),
                 height: 500,
                 xaxis: { visible: false, autorange: true },
-                yaxis: { visible: false, autorange: true },
+                yaxis: { visible: false, autorange: true, scaleanchor: 'x', scaleratio: 1 },
                 images: [
                   {
                     source: this.getSrc(),
                     xref: 'x',
                     yref: 'y',
-                    x: 0,
+                    x: width,
                     y: height,
+                    xanchor: 'right',
+                    yanchor: 'top',
                     sizex: width,
                     sizey: height,
-                    layer: 'below',
-                    sizing: 'stretch',
                   },
                 ],
                 margin: { l: 0, r: 0, t: 0, b: 0 },
@@ -82,18 +80,18 @@ class ShowArtifactImageView extends Component {
               config={{
                 displaylogo: false,
                 scrollZoom: true,
-                doubleClick: 'reset',
                 modeBarButtonsToRemove: [
                   'hoverCompareCartesian',
                   'hoverClosestCartesian',
                   'lasso2d',
                   'sendDataToCloud',
+                  'select2d',
                   'toggleSpikelines',
                 ],
               }}
               useResizeHandler
             />
-          )}
+          }
         </div>
       </div>
     );
