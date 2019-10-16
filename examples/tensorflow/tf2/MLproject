@@ -3,5 +3,8 @@ conda_env: conda.yaml
 
 entry_points:
   main:
-    command: "python train_predict_2.py"
+    parameters:
+      batch_size: {type: float, default: 100}
+      train_steps: {type: float, default: 1000}
+    command: "python train_predict_2.py --batch_size={batch_size} --train_steps={train_steps}"
 
