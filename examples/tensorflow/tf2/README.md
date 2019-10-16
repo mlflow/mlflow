@@ -2,8 +2,7 @@
 
 In this example, we use TensorFlow's premade estimator iris data example and add MLflow tracking.
 This example trains a `tf.estimator.DNNClassifier` on the [iris dataset](https://archive.ics.uci.edu/ml/datasets/iris) and predicts on a validation set.
-With MLflow, we use `mlflow.tensorflow.autolog()` along with `mlflow.log_param()` and `mlflow.log_metric()` in order to capture data about how we trained the target model.
-We also use MLflow in order to generically save the model as a `mlflow.pyfunc`, then load it back to predict on pandas DataFrames.
+The code is mostly pure TensorFlow - we add a call to `mlflow.tensorflow.autolog()` before training to record params & metrics from model training (e.g. model loss) as part of an MLflow run. After training, `mlflow.tensorflow.autolog()` links the model with the same MLflow run when `export_saved_model()` is called, allowing us to associate the model with its training metrics & params. We then demonstrate how to load the saved model back as a generic `mlflow.pyfunc`, allowing us to make predictions on pandas DataFrames.
 If you would like more details on how the TensorFlow code works, please see TensorFlow's [tutorial](https://www.tensorflow.org/tutorials/estimator/premade).
 
 ### Code related to MLflow:
