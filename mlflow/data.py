@@ -35,7 +35,7 @@ def _fetch_gs(uri, local_path):
     from google.cloud import storage
     print("=== Downloading GCS file %s to local path %s ===" % (uri, os.path.abspath(local_path)))
     (bucket, gs_path) = parse_gs_uri(uri)
-    storage.Client().get_bucket(bucket).get_blob(gs_path).download_to_filename(local_path)
+    storage.Client().bucket(bucket).blob(gs_path).download_to_filename(local_path)
 
 
 def parse_s3_uri(uri):
