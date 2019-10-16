@@ -15,6 +15,10 @@ from sklearn.linear_model import ElasticNet
 import mlflow
 import mlflow.sklearn
 
+import logging
+logging.basicConfig(level=logging.WARN)
+logger = logging.getLogger(__name__)
+
 
 def eval_metrics(actual, pred):
     rmse = np.sqrt(mean_squared_error(actual, pred))
@@ -28,9 +32,14 @@ if __name__ == "__main__":
     warnings.filterwarnings("ignore")
     np.random.seed(40)
 
-    # Read the wine-quality csv file (make sure you're running this from the root of MLflow!)
-    wine_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wine-quality.csv")
-    data = pd.read_csv(wine_path)
+    # Read the wine-quality csv file from the URL
+    csv_url =\
+        'http://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv'
+    try:
+        data = pd.read_csv(csv_url, sep=';')
+    except Exception as e:
+        logger.exception(
+            "Unable to download training & test CSV, check your internet connection. Error: %s", e)
 
     # Split the data into training and test sets. (0.75, 0.25) split.
     train, test = train_test_split(data)
