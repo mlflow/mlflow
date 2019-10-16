@@ -1,7 +1,7 @@
 ## MLflow with TensorFlow 1.X
 
 In this example, we train a [TensorFlow estimator](https://www.tensorflow.org/guide/estimator) to predict house prices using the TensorFlow [Boston Housing dataset](https://www.cs.toronto.edu/~delve/data/boston/bostonDetail.html).
-With MLflow, we use `mlflow.tensorflow.autolog()` along with `mlflow.log_param()` and `mlflow.log_metric()` in order to capture data about how we trained the target model.
+The code is mostly pure TensorFlow - we add a call to `mlflow.tensorflow.autolog()` before training to record params & metrics from model training (e.g. model loss) as part of an MLflow run. After training, we save the fitted model to the same MLflow run via `mlflow.tensorflow.log_model`, allowing us to associate the model with training metrics & params. We then demonstrate how to load the saved model back as a generic `mlflow.pyfunc`, allowing us to make predictions on pandas DataFrames
 We also use MLflow in order to generically save the model as a `mlflow.pyfunc`, then load it back to predict on pandas DataFrames.
 
 ### Code related to MLflow:
