@@ -75,7 +75,7 @@ parser.add_argument('--train_steps', default=1000, type=int,
                     help='number of training steps')
 
 def main(argv):
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         args = parser.parse_args(argv[1:])
 
         # Fetch the data
@@ -152,15 +152,21 @@ def main(argv):
         try:
             # The model is automatically logged when export_saved_model() is called.
             saved_estimator_path = classifier.export_saved_model(temp, receiver_fn).decode("utf-8")
-            # Since the model was automatically logged as an artifact (more specifically a MLflow Model),
-            # we don't need to use saved_estimator_path to load back the model - MLflow takes care of it!
+
+            # Since the model was automatically logged as an artifact (more specifically
+            # a MLflow Model), we don't need to use saved_estimator_path to load back the model.
+            # MLflow takes care of it!
             pyfunc_model = pyfunc.load_model(mlflow.get_artifact_uri('model'))
+
             predict_data = [[5.1, 3.3, 1.7, 0.5], [5.9, 3.0, 4.2, 1.5], [6.9, 3.1, 5.4, 2.1]]
-            df = pd.DataFrame(data=predict_data, columns=["SepalLength", "SepalWidth", "PetalLength", "PetalWidth"])
-            # Predicting on the loaded Python Function
+            df = pd.DataFrame(data=predict_data, columns=["SepalLength", "SepalWidth",
+                                                          "PetalLength", "PetalWidth"])
+
+            # Predicting on the loaded Python Function and a DataFrame containing the
+            # original data we predicted on.
             predict_df = pyfunc_model.predict(df)
 
-            # Checking the reloaded model's predictions are the same as the original model's predictions.
+            # Checking the PyFunc's predictions are the same as the original model's predictions.
             template = '\nOriginal prediction is "{}", reloaded prediction is "{}"'
             for expec, pred in zip(old_predictions, predict_df['classes']):
                 class_id = predict_df['class_ids'][predict_df.loc[predict_df['classes'] == pred].index[0]]

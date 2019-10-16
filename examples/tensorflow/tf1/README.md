@@ -1,10 +1,8 @@
-## MLflow with TensorFlow 2.0.0
+## MLflow with TensorFlow 1.X
 
-In this example, we use TensorFlow's premade estimator iris data example and add MLflow tracking to it.
-This example trains a `tf.estimator.DNNClassifier` on the [iris dataset](https://archive.ics.uci.edu/ml/datasets/iris) and predicts on a validation set.
+In this example, we train a `tf.estimator.DNNRegressor` on the TensorFlow [Boston Housing dataset](https://www.cs.toronto.edu/~delve/data/boston/bostonDetail.html).
 With MLflow, we use `mlflow.tensorflow.autolog()` along with `mlflow.log_param()` and `mlflow.log_metric()` in order to capture data about how we trained the target model.
 We also use MLflow in order to generically save the model as a `mlflow.pyfunc`, then load it back to predict on pandas DataFrames.
-If you would like more details on how the TensorFlow code works, please see TensorFlow's [tutorial](https://www.tensorflow.org/tutorials/estimator/premade).
 
 Code related to MLflow:
 * `mlflow.tensorflow.autolog()`
@@ -25,15 +23,15 @@ To run the example via MLflow, run the command
 mlflow run .
 ```
 
-This will run `train_predict_2.py` with the default parameters `--batch_size=100` and `--train_steps=1000`. You can see the default values in the `MLproject` file.
+This will run `train_predict_.py` with the default parameter `--steps=1000`. You can see the default value in the `MLproject` file.
 
 In order to run the file with custom parameters, run the command
 
 ```
-mlflow run . -P batch_size=X -P train_steps=Y
+mlflow run . -P steps=X
 ```
 
-where `X` and `Y` are your desired values for the parameters.
+where `X` is your desired value for `steps`.
 
 If you have the required modules for the file and would like to skip the creation of a conda environment, add the argument `--no-conda`.
 

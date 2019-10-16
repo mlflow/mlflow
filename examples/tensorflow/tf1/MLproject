@@ -3,5 +3,7 @@ conda_env: conda.yaml
 
 entry_points:
   main:
-    command: "python train_predict.py"
+    parameters:
+      steps: {type: int, default: 1000}
+    command: "python train_predict.py --steps={steps}"
 
