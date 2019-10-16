@@ -108,10 +108,6 @@ def main(argv):
                                                     args.batch_size))
 
         print('\nTest set accuracy: {accuracy:0.3f}\n'.format(**eval_result))
-        # If you need to log something that MLflow doesn't automatically, you can log it manually.
-        mlflow.log_param("Hidden Units", hidden_units)
-        mlflow.log_metric("Mean Square Error", eval_result['average_loss'])
-        mlflow.log_metric("Test Set Accuracy", eval_result['accuracy'])
 
         # Generate predictions from the model
         expected = ['Setosa', 'Versicolor', 'Virginica']

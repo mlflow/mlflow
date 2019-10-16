@@ -35,9 +35,6 @@ def main(argv):
         hidden_units = [50, 20]
         steps = args.steps
 
-        # If you need to log something that MLflow doesn't automatically, you can log it manually.
-        mlflow.log_param("Hidden Units", hidden_units)
-
         regressor = tf.estimator.DNNRegressor(hidden_units=hidden_units, feature_columns=feat_cols)
         train_input_fn = tf.estimator.inputs.numpy_input_fn({"features": x_train}, y_train,
                                                             num_epochs=None, shuffle=True)
@@ -46,7 +43,6 @@ def main(argv):
                                                            num_epochs=None, shuffle=True)
         # Compute mean squared error
         mse = regressor.evaluate(test_input_fn, steps=steps)
-        mlflow.log_metric("Mean Square Error", mse['average_loss'])
 
         # Building a receiver function for exporting
         receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feat_spec)

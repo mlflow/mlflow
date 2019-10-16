@@ -10,12 +10,6 @@ This is an experimental api that logs ML model artifacts and TensorBoard metrics
 The TensorBoard metrics are logged during training of the model. By default, MLflow autologs every 100 steps.
 The ML model artifact creation is handled during the call to `tf.estimator.export_saved_model()`.
 
-* [`mlflow.log_param()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.log_param):
-This manually logs a parameter that autolog doesn't cover. In this example, we log the `hidden_units` parameter.
-
-* [`mlflow.log_metric()`](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.log_metric):
-This manually logs a metric that autolog doesn't cover. In this example, we log the mean square error of the model.
-
 * [`mlflow.pyfunc.load_model()`](https://mlflow.org/docs/latest/python_api/mlflow.pyfunc.html#mlflow.pyfunc.load_model):
 This function loads back the model as a generic python function. You can predict on this with a pandas DataFrame input.
 
