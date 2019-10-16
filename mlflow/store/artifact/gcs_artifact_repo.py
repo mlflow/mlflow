@@ -41,7 +41,7 @@ class GCSArtifactRepository(ArtifactRepository):
             storage_client = self.gcs.Client()
         except DefaultCredentialsError:
             storage_client = self.gcs.Client.create_anonymous_client()
-        return storage_client.get_bucket(bucket)
+        return storage_client.bucket(bucket)
 
     def log_artifact(self, local_file, artifact_path=None):
         (bucket, dest_path) = self.parse_gcs_uri(self.artifact_uri)
@@ -101,4 +101,4 @@ class GCSArtifactRepository(ArtifactRepository):
         (bucket, remote_root_path) = self.parse_gcs_uri(self.artifact_uri)
         remote_full_path = posixpath.join(remote_root_path, remote_file_path)
         gcs_bucket = self._get_bucket(bucket)
-        gcs_bucket.get_blob(remote_full_path).download_to_filename(local_path)
+        gcs_bucket.blob(remote_full_path).download_to_filename(local_path)
