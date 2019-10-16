@@ -1,6 +1,6 @@
 ## MLflow with TensorFlow 1.X
 
-In this example, we train a `tf.estimator.DNNRegressor` on the TensorFlow [Boston Housing dataset](https://www.cs.toronto.edu/~delve/data/boston/bostonDetail.html).
+In this example, we train a [TensorFlow estimator](https://www.tensorflow.org/guide/estimator) to predict house prices using the TensorFlow [Boston Housing dataset](https://www.cs.toronto.edu/~delve/data/boston/bostonDetail.html).
 With MLflow, we use `mlflow.tensorflow.autolog()` along with `mlflow.log_param()` and `mlflow.log_metric()` in order to capture data about how we trained the target model.
 We also use MLflow in order to generically save the model as a `mlflow.pyfunc`, then load it back to predict on pandas DataFrames.
 
