@@ -47,7 +47,8 @@ def upgrade():
                     )
 
     op.create_table(SqlModelVersion.__tablename__,
-                    Column('name', String(256), ForeignKey('registered_models.name')),
+                    Column('name', String(256), ForeignKey('registered_models.name',
+                                                           onupdate='cascade')),
                     Column('version', Integer, nullable=False),
                     Column('creation_time', BigInteger, default=lambda: int(time.time() * 1000)),
                     Column('last_updated_time', BigInteger, nullable=True, default=None),
@@ -59,7 +60,7 @@ def upgrade():
                     Column('status', String(20),
                            default=ModelVersionStatus.to_string(ModelVersionStatus.READY)),
                     Column('status_message', String(500), nullable=True, default=None),
-                    PrimaryKeyConstraint('name', name='model_version_pk')
+                    PrimaryKeyConstraint('name', 'version', name='model_version_pk')
                     )
 
     session.commit()

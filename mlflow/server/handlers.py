@@ -470,10 +470,16 @@ def _get_registered_model_details():
 @catch_mlflow_exception
 def _update_registered_model():
     request_message = _get_request_message(UpdateRegisteredModel())
+    new_name = None
+    new_description = None
+    if request_message.HasField("name"):
+        new_name = request_message.name
+    if request_message.HasField("description"):
+        new_description = request_message.description
     registered_model = _get_model_registry_store().update_registered_model(
         RegisteredModel.from_proto(request_message.registered_model),
-        request_message.name,
-        request_message.description)
+        new_name,
+        new_description)
     response_message = UpdateRegisteredModel.Response(registered_model=registered_model.to_proto())
     return _wrap_response(response_message)
 
@@ -529,10 +535,16 @@ def _get_model_version_details():
 @catch_mlflow_exception
 def _update_model_version():
     request_message = _get_request_message(UpdateModelVersion())
+    new_stage = None
+    new_description = None
+    if request_message.HasField("stage"):
+        new_stage = request_message.stage
+    if request_message.HasField("description"):
+        new_description = request_message.description
     _get_model_registry_store().update_model_version(
         ModelVersion.from_proto(request_message.model_version),
-        request_message.stage,
-        request_message.description)
+        new_stage,
+        new_description)
     return _wrap_response(UpdateModelVersion.Response())
 
 

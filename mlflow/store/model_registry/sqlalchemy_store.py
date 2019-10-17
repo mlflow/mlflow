@@ -147,9 +147,12 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 if new_name is not None:
                     sql_registered_model.name = new_name
+                    for sql_model_version in sql_registered_model.model_versions:
+                        sql_model_version.name = new_name
                 if description is not None:
                     sql_registered_model.description = description
-                self._save_to_db(session, sql_registered_model)
+                self._save_to_db(session,
+                                 [sql_registered_model] + sql_registered_model.model_versions)
                 session.flush()
                 return sql_registered_model.to_mlflow_entity()
             except sqlalchemy.exc.IntegrityError as e:

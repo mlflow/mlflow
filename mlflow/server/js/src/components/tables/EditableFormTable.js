@@ -38,7 +38,7 @@ class EditableCell extends React.Component {
               <Form.Item style={{ margin: 0 }}>
                 {getFieldDecorator(dataIndex, {
                   rules: [],
-                  initialValue: record[dataIndex],
+                  defaultMarkdown: record[dataIndex],
                 })(<Input onKeyDown={this.handleKeyPress} />)}
               </Form.Item>
             ) : (
@@ -149,6 +149,7 @@ export class EditableTable extends React.Component {
           columns={this.columns}
           size='middle'
           pagination={false}
+          locale={{ emptyText: 'No tags found.' }}
         />
       </EditableContext.Provider>
     );

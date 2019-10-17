@@ -51,7 +51,7 @@ class SqlRegisteredModel(Base):
 class SqlModelVersion(Base):
     __tablename__ = 'model_versions'
 
-    name = Column(String(256), ForeignKey('registered_models.name'))
+    name = Column(String(256), ForeignKey('registered_models.name', onupdate='cascade'))
 
     version = Column(Integer, nullable=False)
 

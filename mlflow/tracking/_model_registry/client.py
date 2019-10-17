@@ -113,7 +113,7 @@ class ModelRegistryClient(object):
         """
         if stage is None and description is None:
             raise MlflowException("Attempting to update model version with no new field values.")
-        if stage.strip() == "":
+        if stage is not None and stage.strip() == "":
             raise MlflowException("The stage must not be an empty string.")
         self.store.update_model_version(ModelVersion(RegisteredModel(name), version), stage,
                                         description)
