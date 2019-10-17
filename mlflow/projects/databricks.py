@@ -133,7 +133,7 @@ class DatabricksJobRunner(object):
                 tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
             # TODO: Get subdirectory for experiment from the tracking server
             dbfs_path = posixpath.join(DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
-                                     "projects-code", "%s.tar.gz" % tarfile_hash)
+                                       "projects-code", "%s.tar.gz" % tarfile_hash)
             dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_path)
             if not self._dbfs_path_exists(dbfs_path):
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
@@ -236,7 +236,7 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
     tar_hash = posixpath.splitext(posixpath.splitext(posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
     container_tar_path = posixpath.abspath(posixpath.join(DB_TARFILE_BASE,
-                                                      posixpath.basename(dbfs_fuse_tar_uri)))
+                                           posixpath.basename(dbfs_fuse_tar_uri)))
     project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
     mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
                                             "--entry-point", entry_point]))
