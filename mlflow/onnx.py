@@ -209,7 +209,7 @@ def load_model(model_uri):
 
 
 @experimental
-def log_model(onnx_model, artifact_path, conda_env=None):
+def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=None):
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
@@ -232,6 +232,10 @@ def log_model(onnx_model, artifact_path, conda_env=None):
                                 'onnxruntime=0.3.0'
                             ]
                         }
+    :param registered_model_name: If given, create a model version under ``registered_model_name``,
+                                  also creating a registered model if one with the given name does
+                                  not exist.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.onnx,
-              onnx_model=onnx_model, conda_env=conda_env)
+              onnx_model=onnx_model, conda_env=conda_env,
+              registered_model_name=registered_model_name)

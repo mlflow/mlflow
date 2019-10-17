@@ -61,7 +61,7 @@ def get_default_conda_env():
 
 
 def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
-              sample_input=None):
+              sample_input=None, registered_model_name=None):
     """
     Log a Spark MLlib model as an MLflow artifact for the current run. This uses the
     MLlib persistence format and produces an MLflow Model with the Spark flavor.
@@ -94,6 +94,9 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     :param sample_input: A sample input used to add the MLeap flavor to the model.
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
+    :param registered_model_name: If given, create a model version under ``registered_model_name``,
+                                  also creating a registered model if one with the given name does
+                                  not exist.
 
     >>> from pyspark.ml import Pipeline
     >>> from pyspark.ml.classification import LogisticRegression
@@ -125,8 +128,8 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     # here.
     if is_local_uri(run_root_artifact_uri):
         return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
-                         conda_env=conda_env, dfs_tmpdir=dfs_tmpdir,
-                         sample_input=sample_input)
+                         conda_env=conda_env, dfs_tmpdir=dfs_tmpdir, sample_input=sample_input,
+                         registered_model_name=registered_model_name)
     # If Spark cannot write directly to the artifact repo, defer to Model.log() to persist the
     # model
     model_dir = os.path.join(run_root_artifact_uri, artifact_path)
@@ -134,8 +137,8 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
         spark_model.save(os.path.join(model_dir, _SPARK_MODEL_PATH_SUB))
     except Py4JJavaError:
         return Model.log(artifact_path=artifact_path, flavor=mlflow.spark, spark_model=spark_model,
-                         conda_env=conda_env, dfs_tmpdir=dfs_tmpdir,
-                         sample_input=sample_input)
+                         conda_env=conda_env, dfs_tmpdir=dfs_tmpdir, sample_input=sample_input,
+                         registered_model_name=registered_model_name)
 
     # Otherwise, override the default model log behavior and save model directly to artifact repo
     mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
@@ -144,6 +147,8 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
         _save_model_metadata(
             tmp_model_metadata_dir, spark_model, mlflow_model, sample_input, conda_env)
         mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        if registered_model_name is not None:
+            mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path), registered_model_name)
 
 
 def _tmp_path(dfs_tmp):
