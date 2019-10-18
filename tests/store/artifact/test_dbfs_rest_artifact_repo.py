@@ -7,9 +7,10 @@ import mock
 from mock import Mock
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.dbfs_artifact_repo import _get_host_creds_from_default_store
-from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
+from mlflow.store.artifact.repo.registry import get_artifact_repository
+from mlflow.store.artifact.repo.dbfs import (
+    _get_host_creds_from_default_store, DbfsRestArtifactRepository
+)
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.utils.rest_utils import MlflowHostCreds
@@ -17,7 +18,7 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 
 @pytest.fixture()
 def dbfs_artifact_repo():
-    with mock.patch('mlflow.store.artifact.dbfs_artifact_repo._get_host_creds_from_default_store') \
+    with mock.patch('mlflow.store.artifact.repo.dbfs._get_host_creds_from_default_store') \
             as get_creds_mock:
         get_creds_mock.return_value = lambda: MlflowHostCreds('http://host')
         return get_artifact_repository('dbfs:/test/')
@@ -27,7 +28,7 @@ TEST_FILE_1_CONTENT = u"Hello 🍆🍔".encode("utf-8")
 TEST_FILE_2_CONTENT = u"World 🍆🍔🍆".encode("utf-8")
 TEST_FILE_3_CONTENT = u"¡🍆🍆🍔🍆🍆!".encode("utf-8")
 
-DBFS_ARTIFACT_REPOSITORY_PACKAGE = 'mlflow.store.artifact.dbfs_artifact_repo'
+DBFS_ARTIFACT_REPOSITORY_PACKAGE = 'mlflow.store.artifact.repo.dbfs'
 DBFS_ARTIFACT_REPOSITORY = DBFS_ARTIFACT_REPOSITORY_PACKAGE + ".DbfsRestArtifactRepository"
 
 

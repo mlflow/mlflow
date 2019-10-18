@@ -4,7 +4,7 @@ import posixpath
 from six.moves import urllib
 
 from mlflow.entities import FileInfo
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.repo import ArtifactRepository
 
 
 class SFTPArtifactRepository(ArtifactRepository):

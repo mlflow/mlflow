@@ -5,8 +5,8 @@ import json
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.rest_store import RestStore
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
-from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.store.artifact.repo import ArtifactRepository
+from mlflow.store.artifact.repo.local import LocalArtifactRepository
 from mlflow.tracking._tracking_service import utils
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 from mlflow.utils.rest_utils import http_request, http_request_safe, RESOURCE_DOES_NOT_EXIST

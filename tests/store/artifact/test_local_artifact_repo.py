@@ -3,7 +3,7 @@ import pytest
 import posixpath
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.store.artifact.repo.local import LocalArtifactRepository
 from mlflow.utils.file_utils import TempDir
 
 

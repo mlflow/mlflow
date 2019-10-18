@@ -3,8 +3,8 @@ from mock import Mock
 
 import mlflow
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
-from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.store.artifact.repo.runs import RunsArtifactRepository
+from mlflow.store.artifact.repo.s3 import S3ArtifactRepository
 
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 

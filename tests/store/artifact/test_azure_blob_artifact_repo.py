@@ -6,8 +6,8 @@ import pytest
 from azure.storage.blob import Blob, BlobPrefix, BlobProperties, BlockBlobService
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
+from mlflow.store.artifact.repo.registry import get_artifact_repository
+from mlflow.store.artifact.repo.azure_blob import AzureBlobArtifactRepository
 
 
 TEST_ROOT_PATH = "some/path"

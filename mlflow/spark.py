@@ -31,9 +31,9 @@ from mlflow import pyfunc, mleap
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.store.artifact.repo.runs import RunsArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import is_local_uri
 from mlflow.utils.model_utils import _get_flavor_configuration_from_uri

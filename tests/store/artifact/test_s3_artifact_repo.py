@@ -3,7 +3,7 @@ import posixpath
 
 import pytest
 
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.repo.registry import get_artifact_repository
 
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import

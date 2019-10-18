@@ -1,7 +1,7 @@
 from six.moves import urllib
 
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.repo import ArtifactRepository
 
 
 class ModelsArtifactRepository(ArtifactRepository):
@@ -14,7 +14,7 @@ class ModelsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+        from mlflow.store.artifact.repo.registry import get_artifact_repository
         uri = ModelsArtifactRepository.get_underlying_uri(artifact_uri)
         super(ModelsArtifactRepository, self).__init__(artifact_uri)
         # TODO: it may be nice to fall back to the source URI explicitly here if for some reason

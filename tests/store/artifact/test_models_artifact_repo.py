@@ -4,8 +4,8 @@ from mock import Mock
 
 from mlflow.entities.model_registry import ModelVersionDetailed, RegisteredModel
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.dbfs_artifact_repo import DbfsRestArtifactRepository
-from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.store.artifact.repo.dbfs import DbfsRestArtifactRepository
+from mlflow.store.artifact.repo.models import ModelsArtifactRepository
 from mlflow.tracking import MlflowClient
 
 # pylint: disable=unused-import

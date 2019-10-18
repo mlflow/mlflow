@@ -1,7 +1,7 @@
 from six.moves import urllib
 
 from mlflow.store.tracking.file_store import FileStore
-from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.store.artifact.repo.local import LocalArtifactRepository
 from mlflow.tracking.context.abstract_context import RunContextProvider
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 

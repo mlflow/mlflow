@@ -6,7 +6,7 @@ from six.moves import urllib
 from mlflow import data
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
-from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.artifact.repo import ArtifactRepository
 from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 

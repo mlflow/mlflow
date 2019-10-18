@@ -3,7 +3,7 @@ import sys
 
 import click
 
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.store.artifact.repo.registry import get_artifact_repository
 from mlflow.tracking import _get_store
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.proto_json_utils import message_to_json

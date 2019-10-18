@@ -3,8 +3,8 @@ import pytest
 from six.moves import reload_module as reload
 
 import mlflow
-from mlflow.store.artifact import artifact_repository_registry
-from mlflow.store.artifact.artifact_repository_registry import ArtifactRepositoryRegistry
+from mlflow.store.artifact.repo import registry as artifact_repository_registry
+from mlflow.store.artifact.repo.registry import ArtifactRepositoryRegistry
 
 
 def test_standard_artifact_registry():

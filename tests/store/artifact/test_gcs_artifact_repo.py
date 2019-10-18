@@ -5,8 +5,8 @@ import pytest
 
 from google.cloud.storage import client as gcs_client
 
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.artifact.gcs_artifact_repo import GCSArtifactRepository
+from mlflow.store.artifact.repo.registry import get_artifact_repository
+from mlflow.store.artifact.repo.gcs import GCSArtifactRepository
 from google.auth.exceptions import DefaultCredentialsError
 
 

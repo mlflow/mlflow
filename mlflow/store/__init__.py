@@ -1,5 +1,5 @@
 from mlflow.store.tracking import abstract_store
-from mlflow.store.artifact import artifact_repo
+from mlflow.store.artifact import repo as artifact_repo
 
 __all__ = [
     # tracking server meta-data stores

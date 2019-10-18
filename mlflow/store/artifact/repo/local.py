@@ -2,9 +2,11 @@ import distutils.dir_util as dir_util
 import os
 import shutil
 
-from mlflow.store.artifact.artifact_repo import ArtifactRepository, verify_artifact_path
-from mlflow.utils.file_utils import mkdir, list_all, get_file_info, local_file_uri_to_path, \
-    relative_path_to_artifact_path
+from mlflow.store.artifact.repo import ArtifactRepository, verify_artifact_path
+from mlflow.utils.file_utils import (
+    mkdir, list_all, get_file_info, local_file_uri_to_path,
+    relative_path_to_artifact_path,
+)
 
 
 class LocalArtifactRepository(ArtifactRepository):

@@ -33,7 +33,7 @@ def test_register_model_with_runs_uri():
     create_model_patch = mock.patch.object(MlflowClient, "create_registered_model",
                                            return_value=RegisteredModel("Model 1"))
     get_uri_patch = mock.patch(
-        "mlflow.store.artifact.runs_artifact_repo.RunsArtifactRepository.get_underlying_uri",
+        "mlflow.store.artifact.repo.runs.RunsArtifactRepository.get_underlying_uri",
         return_value="s3:/path/to/source")
     create_version_patch = mock.patch.object(
         MlflowClient, "create_model_version",
