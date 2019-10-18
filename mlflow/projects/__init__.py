@@ -668,7 +668,7 @@ def _invoke_mlflow_run_subprocess(
 
 def _get_conda_command(conda_env_name):
     #  Checking for newer conda versions
-    if 'CONDA_EXE' in os.environ or 'MLFLOW_CONDA_HOME' in os.environ:
+    if os.name != 'nt' and ('CONDA_EXE' in os.environ or 'MLFLOW_CONDA_HOME' in os.environ):
         conda_path = _get_conda_bin_executable("conda")
         activate_conda_env = ['source ' + os.path.dirname(conda_path) +
                               '/../etc/profile.d/conda.sh']
@@ -680,7 +680,7 @@ def _get_conda_command(conda_env_name):
         if os.name != "nt":
             return ["source %s %s 1>&2" % (activate_path, conda_env_name)]
         else:
-            return ["conda %s %s 1>&2" % (activate_path, conda_env_name)]
+            return ["conda activate %s" % (conda_env_name)]
     return activate_conda_env
 
 
