@@ -64,11 +64,18 @@ class PyFuncBackend(FlavorBackend):
         # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
         # platform compatibility.
         local_uri = path_to_local_file_uri(local_path)
-        command = ("gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
-                   " -- mlflow.pyfunc.scoring_server.wsgi:app").format(
-            host=host,
-            port=port,
-            nworkers=self._nworkers)
+        if os.name != "nt":
+            command = ("gunicorn --timeout=60 -b {host}:{port} -w {nworkers} ${{GUNICORN_CMD_ARGS}}"
+                       " -- mlflow.pyfunc.scoring_server.wsgi:app").format(
+                host=host,
+                port=port,
+                nworkers=self._nworkers)
+        else:
+            command = ("waitress-serve --host={host} --port={port} "
+                       "--ident=mlflow mlflow.pyfunc.scoring_server.wsgi:app").format(
+                host=host,
+                port=port)
+
         command_env = os.environ.copy()
         command_env[scoring_server._SERVER_MODEL_PATH] = local_uri
         if not self._no_conda and ENV in self._config:
@@ -77,7 +84,10 @@ class PyFuncBackend(FlavorBackend):
                                          command_env=command_env)
         else:
             _logger.info("=== Running command '%s'", command)
-            subprocess.Popen(["bash", "-c", command], env=command_env).wait()
+            if os.name != "nt":
+                subprocess.Popen(["bash", "-c", command], env=command_env).wait()
+            else:
+                subprocess.Popen([command.split(" ")], env=command_env).wait()
 
     def can_score_model(self):
         if self._no_conda:
@@ -136,10 +146,18 @@ def _execute_in_conda_env(conda_env_path, command, install_mlflow, command_env=N
             install_mlflow = "pip install mlflow=={} 1>&2".format(VERSION)
 
         activate_conda_env += [install_mlflow]
+    if os.name != "nt":
+        separator = " && "
+    else:
+        separator = " & "
 
-    command = " && ".join(activate_conda_env + [command])
+    command = separator.join(activate_conda_env + [command])
     _logger.info("=== Running command '%s'", command)
-    child = subprocess.Popen(["bash", "-c", command], close_fds=True, env=command_env)
+
+    if os.name != "nt":
+        child = subprocess.Popen(["bash", "-c", command], close_fds=True, env=command_env)
+    else:
+        child = subprocess.Popen(["cmd", "/c", command], close_fds=True, env=command_env)
     rc = child.wait()
     if rc != 0:
         raise Exception("Command '{0}' returned non zero return code. Return code = {1}".format(
