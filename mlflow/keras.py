@@ -402,9 +402,9 @@ def autolog():
             try_mlflow_log(mlflow.set_tag, 'summary', summary)
             try_mlflow_log(log_model, self.model, artifact_path='model')
 
-    @gorilla.patch(keras.Model)
+    @gorilla.patch(keras.models.Model)
     def fit(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(keras.Model, 'fit')
+        original = gorilla.get_original_attribute(keras.models.Model, 'fit')
         if len(args) >= 6:
             l = list(args)
             l[5] += [__MLflowKerasCallback()]
@@ -415,9 +415,9 @@ def autolog():
             kwargs['callbacks'] = [__MLflowKerasCallback()]
         return original(self, *args, **kwargs)
 
-    @gorilla.patch(keras.Model)
+    @gorilla.patch(keras.models.Model)
     def fit_generator(self, *args, **kwargs):
-        original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
+        original = gorilla.get_original_attribute(keras.models.Model, 'fit_generator')
         if len(args) >= 5:
             l = list(args)
             l[4] += [__MLflowKerasCallback()]
@@ -429,5 +429,5 @@ def autolog():
         return original(self, *args, **kwargs)
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
-    gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
-    gorilla.apply(gorilla.Patch(keras.Model, 'fit_generator', fit_generator, settings=settings))
+    gorilla.apply(gorilla.Patch(keras.models.Model, 'fit', fit, settings=settings))
+    gorilla.apply(gorilla.Patch(keras.models.Model, 'fit_generator', fit_generator, settings=settings))
