@@ -10,8 +10,10 @@ import sqlalchemy
 
 import mlflow.db
 from mlflow.exceptions import MlflowException
-from mlflow.store.db.utils import _get_alembic_config
+from mlflow.store.db.utils import _get_alembic_config, _verify_schema
 from mlflow.store.db.base_sql_model import Base
+# pylint: disable=unused-import
+from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlModelVersion
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from tests.resources.db.initial_models import Base as InitialBase
 from tests.store.dump_schema import dump_db_schema
@@ -83,7 +85,7 @@ def test_sqlalchemy_store_detects_schema_mismatch(
         tmpdir, db_url):  # pylint: disable=unused-argument
     def _assert_invalid_schema(engine):
         with pytest.raises(MlflowException) as ex:
-            SqlAlchemyStore._verify_schema(engine)
+            _verify_schema(engine)
             assert ex.message.contains("Detected out-of-date database schema.")
 
     # Initialize an empty database & verify that we detect a schema mismatch
@@ -102,7 +104,7 @@ def test_sqlalchemy_store_detects_schema_mismatch(
         _assert_invalid_schema(engine)
     # Run migrations, schema verification should now pass
     invoke_cli_runner(mlflow.db.commands, ['upgrade', db_url])
-    SqlAlchemyStore._verify_schema(engine)
+    _verify_schema(engine)
 
 
 def test_store_generated_schema_matches_base(tmpdir, db_url):

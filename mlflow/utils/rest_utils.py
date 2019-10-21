@@ -6,6 +6,8 @@ import json
 import requests
 
 from mlflow import __version__
+from mlflow.protos import databricks_pb2
+from mlflow.utils.proto_json_utils import parse_dict
 from mlflow.utils.string_utils import strip_suffix
 from mlflow.exceptions import MlflowException, RestException
 
@@ -103,6 +105,38 @@ def verify_rest_response(response, endpoint):
             raise RestException(json.loads(response.text))
         raise MlflowException("%s. Response body: '%s'" % (base_msg, response.text))
     return response
+
+
+def _get_path(path_prefix, endpoint_path):
+    return "{}{}".format(path_prefix, endpoint_path)
+
+
+def extract_api_info_for_service(service, path_prefix):
+    """ Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
+    service_methods = service.DESCRIPTOR.methods
+    res = {}
+    for service_method in service_methods:
+        endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
+        endpoint = endpoints[0]
+        endpoint_path = _get_path(path_prefix, endpoint.path)
+        res[service().GetRequestClass(service_method)] = (endpoint_path, endpoint.method)
+    return res
+
+
+def call_endpoint(host_creds, endpoint, method, json_body, response_proto):
+    # Convert json string to json dictionary, to pass to requests
+    if json_body:
+        json_body = json.loads(json_body)
+    if method == 'GET':
+        response = http_request(
+            host_creds=host_creds, endpoint=endpoint, method=method, params=json_body)
+    else:
+        response = http_request(
+            host_creds=host_creds, endpoint=endpoint, method=method, json=json_body)
+    response = verify_rest_response(response, endpoint)
+    js_dict = json.loads(response.text)
+    parse_dict(js_dict=js_dict, message=response_proto)
+    return response_proto
 
 
 class MlflowHostCreds(object):

@@ -1,0 +1,23 @@
+/* >>> Extract to our own Alert wrapper component */
+.status-alert {
+    margin-bottom: 16px;
+    border-radius: 2px;
+}
+
+.status-alert .model-version-status-icon {
+    margin-left: -3px;
+}
+
+.status-alert.status-alert-info .icon-pending {
+    color: green;
+    margin-right: 4px;
+}
+
+.status-alert.status-alert-info {
+    border-left: 2px solid #3895d3;
+}
+
+.status-alert.status-alert-error {
+    border-left: 2px solid red;
+}
+/* <<< Extract to our own Alert wrapper component */

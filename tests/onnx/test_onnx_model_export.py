@@ -290,6 +290,28 @@ def test_model_log(tracking_uri_mock, onnx_model, onnx_custom_env):
             mlflow.end_run()
 
 
+def test_log_model_calls_register_model(tracking_uri_mock, onnx_model, onnx_custom_env):
+    import mlflow.onnx
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path,
+                              conda_env=onnx_custom_env, registered_model_name="AdsModel1")
+        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
+                                                            artifact_path=artifact_path)
+        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+
+
+def test_log_model_no_registered_model_name(tracking_uri_mock, onnx_model, onnx_custom_env):
+    import mlflow.onnx
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.onnx.log_model(onnx_model=onnx_model, artifact_path=artifact_path,
+                              conda_env=onnx_custom_env)
+        mlflow.register_model.assert_not_called()
+
+
 # TODO: Mark this as large once MLflow's Travis build supports the onnxruntime library
 @pytest.mark.release
 def test_model_log_evaluate_pyfunc_format(tracking_uri_mock, onnx_model, data, predicted):

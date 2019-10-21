@@ -1,10 +1,15 @@
 import os
 
+from contextlib import contextmanager
 import logging
 
 from alembic.migration import MigrationContext  # pylint: disable=import-error
+from alembic.script import ScriptDirectory
 import sqlalchemy
 
+from mlflow.exceptions import MlflowException
+from mlflow.store.tracking.dbmodels.initial_models import Base as InitialBase
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 
 _logger = logging.getLogger(__name__)
 
@@ -13,6 +18,66 @@ def _get_package_dir():
     """Returns directory containing MLflow python package."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.normpath(os.path.join(current_dir, os.pardir, os.pardir))
+
+
+def _initialize_tables(engine):
+    _logger.info("Creating initial MLflow database tables...")
+    InitialBase.metadata.create_all(engine)
+    engine_url = str(engine.url)
+    _upgrade_db(engine_url)
+
+
+def _get_latest_schema_revision():
+    """Get latest schema revision as a string."""
+    # We aren't executing any commands against a DB, so we leave the DB URL unspecified
+    config = _get_alembic_config(db_url="")
+    script = ScriptDirectory.from_config(config)
+    heads = script.get_heads()
+    if len(heads) != 1:
+        raise MlflowException("Migration script directory was in unexpected state. Got %s head "
+                              "database versions but expected only 1. Found versions: %s"
+                              % (len(heads), heads))
+    return heads[0]
+
+
+def _verify_schema(engine):
+    head_revision = _get_latest_schema_revision()
+    current_rev = _get_schema_version(engine)
+    if current_rev != head_revision:
+        raise MlflowException(
+            "Detected out-of-date database schema (found version %s, but expected %s). "
+            "Take a backup of your database, then run 'mlflow db upgrade <database_uri>' "
+            "to migrate your database to the latest schema. NOTE: schema migration may "
+            "result in database downtime - please consult your database's documentation for "
+            "more detail." % (current_rev, head_revision))
+
+
+def _get_managed_session_maker(SessionMaker):
+    """
+    Creates a factory for producing exception-safe SQLAlchemy sessions that are made available
+    using a context manager. Any session produced by this factory is automatically committed
+    if no exceptions are encountered within its associated context. If an exception is
+    encountered, the session is rolled back. Finally, any session produced by this factory is
+    automatically closed when the session's associated context is exited.
+    """
+
+    @contextmanager
+    def make_managed_session():
+        """Provide a transactional scope around a series of operations."""
+        session = SessionMaker()
+        try:
+            yield session
+            session.commit()
+        except MlflowException:
+            session.rollback()
+            raise
+        except Exception as e:
+            session.rollback()
+            raise MlflowException(message=e, error_code=INTERNAL_ERROR)
+        finally:
+            session.close()
+
+    return make_managed_session
 
 
 def _get_alembic_config(db_url, alembic_dir=None):

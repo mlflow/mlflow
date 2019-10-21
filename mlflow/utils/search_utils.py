@@ -384,3 +384,56 @@ class SearchUtils(object):
         if final_offset < len(runs):
             next_page_token = cls._create_page_token(final_offset)
         return (paginated_runs, next_page_token)
+
+    # Model Registry specific parser
+    # TODO: Tech debt. Refactor search code into common utils, tracking server, and model
+    #       registry specific code.
+
+    VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY = set(["name", "run_id", "source_path"])
+
+    @classmethod
+    def _get_comparison_for_model_registry(cls, comparison):
+        stripped_comparison = [token for token in comparison.tokens if not token.is_whitespace]
+        cls._validate_comparison(stripped_comparison)
+        key = stripped_comparison[0].value
+        if key not in cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY:
+            raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
+                                  " are '{}'".format(key, cls.VALID_SEARCH_KEYS_FOR_MODEL_REGISTRY))
+        value_token = stripped_comparison[2]
+        if value_token.ttype not in cls.STRING_VALUE_TYPES:
+            raise MlflowException("Expected a quoted string value for attributes. "
+                                  "Got value {value}".format(value=value_token.value),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        comp = {
+            "key": key,
+            "comparator": stripped_comparison[1].value,
+            "value": cls._strip_quotes(value_token.value, expect_quoted_value=True)
+        }
+        return comp
+
+    @classmethod
+    def parse_filter_for_model_registry(cls, filter_string):
+        if not filter_string or filter_string == "":
+            return []
+        expected = "Expected search filter with single comparison operator. e.g. name='myModelName'"
+        try:
+            parsed = sqlparse.parse(filter_string)
+        except Exception:
+            raise MlflowException("Error while parsing filter '%s'. %s" % (filter_string, expected),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        if len(parsed) == 0 or not isinstance(parsed[0], Statement):
+            raise MlflowException("Invalid filter '%s'. Could not be parsed. %s" %
+                                  (filter_string, expected), error_code=INVALID_PARAMETER_VALUE)
+        elif len(parsed) > 1:
+            raise MlflowException("Search filter '%s' contains multiple expressions. "
+                                  "%s " % (filter_string, expected),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        statement = parsed[0]
+        invalids = list(filter(cls._invalid_statement_token, statement.tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join("'%s'" % token for token in invalids)
+            raise MlflowException("Invalid clause(s) in filter string: %s. "
+                                  "%s" % (invalid_clauses, expected),
+                                  error_code=INVALID_PARAMETER_VALUE)
+        return [cls._get_comparison_for_model_registry(si)
+                for si in statement.tokens if isinstance(si, Comparison)]

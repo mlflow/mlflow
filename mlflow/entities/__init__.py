@@ -4,7 +4,9 @@ The ``mlflow.entities`` module defines entities returned by the MLflow
 """
 
 from mlflow.entities.experiment import Experiment
+from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run import Run
@@ -14,8 +16,6 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.view_type import ViewType
-from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.entities.experiment_tag import ExperimentTag
 
 __all__ = [
     "Experiment",

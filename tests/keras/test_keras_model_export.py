@@ -305,6 +305,25 @@ def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disabl
             mlflow.end_run()
 
 
+def test_log_model_calls_register_model(tracking_uri_mock, model):
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.keras.log_model(model, artifact_path=artifact_path,
+                               registered_model_name="AdsModel1")
+        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
+                                                            artifact_path=artifact_path)
+        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+
+
+def test_log_model_no_registered_model_name(tracking_uri_mock, model):
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.keras.log_model(model, artifact_path=artifact_path)
+        mlflow.register_model.assert_not_called()
+
+
 @pytest.mark.large
 def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
         model, model_path, keras_custom_env):

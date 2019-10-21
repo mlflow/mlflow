@@ -42,8 +42,8 @@
 
 /* BEGIN table styling stuff */
 .table-name {
+  display: block;
   padding-top: 6px;
-  width: 112px;
   cursor: pointer;
 }
 
@@ -92,7 +92,7 @@ textarea.run-command {
 }
 
 .mlflow-dropdown {
-  margin-top: 18px;
+  margin-top: -5px;
 }
 
 .rename-run-form {

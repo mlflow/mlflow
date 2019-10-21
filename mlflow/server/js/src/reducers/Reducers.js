@@ -19,6 +19,7 @@ import {
 import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
+import modelRegistryReducers from '../model-registry/reducers';
 import _ from 'lodash';
 
 export const getExperiments = (state) => {
@@ -317,6 +318,7 @@ const entities = combineReducers({
   experimentTagsByExperimentId,
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
+  ...modelRegistryReducers,
 });
 
 export const getSharedParamKeysByRunUuids = (runUuids, state) =>

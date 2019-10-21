@@ -24,9 +24,8 @@ class MyCoolException(Exception):
 
 
 class CustomErrorHandlingRestStore(RestStore):
-    def _verify_rest_response(self, response, endpoint):
-        if response.status_code != 200:
-            raise MyCoolException()
+    def _call_endpoint(self, api, json_body):
+        raise MyCoolException()
 
 
 class TestRestStore(object):
@@ -130,8 +129,9 @@ class TestRestStore(object):
             "mlflow.tracking.context.default_context._get_source_type",
             return_value=SourceType.LOCAL
         )
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http, \
-                mock.patch('mlflow.tracking.utils._get_store', return_value=store), \
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http, \
+                mock.patch('mlflow.tracking._tracking_service.utils._get_store',
+                           return_value=store), \
                 mock.patch('mlflow.tracking.context.default_context._get_user',
                            return_value=user_name), \
                 mock.patch('time.time', return_value=13579), \
@@ -160,14 +160,14 @@ class TestRestStore(object):
                 )
                 assert expected_kwargs == actual_kwargs
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.log_param("some_uuid", Param("k1", "v1"))
             body = message_to_json(LogParam(
                 run_uuid="some_uuid", run_id="some_uuid", key="k1", value="v1"))
             self._verify_requests(mock_http, creds,
                                   "runs/log-parameter", "POST", body)
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.set_experiment_tag("some_id", ExperimentTag("t1", "abcd"*1000))
             body = message_to_json(SetExperimentTag(
                 experiment_id="some_id",
@@ -176,27 +176,27 @@ class TestRestStore(object):
             self._verify_requests(mock_http, creds,
                                   "experiments/set-experiment-tag", "POST", body)
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.set_tag("some_uuid", RunTag("t1", "abcd"*1000))
             body = message_to_json(SetTag(
                 run_uuid="some_uuid", run_id="some_uuid", key="t1", value="abcd"*1000))
             self._verify_requests(mock_http, creds,
                                   "runs/set-tag", "POST", body)
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.delete_tag("some_uuid", "t1")
             body = message_to_json(DeleteTag(run_id="some_uuid", key="t1"))
             self._verify_requests(mock_http, creds,
                                   "runs/delete-tag", "POST", body)
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.log_metric("u2", Metric("m1", 0.87, 12345, 3))
             body = message_to_json(LogMetric(
                 run_uuid="u2", run_id="u2", key="m1", value=0.87, timestamp=12345, step=3))
             self._verify_requests(mock_http, creds,
                                   "runs/log-metric", "POST", body)
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             metrics = [Metric("m1", 0.87, 12345, 0), Metric("m2", 0.49, 12345, -1),
                        Metric("m3", 0.58, 12345, 2)]
             params = [Param("p1", "p1val"), Param("p2", "p2val")]
@@ -210,31 +210,31 @@ class TestRestStore(object):
             self._verify_requests(mock_http, creds,
                                   "runs/log-batch", "POST", body)
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.delete_run("u25")
             self._verify_requests(mock_http, creds,
                                   "runs/delete", "POST",
                                   message_to_json(DeleteRun(run_id="u25")))
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.restore_run("u76")
             self._verify_requests(mock_http, creds,
                                   "runs/restore", "POST",
                                   message_to_json(RestoreRun(run_id="u76")))
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.delete_experiment("0")
             self._verify_requests(mock_http, creds,
                                   "experiments/delete", "POST",
                                   message_to_json(DeleteExperiment(experiment_id="0")))
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             store.restore_experiment("0")
             self._verify_requests(mock_http, creds,
                                   "experiments/restore", "POST",
                                   message_to_json(RestoreExperiment(experiment_id="0")))
 
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             response = mock.MagicMock
             response.text = '{"runs": ["1a", "2b", "3c"], "next_page_token": "67890fghij"}'
             mock_http.return_value = response
@@ -253,7 +253,7 @@ class TestRestStore(object):
     def test_get_experiment_by_name(self, store_class):
         creds = MlflowHostCreds('https://hello')
         store = store_class(lambda: creds)
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             response = mock.MagicMock
             response.status_code = 200
             experiment = Experiment(
@@ -333,7 +333,7 @@ class TestRestStore(object):
     def test_databricks_rest_store_get_experiment_by_name(self):
         creds = MlflowHostCreds('https://hello')
         store = DatabricksRestStore(lambda: creds)
-        with mock.patch('mlflow.store.tracking.rest_store.http_request') as mock_http:
+        with mock.patch('mlflow.utils.rest_utils.http_request') as mock_http:
             # Verify that Databricks REST client won't fall back to ListExperiments for 500-level
             # errors that are not ENDPOINT_NOT_FOUND
 

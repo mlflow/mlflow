@@ -6,9 +6,10 @@ For a higher level API for managing an "active run", use the :py:mod:`mlflow` mo
 """
 
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.utils import set_tracking_uri, get_tracking_uri, _get_store, \
-    _TRACKING_URI_ENV_VAR
-from mlflow.tracking.fluent import _EXPERIMENT_ID_ENV_VAR, _EXPERIMENT_NAME_ENV_VAR, _RUN_ID_ENV_VAR
+from mlflow.tracking._tracking_service.utils import set_tracking_uri, get_tracking_uri, \
+    _get_store, _TRACKING_URI_ENV_VAR
+from mlflow.tracking.fluent import _EXPERIMENT_ID_ENV_VAR, _EXPERIMENT_NAME_ENV_VAR, \
+    _RUN_ID_ENV_VAR
 
 __all__ = [
     "MlflowClient",

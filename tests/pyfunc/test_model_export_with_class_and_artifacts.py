@@ -203,6 +203,55 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
         test_predict(sk_model=sklearn_knn_model, model_input=iris_data[0]))
 
 
+def test_log_model_calls_register_model(sklearn_knn_model, main_scoped_model_class):
+    register_model_patch = mock.patch("mlflow.register_model")
+    with register_model_patch:
+        sklearn_artifact_path = "sk_model_no_run"
+        with mlflow.start_run():
+            mlflow.sklearn.log_model(sk_model=sklearn_knn_model,
+                                     artifact_path=sklearn_artifact_path)
+            sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id,
+                artifact_path=sklearn_artifact_path)
+
+        def test_predict(sk_model, model_input):
+            return sk_model.predict(model_input) * 2
+
+        pyfunc_artifact_path = "pyfunc_model"
+        assert mlflow.active_run() is None
+        mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                                artifacts={"sk_model": sklearn_model_uri},
+                                python_model=main_scoped_model_class(test_predict),
+                                registered_model_name="AdsModel1")
+        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
+                                                            artifact_path=pyfunc_artifact_path)
+        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+        mlflow.end_run()
+
+
+def test_log_model_no_registered_model_name(sklearn_knn_model, main_scoped_model_class):
+    register_model_patch = mock.patch("mlflow.register_model")
+    with register_model_patch:
+        sklearn_artifact_path = "sk_model_no_run"
+        with mlflow.start_run():
+            mlflow.sklearn.log_model(sk_model=sklearn_knn_model,
+                                     artifact_path=sklearn_artifact_path)
+            sklearn_model_uri = "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id,
+                artifact_path=sklearn_artifact_path)
+
+        def test_predict(sk_model, model_input):
+            return sk_model.predict(model_input) * 2
+
+        pyfunc_artifact_path = "pyfunc_model"
+        assert mlflow.active_run() is None
+        mlflow.pyfunc.log_model(artifact_path=pyfunc_artifact_path,
+                                artifacts={"sk_model": sklearn_model_uri},
+                                python_model=main_scoped_model_class(test_predict))
+        mlflow.register_model.assert_not_called()
+        mlflow.end_run()
+
+
 @pytest.mark.large
 def test_model_load_from_remote_uri_succeeds(
         sklearn_knn_model, main_scoped_model_class, tmpdir, mock_s3_bucket, iris_data):

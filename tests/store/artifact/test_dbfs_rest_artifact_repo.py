@@ -220,13 +220,13 @@ class TestDbfsArtifactRepository(object):
 
 
 def test_get_host_creds_from_default_store_file_store():
-    with mock.patch('mlflow.tracking.utils._get_store') as get_store_mock:
+    with mock.patch('mlflow.tracking._tracking_service.utils._get_store') as get_store_mock:
         get_store_mock.return_value = FileStore()
         with pytest.raises(MlflowException):
             _get_host_creds_from_default_store()
 
 
 def test_get_host_creds_from_default_store_rest_store():
-    with mock.patch('mlflow.tracking.utils._get_store') as get_store_mock:
+    with mock.patch('mlflow.tracking._tracking_service.utils._get_store') as get_store_mock:
         get_store_mock.return_value = RestStore(lambda: MlflowHostCreds('http://host'))
         assert isinstance(_get_host_creds_from_default_store()(), MlflowHostCreds)

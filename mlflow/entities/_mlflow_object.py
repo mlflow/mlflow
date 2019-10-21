@@ -9,8 +9,12 @@ class _MLflowObject(object):
             yield prop, self.__getattribute__(prop)
 
     @classmethod
-    def _properties(cls):
+    def _get_properties_helper(cls):
         return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), property)])
+
+    @classmethod
+    def _properties(cls):
+        return cls._get_properties_helper()
 
     @classmethod
     @abstractmethod

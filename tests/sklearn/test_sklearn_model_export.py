@@ -1,6 +1,7 @@
 from __future__ import print_function
 
 import sys
+import mock
 import os
 import pickle
 import pytest
@@ -33,6 +34,7 @@ from mlflow.utils.model_utils import _get_flavor_configuration
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
 from tests.helper_functions import score_model_in_sagemaker_docker_container
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -152,6 +154,30 @@ def test_model_log(sklearn_logreg_model, model_path):
             finally:
                 mlflow.end_run()
                 mlflow.set_tracking_uri(old_uri)
+
+
+def test_log_model_calls_register_model(tracking_uri_mock, sklearn_logreg_model):
+    artifact_path = "linear"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
+        conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+        _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
+        mlflow.sklearn.log_model(sk_model=sklearn_logreg_model.model, artifact_path=artifact_path,
+                                 conda_env=conda_env, registered_model_name="AdsModel1")
+        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
+                                                            artifact_path=artifact_path)
+        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+
+
+def test_log_model_no_registered_model_name(tracking_uri_mock, sklearn_logreg_model):
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch, TempDir(chdr=True, remove_on_exit=True) as tmp:
+        conda_env = os.path.join(tmp.path(), "conda_env.yaml")
+        _mlflow_conda_env(conda_env, additional_pip_deps=["scikit-learn"])
+        mlflow.sklearn.log_model(sk_model=sklearn_logreg_model.model, artifact_path=artifact_path,
+                                 conda_env=conda_env)
+        mlflow.register_model.assert_not_called()
 
 
 @pytest.mark.large

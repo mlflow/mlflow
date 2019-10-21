@@ -1,4 +1,7 @@
 @import '~antd/dist/antd.css';
+@import 'antd-override.css';
+@import 'common/index.css';
+@import 'model-registry/index.css';
 
 body {
   margin: 0;

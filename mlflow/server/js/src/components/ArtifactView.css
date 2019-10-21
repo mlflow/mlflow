@@ -1,39 +1,14 @@
-.artifact-info {
-  height: 56px;
-  background-color: #fafafa;
-  padding-left: 16px;
-  padding-top: 8px;
-}
-
-.artifact-info-link {
-  float: right;
-  width: 38px;
-  height: 40px;
-  padding-top: 5px;
-  font-size: 21px;
-}
-
-.artifact-info-path {
-  margin-right: 48px;
-}
-
-.artifact-info-size {
-  margin-right: 45px;
-}
-
-.view-button {
-  margin-top: 6px;
-}
-
 div.artifact-view {
   height: 558px;
   border: solid 1px #ccc;
   display: flex;
+  overflow-x: scroll;
 }
 
 .artifact-left {
-  float: left;
-  width: 400px;
+  min-width: 200px;
+  max-width: 400px;
+  flex: 1;
 }
 
 .artifact-left li {
@@ -41,7 +16,40 @@ div.artifact-view {
 }
 
 .artifact-right {
-  width: 100%;
+  flex: 3;
+  min-width: 400px;
+  max-width: calc(100% - 200px); /* 200px is the min-width of .artifact-left */
+}
+
+.artifact-info {
+  height: 56px;
+  background-color: #fafafa;
+  padding: 8px 16px;
+  white-space: nowrap;
+  display: flex;
+}
+
+.artifact-info-left {
+  flex: 1;
+  max-width: 75%;
+}
+.artifact-info-right {
+  margin-left: auto;
+}
+
+.artifact-info-link {
+  height: 40px;
+  padding-top: 5px;
+  font-size: 21px;
+}
+
+.artifact-info-path, .artifact-info-size {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.view-button {
+  margin-top: 6px;
 }
 
 .empty-artifact-outer-container {
@@ -77,4 +85,32 @@ div.artifact-view {
   -webkit-animation: spin 3s linear infinite;
   -moz-animation: spin 3s linear infinite;
   animation: spin 3s linear infinite;
+}
+
+.artifact-info-right .model-version-link {
+  display: flex;
+  align-items: baseline;
+  max-width: 140px;
+  padding-top: 1px;
+  padding-left: 4px;
+}
+
+.artifact-info-right .model-version-link .model-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.artifact-info-right .model-version-info {
+  font-size: 12px;
+}
+
+.artifact-info-right .model-version-info .model-version-link-section {
+  display: flex;
+  align-items: center;
+}
+
+.artifact-info-right .model-version-info .model-version-status-text {
+  overflow: hidden;
+  max-width: 160px;
+  text-overflow: ellipsis;
 }

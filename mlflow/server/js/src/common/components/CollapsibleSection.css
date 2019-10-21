@@ -1,0 +1,15 @@
+.collapsible-section {
+  margin-left: -16px;
+}
+
+.collapsible-section.ant-collapse > .ant-collapse-item > .ant-collapse-header {
+  display: inline-block; /* restrict toggleable area */
+  font-size: 16px;
+  padding-left: 36px;
+  padding-right: 0;
+}
+
+.collapsible-section .ant-collapse-item {
+  border: 0;
+  overflow: hidden;
+}

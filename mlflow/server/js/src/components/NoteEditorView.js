@@ -98,7 +98,7 @@ class NoteEditorView extends Component {
       <div className="note-editor-button-area">
         {this.state.error && !this.state.errorAlertDismissed ?
           <Alert bsStyle="danger" onDismiss={this.handleErrorAlertDismissed}>
-            <h4>Uh oh! There was an error submitting your note.</h4>
+            <h4>Failed to save content.</h4>
             <p>
             {this.state.error.getUserVisibleError()}
             </p>

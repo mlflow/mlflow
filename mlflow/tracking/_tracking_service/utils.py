@@ -7,15 +7,13 @@ from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore, DatabricksRestStore
-from mlflow.tracking.registry import TrackingStoreRegistry
+from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils import env, rest_utils
 from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.uri import get_db_profile_from_uri
 
 _TRACKING_URI_ENV_VAR = "MLFLOW_TRACKING_URI"
-_LOCAL_FS_URI_PREFIX = "file:///"
-_REMOTE_URI_PREFIX = "http://"
 
 # Extra environment variables which take precedence for setting the basic/bearer
 # auth on http requests.

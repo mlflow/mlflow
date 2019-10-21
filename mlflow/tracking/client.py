@@ -1,36 +1,45 @@
 """
-Internal package providing a Python CRUD interface to MLflow experiments and runs.
-This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module, and is
-exposed in the :py:mod:`mlflow.tracking` module.
+Internal package providing a Python CRUD interface to MLflow experiments, runs, registered models,
+and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.fluent` module,
+and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 
-import time
-import os
-from six import iteritems
-
+from mlflow.entities import ViewType
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.tracking import utils
-from mlflow.utils.validation import _validate_param_name, _validate_tag_name, _validate_run_id, \
-    _validate_experiment_artifact_location, _validate_experiment_name, _validate_metric
-from mlflow.entities import Param, Metric, RunStatus, RunTag, ViewType, ExperimentTag
-from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.tracking._model_registry.client import ModelRegistryClient
+from mlflow.tracking._tracking_service import utils
+from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
 
 class MlflowClient(object):
     """
-    Client of an MLflow Tracking Server that creates and manages experiments and runs.
+    Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
+    MLflow Registry Server that creates and manages registered models and model versions. It's a
+    thin wrapper around TrackingServiceClient and RegistryClient so there is a unified API but we
+    can keep the implementation of the tracking and registry clients independent from each other.
     """
 
-    def __init__(self, tracking_uri=None):
+    def __init__(self, tracking_uri=None, registry_uri=None):
         """
         :param tracking_uri: Address of local or remote tracking server. If not provided, defaults
                              to the service set by ``mlflow.tracking.set_tracking_uri``. See
                              `Where Runs Get Recorded <../tracking.html#where-runs-get-recorded>`_
                              for more info.
+        :param registry_uri: Address of local or remote model registry server. If not provided,
+                             defaults to the service set by ``mlflow.tracking.set_tracking_uri``.
         """
-        self.tracking_uri = tracking_uri or utils.get_tracking_uri()
-        self.store = utils._get_store(self.tracking_uri)
+        final_tracking_uri = tracking_uri or utils.get_tracking_uri()
+        self.tracking_client = TrackingServiceClient(final_tracking_uri)
+        try:
+            self.registry_client = ModelRegistryClient(registry_uri or final_tracking_uri)
+        except MlflowException as e:
+            if "Unexpected URI" in e.message:
+                self.registry_client = None
+            else:
+                raise e
+
+    # Tracking API
 
     def get_run(self, run_id):
         """
@@ -46,8 +55,7 @@ class MlflowClient(object):
         :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                  raises an exception.
         """
-        _validate_run_id(run_id)
-        return self.store.get_run(run_id)
+        return self.tracking_client.get_run(run_id)
 
     def get_metric_history(self, run_id, key):
         """
@@ -58,7 +66,7 @@ class MlflowClient(object):
 
         :return: A list of :py:class:`mlflow.entities.Metric` entities if logged, else empty list
         """
-        return self.store.get_metric_history(run_id=run_id, metric_key=key)
+        return self.tracking_client.get_metric_history(run_id, key)
 
     def create_run(self, experiment_id, start_time=None, tags=None):
         """
@@ -74,45 +82,31 @@ class MlflowClient(object):
                      :py:class:`mlflow.entities.RunTag` objects.
         :return: :py:class:`mlflow.entities.Run` that was created.
         """
-
-        tags = tags if tags else {}
-
-        # Extract user from tags
-        # This logic is temporary; the user_id attribute of runs is deprecated and will be removed
-        # in a later release.
-        user_id = tags.get(MLFLOW_USER, "unknown")
-
-        return self.store.create_run(
-            experiment_id=experiment_id,
-            user_id=user_id,
-            start_time=start_time or int(time.time() * 1000),
-            tags=[RunTag(key, value) for (key, value) in iteritems(tags)]
-        )
+        return self.tracking_client.create_run(experiment_id, start_time, tags)
 
     def list_run_infos(self, experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
         """:return: List of :py:class:`mlflow.entities.RunInfo`"""
-        return self.store.list_run_infos(experiment_id, run_view_type)
+        return self.tracking_client.list_run_infos(experiment_id, run_view_type)
 
     def list_experiments(self, view_type=None):
         """
         :return: List of :py:class:`mlflow.entities.Experiment`
         """
-        final_view_type = ViewType.ACTIVE_ONLY if view_type is None else view_type
-        return self.store.list_experiments(view_type=final_view_type)
+        return self.tracking_client.list_experiments(view_type)
 
     def get_experiment(self, experiment_id):
         """
         :param experiment_id: The experiment ID returned from ``create_experiment``.
         :return: :py:class:`mlflow.entities.Experiment`
         """
-        return self.store.get_experiment(experiment_id)
+        return self.tracking_client.get_experiment(experiment_id)
 
     def get_experiment_by_name(self, name):
         """
         :param name: The experiment name.
         :return: :py:class:`mlflow.entities.Experiment`
         """
-        return self.store.get_experiment_by_name(name)
+        return self.tracking_client.get_experiment_by_name(name)
 
     def create_experiment(self, name, artifact_location=None):
         """Create an experiment.
@@ -122,12 +116,7 @@ class MlflowClient(object):
                                   If not provided, the server picks an appropriate default.
         :return: Integer ID of the created experiment.
         """
-        _validate_experiment_name(name)
-        _validate_experiment_artifact_location(artifact_location)
-        return self.store.create_experiment(
-            name=name,
-            artifact_location=artifact_location,
-        )
+        return self.tracking_client.create_experiment(name, artifact_location)
 
     def delete_experiment(self, experiment_id):
         """
@@ -135,7 +124,7 @@ class MlflowClient(object):
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
         """
-        self.store.delete_experiment(experiment_id)
+        self.tracking_client.delete_experiment(experiment_id)
 
     def restore_experiment(self, experiment_id):
         """
@@ -143,7 +132,7 @@ class MlflowClient(object):
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
         """
-        self.store.restore_experiment(experiment_id)
+        self.tracking_client.restore_experiment(experiment_id)
 
     def rename_experiment(self, experiment_id, new_name):
         """
@@ -151,7 +140,7 @@ class MlflowClient(object):
 
         :param experiment_id: The experiment ID returned from ``create_experiment``.
         """
-        self.store.rename_experiment(experiment_id, new_name)
+        self.tracking_client.rename_experiment(experiment_id, new_name)
 
     def log_metric(self, run_id, key, value, timestamp=None, step=None):
         """
@@ -165,19 +154,13 @@ class MlflowClient(object):
         :param timestamp: Time when this metric was calculated. Defaults to the current system time.
         :param step: Training step (iteration) at which was the metric calculated. Defaults to 0.
         """
-        timestamp = timestamp if timestamp is not None else int(time.time() * 1000)
-        step = step if step is not None else 0
-        _validate_metric(key, value, timestamp, step)
-        metric = Metric(key, value, timestamp, step)
-        self.store.log_metric(run_id, metric)
+        self.tracking_client.log_metric(run_id, key, value, timestamp, step)
 
     def log_param(self, run_id, key, value):
         """
         Log a parameter against the run ID. Value is converted to a string.
         """
-        _validate_param_name(key)
-        param = Param(key, str(value))
-        self.store.log_param(run_id, param)
+        self.tracking_client.log_param(run_id, key, value)
 
     def set_experiment_tag(self, experiment_id, key, value):
         """
@@ -186,9 +169,7 @@ class MlflowClient(object):
         :param key: Name of the tag.
         :param value: Tag value (converted to a string).
         """
-        _validate_tag_name(key)
-        tag = ExperimentTag(key, str(value))
-        self.store.set_experiment_tag(experiment_id, tag)
+        self.tracking_client.set_experiment_tag(experiment_id, key, value)
 
     def set_tag(self, run_id, key, value):
         """
@@ -197,9 +178,7 @@ class MlflowClient(object):
         :param key: Name of the tag.
         :param value: Tag value (converted to a string)
         """
-        _validate_tag_name(key)
-        tag = RunTag(key, str(value))
-        self.store.set_tag(run_id, tag)
+        self.tracking_client.set_tag(run_id, key, value)
 
     def delete_tag(self, run_id, key):
         """
@@ -208,7 +187,7 @@ class MlflowClient(object):
         :param run_id: String ID of the run
         :param key: Name of the tag
         """
-        self.store.delete_tag(run_id, key)
+        self.tracking_client.delete_tag(run_id, key)
 
     def log_batch(self, run_id, metrics=(), params=(), tags=()):
         """
@@ -222,15 +201,7 @@ class MlflowClient(object):
         Raises an MlflowException if any errors occur.
         :return: None
         """
-        if len(metrics) == 0 and len(params) == 0 and len(tags) == 0:
-            return
-        for metric in metrics:
-            _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
-        for param in params:
-            _validate_param_name(param.key)
-        for tag in tags:
-            _validate_tag_name(tag.key)
-        self.store.log_batch(run_id=run_id, metrics=metrics, params=params, tags=tags)
+        self.tracking_client.log_batch(run_id, metrics, params, tags)
 
     def log_artifact(self, run_id, local_path, artifact_path=None):
         """
@@ -239,15 +210,7 @@ class MlflowClient(object):
         :param local_path: Path to the file or directory to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        run = self.get_run(run_id)
-        artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        if os.path.isdir(local_path):
-            dir_name = os.path.basename(os.path.normpath(local_path))
-            path_name = os.path.join(artifact_path, dir_name) \
-                if artifact_path is not None else dir_name
-            artifact_repo.log_artifacts(local_path, path_name)
-        else:
-            artifact_repo.log_artifact(local_path, artifact_path)
+        self.tracking_client.log_artifact(run_id, local_path, artifact_path)
 
     def log_artifacts(self, run_id, local_dir, artifact_path=None):
         """
@@ -256,9 +219,7 @@ class MlflowClient(object):
         :param local_dir: Path to the directory of files to write.
         :param artifact_path: If provided, the directory in ``artifact_uri`` to write to.
         """
-        run = self.get_run(run_id)
-        artifact_repo = get_artifact_repository(run.info.artifact_uri)
-        artifact_repo.log_artifacts(local_dir, artifact_path)
+        self.tracking_client.log_artifacts(run_id, local_dir, artifact_path)
 
     def list_artifacts(self, run_id, path=None):
         """
@@ -269,10 +230,7 @@ class MlflowClient(object):
                      or the root artifact path.
         :return: List of :py:class:`mlflow.entities.FileInfo`
         """
-        run = self.get_run(run_id)
-        artifact_root = run.info.artifact_uri
-        artifact_repo = get_artifact_repository(artifact_root)
-        return artifact_repo.list_artifacts(path)
+        return self.tracking_client.list_artifacts(run_id, path)
 
     def download_artifacts(self, run_id, path, dst_path=None):
         """
@@ -288,10 +246,7 @@ class MlflowClient(object):
                          directly in the case of the LocalArtifactRepository.
         :return: Local path of desired artifact.
         """
-        run = self.get_run(run_id)
-        artifact_root = run.info.artifact_uri
-        artifact_repo = get_artifact_repository(artifact_root)
-        return artifact_repo.download_artifacts(path, dst_path)
+        return self.tracking_client.download_artifacts(run_id, path, dst_path)
 
     def set_terminated(self, run_id, status=None, end_time=None):
         """Set a run's status to terminated.
@@ -299,22 +254,19 @@ class MlflowClient(object):
         :param status: A string value of :py:class:`mlflow.entities.RunStatus`.
                        Defaults to "FINISHED".
         :param end_time: If not provided, defaults to the current time."""
-        end_time = end_time if end_time else int(time.time() * 1000)
-        status = status if status else RunStatus.to_string(RunStatus.FINISHED)
-        self.store.update_run_info(run_id, run_status=RunStatus.from_string(status),
-                                   end_time=end_time)
+        self.tracking_client.set_terminated(run_id, status, end_time)
 
     def delete_run(self, run_id):
         """
         Deletes a run with the given ID.
         """
-        self.store.delete_run(run_id)
+        self.tracking_client.delete_run(run_id)
 
     def restore_run(self, run_id):
         """
         Restores a deleted run with the given ID.
         """
-        self.store.restore_run(run_id)
+        self.tracking_client.restore_run(run_id)
 
     def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
                     max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
@@ -336,8 +288,136 @@ class MlflowClient(object):
             expressions. If the underlying tracking store supports pagination, the token for
             the next page may be obtained via the ``token`` attribute of the returned object.
         """
-        if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
-            experiment_ids = [experiment_ids]
-        return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
-                                      run_view_type=run_view_type, max_results=max_results,
-                                      order_by=order_by, page_token=page_token)
+        return self.tracking_client.search_runs(experiment_ids, filter_string, run_view_type,
+                                                max_results, order_by, page_token)
+
+    # Registry API
+
+    # Registered Model Methods
+
+    def create_registered_model(self, name):
+        """
+        Create a new registered model in backend store.
+
+        :param name: Name of the new model. This is expected to be unique in the backend store.
+        :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
+                 created by backend.
+        """
+        return self.registry_client.create_registered_model(name)
+
+    def update_registered_model(self, name, new_name=None, description=None):
+        """
+        Updates metadata for RegisteredModel entity. Either ``new_name`` or ``description`` should
+        be non-None. Backend raises exception if a registered model with given name does not exist.
+
+        :param name: Name of the registered model to update.
+        :param new_name: (Optional) New proposed name for the registered model.
+        :param description: (Optional) New description.
+        :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
+        """
+        return self.registry_client.update_registered_model(name, new_name, description)
+
+    def delete_registered_model(self, name):
+        """
+        Delete registered model.
+        Backend raises exception if a registered model with given name does not exist.
+
+        :param name: Name of the registered model to update.
+        """
+        self.registry_client.delete_registered_model(name)
+
+    def list_registered_models(self):
+        """
+        List of all registered models.
+
+        :return: List of :py:class:`mlflow.entities.registry.RegisteredModel` objects.
+        """
+        return self.registry_client.list_registered_models()
+
+    def get_registered_model_details(self, name):
+        """
+        :param name: Name of the registered model to update.
+        :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModelDetailed` object.
+        """
+        return self.registry_client.get_registered_model_details(name)
+
+    def get_latest_versions(self, name, stages=None):
+        """
+        Latest version models for each requests stage. If no ``stages`` provided, returns the
+        latest version for each stage.
+
+        :param name: Name of the registered model to update.
+        :param stages: List of desired stages. If input list is None, return latest versions for
+                       for ALL_STAGES.
+        :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersionDetailed` objects.
+        """
+        return self.registry_client.get_latest_versions(name, stages)
+
+    # Model Version Methods
+
+    def create_model_version(self, name, source, run_id):
+        """
+        Create a new model version from given source or run ID.
+
+        :param name: Name ID for containing registered model.
+        :param source: Source path where the MLflow model is stored.
+        :param run_id: Run ID from MLflow tracking server that generated the model
+        :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
+                 backend.
+        """
+        return self.registry_client.create_model_version(name, source, run_id)
+
+    def update_model_version(self, name, version, stage=None, description=None):
+        """
+        Update metadata associated with a model version in backend.
+
+        :param name: Name of the containing registered model.
+        :param version: Version number of the model version.
+        :param stage: New desired stage for this model version.
+        :param description: New description.
+        """
+        self.registry_client.update_model_version(name, version, stage, description)
+
+    def delete_model_version(self, name, version):
+        """
+        Delete model version in backend.
+
+        :param name: Name of the containing registered model.
+        :param version: Version number of the model version.
+        """
+        self.registry_client.delete_model_version(name, version)
+
+    def get_model_version_details(self, name, version):
+        """
+        :param name: Name of the containing registered model.
+        :param version: Version number of the model version.
+        :return: A single :py:class:`mlflow.entities.model_registry.ModelVersionDetailed` object.
+        """
+        return self.registry_client.get_model_version_details(name, version)
+
+    def get_model_version_download_uri(self, name, version):
+        """
+        Get the download location in Model Registry for this model version.
+
+        :param name: Name of the containing registered model.
+        :param version: Version number of the model version.
+        :return: A single URI location that allows reads for downloading.
+        """
+        return self.registry_client.get_model_version_download_uri(name, version)
+
+    def search_model_versions(self, filter_string):
+        """
+        Search for model versions in backend that satisfy the filter criteria.
+
+        :param filter_string: A filter string expression. Currently supports a single filter
+                              condition either name of model like ``name = 'model_name'`` or
+                              ``run_id = '...'``.
+        :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
+        """
+        return self.registry_client.search_model_versions(filter_string)
+
+    def get_model_version_stages(self, name, version):
+        """
+        :return: A list of valid stages.
+        """
+        return self.registry_client.get_model_version_stages(name, version)

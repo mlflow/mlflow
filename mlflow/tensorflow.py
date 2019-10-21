@@ -69,7 +69,7 @@ def get_default_conda_env():
 
 @keyword_only
 def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, artifact_path,
-              conda_env=None):
+              conda_env=None, registered_model_name=None):
     """
     Log a *serialized* collection of TensorFlow graphs and variables as an MLflow model
     for the current run. This method operates on TensorFlow variables and graphs that have been
@@ -114,11 +114,14 @@ def log_model(tf_saved_model_dir, tf_meta_graph_tags, tf_signature_def_key, arti
                                 'tensorflow=1.8.0'
                             ]
                         }
-
+    :param registered_model_name: If given, create a model version under ``registered_model_name``,
+                                  also creating a registered model if one with the given name does
+                                  not exist.
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.tensorflow,
                      tf_saved_model_dir=tf_saved_model_dir, tf_meta_graph_tags=tf_meta_graph_tags,
-                     tf_signature_def_key=tf_signature_def_key, conda_env=conda_env)
+                     tf_signature_def_key=tf_signature_def_key, conda_env=conda_env,
+                     registered_model_name=registered_model_name)
 
 
 @keyword_only

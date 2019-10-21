@@ -1,0 +1,452 @@
+syntax = "proto2";
+
+package mlflow;
+
+import "scalapb/scalapb.proto";
+import "databricks.proto";
+
+option java_package = "com.databricks.api.proto.mlflow";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+service ModelRegistryService {
+  // Creates a new RegisteredModel entity in Model Registry.
+  //
+  // Throws ``RESOURCE_ALREADY_EXISTS`` if a registered model with the given name exists.
+  rpc createRegisteredModel (CreateRegisteredModel) returns (CreateRegisteredModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/registered-models/create"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Create registered model",
+    };
+  }
+
+  rpc updateRegisteredModel (UpdateRegisteredModel) returns (UpdateRegisteredModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/preview/mlflow/registered-models/update"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Update registered model",
+    };
+  }
+
+  rpc deleteRegisteredModel (DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/preview/mlflow/registered-models/delete"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Delete registered model",
+    };
+  }
+
+  rpc getRegisteredModelDetails (GetRegisteredModelDetails) returns (GetRegisteredModelDetails.Response) {
+    option (rpc) = {
+      endpoints: [{
+        // TODO(mparkhe): Flatten API request arguments to be usable with GET
+        method: "POST",
+        path: "/preview/mlflow/registered-models/get-details"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Get registered model details",
+    };
+  }
+
+  rpc listRegisteredModels (ListRegisteredModels) returns (ListRegisteredModels.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/preview/mlflow/registered-models/list"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"List registered models",
+    };
+  }
+
+  rpc getLatestVersions (GetLatestVersions) returns (GetLatestVersions.Response) {
+    option(rpc) = {
+      endpoints: [{
+        // TODO(mparkhe): Flatten API request arguments to be usable with GET
+        method: "POST",
+        path: "/preview/mlflow/registered-models/get-latest-versions"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Get latest versions",
+    };
+  }
+
+  rpc createModelVersion (CreateModelVersion) returns (CreateModelVersion.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/preview/mlflow/model-versions/create"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Add a new ModelVersion to RegisteredModel",
+    };
+  }
+
+  rpc updateModelVersion (UpdateModelVersion) returns (UpdateModelVersion.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/preview/mlflow/model-versions/update"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Update model-version",
+    };
+  }
+
+  rpc deleteModelVersion (DeleteModelVersion) returns (DeleteModelVersion.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/preview/mlflow/model-versions/delete"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Delete model-version",
+    };
+  }
+
+  rpc getModelVersionDetails (GetModelVersionDetails) returns (GetModelVersionDetails.Response) {
+    option (rpc) = {
+      endpoints: [{
+        // TODO(mparkhe): Flatten API request arguments to be usable with GET
+        method: "POST",
+        path: "/preview/mlflow/model-versions/get-details"
+        since { major: 2, minor: 0 },
+      }],
+      visibility:PUBLIC,
+      rpc_doc_title:"Get model version details",
+    };
+  }
+
+  // Search models in registry.
+  //
+  rpc searchModelVersions(SearchModelVersions)returns(SearchModelVersions.Response){
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/preview/mlflow/model-versions/search"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Search model-versions from registry",
+    };
+  }
+
+  // Get stages for a model
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if model was never created or does not exist in registry.
+  rpc getModelVersionStages (GetModelVersionStages) returns (GetModelVersionStages.Response) {
+    option (rpc) = {
+      endpoints: [{
+        // TODO(mparkhe): Flatten API request arguments to be usable with GET
+        method: "POST",
+        path: "/preview/mlflow/model-versions/get-stages"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get model-version stages",
+    };
+  }
+
+  // GET Download URI for a model version's artifacts
+  rpc getModelVersionDownloadUri (GetModelVersionDownloadUri) returns (GetModelVersionDownloadUri.Response) {
+    option (rpc) = {
+      endpoints: [{
+        // TODO(mparkhe): Flatten API request arguments to be usable with GET
+        method: "POST",
+        path: "/preview/mlflow/model-versions/get-download-uri"
+        since { major: 2, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get download URI for artifacts corresponding to model version.",
+    };
+  }
+}
+
+message RegisteredModel {
+  // Unique name for the model.
+  optional string name = 1;
+}
+
+message RegisteredModelDetailed {
+  // Registered model.
+  optional RegisteredModel registered_model = 1;
+
+  // Timestamp recorded when this ``registered_model`` was created.
+  optional int64 creation_timestamp = 2;
+
+  // Timestamp recorded when metadata for this ``registered_model`` was last updated.
+  optional int64 last_updated_timestamp = 3;
+
+  // User that created this ``registered_model``
+  optional string user_id = 4;
+
+  // Description of this ``registered_model``.
+  optional string description = 5;
+
+  // Collection of latest model versions for each stage.
+  // Only contains models with current ``READY`` status.
+  repeated ModelVersionDetailed latest_versions = 6;
+}
+
+// Model object uniquely identified using name and version.
+message ModelVersion {
+  // Registered model.
+  optional RegisteredModel registered_model = 1;
+
+  // Model's version number.
+  optional int64 version = 2;
+}
+
+enum ModelVersionStatus {
+  // Request to register a new model version is pending as server performs background tasks.
+  PENDING_REGISTRATION = 1;
+
+  // Request to register a new model version has failed.
+  FAILED_REGISTRATION = 2;
+
+  // Model version is ready for use.
+  READY = 3;
+
+  // Request to delete an existing model version is pending as server performs background tasks.
+  PENDING_DELETION = 4;
+
+  // Request to delete an existing model version has failed.
+  FAILED_DELETION = 5;
+}
+
+message ModelVersionDetailed {
+  // Model Version
+  optional ModelVersion model_version = 1;
+
+  // Timestamp recorded when this ``model_version`` was created.
+  optional int64 creation_timestamp = 2;
+
+  // Timestamp recorded when metadata for this ``model_version`` was last updated.
+  optional int64 last_updated_timestamp = 3;
+
+  // User that created this ``model_version``.
+  optional string user_id = 4;
+
+  // Current stage for this ``model_version``.
+  optional string current_stage = 5;
+
+  // Description of this ``model_version``.
+  optional string description = 6;
+
+  // URI indicating the location of the source model artifacts, used when creating ``model_version``
+  optional string source = 7;
+
+  // MLflow run ID used when creating ``model_version``, if ``source`` was generated by an
+  // experiment run stored in MLflow tracking server.
+  optional string run_id = 8;
+
+  // Current status of ``model_version``
+  optional ModelVersionStatus status = 9;
+
+  // Details on current ``status``, if it is pending or failed.
+  optional string status_message = 10;
+}
+
+message CreateRegisteredModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Register models under this name
+  optional string name = 1 [(validate_required) = true];
+
+  message Response {
+    optional RegisteredModel registered_model = 1;
+  }
+}
+
+message UpdateRegisteredModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Registered model.
+  optional RegisteredModel registered_model = 1 [(validate_required) = true];
+
+  // If provided, updates the name for this ``registered_model``.
+  optional string name = 2;
+
+  // If provided, updates the description for this ``registered_model``.
+  optional string description = 3;
+
+  message Response {
+    optional RegisteredModel registered_model = 1;
+  }
+}
+
+message DeleteRegisteredModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Registered model.
+  optional RegisteredModel registered_model = 1 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
+message GetRegisteredModelDetails {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Registered model.
+  optional RegisteredModel registered_model = 1 [(validate_required) = true];
+
+  message Response {
+    optional RegisteredModelDetailed registered_model_detailed = 1;
+  }
+}
+
+message ListRegisteredModels {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {
+    repeated RegisteredModelDetailed registered_models_detailed = 1;
+  }
+}
+
+message GetLatestVersions {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Registered model.
+  optional RegisteredModel registered_model = 1 [(validate_required) = true];
+
+  // List of stages.
+  repeated string stages = 2;
+
+  message Response {
+    // Latest version models for each requests stage. Only return models with current ``READY`` status.
+    // If no ``stages`` provided, returns the latest version for each stage, including ``"None"``.
+    repeated ModelVersionDetailed model_versions_detailed = 1;
+  }
+}
+
+message CreateModelVersion {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Register model under this name
+  optional string name = 1 [(validate_required) = true];
+
+  // URI indicating the location of the model artifacts.
+  optional string source = 2 [(validate_required) = true];
+
+  // MLflow run ID for correlation, if ``source`` was generated by an experiment run in
+  // MLflow tracking server
+  optional string run_id = 3;
+
+  message Response {
+    // Return new version number generated for this model in registry.
+    optional ModelVersion model_version = 1;
+  }
+}
+
+message UpdateModelVersion {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Model version.
+  optional ModelVersion model_version = 1 [(validate_required) = true];
+
+  // If provided, transition ``model_version`` to new stage.
+  optional string stage = 2;
+
+  // If provided, updates the description for this ``registered_model``.
+  optional string description = 3;
+
+  message Response {
+  }
+}
+
+message DeleteModelVersion {
+   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+   // Model version.
+   optional ModelVersion model_version = 1 [(validate_required) = true];
+
+   message Response {
+   }
+}
+
+message GetModelVersionDetails {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Model version.
+  optional ModelVersion model_version = 1 [(validate_required) = true];
+
+  message Response {
+    optional ModelVersionDetailed model_version_detailed = 1;
+  }
+}
+
+message SearchModelVersions {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // String filter condition, like "name='my-model-name'". Must be a single boolean condition,
+  // with string values wrapped in single quotes.
+  optional string filter = 1;
+
+  // Maximum number of models desired. Max threshold is 1000.
+  optional int64 max_results = 2 [default = 100];
+
+  // List of columns to be ordered by including model name, version, stage with an
+  // optional "DESC" or "ASC" annotation, where "ASC" is the default.
+  // Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by
+  // version DESC.
+  repeated string order_by = 3;
+
+  // Pagination token to go to next page based on previous search query.
+  optional string page_token = 4;
+
+  message Response {
+    // Models that match the search criteria
+    repeated ModelVersionDetailed model_versions_detailed = 1;
+
+    // Pagination token to request next page of models for the same search query.
+    optional string next_page_token = 2;
+  }
+}
+
+message GetModelVersionStages {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Model (name and version).
+  // If version not provided uses latest registered version.
+  optional ModelVersion model_version = 1 [(validate_required) = true];
+
+  message Response {
+    // All registry stages for the model
+    repeated string stages = 1;
+  }
+}
+
+message GetModelVersionDownloadUri {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name and version of model
+  optional ModelVersion model_version = 1 [(validate_required) = true];
+
+  message Response {
+    // URI corresponding to where artifacts for this model version are stored.
+    optional string artifact_uri = 1;
+  }
+}

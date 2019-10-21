@@ -64,7 +64,7 @@ def get_default_conda_env():
 
 
 def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
-              pickle_module=None, **kwargs):
+              pickle_module=None, registered_model_name=None, **kwargs):
     """
     Log a PyTorch model as an MLflow artifact for the current run.
 
@@ -101,6 +101,9 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
                           ``pytorch_model``. This is passed as the ``pickle_module`` parameter
                           to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
+    :param registered_model_name: If given, create a model version under ``registered_model_name``,
+                                  also creating a registered model if one with the given name does
+                                  not exist.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch
@@ -147,7 +150,8 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
     """
     pickle_module = pickle_module or mlflow_pytorch_pickle_module
     Model.log(artifact_path=artifact_path, flavor=mlflow.pytorch, pytorch_model=pytorch_model,
-              conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module, **kwargs)
+              conda_env=conda_env, code_paths=code_paths, pickle_module=pickle_module,
+              registered_model_name=registered_model_name, **kwargs)
 
 
 def save_model(pytorch_model, path, conda_env=None, mlflow_model=Model(), code_paths=None,

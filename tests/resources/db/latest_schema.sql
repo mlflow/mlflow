@@ -16,12 +16,39 @@ CREATE TABLE experiments (
 )
 
 
+CREATE TABLE registered_models (
+	name VARCHAR(256) NOT NULL,
+	creation_time BIGINT,
+	last_updated_time BIGINT,
+	description VARCHAR(5000),
+	CONSTRAINT registered_model_pk PRIMARY KEY (name),
+	UNIQUE (name)
+)
+
+
 CREATE TABLE experiment_tags (
 	key VARCHAR(250) NOT NULL, 
 	value VARCHAR(5000), 
 	experiment_id INTEGER NOT NULL, 
 	CONSTRAINT experiment_tag_pk PRIMARY KEY (key, experiment_id), 
 	FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE model_versions (
+	name VARCHAR(256) NOT NULL,
+	version INTEGER NOT NULL,
+	creation_time BIGINT,
+	last_updated_time BIGINT,
+	description VARCHAR(5000),
+	user_id VARCHAR(256),
+	current_stage VARCHAR(20),
+	source VARCHAR(500),
+	run_id VARCHAR(32) NOT NULL,
+	status VARCHAR(20),
+	status_message VARCHAR(500),
+	CONSTRAINT model_version_pk PRIMARY KEY (name, version),
+	FOREIGN KEY(name) REFERENCES registered_models (name) ON UPDATE CASCADE
 )
 
 

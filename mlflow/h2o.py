@@ -102,7 +102,7 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
+def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
     """
     Log an H2O model as an MLflow artifact for the current run.
 
@@ -126,10 +126,13 @@ def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
                                 ]
                             ]
                         }
-
+    :param registered_model_name: If given, create a model version under ``registered_model_name``,
+                                  also creating a registered model if one with the given name does
+                                  not exist.
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
+              registered_model_name=registered_model_name,
               h2o_model=h2o_model, conda_env=conda_env, **kwargs)
 
 

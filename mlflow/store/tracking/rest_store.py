@@ -1,5 +1,3 @@
-import json
-
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -8,27 +6,11 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
     UpdateExperiment, LogBatch, DeleteTag, SetExperimentTag, GetExperimentByName
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.rest_utils import http_request, verify_rest_response
+from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
 
-
-def _get_path(endpoint_path):
-    return "/api/2.0{}".format(endpoint_path)
-
-
-def _api_method_to_info():
-    """ Return a dictionary mapping each API method to a tuple (path, HTTP method)"""
-    service_methods = MlflowService.DESCRIPTOR.methods
-    res = {}
-    for service_method in service_methods:
-        endpoints = service_method.GetOptions().Extensions[databricks_pb2.rpc].endpoints
-        endpoint = endpoints[0]
-        endpoint_path = _get_path(endpoint.path)
-        res[MlflowService().GetRequestClass(service_method)] = (endpoint_path, endpoint.method)
-    return res
-
-
-_METHOD_TO_INFO = _api_method_to_info()
+_PATH_PREFIX = "/api/2.0"
+_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _PATH_PREFIX)
 
 
 class RestStore(AbstractStore):
@@ -44,29 +26,10 @@ class RestStore(AbstractStore):
         super(RestStore, self).__init__()
         self.get_host_creds = get_host_creds
 
-    def _verify_rest_response(self, response, endpoint):
-        return verify_rest_response(response, endpoint)
-
     def _call_endpoint(self, api, json_body):
         endpoint, method = _METHOD_TO_INFO[api]
         response_proto = api.Response()
-        # Convert json string to json dictionary, to pass to requests
-        if json_body:
-            json_body = json.loads(json_body)
-        host_creds = self.get_host_creds()
-
-        if method == 'GET':
-            response = http_request(
-                host_creds=host_creds, endpoint=endpoint, method=method, params=json_body)
-        else:
-            response = http_request(
-                host_creds=host_creds, endpoint=endpoint, method=method, json=json_body)
-
-        response = self._verify_rest_response(response, endpoint)
-
-        js_dict = json.loads(response.text)
-        parse_dict(js_dict=js_dict, message=response_proto)
-        return response_proto
+        return call_endpoint(self.get_host_creds(), endpoint, method, json_body, response_proto)
 
     def list_experiments(self, view_type=ViewType.ACTIVE_ONLY):
         """

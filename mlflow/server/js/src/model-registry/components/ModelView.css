@@ -1,0 +1,11 @@
+.model-view-content .table-name {
+  font-size: 18px;
+}
+
+.model-version-table-header {
+  display: flex;
+}
+
+.active-toggle {
+  margin-left: 10px;
+}

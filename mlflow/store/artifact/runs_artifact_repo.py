@@ -16,13 +16,22 @@ class RunsArtifactRepository(ArtifactRepository):
     """
 
     def __init__(self, artifact_uri):
-        from mlflow.tracking.artifact_utils import get_artifact_uri
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-        (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(artifact_uri)
-        uri = get_artifact_uri(run_id, artifact_path)
-        assert urllib.parse.urlparse(uri).scheme != "runs"  # avoid an infinite loop
+        uri = RunsArtifactRepository.get_underlying_uri(artifact_uri)
         super(RunsArtifactRepository, self).__init__(artifact_uri)
         self.repo = get_artifact_repository(uri)
+
+    @staticmethod
+    def is_runs_uri(uri):
+        return urllib.parse.urlparse(uri).scheme == "runs"
+
+    @staticmethod
+    def get_underlying_uri(runs_uri):
+        from mlflow.tracking.artifact_utils import get_artifact_uri
+        (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(runs_uri)
+        uri = get_artifact_uri(run_id, artifact_path)
+        assert not RunsArtifactRepository.is_runs_uri(uri)  # avoid an infinite loop
+        return uri
 
     @staticmethod
     def parse_runs_uri(run_uri):

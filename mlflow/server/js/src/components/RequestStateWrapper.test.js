@@ -27,7 +27,7 @@ const errorRequest = {
 test("Renders loading page when requests are not complete", () => {
   const wrapper = shallow(
     <RequestStateWrapper
-      requests={[activeRequest, completeRequest, errorRequest]}
+      requests={[activeRequest, completeRequest]}
     >
       <div>I am the child</div>
     </RequestStateWrapper>
@@ -81,10 +81,10 @@ test("Throws exception if errorRenderFunc returns undefined and wrapper has bad 
 
 test("Render func works if wrapper has bad request.", () => {
   const wrapper = shallow(
-    <RequestStateWrapper requests={[errorRequest]}>
+    <RequestStateWrapper requests={[activeRequest, completeRequest, errorRequest]}>
       {(isLoading, shouldRenderError, requests) => {
         if (shouldRenderError) {
-          expect(requests).toEqual([errorRequest]);
+          expect(requests).toEqual([activeRequest, completeRequest, errorRequest]);
           return <div className='error'>Error!</div>;
         }
         return <div className='child'>I am the child</div>;
