@@ -10,7 +10,7 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOU
 
 @pytest.fixture
 def mock_store():
-    with mock.patch("mlflow.tracking.utils._get_store") as mock_get_store:
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         yield mock_get_store.return_value
 
 

@@ -1,14 +1,8 @@
 from abc import abstractmethod, ABCMeta
 
 from mlflow.entities import ViewType
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-
-
-class PagedList(list):
-
-    def __init__(self, items, token):
-        super(PagedList, self).__init__(items)
-        self.token = token
 
 
 class AbstractStore:

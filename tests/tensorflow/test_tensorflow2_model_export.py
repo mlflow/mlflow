@@ -3,6 +3,7 @@
 from __future__ import print_function
 
 import collections
+import mock
 import os
 import shutil
 import sys
@@ -324,6 +325,31 @@ def test_log_and_load_model_persists_and_restores_model_successfully(saved_tf_ir
             artifact_path=artifact_path)
 
     infer_fn = mlflow.tensorflow.load_model(model_uri=model_uri)
+
+
+def test_log_model_calls_register_model(saved_tf_iris_model):
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.tensorflow.log_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                    tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                    tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                    artifact_path=artifact_path,
+                                    registered_model_name="AdsModel1")
+        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
+                                                            artifact_path=artifact_path)
+        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+
+
+def test_log_model_no_registered_model_name(saved_tf_iris_model):
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.tensorflow.log_model(tf_saved_model_dir=saved_tf_iris_model.path,
+                                    tf_meta_graph_tags=saved_tf_iris_model.meta_graph_tags,
+                                    tf_signature_def_key=saved_tf_iris_model.signature_def_key,
+                                    artifact_path=artifact_path)
+        mlflow.register_model.assert_not_called()
 
 
 @pytest.mark.large

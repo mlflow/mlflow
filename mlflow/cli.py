@@ -19,7 +19,7 @@ import mlflow.store.artifact.cli
 import mlflow.store.db.utils
 from mlflow import tracking
 from mlflow.server import _run_server
-from mlflow.server.handlers import _get_store
+from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
@@ -184,7 +184,7 @@ def ui(backend_store_uri, default_artifact_root, port):
             default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     try:
-        _get_store(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, default_artifact_root)
     except Exception as e:  # pylint: disable=broad-except
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -260,7 +260,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
             sys.exit(1)
 
     try:
-        _get_store(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, default_artifact_root)
     except Exception as e:  # pylint: disable=broad-except
         _logger.error("Error initializing backend store")
         _logger.exception(e)
