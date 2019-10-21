@@ -19,8 +19,8 @@ import mlflow.keras
 import os
 
 SavedModelInfo = collections.namedtuple(
-        "SavedModelInfo",
-        ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
+    "SavedModelInfo",
+    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
 
 client = mlflow.tracking.MlflowClient()
 
@@ -51,7 +51,7 @@ def tf_keras_random_data_run(random_train_data):
         model.add(layers.Dense(64, activation='relu'))
         model.add(layers.Dense(10, activation='softmax'))
 
-        model.compile(optimizer=tf.train.AdamOptimizer(0.001),
+        model.compile(optimizer=tf.keras.optimizers.Adam(),
                       loss='categorical_crossentropy',
                       metrics=['accuracy'])
 
@@ -63,14 +63,20 @@ def tf_keras_random_data_run(random_train_data):
 @pytest.mark.large
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
-
-    assert 'epoch_acc' in data.metrics
-    assert 'epoch_loss' in data.metrics
-    assert 'optimizer_name' in data.params
-    assert data.params['optimizer_name'] == 'AdamOptimizer'
+    assert 'accuracy' in data.metrics
+    assert 'loss' in data.metrics
+    assert 'opt_name' in data.params
+    assert data.params['opt_name'] == 'Adam'
+    assert 'opt_learning_rate' in data.params
+    assert 'opt_decay' in data.params
+    assert 'opt_beta_1' in data.params
+    assert 'opt_beta_2' in data.params
+    assert 'opt_epsilon' in data.params
+    assert 'opt_amsgrad' in data.params
+    assert data.params['opt_amsgrad'] == 'False'
     assert 'summary' in tf_keras_random_data_run.data.tags
     assert 'Total params: 6,922' in tf_keras_random_data_run.data.tags['summary']
-    all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'epoch_acc')
+    all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'accuracy')
     assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
 
 
@@ -83,41 +89,6 @@ def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run,
     model = mlflow.keras.load_model("runs:/" + tf_keras_random_data_run.info.run_id +
                                     "/model")
     model.predict(random_train_data)
-
-
-@pytest.fixture
-def tf_core_random_tensors():
-    mlflow.tensorflow.autolog(every_n_iter=4)
-    with mlflow.start_run() as run:
-        sess = tf.Session()
-        a = tf.constant(3.0, dtype=tf.float32)
-        b = tf.constant(4.0)
-        total = a + b
-        tf.summary.scalar('a', a)
-        tf.summary.scalar('b', b)
-        merged = tf.summary.merge_all()
-        dir = tempfile.mkdtemp()
-        writer = tf.summary.FileWriter(dir, sess.graph)
-        with sess.as_default():
-            for i in range(40):
-                summary, _ = sess.run([merged, total])
-                writer.add_summary(summary, global_step=i)
-        shutil.rmtree(dir)
-        writer.close()
-        sess.close()
-
-    return client.get_run(run.info.run_id)
-
-
-@pytest.mark.large
-def test_tf_core_autolog_logs_scalars(tf_core_random_tensors):
-    assert 'a' in tf_core_random_tensors.data.metrics
-    assert tf_core_random_tensors.data.metrics['a'] == 3.0
-    assert 'b' in tf_core_random_tensors.data.metrics
-    assert tf_core_random_tensors.data.metrics['b'] == 4.0
-    all_a = client.get_metric_history(tf_core_random_tensors.info.run_id, 'a')
-    assert all((x.step - 1) % 4 == 0 for x in all_a)
-    assert mlflow.active_run() is None
 
 
 @pytest.fixture
@@ -153,7 +124,7 @@ def tf_estimator_random_data_run():
 
         feature_spec = {}
         for feature in CSV_COLUMN_NAMES:
-            feature_spec[feature] = tf.placeholder(dtype="float", name=feature, shape=[150])
+            feature_spec[feature] = tf.Variable([], dtype=tf.float64, name=feature)
 
         receiver_fn = tf.estimator.export.build_raw_serving_input_receiver_fn(feature_spec)
 
@@ -186,9 +157,8 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts
-    session = tf.Session()
     model = mlflow.tensorflow.load_model("runs:/" + tf_estimator_random_data_run.info.run_id +
-                                         "/model", session)
+                                         "/model")
 
 
 @pytest.fixture

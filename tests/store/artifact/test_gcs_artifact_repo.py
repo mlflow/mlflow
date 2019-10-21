@@ -29,7 +29,7 @@ def test_artifact_uri_factory():
 
 def test_list_artifacts_empty(gcs_mock):
     repo = GCSArtifactRepository("gs://test_bucket/some/path", gcs_mock)
-    gcs_mock.Client.return_value.get_bucket.return_value \
+    gcs_mock.Client.return_value.bucket.return_value \
         .list_blobs.return_value = mock.MagicMock()
     assert repo.list_artifacts() == []
 
@@ -60,7 +60,7 @@ def test_list_artifacts(gcs_mock):
     mock_results.configure_mock(pages=[dir_mock])
     mock_results.__iter__.return_value = [obj_mock]
 
-    gcs_mock.Client.return_value.get_bucket.return_value\
+    gcs_mock.Client.return_value.bucket.return_value\
         .list_blobs.return_value = mock_results
 
     artifacts = repo.list_artifacts(path=None)
@@ -98,7 +98,7 @@ def test_list_artifacts_with_subdir(gcs_mock):
     mock_results.configure_mock(pages=[subdir_mock])
     mock_results.__iter__.return_value = [obj_mock]
 
-    gcs_mock.Client.return_value.get_bucket.return_value\
+    gcs_mock.Client.return_value.bucket.return_value\
         .list_blobs.return_value = mock_results
 
     artifacts = repo.list_artifacts(path=dir_name)
@@ -122,14 +122,14 @@ def test_log_artifact(gcs_mock, tmpdir):
 
     # This will call isfile on the code path being used,
     # thus testing that it's being called with an actually file path
-    gcs_mock.Client.return_value.get_bucket.return_value.blob.return_value\
+    gcs_mock.Client.return_value.bucket.return_value.blob.return_value\
         .upload_from_filename.side_effect = os.path.isfile
     repo.log_artifact(fpath)
 
-    gcs_mock.Client().get_bucket.assert_called_with('test_bucket')
-    gcs_mock.Client().get_bucket().blob\
+    gcs_mock.Client().bucket.assert_called_with('test_bucket')
+    gcs_mock.Client().bucket().blob\
         .assert_called_with('some/path/test.txt')
-    gcs_mock.Client().get_bucket().blob().upload_from_filename\
+    gcs_mock.Client().bucket().blob().upload_from_filename\
         .assert_called_with(fpath)
 
 
@@ -141,12 +141,12 @@ def test_log_artifacts(gcs_mock, tmpdir):
     subd.join("b.txt").write("B")
     subd.join("c.txt").write("C")
 
-    gcs_mock.Client.return_value.get_bucket.return_value.blob.return_value\
+    gcs_mock.Client.return_value.bucket.return_value.blob.return_value\
         .upload_from_filename.side_effect = os.path.isfile
     repo.log_artifacts(subd.strpath)
 
-    gcs_mock.Client().get_bucket.assert_called_with('test_bucket')
-    gcs_mock.Client().get_bucket().blob().upload_from_filename\
+    gcs_mock.Client().bucket.assert_called_with('test_bucket')
+    gcs_mock.Client().bucket().blob().upload_from_filename\
         .assert_has_calls([
             mock.call(os.path.normpath('%s/a.txt' % subd.strpath)),
             mock.call(os.path.normpath('%s/b.txt' % subd.strpath)),
@@ -162,16 +162,16 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    gcs_mock.Client.return_value.get_bucket.return_value.get_blob.return_value\
+    gcs_mock.Client.return_value.bucket.return_value.blob.return_value\
         .download_to_filename.side_effect = mkfile
 
     repo.download_artifacts("test.txt")
     assert os.path.exists(os.path.join(tmpdir.strpath, "test.txt"))
-    gcs_mock.Client().get_bucket.assert_called_with('test_bucket')
-    gcs_mock.Client().get_bucket().get_blob\
+    gcs_mock.Client().bucket.assert_called_with('test_bucket')
+    gcs_mock.Client().bucket().blob\
         .assert_called_with('some/path/test.txt')
     download_calls = \
-        gcs_mock.Client().get_bucket().get_blob().download_to_filename.call_args_list
+        gcs_mock.Client().bucket().blob().download_to_filename.call_args_list
     assert len(download_calls) == 1
     download_path_arg = download_calls[0][0][0]
     assert "test.txt" in download_path_arg
@@ -180,7 +180,7 @@ def test_download_artifacts_calls_expected_gcs_client_methods(gcs_mock, tmpdir):
 def test_get_anonymous_bucket(gcs_mock):
     with pytest.raises(DefaultCredentialsError, match='Test'):
         gcs_mock.Client.return_value\
-            .get_bucket.side_effect = \
+            .bucket.side_effect = \
             mock.Mock(side_effect=DefaultCredentialsError('Test'))
         repo = GCSArtifactRepository("gs://test_bucket", gcs_mock)
         repo._get_bucket("gs://test_bucket")
@@ -229,10 +229,10 @@ def test_download_artifacts_downloads_expected_content(gcs_mock, tmpdir):
         f = tmpdir.join(fname)
         f.write("hello world!")
 
-    gcs_mock.Client.return_value.get_bucket.return_value\
+    gcs_mock.Client.return_value.bucket.return_value\
         .list_blobs.side_effect = get_mock_listing
 
-    gcs_mock.Client.return_value.get_bucket.return_value.get_blob.return_value\
+    gcs_mock.Client.return_value.bucket.return_value.blob.return_value\
         .download_to_filename.side_effect = mkfile
 
     # Ensure that the root directory can be downloaded successfully
