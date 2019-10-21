@@ -14,6 +14,7 @@ describe('unit tests', () => {
     // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn(opts => c => c) },
     setTagApi: () => {},
+    deleteTagApi: () => {}
   };
 
   test('should render with minimal props without exploding', () => {

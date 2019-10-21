@@ -148,6 +148,17 @@ export const setTagApi = (runUuid, tagName, tagValue, id = getUUID()) => {
   };
 };
 
+export const DELETE_TAG_API = 'DELETE_TAG_API';
+export const deleteTagApi = (runUuid, tagName, id = getUUID()) => {
+  return {
+    type: DELETE_TAG_API,
+    payload: wrapDeferred(MlflowService.deleteTag, {
+      run_id: runUuid, key: tagName
+    }),
+    meta: { id: id, run_id: runUuid, key: tagName },
+  };
+};
+
 export const SET_EXPERIMENT_TAG_API = 'SET_EXPERIMENT_TAG_API';
 export const setExperimentTagApi = (experimentId, tagName, tagValue, id = getUUID()) => {
   return {
