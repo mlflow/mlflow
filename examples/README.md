@@ -26,7 +26,7 @@ and stores (logs) them as MLflow artifacts.
    Conda environment, define parameter types and defaults, entry point for training, etc.
 * `sklearn_logisic_regression` is a simple MLflow example with hooks to log training data to MLflow
 tracking server.
-* `tensorflow` is an end-to-end one run example from train to predict. It includes a usage of MLflow's
+* `tensorflow` contains end-to-end one run examples from train to predict for both TensorFlow 1.X and 2.0. It includes usage of MLflow's
 `mlflow.tensorflow.autolog()` API, which captures TensorBoard data and logs to MLflow with no code change.
 * `docker` demonstrates how to create and run an MLflow project using docker (rather than conda)
   to manage project dependencies
