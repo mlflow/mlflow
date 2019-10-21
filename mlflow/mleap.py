@@ -21,7 +21,7 @@ FLAVOR_NAME = "mleap"
 
 
 @keyword_only
-def log_model(spark_model, sample_input, artifact_path):
+def log_model(spark_model, sample_input, artifact_path, registered_model_name=None):
     """
     Log a Spark MLLib model in MLeap format as an MLflow artifact
     for the current run. The logged model will have the MLeap flavor.
@@ -36,6 +36,9 @@ def log_model(spark_model, sample_input, artifact_path):
     :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
     :param artifact_path: Run-relative artifact path.
+    :param registered_model_name: If given, create a model version under ``registered_model_name``,
+                                  also creating a registered model if one with the given name does
+                                  not exist.
 
     >>> import mlflow
     >>> import mlflow.mleap
@@ -55,7 +58,7 @@ def log_model(spark_model, sample_input, artifact_path):
     ...     (5, "l m n"),
     ...     (6, "spark hadoop spark"),
     ...     (7, "apache hadoop")], ["id", "text"])
-    >>> #Create an MLlib pipeline
+    >>> # Create an MLlib pipeline
     >>> tokenizer = Tokenizer(inputCol="text", outputCol="words")
     >>> hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
     >>> lr = LogisticRegression(maxIter=10, regParam=0.001)
@@ -69,7 +72,8 @@ def log_model(spark_model, sample_input, artifact_path):
     >>>                        artifact_path="mleap-model")
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
-                     spark_model=spark_model, sample_input=sample_input)
+                     spark_model=spark_model, sample_input=sample_input,
+                     registered_model_name=registered_model_name)
 
 
 @keyword_only

@@ -1,0 +1,13 @@
+.model-select-dropdown .ant-select-dropdown-menu-item-group-title {
+  color: #666;
+  font-weight: bold;
+}
+
+.model-select-dropdown .create-new-model-option {
+  border-top: 1px solid #ccc;
+}
+
+.register-model-form .modal-explanatory-text {
+  color: rgba(0, 0, 0, 0.52);
+  font-size: 13px;
+}

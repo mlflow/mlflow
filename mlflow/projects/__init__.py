@@ -614,7 +614,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
     used to report additional data about the run (metrics/params) to the tracking server.
     """
     if _is_local_uri(uri):
-        source_name = tracking.utils._get_git_url_if_present(_expand_uri(uri))
+        source_name = tracking._tracking_service.utils._get_git_url_if_present(_expand_uri(uri))
     else:
         source_name = _expand_uri(uri)
     source_version = _get_git_commit(work_dir)

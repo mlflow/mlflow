@@ -206,6 +206,35 @@ def test_log_model(sequential_model, data, sequential_predicted):
                 tracking.set_tracking_uri(old_uri)
 
 
+def test_log_model_calls_register_model(module_scoped_subclassed_model):
+    custom_pickle_module = pickle
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.pytorch.log_model(
+            artifact_path=artifact_path,
+            pytorch_model=module_scoped_subclassed_model,
+            conda_env=None,
+            pickle_module=custom_pickle_module,
+            registered_model_name="AdsModel1")
+        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
+                                                            artifact_path=artifact_path)
+        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+
+
+def test_log_model_no_registered_model_name(module_scoped_subclassed_model):
+    custom_pickle_module = pickle
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.pytorch.log_model(
+            artifact_path=artifact_path,
+            pytorch_model=module_scoped_subclassed_model,
+            conda_env=None,
+            pickle_module=custom_pickle_module)
+        mlflow.register_model.assert_not_called()
+
+
 @pytest.mark.large
 def test_raise_exception(sequential_model):
     with TempDir(chdr=True, remove_on_exit=True) as tmp:
