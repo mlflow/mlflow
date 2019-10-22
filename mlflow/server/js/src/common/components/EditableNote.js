@@ -11,6 +11,7 @@ const PROMPT_MESSAGE =
 export class EditableNote extends Component {
   static propTypes = {
     defaultMarkdown: PropTypes.string,
+    defaultSelectedTab: PropTypes.string,
     // Callback function handling the confirmed note. It should return a promise.
     onSubmit: PropTypes.func,
     onCancel: PropTypes.func,
@@ -19,32 +20,33 @@ export class EditableNote extends Component {
 
   static defaultProps = {
     defaultMarkdown: '',
+    defaultSelectedTab: 'write',
     showEditor: false,
     confirmLoading: false,
   };
 
   state = {
-    // Using mdeState is the react-mde@5.8 way of managing the state
-    // Reference: https://github.com/andrerpena/react-mde/tree/5.5.0-alpha.4
-    // TODO(Zangr) Upgrade react-mde to the latest version for more straightforward state handling
-    mdeState: {
-      markdown: this.props.defaultMarkdown,
-    },
+    markdown: this.props.defaultMarkdown,
+    selectedTab: this.props.defaultSelectedTab,
     error: null,
   };
 
   converter = getConverter();
 
-  handleMdeValueChange = (mdeState) => {
-    this.setState({ mdeState });
+  handleMdeValueChange = (markdown) => {
+    this.setState({ markdown });
   };
+
+  handleTabChange = (selectedTab) => {
+    this.setState({ selectedTab });
+  }
 
   handleSubmitClick = () => {
     const { onSubmit } = this.props;
-    const { mdeState } = this.state;
+    const { markdown } = this.state;
     this.setState({ confirmLoading: true });
     if (onSubmit) {
-      Promise.resolve(onSubmit(mdeState.markdown))
+      Promise.resolve(onSubmit(markdown))
         .then(() => {
           this.setState({ confirmLoading: false, error: null });
         })
@@ -60,9 +62,8 @@ export class EditableNote extends Component {
   handleCancelClick = () => {
     // Reset to the last defaultMarkdown passed in as props.
     this.setState({
-      mdeState: {
-        markdown: this.props.defaultMarkdown,
-      },
+      markdown: this.props.defaultMarkdown,
+      selectedTab: this.props.defaultSelectedTab
     });
     const { onCancel } = this.props;
     if (onCancel) {
@@ -71,7 +72,7 @@ export class EditableNote extends Component {
   };
 
   contentHasChanged() {
-    return this.state.mdeState.markdown !== this.props.defaultMarkdown;
+    return this.state.markdown !== this.props.defaultMarkdown;
   }
 
   renderActions() {
@@ -96,15 +97,15 @@ export class EditableNote extends Component {
   }
 
   getSanitizedHtmlContent() {
-    const { mdeState } = this.state;
-    return mdeState.markdown
-      ? sanitizeConvertedHtml(this.converter.makeHtml(mdeState.markdown))
+    const { markdown } = this.state;
+    return markdown
+      ? sanitizeConvertedHtml(this.converter.makeHtml(markdown))
       : null;
   }
 
   render() {
     const { showEditor } = this.props;
-    const { mdeState, error } = this.state;
+    const { markdown, selectedTab, error } = this.state;
     const htmlContent = this.getSanitizedHtmlContent();
     return (
       <div className='note-view-outer-container'>
@@ -112,9 +113,10 @@ export class EditableNote extends Component {
           <React.Fragment>
             <div className='note-view-text-area'>
               <ReactMde
-                layout='tabbed'
-                editorState={mdeState}
+                value={markdown}
                 onChange={this.handleMdeValueChange}
+                selectedTab={selectedTab}
+                onTabChange={this.handleTabChange}
                 generateMarkdownPreview={(markdown) =>
                   Promise.resolve(this.getSanitizedHtmlContent(markdown))
                 }
@@ -147,7 +149,7 @@ function HTMLNoteContent(props) {
         <div className="note-view-preview note-editor-preview">
           <div className="note-editor-preview-content"
             // eslint-disable-next-line react/no-danger
-             dangerouslySetInnerHTML={{ __html: props.content }}>
+            dangerouslySetInnerHTML={{ __html: props.content }}>
           </div>
       </div>
       </div>
