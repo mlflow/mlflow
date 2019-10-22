@@ -117,8 +117,8 @@ export class EditableNote extends Component {
                 onChange={this.handleMdeValueChange}
                 selectedTab={selectedTab}
                 onTabChange={this.handleTabChange}
-                generateMarkdownPreview={(markdown) =>
-                  Promise.resolve(this.getSanitizedHtmlContent(markdown))
+                generateMarkdownPreview={(md) =>
+                  Promise.resolve(this.getSanitizedHtmlContent(md))
                 }
                 getIcon={(name) => <TooltipIcon name={name} />}
               />
