@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
-import { Alert, Button, Icon } from 'antd';
+import { Alert, Button, Icon, Tooltip } from 'antd';
 import { Prompt } from 'react-router';
-import ReactMde from 'react-mde';
+import ReactMde, { SvgIcon } from 'react-mde';
 import { getConverter, sanitizeConvertedHtml } from '../../utils/MarkdownUtils';
 import PropTypes from 'prop-types';
 
@@ -120,6 +120,7 @@ export class EditableNote extends Component {
                 generateMarkdownPreview={(markdown) =>
                   Promise.resolve(this.getSanitizedHtmlContent(markdown))
                 }
+                getIcon={(name) => <TooltipIcon name={name} />}
               />
             </div>
             {error && (
@@ -141,6 +142,17 @@ export class EditableNote extends Component {
   }
 }
 
+function TooltipIcon(props) {
+  const { name } = props;
+  return (
+    <Tooltip position="top" title={name}>
+      <span>
+        <SvgIcon icon={name} />
+      </span>
+    </Tooltip>
+  );
+}
+
 function HTMLNoteContent(props) {
   const { content } = props;
   return content ? (
@@ -159,4 +171,5 @@ function HTMLNoteContent(props) {
   );
 }
 
+TooltipIcon.propTypes = { name: PropTypes.string };
 HTMLNoteContent.propTypes = { content: PropTypes.string };
