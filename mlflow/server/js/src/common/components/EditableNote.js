@@ -163,7 +163,7 @@ function HTMLNoteContent(props) {
             // eslint-disable-next-line react/no-danger
             dangerouslySetInnerHTML={{ __html: props.content }}>
           </div>
-      </div>
+        </div>
       </div>
     </div>
   ) : (
