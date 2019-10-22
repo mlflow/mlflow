@@ -48,7 +48,7 @@ class ModelRegistryClient(object):
         """
         if new_name is None and description is None:
             raise MlflowException("Attempting to update registered model with no new field values.")
-        if new_name.strip() == "":
+        if new_name is not None and new_name.strip() == "":
             raise MlflowException("The new name must not be an empty string.")
         return self.store.update_registered_model(RegisteredModel(name), new_name, description)
 
