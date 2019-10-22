@@ -25,8 +25,8 @@ import mlflow.tracking.fluent as fluent
 from mlflow.entities import RunStatus, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
 from mlflow.projects import _project_spec
-from mlflow.projects.artifact import _artifact_storages
 from mlflow.projects.submitted_run import LocalSubmittedRun, SubmittedRun
+from mlflow.store.artifact.utils import _artifact_storages
 from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.context.git_context import _get_git_commit
 from mlflow.tracking.fluent import _get_experiment_id
