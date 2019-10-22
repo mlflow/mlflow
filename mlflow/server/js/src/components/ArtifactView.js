@@ -28,6 +28,7 @@ class ArtifactView extends Component {
     artifactNode: PropTypes.instanceOf(ArtifactNode).isRequired,
     fetchArtifacts: PropTypes.func.isRequired,
     artifactRootUri: PropTypes.string.isRequired,
+    artifactsAreLoading: PropTypes.bool.isRequired,
   };
 
   state = {
@@ -40,7 +41,14 @@ class ArtifactView extends Component {
     // If not hydrated then try to get the data before rendering this view.
     return (
       <div>
-        {this.shouldShowTreebeard() ?
+        {this.props.artifactsAreLoading ?
+          <div className="empty-artifact-outer-container">
+            <div className="empty-artifact-container">
+                <img alt="" className="loading-spinner" src={spinner}/>
+                {' '} &nbsp; Loading artifacts...
+            </div>
+          </div> :
+          this.shouldShowTreebeard() ?
           <div className="artifact-view">
             <div className="artifact-left">
               <Treebeard

@@ -22,12 +22,16 @@ class RunPage extends Component {
     getExperimentRequestId: getUUID(),
   };
 
+
   componentWillMount() {
     this.props.dispatch(getRunApi(this.props.runUuid, this.state.getRunRequestId));
     this.props.dispatch(
-      listArtifactsApi(this.props.runUuid, undefined, this.state.listArtifactRequestId));
-    this.props.dispatch(
       getExperimentApi(this.props.experimentId, this.state.getExperimentRequestId));
+  }
+
+  componentDidMount() {
+    this.props.dispatch(
+      listArtifactsApi(this.props.runUuid, undefined, this.state.listArtifactRequestId));
   }
 
   render() {
@@ -35,10 +39,10 @@ class RunPage extends Component {
       <div className='App-content'>
         <RequestStateWrapper
           requestIds={[this.state.getRunRequestId,
-            this.state.listArtifactRequestId,
             this.state.getExperimentRequestId]}
+          asyncRequestIds={[this.state.listArtifactRequestId]}
         >
-          {(isLoading, shouldRenderError, requests) => {
+          {(isLoading, shouldRenderError, requests, asyncRequests) => {
             if (shouldRenderError) {
               const getRunRequest = Utils.getRequestWithId(requests, this.state.getRunRequestId);
               if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
@@ -46,12 +50,19 @@ class RunPage extends Component {
               }
               return undefined;
             }
+            const getArtifactsRequest = Utils.getRequestWithId(
+              asyncRequests, this.state.listArtifactRequestId
+            );
+            const artifactsLoading = getArtifactsRequest === undefined ?
+              true :
+              getArtifactsRequest.active === true;
             return <RunView
               runUuid={this.props.runUuid}
               getMetricPagePath={(key) =>
                 Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
               }
               experimentId={this.props.experimentId}
+              artifactsAreLoading={artifactsLoading}
             />;
           }}
         </RequestStateWrapper>
