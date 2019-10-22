@@ -38,10 +38,25 @@ def test_create_registered_model(mock_store):
 
 def test_update_registered_model(mock_store):
     mock_store.update_registered_model.return_value = RegisteredModel("New Name")
-    result = newModelRegistryClient().update_registered_model("Model 1", "New Name",
-                                                              "New Description")
-    mock_store.update_registered_model.assert_called_once_with(ANY, "New Name", "New Description")
+    result = newModelRegistryClient().update_registered_model(
+        name="Model 1",
+        new_name="New Name",
+        description="New Description")
+    mock_store.update_registered_model.assert_called_with(ANY, "New Name", "New Description")
     assert result.name == "New Name"
+
+    mock_store.update_registered_model.return_value = RegisteredModel("New Name 2")
+    result2 = newModelRegistryClient().update_registered_model(
+        name="Model 1",
+        new_name="New Name 2")
+    mock_store.update_registered_model.assert_called_with(ANY, "New Name 2", ANY)
+    assert result2.name == "New Name 2"
+
+    result3 = newModelRegistryClient().update_registered_model(
+        name="Model 1",
+        description="New Description 2")
+    mock_store.update_registered_model.assert_called_with(ANY, ANY, "New Description 2")
+    assert result3.name == "New Name 2"
 
 
 def test_update_registered_model_validation_errors(mock_store):
