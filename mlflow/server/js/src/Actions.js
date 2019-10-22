@@ -131,7 +131,7 @@ export const getMetricHistoryApi = (runUuid, metricKey, id = getUUID()) => {
   return {
     type: GET_METRIC_HISTORY_API,
     payload: wrapDeferred(MlflowService.getMetricHistory, {
-      run_uuid: runUuid, metric_key: metricKey
+      run_uuid: runUuid, metric_key: decodeURIComponent(metricKey)
     }),
     meta: { id: id, runUuid: runUuid, key: metricKey },
   };
