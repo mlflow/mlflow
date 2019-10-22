@@ -10,11 +10,15 @@ class ArtifactPage extends Component {
     fetchArtifacts: PropTypes.func.isRequired,
     // For now, assume isHydrated is always true.
     isHydrated: PropTypes.bool,
+    artifactsAreLoading: PropTypes.bool.isRequired,
   };
 
   render() {
     // If not hydrated then try to get the data before rendering this view.
-    return <ArtifactView runUuid={this.props.runUuid} fetchArtifacts={this.props.fetchArtifacts}/>;
+    return <ArtifactView
+      runUuid={this.props.runUuid}
+      fetchArtifacts={this.props.fetchArtifacts}
+      artifactsAreLoading={this.props.artifactsAreLoading} />;
   }
 }
 
