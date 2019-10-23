@@ -11,14 +11,22 @@ from mlflow.exceptions import ExecutionException
 from mlflow.utils.file_utils import get_local_path_or_none
 
 
-MLPROJECT_FILE_NAME = "MLproject"
+MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
 
 
+def _find_mlproject(directory):
+    filenames = os.listdir(directory)
+    for filename in filenames:
+        if filename.lower() == MLPROJECT_FILE_NAME:
+            return os.path.join(directory, filename)
+    return None
+
+
 def load_project(directory):
-    mlproject_path = os.path.join(directory, MLPROJECT_FILE_NAME)
+    mlproject_path = _find_mlproject(directory)
     # TODO: Validate structure of YAML loaded from the file
-    if os.path.exists(mlproject_path):
+    if mlproject_path is not None:
         with open(mlproject_path) as mlproject_file:
             yaml_obj = yaml.safe_load(mlproject_file.read())
     else:
