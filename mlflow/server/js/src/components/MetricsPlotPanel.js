@@ -151,7 +151,11 @@ export class MetricsPlotPanel extends React.Component {
           handleLineSmoothChange={this.handleLineSmoothChange}
           chartType={chartType}
         />
-        <RequestStateWrapper requestIds={historyRequestIds}>
+        <RequestStateWrapper
+            requestIds={historyRequestIds}
+            // In this special case,
+            shouldOptimisticallyRender={historyRequestIds.length === 0}
+        >
           <MetricsPlotView
             runUuids={runUuids}
             runDisplayNames={runDisplayNames}
