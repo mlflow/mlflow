@@ -22,6 +22,7 @@ def _find_mlproject(directory):
             return os.path.join(directory, filename)
     return None
 
+
 def load_project(directory):
     mlproject_path = _find_mlproject(directory)
     # TODO: Validate structure of YAML loaded from the file
