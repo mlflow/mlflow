@@ -153,7 +153,9 @@ export class MetricsPlotPanel extends React.Component {
         />
         <RequestStateWrapper
             requestIds={historyRequestIds}
-            // In this special case,
+            // In this case where there are no history request IDs (e.g. on the
+            // initial page load / before we try to load additional metrics),
+            // optimistically render the children
             shouldOptimisticallyRender={historyRequestIds.length === 0}
         >
           <MetricsPlotView
