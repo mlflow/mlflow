@@ -86,6 +86,33 @@ class Utils {
     return dateFormat(d, format);
   }
 
+  static timeSince(date) {
+    const seconds = Math.max(0, Math.floor((new Date() - date) / 1000));
+
+    let interval = Math.floor(seconds / 31536000);
+
+    if (interval >= 1) {
+      return interval + ' year' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 2592000);
+    if (interval >= 1) {
+      return interval + ' month' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 86400);
+    if (interval >= 1) {
+      return interval + ' day' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 3600);
+    if (interval >= 1) {
+      return interval + ' hour' + (interval === 1 ? '' : 's');
+    }
+    interval = Math.floor(seconds / 60);
+    if (interval >= 1) {
+      return interval + ' minute' + (interval === 1 ? '' : 's');
+    }
+    return Math.floor(seconds) + ' seconds';
+  }
+
   /**
    * Format a duration given in milliseconds.
    *
@@ -165,11 +192,11 @@ class Utils {
       const baseUrl = gitHubMatch ? "https://github.com/" : "https://gitlab.com/";
       const match = gitHubMatch || gitLabMatch;
       url = (baseUrl + match[1] + "/" + match[2].replace(/.git/, '') +
-            "/tree/" + sourceVersion) + "/" + match[3];
+        "/tree/" + sourceVersion) + "/" + match[3];
     } else if (bitbucketMatch) {
       const baseUrl = "https://bitbucket.org/";
       url = (baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '') +
-            "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
+        "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
     } else if (gerritMatch) {
         url = "https://review.crto.in/gitweb?p=" + gerritMatch[2] + ";a=commit;h=" + sourceVersion;
     }
@@ -405,7 +432,14 @@ class Utils {
 
   static logErrorAndNotifyUser(e) {
     console.error(e);
-    message.error(e.getUserVisibleError());
+    // not all error is wrapped by ErrorWrapper
+    if (e.getMessageField) {
+      message.error(e.getMessageField());
+    }
+  }
+
+  static isModelRegistryEnabled() {
+    return true;
   }
 }
 

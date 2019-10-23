@@ -179,7 +179,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
 
 
 def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
-              **kwargs):
+              registered_model_name=None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
@@ -212,6 +212,9 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     :param keras_module: Keras module to be used to save / load the model
                          (``keras`` or ``tf.keras``). If not provided, MLflow will
                          attempt to infer the Keras module based on the given model.
+    :param registered_model_name: If given, create a model version under ``registered_model_name``,
+                                  also creating a registered model if one with the given name does
+                                  not exist.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> from keras import Dense, layers
@@ -227,7 +230,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
               keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
-              keras_module=keras_module, **kwargs)
+              keras_module=keras_module, registered_model_name=registered_model_name, **kwargs)
 
 
 def _save_custom_objects(path, custom_objects):

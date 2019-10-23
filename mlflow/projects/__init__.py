@@ -37,11 +37,12 @@ from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.utils import databricks_utils, file_utils, process
 from mlflow.utils.file_utils import path_to_local_sqlite_uri, path_to_local_file_uri
-from mlflow.utils.mlflow_tags import MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, \
-    MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
-    MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL, MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, \
-    LEGACY_MLFLOW_GIT_BRANCH_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, \
-    MLFLOW_PROJECT_BACKEND
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_PROJECT_ENV, MLFLOW_DOCKER_IMAGE_URI, MLFLOW_DOCKER_IMAGE_ID, MLFLOW_USER,
+    MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, MLFLOW_GIT_COMMIT, MLFLOW_GIT_REPO_URL,
+    MLFLOW_GIT_BRANCH, LEGACY_MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME,
+    MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_PARENT_RUN_ID, MLFLOW_PROJECT_BACKEND,
+)
 from mlflow.utils.uri import get_db_profile_from_uri, is_databricks_uri
 
 # TODO: this should be restricted to just Git repos and not S3 and stuff like that
@@ -136,7 +137,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             experiment_id=experiment_id, cluster_spec=backend_config)
 
     elif backend == "local" or backend is None:
-        command = []
+        command_args = []
         command_separator = " "
         # If a docker_env attribute is defined in MLproject then it takes precedence over conda yaml
         # environments, so the project will be executed inside a docker container.
@@ -151,7 +152,7 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                         repository_uri=project.name,
                                         base_image=project.docker_env.get('image'),
                                         run_id=active_run.info.run_id)
-            command += _get_docker_command(image=image, active_run=active_run)
+            command_args += _get_docker_command(image=image, active_run=active_run)
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
@@ -159,14 +160,14 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
             tracking.MlflowClient().set_tag(active_run.info.run_id, MLFLOW_PROJECT_BACKEND, "local")
             command_separator = " && "
             conda_env_name = _get_or_create_conda_env(project.conda_env_path)
-            command += _get_conda_command(conda_env_name)
+            command_args += _get_conda_command(conda_env_name)
         # In synchronous mode, run the entry point command in a blocking fashion, sending status
         # updates to the tracking server when finished. Note that the run state may not be
         # persisted to the tracking server if interrupted
         if synchronous:
-            command += _get_entry_point_command(project, entry_point, parameters, storage_dir)
-            command = command_separator.join(command)
-            return _run_entry_point(command, work_dir, experiment_id,
+            command_args += _get_entry_point_command(project, entry_point, parameters, storage_dir)
+            command_str = command_separator.join(command_args)
+            return _run_entry_point(command_str, work_dir, experiment_id,
                                     run_id=active_run.info.run_id)
         # Otherwise, invoke `mlflow run` in a subprocess
         return _invoke_mlflow_run_subprocess(
@@ -186,17 +187,19 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                     base_image=project.docker_env.get('image'),
                                     run_id=active_run.info.run_id)
         image_digest = kb.push_image_to_registry(image.tags[0])
-        submitted_run = kb.run_kubernetes_job(project.name,
-                                              active_run,
-                                              image.tags[0],
-                                              image_digest,
-                                              _get_entry_point_command(project, entry_point,
-                                                                       parameters, storage_dir),
-                                              _get_run_env_vars(
-                                                run_id=active_run.info.run_uuid,
-                                                experiment_id=active_run.info.experiment_id),
-                                              kube_config['kube-context'],
-                                              kube_config['kube-job-template'])
+        submitted_run = kb.run_kubernetes_job(
+            project.name,
+            active_run,
+            image.tags[0],
+            image_digest,
+            _get_entry_point_command(project, entry_point, parameters, storage_dir),
+            _get_run_env_vars(
+                run_id=active_run.info.run_uuid,
+                experiment_id=active_run.info.experiment_id
+            ),
+            kube_config['kube-context'],
+            kube_config['kube-job-template']
+        )
         return submitted_run
 
     supported_backends = ["local", "databricks", "kubernetes"]
@@ -614,7 +617,7 @@ def _create_run(uri, experiment_id, work_dir, entry_point):
     used to report additional data about the run (metrics/params) to the tracking server.
     """
     if _is_local_uri(uri):
-        source_name = tracking.utils._get_git_url_if_present(_expand_uri(uri))
+        source_name = tracking._tracking_service.utils._get_git_url_if_present(_expand_uri(uri))
     else:
         source_name = _expand_uri(uri)
     source_version = _get_git_commit(work_dir)
@@ -670,9 +673,10 @@ def _get_conda_command(conda_env_name):
     #  Checking for newer conda versions
     if os.name != 'nt' and ('CONDA_EXE' in os.environ or 'MLFLOW_CONDA_HOME' in os.environ):
         conda_path = _get_conda_bin_executable("conda")
-        activate_conda_env = ['source ' + os.path.dirname(conda_path) +
-                              '/../etc/profile.d/conda.sh']
-        activate_conda_env += ["conda activate {0} 1>&2".format(conda_env_name)]
+        activate_conda_env = [
+            'source {}/../etc/profile.d/conda.sh'.format(os.path.dirname(conda_path))
+        ]
+        activate_conda_env += ["conda activate {} 1>&2".format(conda_env_name)]
     else:
         activate_path = _get_conda_bin_executable("activate")
         # in case os name is not 'nt', we are not running on windows. It introduces

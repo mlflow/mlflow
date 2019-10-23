@@ -131,7 +131,7 @@ export const getMetricHistoryApi = (runUuid, metricKey, id = getUUID()) => {
   return {
     type: GET_METRIC_HISTORY_API,
     payload: wrapDeferred(MlflowService.getMetricHistory, {
-      run_uuid: runUuid, metric_key: metricKey
+      run_uuid: runUuid, metric_key: decodeURIComponent(metricKey)
     }),
     meta: { id: id, runUuid: runUuid, key: metricKey },
   };
@@ -145,6 +145,17 @@ export const setTagApi = (runUuid, tagName, tagValue, id = getUUID()) => {
       run_uuid: runUuid, key: tagName, value: tagValue
     }),
     meta: { id: id, runUuid: runUuid, key: tagName, value: tagValue },
+  };
+};
+
+export const DELETE_TAG_API = 'DELETE_TAG_API';
+export const deleteTagApi = (runUuid, tagName, id = getUUID()) => {
+  return {
+    type: DELETE_TAG_API,
+    payload: wrapDeferred(MlflowService.deleteTag, {
+      run_id: runUuid, key: tagName
+    }),
+    meta: { id: id, run_id: runUuid, key: tagName },
   };
 };
 

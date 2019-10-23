@@ -6,6 +6,8 @@ from mlflow.utils.mlflow_tags import MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_DATABRICKS_NOTEBOOK_ID, MLFLOW_DATABRICKS_NOTEBOOK_PATH, MLFLOW_DATABRICKS_WEBAPP_URL
 from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
 
+MOCK_SCRIPT_NAME = "/path/to/script.py"
+
 
 @pytest.fixture
 def patch_script_name():

@@ -591,7 +591,7 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-              python_model=None, artifacts=None):
+              python_model=None, artifacts=None, registered_model_name=None):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
     artifact for the current run.
@@ -664,6 +664,9 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                       path via ``context.artifacts["my_file"]``.
 
                       If ``None``, no artifacts are added to the model.
+    :param registered_model_name: If given, create a model version under ``registered_model_name``,
+                                  also creating a registered model if one with the given name does
+                                  not exist.
     """
     return Model.log(artifact_path=artifact_path,
                      flavor=mlflow.pyfunc,
@@ -672,7 +675,8 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                      code_path=code_path,
                      python_model=python_model,
                      artifacts=artifacts,
-                     conda_env=conda_env)
+                     conda_env=conda_env,
+                     registered_model_name=registered_model_name)
 
 
 def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,

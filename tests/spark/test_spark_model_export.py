@@ -1,6 +1,7 @@
 import os
 
 import json
+import mock
 import numpy as np
 import pandas as pd
 import pyspark
@@ -31,6 +32,7 @@ from tests.helper_functions import score_model_in_sagemaker_docker_container
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
 from tests.helper_functions import mock_s3_bucket  # pylint: disable=unused-import
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 
 @pytest.fixture
@@ -342,6 +344,38 @@ def test_sparkml_model_log_invalid_args(spark_model_transformer, model_path):
 
 
 @pytest.mark.large
+def test_log_model_calls_register_model(tracking_uri_mock, tmpdir, spark_model_iris):
+    artifact_path = "model"
+    dfs_tmp_dir = os.path.join(str(tmpdir), "test")
+    try:
+        register_model_patch = mock.patch("mlflow.register_model")
+        with mlflow.start_run(), register_model_patch:
+            sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
+                             dfs_tmpdir=dfs_tmp_dir, registered_model_name="AdsModel1")
+            model_uri = "runs:/{run_id}/{artifact_path}".format(
+                run_id=mlflow.active_run().info.run_id, artifact_path=artifact_path)
+            mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+    finally:
+        x = dfs_tmp_dir or sparkm.DFS_TMP
+        shutil.rmtree(x)
+
+
+@pytest.mark.large
+def test_log_model_no_registered_model_name(tracking_uri_mock, tmpdir, spark_model_iris):
+    artifact_path = "model"
+    dfs_tmp_dir = os.path.join(str(tmpdir), "test")
+    try:
+        register_model_patch = mock.patch("mlflow.register_model")
+        with mlflow.start_run(), register_model_patch:
+            sparkm.log_model(artifact_path=artifact_path, spark_model=spark_model_iris.model,
+                             dfs_tmpdir=dfs_tmp_dir)
+            mlflow.register_model.assert_not_called()
+    finally:
+        x = dfs_tmp_dir or sparkm.DFS_TMP
+        shutil.rmtree(x)
+
+
+@pytest.mark.large
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
     sparkm.save_model(spark_model=spark_model_iris.model, path=model_path)
 
@@ -455,13 +489,16 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 @pytest.mark.large
 def test_mleap_model_log(spark_model_iris):
     artifact_path = "model"
-    with mlflow.start_run():
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
         sparkm.log_model(spark_model=spark_model_iris.model,
                          sample_input=spark_model_iris.spark_df,
-                         artifact_path=artifact_path)
+                         artifact_path=artifact_path,
+                         registered_model_name="Model1")
         model_uri = "runs:/{run_id}/{artifact_path}".format(
             run_id=mlflow.active_run().info.run_id,
             artifact_path=artifact_path)
+        mlflow.register_model.assert_called_once_with(model_uri, "Model1")
 
     model_path = _download_artifact_from_uri(artifact_uri=model_uri)
     config_path = os.path.join(model_path, "MLmodel")

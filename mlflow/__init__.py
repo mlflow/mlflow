@@ -26,6 +26,7 @@ For a lower level API, see the :py:mod:`mlflow.tracking` module.
 """
 from mlflow.version import VERSION as __version__
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
+import mlflow.tracking._model_registry.fluent
 import mlflow.tracking.fluent
 
 # Filter annoying Cython warnings that serve no good purpose, and so before
@@ -64,6 +65,7 @@ log_metrics = mlflow.tracking.fluent.log_metrics
 set_tags = mlflow.tracking.fluent.set_tags
 delete_experiment = mlflow.tracking.fluent.delete_experiment
 delete_run = mlflow.tracking.fluent.delete_run
+register_model = mlflow.tracking._model_registry.fluent.register_model
 
 
 run = projects.run
@@ -72,4 +74,4 @@ run = projects.run
 __all__ = ["ActiveRun", "log_param", "log_params", "log_metric", "log_metrics", "set_tag",
            "set_tags", "delete_tag", "log_artifacts", "log_artifact", "active_run", "start_run",
            "end_run", "search_runs", "get_artifact_uri", "set_tracking_uri", "create_experiment",
-           "set_experiment", "delete_experiment", "delete_run", "run"]
+           "set_experiment", "delete_experiment", "delete_run", "run", "register_model"]
