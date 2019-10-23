@@ -47,6 +47,18 @@ test("Renders children when requests are complete", () => {
   expect(wrapper.find('div.child').text()).toContain("I am the child");
 });
 
+test("Renders children when wrapper has no requests", () => {
+  const wrapper = shallow(
+      <RequestStateWrapper
+          requests={[]}
+      >
+        <div className='child'>I am the child</div>
+      </RequestStateWrapper>
+  );
+  expect(wrapper.find('div.child')).toHaveLength(1);
+  expect(wrapper.find('div.child').text()).toContain("I am the child");
+});
+
 test("Throws exception if child is a React element and wrapper has bad request.", () => {
   try {
     shallow(
