@@ -397,7 +397,7 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
 
 
 def test_get_run():
-    run_id = uuid.uuid4().hex    
+    run_id = uuid.uuid4().hex
     mock_run = mock.Mock()
     mock_run.info.user_id = "my_user_id"
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
