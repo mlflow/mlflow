@@ -176,7 +176,7 @@ def test_model_save_load_evaluate_pyfunc_format(onnx_model, model_path, data, pr
     mlflow.onnx.save_model(onnx_model, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(pyfunc_loaded.predict(x).values, predicted, rtol=1e-05,
                        atol=1e-05)
 
@@ -218,7 +218,7 @@ def test_model_save_load_evaluate_pyfunc_format_multiple_inputs(
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float64, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(pyfunc_loaded.predict(data_multiple_inputs).values,
                        predicted_multiple_inputs.values, rtol=1e-05, atol=1e-05)
 
@@ -253,7 +253,7 @@ def test_pyfunc_representation_of_float32_model_casts_and_evalutes_float64_input
     mlflow.onnx.save_model(onnx_model_multiple_inputs_float32, model_path)
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert np.allclose(pyfunc_loaded.predict(data_multiple_inputs.astype("float64")).values,
                        predicted_multiple_inputs.astype("float32").values, rtol=1e-05, atol=1e-05)
 
@@ -330,7 +330,7 @@ def test_model_log_evaluate_pyfunc_format(tracking_uri_mock, onnx_model, data, p
                 artifact_path=artifact_path)
 
             # Loading pyfunc model
-            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+            pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
             assert np.allclose(pyfunc_loaded.predict(x).values, predicted,
                                rtol=1e-05, atol=1e-05)
         finally:

@@ -90,7 +90,7 @@ def test_model_save_load(sklearn_knn_model, model_path):
 
     mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
     reloaded_knn_model = mlflow.sklearn.load_model(model_uri=model_path)
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_equal(
             knn_model.predict(sklearn_knn_model.inference_data),
@@ -407,7 +407,7 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_default_conda_env(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path, conda_env=None)
-    reloaded_knn_pyfunc = pyfunc.load_pyfunc(model_uri=model_path)
+    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     inference_df = pd.DataFrame(sklearn_knn_model.inference_data)
     scoring_response = score_model_in_sagemaker_docker_container(

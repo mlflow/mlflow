@@ -701,15 +701,3 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
         mlflow_model, loader_module=loader_module, code=code, data=data, env=env)
     mlflow_model.save(os.path.join(path, 'MLmodel'))
     return mlflow_model
-
-
-loader_template = """
-
-import importlib
-import os
-import sys
-
-def load_pyfunc():
-    {update_path}return importlib.import_module('{main}')._load_pyfunc('{data_path}')
-
-"""

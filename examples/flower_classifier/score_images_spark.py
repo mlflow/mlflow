@@ -53,7 +53,7 @@ def score_model(spark, data_path, model_uri):
     raw_preds = image_df.withColumn("prediction", image_classifier_udf("image")).select(
         ["filename", "prediction"]).toPandas()
     # load the pyfunc model to get our domain
-    pyfunc_model = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri=model_uri)
     preds = pd.DataFrame(raw_preds["filename"], index=raw_preds.index)
     preds[pyfunc_model._column_names] = pd.DataFrame(raw_preds['prediction'].values.tolist(),
                                                      columns=pyfunc_model._column_names,

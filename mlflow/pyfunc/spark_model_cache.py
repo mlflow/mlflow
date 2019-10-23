@@ -59,6 +59,6 @@ class SparkModelCache(object):
 
         # We must rely on a supposed cyclic import here because we want this behavior
         # on the Spark Executors (i.e., don't try to pickle the load_model function).
-        from mlflow.pyfunc import load_pyfunc  # pylint: disable=cyclic-import
-        SparkModelCache._models[archive_path] = load_pyfunc(temp_dir)
+        from mlflow.pyfunc import load_model  # pylint: disable=cyclic-import
+        SparkModelCache._models[archive_path] = load_model(temp_dir)
         return SparkModelCache._models[archive_path]

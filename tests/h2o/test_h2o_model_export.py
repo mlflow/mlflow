@@ -73,7 +73,7 @@ def test_model_save_load(h2o_iris_model, model_path):
             h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
 
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert all(
             pyfunc_loaded.predict(h2o_iris_model.inference_data.as_data_frame()) ==
             h2o_model.predict(h2o_iris_model.inference_data).as_data_frame())
@@ -217,7 +217,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 @pytest.mark.release
 def test_sagemaker_docker_model_scoring_with_default_conda_env(h2o_iris_model, model_path):
     mlflow.h2o.save_model(h2o_model=h2o_iris_model.model, path=model_path, conda_env=None)
-    reloaded_h2o_pyfunc = mlflow.pyfunc.load_pyfunc(model_path)
+    reloaded_h2o_pyfunc = mlflow.pyfunc.load_model(model_path)
 
     scoring_response = score_model_in_sagemaker_docker_container(
             model_uri=model_path,
