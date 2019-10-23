@@ -48,6 +48,7 @@ class RunPage extends Component {
   };
 
   componentDidMount() {
+    const { runUuid } = this.props;
     this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestId);
   }
 
