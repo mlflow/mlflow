@@ -188,7 +188,7 @@ def get_run(run_id):
     :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
                 raises an exception.
     """
-    MlflowClient().get_run(run_id)
+    return MlflowClient().get_run(run_id)
 
 
 def log_param(key, value):
@@ -303,20 +303,10 @@ def log_artifacts(local_dir, artifact_path=None):
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
-def list_run_infos(experiment_id, run_view_type=ViewType.ACTIVE_ONLY):
-    """:return: List of :py:class:`mlflow.entities.RunInfo`"""
-    return MlflowClient().list_run_infos(experiment_id, run_view_type)
-
-
-def list_experiments(view_type=None):
-    """
-    :return: List of :py:class:`mlflow.entities.Experiment`
-    """
-    return MlflowClient().list_experiments(view_type)
-
-
 def get_experiment(experiment_id):
     """
+    Retrieve an experiment by experiment_id from the backend store
+
     :param experiment_id: The experiment ID returned from ``create_experiment``.
     :return: :py:class:`mlflow.entities.Experiment`
     """
@@ -325,6 +315,8 @@ def get_experiment(experiment_id):
 
 def get_experiment_by_name(name):
     """
+    Retrieve an experiment by experiment name from the backend store
+
     :param name: The experiment name.
     :return: :py:class:`mlflow.entities.Experiment`
     """

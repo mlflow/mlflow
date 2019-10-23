@@ -102,6 +102,8 @@ class MlflowClient(object):
 
     def get_experiment(self, experiment_id):
         """
+        Retrieve an experiment by experiment_id from the backend store
+
         :param experiment_id: The experiment ID returned from ``create_experiment``.
         :return: :py:class:`mlflow.entities.Experiment`
         """
@@ -109,6 +111,8 @@ class MlflowClient(object):
 
     def get_experiment_by_name(self, name):
         """
+        Retrieve an experiment by experiment name from the backend store
+
         :param name: The experiment name.
         :return: :py:class:`mlflow.entities.Experiment`
         """
