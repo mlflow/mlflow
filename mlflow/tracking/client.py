@@ -54,7 +54,7 @@ class MlflowClient(object):
                 raise MlflowException(
                     "Model Registry features are not supported by the store with URI:"
                     " '{uri}'. Stores with the following URI schemes are supported:"
-                    " {schemes}".format(uri=self._registry_uri, schemes=exc.supported_uri_schemes),
+                    " {schemes}.".format(uri=self._registry_uri, schemes=exc.supported_uri_schemes),
                     FEATURE_DISABLED)
         return registry_client
 
@@ -308,7 +308,7 @@ class MlflowClient(object):
             the next page may be obtained via the ``token`` attribute of the returned object.
         """
         return self._tracking_client.search_runs(experiment_ids, filter_string, run_view_type,
-                                                max_results, order_by, page_token)
+                                                 max_results, order_by, page_token)
 
     # Registry API
 
