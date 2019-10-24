@@ -73,7 +73,7 @@ class RunPage extends Component {
               return null;
             }
             const getArtifactsRequest = Utils.getRequestWithId(
-              asyncRequests, this.state.listArtifactRequestId
+              asyncRequests, this.listArtifactRequestId
             );
             const artifactsLoading = getArtifactsRequest === undefined ?
               true :
