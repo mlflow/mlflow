@@ -6,9 +6,10 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
+from mlflow.protos.databricks_pb2 import FEATURE_DISABLED 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
+from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException 
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
@@ -34,19 +35,28 @@ class MlflowClient(object):
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
         self._registry_uri = registry_uri or final_tracking_uri
 
-    @property
-    def _registry_client(self):
+    def _get_registry_client(self):
         """
         Attempts to create a py:class:`ModelRegistryClient` if one does not already exist.
 
+        :raises: py:class:`mlflow.exceptions.MlflowException` if the py:class:`ModelRegistryClient`
+                 cannot be created. This may occur, for example, when the registry URI refers
+                 to an unsupported store type (e.g., the FileStore).
         :return: A py:class:`ModelRegistryClient` instance
         """
         registry_client_attr = "_registry_client_lazy"
         registry_client = getattr(self, registry_client_attr, None)
         if registry_client is None:
-            registry_client = ModelRegistryClient(self._registry_uri)
-            setattr(self, registry_client_attr, registry_client)
-        return registry_client 
+            try:
+                registry_client = ModelRegistryClient(self._registry_uri)
+                setattr(self, registry_client_attr, registry_client)
+            except UnsupportedModelRegistryStoreURIException as exc:
+                raise MlflowException(
+                    "Model Registry features are not supported by the store with URI:"
+                    " '{uri}'. Stores with the following URI schemes are supported:"
+                    " {schemes}".format(uri=self._registry_uri, schemes=exc.supported_uri_schemes),
+                    FEATURE_DISABLED)
+        return registry_client
 
     # Tracking API
 
@@ -312,7 +322,7 @@ class MlflowClient(object):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
-        return self._registry_client.create_registered_model(name)
+        return self._get_registry_client().create_registered_model(name)
 
     def update_registered_model(self, name, new_name=None, description=None):
         """
@@ -324,7 +334,7 @@ class MlflowClient(object):
         :param description: (Optional) New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
-        return self._registry_client.update_registered_model(name, new_name, description)
+        return self._get_registry_client().update_registered_model(name, new_name, description)
 
     def delete_registered_model(self, name):
         """
@@ -333,7 +343,7 @@ class MlflowClient(object):
 
         :param name: Name of the registered model to update.
         """
-        self._registry_client.delete_registered_model(name)
+        self._get_registry_client().delete_registered_model(name)
 
     def list_registered_models(self):
         """
@@ -341,14 +351,14 @@ class MlflowClient(object):
 
         :return: List of :py:class:`mlflow.entities.registry.RegisteredModel` objects.
         """
-        return self._registry_client.list_registered_models()
+        return self._get_registry_client().list_registered_models()
 
     def get_registered_model_details(self, name):
         """
         :param name: Name of the registered model to update.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModelDetailed` object.
         """
-        return self._registry_client.get_registered_model_details(name)
+        return self._get_registry_client().get_registered_model_details(name)
 
     def get_latest_versions(self, name, stages=None):
         """
@@ -360,7 +370,7 @@ class MlflowClient(object):
                        for ALL_STAGES.
         :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersionDetailed` objects.
         """
-        return self._registry_client.get_latest_versions(name, stages)
+        return self._get_registry_client().get_latest_versions(name, stages)
 
     # Model Version Methods
 
@@ -374,7 +384,7 @@ class MlflowClient(object):
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
-        return self._registry_client.create_model_version(name, source, run_id)
+        return self._get_registry_client().create_model_version(name, source, run_id)
 
     def update_model_version(self, name, version, stage=None, description=None):
         """
@@ -385,7 +395,7 @@ class MlflowClient(object):
         :param stage: New desired stage for this model version.
         :param description: New description.
         """
-        self._registry_client.update_model_version(name, version, stage, description)
+        self._get_registry_client().update_model_version(name, version, stage, description)
 
     def delete_model_version(self, name, version):
         """
@@ -394,7 +404,7 @@ class MlflowClient(object):
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
         """
-        self._registry_client.delete_model_version(name, version)
+        self._get_registry_client().delete_model_version(name, version)
 
     def get_model_version_details(self, name, version):
         """
@@ -402,7 +412,7 @@ class MlflowClient(object):
         :param version: Version number of the model version.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersionDetailed` object.
         """
-        return self._registry_client.get_model_version_details(name, version)
+        return self._get_registry_client().get_model_version_details(name, version)
 
     def get_model_version_download_uri(self, name, version):
         """
@@ -412,7 +422,7 @@ class MlflowClient(object):
         :param version: Version number of the model version.
         :return: A single URI location that allows reads for downloading.
         """
-        return self._registry_client.get_model_version_download_uri(name, version)
+        return self._get_registry_client().get_model_version_download_uri(name, version)
 
     def search_model_versions(self, filter_string):
         """
@@ -423,10 +433,10 @@ class MlflowClient(object):
                               ``run_id = '...'``.
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
-        return self._registry_client.search_model_versions(filter_string)
+        return self._get_registry_client().search_model_versions(filter_string)
 
     def get_model_version_stages(self, name, version):
         """
         :return: A list of valid stages.
         """
-        return self._registry_client.get_model_version_stages(name, version)
+        return self._get_registry_client().get_model_version_stages(name, version)
