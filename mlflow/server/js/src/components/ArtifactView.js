@@ -194,33 +194,35 @@ export class ArtifactView extends Component {
   }
 
   render() {
+    if (this.props.artifactsAreLoading) {
+      return (
+        <div className="empty-artifact-outer-container">
+          <div className="empty-artifact-container">
+            <img alt="" className="loading-spinner" src={spinner}/>
+            {' '} &nbsp; Loading artifacts...
+          </div>
+        </div>
+      );
+    }
     if (ArtifactUtils.isEmpty(this.props.artifactNode)) {
       return <NoArtifactView />;
     }
     return (
       <div>
-        {this.props.artifactsAreLoading ?
-          <div className="empty-artifact-outer-container">
-            <div className="empty-artifact-container">
-                <img alt="" className="loading-spinner" src={spinner}/>
-                {' '} &nbsp; Loading artifacts...
-            </div>
-          </div> :
-          <div className="artifact-view">
-            <div className="artifact-left">
-              <Treebeard
-                data={this.getTreebeardData(this.props.artifactNode)}
-                onToggle={this.onToggleTreebeard}
-                style={TREEBEARD_STYLE}
-                decorators={decorators}
-              />
-            </div>
-            <div className="artifact-right">
-              {this.state.activeNodeId ? this.renderArtifactInfo() : null}
-              <ShowArtifactPage runUuid={this.props.runUuid} path={this.state.activeNodeId}/>
-            </div>
+        <div className="artifact-view">
+          <div className="artifact-left">
+            <Treebeard
+              data={this.getTreebeardData(this.props.artifactNode)}
+              onToggle={this.onToggleTreebeard}
+              style={TREEBEARD_STYLE}
+              decorators={decorators}
+            />
           </div>
-        }
+          <div className="artifact-right">
+            {this.state.activeNodeId ? this.renderArtifactInfo() : null}
+            <ShowArtifactPage runUuid={this.props.runUuid} path={this.state.activeNodeId}/>
+          </div>
+        </div>
       </div>
     );
   }
