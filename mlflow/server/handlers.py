@@ -431,8 +431,8 @@ def _get_artifact_repo(run):
 @catch_mlflow_exception
 def _updateArtifactsLocation():
     request_message = _get_request_message(UpdateArtifactsLocation())
-    _get_tracking_store().update_artifacts_location(request_message.run_id,
-                                           request_message.new_artifacts_location)
+    _get_tracking_store().update_artifacts_location(
+        request_message.run_id, request_message.new_artifacts_location)
     response_message = UpdateArtifactsLocation.Response()
     response = Response(mimetype='application/json')
     response.set_data(message_to_json(response_message))
