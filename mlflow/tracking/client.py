@@ -32,8 +32,13 @@ class MlflowClient(object):
                              defaults to the service set by ``mlflow.tracking.set_tracking_uri``.
         """
         final_tracking_uri = tracking_uri or utils.get_tracking_uri()
-        self._tracking_client = TrackingServiceClient(final_tracking_uri)
         self._registry_uri = registry_uri or final_tracking_uri
+        self._tracking_client = TrackingServiceClient(final_tracking_uri)
+        # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by the
+        # MlflowClient._get_registry_client() method. This `ModelRegistryClient` is not explicitly
+        # defined as an instance variable in the `MlflowClient` constructor; an instance variable
+        # is assigned lazily by `MlflowClient_get_registry_client()` and should not be referenced
+        # outside of the `MlflowClient._get_registry_client()` function.
 
     def _get_registry_client(self):
         """
@@ -44,11 +49,20 @@ class MlflowClient(object):
                  to an unsupported store type (e.g., the FileStore).
         :return: A py:class:`ModelRegistryClient` instance
         """
+        # Attempt to fetch a `ModelRegistryClient` that is lazily instantiated and defined as
+        # an instance variable on this `MlflowClient` instance. Because the instance variable
+        # is undefined until the first invocation of _get_registry_client(), the `getattr()`
+        # function is used to safely fetch the variable (if it is defined) or a NoneType
+        # (if it is not defined)
         registry_client_attr = "_registry_client_lazy"
         registry_client = getattr(self, registry_client_attr, None)
         if registry_client is None:
             try:
                 registry_client = ModelRegistryClient(self._registry_uri)
+                # Define an instance variable on this `MlflowClient` instance to reference the
+                # `ModelRegistryClient` that was just constructed. `setattr()` is used to ensure
+                # that the variable name is consistent with the variable name specified in the
+                # preceding call to `getattr()`
                 setattr(self, registry_client_attr, registry_client)
             except UnsupportedModelRegistryStoreURIException as exc:
                 raise MlflowException(
