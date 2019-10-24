@@ -6,10 +6,10 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import FEATURE_DISABLED 
+from mlflow.protos.databricks_pb2 import FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking._model_registry.client import ModelRegistryClient
-from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException 
+from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 

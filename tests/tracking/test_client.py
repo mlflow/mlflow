@@ -3,7 +3,7 @@ import mock
 
 from mlflow.entities import SourceType, ViewType, RunTag
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED 
+from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import MlflowClient
 from mlflow.utils.file_utils import TempDir
@@ -163,10 +163,10 @@ def test_client_registry_operations_raise_exception_with_unsupported_registry_st
             client._get_registry_client,
             lambda: client.create_registered_model("test"),
             lambda: client.get_registered_model_details("test"),
-            lambda: client.create_model_version("test", "source", "run_id"), 
-            lambda: client.get_model_version_details("test", 1), 
+            lambda: client.create_model_version("test", "source", "run_id"),
+            lambda: client.get_model_version_details("test", 1),
         ]
         for func in expected_failure_functions:
             with pytest.raises(MlflowException) as exc:
-                func() 
+                func()
             assert exc.value.error_code == ErrorCode.Name(FEATURE_DISABLED)

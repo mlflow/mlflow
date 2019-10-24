@@ -13,8 +13,8 @@ from mlflow.utils.file_utils import TempDir
 
 def test_register_model_raises_exception_with_unsupported_registry_store():
     """
-    This test case ensures that the `register_model` operation fails with an informative error 
-    message when the registry store URI refers to a store that does not support Model Registry 
+    This test case ensures that the `register_model` operation fails with an informative error
+    message when the registry store URI refers to a store that does not support Model Registry
     features (e.g., FileStore).
     """
     with TempDir() as tmp:
