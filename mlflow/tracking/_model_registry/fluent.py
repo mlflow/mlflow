@@ -21,16 +21,21 @@ def register_model(model_uri, name):
     """
     client = MlflowClient()
     try:
-        client.create_registered_model(name)
+        create_model_response = client.create_registered_model(name)
+        eprint("Successfully registered model '%s'." % create_model_response.name)
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
-            eprint("Registered model %s already exists. Using it to create a new version." % name)
+            eprint("Registered model '%s' already exists. Creating a new version of this model..."
+                   % name)
         else:
             raise e
 
     if RunsArtifactRepository.is_runs_uri(model_uri):
         source = RunsArtifactRepository.get_underlying_uri(model_uri)
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
-        return client.create_model_version(name, source, run_id)
+        create_version_response = client.create_model_version(name, source, run_id)
     else:
-        return client.create_model_version(name, source=model_uri, run_id=None)
+        create_version_response = client.create_model_version(name, source=model_uri, run_id=None)
+    eprint("Created version '{version}' of model '{model_name}'.".format(
+        version=create_version_response.version, model_name=create_version_response.get_name()))
+    return create_version_response
