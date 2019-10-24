@@ -152,6 +152,11 @@ def test_client_search_runs_page_token(mock_store):
                                                    page_token="blah")
 
 def test_client_registry_operations_raise_exception_with_unsupported_registry_store():
+    """
+    This test case ensures that Model Registry operations invoked on the `MlflowClient`
+    fail with an informative error message when the registry store URI refers to a
+    store that does not support Model Registry features (e.g., FileStore).
+    """
     with TempDir() as tmp:
         client = MlflowClient(registry_uri=tmp.path())
         expected_failure_functions = [
