@@ -314,14 +314,14 @@ SCORE_SRC = """
 import pandas as pd
 
 from azureml.core.model import Model
-from mlflow.pyfunc import load_model
+from mlflow.pyfunc import load_pyfunc
 from mlflow.pyfunc.scoring_server import parse_json_input, _get_jsonable_obj
 
 
 def init():
     global model
     model_path = Model.get_model_path(model_name="{model_name}", version={model_version})
-    model = load_model(model_path)
+    model = load_pyfunc(model_path)
 
 
 def run(json_input):
