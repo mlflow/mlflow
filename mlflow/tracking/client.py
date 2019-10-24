@@ -12,15 +12,6 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
 
-def with_registry_availability_check(f):
-    def check_availability(self, *args, **kwargs):
-        if self.registry_client is None:
-            raise Exception("REGISTRY DISABLED!")
-        else:
-           return f(self, *args, **kwargs)
-    return check_availability
-
-
 class MlflowClient(object):
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
@@ -302,9 +293,12 @@ class MlflowClient(object):
 
     # Registry API
 
+    def verify_registry_client_available(self):
+        if self.registry_client is None:
+            raise Exception("Registry unavailable")
+
     # Registered Model Methods
 
-    @with_registry_availability_check
     def create_registered_model(self, name):
         """
         Create a new registered model in backend store.
@@ -313,6 +307,7 @@ class MlflowClient(object):
         :return: A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
                  created by backend.
         """
+        self.verify_registry_client_available()
         return self.registry_client.create_registered_model(name)
 
     def update_registered_model(self, name, new_name=None, description=None):
@@ -325,6 +320,7 @@ class MlflowClient(object):
         :param description: (Optional) New description.
         :return: A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
         """
+        self.verify_registry_client_available()
         return self.registry_client.update_registered_model(name, new_name, description)
 
     def delete_registered_model(self, name):
@@ -334,6 +330,7 @@ class MlflowClient(object):
 
         :param name: Name of the registered model to update.
         """
+        self.verify_registry_client_available()
         self.registry_client.delete_registered_model(name)
 
     def list_registered_models(self):
@@ -342,6 +339,7 @@ class MlflowClient(object):
 
         :return: List of :py:class:`mlflow.entities.registry.RegisteredModel` objects.
         """
+        self.verify_registry_client_available()
         return self.registry_client.list_registered_models()
 
     def get_registered_model_details(self, name):
@@ -349,6 +347,7 @@ class MlflowClient(object):
         :param name: Name of the registered model to update.
         :return: A single :py:class:`mlflow.entities.model_registry.RegisteredModelDetailed` object.
         """
+        self.verify_registry_client_available()
         return self.registry_client.get_registered_model_details(name)
 
     def get_latest_versions(self, name, stages=None):
@@ -361,6 +360,7 @@ class MlflowClient(object):
                        for ALL_STAGES.
         :return: List of `:py:class:`mlflow.entities.model_registry.ModelVersionDetailed` objects.
         """
+        self.verify_registry_client_available()
         return self.registry_client.get_latest_versions(name, stages)
 
     # Model Version Methods
@@ -375,6 +375,7 @@ class MlflowClient(object):
         :return: Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
                  backend.
         """
+        self.verify_registry_client_available()
         return self.registry_client.create_model_version(name, source, run_id)
 
     def update_model_version(self, name, version, stage=None, description=None):
@@ -386,6 +387,7 @@ class MlflowClient(object):
         :param stage: New desired stage for this model version.
         :param description: New description.
         """
+        self.verify_registry_client_available()
         self.registry_client.update_model_version(name, version, stage, description)
 
     def delete_model_version(self, name, version):
@@ -395,6 +397,7 @@ class MlflowClient(object):
         :param name: Name of the containing registered model.
         :param version: Version number of the model version.
         """
+        self.verify_registry_client_available()
         self.registry_client.delete_model_version(name, version)
 
     def get_model_version_details(self, name, version):
@@ -403,6 +406,7 @@ class MlflowClient(object):
         :param version: Version number of the model version.
         :return: A single :py:class:`mlflow.entities.model_registry.ModelVersionDetailed` object.
         """
+        self.verify_registry_client_available()
         return self.registry_client.get_model_version_details(name, version)
 
     def get_model_version_download_uri(self, name, version):
@@ -413,6 +417,7 @@ class MlflowClient(object):
         :param version: Version number of the model version.
         :return: A single URI location that allows reads for downloading.
         """
+        self.verify_registry_client_available()
         return self.registry_client.get_model_version_download_uri(name, version)
 
     def search_model_versions(self, filter_string):
@@ -424,10 +429,12 @@ class MlflowClient(object):
                               ``run_id = '...'``.
         :return: PagedList of :py:class:`mlflow.entities.model_registry.ModelVersion` objects.
         """
+        self.verify_registry_client_available()
         return self.registry_client.search_model_versions(filter_string)
 
     def get_model_version_stages(self, name, version):
         """
         :return: A list of valid stages.
         """
+        self.verify_registry_client_available()
         return self.registry_client.get_model_version_stages(name, version)
