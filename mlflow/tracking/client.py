@@ -12,6 +12,15 @@ from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 
 
+def with_registry_availability_check(f):
+    def check_availability(self, *args, **kwargs):
+        if self.registry_client is None:
+            raise Exception("REGISTRY DISABLED!")
+        else:
+           return f(self, *args, **kwargs)
+    return check_availability
+
+
 class MlflowClient(object):
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
@@ -295,6 +304,7 @@ class MlflowClient(object):
 
     # Registered Model Methods
 
+    @with_registry_availability_check
     def create_registered_model(self, name):
         """
         Create a new registered model in backend store.
