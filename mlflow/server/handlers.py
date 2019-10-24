@@ -431,7 +431,7 @@ def _get_artifact_repo(run):
 @catch_mlflow_exception
 def _updateArtifactsLocation():
     request_message = _get_request_message(UpdateArtifactsLocation())
-    _get_store().update_artifacts_location(request_message.run_id,
+    _get_tracking_store().update_artifacts_location(request_message.run_id,
                                            request_message.new_artifacts_location)
     response_message = UpdateArtifactsLocation.Response()
     response = Response(mimetype='application/json')
@@ -660,10 +660,7 @@ HANDLERS = {
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
-<<<<<<< HEAD
-    UpdateArtifactsLocation: _updateArtifactsLocation
-
-=======
+    UpdateArtifactsLocation: _updateArtifactsLocation,
 
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
@@ -679,5 +676,4 @@ HANDLERS = {
     GetModelVersionDownloadUri: _get_model_version_download_uri,
     GetModelVersionStages: _get_model_version_stages,
     SearchModelVersions: _search_model_versions,
->>>>>>> origin/master
 }
