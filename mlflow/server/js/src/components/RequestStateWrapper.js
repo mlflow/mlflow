@@ -10,7 +10,9 @@ export class RequestStateWrapper extends Component {
     // Should this component render the child before all the requests are complete?
     shouldOptimisticallyRender: PropTypes.bool,
     requests: PropTypes.arrayOf(PropTypes.object).isRequired,
-    // (isLoading: boolean, shouldRenderError: boolean, requests, asyncRequests) => null | undefined | ReactNode.
+    asyncRequests: PropTypes.arrayOf(PropTypes.object).isRequired,
+    // (isLoading: boolean, shouldRenderError: boolean,
+    //  requests, asyncRequests) => null | undefined | ReactNode.
     // This function is called when all requests are complete or some requests failed.
     // It's the function's responsibility to render a ReactNode or an error view depending on the
     // parameters passed in.
@@ -19,6 +21,7 @@ export class RequestStateWrapper extends Component {
 
   static defaultProps = {
     requests: [],
+    asyncRequests: [],
     shouldOptimisticallyRender: false,
   };
 
