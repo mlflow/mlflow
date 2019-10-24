@@ -35,10 +35,10 @@ class MlflowClient(object):
         self._registry_uri = registry_uri or final_tracking_uri
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
         # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by the
-        # MlflowClient._get_registry_client() method. This `ModelRegistryClient` is not explicitly
+        # `MlflowClient._get_registry_client()` method. This `ModelRegistryClient` is not explicitly
         # defined as an instance variable in the `MlflowClient` constructor; an instance variable
         # is assigned lazily by `MlflowClient_get_registry_client()` and should not be referenced
-        # outside of the `MlflowClient._get_registry_client()` function.
+        # outside of the `MlflowClient._get_registry_client()` method
 
     def _get_registry_client(self):
         """
