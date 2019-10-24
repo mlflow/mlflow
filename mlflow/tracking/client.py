@@ -299,10 +299,6 @@ class MlflowClient(object):
 
     # Registry API
 
-    def verify_registry_client_available(self):
-        if self.registry_client is None:
-            raise Exception("Registry unavailable")
-
     # Registered Model Methods
 
     def create_registered_model(self, name):
