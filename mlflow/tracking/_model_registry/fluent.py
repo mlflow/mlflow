@@ -31,6 +31,8 @@ def register_model(model_uri, name):
     if RunsArtifactRepository.is_runs_uri(model_uri):
         source = RunsArtifactRepository.get_underlying_uri(model_uri)
         (run_id, _) = RunsArtifactRepository.parse_runs_uri(model_uri)
-        return client.create_model_version(name, source, run_id)
+        create_version_response = client.create_model_version(name, source, run_id)
     else:
-        return client.create_model_version(name, source=model_uri, run_id=None)
+        create_version_response = client.create_model_version(name, source=model_uri, run_id=None)
+    eprint("Created a new model version with name '{name}' and version '{version}'".format(
+        name=create_version_response.get_name(), version=create_version_response.version))
