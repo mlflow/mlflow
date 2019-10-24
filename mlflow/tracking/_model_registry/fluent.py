@@ -24,7 +24,8 @@ def register_model(model_uri, name):
         client.create_registered_model(name)
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
-            eprint("Registered model %s already exists. Using it to create a new version." % name)
+            eprint("Registered model '%s' already exists. Creating a new version of this model..."
+                    % name)
         else:
             raise e
 
@@ -34,5 +35,5 @@ def register_model(model_uri, name):
         create_version_response = client.create_model_version(name, source, run_id)
     else:
         create_version_response = client.create_model_version(name, source=model_uri, run_id=None)
-    eprint("Created a new model version with name '{name}' and version '{version}'".format(
-        name=create_version_response.get_name(), version=create_version_response.version))
+    eprint("Created version '{version}' of model '{model_name}'.".format(
+        version=create_version_response.version, model_name=create_version_response.get_name()))
