@@ -25,7 +25,7 @@ def register_model(model_uri, name):
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
             eprint("Registered model '%s' already exists. Creating a new version of this model..."
-                    % name)
+                   % name)
         else:
             raise e
 
