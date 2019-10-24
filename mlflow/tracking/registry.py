@@ -60,6 +60,6 @@ class StoreRegistry:
             store_builder = self._registry[scheme]
         except KeyError:
             raise MlflowException(
-                "Unexpected URI scheme '{}' for tracking store. "
+                "Unexpected URI scheme '{}' for model registry store. "
                 "Valid schemes are: {}".format(store_uri, list(self._registry.keys())))
         return store_builder
