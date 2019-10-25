@@ -7,7 +7,9 @@ from mlflow.utils import experimental
 @experimental
 class ModelVersion(_ModelRegistryEntity):
     """
-    MLflow entity for Model Version
+    MLflow entity for Model Version.
+    A model version is uniquely identified using underlying
+    :py:class:`mlflow.entities.model_registry.RegisteredModel` and version number.
     """
     def __init__(self, registered_model, version):
         """

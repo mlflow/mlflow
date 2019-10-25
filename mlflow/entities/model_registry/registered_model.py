@@ -6,7 +6,8 @@ from mlflow.utils import experimental
 @experimental
 class RegisteredModel(_ModelRegistryEntity):
     """
-    MLflow entity for Registered Model
+    MLflow entity for Registered Model.
+    A registered model entity is uniquely identified by it's name.
     """
 
     def __init__(self, name):

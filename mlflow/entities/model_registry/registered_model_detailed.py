@@ -7,14 +7,15 @@ from mlflow.utils import experimental
 @experimental
 class RegisteredModelDetailed(RegisteredModel):
     """
-    MLflow entity for Registered Model Detailed
+    MLflow entity for Registered Model Detailed.
+    Provides additional metadata data for registered model in addition to information in
+    :py:class:`mlflow.entities.model_registry.RegisteredModel`.
     """
 
     def __init__(self, name, creation_timestamp, last_updated_timestamp=None, description=None,
                  latest_versions=None):
         # Constructor is called only from within the system by various backend stores.
         super(RegisteredModelDetailed, self).__init__(name)
-        self._name = name
         self._creation_time = creation_timestamp
         self._last_updated_timestamp = last_updated_timestamp
         self._description = description
