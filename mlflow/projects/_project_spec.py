@@ -36,9 +36,15 @@ def load_project(directory):
         project_name = None
     conda_path = yaml_obj.get("conda_env")
     docker_env = yaml_obj.get("docker_env")
-    if docker_env and not docker_env.get("image"):
-        raise ExecutionException("Docker environment specified but no image "
-                                 "attribute found.")
+    if docker_env:
+        if not docker_env.get("image"):
+            raise ExecutionException("Docker environment specified but no image "
+                                     "attribute found.")
+        if docker_env.get("volumes"):
+            if not (isinstance(docker_env["volumes"], list)
+                    and all([isinstance(i, str) for i in docker_env["volumes"]])):
+                raise ExecutionException("Docker volumes must be a list of strings, "
+                                         """e.g.: '["/path1/:/path1", "/path2/:/path2"])""")
     if conda_path and docker_env:
         raise ExecutionException("Project cannot contain both a docker and conda environment.")
     entry_points = {}
