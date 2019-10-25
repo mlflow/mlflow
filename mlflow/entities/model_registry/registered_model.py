@@ -1,6 +1,5 @@
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
-from mlflow.utils import experimental
 
 
 class RegisteredModel(_ModelRegistryEntity):

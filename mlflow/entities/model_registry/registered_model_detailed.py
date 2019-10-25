@@ -1,7 +1,6 @@
 from mlflow.entities.model_registry.model_version_detailed import ModelVersionDetailed
 from mlflow.entities.model_registry.registered_model import RegisteredModel
 from mlflow.protos.model_registry_pb2 import RegisteredModelDetailed as ProtoRegisteredModelDetailed
-from mlflow.utils import experimental
 
 
 class RegisteredModelDetailed(RegisteredModel):
