@@ -4,9 +4,9 @@ from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.utils import experimental
 
 
-@experimental
 class ModelVersion(_ModelRegistryEntity):
     """
+    Note:: Experimental: This entity may change or be removed in a future release without warning.
     MLflow entity for Model Version.
     A model version is uniquely identified using underlying
     :py:class:`mlflow.entities.model_registry.RegisteredModel` and version number.

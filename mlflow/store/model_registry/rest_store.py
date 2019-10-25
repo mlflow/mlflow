@@ -15,9 +15,9 @@ _PATH_PREFIX = "/api/2.0"
 _METHOD_TO_INFO = extract_api_info_for_service(ModelRegistryService, _PATH_PREFIX)
 
 
-@experimental
 class RestStore(AbstractStore):
     """
+    Note:: Experimental: This entity may change or be removed in a future release without warning.
     Client for a remote model registry server accessed via REST API calls
 
     :param get_host_creds: Method to be invoked prior to every REST request to get the

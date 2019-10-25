@@ -3,11 +3,11 @@ from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredM
 from mlflow.utils import experimental
 
 
-@experimental
 class RegisteredModel(_ModelRegistryEntity):
     """
+    Note:: Experimental: This entity may change or be removed in a future release without warning.
     MLflow entity for Registered Model.
-    A registered model entity is uniquely identified by it's name.
+    A registered model entity is uniquely identified by its name.
     """
 
     def __init__(self, name):

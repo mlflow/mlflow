@@ -4,9 +4,9 @@ from mlflow.protos.model_registry_pb2 import RegisteredModelDetailed as ProtoReg
 from mlflow.utils import experimental
 
 
-@experimental
 class RegisteredModelDetailed(RegisteredModel):
     """
+    Note:: Experimental: This entity may change or be removed in a future release without warning.
     MLflow entity for Registered Model Detailed.
     Provides additional metadata data for registered model in addition to information in
     :py:class:`mlflow.entities.model_registry.RegisteredModel`.
