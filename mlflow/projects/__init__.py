@@ -152,7 +152,8 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                         repository_uri=project.name,
                                         base_image=project.docker_env.get('image'),
                                         run_id=active_run.info.run_id)
-            command_args += _get_docker_command(image=image, active_run=active_run)
+            command_args += _get_docker_command(image=image, active_run=active_run,
+                                                volumes=project.docker_env.get("volumes"))
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
@@ -709,7 +710,7 @@ def _get_local_uri_or_none(uri):
         return None, None
 
 
-def _get_docker_command(image, active_run):
+def _get_docker_command(image, active_run, volumes=None):
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
     env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
@@ -722,6 +723,10 @@ def _get_docker_command(image, active_run):
     cmd += tracking_cmds + artifact_cmds
     env_vars.update(tracking_envs)
     env_vars.update(artifact_envs)
+
+    if volumes is not None:
+        for v in volumes:
+            cmd += ["-v", v]
 
     for key, value in env_vars.items():
         cmd += ["-e", "{key}={value}".format(key=key, value=value)]
