@@ -13,6 +13,7 @@ option (scalapb.options) = {
 };
 
 service ModelRegistryService {
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   // Creates a new RegisteredModel entity in Model Registry.
   //
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a registered model with the given name exists.
@@ -28,6 +29,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc updateRegisteredModel (UpdateRegisteredModel) returns (UpdateRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
@@ -40,6 +42,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc deleteRegisteredModel (DeleteRegisteredModel) returns (DeleteRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
@@ -52,6 +55,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc getRegisteredModelDetails (GetRegisteredModelDetails) returns (GetRegisteredModelDetails.Response) {
     option (rpc) = {
       endpoints: [{
@@ -65,6 +69,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc listRegisteredModels (ListRegisteredModels) returns (ListRegisteredModels.Response) {
     option (rpc) = {
       endpoints: [{
@@ -77,6 +82,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc getLatestVersions (GetLatestVersions) returns (GetLatestVersions.Response) {
     option(rpc) = {
       endpoints: [{
@@ -90,6 +96,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc createModelVersion (CreateModelVersion) returns (CreateModelVersion.Response) {
     option (rpc) = {
       endpoints: [{
@@ -102,6 +109,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc updateModelVersion (UpdateModelVersion) returns (UpdateModelVersion.Response) {
     option (rpc) = {
       endpoints: [{
@@ -114,6 +122,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc deleteModelVersion (DeleteModelVersion) returns (DeleteModelVersion.Response) {
     option (rpc) = {
       endpoints: [{
@@ -126,6 +135,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc getModelVersionDetails (GetModelVersionDetails) returns (GetModelVersionDetails.Response) {
     option (rpc) = {
       endpoints: [{
@@ -139,6 +149,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   // Search models in registry.
   //
   rpc searchModelVersions(SearchModelVersions)returns(SearchModelVersions.Response){
@@ -153,6 +164,7 @@ service ModelRegistryService {
     };
   }
 
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   // Get stages for a model
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if model was never created or does not exist in registry.
@@ -169,7 +181,8 @@ service ModelRegistryService {
     };
   }
 
-  // GET Download URI for a model version's artifacts
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
+  // Get Download URI for a model version's artifacts
   rpc getModelVersionDownloadUri (GetModelVersionDownloadUri) returns (GetModelVersionDownloadUri.Response) {
     option (rpc) = {
       endpoints: [{
@@ -184,11 +197,13 @@ service ModelRegistryService {
   }
 }
 
+// Note:: Experimental: This entity may change or be removed in a future release without warning.
 message RegisteredModel {
   // Unique name for the model.
   optional string name = 1;
 }
 
+// Note:: Experimental: This entity may change or be removed in a future release without warning.
 message RegisteredModelDetailed {
   // Registered model.
   optional RegisteredModel registered_model = 1;
@@ -210,6 +225,7 @@ message RegisteredModelDetailed {
   repeated ModelVersionDetailed latest_versions = 6;
 }
 
+// Note:: Experimental: This entity may change or be removed in a future release without warning.
 // Model object uniquely identified using name and version.
 message ModelVersion {
   // Registered model.
@@ -219,6 +235,7 @@ message ModelVersion {
   optional int64 version = 2;
 }
 
+// Note:: Experimental: This entity may change or be removed in a future release without warning.
 enum ModelVersionStatus {
   // Request to register a new model version is pending as server performs background tasks.
   PENDING_REGISTRATION = 1;
@@ -236,6 +253,7 @@ enum ModelVersionStatus {
   FAILED_DELETION = 5;
 }
 
+// Note:: Experimental: This entity may change or be removed in a future release without warning.
 message ModelVersionDetailed {
   // Model Version
   optional ModelVersion model_version = 1;

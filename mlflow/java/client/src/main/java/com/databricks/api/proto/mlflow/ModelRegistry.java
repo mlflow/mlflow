@@ -15,6 +15,10 @@ public final class ModelRegistry {
         (com.google.protobuf.ExtensionRegistryLite) registry);
   }
   /**
+   * <pre>
+   * Note:: Experimental: This entity may change or be removed in a future release without warning.
+   * </pre>
+   *
    * Protobuf enum {@code mlflow.ModelVersionStatus}
    */
   public enum ModelVersionStatus
@@ -202,6 +206,10 @@ public final class ModelRegistry {
         getNameBytes();
   }
   /**
+   * <pre>
+   * Note:: Experimental: This entity may change or be removed in a future release without warning.
+   * </pre>
+   *
    * Protobuf type {@code mlflow.RegisteredModel}
    */
   public  static final class RegisteredModel extends
@@ -495,6 +503,10 @@ public final class ModelRegistry {
       return builder;
     }
     /**
+     * <pre>
+     * Note:: Experimental: This entity may change or be removed in a future release without warning.
+     * </pre>
+     *
      * Protobuf type {@code mlflow.RegisteredModel}
      */
     public static final class Builder extends
@@ -967,6 +979,10 @@ public final class ModelRegistry {
         int index);
   }
   /**
+   * <pre>
+   * Note:: Experimental: This entity may change or be removed in a future release without warning.
+   * </pre>
+   *
    * Protobuf type {@code mlflow.RegisteredModelDetailed}
    */
   public  static final class RegisteredModelDetailed extends
@@ -1576,6 +1592,10 @@ public final class ModelRegistry {
       return builder;
     }
     /**
+     * <pre>
+     * Note:: Experimental: This entity may change or be removed in a future release without warning.
+     * </pre>
+     *
      * Protobuf type {@code mlflow.RegisteredModelDetailed}
      */
     public static final class Builder extends
@@ -2700,6 +2720,7 @@ public final class ModelRegistry {
   }
   /**
    * <pre>
+   * Note:: Experimental: This entity may change or be removed in a future release without warning.
    * Model object uniquely identified using name and version.
    * </pre>
    *
@@ -3029,6 +3050,7 @@ public final class ModelRegistry {
     }
     /**
      * <pre>
+     * Note:: Experimental: This entity may change or be removed in a future release without warning.
      * Model object uniquely identified using name and version.
      * </pre>
      *
@@ -3697,6 +3719,10 @@ public final class ModelRegistry {
         getStatusMessageBytes();
   }
   /**
+   * <pre>
+   * Note:: Experimental: This entity may change or be removed in a future release without warning.
+   * </pre>
+   *
    * Protobuf type {@code mlflow.ModelVersionDetailed}
    */
   public  static final class ModelVersionDetailed extends
@@ -4580,6 +4606,10 @@ public final class ModelRegistry {
       return builder;
     }
     /**
+     * <pre>
+     * Note:: Experimental: This entity may change or be removed in a future release without warning.
+     * </pre>
+     *
      * Protobuf type {@code mlflow.ModelVersionDetailed}
      */
     public static final class Builder extends
