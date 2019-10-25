@@ -94,7 +94,7 @@ def log_model(spark_model, artifact_path, conda_env=None, dfs_tmpdir=None,
     :param sample_input: A sample input used to add the MLeap flavor to the model.
                          This must be a PySpark DataFrame that the model can evaluate. If
                          ``sample_input`` is ``None``, the MLeap flavor is not added.
-    :param registered_model_name: Note:: Experimental: This method may change or be removed in a
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
                                   future release without warning. If given, create a model
                                   version under ``registered_model_name``, also creating a
                                   registered model if one with the given name does not exist.
