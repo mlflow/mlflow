@@ -14,7 +14,7 @@ import mlflow.tracking.fluent
 from mlflow.entities import (LifecycleStage, Metric, Param, Run, RunData,
                              RunInfo, RunStatus, RunTag, SourceType, ViewType)
 from mlflow.exceptions import MlflowException
-from mlflow.store.tracking.abstract_store import PagedList
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
                                     _EXPERIMENT_NAME_ENV_VAR, _RUN_ID_ENV_VAR,

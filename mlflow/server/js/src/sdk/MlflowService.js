@@ -277,6 +277,24 @@ export class MlflowService {
     });
   }
 
+    /**
+   * @param {DeleteTag} data: Immutable Record
+   * @param {function} success
+   * @param {function} error
+   * @return {Promise}
+   */
+  static deleteTag({ data, success, error }) {
+    return $.ajax(Utils.getAjaxUrl('ajax-api/2.0/preview/mlflow/runs/delete-tag'), {
+      type: 'POST',
+      contentType: 'application/json; charset=utf-8',
+      dataType: 'json',
+      data: JSON.stringify(data),
+      jsonp: false,
+      success: success,
+      error: error,
+    });
+  }
+
   /**
    * @param {SetExperimentTag} data: Immutable Record
    * @param {function} success

@@ -260,7 +260,7 @@ def test_get_tracking_uri_for_run():
     assert databricks._get_tracking_uri_for_run() == "databricks"
     mlflow.set_tracking_uri(None)
     with mock.patch.dict(os.environ, {mlflow.tracking._TRACKING_URI_ENV_VAR: "http://some-uri"}):
-        assert mlflow.tracking.utils.get_tracking_uri() == "http://some-uri"
+        assert mlflow.tracking._tracking_service.utils.get_tracking_uri() == "http://some-uri"
 
 
 class MockProfileConfigProvider:

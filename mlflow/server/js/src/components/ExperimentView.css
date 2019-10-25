@@ -9,8 +9,12 @@
 }
 
 .ExperimentView td, .ExperimentView th {
-   border-top: 1px solid #e2e2e2;
-   border-bottom: 1px solid #e2e2e2;
+  border-top: 1px solid #e2e2e2;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.ExperimentView .metadata-list td, .ExperimentView .metadata-list th {
+  border: none;
 }
 
 .ExperimentView .top-row {
@@ -183,10 +187,10 @@ span.error-message {
 
   /* Prevent double click text select */
   -webkit-user-select: none; /* Safari */
-   -khtml-user-select: none; /* Konqueror HTML */
-     -moz-user-select: none; /* Firefox */
-      -ms-user-select: none; /* Internet Explorer/Edge */
-          user-select: none;
+  -khtml-user-select: none; /* Konqueror HTML */
+  -moz-user-select: none; /* Firefox */
+  -ms-user-select: none; /* Internet Explorer/Edge */
+  user-select: none;
 }
 
 .ExperimentView .metric-param-sort-toggle {
@@ -247,7 +251,7 @@ span.error-message {
   outline: 0;
 }
 
-  /* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
+/* Workaround as per https://github.com/bvaughn/react-virtualized/issues/876#issuecomment-367029529 */
 .ExperimentView .ReactVirtualized__Table__rowColumn {
   overflow: visible !important;
 }

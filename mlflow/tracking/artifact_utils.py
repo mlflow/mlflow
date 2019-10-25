@@ -8,7 +8,8 @@ from six.moves import urllib
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.tracking.utils import _get_store
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
+from mlflow.tracking._tracking_service.utils import _get_store
 
 
 def get_artifact_uri(run_id, artifact_path=None):
@@ -59,8 +60,16 @@ def _download_artifact_from_uri(artifact_uri, output_path=None):
         # relative path is a special case, urllib does not reconstruct it properly
         prefix = parsed_uri.scheme + ":"
         parsed_uri = parsed_uri._replace(scheme="")
-    artifact_path = posixpath.basename(parsed_uri.path)
-    parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
-    root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
+
+    # For models:/ URIs, it doesn't make sense to initialize a ModelsArtifactRepository with only
+    # the model name portion of the URI, then call download_artifacts with the version info.
+    if ModelsArtifactRepository.is_models_uri(artifact_uri):
+        root_uri = artifact_uri
+        artifact_path = ""
+    else:
+        artifact_path = posixpath.basename(parsed_uri.path)
+        parsed_uri = parsed_uri._replace(path=posixpath.dirname(parsed_uri.path))
+        root_uri = prefix + urllib.parse.urlunparse(parsed_uri)
+
     return get_artifact_repository(artifact_uri=root_uri).download_artifacts(
         artifact_path=artifact_path, dst_path=output_path)

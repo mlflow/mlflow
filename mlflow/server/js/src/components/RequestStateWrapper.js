@@ -10,18 +10,18 @@ export class RequestStateWrapper extends Component {
     // Should this component render the child before all the requests are complete?
     shouldOptimisticallyRender: PropTypes.bool,
     requests: PropTypes.arrayOf(PropTypes.object).isRequired,
-    asyncRequests: PropTypes.arrayOf(PropTypes.object),
-    // (isLoading: boolean,
-    //  shouldRenderError: boolean,
-    //  requests,
-    //  asyncRequests) => undefined | React Node.
-    // This function is called when all requests are complete.
-    // The function can choose to render an error view depending on the
-    // type of errors received. If undefined is returned, then render the AppErrorBoundary view.
+    asyncRequests: PropTypes.arrayOf(PropTypes.object).isRequired,
+    // (isLoading: boolean, shouldRenderError: boolean,
+    //  requests, asyncRequests) => null | undefined | ReactNode.
+    // This function is called when all requests are complete or some requests failed.
+    // It's the function's responsibility to render a ReactNode or an error view depending on the
+    // parameters passed in.
     children: PropTypes.oneOfType([PropTypes.func, PropTypes.element]),
   };
 
   static defaultProps = {
+    requests: [],
+    asyncRequests: [],
     shouldOptimisticallyRender: false,
   };
 
@@ -37,9 +37,9 @@ export class RequestStateWrapper extends Component {
   }
 
   static getDerivedStateFromProps(nextProps) {
-    const shouldRender = nextProps.requests.every((r) => {
-      return r.active === false;
-    });
+    const shouldRender = nextProps.requests.length ? nextProps.requests.every((r) => {
+      return r && r.active === false;
+    }) : false;
     return {
       shouldRender,
       shouldRenderError: RequestStateWrapper.getErrorRequests(nextProps.requests).length > 0,
@@ -49,13 +49,9 @@ export class RequestStateWrapper extends Component {
   render() {
     const { children, requests, asyncRequests } = this.props;
     const { shouldRender, shouldRenderError } = this.state;
-    if (shouldRender || this.props.shouldOptimisticallyRender) {
+    if (shouldRender || shouldRenderError || this.props.shouldOptimisticallyRender) {
       if (typeof children === "function") {
-        const child = children(!shouldRender, shouldRenderError, requests, asyncRequests);
-        if (child) {
-          return child;
-        }
-        triggerError(requests);
+        return children(!shouldRender, shouldRenderError, requests, asyncRequests);
       }
       if (shouldRenderError) {
         triggerError(requests);
@@ -66,19 +62,17 @@ export class RequestStateWrapper extends Component {
   }
 }
 
-const triggerError = (requests) => {
+export const triggerError = (requests) => {
   // This triggers the OOPS error boundary.
   console.error("ERROR", requests);
   throw Error("GOTO error boundary");
 };
 
-const mapStateToProps = (state, ownProps) => {
-  return Object.assign({}, ownProps, {
-    requests: getApis(ownProps.requestIds, state),
-    asyncRequests: ownProps.asyncRequestIds !== undefined ?
-      getApis(ownProps.asyncRequestIds, state) :
-      []
-  });
-};
+const mapStateToProps = (state, ownProps) => ({
+  requests: getApis(ownProps.requestIds, state),
+  asyncRequests: ownProps.asyncRequestIds !== undefined ?
+  getApis(ownProps.asyncRequestIds, state) :
+  []
+});
 
 export default connect(mapStateToProps)(RequestStateWrapper);

@@ -3,6 +3,7 @@ from six.moves import urllib
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
 from mlflow.tracking.context.abstract_context import RunContextProvider
+from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 
 
 class PluginFileStore(FileStore):
@@ -27,3 +28,10 @@ class PluginRunContextProvider(RunContextProvider):
 
     def tags(self):
         return {"test": "tag"}
+
+
+class PluginRegistrySqlAlchemyStore(SqlAlchemyStore):
+    def __init__(self, store_uri=None):
+        path = urllib.parse.urlparse(store_uri).path if store_uri else None
+        self.is_plugin = True
+        super(PluginRegistrySqlAlchemyStore, self).__init__(path)

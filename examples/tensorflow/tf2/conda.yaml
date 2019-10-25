@@ -1,0 +1,10 @@
+name: tensorflow-example
+channels:
+  - defaults
+  - anaconda
+dependencies:
+  - python==3.6
+  - pip:
+    - mlflow
+    - tensorflow==2.0.0
+

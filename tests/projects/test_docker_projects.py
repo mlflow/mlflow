@@ -79,7 +79,7 @@ def test_docker_project_tracking_uri_propagation(
     old_uri = mlflow.get_tracking_uri()
     try:
         mlflow.set_tracking_uri(tracking_uri)
-        with mock.patch("mlflow.tracking.utils._get_store") as _get_store_mock:
+        with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as _get_store_mock:
             _get_store_mock.return_value = file_store.FileStore(local_tracking_dir)
             mlflow.projects.run(
                 TEST_DOCKER_PROJECT_DIR, experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID)
