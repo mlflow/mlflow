@@ -2,9 +2,11 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.tracking import MlflowClient
+from mlflow.utils import experimental
 from mlflow.utils.logging_utils import eprint
 
 
+@experimental
 def register_model(model_uri, name):
     """
     Create a new model version in model registry for the model files specified by ``model_uri``.

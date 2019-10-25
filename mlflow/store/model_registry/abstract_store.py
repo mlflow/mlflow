@@ -1,8 +1,10 @@
 from abc import abstractmethod, ABCMeta
 
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.utils import experimental
 
 
+@experimental
 class AbstractStore:
     """
     Abstract class that defines API interfaces for storing Model Registry metadata.

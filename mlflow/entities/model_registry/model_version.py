@@ -1,9 +1,14 @@
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.protos.model_registry_pb2 import ModelVersion as ProtoModelVersion
+from mlflow.utils import experimental
 
 
+@experimental
 class ModelVersion(_ModelRegistryEntity):
+    """
+    MLflow entity for Model Version
+    """
     def __init__(self, registered_model, version):
         """
         Construct a :py:class:`mlflow.entities.model_registry.RegisteredModel` instance

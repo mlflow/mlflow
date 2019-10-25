@@ -1,10 +1,15 @@
 from mlflow.entities.model_registry.model_version_detailed import ModelVersionDetailed
 from mlflow.entities.model_registry.registered_model import RegisteredModel
 from mlflow.protos.model_registry_pb2 import RegisteredModelDetailed as ProtoRegisteredModelDetailed
+from mlflow.utils import experimental
 
 
+@experimental
 class RegisteredModelDetailed(RegisteredModel):
-    # __init__ method to initialize fields
+    """
+    MLflow entity for Registered Model Detailed
+    """
+
     def __init__(self, name, creation_timestamp, last_updated_timestamp=None, description=None,
                  latest_versions=None):
         # Constructor is called only from within the system by various backend stores.
