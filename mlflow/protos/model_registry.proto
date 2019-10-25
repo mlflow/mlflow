@@ -29,7 +29,7 @@ service ModelRegistryService {
     };
   }
 
-// Note:: Experimental: This API may change or be removed in a future release without warning.
+  // Note:: Experimental: This API may change or be removed in a future release without warning.
   rpc updateRegisteredModel (UpdateRegisteredModel) returns (UpdateRegisteredModel.Response) {
     option (rpc) = {
       endpoints: [{
