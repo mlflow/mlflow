@@ -27,6 +27,10 @@ _logger = logging.getLogger(__name__)
 sqlalchemy.orm.configure_mappers()
 
 
+def now():
+    return int(time.time() * 1000)
+
+
 class SqlAlchemyStore(AbstractStore):
     """
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
@@ -108,9 +112,9 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             try:
-                now = int(time.time() * 1000)
-                registered_model = SqlRegisteredModel(name=name, creation_time=now,
-                                                      last_updated_time=now)
+                creation_time = now()
+                registered_model = SqlRegisteredModel(name=name, creation_time=creation_time,
+                                                      last_updated_time=creation_time)
                 self._save_to_db(session, registered_model)
                 session.flush()
                 return registered_model.to_mlflow_entity()
@@ -145,12 +149,15 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             sql_registered_model = self._get_registered_model(session, registered_model.name)
             try:
+                updated_time = now()
                 if new_name is not None:
                     sql_registered_model.name = new_name
                     for sql_model_version in sql_registered_model.model_versions:
                         sql_model_version.name = new_name
+                        sql_model_version.last_updated_time = updated_time
                 if description is not None:
                     sql_registered_model.description = description
+                sql_registered_model.last_updated_time = updated_time
                 self._save_to_db(session,
                                  [sql_registered_model] + sql_registered_model.model_versions)
                 session.flush()
@@ -233,13 +240,14 @@ class SqlAlchemyStore(AbstractStore):
             else:
                 return 1
         with self.ManagedSessionMaker() as session:
-            now = int(time.time() * 1000)
+            creation_time = now()
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
                 try:
                     sql_registered_model = self._get_registered_model(session, name)
                     model_version = SqlModelVersion(name=name,
                                                     version=next_version(sql_registered_model),
-                                                    creation_time=now, last_updated_time=now,
+                                                    creation_time=creation_time,
+                                                    last_updated_time=creation_time,
                                                     source=source, run_id=run_id)
                     session.add(model_version)
                     session.flush()
