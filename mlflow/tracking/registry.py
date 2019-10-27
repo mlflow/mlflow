@@ -3,7 +3,18 @@ import entrypoints
 import warnings
 
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.uri import get_uri_scheme
+
+
+class UnsupportedModelRegistryStoreURIException(MlflowException):
+    """Exception thrown when building a model registry store with an unsupported URI"""
+    def __init__(self, unsupported_uri, supported_uri_schemes):
+        message = "Unsupported URI '{}' for model registry store. Supported schemes are: {}".format(
+            unsupported_uri, supported_uri_schemes)
+        super(UnsupportedModelRegistryStoreURIException, self).__init__(
+            message, error_code=INVALID_PARAMETER_VALUE)
+        self.supported_uri_schemes = supported_uri_schemes
 
 
 class StoreRegistry:
@@ -59,7 +70,7 @@ class StoreRegistry:
         try:
             store_builder = self._registry[scheme]
         except KeyError:
-            raise MlflowException(
-                "Unexpected URI scheme '{}' for tracking store. "
-                "Valid schemes are: {}".format(store_uri, list(self._registry.keys())))
+            raise UnsupportedModelRegistryStoreURIException(
+                unsupported_uri=store_uri,
+                supported_uri_schemes=list(self._registry.keys()))
         return store_builder

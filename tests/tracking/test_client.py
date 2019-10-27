@@ -2,8 +2,11 @@ import pytest
 import mock
 
 from mlflow.entities import SourceType, ViewType, RunTag
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import ErrorCode, FEATURE_DISABLED
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.tracking import MlflowClient
+from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_SOURCE_NAME, MLFLOW_SOURCE_TYPE, \
     MLFLOW_PARENT_RUN_ID, MLFLOW_GIT_COMMIT, MLFLOW_PROJECT_ENTRY_POINT
 
@@ -147,3 +150,24 @@ def test_client_search_runs_page_token(mock_store):
                                                    max_results=SEARCH_MAX_RESULTS_DEFAULT,
                                                    order_by=None,
                                                    page_token="blah")
+
+
+def test_client_registry_operations_raise_exception_with_unsupported_registry_store():
+    """
+    This test case ensures that Model Registry operations invoked on the `MlflowClient`
+    fail with an informative error message when the registry store URI refers to a
+    store that does not support Model Registry features (e.g., FileStore).
+    """
+    with TempDir() as tmp:
+        client = MlflowClient(registry_uri=tmp.path())
+        expected_failure_functions = [
+            client._get_registry_client,
+            lambda: client.create_registered_model("test"),
+            lambda: client.get_registered_model_details("test"),
+            lambda: client.create_model_version("test", "source", "run_id"),
+            lambda: client.get_model_version_details("test", 1),
+        ]
+        for func in expected_failure_functions:
+            with pytest.raises(MlflowException) as exc:
+                func()
+            assert exc.value.error_code == ErrorCode.Name(FEATURE_DISABLED)
