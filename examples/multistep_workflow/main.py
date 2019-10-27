@@ -88,7 +88,7 @@ def workflow(als_max_iter, keras_hidden_units, max_row_limit):
 
         # We specify a spark-defaults.conf to override the default driver memory. ALS requires
         # significant memory. The driver memory property cannot be set by the application itself.
-        als_run = _get_or_run("als", 
+        als_run = _get_or_run("als",
                               {"ratings_data": ratings_parquet_uri, "max_iter": str(als_max_iter)},
                               git_commit)
         als_model_uri = os.path.join(als_run.info.artifact_uri, "als-model")
