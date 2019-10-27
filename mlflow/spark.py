@@ -235,11 +235,19 @@ class _HadoopFileSystem:
 
         :return: If copied, return new target location, otherwise return source uri.
         """
-        if cls._fs().exists(cls._remote_path(src_uri)):
-            _logger.info("File '%s' already on DFS, copy is not necessary.", src_uri)
-            return src_uri
-        else:
-            return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
+        import urllib
+        parsed_uri = urllib.parse.urlparse(src_uri)
+        try:
+            if parsed_uri.scheme and cls._fs().exists(cls._remote_path(src_uri)):
+                print(" ")
+                print("*** file already on dfs **")
+                print(" ")
+                _logger.info("File '%s' already on DFS, copy is not necessary.", src_uri)
+                return src_uri
+        except:
+            pass
+        raise Exception("file should be on dfs")
+        return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
 
 
     @classmethod
