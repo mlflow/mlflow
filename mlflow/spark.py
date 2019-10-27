@@ -235,7 +235,7 @@ class _HadoopFileSystem:
 
         :return: If copied, return new target location, otherwise return source uri.
         """
-        if cls._fs().exists(src_uri):
+        if cls._fs().exists(cls._remote_path(src_uri)):
             _logger.info("File '%s' already on DFS, copy is not necessary.", src_uri)
             return src_uri
         else:
