@@ -45,6 +45,11 @@ def load_project(directory):
                     and all([isinstance(i, str) for i in docker_env["volumes"]])):
                 raise ExecutionException("Docker volumes must be a list of strings, "
                                          """e.g.: '["/path1/:/path1", "/path2/:/path2"])""")
+        if docker_env.get("environment"):
+            if not (isinstance(docker_env["environment"], list)
+                    and all([isinstance(i, list) for i in docker_env["environment"]])):
+                raise ExecutionException("Docker environment must be a list of lists of two strings, "
+                                         """e.g.: '[["VAR1", "value1"], ["VAR2", "value2"]])""")
     if conda_path and docker_env:
         raise ExecutionException("Project cannot contain both a docker and conda environment.")
     entry_points = {}
