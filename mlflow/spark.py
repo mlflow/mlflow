@@ -24,6 +24,7 @@ from __future__ import absolute_import
 import os
 import yaml
 import logging
+import posixpath
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -227,6 +228,20 @@ class _HadoopFileSystem:
         return dst
 
     @classmethod
+    def maybe_copy_from_uri(cls, src_uri, dst_path):
+        """
+        Conditionally copy the file to the Hadoop DFS from the source uri.
+        In case the file is already on the Hadoop DFS do nothing.
+
+        :return: If copied, return new target location, otherwise return source uri.
+        """
+        if cls._fs().exists(src_uri):
+            return src_uri
+        else:
+            return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
+
+
+    @classmethod
     def delete(cls, path):
         cls._fs().delete(cls._remote_path(path), True)
 
@@ -334,16 +349,15 @@ def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
         sample_input=sample_input, conda_env=conda_env)
 
 
-def _load_model(model_path, dfs_tmpdir=None):
+def _load_model(model_uri, dfs_tmpdir=None):
     from pyspark.ml.pipeline import PipelineModel
-
     if dfs_tmpdir is None:
         dfs_tmpdir = DFS_TMP
     tmp_path = _tmp_path(dfs_tmpdir)
     # Spark ML expects the model to be stored on DFS
     # Copy the model to a temp DFS location first. We cannot delete this file, as
     # Spark may read from it at any point.
-    model_path = _HadoopFileSystem.maybe_copy_from_local_file(model_path, tmp_path)
+    model_path = _HadoopFileSystem.maybe_copy_from_uri(model_uri, tmp_path)
     return PipelineModel.load(model_path)
 
 
@@ -377,10 +391,11 @@ def load_model(model_uri, dfs_tmpdir=None):
     >>>  # Make predictions on test documents.
     >>> prediction = model.transform(test)
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    spark_model_artifacts_path = os.path.join(local_model_path, flavor_conf['model_data'])
-    return _load_model(model_path=spark_model_artifacts_path, dfs_tmpdir=dfs_tmpdir)
+    model_conf = Model.load(_download_artifact_from_uri(
+        artifact_uri=posixpath.join(model_uri, "MLmodel")))
+    flavor_conf = model_conf.flavors[FLAVOR_NAME]
+    model_uri = posixpath.join(model_uri, flavor_conf["model_data"])
+    return _load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
 
 
 def _load_pyfunc(path):
@@ -399,7 +414,7 @@ def _load_pyfunc(path):
     if spark is None:
         spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)\
             .master("local[1]").getOrCreate()
-    return _PyFuncModelWrapper(spark, _load_model(model_path=path))
+    return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
 
 class _PyFuncModelWrapper(object):
