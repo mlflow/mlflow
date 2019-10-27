@@ -33,7 +33,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
-from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import is_local_uri
 
@@ -236,6 +236,7 @@ class _HadoopFileSystem:
         :return: If copied, return new target location, otherwise return source uri.
         """
         if cls._fs().exists(src_uri):
+            _logger.info("File '%s' already on DFS, copy is not necessary.", src_uri)
             return src_uri
         else:
             return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
@@ -395,6 +396,9 @@ def load_model(model_uri, dfs_tmpdir=None):
         artifact_uri=posixpath.join(model_uri, "MLmodel")))
     flavor_conf = model_conf.flavors[FLAVOR_NAME]
     model_uri = posixpath.join(model_uri, flavor_conf["model_data"])
+    if RunsArtifactRepository.is_runs_uri(model_uri):
+        _logger.info("runs uri resolved as '%s'", model_uri)
+        model_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
     return _load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
 
 
