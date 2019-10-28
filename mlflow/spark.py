@@ -25,6 +25,7 @@ import os
 import yaml
 import logging
 import posixpath
+from six.moves import urllib
 
 import mlflow
 from mlflow import pyfunc, mleap
@@ -36,6 +37,7 @@ from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.uri import is_local_uri
+from mlflow.utils.model_utils import _get_flavor_configuration_from_uri
 
 FLAVOR_NAME = "spark"
 
@@ -235,14 +237,14 @@ class _HadoopFileSystem:
 
         :return: If copied, return new target location, otherwise return source uri.
         """
-        import urllib
         parsed_uri = urllib.parse.urlparse(src_uri)
         try:
             if parsed_uri.scheme and cls._fs().exists(cls._remote_path(src_uri)):
                 _logger.info("File '%s' already on DFS, copy is not necessary.", src_uri)
                 return src_uri
-        except:  # pylint: disable=W0702
-            pass
+        except Exception as ex:  # pylint: disable=broad-except
+            _logger.warning("Unexpected exception '%s' while checking if model uri is visible on "
+                            "DFS. Will attempt to upload the model to DFS.", ex)
         return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
 
     @classmethod
@@ -395,14 +397,12 @@ def load_model(model_uri, dfs_tmpdir=None):
     >>>  # Make predictions on test documents.
     >>> prediction = model.transform(test)
     """
-    model_conf = Model.load(_download_artifact_from_uri(
-        artifact_uri=posixpath.join(model_uri, "MLmodel")))
-    flavor_conf = model_conf.flavors[FLAVOR_NAME]
-    model_uri = posixpath.join(model_uri, flavor_conf["model_data"])
     if RunsArtifactRepository.is_runs_uri(model_uri):
         runs_uri = model_uri
         model_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
         _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
+    flavor_conf = _get_flavor_configuration_from_uri(model_uri, FLAVOR_NAME)
+    model_uri = posixpath.join(model_uri, flavor_conf["model_data"])
     return _load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
 
 
