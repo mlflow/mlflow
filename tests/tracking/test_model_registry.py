@@ -185,10 +185,11 @@ def test_create_registered_model(mlflow_client, backend_store_uri):
     registered_model_detailed = mlflow_client.get_registered_model_details(name)
     assert isinstance(registered_model_detailed, RegisteredModelDetailed)
     assert registered_model_detailed.name == name
-    assert registered_model_detailed.description is ""
+    assert str(registered_model_detailed.description) is ""
     assert registered_model_detailed.latest_versions == []
     assert_is_between(start_time, end_time, registered_model_detailed.creation_timestamp)
     assert_is_between(start_time, end_time, registered_model_detailed.last_updated_timestamp)
+    assert [name] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
 
 
 def test_update_registered_model(mlflow_client, backend_store_uri):
@@ -198,7 +199,7 @@ def test_update_registered_model(mlflow_client, backend_store_uri):
     end_time_1 = time.time() * 1000
     registered_model_detailed_1 = mlflow_client.get_registered_model_details(name)
     assert registered_model_detailed_1.name == name
-    assert registered_model_detailed_1.description is ""
+    assert str(registered_model_detailed_1.description) is ""
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
 
@@ -215,7 +216,7 @@ def test_update_registered_model(mlflow_client, backend_store_uri):
         mlflow_client.get_registered_model_details(name)
     registered_model_detailed_2 = mlflow_client.get_registered_model_details(new_name)
     assert registered_model_detailed_2.name == new_name
-    assert registered_model_detailed_2.description is ""
+    assert str(registered_model_detailed_2.description) is ""
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_2.creation_timestamp)
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.last_updated_timestamp)
 
@@ -244,3 +245,44 @@ def test_update_registered_model(mlflow_client, backend_store_uri):
     for old_name in [name, new_name]:
         with pytest.raises(MlflowException) as e:
             mlflow_client.get_registered_model_details(old_name)
+
+
+def test_delete_registered_model(mlflow_client, backend_store_uri):
+    name = 'UpdateRMTest'
+    start_time_1 = time.time() * 1000
+    mlflow_client.create_registered_model(name)
+    end_time_1 = time.time() * 1000
+    registered_model_detailed_1 = mlflow_client.get_registered_model_details(name)
+    assert registered_model_detailed_1.name == name
+    assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
+    assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
+
+    assert [name] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
+
+    # cannot create a model with same name
+    with pytest.raises(MlflowException) as e:
+        mlflow_client.create_registered_model(name)
+
+    mlflow_client.delete_registered_model(name)
+
+    # cannot get a deleted model
+    with pytest.raises(MlflowException) as e:
+        mlflow_client.get_registered_model_details(name)
+
+    # cannot update a deleted model
+    with pytest.raises(MlflowException) as e:
+        mlflow_client.update_registered_model(name=name, new_name="something else")
+
+    # list does not include deleted model
+    assert [] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
+
+    # recreate model with same name
+    start_time_2 = time.time() * 1000
+    mlflow_client.create_registered_model(name)
+    end_time_2 = time.time() * 1000
+    registered_model_detailed_2 = mlflow_client.get_registered_model_details(name)
+    assert registered_model_detailed_2.name == name
+    assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.creation_timestamp)
+    assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.last_updated_timestamp)
+
+    assert [name] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
