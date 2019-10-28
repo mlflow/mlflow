@@ -278,7 +278,16 @@ def load_model(model_uri, suppress_warnings=True):
                               loading process will be suppressed. If ``False``, these warning
                               messages will be emitted.
     """
-    return load_pyfunc(model_uri, suppress_warnings)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    model_py_version = conf.get(PY_VERSION)
+    if not suppress_warnings:
+        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
+    if CODE in conf and conf[CODE]:
+        code_path = os.path.join(local_model_path, conf[CODE])
+        mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
+    data_path = os.path.join(local_model_path, conf[DATA]) if (DATA in conf) else local_model_path
+    return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
@@ -301,16 +310,7 @@ def load_pyfunc(model_uri, suppress_warnings=False):
                               loading process will be suppressed. If ``False``, these warning
                               messages will be emitted.
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    model_py_version = conf.get(PY_VERSION)
-    if not suppress_warnings:
-        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
-    if CODE in conf and conf[CODE]:
-        code_path = os.path.join(local_model_path, conf[CODE])
-        mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
-    data_path = os.path.join(local_model_path, conf[DATA]) if (DATA in conf) else local_model_path
-    return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    return load_model(model_uri, suppress_warnings)
 
 
 def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
