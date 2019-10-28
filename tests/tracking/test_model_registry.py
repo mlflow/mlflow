@@ -175,11 +175,15 @@ def assert_is_between(start_time, end_time, expected_time):
     assert expected_time <= end_time
 
 
+def now():
+    return int(time.time() * 1000)
+
+
 def test_create_registered_model(mlflow_client, backend_store_uri):
     name = 'CreateRMTest'
-    start_time = time.time() * 1000
+    start_time = now()
     registered_model = mlflow_client.create_registered_model(name)
-    end_time = time.time() * 1000
+    end_time = now()
     assert isinstance(registered_model, RegisteredModel)
     assert registered_model.name == name
     registered_model_detailed = mlflow_client.get_registered_model_details(name)
@@ -194,9 +198,9 @@ def test_create_registered_model(mlflow_client, backend_store_uri):
 
 def test_update_registered_model(mlflow_client, backend_store_uri):
     name = 'UpdateRMTest'
-    start_time_1 = time.time() * 1000
+    start_time_1 = now()
     mlflow_client.create_registered_model(name)
-    end_time_1 = time.time() * 1000
+    end_time_1 = now()
     registered_model_detailed_1 = mlflow_client.get_registered_model_details(name)
     assert registered_model_detailed_1.name == name
     assert str(registered_model_detailed_1.description) is ""
@@ -209,9 +213,9 @@ def test_update_registered_model(mlflow_client, backend_store_uri):
 
     # update name
     new_name = "UpdateRMTest 2"
-    start_time_2 = time.time() * 1000
+    start_time_2 = now()
     mlflow_client.update_registered_model(name=name, new_name=new_name)
-    end_time_2 = time.time() * 1000
+    end_time_2 = now()
     with pytest.raises(MlflowException):
         mlflow_client.get_registered_model_details(name)
     registered_model_detailed_2 = mlflow_client.get_registered_model_details(new_name)
@@ -221,9 +225,9 @@ def test_update_registered_model(mlflow_client, backend_store_uri):
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.last_updated_timestamp)
 
     # update description
-    start_time_3 = time.time() * 1000
+    start_time_3 = now()
     mlflow_client.update_registered_model(name=new_name, description="This is a test")
-    end_time_3 = time.time() * 1000
+    end_time_3 = now()
     registered_model_detailed_3 = mlflow_client.get_registered_model_details(new_name)
     assert registered_model_detailed_3.name == new_name
     assert registered_model_detailed_3.description == "This is a test"
@@ -232,9 +236,9 @@ def test_update_registered_model(mlflow_client, backend_store_uri):
 
     # update name and description
     another_new = "UpdateRMTest 4"
-    start_time_4 = time.time() * 1000
+    start_time_4 = now()
     mlflow_client.update_registered_model(new_name, another_new, "4th update")
-    end_time_4 = time.time() * 1000
+    end_time_4 = now()
     registered_model_detailed_4 = mlflow_client.get_registered_model_details(another_new)
     assert registered_model_detailed_4.name == another_new
     assert registered_model_detailed_4.description == "4th update"
@@ -249,9 +253,9 @@ def test_update_registered_model(mlflow_client, backend_store_uri):
 
 def test_delete_registered_model(mlflow_client, backend_store_uri):
     name = 'UpdateRMTest'
-    start_time_1 = time.time() * 1000
+    start_time_1 = now()
     mlflow_client.create_registered_model(name)
-    end_time_1 = time.time() * 1000
+    end_time_1 = now()
     registered_model_detailed_1 = mlflow_client.get_registered_model_details(name)
     assert registered_model_detailed_1.name == name
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
@@ -277,9 +281,9 @@ def test_delete_registered_model(mlflow_client, backend_store_uri):
     assert [] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
 
     # recreate model with same name
-    start_time_2 = time.time() * 1000
+    start_time_2 = now()
     mlflow_client.create_registered_model(name)
-    end_time_2 = time.time() * 1000
+    end_time_2 = now()
     registered_model_detailed_2 = mlflow_client.get_registered_model_details(name)
     assert registered_model_detailed_2.name == name
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.creation_timestamp)
