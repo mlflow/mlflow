@@ -1,24 +1,25 @@
 Changelog
 =========
-1.3.1.dev0 (2019-10-28)
+1.4.0 (2019-10-30)
 -----------------------
-MLflow 1.3.1.dev0 includes several major features and improvements:
+MLflow 1.4.0 includes several major features:
 
-Features:
+- Model Registry. MLflow 1.4 adds an experimental model registry feature, where you can manage, version, and keep lineage of your production models. (#1943, @mparkhe, @Zangr, @sueann, @dbczumar, @smurching, @gioa, @clemens-db, @pogil, @mateiz)
+- Keras support for TensorFlow 2.0. MLflow Keras model saving, loading, and logging has been updated to be compatible with TensorFlow 2.0.  (#1927, @juntai-zheng)
+- Autologging for TensorFlow 2.0. Autologging for ``tf.estimator`` and ``tf.keras`` models has been updated to be compatible with TensorFlow 2.0. The same functionalities of autologging in TF 1.x will be offered in TF 2.0, namely when fitting tf.keras models and when exporting saved tf.estimator models. (#1910, @juntai-zheng)
 
-- Add functions from mlflow client to fluent api (#1923, @fhoering)
-- Added support of viewfs for hdfs federation in artifact_repository_registry (#1947, @t-henri)
-- Initial PR for Model Registry (#1943, @mparkhe)
+More features and improvements:
+
+- Add functions ``get_run``, ``get_experiment``, ``get_experiment_by_name`` to the fluent API (#1923, @fhoering)
 - Use Plotly as artifact image viewer to make it interactive (#1934, @harupy)
-- Keras support update for TensorFlow 2.0 compatibility (#1927, @juntai-zheng)
-- Enable scrolling to zoom in metric & run comparison plots (#1929, @harupy)
-- TensorFlow 2.0 tf.estimator and tf.keras autologging support (#1910, @juntai-zheng)
+- Enable scrolling to zoom in metric and run comparison plots (#1929, @harupy)
+- Added support of viewfs URIs for HDFS federation for artifacts (#1947, @t-henri)
 
 Bug fixes and documentation updates:
 
-- Make detection of MLproject files case insensitive (#1981, @smurching)
+- Make detection of ``MLproject`` files case-insensitive (#1981, @smurching)
 - Fix encoding of metric names in MLflow UI URLs (#1968, @smurching)
-- Getting server to work under windows. (#1949, @rboyes)
+- Get ``models serve`` CLI command to work in Windows (#1949, @rboyes)
 - Fix dependency-installation bug in Java MLflow model scoring server (#1913, @smurching)
 
 Small bug fixes and doc updates (#1914, @jerrygb; #1978, #1894, @smurching; #1940, #1900, #1904, @mparkhe; #1966, #1955, #1952, @Djailla; #1932, #1935, @harupy)
@@ -58,6 +59,7 @@ Bug fixes and documentation updates:
 - Streamlined docs for getting started with hosted MLflow (#1834, #1785, #1860 @smurching)
 
 Small bug fixes and doc updates (#1848, @pingsutw; #1868, @iver56; #1787, @apurvakoti; #1741, #1737, @apurva-koti; #1876, #1861, #1852, #1801, #1754, #1726, #1780, #1807 @smurching; #1859, #1858, #1851, @tomasatdatabricks; #1841, @ankitmathur-db; #1744, #1746, #1751, @mateiz; #1821, #1730, @dbczumar; #1727, cfmcgrady; #1716, @axsaucedo; #1714, @fhoering; #1405, @ancasarb; #1502, @jimthompson5802; #1720, jke-zq; #1871, @mehdi254; #1782, @stbof)
+
 
 1.2 (2019-08-09)
 ----------------
