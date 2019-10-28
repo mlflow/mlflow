@@ -240,7 +240,7 @@ class _HadoopFileSystem:
         parsed_uri = urllib.parse.urlparse(src_uri)
         try:
             if parsed_uri.scheme and cls._fs().exists(cls._remote_path(src_uri)):
-                _logger.info("File '%s' already on DFS, copy is not necessary.", src_uri)
+                _logger.info("File '%s' is already on DFS, copy is not necessary.", src_uri)
                 return src_uri
         except Exception as ex:  # pylint: disable=broad-except
             _logger.warning("Unexpected exception '%s' while checking if model uri is visible on "
