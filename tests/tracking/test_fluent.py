@@ -23,7 +23,8 @@ from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
                                     _get_experiment_id,
                                     _get_experiment_id_from_env,
                                     _get_paginated_runs, search_runs,
-                                    set_experiment, start_run)
+                                    set_experiment, start_run, get_run,
+                                    get_experiment, get_experiment_by_name)
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 
@@ -170,6 +171,25 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
 
         assert _get_experiment_id() != notebook_id
         assert _get_experiment_id() == exp_id
+
+
+def test_get_experiment_by_id():
+    with TempDir(chdr=True):
+        name = "Random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+
+        experiment = mlflow.get_experiment(exp_id)
+        print(experiment)
+        assert experiment.experiment_id == exp_id
+
+
+def test_get_experiment_by_name():
+    with TempDir(chdr=True):
+        name = "Random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+
+        experiment = mlflow.get_experiment_by_name(name)
+        assert experiment.experiment_id == exp_id
 
 
 @pytest.fixture
@@ -374,6 +394,15 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         with pytest.raises(MlflowException):
             start_run(run_id)
+
+
+def test_get_run():
+    run_id = uuid.uuid4().hex
+    mock_run = mock.Mock()
+    mock_run.info.user_id = "my_user_id"
+    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        run = get_run(run_id)
+        assert run.info.user_id == "my_user_id"
 
 
 def test_search_runs_attributes():
