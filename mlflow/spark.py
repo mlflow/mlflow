@@ -241,7 +241,7 @@ class _HadoopFileSystem:
             if parsed_uri.scheme and cls._fs().exists(cls._remote_path(src_uri)):
                 _logger.info("File '%s' already on DFS, copy is not necessary.", src_uri)
                 return src_uri
-        except:
+        except:  # pylint: disable=broad-except
             pass
         return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
 
