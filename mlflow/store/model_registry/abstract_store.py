@@ -5,6 +5,7 @@ from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 
 class AbstractStore:
     """
+    Note:: Experimental: This entity may change or be removed in a future release without warning.
     Abstract class that defines API interfaces for storing Model Registry metadata.
     """
 

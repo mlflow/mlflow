@@ -36,9 +36,10 @@ def log_model(spark_model, sample_input, artifact_path, registered_model_name=No
     :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
     :param artifact_path: Run-relative artifact path.
-    :param registered_model_name: If given, create a model version under ``registered_model_name``,
-                                  also creating a registered model if one with the given name does
-                                  not exist.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
 
     >>> import mlflow
     >>> import mlflow.mleap

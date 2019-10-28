@@ -101,9 +101,10 @@ def log_model(pytorch_model, artifact_path, conda_env=None, code_paths=None,
                           ``pytorch_model``. This is passed as the ``pickle_module`` parameter
                           to ``torch.save()``. By default, this module is also used to
                           deserialize ("unpickle") the PyTorch model at load time.
-    :param registered_model_name: If given, create a model version under ``registered_model_name``,
-                                  also creating a registered model if one with the given name does
-                                  not exist.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``torch.save`` method.
 
     >>> import torch

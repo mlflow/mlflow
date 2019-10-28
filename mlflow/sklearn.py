@@ -173,9 +173,10 @@ def log_model(sk_model, artifact_path, conda_env=None,
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
-    :param registered_model_name: If given, create a model version under ``registered_model_name``,
-                                  also creating a registered model if one with the given name does
-                                  not exist.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
 
     >>> import mlflow
     >>> import mlflow.sklearn
