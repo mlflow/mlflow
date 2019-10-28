@@ -239,16 +239,11 @@ class _HadoopFileSystem:
         parsed_uri = urllib.parse.urlparse(src_uri)
         try:
             if parsed_uri.scheme and cls._fs().exists(cls._remote_path(src_uri)):
-                print(" ")
-                print("*** file already on dfs **")
-                print(" ")
                 _logger.info("File '%s' already on DFS, copy is not necessary.", src_uri)
                 return src_uri
         except:
             pass
-        raise Exception("file should be on dfs")
         return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
-
 
     @classmethod
     def delete(cls, path):
@@ -290,9 +285,9 @@ def _validate_model(spark_model):
             or not isinstance(spark_model, MLReadable) \
             or not isinstance(spark_model, MLWritable):
         raise MlflowException(
-                "Cannot serialize this model. MLFlow can only save descendants of pyspark.Model"
-                "that implement MLWritable and MLReadable.",
-                INVALID_PARAMETER_VALUE)
+            "Cannot serialize this model. MLFlow can only save descendants of pyspark.Model"
+            "that implement MLWritable and MLReadable.",
+            INVALID_PARAMETER_VALUE)
 
 
 def save_model(spark_model, path, mlflow_model=Model(), conda_env=None,
@@ -405,8 +400,9 @@ def load_model(model_uri, dfs_tmpdir=None):
     flavor_conf = model_conf.flavors[FLAVOR_NAME]
     model_uri = posixpath.join(model_uri, flavor_conf["model_data"])
     if RunsArtifactRepository.is_runs_uri(model_uri):
-        _logger.info("runs uri resolved as '%s'", model_uri)
+        runs_uri = model_uri
         model_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+        _logger.info("'%s' resolved as '%s'", runs_uri, model_uri)
     return _load_model(model_uri=model_uri, dfs_tmpdir=dfs_tmpdir)
 
 
@@ -424,7 +420,7 @@ def _load_pyfunc(path):
 
     spark = pyspark.sql.SparkSession._instantiatedSession
     if spark is None:
-        spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True)\
+        spark = pyspark.sql.SparkSession.builder.config("spark.python.worker.reuse", True) \
             .master("local[1]").getOrCreate()
     return _PyFuncModelWrapper(spark, _load_model(model_uri=path))
 
