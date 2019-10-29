@@ -25,7 +25,6 @@ import os
 import yaml
 import logging
 import posixpath
-from six.moves import urllib
 
 import mlflow
 from mlflow import pyfunc, mleap
