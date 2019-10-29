@@ -229,6 +229,17 @@ class _HadoopFileSystem:
         _logger.info("Copied SparkML model to %s", dst)
         return dst
 
+
+    @classmethod
+    def _try_file_exists(cls, dfs_path):
+        try:
+            return cls._fs().exists(dfs_path):
+        except Exception as ex:  # pylint: disable=broad-except
+            _logger.warning(
+                "Unexpected exception '%s' while checking if model uri is visible on "
+                "DFS. Will attempt to upload the model to DFS.", ex)
+        return False
+
     @classmethod
     def maybe_copy_from_uri(cls, src_uri, dst_path):
         """
@@ -237,16 +248,16 @@ class _HadoopFileSystem:
 
         :return: If copied, return new target location, otherwise return source uri.
         """
-        parsed_uri = urllib.parse.urlparse(src_uri)
         try:
-            if (src_uri == cls._fs().makeQualified(cls._remote_path(parsed_uri.path)).toString()
-                    and cls._fs().exists(cls._remote_path(src_uri))):
+            # makeQualified throws if wrong schema / uri
+            dfs_path = cls._fs().makeQualified(cls._remote_path(src_uri))
+            if cls._try_file_exists(dfs_path):
                 print("FILE is already on DFS, skipping unnecessary copy.")
                 _logger.info("File '%s' is already on DFS, copy is not necessary.", src_uri)
                 return src_uri
-        except Exception as ex:  # pylint: disable=broad-except
-            _logger.warning("Unexpected exception '%s' while checking if model uri is visible on "
-                            "DFS. Will attempt to upload the model to DFS.", ex)
+        except Exception:  # pylint: disable=broad-except
+            _logger.info("URI '%s' does not point to the current DFS.")
+        _logger.info("File '%s' not found on DFS. Will attempt to upload the file.")
         return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
 
     @classmethod
