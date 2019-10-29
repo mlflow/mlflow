@@ -237,7 +237,7 @@ class _HadoopFileSystem:
         except Exception as ex:  # pylint: disable=broad-except
             _logger.warning(
                 "Unexpected exception while checking if model uri is visible on "
-                "DFS: ", ex)
+                "DFS: %s", ex)
         return False
 
     @classmethod
