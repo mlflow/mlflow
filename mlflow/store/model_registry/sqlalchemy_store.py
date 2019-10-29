@@ -244,12 +244,13 @@ class SqlAlchemyStore(AbstractStore):
             for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
                 try:
                     sql_registered_model = self._get_registered_model(session, name)
+                    sql_registered_model.last_updated_time = creation_time
                     model_version = SqlModelVersion(name=name,
                                                     version=next_version(sql_registered_model),
                                                     creation_time=creation_time,
                                                     last_updated_time=creation_time,
                                                     source=source, run_id=run_id)
-                    session.add(model_version)
+                    self._save_to_db(session, [sql_registered_model, model_version])
                     session.flush()
                     return model_version.to_mlflow_entity()
                 except sqlalchemy.exc.IntegrityError:
@@ -290,13 +291,18 @@ class SqlAlchemyStore(AbstractStore):
         :return: None.
         """
         with self.ManagedSessionMaker() as session:
+            updated_time = now()
             sql_model_version = self._get_sql_model_version(session, model_version)
+            updated_objs = []
             if stage is not None:
                 sql_model_version.current_stage = get_canonical_stage(stage)
+                sql_registered_model = sql_model_version.registered_model
+                sql_registered_model.last_updated_time = updated_time
+                updated_objs.append(sql_registered_model)
             if description is not None:
                 sql_model_version.description = description
-            sql_model_version.last_updated_time = now()
-            self._save_to_db(session, sql_model_version)
+            sql_model_version.last_updated_time = updated_time
+            self._save_to_db(session, updated_objs + [sql_model_version])
 
     def delete_model_version(self, model_version):
         """
@@ -307,15 +313,18 @@ class SqlAlchemyStore(AbstractStore):
         :return: None
         """
         with self.ManagedSessionMaker() as session:
+            updated_time = now()
             sql_model_version = self._get_sql_model_version(session, model_version)
+            sql_registered_model = sql_model_version.registered_model
+            sql_registered_model.last_updated_time = updated_time
             sql_model_version.current_stage = STAGE_DELETED_INTERNAL
-            sql_model_version.last_updated_time = now()
+            sql_model_version.last_updated_time = updated_time
             sql_model_version.description = None
             sql_model_version.user_id = None
             sql_model_version.source = "REDACTED-SOURCE-PATH"
             sql_model_version.run_id = "REDACTED-RUN-ID"
             sql_model_version.status_message = None
-            self._save_to_db(session, sql_model_version)
+            self._save_to_db(session, [sql_registered_model, sql_model_version])
 
     def get_model_version_details(self, model_version):
         """

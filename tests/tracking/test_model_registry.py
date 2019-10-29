@@ -321,7 +321,13 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
 
 def test_update_create_model_version_flow(mlflow_client, backend_store_uri):
     name = 'UpdateMVTest'
+    start_time_0 = now()
     mlflow_client.create_registered_model(name)
+    end_time_0 = now()
+    rmd1 = mlflow_client.get_registered_model_details(name)
+    assert_is_between(start_time_0, end_time_0, rmd1.creation_timestamp)
+    assert_is_between(start_time_0, end_time_0, rmd1.last_updated_timestamp)
+
     start_time_1 = now()
     mv1 = mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
     end_time_1 = now()
@@ -331,6 +337,12 @@ def test_update_create_model_version_flow(mlflow_client, backend_store_uri):
     assert str(mvd1.description) == ""
     assert_is_between(start_time_1, end_time_1, mvd1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, mvd1.last_updated_timestamp)
+
+    # creating model version changes last_updated_timestamp for registered model
+    rmd2 = mlflow_client.get_registered_model_details(name)
+    assert_is_between(start_time_0, end_time_0, rmd2.creation_timestamp)
+    assert_is_between(start_time_1, end_time_1, rmd2.last_updated_timestamp)
+
     assert [[mvd1]] == [rm.latest_versions
                         for rm in mlflow_client.list_registered_models() if rm.name == name]
     mv2 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_1")
@@ -339,7 +351,19 @@ def test_update_create_model_version_flow(mlflow_client, backend_store_uri):
     mvd2 = mlflow_client.get_model_version_details(name, 2)
     assert [[mvd2]] == [rm.latest_versions
                         for rm in mlflow_client.list_registered_models() if rm.name == name]
+
+    start_time_2 = now()
     mlflow_client.update_model_version(name=name, version=1, stage="Staging")
+    end_time_2 = now()
+    mvd1b = mlflow_client.get_model_version_details(name, 1)
+    assert_is_between(start_time_1, end_time_1, mvd1b.creation_timestamp)
+    assert_is_between(start_time_2, end_time_2, mvd1b.last_updated_timestamp)
+
+    # updating model version's stage changes last_updated_timestamp for registered model
+    rmd3 = mlflow_client.get_registered_model_details(name)
+    assert_is_between(start_time_0, end_time_0, rmd3.creation_timestamp)
+    assert_is_between(start_time_2, end_time_2, rmd3.last_updated_timestamp)
+
     model_versions_detailed = [rm.latest_versions
                                for rm in mlflow_client.list_registered_models() if rm.name == name]
     assert 1 == len(model_versions_detailed)
@@ -347,18 +371,30 @@ def test_update_create_model_version_flow(mlflow_client, backend_store_uri):
     assert set([name]) == set([mvd.registered_model.name for mvd in model_versions_detailed[0]])
 
     # update description
-    start_time_1b = now()
+    start_time_3 = now()
     mlflow_client.update_model_version(name=name, version=1, description="This is a test model")
-    end_time_1b = now()
-    mvd1b = mlflow_client.get_model_version_details(name, 1)
-    assert str(mvd1b.description) == "This is a test model"
-    assert_is_between(start_time_1, end_time_1, mvd1b.creation_timestamp)
-    assert_is_between(start_time_1b, end_time_1b, mvd1b.last_updated_timestamp)
+    end_time_3 = now()
+    mvd1c = mlflow_client.get_model_version_details(name, 1)
+    assert str(mvd1c.description) == "This is a test model"
+    assert_is_between(start_time_1, end_time_1, mvd1c.creation_timestamp)
+    assert_is_between(start_time_3, end_time_3, mvd1c.last_updated_timestamp)
+
+    # changing description for model version does not affect last_updated_timestamp for registered
+    # model
+    rmd4 = mlflow_client.get_registered_model_details(name)
+    assert_is_between(start_time_0, end_time_0, rmd4.creation_timestamp)
+    assert_is_between(start_time_2, end_time_2, rmd4.last_updated_timestamp)
 
 
 def test_delete_model_version_flow(mlflow_client, backend_store_uri):
     name = 'DeleteMVTest'
+    start_time_0 = now()
     mlflow_client.create_registered_model(name)
+    end_time_0 = now()
+    rmd1 = mlflow_client.get_registered_model_details(name)
+    assert_is_between(start_time_0, end_time_0, rmd1.creation_timestamp)
+    assert_is_between(start_time_0, end_time_0, rmd1.last_updated_timestamp)
+
     start_time_1 = now()
     mv1 = mlflow_client.create_model_version(name, "path/to/model", "run_id_1")
     end_time_1 = now()
@@ -367,6 +403,12 @@ def test_delete_model_version_flow(mlflow_client, backend_store_uri):
     mvd1 = mlflow_client.get_model_version_details(name, 1)
     assert_is_between(start_time_1, end_time_1, mvd1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, mvd1.last_updated_timestamp)
+
+    # creating model version changes last_updated_timestamp for registered model
+    rmd2 = mlflow_client.get_registered_model_details(name)
+    assert_is_between(start_time_0, end_time_0, rmd2.creation_timestamp)
+    assert_is_between(start_time_1, end_time_1, rmd2.last_updated_timestamp)
+
     mv2 = mlflow_client.create_model_version(name, "another_path/to/model", "run_id_1")
     assert mv2.version == 2
     assert mv2.registered_model.name == name
@@ -380,9 +422,15 @@ def test_delete_model_version_flow(mlflow_client, backend_store_uri):
     assert {1, 2, 3} == set([mv.version
                              for mv in mlflow_client.search_model_versions("name = '%s'" % name)])
 
+    start_time_2 = now()
     mlflow_client.delete_model_version(name, 1)
+    end_time_2 = now()
     assert {2, 3} == set([mv.version
                           for mv in mlflow_client.search_model_versions("name = '%s'" % name)])
+    rmd3 = mlflow_client.get_registered_model_details(name)
+    # deleting model versions changes last_updated_timestamp for registered model
+    assert_is_between(start_time_0, end_time_0, rmd3.creation_timestamp)
+    assert_is_between(start_time_2, end_time_2, rmd3.last_updated_timestamp)
 
     # cannot get a deleted model version
     with pytest.raises(MlflowException) as e:
