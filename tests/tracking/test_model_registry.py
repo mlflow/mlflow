@@ -2,96 +2,20 @@
 Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures we can use the tracking API to communicate with it.
 """
+import time
 
 import mock
-from subprocess import Popen
 import os
 import sys
-import posixpath
 import pytest
-from six.moves import urllib
-import socket
 import shutil
-from threading import Thread
-import time
 import tempfile
 
-import mlflow.experiments
 from mlflow.entities.model_registry import RegisteredModelDetailed, RegisteredModel
 from mlflow.exceptions import MlflowException
-from mlflow.entities import RunStatus, Metric, Param, RunTag, ViewType
-from mlflow.server import BACKEND_STORE_URI_ENV_VAR, ARTIFACT_ROOT_ENV_VAR
 from mlflow.tracking import MlflowClient
-from mlflow.utils.mlflow_tags import MLFLOW_USER, MLFLOW_RUN_NAME, MLFLOW_PARENT_RUN_ID, \
-    MLFLOW_SOURCE_TYPE, MLFLOW_SOURCE_NAME, MLFLOW_PROJECT_ENTRY_POINT, MLFLOW_GIT_COMMIT
 from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
-from tests.integration.utils import invoke_cli_runner
-
-from tests.helper_functions import LOCALHOST, get_safe_port
-
-
-def _await_server_up_or_die(port, timeout=60):
-    """Waits until the local flask server is listening on the given port."""
-    print('Awaiting server to be up on %s:%s' % (LOCALHOST, port))
-    start_time = time.time()
-    connected = False
-    while not connected and time.time() - start_time < timeout:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(2)
-        result = sock.connect_ex((LOCALHOST, port))
-        if result == 0:
-            connected = True
-        else:
-            print('Server not yet up, waiting...')
-            time.sleep(0.5)
-    if not connected:
-        raise Exception('Failed to connect on %s:%s after %s seconds' % (LOCALHOST, port, timeout))
-    print('Server is up on %s:%s!' % (LOCALHOST, port))
-
-
-# NB: We explicitly wait and timeout on server shutdown in order to ensure that pytest output
-# reveals the cause in the event of a test hang due to the subprocess not exiting.
-def _await_server_down_or_die(process, timeout=60):
-    """Waits until the local flask server process is terminated."""
-    print('Awaiting termination of server process...')
-    start_time = time.time()
-
-    def wait():
-        process.wait()
-
-    Thread(target=wait).start()
-    while process.returncode is None and time.time() - start_time < timeout:
-        time.sleep(0.5)
-    if process.returncode is None:
-        raise Exception('Server failed to shutdown after %s seconds' % timeout)
-
-
-def _init_server(backend_uri, root_artifact_uri):
-    """
-    Launch a new REST server using the tracking store specified by backend_uri and root artifact
-    directory specified by root_artifact_uri.
-    :returns A tuple (url, process) containing the string URL of the server and a handle to the
-             server process (a multiprocessing.Process object).
-    """
-    mlflow.set_tracking_uri(None)
-    server_port = get_safe_port()
-    env = {
-        BACKEND_STORE_URI_ENV_VAR: backend_uri,
-        ARTIFACT_ROOT_ENV_VAR: path_to_local_file_uri(
-            tempfile.mkdtemp(dir=local_file_uri_to_path(root_artifact_uri))),
-    }
-    with mock.patch.dict(os.environ, env):
-        cmd = ["python",
-               "-c",
-               'from mlflow.server import app; app.run("{hostname}", {port})'.format(
-                   hostname=LOCALHOST, port=server_port)]
-        process = Popen(cmd)
-
-    _await_server_up_or_die(server_port)
-    url = "http://{hostname}:{port}".format(hostname=LOCALHOST, port=server_port)
-    print("Launching tracking server against backend URI %s. Server URL: %s" % (backend_uri, url))
-    return url, process
-
+from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
 
 # Root directory for all stores (backend or artifact stores) created during this suite
 SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
@@ -157,17 +81,6 @@ def tracking_server_uri(backend_store_uri):
 def mlflow_client(tracking_server_uri):
     """Provides an MLflow Tracking API client pointed at the local tracking server."""
     return mock.Mock(wraps=MlflowClient(tracking_server_uri))
-
-
-@pytest.fixture()
-def cli_env(tracking_server_uri):
-    """Provides an environment for the MLflow CLI pointed at the local tracking server."""
-    cli_env = {
-        "LC_ALL": "en_US.UTF-8",
-        "LANG": "en_US.UTF-8",
-        "MLFLOW_TRACKING_URI": tracking_server_uri,
-    }
-    return cli_env
 
 
 def assert_is_between(start_time, end_time, expected_time):
@@ -319,7 +232,7 @@ def test_create_and_query_model_version_flow(mlflow_client, backend_store_uri):
     assert "path/to/model" == mlflow_client.get_model_version_download_uri(name, 1)
 
 
-def test_update_create_model_version_flow(mlflow_client, backend_store_uri):
+def test_update_model_version_flow(mlflow_client, backend_store_uri):
     name = 'UpdateMVTest'
     start_time_0 = now()
     mlflow_client.create_registered_model(name)
@@ -384,6 +297,40 @@ def test_update_create_model_version_flow(mlflow_client, backend_store_uri):
     rmd4 = mlflow_client.get_registered_model_details(name)
     assert_is_between(start_time_0, end_time_0, rmd4.creation_timestamp)
     assert_is_between(start_time_2, end_time_2, rmd4.last_updated_timestamp)
+
+
+def test_latest_models(mlflow_client, backend_store_uri):
+    version_stage_mapping = {
+        1: "Archived",
+        2: "Production",
+        3: "Archived",
+        4: "Production",
+        5: "Staging",
+        6: "Staging",
+        7: "None",
+    }
+    name = 'LatestVersionTest'
+    mlflow_client.create_registered_model(name)
+
+    version_mvd_mapping = {}
+    for version, stage in version_stage_mapping.items():
+        mv = mlflow_client.create_model_version(name, "path/to/model", "run_id")
+        assert mv.version == version
+        if stage != "None":
+            mlflow_client.update_model_version(name, version, stage=stage)
+        mvd = mlflow_client.get_model_version_details(name, version)
+        assert mvd.current_stage == stage
+        version_stage_mapping[version] = mvd
+
+    def get_latest(stages):
+        latest = mlflow_client.get_latest_versions(name, stages)
+        return {mvd.current_stage: mvd.version for mvd in latest}
+
+    assert {"None": 7} == get_latest(["None"])
+    assert {"Staging": 6} == get_latest(["Staging"])
+    assert {"None": 7, "Staging": 6} == get_latest(["None", "Staging"])
+    assert {"Production": 4, "Staging": 6} == get_latest(None)
+    assert {"Production": 4, "Staging": 6} == get_latest([])
 
 
 def test_delete_model_version_flow(mlflow_client, backend_store_uri):
