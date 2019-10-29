@@ -233,7 +233,7 @@ class _HadoopFileSystem:
     @classmethod
     def _try_file_exists(cls, dfs_path):
         try:
-            return cls._fs().exists(dfs_path):
+            return cls._fs().exists(dfs_path)
         except Exception as ex:  # pylint: disable=broad-except
             _logger.warning(
                 "Unexpected exception '%s' while checking if model uri is visible on "
