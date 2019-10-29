@@ -241,6 +241,7 @@ class _HadoopFileSystem:
         try:
             if (src_uri == cls._fs().makeQualified(parsed_uri.path).toString()
                     and cls._fs().exists(cls._remote_path(src_uri))):
+                print("FILE is already on DFS, skipping unnecessary copy.")
                 _logger.info("File '%s' is already on DFS, copy is not necessary.", src_uri)
                 return src_uri
         except Exception as ex:  # pylint: disable=broad-except
