@@ -229,7 +229,6 @@ class _HadoopFileSystem:
         _logger.info("Copied SparkML model to %s", dst)
         return dst
 
-
     @classmethod
     def _try_file_exists(cls, dfs_path):
         try:
