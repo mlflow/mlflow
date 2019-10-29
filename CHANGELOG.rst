@@ -19,6 +19,7 @@ More features and improvements:
 - [UI] Enable scrolling to zoom in metric and run comparison plots (#1929, @harupy)
 - [Artifacts] Added support of viewfs URIs for HDFS federation for artifacts (#1947, @t-henri)
 - [Models] Spark UDFs can now be called with struct input if the underlying spark implementation supports it. The data is passed as a pandas DataFrame with column names matching those in the struct. (#1882, @tomasatdatabricks)
+- [Models] Spark models will now load faster from DFS by skipping unnecessary copies (#2008, @tomasatdatabricks)
 
 Bug fixes and documentation updates:
 
