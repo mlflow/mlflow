@@ -239,7 +239,7 @@ class _HadoopFileSystem:
         """
         parsed_uri = urllib.parse.urlparse(src_uri)
         try:
-            if (src_uri == cls._fs().makeQualified(parsed_uri.path).toString()
+            if (src_uri == cls._fs().makeQualified(cls._remote_path(parsed_uri.path)).toString()
                     and cls._fs().exists(cls._remote_path(src_uri))):
                 print("FILE is already on DFS, skipping unnecessary copy.")
                 _logger.info("File '%s' is already on DFS, copy is not necessary.", src_uri)
