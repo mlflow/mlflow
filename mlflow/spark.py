@@ -252,7 +252,6 @@ class _HadoopFileSystem:
             # makeQualified throws if wrong schema / uri
             dfs_path = cls._fs().makeQualified(cls._remote_path(src_uri))
             if cls._try_file_exists(dfs_path):
-                print("FILE is already on DFS, skipping unnecessary copy.")
                 _logger.info("File '%s' is already on DFS, copy is not necessary.", src_uri)
                 return src_uri
         except Exception:  # pylint: disable=broad-except
