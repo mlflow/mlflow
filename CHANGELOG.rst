@@ -5,7 +5,7 @@ Changelog
 MLflow 1.4.0 includes several major features:
 
 - Model Registry (Beta). MLflow 1.4 adds an experimental model registry feature, where you can manage, version, and keep lineage of your production models. (#1943, @mparkhe, @Zangr, @sueann, @dbczumar, @smurching, @gioa, @clemens-db, @pogil, @mateiz; #1988, #1989, #1995, @mparkhe; #1983, #1982, #1967, @dbczumar)
-- TensorFlow 2.0 Updates. 
+- TensorFlow updates 
 
   - MLflow Keras model saving, loading, and logging has been updated to be compatible with TensorFlow 2.0.  (#1927, @juntai-zheng)
   - Autologging for ``tf.estimator`` and ``tf.keras`` models has been updated to be compatible with TensorFlow 2.0. The same functionalities of autologging in TF 1.x will be offered in TF 2.0, namely when fitting ``tf.keras`` models and when exporting saved ``tf.estimator`` models. (#1910, @juntai-zheng)
