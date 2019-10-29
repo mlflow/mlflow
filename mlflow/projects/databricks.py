@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import shutil
 import tempfile
 import textwrap
@@ -120,10 +121,10 @@ class DatabricksJobRunner(object):
                             a directory containing an MLproject file).
         """
         temp_tarfile_dir = tempfile.mkdtemp()
-        temp_tar_filename = posixpath.join(temp_tarfile_dir, "project.tar.gz")
+        temp_tar_filename = os.path.join(temp_tarfile_dir, "project.tar.gz")
 
         def custom_filter(x):
-            return None if posixpath.basename(x.name) == "mlruns" else x
+            return None if os.path.basename(x.name) == "mlruns" else x
 
         try:
             file_utils.make_tarfile(temp_tar_filename, project_dir, DB_TARFILE_ARCHIVE_NAME,
