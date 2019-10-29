@@ -255,8 +255,8 @@ class _HadoopFileSystem:
                 _logger.info("File '%s' is already on DFS, copy is not necessary.", src_uri)
                 return src_uri
         except Exception:  # pylint: disable=broad-except
-            _logger.info("URI '%s' does not point to the current DFS.")
-        _logger.info("File '%s' not found on DFS. Will attempt to upload the file.")
+            _logger.info("URI '%s' does not point to the current DFS.", src_uri)
+        _logger.info("File '%s' not found on DFS. Will attempt to upload the file.", src_uri)
         return cls.maybe_copy_from_local_file(_download_artifact_from_uri(src_uri), dst_path)
 
     @classmethod
