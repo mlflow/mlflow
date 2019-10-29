@@ -6,6 +6,7 @@ import tempfile
 import textwrap
 import time
 import logging
+import posixpath
 
 from six.moves import shlex_quote
 
@@ -23,9 +24,9 @@ from mlflow.version import VERSION
 # Base directory within driver container for storing files related to MLflow
 DB_CONTAINER_BASE = "/databricks/mlflow"
 # Base directory within driver container for storing project archives
-DB_TARFILE_BASE = os.path.join(DB_CONTAINER_BASE, "project-tars")
+DB_TARFILE_BASE = posixpath.join(DB_CONTAINER_BASE, "project-tars")
 # Base directory directory within driver container for storing extracted project directories
-DB_PROJECTS_BASE = os.path.join(DB_CONTAINER_BASE, "projects")
+DB_PROJECTS_BASE = posixpath.join(DB_CONTAINER_BASE, "projects")
 # Name to use for project directory when archiving it for upload to DBFS; the TAR will contain
 # a single directory with this name
 DB_TARFILE_ARCHIVE_NAME = "mlflow-project"
@@ -131,9 +132,9 @@ class DatabricksJobRunner(object):
             with open(temp_tar_filename, "rb") as tarred_project:
                 tarfile_hash = hashlib.sha256(tarred_project.read()).hexdigest()
             # TODO: Get subdirectory for experiment from the tracking server
-            dbfs_path = os.path.join(DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
-                                     "projects-code", "%s.tar.gz" % tarfile_hash)
-            dbfs_fuse_uri = os.path.join("/dbfs", dbfs_path)
+            dbfs_path = posixpath.join(DBFS_EXPERIMENT_DIR_BASE, str(experiment_id),
+                                       "projects-code", "%s.tar.gz" % tarfile_hash)
+            dbfs_fuse_uri = posixpath.join("/dbfs", dbfs_path)
             if not self._dbfs_path_exists(dbfs_path):
                 self._upload_to_dbfs(temp_tar_filename, dbfs_fuse_uri)
                 _logger.info("=== Finished uploading project to %s ===", dbfs_fuse_uri)
@@ -233,10 +234,10 @@ def _get_databricks_run_cmd(dbfs_fuse_tar_uri, run_id, entry_point, parameters):
     Generate MLflow CLI command to run on Databricks cluster in order to launch a run on Databricks.
     """
     # Strip ".gz" and ".tar" file extensions from base filename of the tarfile
-    tar_hash = os.path.splitext(os.path.splitext(os.path.basename(dbfs_fuse_tar_uri))[0])[0]
-    container_tar_path = os.path.abspath(os.path.join(DB_TARFILE_BASE,
-                                                      os.path.basename(dbfs_fuse_tar_uri)))
-    project_dir = os.path.join(DB_PROJECTS_BASE, tar_hash)
+    tar_hash = posixpath.splitext(posixpath.splitext(posixpath.basename(dbfs_fuse_tar_uri))[0])[0]
+    container_tar_path = posixpath.abspath(posixpath.join(DB_TARFILE_BASE,
+                                           posixpath.basename(dbfs_fuse_tar_uri)))
+    project_dir = posixpath.join(DB_PROJECTS_BASE, tar_hash)
     mlflow_run_arr = list(map(shlex_quote, ["mlflow", "run", project_dir,
                                             "--entry-point", entry_point]))
     if run_id:
