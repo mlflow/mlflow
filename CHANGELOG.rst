@@ -1,5 +1,31 @@
 Changelog
 =========
+1.3.1.dev0 (2019-10-29)
+-----------------------
+MLflow 1.3.1.dev0 includes several major features and improvements:
+
+Features:
+
+- Add functions from mlflow client to fluent api (#1923, @fhoering)
+- Added support of viewfs for hdfs federation in artifact_repository_registry (#1947, @t-henri)
+- Support deleting tags from the run view UI (#1933, @harupy)
+- Initial PR for Model Registry (#1943, @mparkhe)
+- TensorFlow Example Refactor for TensorFlow 2.0 (#1946, @juntai-zheng)
+- Use Plotly as artifact image viewer to make it interactive (#1934, @harupy)
+- Keras support update for TensorFlow 2.0 compatibility (#1927, @juntai-zheng)
+- Enable scrolling to zoom in metric & run comparison plots (#1929, @harupy)
+- TensorFlow 2.0 tf.estimator and tf.keras autologging support (#1910, @juntai-zheng)
+- Minor fix to make spark udf work with struct input in spark. (#1882, @tomasatdatabricks)
+
+Bug fixes and documentation updates:
+
+- Make detection of MLproject files case insensitive (#1981, @smurching)
+- Fix encoding of metric names in MLflow UI URLs (#1968, @smurching)
+- Getting server to work under windows. (#1949, @rboyes)
+- Fix dependency-installation bug in Java MLflow model scoring server (#1913, @smurching)
+
+Small bug fixes and doc updates (#1932, #1935, @harupy; #1907, @marnixkoops; #1911, @HackyRoot; #1931, @jmcarp; #2007, @deniskovalenko; #1966, #1955, #1952, @Djailla; #1915, @sueann; #1978, #1894, @smurching; #1940, #1900, #1904, @mparkhe; #1914, @jerrygb; #1857, @mengxr; #2009, @dbczumar)
+
 1.3 (2019-09-30)
 ------------------
 MLflow 1.3.0 includes several major features and improvements:
