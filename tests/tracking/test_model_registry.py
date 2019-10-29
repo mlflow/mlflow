@@ -312,7 +312,6 @@ def test_latest_models(mlflow_client, backend_store_uri):
     name = 'LatestVersionTest'
     mlflow_client.create_registered_model(name)
 
-    version_mvd_mapping = {}
     for version, stage in version_stage_mapping.items():
         mv = mlflow_client.create_model_version(name, "path/to/model", "run_id")
         assert mv.version == version
@@ -320,7 +319,6 @@ def test_latest_models(mlflow_client, backend_store_uri):
             mlflow_client.update_model_version(name, version, stage=stage)
         mvd = mlflow_client.get_model_version_details(name, version)
         assert mvd.current_stage == stage
-        version_stage_mapping[version] = mvd
 
     def get_latest(stages):
         latest = mlflow_client.get_latest_versions(name, stages)
