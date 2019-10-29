@@ -4,7 +4,7 @@ import logging
 import sqlalchemy
 
 from mlflow.entities.model_registry.model_version_stages import get_canonical_stage, \
-    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS
+    DEFAULT_STAGES_FOR_GET_LATEST_VERSIONS, STAGE_DELETED_INTERNAL
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, \
     INVALID_STATE, RESOURCE_DOES_NOT_EXIST
@@ -263,8 +263,12 @@ class SqlAlchemyStore(AbstractStore):
     def _get_sql_model_version(cls, session, model_version):
         name = model_version.get_name()
         version = model_version.version
-        versions = session.query(SqlModelVersion).filter(SqlModelVersion.name == name,
-                                                         SqlModelVersion.version == version).all()
+        conditions = [
+            SqlModelVersion.name == name,
+            SqlModelVersion.version == version,
+            SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL
+        ]
+        versions = session.query(SqlModelVersion).filter(*conditions).all()
 
         if len(versions) == 0:
             raise MlflowException('Model Version (name={}, version{}) '
@@ -291,6 +295,7 @@ class SqlAlchemyStore(AbstractStore):
                 sql_model_version.current_stage = get_canonical_stage(stage)
             if description is not None:
                 sql_model_version.description = description
+            sql_model_version.last_updated_time = now()
             self._save_to_db(session, sql_model_version)
 
     def delete_model_version(self, model_version):
@@ -303,7 +308,14 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_model_version = self._get_sql_model_version(session, model_version)
-            session.delete(sql_model_version)
+            sql_model_version.current_stage = STAGE_DELETED_INTERNAL
+            sql_model_version.last_updated_time = now()
+            sql_model_version.description = None
+            sql_model_version.user_id = None
+            sql_model_version.source = "REDACTED-SOURCE-PATH"
+            sql_model_version.run_id = "REDACTED-RUN-ID"
+            sql_model_version.status_message = None
+            self._save_to_db(session, sql_model_version)
 
     def get_model_version_details(self, model_version):
         """
@@ -366,6 +378,7 @@ class SqlAlchemyStore(AbstractStore):
                                   error_code=INVALID_PARAMETER_VALUE)
 
         with self.ManagedSessionMaker() as session:
+            conditions.append(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
             sql_model_version = session.query(SqlModelVersion).filter(*conditions).all()
             model_versions_detailed = [mv.to_mlflow_detailed_entity() for mv in sql_model_version]
             return PagedList(model_versions_detailed, None)
