@@ -50,7 +50,7 @@ def _get_flavor_configuration_from_uri(model_uri, flavor_name):
             artifact_uri=posixpath.join(model_uri, "MLmodel"))
     except:
         raise MlflowException(
-            "Could not find an \"MLmodel\" configuration file at \"{model_uri}\"".format(
+            "Failed to download an \"MLmodel\" model file from \"{model_uri}\"".format(
                 model_uri=model_uri),
             RESOURCE_DOES_NOT_EXIST)
     model_conf = Model.load(ml_model_file)
