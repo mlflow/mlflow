@@ -506,7 +506,7 @@ def _list_registered_models():
 def _get_latest_versions():
     request_message = _get_request_message(GetLatestVersions())
     latest_versions = _get_model_registry_store().get_latest_versions(
-        RegisteredModel.from_proto(request_message.registered_model))
+        RegisteredModel.from_proto(request_message.registered_model), request_message.stages)
     response_message = GetLatestVersions.Response()
     response_message.model_versions_detailed.extend([e.to_proto() for e in latest_versions])
     return _wrap_response(response_message)
