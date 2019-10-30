@@ -150,6 +150,10 @@ class SqlRun(Base):
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
+    @staticmethod
+    def get_attribute_name(mlflow_attribute_name):
+        return mlflow_attribute_name
+
     def to_mlflow_entity(self):
         """
         Convert DB model to corresponding MLflow entity.
