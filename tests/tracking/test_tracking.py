@@ -21,13 +21,14 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
 # pylint: disable=unused-argument
 
 
 def test_create_experiment(tracking_uri_mock):
     with pytest.raises(TypeError):
-        mlflow.create_experiment()  #pylint: disable=no-value-for-parameter
+        mlflow.create_experiment()  # pylint: disable=no-value-for-parameter
 
     with pytest.raises(Exception):
         mlflow.create_experiment(None)
@@ -73,7 +74,7 @@ def test_create_experiments_with_bad_name_types(name):
 
 def test_set_experiment(tracking_uri_mock, reset_active_experiment):
     with pytest.raises(TypeError):
-        mlflow.set_experiment()  #pylint: disable=no-value-for-parameter
+        mlflow.set_experiment()  # pylint: disable=no-value-for-parameter
 
     with pytest.raises(Exception):
         mlflow.set_experiment(None)

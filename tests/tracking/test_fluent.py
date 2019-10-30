@@ -22,12 +22,12 @@ from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
                                     _get_experiment_id,
                                     _get_experiment_id_from_env,
                                     _get_paginated_runs, search_runs,
-                                    set_experiment, start_run, get_run,
-                                    get_experiment, get_experiment_by_name)
+                                    set_experiment, start_run, get_run)
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 
 # pylint: disable=unused-argument
+
 
 class HelperEnv:
     def __init__(self):
