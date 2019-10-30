@@ -126,9 +126,10 @@ def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=No
                                 ]
                             ]
                         }
-    :param registered_model_name: If given, create a model version under ``registered_model_name``,
-                                  also creating a registered model if one with the given name does
-                                  not exist.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,

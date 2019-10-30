@@ -5,6 +5,13 @@ from mlflow.protos.model_registry_pb2 import ModelVersionDetailed as ProtoModelV
 
 
 class ModelVersionDetailed(ModelVersion):
+    """
+    Note:: Experimental: This entity may change or be removed in a future release without warning.
+    MLflow entity for Model Version Detailed.
+    Provides additional metadata data for model version in addition to information in
+    :py:class:`mlflow.entities.model_registry.ModelVersion`.
+    """
+
     def __init__(self, registered_model, version, creation_timestamp, last_updated_timestamp=None,
                  description=None, user_id=None, current_stage=None, source=None, run_id=None,
                  status=None, status_message=None):
