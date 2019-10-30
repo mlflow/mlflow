@@ -62,7 +62,6 @@ def test_client_create_run_overrides(mock_store):
         tags=[RunTag(key, value) for key, value in tags.items()],
     )
     mock_store.reset_mock()
-    parent_run_id = "mock-parent-run-id"
     MlflowClient().create_run(experiment_id, start_time, tags)
     mock_store.create_run.assert_called_once_with(
         experiment_id=experiment_id,
