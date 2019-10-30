@@ -12,7 +12,6 @@ class ShowArtifactImageView extends Component {
       width: 0,
       height: 0,
       dataURL: '',
-      prevPath: props.path,
     };
   }
 
@@ -20,16 +19,6 @@ class ShowArtifactImageView extends Component {
     runUuid: PropTypes.string.isRequired,
     path: PropTypes.string.isRequired,
   };
-
-  static getDerivedStateFromProps(props, state) {
-    if (props.path !== state.prevPath) {
-      return {
-        loading: true,
-        prevPath: props.path,
-      };
-    }
-    return null;
-  }
 
   componentDidMount = () => {
     this.fetchImage();
@@ -47,6 +36,7 @@ class ShowArtifactImageView extends Component {
   };
 
   fetchImage = () => {
+    this.setState({ loading: true });
     const img = new Image();
     img.setAttribute('crossOrigin', 'anonymous');
     img.onload = () => {
