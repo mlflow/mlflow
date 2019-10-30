@@ -14,6 +14,8 @@ from mlflow.tracking._tracking_service.utils import _get_store, _TRACKING_URI_EN
     _TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, \
     _TRACKING_INSECURE_TLS_ENV_VAR
 
+# pylint: disable=unused-argument
+
 
 def test_get_store_file_store(tmp_wkdir):
     env = {}

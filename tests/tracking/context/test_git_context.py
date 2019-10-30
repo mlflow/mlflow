@@ -5,6 +5,8 @@ import git
 from mlflow.utils.mlflow_tags import MLFLOW_GIT_COMMIT
 from mlflow.tracking.context.git_context import GitRunContext
 
+# pylint: disable=unused-argument
+
 
 MOCK_SCRIPT_NAME = "/path/to/script.py"
 MOCK_COMMIT_HASH = "commit-hash"

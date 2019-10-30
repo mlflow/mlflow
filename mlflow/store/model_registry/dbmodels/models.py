@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship, backref
 
 from mlflow.entities.model_registry import (RegisteredModel, RegisteredModelDetailed,
                                             ModelVersion, ModelVersionDetailed)
-from mlflow.entities.model_registry.model_version_stages import STAGE_NONE
+from mlflow.entities.model_registry.model_version_stages import STAGE_NONE, STAGE_DELETED_INTERNAL
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.store.db.base_sql_model import Base
 
@@ -40,7 +40,8 @@ class SqlRegisteredModel(Base):
         latest_versions = {}
         for mv in self.model_versions:
             stage = mv.current_stage
-            if stage not in latest_versions or latest_versions[stage].version < mv.version:
+            if stage != STAGE_DELETED_INTERNAL and (stage not in latest_versions or
+                                                    latest_versions[stage].version < mv.version):
                 latest_versions[stage] = mv
         return RegisteredModelDetailed(self.name, self.creation_time, self.last_updated_time,
                                        self.description,

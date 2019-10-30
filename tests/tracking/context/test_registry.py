@@ -8,6 +8,8 @@ from mlflow.tracking.context.git_context import GitRunContext
 from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
 from mlflow.tracking.context.registry import RunContextProviderRegistry, resolve_tags
 
+# pylint: disable=unused-argument
+
 
 def test_run_context_provider_registry_register():
     provider_class = mock.Mock()
