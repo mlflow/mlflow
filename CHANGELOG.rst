@@ -4,11 +4,11 @@ Changelog
 -----------------------
 MLflow 1.4.0 includes several major features:
 
-- Model Registry (Beta). MLflow 1.4 adds an experimental model registry feature, where you can manage, version, and keep lineage of your production models. (#1943, @mparkhe, @Zangr, @sueann, @dbczumar, @smurching, @gioa, @clemens-db, @pogil, @mateiz; #1988, #1989, #1995, @mparkhe; #1983, #1982, #1967, @dbczumar)
+- Model Registry (Beta). Adds an experimental model registry feature, where you can manage, version, and keep lineage of your production models. (#1943, @mparkhe, @Zangr, @sueann, @dbczumar, @smurching, @gioa, @clemens-db, @pogil, @mateiz; #1988, #1989, #1995, @mparkhe; #1983, #1982, #1967, @dbczumar)
 - TensorFlow updates 
 
   - MLflow Keras model saving, loading, and logging has been updated to be compatible with TensorFlow 2.0.  (#1927, @juntai-zheng)
-  - Autologging for ``tf.estimator`` and ``tf.keras`` models has been updated to be compatible with TensorFlow 2.0. The same functionalities of autologging in TF 1.x will be offered in TF 2.0, namely when fitting ``tf.keras`` models and when exporting saved ``tf.estimator`` models. (#1910, @juntai-zheng)
+  - Autologging for ``tf.estimator`` and ``tf.keras`` models has been updated to be compatible with TensorFlow 2.0. The same functionalities of autologging in TensorFlow 1.x are available in TensorFlow 2.0, namely when fitting ``tf.keras`` models and when exporting saved ``tf.estimator`` models. (#1910, @juntai-zheng)
   - Examples and READMEs for both TensorFlow 1.X and TensorFlow 2.0 have been added to ``mlflow/examples/tensorflow``. (#1946, @juntai-zheng)
 
 More features and improvements:
@@ -17,16 +17,16 @@ More features and improvements:
 - [UI] Use Plotly as artifact image viewer, which allows zooming and panning (#1934, @harupy)
 - [UI] Support deleting tags from the run details page (#1933, @harupy)
 - [UI] Enable scrolling to zoom in metric and run comparison plots (#1929, @harupy)
-- [Artifacts] Added support of viewfs URIs for HDFS federation for artifacts (#1947, @t-henri)
+- [Artifacts] Add support of viewfs URIs for HDFS federation for artifacts (#1947, @t-henri)
 - [Models] Spark UDFs can now be called with struct input if the underlying spark implementation supports it. The data is passed as a pandas DataFrame with column names matching those in the struct. (#1882, @tomasatdatabricks)
 - [Models] Spark models will now load faster from DFS by skipping unnecessary copies (#2008, @tomasatdatabricks)
 
 Bug fixes and documentation updates:
 
 - [Projects] Make detection of ``MLproject`` files case-insensitive (#1981, @smurching)
-- [UI] Fixed a bug where viewing metrics containing forward-slashes in the name would break the MLflow UI (#1968, @smurching)
-- [CLI] ``models serve`` CLI command now works in Windows (#1949, @rboyes)
-- [Scoring] Fix dependency installation bug in Java MLflow model scoring server (#1913, @smurching)
+- [UI] Fix a bug where viewing metrics containing forward-slashes in the name would break the MLflow UI (#1968, @smurching)
+- [CLI] ``models serve`` command now works in Windows (#1949, @rboyes)
+- [Scoring] Fix a dependency installation bug in Java MLflow model scoring server (#1913, @smurching)
 
 Small bug fixes and doc updates (#1932, #1935, @harupy; #1907, @marnixkoops; #1911, @HackyRoot; #1931, @jmcarp; #2007, @deniskovalenko; #1966, #1955, #1952, @Djailla; #1915, @sueann; #1978, #1894, @smurching; #1940, #1900, #1904, @mparkhe; #1914, @jerrygb; #1857, @mengxr; #2009, @dbczumar)
 
