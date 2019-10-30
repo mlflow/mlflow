@@ -26,7 +26,7 @@ Registered Model
     An MLflow Model registered with the MLflow Model Registry. A registered model has a unique name, contains versions, and other metadata.
 
 Model Version
-    Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name will increment the version number.
+    Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to the same model name increments the version number.
 
 Model Stage
     Each model version can be assigned one or many stages. MLflow provides predefined stages for
