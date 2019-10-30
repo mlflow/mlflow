@@ -14,8 +14,10 @@ import tempfile
 from mlflow.entities.model_registry import RegisteredModelDetailed, RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
-from mlflow.utils.file_utils import path_to_local_file_uri, local_file_uri_to_path
+from mlflow.utils.file_utils import path_to_local_file_uri
 from tests.tracking.integration_test_utils import _await_server_down_or_die, _init_server
+
+# pylint: disable=unused-argument
 
 # Root directory for all stores (backend or artifact stores) created during this suite
 SUITE_ROOT_DIR = tempfile.mkdtemp("test_rest_tracking")
@@ -121,7 +123,7 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
 
     # update with no args is an error
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException):
         mlflow_client.update_registered_model(name=name, new_name=None, description=None)
 
     # update name
@@ -160,7 +162,7 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
 
     # old named models are not accessible
     for old_name in [name, new_name]:
-        with pytest.raises(MlflowException) as e:
+        with pytest.raises(MlflowException):
             mlflow_client.get_registered_model_details(old_name)
 
 
@@ -177,17 +179,17 @@ def test_delete_registered_model_flow(mlflow_client, backend_store_uri):
     assert [name] == [rm.name for rm in mlflow_client.list_registered_models() if rm.name == name]
 
     # cannot create a model with same name
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException):
         mlflow_client.create_registered_model(name)
 
     mlflow_client.delete_registered_model(name)
 
     # cannot get a deleted model
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException):
         mlflow_client.get_registered_model_details(name)
 
     # cannot update a deleted model
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException):
         mlflow_client.update_registered_model(name=name, new_name="something else")
 
     # list does not include deleted model
@@ -378,20 +380,20 @@ def test_delete_model_version_flow(mlflow_client, backend_store_uri):
     assert_is_between(start_time_2, end_time_2, rmd3.last_updated_timestamp)
 
     # cannot get a deleted model version
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException):
         mlflow_client.delete_model_version(name, 1)
 
     # cannot update a deleted model version
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException):
         mlflow_client.update_model_version(name=name, version=1, description="Test model")
-    with pytest.raises(MlflowException) as e:
+    with pytest.raises(MlflowException):
         mlflow_client.update_model_version(name=name, version=1, stage="Staging")
 
     mlflow_client.delete_model_version(name, 3)
     assert {2} == set([mv.version
                        for mv in mlflow_client.search_model_versions("name = '%s'" % name)])
 
-    # new model versions will not reuse exising version numbers
+    # new model versions will not reuse existing version numbers
     mv4 = mlflow_client.create_model_version(name, "a/b/c", "run_id_2")
     assert mv4.version == 4
     assert mv4.registered_model.name == name

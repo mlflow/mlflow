@@ -1,4 +1,3 @@
-import pytest
 from subprocess import Popen
 
 import mock
