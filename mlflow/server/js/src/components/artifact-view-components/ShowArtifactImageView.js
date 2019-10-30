@@ -5,42 +5,57 @@ import { getSrc } from './ShowArtifactPage';
 import Plot from 'react-plotly.js';
 
 class ShowArtifactImageView extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      loading: true,
+      width: 0,
+      height: 0,
+      dataURL: '',
+    };
+  }
+
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     path: PropTypes.string.isRequired,
   };
 
-  constructor(props) {
-    super(props);
-    this.state = {
-      width: 0,
-      height: 0,
-    };
-  }
+  componentDidMount = () => {
+    this.fetchImage();
+  };
+
+  componentDidUpdate = prevProps => {
+    if (prevProps.path !== this.props.path) {
+      this.fetchImage();
+    }
+  };
 
   getSrc = () => {
     const { path, runUuid } = this.props;
     return getSrc(path, runUuid);
   };
 
-  resize = () => {
+  fetchImage = () => {
+    this.setState({ loading: true });
     const img = new Image();
+    img.setAttribute('crossOrigin', 'anonymous');
+    img.onload = () => {
+      const { width, height } = img;
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const dataURL = canvas.toDataURL('image/png');
+      this.setState({ loading: false, dataURL, width, height });
+    };
     img.src = this.getSrc();
-    img.onload = () => this.setState({ width: img.width, height: img.height });
-  };
-
-  componentDidMount = () => {
-    this.resize();
-  };
-
-  componentDidUpdate = prevProps => {
-    if (prevProps.path !== this.props.path) {
-      this.resize();
-    }
   };
 
   render() {
-    const { width, height } = this.state;
+    const { loading, dataURL, width, height } = this.state;
+
+    if (loading) return <div>Loading...</div>;
 
     return (
       <div className="image-outer-container">
@@ -64,7 +79,7 @@ class ShowArtifactImageView extends Component {
                 yaxis: { visible: false, autorange: true, scaleanchor: 'x', scaleratio: 1 },
                 images: [
                   {
-                    source: this.getSrc(),
+                    source: dataURL,
                     xref: 'x',
                     yref: 'y',
                     x: 0,
