@@ -32,8 +32,8 @@ Create Experiment
 +-----------------------------------+-------------+
 
 Create an experiment with a name. Returns the ID of the newly created experiment.
-Validates that another experiment with the same name does not already exist and fails if
-another experiment with the same name already exists.
+Validates that another experiment with the same name does not already exist and fails
+if another experiment with the same name already exists.
 
 
 Throws ``RESOURCE_ALREADY_EXISTS`` if a experiment with the given name exists.
@@ -148,8 +148,7 @@ Get Experiment
 | ``2.0/mlflow/experiments/get`` | ``GET``     |
 +--------------------------------+-------------+
 
-Get metadata for an experiment and a list of runs for the experiment.
-This method works on deleted experiments.
+Get metadata for an experiment. This method works on deleted experiments.
 
 
 
@@ -182,13 +181,78 @@ Response Structure
 
 
 
-+------------+----------------------------------+----------------------------------------------------------------------------+
-| Field Name |               Type               |                                Description                                 |
-+============+==================================+============================================================================+
-| experiment | :ref:`mlflowexperiment`          | Experiment details.                                                        |
-+------------+----------------------------------+----------------------------------------------------------------------------+
-| runs       | An array of :ref:`mlflowruninfo` | All (max limit to be imposed) active runs associated with this experiment. |
-+------------+----------------------------------+----------------------------------------------------------------------------+
++------------+----------------------------------+---------------------------------------------------------------------------+
+| Field Name |               Type               |                                Description                                |
++============+==================================+===========================================================================+
+| experiment | :ref:`mlflowexperiment`          | Experiment details.                                                       |
++------------+----------------------------------+---------------------------------------------------------------------------+
+| runs       | An array of :ref:`mlflowruninfo` | A collection of active runs in the experiment. Note: this may not contain |
+|            |                                  | all of the experiment's active runs.                                      |
+|            |                                  |                                                                           |
+|            |                                  | This field is deprecated. Please use the "Search Runs" API to fetch       |
+|            |                                  | runs within an experiment.                                                |
++------------+----------------------------------+---------------------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicegetExperimentByName:
+
+Get Experiment By Name
+======================
+
+
++----------------------------------------+-------------+
+|                Endpoint                | HTTP Method |
++========================================+=============+
+| ``2.0/mlflow/experiments/get-by-name`` | ``GET``     |
++----------------------------------------+-------------+
+
+Get metadata for an experiment.
+
+This endpoint will return deleted experiments, but prefers the active experiment
+if an active and deleted experiment share the same name. If multiple deleted
+experiments share the same name, the API will return one of them.
+
+Throws ``RESOURCE_DOES_NOT_EXIST`` if no experiment with the specified name exists.
+
+
+
+
+.. _mlflowGetExperimentByName:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-----------------+------------+------------------------------------+
+|   Field Name    |    Type    |            Description             |
++=================+============+====================================+
+| experiment_name | ``STRING`` | Name of the associated experiment. |
+|                 |            | This field is required.            |
+|                 |            |                                    |
++-----------------+------------+------------------------------------+
+
+.. _mlflowGetExperimentByNameResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+-------------------------+---------------------+
+| Field Name |          Type           |     Description     |
++============+=========================+=====================+
+| experiment | :ref:`mlflowexperiment` | Experiment details. |
++------------+-------------------------+---------------------+
 
 ===========================
 
@@ -666,6 +730,55 @@ Request Structure
 
 
 
+.. _mlflowMlflowServicesetExperimentTag:
+
+Set Experiment Tag
+==================
+
+
++-----------------------------------------------+-------------+
+|                   Endpoint                    | HTTP Method |
++===============================================+=============+
+| ``2.0/mlflow/experiments/set-experiment-tag`` | ``POST``    |
++-----------------------------------------------+-------------+
+
+Set a tag on an experiment. Experiment tags are metadata that can be updated.
+
+
+
+
+.. _mlflowSetExperimentTag:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+------------+-------------------------------------------------------------------------------------+
+|  Field Name   |    Type    |                                     Description                                     |
++===============+============+=====================================================================================+
+| experiment_id | ``STRING`` | ID of the experiment under which to log the tag. Must be provided.                  |
+|               |            | This field is required.                                                             |
+|               |            |                                                                                     |
++---------------+------------+-------------------------------------------------------------------------------------+
+| key           | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                           |
+|               |            | All storage backends are guaranteed to support key values up to 250 bytes in size.  |
+|               |            | This field is required.                                                             |
+|               |            |                                                                                     |
++---------------+------------+-------------------------------------------------------------------------------------+
+| value         | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.      |
+|               |            | All storage backends are guaranteed to support key values up to 5000 bytes in size. |
+|               |            | This field is required.                                                             |
+|               |            |                                                                                     |
++---------------+------------+-------------------------------------------------------------------------------------+
+
+===========================
+
+
+
 .. _mlflowMlflowServicesetTag:
 
 Set Tag
@@ -702,14 +815,60 @@ Request Structure
 | run_uuid   | ``STRING`` | [Deprecated, use run_id instead] ID of the run under which to log the tag. This field will |
 |            |            | be removed in a future MLflow version.                                                     |
 +------------+------------+--------------------------------------------------------------------------------------------+
-| key        | ``STRING`` | Name of the tag. Maximum size is 255 bytes.                                                |
+| key        | ``STRING`` | Name of the tag. Maximum size depends on storage backend.                                  |
+|            |            | All storage backends are guaranteed to support key values up to 250 bytes in size.         |
 |            |            | This field is required.                                                                    |
 |            |            |                                                                                            |
 +------------+------------+--------------------------------------------------------------------------------------------+
-| value      | ``STRING`` | String value of the tag being logged. Maximum size is 5000 bytes.                          |
+| value      | ``STRING`` | String value of the tag being logged. Maximum size depends on storage backend.             |
+|            |            | All storage backends are guaranteed to support key values up to 5000 bytes in size.        |
 |            |            | This field is required.                                                                    |
 |            |            |                                                                                            |
 +------------+------------+--------------------------------------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedeleteTag:
+
+Delete Tag
+==========
+
+
++--------------------------------+-------------+
+|            Endpoint            | HTTP Method |
++================================+=============+
+| ``2.0/mlflow/runs/delete-tag`` | ``POST``    |
++--------------------------------+-------------+
+
+Delete a tag on a run. Tags are run metadata that can be updated during a run and after
+a run completes.
+
+
+
+
+.. _mlflowDeleteTag:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+----------------------------------------------------------------+
+| Field Name |    Type    |                          Description                           |
++============+============+================================================================+
+| run_id     | ``STRING`` | ID of the run that the tag was logged under. Must be provided. |
+|            |            | This field is required.                                        |
+|            |            |                                                                |
++------------+------------+----------------------------------------------------------------+
+| key        | ``STRING`` | Name of the tag. Maximum size is 255 bytes. Must be provided.  |
+|            |            | This field is required.                                        |
+|            |            |                                                                |
++------------+------------+----------------------------------------------------------------+
 
 ===========================
 
@@ -868,18 +1027,19 @@ Request Structure
 |                |                        | ``metrics."model class" = 'LinearRegression' and tags."user-name" = 'Tomas'``                        |
 |                |                        |                                                                                                      |
 |                |                        | Supported operators are ``=``, ``!=``, ``>``, ``>=``, ``<``, and ``<=``.                             |
-|                |                        |                                                                                                      |
-|                |                        | You cannot provide ``filter`` when ``anded_expressions`` is present; an ``INVALID_PARAMETER_VALUE``  |
-|                |                        | error will be returned if both are specified.                                                        |
-|                |                        | If both ``filter`` and ``anded_expressions`` are absent, all runs part of the given experiments      |
-|                |                        | are returned.                                                                                        |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------+
 | run_view_type  | :ref:`mlflowviewtype`  | Whether to display only active, only deleted, or all runs.                                           |
 |                |                        | Defaults to only active runs.                                                                        |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------+
 | max_results    | ``INT32``              | Maximum number of runs desired. Max threshold is 50000                                               |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------+
-| order_by       | An array of ``STRING`` | Ordering expressions like "tags.`model class` DESC"                                                  |
+| order_by       | An array of ``STRING`` | List of columns to be ordered by, including attributes, params, metrics, and tags with an            |
+|                |                        | optional "DESC" or "ASC" annotation, where "ASC" is the default.                                     |
+|                |                        | Example: ["params.input DESC", "metrics.alpha ASC", "metrics.rmse"]                                  |
+|                |                        | Tiebreaks are done by start_time DESC followed by run_id for runs with the same start time           |
+|                |                        | (and this is the default ordering criterion if order_by is not provided).                            |
++----------------+------------------------+------------------------------------------------------------------------------------------------------+
+| page_token     | ``STRING``             |                                                                                                      |
 +----------------+------------------------+------------------------------------------------------------------------------------------------------+
 
 .. _mlflowSearchRunsResponse:
@@ -892,11 +1052,13 @@ Response Structure
 
 
 
-+------------+------------------------------+--------------------------------------+
-| Field Name |             Type             |             Description              |
-+============+==============================+======================================+
-| runs       | An array of :ref:`mlflowrun` | Runs that match the search criteria. |
-+------------+------------------------------+--------------------------------------+
++-----------------+------------------------------+--------------------------------------+
+|   Field Name    |             Type             |             Description              |
++=================+==============================+======================================+
+| runs            | An array of :ref:`mlflowrun` | Runs that match the search criteria. |
++-----------------+------------------------------+--------------------------------------+
+| next_page_token | ``STRING``                   |                                      |
++-----------------+------------------------------+--------------------------------------+
 
 ===========================
 
@@ -1023,6 +1185,638 @@ Response Structure
 
 
 
+.. _mlflowModelRegistryServicecreateRegisteredModel:
+
+Create RegisteredModel
+======================
+
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``2.0/preview/mlflow/registered-models/create`` | ``POST``    |
++-------------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+Throws ``RESOURCE_ALREADY_EXISTS`` if a registered model with the given name exists.
+
+
+
+
+.. _mlflowCreateRegisteredModel:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+---------------------------------+
+| Field Name |    Type    |           Description           |
++============+============+=================================+
+| name       | ``STRING`` | Register models under this name |
+|            |            | This field is required.         |
+|            |            |                                 |
++------------+------------+---------------------------------+
+
+.. _mlflowCreateRegisteredModelResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------------+------------------------------+-------------+
+|    Field Name    |             Type             | Description |
++==================+==============================+=============+
+| registered_model | :ref:`mlflowregisteredmodel` |             |
++------------------+------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServicegetRegisteredModelDetails:
+
+Get RegisteredModel Details
+===========================
+
+
++------------------------------------------------------+-------------+
+|                       Endpoint                       | HTTP Method |
++======================================================+=============+
+| ``2.0/preview/mlflow/registered-models/get-details`` | ``POST``    |
++------------------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowGetRegisteredModelDetails:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+------------------------------+-------------------------+
+|    Field Name    |             Type             |       Description       |
++==================+==============================+=========================+
+| registered_model | :ref:`mlflowregisteredmodel` | Registered model.       |
+|                  |                              | This field is required. |
+|                  |                              |                         |
++------------------+------------------------------+-------------------------+
+
+.. _mlflowGetRegisteredModelDetailsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------------------+--------------------------------------+-------------+
+|        Field Name         |                 Type                 | Description |
++===========================+======================================+=============+
+| registered_model_detailed | :ref:`mlflowregisteredmodeldetailed` |             |
++---------------------------+--------------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServiceupdateRegisteredModel:
+
+Update RegisteredModel
+======================
+
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``2.0/preview/mlflow/registered-models/update`` | ``PATCH``   |
++-------------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowUpdateRegisteredModel:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+------------------------------+---------------------------------------------------------------------+
+|    Field Name    |             Type             |                             Description                             |
++==================+==============================+=====================================================================+
+| registered_model | :ref:`mlflowregisteredmodel` | Registered model.                                                   |
+|                  |                              | This field is required.                                             |
+|                  |                              |                                                                     |
++------------------+------------------------------+---------------------------------------------------------------------+
+| name             | ``STRING``                   | If provided, updates the name for this ``registered_model``.        |
++------------------+------------------------------+---------------------------------------------------------------------+
+| description      | ``STRING``                   | If provided, updates the description for this ``registered_model``. |
++------------------+------------------------------+---------------------------------------------------------------------+
+
+.. _mlflowUpdateRegisteredModelResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------------+------------------------------+-------------+
+|    Field Name    |             Type             | Description |
++==================+==============================+=============+
+| registered_model | :ref:`mlflowregisteredmodel` |             |
++------------------+------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServicedeleteRegisteredModel:
+
+Delete RegisteredModel
+======================
+
+
++-------------------------------------------------+-------------+
+|                    Endpoint                     | HTTP Method |
++=================================================+=============+
+| ``2.0/preview/mlflow/registered-models/delete`` | ``DELETE``  |
++-------------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowDeleteRegisteredModel:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+------------------------------+-------------------------+
+|    Field Name    |             Type             |       Description       |
++==================+==============================+=========================+
+| registered_model | :ref:`mlflowregisteredmodel` | Registered model.       |
+|                  |                              | This field is required. |
+|                  |                              |                         |
++------------------+------------------------------+-------------------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServicelistRegisteredModels:
+
+List RegisteredModels
+=====================
+
+
++-----------------------------------------------+-------------+
+|                   Endpoint                    | HTTP Method |
++===============================================+=============+
+| ``2.0/preview/mlflow/registered-models/list`` | ``GET``     |
++-----------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowListRegisteredModelsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++----------------------------+--------------------------------------------------+-------------+
+|         Field Name         |                       Type                       | Description |
++============================+==================================================+=============+
+| registered_models_detailed | An array of :ref:`mlflowregisteredmodeldetailed` |             |
++----------------------------+--------------------------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServicegetLatestVersions:
+
+Get Latest ModelVersions
+========================
+
+
++--------------------------------------------------------------+-------------+
+|                           Endpoint                           | HTTP Method |
++==============================================================+=============+
+| ``2.0/preview/mlflow/registered-models/get-latest-versions`` | ``POST``    |
++--------------------------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowGetLatestVersions:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+------------------------------+-------------------------+
+|    Field Name    |             Type             |       Description       |
++==================+==============================+=========================+
+| registered_model | :ref:`mlflowregisteredmodel` | Registered model.       |
+|                  |                              | This field is required. |
+|                  |                              |                         |
++------------------+------------------------------+-------------------------+
+| stages           | An array of ``STRING``       | List of stages.         |
++------------------+------------------------------+-------------------------+
+
+.. _mlflowGetLatestVersionsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++-------------------------+-----------------------------------------------+--------------------------------------------------------------------------------------------------+
+|       Field Name        |                     Type                      |                                           Description                                            |
++=========================+===============================================+==================================================================================================+
+| model_versions_detailed | An array of :ref:`mlflowmodelversiondetailed` | Latest version models for each requests stage. Only return models with current ``READY`` status. |
+|                         |                                               | If no ``stages`` provided, returns the latest version for each stage, including ``"None"``.      |
++-------------------------+-----------------------------------------------+--------------------------------------------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServicecreateModelVersion:
+
+Create ModelVersion
+===================
+
+
++----------------------------------------------+-------------+
+|                   Endpoint                   | HTTP Method |
++==============================================+=============+
+| ``2.0/preview/mlflow/model-versions/create`` | ``POST``    |
++----------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowCreateModelVersion:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------+------------+------------------------------------------------------------------------------------+
+| Field Name |    Type    |                                    Description                                     |
++============+============+====================================================================================+
+| name       | ``STRING`` | Register model under this name                                                     |
+|            |            | This field is required.                                                            |
+|            |            |                                                                                    |
++------------+------------+------------------------------------------------------------------------------------+
+| source     | ``STRING`` | URI indicating the location of the model artifacts.                                |
+|            |            | This field is required.                                                            |
+|            |            |                                                                                    |
++------------+------------+------------------------------------------------------------------------------------+
+| run_id     | ``STRING`` | MLflow run ID for correlation, if ``source`` was generated by an experiment run in |
+|            |            | MLflow tracking server                                                             |
++------------+------------+------------------------------------------------------------------------------------+
+
+.. _mlflowCreateModelVersionResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------+---------------------------+-----------------------------------------------------------------+
+|  Field Name   |           Type            |                           Description                           |
++===============+===========================+=================================================================+
+| model_version | :ref:`mlflowmodelversion` | Return new version number generated for this model in registry. |
++---------------+---------------------------+-----------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServicegetModelVersionDetails:
+
+Get ModelVersion Details
+========================
+
+
++---------------------------------------------------+-------------+
+|                     Endpoint                      | HTTP Method |
++===================================================+=============+
+| ``2.0/preview/mlflow/model-versions/get-details`` | ``POST``    |
++---------------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowGetModelVersionDetails:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+---------------------------+-------------------------+
+|  Field Name   |           Type            |       Description       |
++===============+===========================+=========================+
+| model_version | :ref:`mlflowmodelversion` | Model version.          |
+|               |                           | This field is required. |
+|               |                           |                         |
++---------------+---------------------------+-------------------------+
+
+.. _mlflowGetModelVersionDetailsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------------------+-----------------------------------+-------------+
+|       Field Name       |               Type                | Description |
++========================+===================================+=============+
+| model_version_detailed | :ref:`mlflowmodelversiondetailed` |             |
++------------------------+-----------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServiceupdateModelVersion:
+
+Update ModelVersion
+===================
+
+
++----------------------------------------------+-------------+
+|                   Endpoint                   | HTTP Method |
++==============================================+=============+
+| ``2.0/preview/mlflow/model-versions/update`` | ``PATCH``   |
++----------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowUpdateModelVersion:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+---------------------------+---------------------------------------------------------------------+
+|  Field Name   |           Type            |                             Description                             |
++===============+===========================+=====================================================================+
+| model_version | :ref:`mlflowmodelversion` | Model version.                                                      |
+|               |                           | This field is required.                                             |
+|               |                           |                                                                     |
++---------------+---------------------------+---------------------------------------------------------------------+
+| stage         | ``STRING``                | If provided, transition ``model_version`` to new stage.             |
++---------------+---------------------------+---------------------------------------------------------------------+
+| description   | ``STRING``                | If provided, updates the description for this ``registered_model``. |
++---------------+---------------------------+---------------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServicedeleteModelVersion:
+
+Delete ModelVersion
+===================
+
+
++----------------------------------------------+-------------+
+|                   Endpoint                   | HTTP Method |
++==============================================+=============+
+| ``2.0/preview/mlflow/model-versions/delete`` | ``DELETE``  |
++----------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowDeleteModelVersion:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+---------------------------+-------------------------+
+|  Field Name   |           Type            |       Description       |
++===============+===========================+=========================+
+| model_version | :ref:`mlflowmodelversion` | Model version.          |
+|               |                           | This field is required. |
+|               |                           |                         |
++---------------+---------------------------+-------------------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServicesearchModelVersions:
+
+Search ModelVersions
+====================
+
+
++----------------------------------------------+-------------+
+|                   Endpoint                   | HTTP Method |
++==============================================+=============+
+| ``2.0/preview/mlflow/model-versions/search`` | ``GET``     |
++----------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowSearchModelVersions:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-------------+------------------------+--------------------------------------------------------------------------------------------+
+| Field Name  |          Type          |                                        Description                                         |
++=============+========================+============================================================================================+
+| filter      | ``STRING``             | String filter condition, like "name='my-model-name'". Must be a single boolean condition,  |
+|             |                        | with string values wrapped in single quotes.                                               |
++-------------+------------------------+--------------------------------------------------------------------------------------------+
+| max_results | ``INT64``              | Maximum number of models desired. Max threshold is 1000.                                   |
++-------------+------------------------+--------------------------------------------------------------------------------------------+
+| order_by    | An array of ``STRING`` | List of columns to be ordered by including model name, version, stage with an              |
+|             |                        | optional "DESC" or "ASC" annotation, where "ASC" is the default.                           |
+|             |                        | Tiebreaks are done by latest stage transition timestamp, followed by name ASC, followed by |
+|             |                        | version DESC.                                                                              |
++-------------+------------------------+--------------------------------------------------------------------------------------------+
+| page_token  | ``STRING``             | Pagination token to go to next page based on previous search query.                        |
++-------------+------------------------+--------------------------------------------------------------------------------------------+
+
+.. _mlflowSearchModelVersionsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++-------------------------+-----------------------------------------------+----------------------------------------------------------------------------+
+|       Field Name        |                     Type                      |                                Description                                 |
++=========================+===============================================+============================================================================+
+| model_versions_detailed | An array of :ref:`mlflowmodelversiondetailed` | Models that match the search criteria                                      |
++-------------------------+-----------------------------------------------+----------------------------------------------------------------------------+
+| next_page_token         | ``STRING``                                    | Pagination token to request next page of models for the same search query. |
++-------------------------+-----------------------------------------------+----------------------------------------------------------------------------+
+
+===========================
+
+
+
+.. _mlflowModelRegistryServicegetModelVersionDownloadUri:
+
+Get Download URI For ModelVersion Artifacts
+===========================================
+
+
++--------------------------------------------------------+-------------+
+|                        Endpoint                        | HTTP Method |
++========================================================+=============+
+| ``2.0/preview/mlflow/model-versions/get-download-uri`` | ``POST``    |
++--------------------------------------------------------+-------------+
+
+.. note::
+    Experimental: This API may change or be removed in a future release without warning.
+
+
+
+
+.. _mlflowGetModelVersionDownloadUri:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+---------------------------+---------------------------+
+|  Field Name   |           Type            |        Description        |
++===============+===========================+===========================+
+| model_version | :ref:`mlflowmodelversion` | Name and version of model |
+|               |                           | This field is required.   |
+|               |                           |                           |
++---------------+---------------------------+---------------------------+
+
+.. _mlflowGetModelVersionDownloadUriResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++--------------+------------+-------------------------------------------------------------------------+
+|  Field Name  |    Type    |                               Description                               |
++==============+============+=========================================================================+
+| artifact_uri | ``STRING`` | URI corresponding to where artifacts for this model version are stored. |
++--------------+------------+-------------------------------------------------------------------------+
+
 .. _RESTadd:
 
 Data Structures
@@ -1040,22 +1834,42 @@ Experiment
 Experiment
 
 
-+-------------------+------------+--------------------------------------------------------------------+
-|    Field Name     |    Type    |                            Description                             |
-+===================+============+====================================================================+
-| experiment_id     | ``STRING`` | Unique identifier for the experiment.                              |
-+-------------------+------------+--------------------------------------------------------------------+
-| name              | ``STRING`` | Human readable name that identifies the experiment.                |
-+-------------------+------------+--------------------------------------------------------------------+
-| artifact_location | ``STRING`` | Location where artifacts for the experiment are stored.            |
-+-------------------+------------+--------------------------------------------------------------------+
-| lifecycle_stage   | ``STRING`` | Current life cycle stage of the experiment: "active" or "deleted". |
-|                   |            | Deleted experiments are not returned by APIs.                      |
-+-------------------+------------+--------------------------------------------------------------------+
-| last_update_time  | ``INT64``  | Last update time                                                   |
-+-------------------+------------+--------------------------------------------------------------------+
-| creation_time     | ``INT64``  | Creation time                                                      |
-+-------------------+------------+--------------------------------------------------------------------+
++-------------------+----------------------------------------+--------------------------------------------------------------------+
+|    Field Name     |                  Type                  |                            Description                             |
++===================+========================================+====================================================================+
+| experiment_id     | ``STRING``                             | Unique identifier for the experiment.                              |
++-------------------+----------------------------------------+--------------------------------------------------------------------+
+| name              | ``STRING``                             | Human readable name that identifies the experiment.                |
++-------------------+----------------------------------------+--------------------------------------------------------------------+
+| artifact_location | ``STRING``                             | Location where artifacts for the experiment are stored.            |
++-------------------+----------------------------------------+--------------------------------------------------------------------+
+| lifecycle_stage   | ``STRING``                             | Current life cycle stage of the experiment: "active" or "deleted". |
+|                   |                                        | Deleted experiments are not returned by APIs.                      |
++-------------------+----------------------------------------+--------------------------------------------------------------------+
+| last_update_time  | ``INT64``                              | Last update time                                                   |
++-------------------+----------------------------------------+--------------------------------------------------------------------+
+| creation_time     | ``INT64``                              | Creation time                                                      |
++-------------------+----------------------------------------+--------------------------------------------------------------------+
+| tags              | An array of :ref:`mlflowexperimenttag` | Tags: Additional metadata key-value pairs.                         |
++-------------------+----------------------------------------+--------------------------------------------------------------------+
+
+.. _mlflowExperimentTag:
+
+ExperimentTag
+-------------
+
+
+
+Tag for an experiment.
+
+
++------------+------------+----------------+
+| Field Name |    Type    |  Description   |
++============+============+================+
+| key        | ``STRING`` | The tag key.   |
++------------+------------+----------------+
+| value      | ``STRING`` | The tag value. |
++------------+------------+----------------+
 
 .. _mlflowFileInfo:
 
@@ -1099,6 +1913,61 @@ Metric associated with a run, represented as a key-value pair.
 | step       | ``INT64``  | Step at which to log the metric.                 |
 +------------+------------+--------------------------------------------------+
 
+.. _mlflowModelVersion:
+
+ModelVersion
+------------
+
+
+
+.. note::
+    Experimental: This entity may change or be removed in a future release without warning.
+
+
++------------------+------------------------------+-------------------------+
+|    Field Name    |             Type             |       Description       |
++==================+==============================+=========================+
+| registered_model | :ref:`mlflowregisteredmodel` | Registered model.       |
++------------------+------------------------------+-------------------------+
+| version          | ``INT64``                    | Model's version number. |
++------------------+------------------------------+-------------------------+
+
+.. _mlflowModelVersionDetailed:
+
+ModelVersionDetailed
+--------------------
+
+
+
+.. note::
+    Experimental: This entity may change or be removed in a future release without warning.
+
+
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+|       Field Name       |              Type               |                                           Description                                           |
++========================+=================================+=================================================================================================+
+| model_version          | :ref:`mlflowmodelversion`       | Model Version                                                                                   |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+| creation_timestamp     | ``INT64``                       | Timestamp recorded when this ``model_version`` was created.                                     |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+| last_updated_timestamp | ``INT64``                       | Timestamp recorded when metadata for this ``model_version`` was last updated.                   |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+| user_id                | ``STRING``                      | User that created this ``model_version``.                                                       |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+| current_stage          | ``STRING``                      | Current stage for this ``model_version``.                                                       |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+| description            | ``STRING``                      | Description of this ``model_version``.                                                          |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+| source                 | ``STRING``                      | URI indicating the location of the source model artifacts, used when creating ``model_version`` |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+| run_id                 | ``STRING``                      | MLflow run ID used when creating ``model_version``, if ``source`` was generated by an           |
+|                        |                                 | experiment run stored in MLflow tracking server.                                                |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+| status                 | :ref:`mlflowmodelversionstatus` | Current status of ``model_version``                                                             |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+| status_message         | ``STRING``                      | Details on current ``status``, if it is pending or failed.                                      |
++------------------------+---------------------------------+-------------------------------------------------------------------------------------------------+
+
 .. _mlflowParam:
 
 Param
@@ -1116,6 +1985,51 @@ Param associated with a run.
 +------------+------------+-----------------------------------+
 | value      | ``STRING`` | Value associated with this param. |
 +------------+------------+-----------------------------------+
+
+.. _mlflowRegisteredModel:
+
+RegisteredModel
+---------------
+
+
+
+.. note::
+    Experimental: This entity may change or be removed in a future release without warning.
+
+
++------------+------------+----------------------------+
+| Field Name |    Type    |        Description         |
++============+============+============================+
+| name       | ``STRING`` | Unique name for the model. |
++------------+------------+----------------------------+
+
+.. _mlflowRegisteredModelDetailed:
+
+RegisteredModelDetailed
+-----------------------
+
+
+
+.. note::
+    Experimental: This entity may change or be removed in a future release without warning.
+
+
++------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
+|       Field Name       |                     Type                      |                                   Description                                    |
++========================+===============================================+==================================================================================+
+| registered_model       | :ref:`mlflowregisteredmodel`                  | Registered model.                                                                |
++------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
+| creation_timestamp     | ``INT64``                                     | Timestamp recorded when this ``registered_model`` was created.                   |
++------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
+| last_updated_timestamp | ``INT64``                                     | Timestamp recorded when metadata for this ``registered_model`` was last updated. |
++------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
+| user_id                | ``STRING``                                    | User that created this ``registered_model``                                      |
++------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
+| description            | ``STRING``                                    | Description of this ``registered_model``.                                        |
++------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
+| latest_versions        | An array of :ref:`mlflowmodelversiondetailed` | Collection of latest model versions for each stage.                              |
+|                        |                                               | Only contains models with current ``READY`` status.                              |
++------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
 
 .. _mlflowRun:
 
@@ -1210,6 +2124,29 @@ Tag for a run.
 +------------+------------+----------------+
 | value      | ``STRING`` | The tag value. |
 +------------+------------+----------------+
+
+.. _mlflowModelVersionStatus:
+
+ModelVersionStatus
+------------------
+
+
+.. note::
+    Experimental: This entity may change or be removed in a future release without warning.
+
++----------------------+---------------------------------------------------------------------------------------------+
+|         Name         |                                         Description                                         |
++======================+=============================================================================================+
+| PENDING_REGISTRATION | Request to register a new model version is pending as server performs background tasks.     |
++----------------------+---------------------------------------------------------------------------------------------+
+| FAILED_REGISTRATION  | Request to register a new model version has failed.                                         |
++----------------------+---------------------------------------------------------------------------------------------+
+| READY                | Model version is ready for use.                                                             |
++----------------------+---------------------------------------------------------------------------------------------+
+| PENDING_DELETION     | Request to delete an existing model version is pending as server performs background tasks. |
++----------------------+---------------------------------------------------------------------------------------------+
+| FAILED_DELETION      | Request to delete an existing model version has failed.                                     |
++----------------------+---------------------------------------------------------------------------------------------+
 
 .. _mlflowRunStatus:
 
