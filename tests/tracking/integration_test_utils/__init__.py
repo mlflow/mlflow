@@ -3,7 +3,6 @@ from subprocess import Popen
 
 import mock
 import os
-import sys
 from threading import Thread
 
 import socket
