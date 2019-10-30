@@ -29,6 +29,7 @@ sqlalchemy.orm.configure_mappers()
 
 class SqlAlchemyStore(AbstractStore):
     """
+    Note:: Experimental: This entity may change or be removed in a future release without warning.
     SQLAlchemy compliant backend store for tracking meta data for MLflow entities. MLflow
     supports the database dialects ``mysql``, ``mssql``, ``sqlite``, and ``postgresql``.
     As specified in the
