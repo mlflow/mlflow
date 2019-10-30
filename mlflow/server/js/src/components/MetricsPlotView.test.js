@@ -118,22 +118,24 @@ describe('unit tests', () => {
           x: [0, 1],
           y: [100, 200],
           type: 'scatter',
-          mode: 'lines',
+          mode: 'lines+markers',
           line: {
             shape: 'spline',
             smoothing: 0,
           },
+          "marker": {"opacity": 0},
         },
         {
           name: 'metric_1',
           x: [0, 1],
           y: [300, 400],
           type: 'scatter',
-          mode: 'lines',
+          mode: 'lines+markers',
           line: {
             shape: 'spline',
             smoothing: 0,
           },
+          "marker": {"opacity": 0},
         },
       ],
     });
