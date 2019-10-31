@@ -18,27 +18,30 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
                                     _EXPERIMENT_NAME_ENV_VAR, _RUN_ID_ENV_VAR,
-                                    NUM_RUNS_PER_PAGE_PANDAS,
                                     SEARCH_MAX_RESULTS_PANDAS,
                                     _get_experiment_id,
                                     _get_experiment_id_from_env,
                                     _get_paginated_runs, search_runs,
-                                    set_experiment, start_run, get_run,
-                                    get_experiment, get_experiment_by_name)
+                                    set_experiment, start_run, get_run)
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 
+# pylint: disable=unused-argument
+
 
 class HelperEnv:
+    def __init__(self):
+        pass
+
     @classmethod
     def assert_values(cls, exp_id, name):
         assert os.environ.get(_EXPERIMENT_NAME_ENV_VAR) == name
         assert os.environ.get(_EXPERIMENT_ID_ENV_VAR) == exp_id
 
     @classmethod
-    def set_values(cls, id=None, name=None):
-        if id:
-            os.environ[_EXPERIMENT_ID_ENV_VAR] = str(id)
+    def set_values(cls, experiment_id=None, name=None):
+        if experiment_id:
+            os.environ[_EXPERIMENT_ID_ENV_VAR] = str(experiment_id)
         elif os.environ.get(_EXPERIMENT_ID_ENV_VAR):
             del os.environ[_EXPERIMENT_ID_ENV_VAR]
 
@@ -93,7 +96,7 @@ def test_get_experiment_id_from_env():
 
     # set only ID
     random_id = random.randint(1, 1e6)
-    HelperEnv.set_values(id=random_id)
+    HelperEnv.set_values(experiment_id=random_id)
     HelperEnv.assert_values(str(random_id), None)
     assert _get_experiment_id_from_env() == str(random_id)
 
@@ -112,7 +115,7 @@ def test_get_experiment_id_from_env():
         exp_id = mlflow.create_experiment(name)
         assert exp_id is not None
         random_id = random.randint(1, 1e6)
-        HelperEnv.set_values(name=name, id=random_id)
+        HelperEnv.set_values(name=name, experiment_id=random_id)
         HelperEnv.assert_values(str(random_id), name)
         assert _get_experiment_id_from_env() == exp_id
 
@@ -162,7 +165,7 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
         exp_name = "random experiment %d" % random.randint(1, 1e6)
         exp_id = mlflow.create_experiment(exp_name)
         notebook_id = str(int(exp_id) + 73)
-        HelperEnv.set_values(id=exp_id)
+        HelperEnv.set_values(experiment_id=exp_id)
 
     with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook") as notebook_detection_mock,\
             mock.patch("mlflow.tracking.fluent.get_notebook_id") as notebook_id_mock:
@@ -303,7 +306,6 @@ def test_start_run_with_parent():
     parent_run = mock.Mock()
     mock_experiment_id = mock.Mock()
     mock_source_name = mock.Mock()
-    mock_run_name = mock.Mock()
 
     active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
 
@@ -382,7 +384,7 @@ def test_start_run_existing_run_from_environment_with_set_environment(empty_acti
     with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         with pytest.raises(MlflowException):
             set_experiment("test-run")
-            active_run = start_run()
+            start_run()
 
 
 def test_start_run_existing_run_deleted(empty_active_run_stack):
@@ -467,7 +469,7 @@ def test_search_runs_no_arguments():
     get_paginated_runs_patch = mock.patch('mlflow.tracking.fluent._get_paginated_runs',
                                           return_value=[])
     with experiment_id_patch, get_paginated_runs_patch:
-        pdf = search_runs()
+        search_runs()
         mlflow.tracking.fluent._get_paginated_runs.assert_called_once_with(
             mock_experiment_id, '', ViewType.ACTIVE_ONLY, SEARCH_MAX_RESULTS_PANDAS, None
         )
@@ -478,7 +480,7 @@ def test_get_paginated_runs_lt_maxresults_onepage():
     Number of runs is less than max_results and fits on one page,
     so we only need to fetch one page.
     """
-    runs = [create_run() for i in range(5)]
+    runs = [create_run() for _ in range(5)]
     tokenized_runs = PagedList(runs, "")
     max_results = 50
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
@@ -492,7 +494,7 @@ def test_get_paginated_runs_lt_maxresults_multipage():
     """
     Number of runs is less than max_results, but multiple pages are necessary to get all runs
     """
-    tokenized_runs = PagedList([create_run() for i in range(10)], "token")
+    tokenized_runs = PagedList([create_run() for _ in range(10)], "token")
     no_token_runs = PagedList([create_run()], "")
     max_results = 50
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
@@ -509,7 +511,7 @@ def test_get_paginated_runs_lt_maxresults_onepage_nonetoken():
     Number of runs is less than max_results and fits on one page.
     The token passed back on the last page is None, not the emptystring
     """
-    runs = [create_run() for i in range(5)]
+    runs = [create_run() for _ in range(5)]
     tokenized_runs = PagedList(runs, None)
     max_results = 50
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
@@ -527,7 +529,7 @@ def test_get_paginated_runs_eq_maxresults_blanktoken():
     Expected behavior is to NOT query for more pages.
     """
     # runs returned equal to max_results, blank token
-    runs = [create_run() for i in range(10)]
+    runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "")
     no_token_runs = PagedList([], "")
     max_results = 10
@@ -546,7 +548,7 @@ def test_get_paginated_runs_eq_maxresults_token():
     more runs exist). In this example, a toke IS sent back.
     Expected behavior is to NOT query for more pages.
     """
-    runs = [create_run() for i in range(10)]
+    runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "abc")
     blank_runs = PagedList([], "")
     max_results = 10
@@ -564,8 +566,8 @@ def test_get_paginated_runs_gt_maxresults_multipage():
     Expected to only get max_results number of results back.
     """
     # should ask for and return the correct number of max_results
-    full_page_runs = PagedList([create_run() for i in range(8)], "abc")
-    partial_page = PagedList([create_run() for i in range(4)], "def")
+    full_page_runs = PagedList([create_run() for _ in range(8)], "abc")
+    partial_page = PagedList([create_run() for _ in range(4)], "def")
     max_results = 20
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 8):
         with mock.patch.object(MlflowClient, "search_runs"):
@@ -583,7 +585,7 @@ def test_get_paginated_runs_gt_maxresults_onepage():
     Number of runs that fit search criteria is greater than max_results. Only one page expected.
     Expected to only get max_results number of results back.
     """
-    runs = [create_run() for i in range(10)]
+    runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "abc")
     max_results = 10
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 20):
