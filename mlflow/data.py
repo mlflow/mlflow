@@ -12,11 +12,13 @@ DBFS_PREFIX = "dbfs:/"
 S3_PREFIX = "s3://"
 GS_PREFIX = "gs://"
 VIEWFS_PREFIX = "viewfs://"
+HDFS_PREFIX = "hdfs://"
 
 DBFS_REGEX = re.compile("^%s" % re.escape(DBFS_PREFIX))
 S3_REGEX = re.compile("^%s" % re.escape(S3_PREFIX))
 GS_REGEX = re.compile("^%s" % re.escape(GS_PREFIX))
 VIEWFS_REGEX = re.compile("^%s" % re.escape(VIEWFS_PREFIX))
+HDFS_REGEX = re.compile("^%s" % re.escape(HDFS_PREFIX))
 
 
 class DownloadException(Exception):
@@ -69,6 +71,17 @@ def _fetch_viewfs(uri, local_path):
     hdfs.download_artifacts(hdfs_path, local_path)
 
 
+def _fetch_hdfs(uri, local_path):
+    print(
+        "=== Downloading HDFS file %s to local path %s ===" %
+        (uri, os.path.abspath(local_path))
+    )
+    (bucket, hdfs_path) = parse_simple_uri(uri, "hdfs")
+
+    hdfs = HdfsArtifactRepository(bucket)
+    hdfs.download_artifacts(hdfs_path, local_path)
+
+
 def is_uri(string):
     parsed_uri = urllib.parse.urlparse(string)
     return len(parsed_uri.scheme) > 0
@@ -83,6 +96,8 @@ def download_uri(uri, output_path):
         _fetch_gs(uri, output_path)
     elif VIEWFS_REGEX.match(uri):
         _fetch_viewfs(uri, output_path)
+    elif HDFS_REGEX.match(uri):
+        _fetch_hdfs(uri, output_path)
     else:
         raise DownloadException(
             "`uri` must be a DBFS (%s), S3 (%s), GCS (%s), VIEWFS (%s) URI, got "

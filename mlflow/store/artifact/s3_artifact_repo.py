@@ -1,8 +1,8 @@
 import os
 
 import posixpath
-from six.moves import urllib
 
+from mlflow.data import parse_simple_uri
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -11,13 +11,7 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 
 def parse_s3_uri(uri):
     """Parse an S3 URI, returning (bucket, path)"""
-    parsed = urllib.parse.urlparse(uri)
-    if parsed.scheme != "s3":
-        raise Exception("Not an S3 URI: %s" % uri)
-    path = parsed.path
-    if path.startswith('/'):
-        path = path[1:]
-    return parsed.netloc, path
+    return parse_simple_uri(uri, "s3")
 
 
 class S3ArtifactRepository(ArtifactRepository):
