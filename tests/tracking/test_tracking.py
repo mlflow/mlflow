@@ -21,13 +21,14 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 
-from tests.projects.utils import tracking_uri_mock
+# pylint: disable=unused-argument
 
 
 def test_create_experiment(tracking_uri_mock):
     with pytest.raises(TypeError):
-        mlflow.create_experiment()
+        mlflow.create_experiment()  # pylint: disable=no-value-for-parameter
 
     with pytest.raises(Exception):
         mlflow.create_experiment(None)
@@ -73,7 +74,7 @@ def test_create_experiments_with_bad_name_types(name):
 
 def test_set_experiment(tracking_uri_mock, reset_active_experiment):
     with pytest.raises(TypeError):
-        mlflow.set_experiment()
+        mlflow.set_experiment()  # pylint: disable=no-value-for-parameter
 
     with pytest.raises(Exception):
         mlflow.set_experiment(None)
@@ -110,7 +111,7 @@ def test_list_experiments(tracking_uri_mock):
     def _assert_exps(ids_to_lifecycle_stage, view_type_arg):
         result = set([(exp.experiment_id, exp.lifecycle_stage)
                       for exp in client.list_experiments(view_type=view_type_arg)])
-        assert result == set([(id, stage) for id, stage in ids_to_lifecycle_stage.items()])
+        assert result == set([(exp_id, stage) for exp_id, stage in ids_to_lifecycle_stage.items()])
     experiment_id = mlflow.create_experiment("exp_1")
     assert experiment_id == '1'
     client = tracking.MlflowClient()
@@ -488,7 +489,6 @@ def test_log_artifact(tracking_uri_mock):
 
 def test_with_startrun():
     run_id = None
-    import time
     t0 = int(time.time() * 1000)
     with mlflow.start_run() as active_run:
         assert mlflow.active_run() == active_run
@@ -629,7 +629,7 @@ def test_search_runs(tracking_uri_mock, reset_active_experiment):
 
 
 def test_search_runs_multiple_experiments(tracking_uri_mock, reset_active_experiment):
-    experiment_ids = [mlflow.create_experiment("exp__{}".format(id)) for id in range(1, 4)]
+    experiment_ids = [mlflow.create_experiment("exp__{}".format(exp_id)) for exp_id in range(1, 4)]
     for eid in experiment_ids:
         with mlflow.start_run(experiment_id=eid):
             mlflow.log_metric("m0", 1)

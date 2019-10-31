@@ -1,4 +1,4 @@
 # Copyright 2018 Databricks, Inc.
 
 
-VERSION = '1.3.1'
+VERSION = '1.4.1'

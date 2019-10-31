@@ -1,5 +1,36 @@
 Changelog
 =========
+1.4.0 (2019-10-30)
+-----------------------
+MLflow 1.4.0 includes several major features:
+
+- Model Registry (Beta). Adds an experimental model registry feature, where you can manage, version, and keep lineage of your production models. (#1943, @mparkhe, @Zangr, @sueann, @dbczumar, @smurching, @gioa, @clemens-db, @pogil, @mateiz; #1988, #1989, #1995, #2021, @mparkhe; #1983, #1982, #1967, @dbczumar)
+- TensorFlow updates 
+
+  - MLflow Keras model saving, loading, and logging has been updated to be compatible with TensorFlow 2.0.  (#1927, @juntai-zheng)
+  - Autologging for ``tf.estimator`` and ``tf.keras`` models has been updated to be compatible with TensorFlow 2.0. The same functionalities of autologging in TensorFlow 1.x are available in TensorFlow 2.0, namely when fitting ``tf.keras`` models and when exporting saved ``tf.estimator`` models. (#1910, @juntai-zheng)
+  - Examples and READMEs for both TensorFlow 1.X and TensorFlow 2.0 have been added to ``mlflow/examples/tensorflow``. (#1946, @juntai-zheng)
+
+More features and improvements:
+
+- [API] Add functions ``get_run``, ``get_experiment``, ``get_experiment_by_name`` to the fluent API (#1923, @fhoering)
+- [UI] Use Plotly as artifact image viewer, which allows zooming and panning (#1934, @harupy)
+- [UI] Support deleting tags from the run details page (#1933, @harupy)
+- [UI] Enable scrolling to zoom in metric and run comparison plots (#1929, @harupy)
+- [Artifacts] Add support of viewfs URIs for HDFS federation for artifacts (#1947, @t-henri)
+- [Models] Spark UDFs can now be called with struct input if the underlying spark implementation supports it. The data is passed as a pandas DataFrame with column names matching those in the struct. (#1882, @tomasatdatabricks)
+- [Models] Spark models will now load faster from DFS by skipping unnecessary copies (#2008, @tomasatdatabricks)
+
+Bug fixes and documentation updates:
+
+- [Projects] Make detection of ``MLproject`` files case-insensitive (#1981, @smurching)
+- [UI] Fix a bug where viewing metrics containing forward-slashes in the name would break the MLflow UI (#1968, @smurching)
+- [CLI] ``models serve`` command now works in Windows (#1949, @rboyes)
+- [Scoring] Fix a dependency installation bug in Java MLflow model scoring server (#1913, @smurching)
+
+Small bug fixes and doc updates (#1932, #1935, @harupy; #1907, @marnixkoops; #1911, @HackyRoot; #1931, @jmcarp; #2007, @deniskovalenko; #1966, #1955, #1952, @Djailla; #1915, @sueann; #1978, #1894, @smurching; #1940, #1900, #1904, @mparkhe; #1914, @jerrygb; #1857, @mengxr; #2009, @dbczumar)
+
+
 1.3 (2019-09-30)
 ------------------
 MLflow 1.3.0 includes several major features and improvements:
@@ -35,6 +66,7 @@ Bug fixes and documentation updates:
 - Streamlined docs for getting started with hosted MLflow (#1834, #1785, #1860 @smurching)
 
 Small bug fixes and doc updates (#1848, @pingsutw; #1868, @iver56; #1787, @apurvakoti; #1741, #1737, @apurva-koti; #1876, #1861, #1852, #1801, #1754, #1726, #1780, #1807 @smurching; #1859, #1858, #1851, @tomasatdatabricks; #1841, @ankitmathur-db; #1744, #1746, #1751, @mateiz; #1821, #1730, @dbczumar; #1727, cfmcgrady; #1716, @axsaucedo; #1714, @fhoering; #1405, @ancasarb; #1502, @jimthompson5802; #1720, jke-zq; #1871, @mehdi254; #1782, @stbof)
+
 
 1.2 (2019-08-09)
 ----------------
