@@ -151,7 +151,7 @@ with mlflow.start_run():
     # Log our parameters into mlflow
     for key, value in vars(args).items():
         mlflow.log_param(key, value)
-    
+
     # Create a SummaryWriter to write TensorBoard events locally
     output_dir = dirpath = tempfile.mkdtemp()
     writer = SummaryWriter(output_dir)
