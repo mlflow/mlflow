@@ -451,8 +451,10 @@ class __MLflowTfKerasCallback(Callback):
         Records model structural information as params after training finishes.
     """
     def __init__(self):
+        self.auto_end_run = False
         if mlflow.active_run() is None:
             mlflow.start_run()
+            self.auto_end_run = True
 
     def __enter__(self):
         pass
@@ -480,6 +482,8 @@ class __MLflowTfKerasCallback(Callback):
         summary = '\n'.join(l)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
+        if self.auto_end_run:
+            mlflow.end_run()
 
 
 class __MLflowTfKeras2Callback(Callback):
@@ -488,8 +492,10 @@ class __MLflowTfKeras2Callback(Callback):
         Records model structural information as params after training finishes.
     """
     def __init__(self):
+        self.auto_end_run = False
         if mlflow.active_run() is None:
             mlflow.start_run()
+            self.auto_end_run = True
 
     def __enter__(self):
         pass
@@ -511,6 +517,8 @@ class __MLflowTfKeras2Callback(Callback):
         summary = '\n'.join(l)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
+        if self.auto_end_run:
+            mlflow.end_run()
 
 
 def _log_artifacts_with_warning(**kwargs):
