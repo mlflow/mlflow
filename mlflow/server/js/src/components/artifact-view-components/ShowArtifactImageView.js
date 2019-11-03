@@ -24,6 +24,7 @@ class ShowArtifactImageView extends Component {
     this.fetchImage();
   };
 
+  // The CI should fail because this code violates arrow-parens='always'.
   componentDidUpdate = prevProps => {
     if (prevProps.path !== this.props.path) {
       this.fetchImage();
