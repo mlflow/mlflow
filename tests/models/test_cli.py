@@ -231,11 +231,11 @@ def test_predict(iris_data, sk_model):
         assert all(expected == actual)
 
 
-def test_prepare_env_passes(iris_data, sk_model):
+def test_prepare_env_passes(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
 
-    with TempDir(chdr=True) as tmp:
+    with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(sk_model, "model")
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
@@ -256,11 +256,11 @@ def test_prepare_env_passes(iris_data, sk_model):
         assert p.wait() == 0
 
 
-def test_prepare_env_fails(iris_data, sk_model):
+def test_prepare_env_fails(sk_model):
     if no_conda:
         pytest.skip("This test requires conda.")
 
-    with TempDir(chdr=True) as tmp:
+    with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(sk_model, "model", conda_env={"env": "Bad conda env"})
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
