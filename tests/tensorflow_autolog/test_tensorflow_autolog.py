@@ -205,10 +205,20 @@ def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
 
 
 @pytest.mark.large
-def test_autolog_ends_self_created_run():
+def test_keras_autolog_ends_auto_created_run():
     pass
 
 
 @pytest.mark.large
-def test_autolog_persists_manually_created_run():
+def test_keras_autolog_persists_manually_created_run():
+    pass
+
+
+@pytest.mark.large
+def test_estimator_autolog_ends_auto_created_run():
+    pass
+
+
+@pytest.mark.large
+def test_estimator_autolog_ends_auto_created_run():
     pass

@@ -82,7 +82,7 @@ def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, rando
 
 
 @pytest.mark.large
-def test_autolog_ends_self_created_run():
+def test_autolog_ends_auto_created_run():
     pass
 
 
