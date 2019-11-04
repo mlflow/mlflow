@@ -168,7 +168,8 @@ def create_sqlalchemy_engine(db_uri):
     pool_size = os.environ.get(MLFLOW_SQLALCHEMYSTORE_POOL_SIZE, "")
     pool_max_overflow = os.environ.get(MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW, "")
     pool_kwargs = {}
-    # Send argument only if they have been injected. Some engine does not support them (for example sqllite)
+    # Send argument only if they have been injected.
+    # Some engine does not support them (for example sqllite)
     if pool_size:
         pool_kwargs['pool_size'] = int(pool_size)
     if pool_max_overflow:
