@@ -1,7 +1,6 @@
 import time
 
 import logging
-import os
 import sqlalchemy
 
 from mlflow.entities.model_registry.model_version_stages import get_canonical_stage, \
@@ -26,8 +25,6 @@ _logger = logging.getLogger(__name__)
 # https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.configure_mappers
 # and https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.mapper.Mapper
 sqlalchemy.orm.configure_mappers()
-
-MLFLOW_SQLALCHEMYSTORE_POOL_SIZE = "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE"
 
 
 def now():
@@ -67,10 +64,7 @@ class SqlAlchemyStore(AbstractStore):
         super(SqlAlchemyStore, self).__init__()
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
-        pool_size = int(os.environ.get(MLFLOW_SQLALCHEMYSTORE_POOL_SIZE, "2"))
-        _logger.info("Create SQLAlchemy engine with pool_size=%d", pool_size)
-        self.engine = sqlalchemy.create_engine(db_uri, pool_pre_ping=True,
-                                               pool_size=pool_size, max_overflow=0)
+        self.engine = mlflow.store.db.utils.create_sqlalchemy_engine(db_uri)
         Base.metadata.create_all(self.engine)
         # Verify that all model registry tables exist.
         SqlAlchemyStore._verify_registry_tables_exist(self.engine)
