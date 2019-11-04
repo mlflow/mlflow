@@ -644,10 +644,16 @@ def autolog(every_n_iter=100):
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_saved_model')
         serialized = original(self, *args, **kwargs)
+        if not mlflow.active_run():
+            end_run = True
+        else:
+            end_run = False
         try_mlflow_log(log_model, tf_saved_model_dir=serialized.decode('utf-8'),
                        tf_meta_graph_tags=[tag_constants.SERVING],
                        tf_signature_def_key='predict',
                        artifact_path='model')
+        if end_run:
+            mlflow.end_run()
         return serialized
 
     @gorilla.patch(tensorflow.estimator.Estimator)
@@ -655,10 +661,16 @@ def autolog(every_n_iter=100):
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
         serialized = original(self, *args, **kwargs)
+        if not mlflow.active_run():
+            auto_end_run = True
+        else:
+            auto_end_run = False
         try_mlflow_log(log_model, tf_saved_model_dir=serialized.decode('utf-8'),
                        tf_meta_graph_tags=[tag_constants.SERVING],
                        tf_signature_def_key='predict',
                        artifact_path='model')
+        if auto_end_run:
+            mlflow.end_run()
         return serialized
 
     @gorilla.patch(tensorflow.keras.Model)
