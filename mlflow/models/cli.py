@@ -7,7 +7,7 @@ from mlflow.models import Model
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils import cli_args
+from mlflow.utils import cli_args, experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -97,9 +97,11 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
 @cli_args.INSTALL_MLFLOW
 def prepare_env(model_uri, no_conda, install_mlflow):
     """
-    Performs any preparation necessary to predict or serve the model, for example
+    **EXPERIMENTAL**: Performs any preparation necessary to predict or serve the model, for example
     downloading dependencies or initializing a conda environment. After preparation,
     calling predict or serve should be fast.
+
+    This method is experimental and may be removed in a future release without warning.
     """
     return _get_flavor_backend(model_uri, no_conda=no_conda,
                                install_mlflow=install_mlflow).prepare_env(model_uri=model_uri)
