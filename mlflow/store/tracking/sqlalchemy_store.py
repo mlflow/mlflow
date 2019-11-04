@@ -627,19 +627,6 @@ class SqlAlchemyStore(AbstractStore):
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
-    def update_artifacts_location(self, run_id, new_artifacts_location):
-        """
-        Update the location of artifacts for the specified run
-
-        :param run_id: String id for the run
-        :param new_artifact_location: String new artifact location
-
-        :return: None
-        """
-        with self.ManagedSessionMaker() as session:
-            run = session.query(SqlRun).filter_by(run_uuid=run_id).first()
-            run.artifact_uri = new_artifacts_location
-
 
 def _get_attributes_filtering_clauses(parsed):
     clauses = []

@@ -1431,14 +1431,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                              ViewType.ALL, max_results=1000)
         assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
 
-    def test_get_attribute_name(self):
-        assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
-        assert(models.SqlRun.get_attribute_name("status") == "status")
-
-        # we want this to break if a searchable attribute has been added
-        # and not referred to in this test
-        assert(len(entities.RunInfo.get_searchable_attributes()) == 2)
-
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
     """
@@ -1529,3 +1521,12 @@ class TestZeroValueInsertion(unittest.TestCase):
         SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,
                                                                              mock_session)
         mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments OFF;")
+
+
+def test_get_attribute_name():
+    assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
+    assert(models.SqlRun.get_attribute_name("status") == "status")
+
+    # we want this to break if a searchable attribute has been added
+    # and not referred to in this test
+    assert(len(entities.RunInfo.get_searchable_attributes()) == 2)
