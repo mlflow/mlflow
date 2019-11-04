@@ -112,8 +112,8 @@ export class EditableTable extends React.Component {
             </a>
             <Popconfirm
               title="Are you sure you want to delete this tag？"
-              okText="Yes"
-              cancelText="No"
+              okText="Confirm"
+              cancelText="Cancel"
               onConfirm={() => this.delete(record.key)}
             >
               <a disabled={editingKey !== ''}>
