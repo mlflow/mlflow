@@ -48,7 +48,7 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
         previous_version = tags.get(mlflow_tags.MLFLOW_GIT_COMMIT, None)
         if git_commit != previous_version:
             eprint(("Run matched, but has a different source version, so skipping "
-                    "(found=%s, expected=%s)") % previous_version, git_commit)
+                    "(found=%s, expected=%s)") % (previous_version, git_commit))
             continue
         return client.get_run(run_info.run_id)
     eprint("No matching run has been found.")
