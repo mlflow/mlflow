@@ -117,7 +117,7 @@ export class EditableTable extends React.Component {
               onConfirm={() => this.delete(record.key)}
             >
               <a disabled={editingKey !== ''}>
-                <Icon type="delete" />
+                <i className="fas fa-times"/>
               </a>
             </Popconfirm>
           </span>
