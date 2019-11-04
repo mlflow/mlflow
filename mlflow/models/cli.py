@@ -7,7 +7,7 @@ from mlflow.models import Model
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.file_utils import TempDir
-from mlflow.utils import cli_args, experimental
+from mlflow.utils import cli_args
 
 _logger = logging.getLogger(__name__)
 
