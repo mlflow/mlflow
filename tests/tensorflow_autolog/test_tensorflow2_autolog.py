@@ -172,3 +172,13 @@ def duplicate_autolog_tf_estimator_run():
 def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
     metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)
+
+
+@pytest.mark.large
+def test_autolog_ends_self_created_run():
+    pass
+
+
+@pytest.mark.large
+def test_autolog_persists_manually_created_run():
+    pass

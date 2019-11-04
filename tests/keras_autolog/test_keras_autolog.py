@@ -79,3 +79,14 @@ def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, rando
     model = mlflow.keras.load_model("runs:/" + keras_random_data_run.info.run_id +
                                     "/model")
     model.predict(random_train_data)
+
+
+@pytest.mark.large
+def test_autolog_ends_self_created_run():
+    pass
+
+
+@pytest.mark.large
+def test_autolog_persists_manually_created_run():
+    pass
+
