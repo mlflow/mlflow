@@ -814,6 +814,51 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                             order_by=["metrics.x desc"])]
         assert ["inf", "1000", "0", "-1000", "-inf", "nan"] == sorted_runs_desc
 
+    def test_order_by_attributes(self):
+        experiment_id = self.store.create_experiment('order_by_attributes')
+
+        def create_runs(end_times):
+            start_time = 123
+            for end in end_times:
+                self.store.create_run(
+                    experiment_id,
+                    user_id="MrDuck",
+                    start_time=start_time,
+                    end_time=end,
+                    tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)]).info.run_id
+                start_time += 1
+
+        create_runs([234, None, 456, -123, 789, 123])
+
+        # asc
+        sorted_runs_asc = [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=["attribute.end_time asc"])]
+
+        assert ["-123", "123", "234", "456", "789", None] == sorted_runs_asc
+
+        # desc
+        sorted_runs_desc = [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=["attribute.end_time desc"])]
+        assert ["789", "456", "234", "123", "-123", None] == sorted_runs_desc
+
+        # Sort priority correctly handled
+        sorted_runs_start = [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=["attribute.start_time asc",
+                                                      "attribute.end_time desc"])]
+        assert ["234", None, "456", "-123", "789", "123"] == sorted_runs_start
+
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
         runs = [self._run_factory(self._get_run_configs(exp)).info.run_id

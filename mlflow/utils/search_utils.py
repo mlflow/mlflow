@@ -290,7 +290,7 @@ class SearchUtils(object):
         return [run for run in runs if run_matches(run)]
 
     @classmethod
-    def _parse_order_by(cls, order_by):
+    def parse_order_by(cls, order_by):
         try:
             parsed = sqlparse.parse(order_by)
         except Exception:
@@ -349,7 +349,7 @@ class SearchUtils(object):
         # NB: We rely on the stability of Python's sort function, so that we can apply
         # the ordering conditions in reverse order.
         for order_by_clause in reversed(order_by_list):
-            (key_type, key, ascending) = cls._parse_order_by(order_by_clause)
+            (key_type, key, ascending) = cls.parse_order_by(order_by_clause)
             # pylint: disable=cell-var-from-loop
             runs = sorted(runs,
                           key=lambda run: cls._get_value_for_sort(run, key_type, key, ascending),
