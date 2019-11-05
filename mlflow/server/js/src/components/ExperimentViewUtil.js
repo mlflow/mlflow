@@ -340,8 +340,7 @@ export default class ExperimentViewUtil {
     }
   }
 
-  static getRowRenderMetadata({ runInfos, tagsList, sortState, runsExpanded,
-                                metricsList, paramsList }) {
+  static getRowRenderMetadata({ runInfos, tagsList, runsExpanded }) {
     const runIdToIdx = {};
     runInfos.forEach((r, idx) => {
       runIdToIdx[r.run_uuid] = idx;
