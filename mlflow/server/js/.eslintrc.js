@@ -34,7 +34,7 @@ module.exports = {
       },
     },
     'react': {
-      'version': '0.14.8',
+      'version': 'detect',
     },
   },
   'rules': {
