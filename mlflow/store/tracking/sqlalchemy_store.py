@@ -591,7 +591,7 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             parsed_filters = SearchUtils.parse_search_filter(filter_string)
-            parsed_orderby, joins = get_orderby_clauses(order_by_list)
+            parsed_orderby, joins = get_orderby_clauses(order_by_list, session)
 
             query = session.query(SqlRun)
             for s in _get_sqlalchemy_filter_clauses(parsed_filters, session):
@@ -693,38 +693,46 @@ def _get_sqlalchemy_filter_clauses(parsed, session):
     return filters
 
 
-def get_orderby_clauses(order_by_list):
+def get_orderby_clauses(order_by_list, session):
     """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
     Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
     """
 
     clauses = []
-    additional_joins = set()
+    ordering_joins = set()
 
-    for order_by_clause in order_by_list:
-        (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
-        order_value = None
-        if key_type == SearchUtils.ATTRIBUTE_IDENTIFIER:
-            # sqlite does not support NULLS LAST expression, so we sort
-            # first by presence of the field, then by actual value
-            order_value = getattr(SqlRun, key)
-            clauses.append(sql.case([(order_value.is_(None), 1)],
-                                    else_=0))
-        elif SearchUtils.is_metric(key_type, '<'):
-            order_value = SqlLatestMetric.value
-            clauses.append(sql.case([
-                (SqlLatestMetric.key != key, 2),
-                (sql.and_(SqlLatestMetric.key == key, SqlLatestMetric.is_nan.is_(True)), 1),
-                (sql.and_(SqlLatestMetric.key == key, order_value.is_(None)), 1)
-            ],
-                                    else_=0))
-            additional_joins.add(SqlLatestMetric)
-        if order_value:
-            if ascending:
-                clauses.append(order_value)
-            else:
-                clauses.append(order_value.desc())
+    if order_by_list:
+        for order_by_clause in order_by_list:
+            (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
+            order_value = None
+            if key_type == SearchUtils.ATTRIBUTE_IDENTIFIER:
+                # sqlite does not support NULLS LAST expression, so we sort
+                # first by presence of the field, then by actual value
+                order_value = getattr(SqlRun, key)
+                clauses.append(sql.case([(order_value.is_(None), 1)],
+                                        else_=0))
+            elif SearchUtils.is_metric(key_type, '<'):  # any valid comparator
+                # build a subquery first because we will join it in the main request so that the
+                # metric we want to sort on is available when we apply the sorting clause
+                subquery = session \
+                    .query(SqlLatestMetric) \
+                    .filter(SqlLatestMetric.key == key) \
+                    .subquery()
+                ordering_joins.add(subquery)
+
+                order_value = subquery.c.value
+                clauses.append(sql.case([
+                        (subquery.c.is_nan.is_(True), 1),
+                        (order_value.is_(None), 1)
+                        ],
+                        else_=0))
+
+            if order_value is not None:
+                if ascending:
+                    clauses.append(order_value)
+                else:
+                    clauses.append(order_value.desc())
 
     clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
-    return clauses, additional_joins
+    return clauses, ordering_joins
