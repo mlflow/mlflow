@@ -54,8 +54,7 @@ if __name__ == "__main__":
 
 
     csv_url = sys.argv[1] if len(sys.argv) > 1 else \
-        logger.error(
-            "csv_url is a required arg")
+        'https://raw.githubusercontent.com/facebook/prophet/e21a05f4f9290649255a2a306855e8b4620816d7/examples/example_wp_log_peyton_manning.csv'
     rolling_window = float(sys.argv[2]) if len(sys.argv) > 2 else 0.1
 
     # Read the csv file from the URL
