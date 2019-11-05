@@ -11,34 +11,15 @@ import ArtifactPage from './ArtifactPage';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import { Experiment } from '../sdk/MlflowMessages';
 import Utils from '../utils/Utils';
-import { MLFLOW_INTERNAL_PREFIX } from "../utils/TagUtils";
-import { NoteInfo } from "../utils/NoteUtils";
+import { NOTE_CONTENT_TAG, NoteInfo } from "../utils/NoteUtils";
 import BreadcrumbTitle from "./BreadcrumbTitle";
 import RenameRunModal from "./modals/RenameRunModal";
-import NoteEditorView from "./NoteEditorView";
-import NoteShowView from "./NoteShowView";
-
-
-const NOTES_KEY = 'notes';
-const PARAMETERS_KEY = 'parameters';
-const METRICS_KEY = 'metrics';
-const ARTIFACTS_KEY = 'artifacts';
-const TAGS_KEY = 'tags';
+import EditableTagsTableView from './EditableTagsTableView';
+import { Icon, Descriptions } from 'antd';
+import { CollapsibleSection } from '../common/components/CollapsibleSection';
+import { EditableNote } from '../common/components/EditableNote';
 
 class RunView extends Component {
-  constructor(props) {
-    super(props);
-    this.onClickExpander = this.onClickExpander.bind(this);
-    this.getExpanderClassName = this.getExpanderClassName.bind(this);
-    this.handleRenameRunClick = this.handleRenameRunClick.bind(this);
-    this.hideRenameRunModal = this.hideRenameRunModal.bind(this);
-    this.handleExposeNotesEditorClick = this.handleExposeNotesEditorClick.bind(this);
-    this.handleSubmittedNote = this.handleSubmittedNote.bind(this);
-    this.handleNoteEditorViewCancel = this.handleNoteEditorViewCancel.bind(this);
-    this.renderNoteSection = this.renderNoteSection.bind(this);
-    this.state.showTags = getVisibleTagValues(props.tags).length > 0;
-  }
-
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     run: PropTypes.object.isRequired,
@@ -50,110 +31,36 @@ class RunView extends Component {
     getMetricPagePath: PropTypes.func.isRequired,
     runDisplayName: PropTypes.string.isRequired,
     runName: PropTypes.string.isRequired,
+    handleSetRunTag: PropTypes.func.isRequired,
   };
 
   state = {
-    showNotesEditor: false,
-    showNotes: true,
-    showParameters: true,
-    showMetrics: true,
-    showArtifacts: true,
-    showTags: true,
     showRunRenameModal: false,
+    showNoteEditor: false,
+    showTags: Utils.getVisibleTagValues(this.props.tags).length > 0,
   };
 
-  onClickExpander(key) {
-    switch (key) {
-      case NOTES_KEY: {
-        this.setState({ showNotes: !this.state.showNotes });
-        return;
-      }
-      case PARAMETERS_KEY: {
-        this.setState({ showParameters: !this.state.showParameters });
-        return;
-      }
-      case METRICS_KEY: {
-        this.setState({ showMetrics: !this.state.showMetrics });
-        return;
-      }
-      case TAGS_KEY: {
-        this.setState({ showTags: !this.state.showTags });
-        return;
-      }
-      case ARTIFACTS_KEY: {
-        this.setState({ showArtifacts: !this.state.showArtifacts });
-        return;
-      }
-      default:
-    }
-  }
-
-  getExpanderClassName(key) {
-    switch (key) {
-      case NOTES_KEY: {
-        return this.state.showNotes ? 'fa-caret-down' : 'fa-caret-right';
-      }
-      case PARAMETERS_KEY: {
-        return this.state.showParameters ? 'fa-caret-down' : 'fa-caret-right';
-      }
-      case METRICS_KEY: {
-        return this.state.showMetrics ? 'fa-caret-down' : 'fa-caret-right';
-      }
-      case TAGS_KEY: {
-        return this.state.showTags ? 'fa-caret-down' : 'fa-caret-right';
-      }
-      case ARTIFACTS_KEY: {
-        return this.state.showArtifacts ? 'fa-caret-down' : 'fa-caret-right';
-      }
-      default: {
-        return null;
-      }
-    }
-  }
-
-  handleExposeNotesEditorClick() {
-    this.setState({ showNotesEditor: true, showNotes: true });
-  }
-
-  handleNoteEditorViewCancel() {
-    this.setState({ showNotesEditor: false });
-  }
-
-  handleRenameRunClick() {
+  handleRenameRunClick = () => {
     this.setState({ showRunRenameModal: true });
-  }
+  };
 
-  hideRenameRunModal() {
+  hideRenameRunModal = () => {
     this.setState({ showRunRenameModal: false });
-  }
-
-  renderNoteSection(noteInfo) {
-    if (this.state.showNotes) {
-      if (this.state.showNotesEditor) {
-        return <NoteEditorView
-            runUuid={this.props.runUuid}
-            noteInfo={noteInfo}
-            submitCallback={this.handleSubmittedNote}
-            cancelCallback={this.handleNoteEditorViewCancel}/>;
-      } else if (noteInfo) {
-        return <NoteShowView content={noteInfo.content}/>;
-      } else {
-        return <em>None</em>;
-      }
-    }
-    return null;
-  }
+  };
 
   getRunCommand() {
-    const { run, params } = this.props;
+    const { tags, params } = this.props;
     let runCommand = null;
-    if (run.source_type === "PROJECT") {
-      runCommand = 'mlflow run ' + shellEscape(run.source_name);
-      if (run.source_version && run.source_version !== "latest") {
-        runCommand += ' -v ' + shellEscape(run.source_version);
+    const sourceName = Utils.getSourceName(tags);
+    const sourceVersion = Utils.getSourceVersion(tags);
+    const entryPointName = Utils.getEntryPointName(tags);
+    if (Utils.getSourceType(tags) === "PROJECT") {
+      runCommand = 'mlflow run ' + shellEscape(sourceName);
+      if (sourceVersion && sourceVersion !== "latest") {
+        runCommand += ' -v ' + shellEscape(sourceVersion);
       }
-      if (run.entry_point_name && run.entry_point_name !== "main") {
-        runCommand += ' -e ' + shellEscape(run.entry_point_name);
+      if (entryPointName && entryPointName !== "main") {
+        runCommand += ' -e ' + shellEscape(entryPointName);
       }
       Object.values(params).sort().forEach(p => {
         runCommand += ' -P ' + shellEscape(p.key + '=' + p.value);
@@ -162,12 +69,32 @@ class RunView extends Component {
     return runCommand;
   }
 
+  handleCancelEditNote = () => {
+    this.setState({ showNoteEditor: false });
+  };
+
+  handleSubmitEditNote = (note) => {
+    return this.props
+      .handleSetRunTag(NOTE_CONTENT_TAG, note)
+      .then(() => {
+        this.setState({ showNoteEditor: false });
+      });
+  };
+
+  startEditingDescription = (e) => {
+    e.stopPropagation();
+    this.setState({ showNoteEditor: true });
+  };
+
   render() {
-    const { run, params, tags, latestMetrics, getMetricPagePath } = this.props;
-    const noteInfo = NoteInfo.fromRunTags(tags);
+    const { runUuid, run, params, tags, latestMetrics, getMetricPagePath } = this.props;
+    const { showNoteEditor } = this.state;
+    const noteInfo = NoteInfo.fromTags(tags);
     const startTime = run.getStartTime() ? Utils.formatTimestamp(run.getStartTime()) : '(unknown)';
     const duration =
       run.getStartTime() && run.getEndTime() ? run.getEndTime() - run.getStartTime() : null;
+    const queryParams = window.location && window.location.search ?
+      window.location.search : "";
     const tableStyles = {
       table: {
         width: 'auto',
@@ -180,8 +107,10 @@ class RunView extends Component {
       }
     };
     const runCommand = this.getRunCommand();
+    const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
     return (
       <div className="RunView">
+        {/* Breadcrumbs */}
         <div className="header-container">
           <BreadcrumbTitle
             experiment={this.props.experiment}
@@ -201,148 +130,93 @@ class RunView extends Component {
              </Dropdown.Menu>
           </Dropdown>
           <RenameRunModal
-            runUuid={this.props.runUuid}
+            runUuid={runUuid}
             experimentId={this.props.experimentId}
             onClose={this.hideRenameRunModal}
             runName={this.props.runName}
             open={this.state.showRunRenameModal} />
         </div>
-        <div className="run-info-container">
-          <div className="run-info">
-            <span className="metadata-header">Date: </span>
-            <span className="metadata-info">{startTime}</span>
-          </div>
-          <div className="run-info">
-            <span className="metadata-header">Run ID: </span>
-            <span className="metadata-info">{run.getRunUuid()}</span>
-          </div>
-          <div className="run-info">
-            <span className="metadata-header">Source: </span>
-            <span className="metadata-info">
-              {Utils.renderSourceTypeIcon(run.source_type)}
-              {Utils.renderSource(run, tags)}
-            </span>
-          </div>
-          {run.source_version ?
-            <div className="run-info">
-              <span className="metadata-header">Git Commit: </span>
-              <span className="metadata-info">{Utils.renderVersion(run, false)}</span>
-            </div>
-            : null
-          }
-          {run.source_type === "PROJECT" ?
-            <div className="run-info">
-              <span className="metadata-header">Entry Point: </span>
-              <span className="metadata-info">{run.entry_point_name || "main"}</span>
-            </div>
-            : null
-          }
-          <div className="run-info">
-            <span className="metadata-header">User: </span>
-            <span className="metadata-info">{run.getUserId()}</span>
-          </div>
-          {duration !== null ?
-            <div className="run-info">
-              <span className="metadata-header">Duration: </span>
-              <span className="metadata-info">{Utils.formatDuration(duration)}</span>
-            </div>
-            : null
-          }
-          {tags['mlflow.parentRunId'] !== undefined ?
-            <div className="run-info">
-              <span className="metadata-header">Parent Run: </span>
-              <span className="metadata-info">
-                <Link to={Routes.getRunPageRoute(this.props.experimentId,
-                    tags['mlflow.parentRunId'].value)}>
-                  {tags['mlflow.parentRunId'].value}
-                </Link>
-              </span>
-            </div>
-            : null
-          }
-          {tags['mlflow.databricks.runURL'] !== undefined ?
-            <div className="run-info">
-              <span className="metadata-header">Job Output: </span>
-              <span className="metadata-info">
-                <a href={tags['mlflow.databricks.runURL'].value} target="_blank">Logs</a>
-              </span>
-            </div>
-            : null
-          }
-        </div>
-        {runCommand ?
-          <div className="RunView-info">
-            <h2>Run Command</h2>
-            <textarea className="run-command text-area" readOnly value={runCommand}/>
-          </div>
-          : null
-        }
+
+        {/* Metadata List */}
+        <Descriptions className='metadata-list'>
+          <Descriptions.Item label='Date'>{startTime}</Descriptions.Item>
+          <Descriptions.Item label='Source'>
+            {Utils.renderSourceTypeIcon(Utils.getSourceType(tags))}
+            {Utils.renderSource(tags, queryParams)}
+          </Descriptions.Item>
+          {Utils.getSourceVersion(tags) ? (
+            <Descriptions.Item label='Git Commit'>
+              {Utils.renderVersion(tags, false)}
+            </Descriptions.Item>
+          ) : null}
+          {Utils.getSourceType(tags) === "PROJECT" ? (
+            <Descriptions.Item label='Entry Point'>
+              {Utils.getEntryPointName(tags) || "main"}
+            </Descriptions.Item>
+          ) : null}
+          <Descriptions.Item label='User'>{Utils.getUser(run, tags)}</Descriptions.Item>
+          {duration !== null ? (
+            <Descriptions.Item label='Duration'>{Utils.formatDuration(duration)}</Descriptions.Item>
+          ) : null}
+          {tags['mlflow.parentRunId'] !== undefined ? (
+            <Descriptions.Item label='Parent Run'>
+              <Link to={Routes.getRunPageRoute(this.props.experimentId,
+                tags['mlflow.parentRunId'].value)}>
+                {tags['mlflow.parentRunId'].value}
+              </Link>
+            </Descriptions.Item>
+          ) : null}
+          {tags['mlflow.databricks.runURL'] !== undefined ? (
+            <Descriptions.Item label='Job Output'>
+              <a
+                href={Utils.setQueryParams(tags['mlflow.databricks.runURL'].value, queryParams)}
+                target="_blank"
+              >
+                Logs
+              </a>
+            </Descriptions.Item>
+          ) : null}
+        </Descriptions>
+
+        {/* Page Sections */}
         <div className="RunView-info">
-          <h2 className="table-name">
-            <span
-              onClick={this.state.showNotesEditor ?
-                undefined : () => this.onClickExpander(NOTES_KEY)}
-              className="RunView-notes-headline">
-              <i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/>{' '}Notes
-            </span>
-            {!this.state.showNotes || !this.state.showNotesEditor ?
-              <span>{' '}
-                <a onClick={this.handleExposeNotesEditorClick}>
-                  <i className={`fa fa-edit`}/>
-                </a>
-              </span>
-              :
-              null
-            }
-          </h2>
-          {this.renderNoteSection(noteInfo)}
-          <h2 onClick={() => this.onClickExpander(PARAMETERS_KEY)} className="table-name">
-            <span ><i className={`fa ${this.getExpanderClassName(PARAMETERS_KEY)}`}/></span>
-            {' '}Parameters
-          </h2>
-          {this.state.showParameters ?
+          {runCommand ? (
+            <CollapsibleSection title='Run Command'>
+              <textarea className="run-command text-area" readOnly value={runCommand}/>
+            </CollapsibleSection>
+          ) : null}
+          <CollapsibleSection
+            title={<span>Notes {showNoteEditor ? null : editIcon}</span>}
+            forceOpen={showNoteEditor}
+          >
+            <EditableNote
+              defaultMarkdown={noteInfo && noteInfo.content}
+              onSubmit={this.handleSubmitEditNote}
+              onCancel={this.handleCancelEditNote}
+              showEditor={showNoteEditor}
+            />
+          </CollapsibleSection>
+          <CollapsibleSection title='Parameters'>
             <HtmlTableView
               columns={["Name", "Value"]}
               values={getParamValues(params)}
               styles={tableStyles}
-            /> :
-            null
-          }
-          <h2 onClick={() => this.onClickExpander(METRICS_KEY)} className="table-name">
-            <span><i className={`fa ${this.getExpanderClassName(METRICS_KEY)}`}/></span>
-            {' '}Metrics
-          </h2>
-          {this.state.showMetrics ?
+            />
+          </CollapsibleSection>
+          <CollapsibleSection title='Metrics'>
             <HtmlTableView
               columns={["Name", "Value"]}
               values={getMetricValues(latestMetrics, getMetricPagePath)}
               styles={tableStyles}
-            /> :
-            null
-          }
-          <h2 onClick={() => this.onClickExpander(TAGS_KEY)} className="table-name">
-            <span><i className={`fa ${this.getExpanderClassName(TAGS_KEY)}`}/></span>
-            {' '}Tags
-          </h2>
-          {this.state.showTags ?
-            <HtmlTableView
-              columns={["Name", "Value"]}
-              values={getVisibleTagValues(tags)}
-              styles={tableStyles}
-            /> :
-            null
-          }
+            />
+          </CollapsibleSection>
+          <CollapsibleSection title='Tags'>
+            <EditableTagsTableView runUuid={runUuid} tags={tags} />
+          </CollapsibleSection>
+          <CollapsibleSection title='Artifacts'>
+            <ArtifactPage runUuid={runUuid} />
+          </CollapsibleSection>
         </div>
-          <div>
-            <h2 onClick={() => this.onClickExpander(ARTIFACTS_KEY)} className="table-name">
-              <span><i className={`fa ${this.getExpanderClassName(ARTIFACTS_KEY)}`}/></span>
-              {' '}Artifacts
-            </h2>
-            {this.state.showArtifacts ?
-              <ArtifactPage runUuid={this.props.runUuid} isHydrated/> :
-              null
-            }
-          </div>
       </div>
     );
   }
@@ -379,15 +253,6 @@ const getParamValues = (params) => {
   );
 };
 
-const getVisibleTagValues = (tags) => {
-  // Collate tag objects into list of [key, value] lists and filter MLflow-internal tags
-  return Object.values(tags).map((t) =>
-    [t.getKey(), t.getValue()]
-  ).filter(t =>
-    !t[0].startsWith(MLFLOW_INTERNAL_PREFIX)
-  );
-};
-
 const getMetricValues = (latestMetrics, getMetricPagePath) => {
   return Object.values(latestMetrics).sort().map((m) => {
     const key = m.key;
@@ -402,7 +267,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
 };
 
 const shellEscape = (str) => {
-  if (/["\r\n\t ]/.test(str)) {
+  if ((/["\r\n\t ]/).test(str)) {
     return '"' + str.replace(/"/g, '\\"') + '"';
   }
   return str;

@@ -2,7 +2,7 @@
 The ``mlflow.sklearn`` module provides an API for logging and loading scikit-learn models. This
 module exports scikit-learn models with the following flavors:
 
-Python (native) `pickle <http://scikit-learn.org/stable/modules/model_persistence.html>`_ format
+Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persistence.html>`_ format
     This is the main flavor that can be loaded back into scikit-learn.
 
 :py:mod:`mlflow.pyfunc`
@@ -14,28 +14,18 @@ from __future__ import absolute_import
 import os
 import pickle
 import yaml
-import copy
 
-import sklearn
-
+import mlflow
 from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
-import mlflow.tracking
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "sklearn"
-
-DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=[
-        "scikit-learn={}".format(sklearn.__version__),
-    ],
-    additional_pip_deps=None,
-    additional_conda_channels=None,
-)
 
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
@@ -44,6 +34,25 @@ SUPPORTED_SERIALIZATION_FORMATS = [
     SERIALIZATION_FORMAT_PICKLE,
     SERIALIZATION_FORMAT_CLOUDPICKLE
 ]
+
+
+def get_default_conda_env(include_cloudpickle=False):
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model()` and :func:`log_model()`.
+    """
+    import sklearn
+    pip_deps = None
+    if include_cloudpickle:
+        import cloudpickle
+        pip_deps = ["cloudpickle=={}".format(cloudpickle.__version__)]
+    return _mlflow_conda_env(
+        additional_conda_deps=[
+            "scikit-learn={}".format(sklearn.__version__),
+        ],
+        additional_pip_deps=pip_deps,
+        additional_conda_channels=None
+    )
 
 
 def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
@@ -56,8 +65,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -97,6 +106,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
     >>> mlflow.sklearn.save_model(sk_model, sk_path_dir_2,
     >>>                           serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE)
     """
+    import sklearn
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
         raise MlflowException(
                 message=(
@@ -116,11 +126,8 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = copy.deepcopy(DEFAULT_CONDA_ENV)
-        if serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
-            import cloudpickle
-            conda_env["dependencies"].append(
-                {"pip": ["cloudpickle=={}".format(cloudpickle.__version__)]})
+        conda_env = get_default_conda_env(
+            include_cloudpickle=serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE)
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -137,7 +144,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
 
 def log_model(sk_model, artifact_path, conda_env=None,
-              serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
+              serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE, registered_model_name=None):
     """
     Log a scikit-learn model as an MLflow artifact for the current run.
 
@@ -146,8 +153,8 @@ def log_model(sk_model, artifact_path, conda_env=None,
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.sklearn.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.sklearn.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in :func:`get_default_conda_env()`. If `None`, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -166,6 +173,10 @@ def log_model(sk_model, artifact_path, conda_env=None,
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
 
     >>> import mlflow
     >>> import mlflow.sklearn
@@ -185,12 +196,13 @@ def log_model(sk_model, artifact_path, conda_env=None,
                      flavor=mlflow.sklearn,
                      sk_model=sk_model,
                      conda_env=conda_env,
-                     serialization_format=serialization_format)
+                     serialization_format=serialization_format,
+                     registered_model_name=registered_model_name)
 
 
 def _load_model_from_local_file(path):
     """Load a scikit-learn model saved as an MLflow artifact on the local file system."""
-    # TODO: we could validate the SciKit-Learn version here
+    # TODO: we could validate the scikit-learn version here
     with open(path, "rb") as f:
         # Models serialized with Cloudpickle can be deserialized using Pickle; in fact,
         # Cloudpickle.load() is just a redefinition of pickle.load(). Therefore, we do
@@ -201,18 +213,19 @@ def _load_model_from_local_file(path):
 def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+
+    :param path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
     """
-    with open(path, "rb") as f:
-        return pickle.load(f)
+    return _load_model_from_local_file(path)
 
 
 def _save_model(sk_model, output_path, serialization_format):
     """
-    :param sk_model: The Scikit-learn model to serialize.
+    :param sk_model: The scikit-learn model to serialize.
     :param output_path: The file path to which to write the serialized model.
     :param serialization_format: The format in which to serialize the model. This should be one of
-                                 the following: `mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`,
-                                 `mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE`.
+                                 the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
+                                 ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
     """
     with open(output_path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
@@ -227,23 +240,30 @@ def _save_model(sk_model, output_path, serialization_format):
                     error_code=INTERNAL_ERROR)
 
 
-def load_model(path, run_id=None):
+def load_model(model_uri):
     """
-    Load a scikit-learn model from a local file (if ``run_id`` is None) or a run.
+    Load a scikit-learn model from a local file or a run.
 
-    :param path: Local filesystem path or run-relative artifact path to the model saved
-                 by :py:func:`mlflow.sklearn.save_model`.
-    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    :param model_uri: The location, in URI format, of the MLflow model, for example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
+
+    :return: A scikit-learn model.
 
     >>> import mlflow.sklearn
-    >>> sk_model = mlflow.sklearn.load_model("sk_models", run_id="96771d893a5e46159d9f3b49bf9013e2")
+    >>> sk_model = mlflow.sklearn.load_model("runs:/96771d893a5e46159d9f3b49bf9013e2/"sk_models")
     >>> #use Pandas DataFrame to make predictions
     >>> pandas_df = ...
     >>> predictions = sk_model.predict(pandas_df)
     """
-    if run_id is not None:
-        path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    path = os.path.abspath(path)
-    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
-    sklearn_model_artifacts_path = os.path.join(path, flavor_conf['pickled_model'])
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf['pickled_model'])
     return _load_model_from_local_file(path=sklearn_model_artifacts_path)

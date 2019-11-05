@@ -8,46 +8,64 @@ from six.moves import shlex_quote
 
 from mlflow import data
 from mlflow.exceptions import ExecutionException
+from mlflow.utils.file_utils import get_local_path_or_none
 
 
-MLPROJECT_FILE_NAME = "MLproject"
+MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
 
 
+def _find_mlproject(directory):
+    filenames = os.listdir(directory)
+    for filename in filenames:
+        if filename.lower() == MLPROJECT_FILE_NAME:
+            return os.path.join(directory, filename)
+    return None
+
+
 def load_project(directory):
-    mlproject_path = os.path.join(directory, MLPROJECT_FILE_NAME)
+    mlproject_path = _find_mlproject(directory)
+
     # TODO: Validate structure of YAML loaded from the file
-    if os.path.exists(mlproject_path):
+    yaml_obj = {}
+    if mlproject_path is not None:
         with open(mlproject_path) as mlproject_file:
-            yaml_obj = yaml.safe_load(mlproject_file.read())
-    else:
-        yaml_obj = {}
+            yaml_obj = yaml.safe_load(mlproject_file)
+
     project_name = yaml_obj.get("name")
-    if not project_name:
-        project_name = None
-    conda_path = yaml_obj.get("conda_env")
+
+    # Validate config if docker_env parameter is present
     docker_env = yaml_obj.get("docker_env")
     if docker_env and not docker_env.get("image"):
         raise ExecutionException("Docker environment specified but no image "
                                  "attribute found.")
+
+    # Validate config if conda_env parameter is present
+    conda_path = yaml_obj.get("conda_env")
     if conda_path and docker_env:
-        raise ExecutionException("Project cannot contain both a docker and conda environment.")
+        raise ExecutionException("Project cannot contain both a docker and "
+                                 "conda environment.")
+
+    # Parse entry points
     entry_points = {}
     for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
         parameters = entry_point_yaml.get("parameters", {})
         command = entry_point_yaml.get("command")
         entry_points[name] = EntryPoint(name, parameters, command)
+
     if conda_path:
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
             raise ExecutionException("Project specified conda environment file %s, but no such "
                                      "file was found." % conda_env_path)
         return Project(conda_env_path=conda_env_path, entry_points=entry_points,
-                       docker_env=docker_env, name=project_name)
+                       docker_env=docker_env, name=project_name,)
+
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
         return Project(conda_env_path=default_conda_path, entry_points=entry_points,
                        docker_env=docker_env, name=project_name)
+
     return Project(conda_env_path=None, entry_points=entry_points,
                    docker_env=docker_env, name=project_name)
 
@@ -91,10 +109,7 @@ class EntryPoint(object):
         for name in self.parameters:
             if (name not in user_parameters and self.parameters[name].default is None):
                 missing_params.append(name)
-        if len(missing_params) == 1:
-            raise ExecutionException(
-                "No value given for missing parameter: '%s'" % missing_params[0])
-        elif len(missing_params) > 1:
+        if missing_params:
             raise ExecutionException(
                 "No value given for missing parameters: %s" %
                 ", ".join(["'%s'" % name for name in missing_params]))
@@ -158,11 +173,12 @@ class Parameter(object):
         return user_param_value
 
     def _compute_path_value(self, user_param_value, storage_dir):
-        if not data.is_uri(user_param_value):
-            if not os.path.exists(user_param_value):
+        local_path = get_local_path_or_none(user_param_value)
+        if local_path:
+            if not os.path.exists(local_path):
                 raise ExecutionException("Got value %s for parameter %s, but no such file or "
                                          "directory was found." % (user_param_value, self.name))
-            return os.path.abspath(user_param_value)
+            return os.path.abspath(local_path)
         basename = os.path.basename(user_param_value)
         dest_path = os.path.join(storage_dir, basename)
         if dest_path != user_param_value:

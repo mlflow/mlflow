@@ -95,7 +95,6 @@ class CompareRunScatter extends Component {
     });
 
     return (<div className="responsive-table-container">
-      <h2>Scatter Plot</h2>
       <div className="container-fluid">
         <div className="row">
           <form className="col-xs-3">
@@ -140,6 +139,7 @@ class CompareRunScatter extends Component {
               config={{
                 responsive: true,
                 displaylogo: false,
+                scrollZoom: true,
                 modeBarButtonsToRemove: [
                   "sendDataToCloud",
                   "select2d",

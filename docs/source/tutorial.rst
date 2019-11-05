@@ -27,8 +27,14 @@ To run this tutorial, you'll need to:
 
     .. container:: python
 
-       - Install MLflow (via ``pip install mlflow``)
-       - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
+       - Install MLflow and scikit-learn. There are two options for installing these dependencies:
+
+           1. Install MLflow with extra dependencies, including scikit-learn
+              (via ``pip install mlflow[extras]``)
+           2. Install MLflow (via ``pip install mlflow``) and install scikit-learn separately
+              (via ``pip install scikit-learn``)
+
+       - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``cd`` into the ``examples`` directory within your clone of MLflow - we'll use this working
          directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
@@ -37,14 +43,14 @@ To run this tutorial, you'll need to:
 
     .. container:: R
 
-       - Install `conda <https://conda.io/docs/user-guide/install/index.html#>`_
+       - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Install the MLflow package (via ``install.packages("mlflow")``)
        - Install MLflow (via ``mlflow::mlflow_install()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
-       - ``setwd()`` into the ``example`` directory within your clone of MLflow - we'll use this working
-         directory for running the tutorial. We avoid running directly from our clone of MLflow as doing
-         so would cause the tutorial to use MLflow from source, rather than your PyPI installation of
-         MLflow.
+       - ``setwd()`` into the ``examples`` directory within your clone of MLflow - we'll use this
+         working directory for running the tutorial. We avoid running directly from our clone of
+         MLflow as doing so would cause the tutorial to use MLflow from source, rather than your
+         PyPI installation of MLflow.
 
 Training the Model
 ------------------
@@ -99,13 +105,13 @@ First, train a linear regression model that takes two hyperparameters: ``alpha``
 
     .. code-block:: R
 
-        mlflow_run(uri = "tutorial", entry_point = "train.R")
+        mlflow_run(uri = "examples/r_wine", entry_point = "train.R")
 
     Try out some other values for ``alpha`` and ``lambda`` by passing them as arguments to ``train.R``:
 
     .. code-block:: R
 
-        mlflow_run(uri = "", entry_point = "train.R", param_list = list(alpha = 0.1, lambda = 0.5))
+        mlflow_run(uri = "examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.1, lambda = 0.5))
 
     Each time you run the example, MLflow logs information about your experiment runs in the directory ``mlruns``.
 
@@ -127,7 +133,7 @@ as the one that contains the ``mlruns`` run:
 
         mlflow_ui()
 
-and view it at `<http://localhost:5000>`_.
+and view it at http://localhost:5000.
 
 On this page, you can see a list of experiment runs with metrics you can use to compare the models.
 
@@ -155,7 +161,7 @@ Now that you have your training code, you can package it so that other data scie
 
     .. container:: python
 
-      You do this by using :doc:`projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/docs/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
+      You do this by using :doc:`projects` conventions to specify the dependencies and entry points to your code. The ``sklearn_elasticnet_wine/MLproject`` file specifies that the project has the dependencies located in a `Conda environment file <https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-file-manually>`_
       called ``conda.yaml`` and has one entry point that takes two parameters: ``alpha`` and ``l1_ratio``.
 
       .. code-block:: yaml
@@ -229,7 +235,7 @@ Now that you have your training code, you can package it so that other data scie
 
       .. code-block:: r
 
-        mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
+        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       After running this command, MLflow runs your training code in a new R session.
 
@@ -238,7 +244,7 @@ Now that you have your training code, you can package it so that other data scie
       .. code-block:: r
 
         mlflow_restore_snapshot()
-        mlflow_run("examples/r_wine", entry_point = "train.R", param_list = list(alpha = 0.2))
+        mlflow_run("examples/r_wine", entry_point = "train.R", parameters = list(alpha = 0.2))
 
       You can also run a project directly from GitHub. This tutorial is duplicated in the https://github.com/rstudio/mlflow-example repository which you can run with:
 
@@ -247,7 +253,7 @@ Now that you have your training code, you can package it so that other data scie
         mlflow_run(
           "train.R",
           "https://github.com/rstudio/mlflow-example",
-          param_list = list(alpha = 0.2)
+          parameters = list(alpha = 0.2)
         )
 
 Serving the Model
@@ -285,20 +291,20 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: bash
 
-          mlflow pyfunc serve -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
+          mlflow models serve -m /Users/mlflow/mlflow-prototype/mlruns/0/7c1a0d5c42844dcdb8f5191146925174/artifacts/model -p 1234
 
       .. note::
 
-          The version of Python used to create the model must be the same as the one running ``mlflow sklearn``.
+          The version of Python used to create the model must be the same as the one running ``mlflow models serve``.
           If this is not the case, you may see the error
           ``UnicodeDecodeError: 'ascii' codec can't decode byte 0x9f in position 1: ordinal not in range(128)``
           or ``raise ValueError, "unsupported pickle protocol: %d"``.
 
       Once you have deployed the server, you can pass it some sample data and see the
       predictions. The following example uses ``curl`` to send a JSON-serialized pandas DataFrame
-      with the ``split`` orientation to the pyfunc server. For more information about the input data
-      formats accepted by the pyfunc model server, see the
-      :ref:`MLflow deployment tools documentation <pyfunc_deployment>`.
+      with the ``split`` orientation to the model server. For more information about the input data
+      formats accepted by the model server, see the
+      :ref:`MLflow deployment tools documentation <local_model_deployment>`.
 
       .. code-block:: bash
 
@@ -330,7 +336,7 @@ in MLflow saved the model as an artifact within the run.
 
       .. code-block:: r
 
-          mlflow_rfunc_serve(model_path = "model", run_uuid = "1bf3cca7f3814d8fac7be7874de1046d")
+          mlflow_rfunc_serve(model_uri="mlruns/0/c2a7325210ef4242bd4631cec8f92351/artifacts/model", port=8090)
 
       This initializes a REST server and opens a `Swagger <https://swagger.io/>`_ interface to perform predictions against
       the REST API:
@@ -343,21 +349,40 @@ in MLflow saved the model as an artifact within the run.
           the prediction function matches the model, set ``restore = TRUE`` when calling
           ``mlflow_rfunc_serve()``.
 
-      To serve a prediction, run:
+      To serve a prediction, enter this in the Swagger UI::
+
+        {
+          "fixed acidity": 6.2,
+          "volatile acidity": 0.66,
+          "citric acid": 0.48,
+          "residual sugar": 1.2,
+          "chlorides": 0.029,
+          "free sulfur dioxide": 29,
+          "total sulfur dioxide": 75,
+          "density": 0.98,
+          "pH": 3.33,
+          "sulphates": 0.39,
+          "alcohol": 12.8
+        }
+
+      which should return something like::
+
+        [
+          [
+            6.4287492410792
+          ]
+        ]
+
+      Or run:
 
       .. code-block:: bash
 
           curl -X POST "http://127.0.0.1:8090/predict/" -H "accept: application/json" -H "Content-Type: application/json" -d "{\"fixed acidity\": 6.2, \"volatile acidity\": 0.66, \"citric acid\": 0.48, \"residual sugar\": 1.2, \"chlorides\": 0.029, \"free sulfur dioxide\": 29, \"total sulfur dioxide\": 75, \"density\": 0.98, \"pH\": 3.33, \"sulphates\": 0.39, \"alcohol\": 12.8}"
 
-      which should return something like::
+      the server should respond with output similar to::
 
-        {
-          "predictions": [
-            [
-              6.1312
-            ]
-          ]
-        }
+        [[6.4287492410792]]
+
 
 More Resources
 --------------

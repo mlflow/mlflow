@@ -84,7 +84,7 @@ public class TestClientProvider {
     int freePort = getFreePort();
     String bindAddress = "127.0.0.1";
     pb.command("mlflow", "server", "--host", bindAddress, "--port", "" + freePort,
-      "--file-store", tempDir.resolve("mlruns").toString(), "--workers", "1");
+      "--backend-store-uri", tempDir.resolve("mlruns").toString(), "--workers", "1");
     serverProcess = pb.start();
 
     // NB: We cannot use pb.inheritIO() because that interacts poorly with the Maven

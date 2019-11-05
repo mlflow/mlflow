@@ -9,8 +9,12 @@ class _MLflowObject(object):
             yield prop, self.__getattribute__(prop)
 
     @classmethod
-    def _properties(cls):
+    def _get_properties_helper(cls):
         return sorted([p for p in cls.__dict__ if isinstance(getattr(cls, p), property)])
+
+    @classmethod
+    def _properties(cls):
+        return cls._get_properties_helper()
 
     @classmethod
     @abstractmethod
@@ -35,7 +39,6 @@ def get_classname(obj):
 
 
 class _MLflowObjectPrinter(object):
-    _MAX_LIST_LEN = 2
 
     def __init__(self):
         super(_MLflowObjectPrinter, self).__init__()
@@ -44,12 +47,6 @@ class _MLflowObjectPrinter(object):
     def to_string(self, obj):
         if isinstance(obj, _MLflowObject):
             return "<%s: %s>" % (get_classname(obj), self._entity_to_string(obj))
-        # Handle nested lists inside MLflow entities (e.g. lists of metrics/params)
-        if isinstance(obj, list):
-            res = [self.to_string(elem) for elem in obj[:self._MAX_LIST_LEN]]
-            if len(obj) > self._MAX_LIST_LEN:
-                res.append("...")
-            return "[%s]" % ", ".join(res)
         return self.printer.pformat(obj)
 
     def _entity_to_string(self, entity):

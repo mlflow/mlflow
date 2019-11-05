@@ -4,4 +4,7 @@ mlflow.entities
 .. automodule:: mlflow.entities
     :members:
     :undoc-members:
-    :show-inheritance:
+
+.. automodule:: mlflow.entities.model_registry
+    :members:
+    :undoc-members:

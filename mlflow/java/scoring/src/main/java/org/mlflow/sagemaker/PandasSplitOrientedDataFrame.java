@@ -1,13 +1,17 @@
 package org.mlflow.sagemaker;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import ml.combust.mleap.core.types.StructField;
+import ml.combust.mleap.core.types.StructType;
 import ml.combust.mleap.runtime.frame.DefaultLeapFrame;
+import ml.combust.mleap.runtime.frame.Row;
+import ml.combust.mleap.runtime.javadsl.LeapFrameBuilder;
+import ml.combust.mleap.runtime.javadsl.LeapFrameSupport;
 import org.mlflow.utils.SerializationUtils;
 
 /**
@@ -16,13 +20,14 @@ import org.mlflow.utils.SerializationUtils;
  * (https://pandas.pydata.org/pandas-docs/stable/generated/pandas.DataFrame.to_json.html)
  */
 class PandasSplitOrientedDataFrame {
-  private List<LinkedHashMap<String, Object>> entries;
+
+  private static final LeapFrameBuilder leapFrameBuilder = new LeapFrameBuilder();
+  private static final LeapFrameSupport leapFrameSupport = new LeapFrameSupport();
+
+  private final List<LinkedHashMap<String, Object>> entries;
 
   private static final String PANDAS_FRAME_KEY_COLUMN_NAMES = "columns";
   private static final String PANDAS_FRAME_KEY_ROWS = "data";
-
-  private static final String LEAP_FRAME_KEY_ROWS = "rows";
-  private static final String LEAP_FRAME_KEY_SCHEMA = "schema";
 
   private PandasSplitOrientedDataFrame(List<String> columnNames, List<List<Object>> rows) {
     this.entries = new ArrayList<>();
@@ -77,30 +82,28 @@ class PandasSplitOrientedDataFrame {
   }
 
   /**
-   * Applies the specified MLeap frame schema ({@link LeapFrameSchema}) to this DataFrame, producing
+   * Applies the specified MLeap frame schema ({@link StructType}) to this DataFrame, producing
    * a {@link DefaultLeapFrame}
    *
    * @throws InvalidSchemaException If the supplied pandas DataFrame is invalid (missing a required
    *     field, etc)
    */
-  DefaultLeapFrame toLeapFrame(LeapFrameSchema leapFrameSchema) throws JsonProcessingException {
-    List<List<Object>> mleapRows = new ArrayList<>();
+  DefaultLeapFrame toLeapFrame(StructType leapFrameSchema) {
+    List<Row> mleapRows = new ArrayList<>();
+
     for (Map<String, Object> entry : this.entries) {
       List<Object> mleapRow = new ArrayList<>();
-      for (String fieldName : leapFrameSchema.getFieldNames()) {
+      for (StructField field : leapFrameSupport.getFields(leapFrameSchema)) {
+        String fieldName = field.name();
         if (!entry.containsKey(fieldName)) {
           throw new InvalidSchemaException(
               String.format("Pandas DataFrame is missing a required field: `%s`", fieldName));
         }
         mleapRow.add(entry.get(fieldName));
       }
-      mleapRows.add(mleapRow);
+      mleapRows.add(leapFrameBuilder.createRowFromIterable(mleapRow));
     }
-    Map<String, Object> rawFrame = new HashMap<>();
-    rawFrame.put(LEAP_FRAME_KEY_ROWS, mleapRows);
-    rawFrame.put(LEAP_FRAME_KEY_SCHEMA, leapFrameSchema.getRawSchema());
-    String leapFrameJson = SerializationUtils.toJson(rawFrame);
-    DefaultLeapFrame leapFrame = LeapFrameUtils.getLeapFrameFromJson(leapFrameJson);
-    return leapFrame;
+
+    return leapFrameBuilder.createFrame(leapFrameSchema, mleapRows);
   }
 }

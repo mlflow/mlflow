@@ -1,6 +1,5 @@
 package org.mlflow.utils;
 
-import java.io.ByteArrayInputStream;
 import org.junit.Assert;
 import org.junit.Test;
 

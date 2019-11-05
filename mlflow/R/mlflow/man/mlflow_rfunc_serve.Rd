@@ -4,29 +4,44 @@
 \alias{mlflow_rfunc_serve}
 \title{Serve an RFunc MLflow Model}
 \usage{
-mlflow_rfunc_serve(model_path, run_uuid = NULL, host = "127.0.0.1",
-  port = 8090, daemonized = FALSE, browse = !daemonized,
-  restore = FALSE)
+mlflow_rfunc_serve(model_uri, host = "127.0.0.1", port = 8090,
+  daemonized = FALSE, browse = !daemonized, ...)
 }
 \arguments{
-\item{model_path}{The path to the MLflow model, as a string.}
-
-\item{run_uuid}{ID of run to grab the model from.}
+\item{model_uri}{The location, in URI format, of the MLflow model.}
 
 \item{host}{Address to use to serve model, as a string.}
 
 \item{port}{Port to use to serve model, as numeric.}
 
-\item{daemonized}{Makes 'httpuv' server daemonized so R interactive sessions
+\item{daemonized}{Makes `httpuv` server daemonized so R interactive sessions
 are not blocked to handle requests. To terminate a daemonized server, call
-'httpuv::stopDaemonizedServer()' with the handle returned from this call.}
+`httpuv::stopDaemonizedServer()` with the handle returned from this call.}
 
 \item{browse}{Launch browser with serving landing page?}
 
-\item{restore}{Should \code{mlflow_restore_snapshot()} be called before serving?}
+\item{...}{Optional arguments passed to `mlflow_predict()`.}
 }
 \description{
-Serve an RFunc MLflow Model as a local web api.
+Serves an RFunc MLflow model as a local REST API server. This interface provides similar
+functionality to ``mlflow models serve`` cli command, however, it can only be used to deploy
+models that include RFunc flavor. The deployed server supports standard mlflow models interface
+with /ping and /invocation endpoints. In addition, R function models also support deprecated
+/predict endpoint for generating predictions. The /predict endpoint will be removed in a future
+version of mlflow.
+}
+\details{
+The URI scheme must be supported by MLflow - i.e. there has to be an MLflow artifact
+         repository corresponding to the scheme of the URI. The content is expected to point to a
+         directory containing MLmodel. The following are examples of valid model uris:
+
+                 - ``file:///absolute/path/to/local/model``
+                 - ``file:relative/path/to/local/model``
+                 - ``s3://my_bucket/path/to/model``
+                 - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+ For more information about supported URI schemes, see the Artifacts Documentation at
+ https://www.mlflow.org/docs/latest/tracking.html#artifact-stores.
 }
 \examples{
 \dontrun{

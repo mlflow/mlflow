@@ -13,23 +13,29 @@ from __future__ import absolute_import
 import os
 import yaml
 
-import h2o
-
+import mlflow
 from mlflow import pyfunc
 from mlflow.models import Model
-import mlflow.tracking
+from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
 
 FLAVOR_NAME = "h2o"
 
-DEFAULT_CONDA_ENV = _mlflow_conda_env(
-    additional_conda_deps=None,
-    additional_pip_deps=[
-        "h2o=={}".format(h2o.__version__),
-    ],
-    additional_conda_channels=None,
-)
+
+def get_default_conda_env():
+    """
+    :return: The default Conda environment for MLflow Models produced by calls to
+             :func:`save_model()` and :func:`log_model()`.
+    """
+    import h2o
+
+    return _mlflow_conda_env(
+        additional_conda_deps=None,
+        additional_pip_deps=[
+            "h2o=={}".format(h2o.__version__),
+        ],
+        additional_conda_channels=None)
 
 
 def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=None):
@@ -41,8 +47,8 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.h2o.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.h2o.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -59,6 +65,8 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
 
     :param mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
     """
+    import h2o
+
     path = os.path.abspath(path)
     if os.path.exists(path):
         raise Exception("Path '{}' already exists".format(path))
@@ -81,7 +89,7 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
 
     conda_env_subpath = "conda.yaml"
     if conda_env is None:
-        conda_env = DEFAULT_CONDA_ENV
+        conda_env = get_default_conda_env()
     elif not isinstance(conda_env, dict):
         with open(conda_env, "r") as f:
             conda_env = yaml.safe_load(f)
@@ -94,7 +102,7 @@ def save_model(h2o_model, path, conda_env=None, mlflow_model=Model(), settings=N
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
-def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
+def log_model(h2o_model, artifact_path, conda_env=None, registered_model_name=None, **kwargs):
     """
     Log an H2O model as an MLflow artifact for the current run.
 
@@ -103,8 +111,8 @@ def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
     :param conda_env: Either a dictionary representation of a Conda environment or the path to a
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
-                      contained in ``mlflow.h2o.DEFAULT_CONDA_ENV``. If `None`, the default
-                      ``mlflow.h2o.DEFAULT_CONDA_ENV`` environment will be added to the model.
+                      contained in :func:`get_default_conda_env()`. If ``None``, the default
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -118,14 +126,20 @@ def log_model(h2o_model, artifact_path, conda_env=None, **kwargs):
                                 ]
                             ]
                         }
-
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``h2o.save_model`` method.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.h2o,
+              registered_model_name=registered_model_name,
               h2o_model=h2o_model, conda_env=conda_env, **kwargs)
 
 
 def _load_model(path, init=False):
+    import h2o
+
     path = os.path.abspath(path)
     with open(os.path.join(path, "h2o.yaml")) as f:
         params = yaml.safe_load(f.read())
@@ -140,6 +154,8 @@ class _H2OModelWrapper:
         self.h2o_model = h2o_model
 
     def predict(self, dataframe):
+        import h2o
+
         predicted = self.h2o_model.predict(h2o.H2OFrame(dataframe)).as_data_frame()
         predicted.index = dataframe.index
         return predicted
@@ -148,24 +164,34 @@ class _H2OModelWrapper:
 def _load_pyfunc(path):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+
+    :param path: Local filesystem path to the MLflow Model with the ``h2o`` flavor.
     """
     return _H2OModelWrapper(_load_model(path, init=True))
 
 
-def load_model(path, run_id=None):
+def load_model(model_uri):
     """
     Load an H2O model from a local file (if ``run_id`` is ``None``) or a run.
     This function expects there is an H2O instance initialised with ``h2o.init``.
 
-    :param path: Local filesystem path or run-relative artifact path to the model saved
-                 by :py:func:`mlflow.h2o.save_model`.
-    :param run_id: Run ID. If provided, combined with ``path`` to identify the model.
+    :param model_uri: The location, in URI format, of the MLflow model. For example:
+
+                      - ``/Users/me/path/to/local/model``
+                      - ``relative/path/to/local/model``
+                      - ``s3://my_bucket/path/to/model``
+                      - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
+
+                      For more information about supported URI schemes, see
+                      `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
+                      artifact-locations>`_.
+
+    :return: An `H2OEstimator model object
+             <http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/intro.html#models>`_.
     """
-    if run_id is not None:
-        path = mlflow.tracking.utils._get_model_log_dir(model_name=path, run_id=run_id)
-    path = os.path.abspath(path)
-    flavor_conf = _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    flavor_conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
     # Flavor configurations for models saved in MLflow version <= 0.8.0 may not contain a
     # `data` key; in this case, we assume the model artifact path to be `model.h2o`
-    h2o_model_file_path = os.path.join(path, flavor_conf.get("data", "model.h2o"))
+    h2o_model_file_path = os.path.join(local_model_path, flavor_conf.get("data", "model.h2o"))
     return _load_model(path=h2o_model_file_path)
