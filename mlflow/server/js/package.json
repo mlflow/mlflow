@@ -26,7 +26,7 @@
     "react-bootstrap": "0.32.1",
     "react-dom": "^16.3.2",
     "react-iframe": "1.8.0",
-    "react-mde": "5.8.0",
+    "react-mde": "^7.6.2",
     "react-modal": "^3.4.4",
     "react-overlays": "^0.8.3",
     "react-plotly.js": "2.2.0",
