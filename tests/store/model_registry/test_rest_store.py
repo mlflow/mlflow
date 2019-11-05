@@ -17,16 +17,16 @@ from mlflow.utils.rest_utils import MlflowHostCreds
 
 
 @pytest.fixture(scope="class")
-def request():
-    with mock.patch('requests.request') as request:
+def request_fixture():
+    with mock.patch('requests.request') as request_mock:
         response = mock.MagicMock
         response.status_code = 200
         response.text = '{}'
-        request.return_value = response
-        yield request
+        request_mock.return_value = response
+        yield request_mock
 
 
-@pytest.mark.usefixtures("request")
+@pytest.mark.usefixtures("request_fixture")
 class TestRestStore(unittest.TestCase):
     def setUp(self):
         self.creds = MlflowHostCreds('https://hello')

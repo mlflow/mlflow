@@ -475,9 +475,9 @@ class __MLflowTfKerasCallback(Callback):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
-        l = []
-        self.model.summary(print_fn=l.append)
-        summary = '\n'.join(l)
+        tmp_list = []
+        self.model.summary(print_fn=tmp_list.append)
+        summary = '\n'.join(tmp_list)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
 
@@ -506,9 +506,9 @@ class __MLflowTfKeras2Callback(Callback):
         config = opt.get_config()
         for attribute in config:
             try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
-        l = []
-        self.model.summary(print_fn=l.append)
-        summary = '\n'.join(l)
+        tmp_list = []
+        self.model.summary(print_fn=tmp_list.append)
+        summary = '\n'.join(tmp_list)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
 
@@ -586,15 +586,15 @@ def _setup_callbacks(lst):
     tb = _get_tensorboard_callback(lst)
     if tb is None:
         log_dir = tempfile.mkdtemp()
-        l = lst + [TensorBoard(log_dir)]
+        out_list = lst + [TensorBoard(log_dir)]
     else:
         log_dir = tb.log_dir
-        l = lst
+        out_list = lst
     if LooseVersion(tensorflow.__version__) < LooseVersion('2.0.0'):
-        l += [__MLflowTfKerasCallback()]
+        out_list += [__MLflowTfKerasCallback()]
     else:
-        l += [__MLflowTfKeras2Callback()]
-    return l, log_dir
+        out_list += [__MLflowTfKeras2Callback()]
+    return out_list, log_dir
 
 
 @experimental
@@ -658,9 +658,9 @@ def autolog(every_n_iter=100):
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
-            l = list(args)
-            l[5], log_dir = _setup_callbacks(l[5])
-            args = tuple(l)
+            tmp_list = list(args)
+            tmp_list[5], log_dir = _setup_callbacks(tmp_list[5])
+            args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
             kwargs['callbacks'], log_dir = _setup_callbacks(kwargs['callbacks'])
         else:
