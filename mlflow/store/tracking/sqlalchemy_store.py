@@ -715,20 +715,20 @@ def get_orderby_clauses(order_by_list):
 
     for order_by_clause in order_by_list:
         (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
-        order_key = None
+        order_value = None
         if key_type == SearchUtils.ATTRIBUTE_IDENTIFIER:
             # sqlite does not support NULLS LAST expression, so we sort
             # first by presence of the field, then by actual value
-            order_key = getattr(SqlRun, key)
-            clauses.append(sql.case([(order_key.is_(None), 1)],
+            order_value = getattr(SqlRun, key)
+            clauses.append(sql.case([(order_value.is_(None), 1)],
                                     else_=0))
 
-        if order_key:
+        if order_value:
 
             if ascending:
-                clauses.append(order_key)
+                clauses.append(order_value)
             else:
-                clauses.append(order_key.desc())
+                clauses.append(order_value.desc())
 
     clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
