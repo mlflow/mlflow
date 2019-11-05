@@ -573,7 +573,7 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=INVALID_STATE)
             session.delete(filtered_tags[0])
 
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by_list,
                      page_token):
         # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
@@ -589,10 +589,11 @@ class SqlAlchemyStore(AbstractStore):
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
-            query = session.query(SqlRun)
+            parsed_filters = SearchUtils.parse_search_filter(filter_string)
+            parsed_orderby = get_orderby_clauses(order_by_list)
 
-            parsed = SearchUtils.parse_search_filter(filter_string)
-            for s in _get_sqlalchemy_filter_clauses(parsed, session):
+            query = session.query(SqlRun)
+            for s in _get_sqlalchemy_filter_clauses(parsed_filters, session):
                 query = query.join(s)
 
             queried_runs = query.distinct() \
@@ -600,11 +601,12 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
                     SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed)) \
+                    *_get_attributes_filtering_clauses(parsed_filters)) \
+                .order_by(*parsed_orderby) \
                 .all()
-            runs = [run.to_mlflow_entity() for run in queried_runs]
+            sorted_runs = [run.to_mlflow_entity() for run in queried_runs]
 
-        sorted_runs = SearchUtils.sort(runs, order_by)
+        #sorted_runs = SearchUtils.sort(runs, order_by_list)
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
@@ -700,3 +702,34 @@ def _get_sqlalchemy_filter_clauses(parsed, session):
         if filter_query is not None:
             filters.append(filter_query)
     return filters
+
+
+def get_orderby_clauses(order_by_list):
+    """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
+    Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
+    """
+    import sqlalchemy.sql.expression as sql
+
+    clauses = []
+    additional_joins = []
+
+    for order_by_clause in order_by_list:
+        (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
+        order_key = None
+        if key_type == SearchUtils.ATTRIBUTE_IDENTIFIER:
+            # sqlite does not support NULLS LAST expression, so we sort
+            # first by presence of the field, then by actual value
+            order_key = getattr(SqlRun, key)
+            clauses.append(sql.case([(order_key.is_(None), 1)],
+                                    else_=0))
+
+        if order_key:
+
+            if ascending:
+                clauses.append(order_key)
+            else:
+                clauses.append(order_key.desc())
+
+    clauses.append(SqlRun.start_time.desc())
+    clauses.append(SqlRun.run_uuid)
+    return clauses
