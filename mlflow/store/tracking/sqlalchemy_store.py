@@ -4,6 +4,7 @@ import uuid
 import math
 import posixpath
 import sqlalchemy
+import sqlalchemy.sql.expression as sql
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
@@ -590,11 +591,13 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             parsed_filters = SearchUtils.parse_search_filter(filter_string)
-            parsed_orderby = get_orderby_clauses(order_by_list)
+            parsed_orderby, joins = get_orderby_clauses(order_by_list)
 
             query = session.query(SqlRun)
             for s in _get_sqlalchemy_filter_clauses(parsed_filters, session):
                 query = query.join(s)
+            for j in joins:
+                query = query.join(j)
 
             queried_runs = query.distinct() \
                 .options(*self._get_eager_run_query_options()) \
@@ -606,7 +609,6 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             sorted_runs = [run.to_mlflow_entity() for run in queried_runs]
 
-        #sorted_runs = SearchUtils.sort(runs, order_by_list)
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
@@ -695,10 +697,9 @@ def get_orderby_clauses(order_by_list):
     """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
     Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
     """
-    import sqlalchemy.sql.expression as sql
 
     clauses = []
-    additional_joins = []
+    additional_joins = set()
 
     for order_by_clause in order_by_list:
         (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
@@ -709,9 +710,16 @@ def get_orderby_clauses(order_by_list):
             order_value = getattr(SqlRun, key)
             clauses.append(sql.case([(order_value.is_(None), 1)],
                                     else_=0))
-
+        elif SearchUtils.is_metric(key_type, '<'):
+            order_value = SqlLatestMetric.value
+            clauses.append(sql.case([
+                (SqlLatestMetric.key != key, 2),
+                (sql.and_(SqlLatestMetric.key == key, SqlLatestMetric.is_nan.is_(True)), 1),
+                (sql.and_(SqlLatestMetric.key == key, order_value.is_(None)), 1)
+            ],
+                                    else_=0))
+            additional_joins.add(SqlLatestMetric)
         if order_value:
-
             if ascending:
                 clauses.append(order_value)
             else:
@@ -719,4 +727,4 @@ def get_orderby_clauses(order_by_list):
 
     clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)
-    return clauses
+    return clauses, additional_joins
