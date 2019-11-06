@@ -654,7 +654,13 @@ def _get_docker_command(image, active_run, volumes=None, user_env_vars=None):
     env_vars.update(tracking_envs)
     env_vars.update(artifact_envs)
     if user_env_vars is not None:
-        env_vars.update(dict([(k, v) for k, v in user_env_vars]))
+        for user_entry in user_env_vars:
+            if isinstance(user_entry, list):
+                # User has defined a new environment variable for the docker environment
+                env_vars[user_entry[0]] = user_entry[1]
+            else:
+                # User wants to copy an environment variable from system environment
+                env_vars[user_entry[0]] = os.environ[user_entry[0]]
 
     if volumes is not None:
         for v in volumes:

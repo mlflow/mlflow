@@ -47,9 +47,13 @@ def load_project(directory):
                                          """e.g.: '["/path1/:/path1", "/path2/:/path2"])""")
         if docker_env.get("environment"):
             if not (isinstance(docker_env["environment"], list)
-                    and all([isinstance(i, list) for i in docker_env["environment"]])):
-                raise ExecutionException("environment must be list of lists of string pairs, "
-                                         """e.g.: '[["VAR1", "value1"], ["VAR2", "value2"]])""")
+                    and all([isinstance(i, list) or isinstance(i, str)
+                             for i in docker_env["environment"]])):
+                raise ExecutionException(
+                    "environment must be a list containing either strings (to copy environment "
+                    "variables from host system) or lists of string pairs (to define new "
+                    "environment variables)."
+                    """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])""")
 
     # Validate config if conda_env parameter is present
     conda_path = yaml_obj.get("conda_env")
