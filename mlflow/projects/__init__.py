@@ -660,7 +660,7 @@ def _get_docker_command(image, active_run, volumes=None, user_env_vars=None):
                 env_vars[user_entry[0]] = user_entry[1]
             else:
                 # User wants to copy an environment variable from system environment
-                env_vars[user_entry[0]] = os.environ[user_entry[0]]
+                env_vars[user_entry] = os.environ[user_entry]
 
     if volumes is not None:
         for v in volumes:
