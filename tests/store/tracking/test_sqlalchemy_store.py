@@ -1339,28 +1339,25 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 fetched_run = store.get_run(run_id=run_id)
                 assert fetched_run.data.metrics == expected_metrics
 
-    def test_search_runs_returns_expected_results_with_large_experiment(self):
-        """
-        This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
-        that search queries over an experiment containing many runs, each with a large number
-        of metrics, parameters, and tags, are performant and return the expected results.
-        """
+    def _generate_large_data(self, nb_runs=1000):
         experiment_id = self.store.create_experiment('test_experiment')
         run_ids = []
-        for _ in range(1000):
+        for _ in range(nb_runs):
             run_ids.append(self.store.create_run(
                 experiment_id=experiment_id,
                 start_time=time.time(),
                 tags=(),
                 user_id='Anderson').info.run_uuid)
 
+        current_run = 0
         metrics_list = []
         tags_list = []
         params_list = []
+        latest_metrics_list = []
         for run_id in run_ids:
             for i in range(100):
                 metric = {
-                    'key': 'mkey-%s' % i,
+                    'key': 'mkey_%s' % i,
                     'value': i,
                     'timestamp': i * 2,
                     'step': i * 3,
@@ -1369,27 +1366,70 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 }
                 metrics_list.append(metric)
                 tag = {
-                    'key': "tkey-%s" % i,
-                    'value': "tval-%s" % i,
+                    'key': "tkey_%s" % i,
+                    'value': "tval_%s" % (current_run % 10),
                     'run_uuid': run_id,
                 }
                 tags_list.append(tag)
                 param = {
-                    'key': "pkey-%s" % i,
-                    'value': "pval-%s" % i,
+                    'key': "pkey_%s" % i,
+                    'value': "pval_%s" % ((current_run + 1) % 11),
                     'run_uuid': run_id,
                 }
                 params_list.append(param)
+            latest_metrics_list.append(
+                {
+                    'key': 'mkey_0',
+                    'value': current_run,
+                    'timestamp': 100 * 2,
+                    'step': 100 * 3,
+                    'is_nan': 0,
+                    'run_uuid': run_id,
+                }
+            )
+            current_run += 1
         metrics = pd.DataFrame(metrics_list)
         metrics.to_sql('metrics', self.store.engine, if_exists='append', index=False)
         params = pd.DataFrame(params_list)
         params.to_sql('params', self.store.engine, if_exists='append', index=False)
         tags = pd.DataFrame(tags_list)
         tags.to_sql('tags', self.store.engine, if_exists='append', index=False)
+        pd.DataFrame(latest_metrics_list).to_sql(
+            'latest_metrics', self.store.engine, if_exists='append', index=False)
+        return experiment_id, run_ids
+
+    def test_search_runs_returns_expected_results_with_large_experiment(self):
+        """
+        This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
+        that search queries over an experiment containing many runs, each with a large number
+        of metrics, parameters, and tags, are performant and return the expected results.
+        """
+        experiment_id, run_ids = self._generate_large_data()
 
         run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
-        assert len(run_results) > 0
+        assert len(run_results) == 100
         assert set([run.info.run_id for run in run_results]).issubset(set(run_ids))
+
+    def test_search_runs_correctly_filters_large_data(self):
+        experiment_id, _ = self._generate_large_data(1000)
+
+        run_results = self.store.search_runs([experiment_id],
+                                             "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 ",
+                                             ViewType.ALL, max_results=1000)
+        assert len(run_results) == 20
+
+        run_results = self.store.search_runs([experiment_id],
+                                             "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
+                                             "and tags.tkey_0 = 'tval_0' ",
+                                             ViewType.ALL, max_results=1000)
+        assert len(run_results) == 2  # 20 runs between 9 and 26, 2 of which have a 0 tkey_0 value
+
+        run_results = self.store.search_runs([experiment_id],
+                                             "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
+                                             "and tags.tkey_0 = 'tval_0' "
+                                             "and params.pkey_0 = 'pval_0'",
+                                             ViewType.ALL, max_results=1000)
+        assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
@@ -1481,3 +1521,12 @@ class TestZeroValueInsertion(unittest.TestCase):
         SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,
                                                                              mock_session)
         mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments OFF;")
+
+
+def test_get_attribute_name():
+    assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
+    assert(models.SqlRun.get_attribute_name("status") == "status")
+
+    # we want this to break if a searchable attribute has been added
+    # and not referred to in this test
+    assert(len(entities.RunInfo.get_searchable_attributes()) == 2)

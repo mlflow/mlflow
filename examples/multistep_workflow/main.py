@@ -48,7 +48,7 @@ def _already_ran(entry_point_name, parameters, git_commit, experiment_id=None):
         previous_version = tags.get(mlflow_tags.MLFLOW_GIT_COMMIT, None)
         if git_commit != previous_version:
             eprint(("Run matched, but has a different source version, so skipping "
-                    "(found=%s, expected=%s)") % previous_version, git_commit)
+                    "(found=%s, expected=%s)") % (previous_version, git_commit))
             continue
         return client.get_run(run_info.run_id)
     eprint("No matching run has been found.")
@@ -88,7 +88,7 @@ def workflow(als_max_iter, keras_hidden_units, max_row_limit):
 
         # We specify a spark-defaults.conf to override the default driver memory. ALS requires
         # significant memory. The driver memory property cannot be set by the application itself.
-        als_run = _get_or_run("als", 
+        als_run = _get_or_run("als",
                               {"ratings_data": ratings_parquet_uri, "max_iter": str(als_max_iter)},
                               git_commit)
         als_model_uri = os.path.join(als_run.info.artifact_uri, "als-model")
