@@ -591,12 +591,10 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             parsed_filters = SearchUtils.parse_search_filter(filter_string)
-            parsed_orderby, joins = get_orderby_clauses(order_by_list, session)
+            parsed_orderby, sorting_joins = get_orderby_clauses(order_by_list, session)
 
             query = session.query(SqlRun)
-            for s in _get_sqlalchemy_filter_clauses(parsed_filters, session):
-                query = query.join(s)
-            for j in joins:
+            for j in _get_sqlalchemy_filter_clauses(parsed_filters, session) + sorting_joins:
                 query = query.join(j)
 
             queried_runs = query.distinct() \
@@ -712,39 +710,51 @@ def get_orderby_clauses(order_by_list, session):
     """
 
     clauses = []
-    ordering_joins = set()
+    ordering_joins = []
 
+    # contrary to filters, it is not easily feasible to separately handle sorting
+    # on attributes and on joined tables as we must keep all clauses in the same order
     if order_by_list:
         for order_by_clause in order_by_list:
             (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
-            order_value = None
+            subquery = None
             if key_type == SearchUtils.ATTRIBUTE_IDENTIFIER:
-                # sqlite does not support NULLS LAST expression, so we sort
-                # first by presence of the field, then by actual value
                 order_value = getattr(SqlRun, key)
-                clauses.append(sql.case([(order_value.is_(None), 1)],
-                                        else_=0))
-            elif SearchUtils.is_metric(key_type, '<'):  # any valid comparator
+            else:
+                if SearchUtils.is_metric(key_type, '='):  # any valid comparator
+                    entity = SqlLatestMetric
+                elif SearchUtils.is_tag(key_type, '='):
+                    entity = SqlTag
+                elif SearchUtils.is_param(key_type, '='):
+                    entity = SqlParam
+                else:
+                    raise MlflowException("Invalid identifier type '%s'" % key_type,
+                                          error_code=INVALID_PARAMETER_VALUE)
+
                 # build a subquery first because we will join it in the main request so that the
                 # metric we want to sort on is available when we apply the sorting clause
                 subquery = session \
-                    .query(SqlLatestMetric) \
-                    .filter(SqlLatestMetric.key == key) \
+                    .query(entity) \
+                    .filter(entity.key == key) \
                     .subquery()
-                ordering_joins.add(subquery)
-
+                ordering_joins.append(subquery)
                 order_value = subquery.c.value
-                clauses.append(sql.case([
-                        (subquery.c.is_nan.is_(True), 1),
-                        (order_value.is_(None), 1)
-                        ],
-                        else_=0))
 
-            if order_value is not None:
-                if ascending:
-                    clauses.append(order_value)
-                else:
-                    clauses.append(order_value.desc())
+            # sqlite does not support NULLS LAST expression, so we sort first by
+            # presence of the field (and is_nan for metrics), then by actual value
+            if SearchUtils.is_metric(key_type, '='):
+                clauses.append(sql.case([
+                    (subquery.c.is_nan.is_(True), 1),
+                    (order_value.is_(None), 1)
+                ],
+                    else_=0))
+            else:  # other entities do not have an 'is_nan' field
+                clauses.append(sql.case([(order_value.is_(None), 1)], else_=0))
+
+            if ascending:
+                clauses.append(order_value)
+            else:
+                clauses.append(order_value.desc())
 
     clauses.append(SqlRun.start_time.desc())
     clauses.append(SqlRun.run_uuid)

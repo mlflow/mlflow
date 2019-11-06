@@ -781,7 +781,15 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         return [r.info.run_id
                 for r in self.store.search_runs(exps, filter_string, run_view_type, max_results)]
 
-    def test_order_by_metric(self):
+    def get_ordered_runs(self, order_clauses, experiment_id):
+        return [
+            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
+            for r in self.store.search_runs(experiment_ids=[experiment_id],
+                                            filter_string="",
+                                            run_view_type=ViewType.ALL,
+                                            order_by=order_clauses)]
+
+    def test_order_by_metric_tag_param(self):
         experiment_id = self.store.create_experiment('order_by_metric')
 
         def create_and_log_run(names):
@@ -790,56 +798,47 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                 experiment_id,
                 user_id="MrDuck",
                 start_time=123,
-                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name)]).info.run_id
+                tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, name),
+                      entities.RunTag("metric", names[1])]
+            ).info.run_id
             self.store.log_metric(run_id, entities.Metric("x", float(names[0]), 1, 0))
             self.store.log_metric(run_id, entities.Metric("y", float(names[1]), 1, 0))
+            self.store.log_param(run_id, entities.Param("metric", names[1]))
             return run_id
 
         for names in zip(["nan", "inf", "-inf", "-1000", "0", "0", "1000"],
                          ["1", "2", "3", "4", "5", "6", "7"]):
             create_and_log_run(names)
 
+
+
         # asc/asc
-        sorted_runs_asc_asc = [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=["metrics.x asc", "metrics.y asc"])]
+        self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
+                             self.get_ordered_runs(["metrics.x asc", "metrics.y asc"],
+                                                   experiment_id))
 
         self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
-                             sorted_runs_asc_asc)
+                             self.get_ordered_runs(["metrics.x asc", "tag.metric asc"],
+                                                   experiment_id))
 
         # asc/desc
-        sorted_runs_asc = [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=["metrics.x asc", "metrics.y desc"])]
+        self.assertListEqual(["-inf/3", "-1000/4", "0/6", "0/5", "1000/7", "inf/2", "nan/1"],
+                             self.get_ordered_runs(["metrics.x asc", "metrics.y desc"],
+                                                   experiment_id))
 
         self.assertListEqual(["-inf/3", "-1000/4", "0/6", "0/5", "1000/7", "inf/2", "nan/1"],
-                             sorted_runs_asc)
+                             self.get_ordered_runs(["metrics.x asc", "tag.metric desc"],
+                                                   experiment_id))
 
         # desc / asc
-        sorted_runs_desc_asc = [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=["metrics.x desc", "metrics.y asc"])]
         self.assertListEqual(["inf/2", "1000/7", "0/5", "0/6", "-1000/4", "-inf/3", "nan/1"],
-                             sorted_runs_desc_asc)
+                             self.get_ordered_runs(["metrics.x desc", "metrics.y asc"],
+                                                   experiment_id))
 
         # desc / desc
-        sorted_runs_desc_desc = [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=["metrics.x desc", "metrics.y desc"])]
         self.assertListEqual(["inf/2", "1000/7", "0/6", "0/5", "-1000/4", "-inf/3", "nan/1"],
-                             sorted_runs_desc_desc)
+                             self.get_ordered_runs(["metrics.x desc", "param.metric desc"],
+                                                   experiment_id))
 
     def test_order_by_attributes(self):
         experiment_id = self.store.create_experiment('order_by_attributes')
@@ -858,33 +857,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         create_runs([234, None, 456, -123, 789, 123])
 
         # asc
-        sorted_runs_asc = [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=["attribute.end_time asc"])]
 
-        assert ["-123", "123", "234", "456", "789", None] == sorted_runs_asc
+        self.assertListEqual(["-123", "123", "234", "456", "789", None],
+                             self.get_ordered_runs(["attribute.end_time asc"], experiment_id))
 
         # desc
-        sorted_runs_desc = [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=["attribute.end_time desc"])]
-        assert ["789", "456", "234", "123", "-123", None] == sorted_runs_desc
+        self.assertListEqual(["789", "456", "234", "123", "-123", None],
+                             self.get_ordered_runs(["attribute.end_time desc"], experiment_id))
 
         # Sort priority correctly handled
-        sorted_runs_start = [
-            r.data.tags[mlflow_tags.MLFLOW_RUN_NAME]
-            for r in self.store.search_runs(experiment_ids=[experiment_id],
-                                            filter_string="",
-                                            run_view_type=ViewType.ALL,
-                                            order_by=["attribute.start_time asc",
-                                                      "attribute.end_time desc"])]
-        assert ["234", None, "456", "-123", "789", "123"] == sorted_runs_start
+        self.assertListEqual(["234", None, "456", "-123", "789", "123"],
+                             self.get_ordered_runs(["attribute.start_time asc",
+                                                    "attribute.end_time desc"], experiment_id))
 
     def test_search_vanilla(self):
         exp = self._experiment_factory('search_vanilla')
