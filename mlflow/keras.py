@@ -212,9 +212,10 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     :param keras_module: Keras module to be used to save / load the model
                          (``keras`` or ``tf.keras``). If not provided, MLflow will
                          attempt to infer the Keras module based on the given model.
-    :param registered_model_name: If given, create a model version under ``registered_model_name``,
-                                  also creating a registered model if one with the given name does
-                                  not exist.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> from keras import Dense, layers
@@ -409,9 +410,9 @@ def autolog():
     def fit(self, *args, **kwargs):
         original = gorilla.get_original_attribute(keras.Model, 'fit')
         if len(args) >= 6:
-            l = list(args)
-            l[5] += [__MLflowKerasCallback()]
-            args = tuple(l)
+            tmp_list = list(args)
+            tmp_list[5] += [__MLflowKerasCallback()]
+            args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
@@ -422,9 +423,9 @@ def autolog():
     def fit_generator(self, *args, **kwargs):
         original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
         if len(args) >= 5:
-            l = list(args)
-            l[4] += [__MLflowKerasCallback()]
-            args = tuple(l)
+            tmp_list = list(args)
+            tmp_list[4] += [__MLflowKerasCallback()]
+            args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:

@@ -68,9 +68,10 @@ class Model(object):
         :param flavor: Flavor module to save the model with. The module must have
                        the ``save_model`` function that will persist the model as a valid
                        MLflow model.
-        :param registered_model_name: If given, create a model version under
-                                      ``registered_model_name``, also creating a registered model
-                                      if one with the given name does not exist.
+        :param registered_model_name: Note:: Experimental: This argument may change or be removed
+                                      in a future release without warning. If given, create a model
+                                      version under ``registered_model_name``, also creating a
+                                      registered model if one with the given name does not exist.
         :param kwargs: Extra args passed to the model flavor.
         """
         with TempDir() as tmp:

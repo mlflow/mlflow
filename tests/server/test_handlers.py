@@ -278,8 +278,15 @@ def test_get_latest_versions(mock_get_request_message, mock_model_registry_store
     mock_model_registry_store.get_latest_versions.return_value = mvds
     resp = _get_latest_versions()
     args, _ = mock_model_registry_store.get_latest_versions.call_args
-    assert args == (rm, )
+    assert args == (rm, [])
     assert json.loads(resp.get_data()) == {"model_versions_detailed": jsonify(mvds)}
+
+    for stages in [[], ["None"], ["Staging"], ["Staging", "Production"]]:
+        mock_get_request_message.return_value = GetLatestVersions(registered_model=rm.to_proto(),
+                                                                  stages=stages)
+        _get_latest_versions()
+        args, _ = mock_model_registry_store.get_latest_versions.call_args
+        assert args == (rm, stages)
 
 
 def test_create_model_version(mock_get_request_message, mock_model_registry_store):
