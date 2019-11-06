@@ -43,7 +43,7 @@ export default class BaggedCell extends PureComponent {
   };
 
   render() {
-    const { isParam, keyName, value, sortIcon } = this.props;
+    const { isMetric, keyName, value, sortIcon } = this.props;
     const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     return (
       <span
@@ -79,7 +79,7 @@ export default class BaggedCell extends PureComponent {
               style={styles.metricParamCellContent}
               title={value}
             >
-              {isParam ? value : Utils.formatMetric(parseFloat(value))}
+              {isMetric ? Utils.formatMetric(parseFloat(value)) : value}
             </span>
           </span>
         </Dropdown>
