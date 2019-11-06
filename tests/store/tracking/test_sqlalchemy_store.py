@@ -810,8 +810,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          ["1", "2", "3", "4", "5", "6", "7"]):
             create_and_log_run(names)
 
-
-
         # asc/asc
         self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "metrics.y asc"],
@@ -1464,27 +1462,28 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
         run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
         assert len(run_results) == 100
-        assert set([run.info.run_id for run in run_results]).issubset(set(run_ids))
+        # runs are sorted by desc start_time
+        self.assertListEqual([run.info.run_id for run in run_results], list(reversed(run_ids[900:])))
 
     def test_search_runs_correctly_filters_large_data(self):
         experiment_id, _ = self._generate_large_data(1000)
 
         run_results = self.store.search_runs([experiment_id],
                                              "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 ",
-                                             ViewType.ALL, max_results=1000)
+                                             ViewType.ALL, max_results=50)
         assert len(run_results) == 20
 
         run_results = self.store.search_runs([experiment_id],
                                              "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
                                              "and tags.tkey_0 = 'tval_0' ",
-                                             ViewType.ALL, max_results=1000)
+                                             ViewType.ALL, max_results=10)
         assert len(run_results) == 2  # 20 runs between 9 and 26, 2 of which have a 0 tkey_0 value
 
         run_results = self.store.search_runs([experiment_id],
                                              "metrics.mkey_0 < 26 and metrics.mkey_0 > 5 "
                                              "and tags.tkey_0 = 'tval_0' "
                                              "and params.pkey_0 = 'pval_0'",
-                                             ViewType.ALL, max_results=1000)
+                                             ViewType.ALL, max_results=5)
         assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
 
 
