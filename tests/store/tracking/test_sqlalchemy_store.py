@@ -843,21 +843,21 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def test_order_by_attributes(self):
         experiment_id = self.store.create_experiment('order_by_attributes')
 
-        def create_runs(end_times):
-            start_time = 123
-            for end in end_times:
-                self.store.create_run(
+        def create_run(start_time, end):
+
+            return self.store.create_run(
                     experiment_id,
                     user_id="MrDuck",
                     start_time=start_time,
-                    end_time=end,
                     tags=[entities.RunTag(mlflow_tags.MLFLOW_RUN_NAME, end)]).info.run_id
-                start_time += 1
 
-        create_runs([234, None, 456, -123, 789, 123])
+        start_time = 123
+        for end in [234, None, 456, -123, 789, 123]:
+            run_id = create_run(start_time, end)
+            self.store.update_run_info(run_id, run_status=RunStatus.FINISHED, end_time=end)
+            start_time += 1
 
         # asc
-
         self.assertListEqual(["-123", "123", "234", "456", "789", None],
                              self.get_ordered_runs(["attribute.end_time asc"], experiment_id))
 

@@ -311,7 +311,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment.name = new_name
             self._save_to_db(objs=experiment, session=session)
 
-    def create_run(self, experiment_id, user_id, start_time, tags, end_time = None):
+    def create_run(self, experiment_id, user_id, start_time, tags):
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
@@ -324,7 +324,7 @@ class SqlAlchemyStore(AbstractStore):
                          source_type=SourceType.to_string(SourceType.UNKNOWN),
                          source_name="", entry_point_name="",
                          user_id=user_id, status=RunStatus.to_string(RunStatus.RUNNING),
-                         start_time=start_time, end_time=end_time,
+                         start_time=start_time, end_time=None,
                          source_version="", lifecycle_stage=LifecycleStage.ACTIVE)
 
             tags_dict = {}
@@ -717,7 +717,7 @@ def get_orderby_clauses(order_by_list, session):
         for order_by_clause in order_by_list:
             (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
             subquery = None
-            if SearchUtils.is_attribute(key_type):
+            if SearchUtils.is_attribute(key_type, '='):
                 order_value = getattr(SqlRun, key)
             else:
                 if SearchUtils.is_metric(key_type, '='):  # any valid comparator
