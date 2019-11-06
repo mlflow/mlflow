@@ -576,6 +576,15 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by_list,
                      page_token):
+
+        def compute_next_token(current_size):
+            next_token = None
+            if max_results == current_size:
+                final_offset = offset + max_results
+                next_token = SearchUtils.create_page_token(final_offset)
+
+            return next_token
+
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
@@ -596,6 +605,7 @@ class SqlAlchemyStore(AbstractStore):
             for j in _get_sqlalchemy_filter_clauses(parsed_filters, session) + sorting_joins:
                 query = query.join(j)
 
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
             queried_runs = query.distinct() \
                 .options(*self._get_eager_run_query_options()) \
                 .filter(
@@ -603,10 +613,11 @@ class SqlAlchemyStore(AbstractStore):
                     SqlRun.lifecycle_stage.in_(stages),
                     *_get_attributes_filtering_clauses(parsed_filters)) \
                 .order_by(*parsed_orderby) \
-                .all()
-            sorted_runs = [run.to_mlflow_entity() for run in queried_runs]
+                .offset(offset).limit(max_results).all()
 
-        runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
+            runs = [run.to_mlflow_entity() for run in queried_runs]
+            next_page_token = compute_next_token(len(runs))
+
         return runs, next_page_token
 
     def log_batch(self, run_id, metrics, params, tags):
