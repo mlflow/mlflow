@@ -1463,7 +1463,8 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100)
         assert len(run_results) == 100
         # runs are sorted by desc start_time
-        self.assertListEqual([run.info.run_id for run in run_results], list(reversed(run_ids[900:])))
+        self.assertListEqual([run.info.run_id for run in run_results],
+                             list(reversed(run_ids[900:])))
 
     def test_search_runs_correctly_filters_large_data(self):
         experiment_id, _ = self._generate_large_data(1000)

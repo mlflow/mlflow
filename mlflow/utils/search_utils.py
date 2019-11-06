@@ -408,7 +408,7 @@ class SearchUtils(object):
         paginated_runs = runs[start_offset:final_offset]
         next_page_token = None
         if final_offset < len(runs):
-            next_page_token = cls._create_page_token(final_offset)
+            next_page_token = cls.create_page_token(final_offset)
         return (paginated_runs, next_page_token)
 
     # Model Registry specific parser

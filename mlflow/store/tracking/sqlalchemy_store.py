@@ -574,7 +574,7 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=INVALID_STATE)
             session.delete(filtered_tags[0])
 
-    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by_list,
+    def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token):
 
         def compute_next_token(current_size):
@@ -599,7 +599,7 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             parsed_filters = SearchUtils.parse_search_filter(filter_string)
-            parsed_orderby, sorting_joins = get_orderby_clauses(order_by_list, session)
+            parsed_orderby, sorting_joins = get_orderby_clauses(order_by, session)
 
             query = session.query(SqlRun)
             for j in _get_sqlalchemy_filter_clauses(parsed_filters, session) + sorting_joins:
