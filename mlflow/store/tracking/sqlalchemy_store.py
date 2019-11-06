@@ -576,7 +576,6 @@ class SqlAlchemyStore(AbstractStore):
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by_list,
                      page_token):
-        # TODO: push search query into backend database layer
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
@@ -705,7 +704,7 @@ def get_orderby_clauses(order_by_list, session):
         for order_by_clause in order_by_list:
             (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
             subquery = None
-            if key_type == SearchUtils.ATTRIBUTE_IDENTIFIER:
+            if SearchUtils.is_attribute(key_type):
                 order_value = getattr(SqlRun, key)
             else:
                 if SearchUtils.is_metric(key_type, '='):  # any valid comparator

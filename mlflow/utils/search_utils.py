@@ -26,9 +26,9 @@ class SearchUtils(object):
     _ALTERNATE_PARAM_IDENTIFIERS = set(["parameters", "param", "params"])
     _TAG_IDENTIFIER = "tag"
     _ALTERNATE_TAG_IDENTIFIERS = set(["tags"])
-    ATTRIBUTE_IDENTIFIER = "attribute"
+    _ATTRIBUTE_IDENTIFIER = "attribute"
     _ALTERNATE_ATTRIBUTE_IDENTIFIERS = set(["attr", "attributes", "run"])
-    _IDENTIFIERS = [_METRIC_IDENTIFIER, _PARAM_IDENTIFIER, _TAG_IDENTIFIER, ATTRIBUTE_IDENTIFIER]
+    _IDENTIFIERS = [_METRIC_IDENTIFIER, _PARAM_IDENTIFIER, _TAG_IDENTIFIER, _ATTRIBUTE_IDENTIFIER]
     _VALID_IDENTIFIERS = set(_IDENTIFIERS
                              + list(_ALTERNATE_METRIC_IDENTIFIERS)
                              + list(_ALTERNATE_PARAM_IDENTIFIERS)
@@ -92,7 +92,7 @@ class SearchUtils(object):
         elif entity_type in cls._ALTERNATE_TAG_IDENTIFIERS:
             return cls._TAG_IDENTIFIER
         elif entity_type in cls._ALTERNATE_ATTRIBUTE_IDENTIFIERS:
-            return cls.ATTRIBUTE_IDENTIFIER
+            return cls._ATTRIBUTE_IDENTIFIER
         else:
             # one of ("metric", "parameter", "tag", or "attribute") since it a valid type
             return entity_type
@@ -108,7 +108,7 @@ class SearchUtils(object):
                                   error_code=INVALID_PARAMETER_VALUE)
         identifier = cls._valid_entity_type(entity_type)
         key = cls._trim_backticks(cls._strip_quotes(key))
-        if identifier == cls.ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
+        if identifier == cls._ATTRIBUTE_IDENTIFIER and key not in valid_attributes:
             raise MlflowException("Invalid attribute key '{}' specified. Valid keys "
                                   " are '{}'".format(key, valid_attributes))
         return {"type": identifier, "key": key}
@@ -129,7 +129,7 @@ class SearchUtils(object):
                                   "{value}".format(identifier_type=identifier_type,
                                                    value=token.value),
                                   error_code=INVALID_PARAMETER_VALUE)
-        elif identifier_type == cls.ATTRIBUTE_IDENTIFIER:
+        elif identifier_type == cls._ATTRIBUTE_IDENTIFIER:
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             else:
@@ -243,7 +243,7 @@ class SearchUtils(object):
 
     @classmethod
     def is_attribute(cls, key_type, comparator):
-        if key_type == cls.ATTRIBUTE_IDENTIFIER:
+        if key_type == cls._ATTRIBUTE_IDENTIFIER:
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException("Invalid comparator '{}' not one of "
                                       "'{}".format(comparator,
@@ -325,7 +325,7 @@ class SearchUtils(object):
             sort_value = run.data.params.get(key)
         elif key_type == cls._TAG_IDENTIFIER:
             sort_value = run.data.tags.get(key)
-        elif key_type == cls.ATTRIBUTE_IDENTIFIER:
+        elif key_type == cls._ATTRIBUTE_IDENTIFIER:
             sort_value = getattr(run.info, key)
         else:
             raise MlflowException("Invalid order_by entity type '%s'" % key_type,
