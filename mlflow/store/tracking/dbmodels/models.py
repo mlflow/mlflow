@@ -150,6 +150,16 @@ class SqlRun(Base):
         PrimaryKeyConstraint('run_uuid', name='run_pk')
     )
 
+    @staticmethod
+    def get_attribute_name(mlflow_attribute_name):
+        """
+        Resolves an MLflow attribute name to a `SqlRun` attribute name.
+        """
+        # Currently, MLflow Search attributes defined in `SearchUtils.VALID_SEARCH_ATTRIBUTE_KEYS`
+        # share the same names as their corresponding `SqlRun` attributes. Therefore, this function
+        # returns the same attribute name
+        return mlflow_attribute_name
+
     def to_mlflow_entity(self):
         """
         Convert DB model to corresponding MLflow entity.

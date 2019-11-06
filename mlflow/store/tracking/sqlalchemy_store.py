@@ -583,22 +583,28 @@ class SqlAlchemyStore(AbstractStore):
                                   INVALID_PARAMETER_VALUE)
 
         stages = set(LifecycleStage.view_type_to_stages(run_view_type))
+
         with self.ManagedSessionMaker() as session:
             # Fetch the appropriate runs and eagerly load their summary metrics, params, and
             # tags. These run attributes are referenced during the invocation of
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
-            queried_runs = session \
-                .query(SqlRun) \
+            query = session.query(SqlRun)
+
+            parsed = SearchUtils.parse_search_filter(filter_string)
+            for s in _get_sqlalchemy_filter_clauses(parsed, session):
+                query = query.join(s)
+
+            queried_runs = query.distinct() \
                 .options(*self._get_eager_run_query_options()) \
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
-                    SqlRun.lifecycle_stage.in_(stages)) \
+                    SqlRun.lifecycle_stage.in_(stages),
+                    *_get_attributes_filtering_clauses(parsed)) \
                 .all()
             runs = [run.to_mlflow_entity() for run in queried_runs]
 
-        filtered = SearchUtils.filter(runs, filter_string)
-        sorted_runs = SearchUtils.sort(filtered, order_by)
+        sorted_runs = SearchUtils.sort(runs, order_by)
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
@@ -620,3 +626,64 @@ class SqlAlchemyStore(AbstractStore):
             raise e
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
+
+
+def _get_attributes_filtering_clauses(parsed):
+    clauses = []
+    for sql_statement in parsed:
+        key_type = sql_statement.get('type')
+        key_name = sql_statement.get('key')
+        value = sql_statement.get('value')
+        comparator = sql_statement.get('comparator')
+        if SearchUtils.is_attribute(key_type, comparator):
+            # validity of the comparator is checked in SearchUtils.parse_search_filter()
+            op = SearchUtils.filter_ops.get(comparator)
+            if op:
+                # key_name is guaranteed to be a valid searchable attribute of entities.RunInfo
+                # by the call to parse_search_filter
+                attribute_name = SqlRun.get_attribute_name(key_name)
+                clauses.append(op(getattr(SqlRun, attribute_name), value))
+    return clauses
+
+
+def _to_sqlalchemy_filtering_statement(sql_statement, session):
+    key_type = sql_statement.get('type')
+    key_name = sql_statement.get('key')
+    value = sql_statement.get('value')
+    comparator = sql_statement.get('comparator')
+
+    if SearchUtils.is_metric(key_type, comparator):
+        entity = SqlLatestMetric
+        value = float(value)
+    elif SearchUtils.is_param(key_type, comparator):
+        entity = SqlParam
+    elif SearchUtils.is_tag(key_type, comparator):
+        entity = SqlTag
+    elif SearchUtils.is_attribute(key_type, comparator):
+        return None
+    else:
+        raise MlflowException("Invalid search expression type '%s'" % key_type,
+                              error_code=INVALID_PARAMETER_VALUE)
+
+    # validity of the comparator is checked in SearchUtils.parse_search_filter()
+    op = SearchUtils.filter_ops.get(comparator)
+    if op:
+        return (
+            session
+            .query(entity)
+            .filter(entity.key == key_name, op(entity.value, value))
+            .subquery()
+        )
+    else:
+        return None
+
+
+def _get_sqlalchemy_filter_clauses(parsed, session):
+    """creates SqlAlchemy subqueries
+    that will be inner-joined to SQLRun to act as multi-clause filters."""
+    filters = []
+    for sql_statement in parsed:
+        filter_query = _to_sqlalchemy_filtering_statement(sql_statement, session)
+        if filter_query is not None:
+            filters.append(filter_query)
+    return filters
