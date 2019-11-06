@@ -57,7 +57,7 @@ matrix:
       script:
         - cd mlflow/server/js
         - npm i
-        - ./lint.sh
+        - npm run lint
         - npm test -- --coverage
     - stage: large
     - language: python
