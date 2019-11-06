@@ -432,11 +432,13 @@ def _get_or_create_conda_env(conda_env_path, env_id=None):
         process.exec_cmd([conda_path, "--help"], throw_on_error=False)
     except EnvironmentError:
         raise ExecutionException("Could not find Conda executable at {0}. "
-                                 "Ensure Conda is installed as per the instructions "
-                                 "at https://conda.io/docs/user-guide/install/index.html. You can "
-                                 "also configure MLflow to look for a specific Conda executable "
-                                 "by setting the {1} environment variable to the path of the Conda "
-                                 "executable".format(conda_path, MLFLOW_CONDA_HOME))
+                                 "Ensure Conda is installed as per the instructions at "
+                                 "https://conda.io/projects/conda/en/latest/"
+                                 "user-guide/install/index.html. "
+                                 "You can also configure MLflow to look for a specific "
+                                 "Conda executable by setting the {1} environment variable "
+                                 "to the path of the Conda executable"
+                                 .format(conda_path, MLFLOW_CONDA_HOME))
     (_, stdout, _) = process.exec_cmd([conda_path, "env", "list", "--json"])
     env_names = [os.path.basename(env) for env in json.loads(stdout)['envs']]
     project_env_name = _get_conda_env_name(conda_env_path, env_id)
