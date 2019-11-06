@@ -619,7 +619,6 @@ export class ExperimentView extends Component {
       childrenIdList.forEach(childRunUuid => runsSelectedState[childRunUuid] = true);
       runsSelectedState[runUuid] = true;
     }
-    console.log("Setting runsSelectedState to " + JSON.stringify(runsSelectedState));
     this.setState({
       runsSelected: runsSelectedState,
       lastCheckboxIndex: index,

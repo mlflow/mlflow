@@ -371,7 +371,6 @@ export default class ExperimentViewUtil {
         parentIdToChildren[root.value] = newList;
       }
     });
-    console.log(runInfos.length);
     const parentRows = [...Array(runInfos.length).keys()].flatMap((idx) => {
       if (!treeNodes[idx].isCycle() && !treeNodes[idx].isRoot()) return [];
       const runId = runInfos[idx].run_uuid;
@@ -413,7 +412,8 @@ export default class ExperimentViewUtil {
 
   /**
    * Given an array of row metadata returned by getRowRenderMetadata, returns an array of run IDs
-   * sorted by display order.
+   * sorted by display order. Note that unlike getRowRenderMetadata, the list returned by this
+   * method also includes collapsed child runs.
    */
   static getRunIdsSortedByDisplayOrder(rowMetadatas) {
     return rowMetadatas.flatMap(rowMetadata => {
@@ -426,13 +426,6 @@ export default class ExperimentViewUtil {
       // be included in rowMetadatas, with the correct sort order
       return [rowMetadata.runId];
     });
-  }
-
-  static getRows({ runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded, getRow }) {
-    const mergedRows = ExperimentViewUtil.getRowRenderMetadata(
-      { runInfos, sortState, paramsList, metricsList, tagsList, runsExpanded });
-    const sortedRunIds = mergedRows.map(mergedRow => mergedRow.runId);
-    return mergedRows.map((rowMetadata) => getRow({...rowMetadata, sortedRunIds}));
   }
 
   static renderRows(rows) {

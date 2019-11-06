@@ -374,15 +374,11 @@ class ExperimentRunsTableCompactView extends React.Component {
       unbaggedParams,
       nextPageToken,
       loadingMore,
-      handleLoadMoreRuns,
-      metricsList,
-      paramsList,
+      handleLoadMoreRuns
     } = this.props;
     const rows = ExperimentViewUtil.getRowRenderMetadata({
       runInfos,
       tagsList,
-      metricsList,
-      paramsList,
       runsExpanded});
 
     const sortedRunIds = ExperimentViewUtil.getRunIdsSortedByDisplayOrder(rows);
