@@ -283,7 +283,7 @@ export class ExperimentView extends Component {
         return <NoteEditorView
             experimentId={this.props.experiment.experiment_id}
             type={"experiment"}
-            noteInfo={noteInfo}
+            defaultMarkdown={noteInfo && noteInfo.content}
             submitCallback={this.handleSubmittedNote}
             cancelCallback={this.handleNoteEditorViewCancel}/>;
       } else if (noteInfo) {
