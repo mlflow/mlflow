@@ -5,7 +5,6 @@ import keras.layers as layers
 
 import mlflow
 import mlflow.keras
-from distutils.version import LooseVersion
 
 client = mlflow.tracking.MlflowClient()
 
@@ -139,5 +138,5 @@ def test_autolog_persists_manually_created_run(random_train_data, random_one_hot
         else:
             model.fit(data, labels, epochs=10)
 
-    return client.get_run(run.info.run_id)
+        assert mlflow.active_run().info.run_id == run.info.run_id
 
