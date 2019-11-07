@@ -460,10 +460,7 @@ class __MLflowTfKerasCallback(Callback):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def on_epoch_end(self, epoch, logs=None):
-        pass
-
-    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
         opt = self.model.optimizer
         if hasattr(opt, 'optimizer'):
             opt = opt.optimizer
@@ -475,6 +472,11 @@ class __MLflowTfKerasCallback(Callback):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+
+    def on_epoch_end(self, epoch, logs=None):
+        pass
+
+    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         tmp_list = []
         self.model.summary(print_fn=tmp_list.append)
         summary = '\n'.join(tmp_list)
@@ -497,15 +499,16 @@ class __MLflowTfKeras2Callback(Callback):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
+    def on_train_begin(self, logs=None): # pylint: disable=unused-argument
+        config = self.model.optimizer.get_config()
+        for attribute in config:
+            try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
+
     def on_epoch_end(self, epoch, logs=None):
         if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
             try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        opt = self.model.optimizer
-        config = opt.get_config()
-        for attribute in config:
-            try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
         tmp_list = []
         self.model.summary(print_fn=tmp_list.append)
         summary = '\n'.join(tmp_list)
