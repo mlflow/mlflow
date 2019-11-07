@@ -207,13 +207,48 @@ def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
 
 
 @pytest.mark.large
-def test_keras_autolog_ends_auto_created_run():
-    pass
+def test_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(every_n_iter=5)
+
+    data = random_train_data
+    labels = random_one_hot_labels
+
+    model = tf.keras.Sequential()
+
+    model.add(layers.Dense(64, activation='relu', input_shape=(32,)))
+    model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dense(10, activation='softmax'))
+
+    model.compile(optimizer=tf.train.AdamOptimizer(0.001),
+                  loss='categorical_crossentropy',
+                  metrics=['accuracy'])
+
+    model.fit(data, labels, epochs=10)
+
+    assert mlflow.active_run() is None
 
 
 @pytest.mark.large
-def test_keras_autolog_persists_manually_created_run():
-    pass
+def test_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(every_n_iter=5)
+
+    with mlflow.start_run() as run:
+        data = random_train_data
+        labels = random_one_hot_labels
+
+        model = tf.keras.Sequential()
+
+        model.add(layers.Dense(64, activation='relu', input_shape=(32,)))
+        model.add(layers.Dense(64, activation='relu'))
+        model.add(layers.Dense(10, activation='softmax'))
+
+        model.compile(optimizer=tf.train.AdamOptimizer(0.001),
+                      loss='categorical_crossentropy',
+                      metrics=['accuracy'])
+
+        model.fit(data, labels, epochs=10)
+
+        assert mlflow.active_run().info.run_id == run.info.run_id
 
 
 # These need to test for export_savedmodel and export_saved_model
