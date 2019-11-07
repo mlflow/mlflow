@@ -7,6 +7,11 @@ test("formatMetric", () => {
   expect(Utils.formatMetric(0.5)).toEqual("0.5");
   expect(Utils.formatMetric(0.001)).toEqual("0.001");
 
+  expect(Utils.formatMetric(0.000123445)).toEqual("1.234e-4");
+  expect(Utils.formatMetric(0.000123455)).toEqual("1.235e-4");
+  expect(Utils.formatMetric(-0.000123445)).toEqual("-1.234e-4");
+  expect(Utils.formatMetric(-0.000123455)).toEqual("-1.235e-4");
+
   expect(Utils.formatMetric(0.12345)).toEqual("0.123");
   expect(Utils.formatMetric(0.12355)).toEqual("0.124");
   expect(Utils.formatMetric(-0.12345)).toEqual("-0.123");

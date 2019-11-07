@@ -38,7 +38,11 @@ class Utils {
   static userTag = 'mlflow.user';
 
   static formatMetric(value) {
-    if (Math.abs(value) < 10) {
+    if (value === 0) {
+      return '0';
+    } else if (Math.abs(value) < 1e-3) {
+      return value.toExponential(3).toString();
+    } else if (Math.abs(value) < 10) {
       return (Math.round(value * 1000) / 1000).toString();
     } else if (Math.abs(value) < 100) {
       return (Math.round(value * 100) / 100).toString();
