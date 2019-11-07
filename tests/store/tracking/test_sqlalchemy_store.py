@@ -1529,3 +1529,12 @@ class TestZeroValueInsertion(unittest.TestCase):
         SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store,
                                                                              mock_session)
         mock_session.execute.assert_called_with("SET IDENTITY_INSERT experiments OFF;")
+
+
+def test_get_attribute_name():
+    assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
+    assert(models.SqlRun.get_attribute_name("status") == "status")
+
+    # we want this to break if a searchable attribute has been added
+    # and not referred to in this test
+    assert(len(entities.RunInfo.get_searchable_attributes()) == 2)
