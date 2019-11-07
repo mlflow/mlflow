@@ -150,8 +150,8 @@ and the :mod:`mlflow.pyfunc` documentation.
 R Function (``crate``)
 ^^^^^^^^^^^^^^^^^^^^^^
 
-The ``crate`` model flavor defines a generic model format for representing aribtrary R prediction
-function as Mlflow model. The prediction function is expected to take a dataframe as input and
+The ``crate`` model flavor defines a generic model format for representing an arbitrary R prediction
+function as an MLflow model. The prediction function is expected to take a dataframe as input and
 produce a dataframe, a vector or a list with the predictions as output.
 
 This flavor requires R to be installed in order to be used.
@@ -294,7 +294,7 @@ methods also add the ``python_function`` flavor to the MLflow Models that they p
 models to be interpreted as generic Python functions for inference via
 :py:func:`mlflow.pyfunc.load_model()`. The ``python_function`` representation of an MLflow
 ONNX model uses the `ONNX Runtime execution engine <https://github.com/microsoft/onnxruntime>`_ for
-evaluation Finally, you can use the :py:func:`mlflow.onnx.load_model()` method to load MLflow
+evaluation. Finally, you can use the :py:func:`mlflow.onnx.load_model()` method to load MLflow
 Models with the ``onnx`` flavor in native ONNX format.
 
 For more information, see :py:mod:`mlflow.onnx` and `<http://onnx.ai/>`_.
@@ -319,7 +319,7 @@ Custom Python Models
 ^^^^^^^^^^^^^^^^^^^^
 The :py:mod:`mlflow.pyfunc` module provides :py:func:`save_model() <mlflow.pyfunc.save_model>` and
 :py:func:`log_model() <mlflow.pyfunc.log_model>` utilities for creating MLflow Models with the
-``python_function`` flavor that contain  user-specified code and *artifact* (file) dependencies.
+``python_function`` flavor that contain user-specified code and *artifact* (file) dependencies.
 These artifact dependencies may include serialized models produced by any Python ML library.
 
 Because these custom models contain the ``python_function`` flavor, they can be deployed
@@ -744,7 +744,7 @@ Spark cluster and used to score the model.
     pyfunc_udf = mlflow.pyfunc.spark_udf(<path-to-model>)
     df = spark_df.withColumn("prediction", pyfunc_udf(<features>))
 
-The resulting UDF is based Spark's Pandas UDF and is currently limited to producing either a single
+The resulting UDF is based on Spark's Pandas UDF and is currently limited to producing either a single
 value or an array of values of the same type per observation. By default, we return the first
 numeric column as a double. You can control what result is returned by supplying ``result_type``
 argument. The following values are supported:
