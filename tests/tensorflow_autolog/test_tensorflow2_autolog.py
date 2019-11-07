@@ -31,19 +31,21 @@ def random_train_data():
 
 
 @pytest.fixture
-def tf_keras_random_data_run(random_train_data):
-    mlflow.tensorflow.autolog(every_n_iter=5)
+def random_one_hot_labels():
+    n, n_class = (1000, 10)
+    classes = np.random.randint(0, n_class, n)
+    labels = np.zeros((n, n_class))
+    labels[np.arange(n), classes] = 1
+    return labels
 
-    def random_one_hot_labels(shape):
-        n, n_class = shape
-        classes = np.random.randint(0, n_class, n)
-        labels = np.zeros((n, n_class))
-        labels[np.arange(n), classes] = 1
-        return labels
+
+@pytest.fixture
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels):
+    mlflow.tensorflow.autolog(every_n_iter=5)
 
     with mlflow.start_run() as run:
         data = random_train_data
-        labels = random_one_hot_labels((1000, 10))
+        labels = random_one_hot_labels
 
         model = tf.keras.Sequential()
 
@@ -184,6 +186,7 @@ def test_keras_autolog_persists_manually_created_run():
     pass
 
 
+# These two do not need to test for export_savedmodel, but does need to test export_saved_model
 @pytest.mark.large
 def test_estimator_autolog_ends_auto_created_run():
     pass
