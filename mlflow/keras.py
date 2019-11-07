@@ -382,10 +382,7 @@ def autolog():
         Records model structural information as params after training finishes.
         """
         def __init__(self):
-            self.auto_end_run = False
-            if mlflow.active_run() is None:
-                mlflow.start_run()
-                self.auto_end_run = True
+            pass
 
         def on_epoch_end(self, epoch, logs=None):
             if not logs:
@@ -410,11 +407,15 @@ def autolog():
             summary = '\n'.join(sum_list)
             try_mlflow_log(mlflow.set_tag, 'summary', summary)
             try_mlflow_log(log_model, self.model, artifact_path='model')
-            if self.auto_end_run:
-                mlflow.end_run()
+
 
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):
+        if not mlflow.active_run():
+            auto_end_run = True
+        else:
+            auto_end_run = False
+
         original = gorilla.get_original_attribute(keras.Model, 'fit')
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
@@ -425,10 +426,19 @@ def autolog():
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
-        return original(self, *args, **kwargs)
+
+        result = original(self, *args, **kwargs)
+        if auto_end_run:
+            mlflow.end_run()
+        return result
 
     @gorilla.patch(keras.Model)
     def fit_generator(self, *args, **kwargs):
+        if not mlflow.active_run():
+            auto_end_run = True
+        else:
+            auto_end_run = False
+
         original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
         if len(args) >= 5:
             l = list(args)
@@ -438,7 +448,11 @@ def autolog():
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
             kwargs['callbacks'] = [__MLflowKerasCallback()]
-        return original(self, *args, **kwargs)
+
+        result = original(self, *args, **kwargs)
+        if auto_end_run:
+            mlflow.end_run()
+        return result
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     gorilla.apply(gorilla.Patch(keras.Model, 'fit', fit, settings=settings))
