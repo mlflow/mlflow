@@ -1490,10 +1490,13 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
     def test_get_attribute_name(self):
         assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
         assert(models.SqlRun.get_attribute_name("status") == "status")
+        assert(models.SqlRun.get_attribute_name("start_time") == "start_time")
+        assert(models.SqlRun.get_attribute_name("end_time") == "end_time")
 
-        # we want this to break if a searchable attribute has been added
+        # we want this to break if a searchable or orderable attribute has been added
         # and not referred to in this test
-        assert(len(entities.RunInfo.get_searchable_attributes()) == 2)
+        # searchable attibutes are also orderable
+        assert(len(entities.RunInfo.get_orderable_attributes()) == 4)
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):

@@ -729,7 +729,7 @@ def get_orderby_clauses(order_by_list, session):
             (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
             subquery = None
             if SearchUtils.is_attribute(key_type, '='):
-                order_value = getattr(SqlRun, key)
+                order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
             else:
                 if SearchUtils.is_metric(key_type, '='):  # any valid comparator
                     entity = SqlLatestMetric
