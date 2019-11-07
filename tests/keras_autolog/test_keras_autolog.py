@@ -113,7 +113,8 @@ def test_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels,
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels, fit_variant):
+def test_autolog_persists_manually_created_run(random_train_data,
+                                               random_one_hot_labels, fit_variant):
     mlflow.keras.autolog()
 
     with mlflow.start_run() as run:
@@ -139,4 +140,3 @@ def test_autolog_persists_manually_created_run(random_train_data, random_one_hot
             model.fit(data, labels, epochs=10)
 
         assert mlflow.active_run().info.run_id == run.info.run_id
-

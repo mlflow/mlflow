@@ -170,6 +170,7 @@ def tf_estimator():
     classifier.export_saved_model(dir, receiver_fn)
     shutil.rmtree(dir)
 
+
 @pytest.fixture
 def tf_estimator_random_data_run():
     mlflow.tensorflow.autolog()

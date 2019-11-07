@@ -381,8 +381,6 @@ def autolog():
         Records available logs after each epoch.
         Records model structural information as params after training finishes.
         """
-        def __init__(self):
-            pass
 
         def on_epoch_end(self, epoch, logs=None):
             if not logs:
@@ -407,7 +405,6 @@ def autolog():
             summary = '\n'.join(sum_list)
             try_mlflow_log(mlflow.set_tag, 'summary', summary)
             try_mlflow_log(log_model, self.model, artifact_path='model')
-
 
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):

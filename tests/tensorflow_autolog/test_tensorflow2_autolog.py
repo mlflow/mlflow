@@ -142,6 +142,7 @@ def tf_estimator():
 
     shutil.rmtree(dir)
 
+
 @pytest.fixture
 def tf_estimator_random_data_run():
     mlflow.tensorflow.autolog()
