@@ -137,9 +137,9 @@ def build_docker(model_uri, name, install_mlflow):
 
 def _get_flavor_backend(model_uri, **kwargs):
     with TempDir() as tmp:
-        local_path = _download_artifact_from_uri(posixpath.join(model_uri, "MLmodel"),
+        local_path = _download_artifact_from_uri(posixpath.join(model_uri),
                                                  output_path=tmp.path())
-        model = Model.load(local_path)
+        model = Model.load(os.path.join(local_path, "MLmodel"))
     flavor_name, flavor_backend = get_flavor_backend(model, **kwargs)
     if flavor_backend is None:
         raise Exception("No suitable flavor backend was found for the model.")
