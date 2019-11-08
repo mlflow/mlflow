@@ -94,7 +94,7 @@ matrix:
       install:
         - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
         - pip install -r ./travis/lint-requirements.txt
-        - pip install sphinx==2.2.1 sphinxclick==2.3.0
+        - pip install sphinx==2.2.1 sphinx-click==2.3.0
       script:
         - cd docs
         - make rsthtml SPHINXOPTS="-W --keep-going"
