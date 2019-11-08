@@ -38,7 +38,11 @@ class Utils {
   static userTag = 'mlflow.user';
 
   static formatMetric(value) {
-    if (Math.abs(value) < 10) {
+    if (value === 0) {
+      return '0';
+    } else if (Math.abs(value) < 1e-3) {
+      return value.toExponential(3).toString();
+    } else if (Math.abs(value) < 10) {
       return (Math.round(value * 1000) / 1000).toString();
     } else if (Math.abs(value) < 100) {
       return (Math.round(value * 100) / 100).toString();
@@ -177,7 +181,7 @@ class Utils {
         url = url + "/src/master/" + bitbucketMatch[3];
       }
     } else if (gerritMatch) {
-        url = "https://review.crto.in/gitweb?p=" + gerritMatch[2];
+      url = "https://review.crto.in/gitweb?p=" + gerritMatch[2];
     }
     return url;
   }
@@ -198,7 +202,7 @@ class Utils {
       url = (baseUrl + bitbucketMatch[1] + "/" + bitbucketMatch[2].replace(/.git/, '') +
         "/src/" + sourceVersion) + "/" + bitbucketMatch[3];
     } else if (gerritMatch) {
-        url = "https://review.crto.in/gitweb?p=" + gerritMatch[2] + ";a=commit;h=" + sourceVersion;
+      url = "https://review.crto.in/gitweb?p=" + gerritMatch[2] + ";a=commit;h=" + sourceVersion;
     }
     return url;
   }
@@ -384,7 +388,7 @@ class Utils {
   }
 
   static getSearchParamsFromUrl(search) {
-    const params = qs.parse(search, {ignoreQueryPrefix: true});
+    const params = qs.parse(search, { ignoreQueryPrefix: true });
     const str = JSON.stringify(params,
       function replaceUndefined(key, value) {
         return (value === undefined) ? "" : value;
