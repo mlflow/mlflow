@@ -165,8 +165,8 @@ def _upgrade_db_initialized_before_mlflow_1(url):
 
 
 def create_sqlalchemy_engine(db_uri):
-    pool_size = os.environ.get(MLFLOW_SQLALCHEMYSTORE_POOL_SIZE, None)
-    pool_max_overflow = os.environ.get(MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW, None)
+    pool_size = os.environ.get(MLFLOW_SQLALCHEMYSTORE_POOL_SIZE)
+    pool_max_overflow = os.environ.get(MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW)
     pool_kwargs = {}
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
