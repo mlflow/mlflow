@@ -17,6 +17,7 @@ from tests.projects.utils import TEST_DOCKER_PROJECT_DIR
 from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
 from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.projects import _project_spec
+from mlflow.exceptions import MlflowException
 
 
 def _build_uri(base_uri, subdirectory):
@@ -274,7 +275,7 @@ def test_docker_user_specified_env_vars(volumes, environment, expected, os_envir
 
     if "should_crash" in expected:
         expected.remove("should_crash")
-        with pytest.raises(KeyError):
+        with pytest.raises(MlflowException):
             with mock.patch.dict("os.environ", os_environ):
                 mlflow.projects._get_docker_command(
                     image, active_run, volumes, environment)
