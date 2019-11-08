@@ -8,6 +8,7 @@ import {
   getRunInfo,
   getRunTags,
   getExperimentTags } from '../reducers/Reducers';
+import { setExperimentTagApi, getUUID } from '../Actions';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
@@ -20,12 +21,11 @@ import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
-import { NoteInfo } from "../utils/NoteUtils";
-import NoteEditorView from "./NoteEditorView";
-import NoteShowView from "./NoteShowView";
+import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 import { Icon, Popover, Descriptions } from 'antd';
+import { EditableNote } from '../common/components/EditableNote';
 
 import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
@@ -58,9 +58,9 @@ export class ExperimentView extends Component {
     this.addBagged = this.addBagged.bind(this);
     this.removeBagged = this.removeBagged.bind(this);
     this.handleExposeNotesEditorClick = this.handleExposeNotesEditorClick.bind(this);
-    this.handleSubmittedNote = this.handleSubmittedNote.bind(this);
-    this.handleNoteEditorViewCancel = this.handleNoteEditorViewCancel.bind(this);
     this.renderNoteSection = this.renderNoteSection.bind(this);
+    this.handleNoteOnSubmit = this.handleNoteOnSubmit.bind(this);
+    this.handleNoteOnCancel = this.handleNoteOnCancel.bind(this);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     this.state = {
@@ -110,6 +110,7 @@ export class ExperimentView extends Component {
     nextPageToken: PropTypes.string,
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
+    setExperimentTagApi: PropTypes.func.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -265,10 +266,6 @@ export class ExperimentView extends Component {
     this.setState({ showNotesEditor: true, showNotes: true });
   }
 
-  handleNoteEditorViewCancel() {
-    this.setState({ showNotesEditor: false });
-  }
-
   returnOnClickFunction(notesKey) {
     if (this.state.showNotesEditor) {
       return undefined;
@@ -277,20 +274,27 @@ export class ExperimentView extends Component {
     }
   }
 
+  handleNoteOnSubmit(note) {
+    const { experiment_id } = this.props.experiment;
+    this.props.setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
+    .then(() => this.setState({showNotesEditor: false}));
+  }
+
+  handleNoteOnCancel() {
+    this.setState({showNotesEditor: false});
+  }
+
   renderNoteSection(noteInfo) {
-    if (this.state.showNotes) {
-      if (this.state.showNotesEditor) {
-        return <NoteEditorView
-            experimentId={this.props.experiment.experiment_id}
-            type={"experiment"}
-            defaultMarkdown={noteInfo && noteInfo.content}
-            submitCallback={this.handleSubmittedNote}
-            cancelCallback={this.handleNoteEditorViewCancel}/>;
-      } else if (noteInfo) {
-        return <NoteShowView content={noteInfo.content} noteType={"experiment"}/>;
-      } else {
-        return null;
-      }
+    const {showNotes, showNotesEditor} = this.state;
+    if (showNotes) {
+      return (
+        <EditableNote
+          defaultMarkdown={noteInfo && noteInfo.content}
+          onSubmit={this.handleNoteOnSubmit}
+          onCancel={this.handleNoteOnCancel}
+          showEditor={showNotesEditor}
+        />
+      );
     }
     return null;
   }
@@ -537,12 +541,6 @@ export class ExperimentView extends Component {
         </div>
       </div>
     );
-  }
-
-  handleSubmittedNote(err) {
-    if (!err) {
-      this.setState({ showNotesEditor: false });
-    }
   }
 
   onSortBy(orderByKey, orderByAsc) {
@@ -855,6 +853,10 @@ export const mapStateToProps = (state, ownProps) => {
   };
 };
 
+const mapDispatchToProps = {
+  setExperimentTagApi
+};
+
 const styles = {
   lifecycleButtonLabel: {
     width: '32px'
@@ -864,4 +866,4 @@ const styles = {
   },
 };
 
-export default withRouter(connect(mapStateToProps)(ExperimentView));
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentView));
