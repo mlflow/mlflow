@@ -16,4 +16,9 @@ const root = (
 );
 ReactDOM.render(root, document.getElementById('root'));
 
-registerServiceWorker();
+// Disable service worker registration as it adds unnecessary debugging complexity
+// (see https://github.com/facebook/create-react-app/issues/2398) for relatively small gain
+// (caching of static assets, as described in
+// https://create-react-app.dev/docs/making-a-progressive-web-app/, which should also be handled
+// by most browsers)
+// registerServiceWorker();
