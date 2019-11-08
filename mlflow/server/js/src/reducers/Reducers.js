@@ -14,11 +14,13 @@ import {
   LOAD_MORE_RUNS_API,
   SET_EXPERIMENT_TAG_API,
   SET_TAG_API,
+  DELETE_TAG_API,
   rejected,
 } from '../Actions';
 import { Experiment, Param, RunInfo, RunTag, ExperimentTag } from '../sdk/MlflowMessages';
 import { ArtifactNode } from '../utils/ArtifactUtils';
 import { metricsByRunUuid, latestMetricsByRunUuid } from './MetricReducer';
+import modelRegistryReducers from '../model-registry/reducers';
 import _ from 'lodash';
 
 export const getExperiments = (state) => {
@@ -186,6 +188,11 @@ const tagsByRunUuid = (state = {}, action) => {
       const tag = { key: action.meta.key, value: action.meta.value };
       return amendTagsByRunUuid(state, [tag], action.meta.runUuid);
     }
+    case fulfilled(DELETE_TAG_API): {
+      return Object.entries(state).reduce((newState, [runUuid, run]) => {
+        return {...newState, [runUuid]: _.omit(run, action.meta.key)};
+      }, {});
+    }
     default:
       return state;
   }
@@ -317,6 +324,7 @@ const entities = combineReducers({
   experimentTagsByExperimentId,
   artifactsByRunUuid,
   artifactRootUriByRunUuid,
+  ...modelRegistryReducers,
 });
 
 export const getSharedParamKeysByRunUuids = (runUuids, state) =>
@@ -326,6 +334,16 @@ export const getSharedParamKeysByRunUuids = (runUuids, state) =>
 
 export const getSharedMetricKeysByRunUuids = (runUuids, state) =>
     _.intersection(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
+    );
+
+export const getAllParamKeysByRunUuids = (runUuids, state) =>
+    _.union(
+        ...runUuids.map((runUuid) => Object.keys(state.entities.paramsByRunUuid[runUuid])),
+    );
+
+export const getAllMetricKeysByRunUuids = (runUuids, state) =>
+    _.union(
         ...runUuids.map((runUuid) => Object.keys(state.entities.latestMetricsByRunUuid[runUuid])),
     );
 

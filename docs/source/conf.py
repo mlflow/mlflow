@@ -309,6 +309,11 @@ texinfo_documents = [
 # Enable nitpicky mode to log warnings for broken references
 nitpicky = True
 nitpick_ignore = [
+    # Ignore "parent class reference not found" errors for subclasses of ``object``
     ('py:class', 'object'),
-    # ('py:class', 'mlflow.entities._mlflow_object._MLflowObject'),
+]
+
+linkcheck_ignore = [
+    # Ignore local URLs when validating external links
+    r'http://localhost:\d+/?',
 ]

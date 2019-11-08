@@ -26,6 +26,7 @@ Get started using the :ref:`quickstart` or by reading about the :ref:`key concep
     tracking
     projects
     models
+    model-registry
     cli
     search-syntax
     python_api/index

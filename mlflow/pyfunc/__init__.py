@@ -260,7 +260,7 @@ def _load_model_env(path):
     return _get_flavor_configuration(model_path=path, flavor_name=FLAVOR_NAME).get(ENV, None)
 
 
-def load_model(model_uri, suppress_warnings=False):
+def load_model(model_uri, suppress_warnings=True):
     """
     Load a model stored in Python function format.
 
@@ -278,7 +278,16 @@ def load_model(model_uri, suppress_warnings=False):
                               loading process will be suppressed. If ``False``, these warning
                               messages will be emitted.
     """
-    return load_pyfunc(model_uri, suppress_warnings)
+    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
+    conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
+    model_py_version = conf.get(PY_VERSION)
+    if not suppress_warnings:
+        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
+    if CODE in conf and conf[CODE]:
+        code_path = os.path.join(local_model_path, conf[CODE])
+        mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
+    data_path = os.path.join(local_model_path, conf[DATA]) if (DATA in conf) else local_model_path
+    return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
 
 
 @deprecated("mlflow.pyfunc.load_model", 1.0)
@@ -301,16 +310,7 @@ def load_pyfunc(model_uri, suppress_warnings=False):
                               loading process will be suppressed. If ``False``, these warning
                               messages will be emitted.
     """
-    local_model_path = _download_artifact_from_uri(artifact_uri=model_uri)
-    conf = _get_flavor_configuration(model_path=local_model_path, flavor_name=FLAVOR_NAME)
-    model_py_version = conf.get(PY_VERSION)
-    if not suppress_warnings:
-        _warn_potentially_incompatible_py_version_if_necessary(model_py_version=model_py_version)
-    if CODE in conf and conf[CODE]:
-        code_path = os.path.join(local_model_path, conf[CODE])
-        mlflow.pyfunc.utils._add_code_to_system_path(code_path=code_path)
-    data_path = os.path.join(local_model_path, conf[DATA]) if (DATA in conf) else local_model_path
-    return importlib.import_module(conf[MAIN])._load_pyfunc(data_path)
+    return load_model(model_uri, suppress_warnings)
 
 
 def _warn_potentially_incompatible_py_version_if_necessary(model_py_version=None):
@@ -337,7 +337,10 @@ def spark_udf(spark, model_uri, result_type="double"):
     A Spark UDF that can be used to invoke the Python function formatted model.
 
     Parameters passed to the UDF are forwarded to the model as a DataFrame where the names are
-    ordinals (0, 1, ...).
+    ordinals (0, 1, ...). On some versions of Spark, it is also possible to wrap the input in a
+    struct. In that case, the data will be passed as a DataFrame with column names given by the
+    struct definition (e.g. when invoked as my_udf(struct('x', 'y'), the model will ge the data as a
+    pandas DataFrame with 2 columns 'x' and 'y').
 
     The predictions are filtered to contain only the columns that can be represented as the
     ``result_type``. If the ``result_type`` is string or array of strings, all predictions are
@@ -422,9 +425,17 @@ def spark_udf(spark, model_uri, result_type="double"):
     def predict(*args):
         model = SparkModelCache.get_or_load(archive_path)
         schema = {str(i): arg for i, arg in enumerate(args)}
-        # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
-        columns = [str(i) for i, _ in enumerate(args)]
-        pdf = pandas.DataFrame(schema, columns=columns)
+        pdf = None
+        for x in args:
+            if type(x) == pandas.DataFrame:
+                if len(args) != 1:
+                    raise Exception("If passing a StructType column, there should be only one "
+                                    "input column, but got %d" % len(args))
+                pdf = x
+        if pdf is None:
+            # Explicitly pass order of columns to avoid lexicographic ordering (i.e., 10 < 2)
+            columns = [str(i) for i, _ in enumerate(args)]
+            pdf = pandas.DataFrame(schema, columns=columns)
         result = model.predict(pdf)
         if not isinstance(result, pandas.DataFrame):
             result = pandas.DataFrame(data=result)
@@ -571,8 +582,8 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
     if first_argument_set_specified:
         return _save_model_with_loader_module_and_data_path(
-                path=path, loader_module=loader_module, data_path=data_path,
-                code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
+            path=path, loader_module=loader_module, data_path=data_path,
+            code_paths=code_path, conda_env=conda_env, mlflow_model=mlflow_model)
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
             path=path, python_model=python_model, artifacts=artifacts, conda_env=conda_env,
@@ -580,7 +591,7 @@ def save_model(path, loader_module=None, data_path=None, code_path=None, conda_e
 
 
 def log_model(artifact_path, loader_module=None, data_path=None, code_path=None, conda_env=None,
-              python_model=None, artifacts=None):
+              python_model=None, artifacts=None, registered_model_name=None):
     """
     Log a Pyfunc model with custom inference logic and optional data dependencies as an MLflow
     artifact for the current run.
@@ -653,6 +664,10 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                       path via ``context.artifacts["my_file"]``.
 
                       If ``None``, no artifacts are added to the model.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     """
     return Model.log(artifact_path=artifact_path,
                      flavor=mlflow.pyfunc,
@@ -661,7 +676,8 @@ def log_model(artifact_path, loader_module=None, data_path=None, code_path=None,
                      code_path=code_path,
                      python_model=python_model,
                      artifacts=artifacts,
-                     conda_env=conda_env)
+                     conda_env=conda_env,
+                     registered_model_name=registered_model_name)
 
 
 def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=None,
@@ -684,8 +700,8 @@ def _save_model_with_loader_module_and_data_path(path, loader_module, data_path=
     """
     if os.path.exists(path):
         raise MlflowException(
-                message="Path '{}' already exists".format(path),
-                error_code=RESOURCE_ALREADY_EXISTS)
+            message="Path '{}' already exists".format(path),
+            error_code=RESOURCE_ALREADY_EXISTS)
     os.makedirs(path)
 
     code = None

@@ -10,7 +10,6 @@ from __future__ import absolute_import
 import os
 import sys
 import traceback
-import json
 from six import reraise
 
 import mlflow
@@ -22,7 +21,7 @@ FLAVOR_NAME = "mleap"
 
 
 @keyword_only
-def log_model(spark_model, sample_input, artifact_path):
+def log_model(spark_model, sample_input, artifact_path, registered_model_name=None):
     """
     Log a Spark MLLib model in MLeap format as an MLflow artifact
     for the current run. The logged model will have the MLeap flavor.
@@ -37,6 +36,10 @@ def log_model(spark_model, sample_input, artifact_path):
     :param sample_input: Sample PySpark DataFrame input that the model can evaluate. This is
                          required by MLeap for data schema inference.
     :param artifact_path: Run-relative artifact path.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
 
     >>> import mlflow
     >>> import mlflow.mleap
@@ -56,7 +59,7 @@ def log_model(spark_model, sample_input, artifact_path):
     ...     (5, "l m n"),
     ...     (6, "spark hadoop spark"),
     ...     (7, "apache hadoop")], ["id", "text"])
-    >>> #Create an MLlib pipeline
+    >>> # Create an MLlib pipeline
     >>> tokenizer = Tokenizer(inputCol="text", outputCol="words")
     >>> hashingTF = HashingTF(inputCol=tokenizer.getOutputCol(), outputCol="features")
     >>> lr = LogisticRegression(maxIter=10, regParam=0.001)
@@ -70,7 +73,8 @@ def log_model(spark_model, sample_input, artifact_path):
     >>>                        artifact_path="mleap-model")
     """
     return Model.log(artifact_path=artifact_path, flavor=mlflow.mleap,
-                     spark_model=spark_model, sample_input=sample_input)
+                     spark_model=spark_model, sample_input=sample_input,
+                     registered_model_name=registered_model_name)
 
 
 @keyword_only
@@ -145,52 +149,9 @@ def add_to_model(mlflow_model, path, spark_model, sample_input):
                 "MLeap encountered an error while serializing the model. Ensure that the model is"
                 " compatible with MLeap (i.e does not contain any custom transformers).")
 
-    try:
-        input_schema = _get_mleap_schema(sample_input)
-    except Py4JError:
-        _handle_py4j_error(
-                MLeapSerializationException,
-                "Encountered an error while converting the schema of the sample input dataframe to"
-                " MLeap format. Please ensure that this dataframe is compatible with MLeap."
-                " For example, the dataframe must only contain supported data types, which are"
-                " described here:"
-                " http://mleap-docs.combust.ml/core-concepts/data-frames/data-types.html.")
-
-    mleap_schemapath_sub = os.path.join("mleap", "schema.json")
-    mleap_schemapath_full = os.path.join(path, mleap_schemapath_sub)
-    with open(mleap_schemapath_full, "w") as out:
-        json.dump(input_schema, out, indent=4)
-
     mlflow_model.add_flavor(FLAVOR_NAME,
                             mleap_version=mleap.version.__version__,
-                            model_data=mleap_datapath_sub,
-                            input_schema=mleap_schemapath_sub)
-
-
-def _get_mleap_schema(dataframe):
-    """
-    :param dataframe: A PySpark DataFrame object
-
-    :return: The schema of the supplied dataframe, in MLeap format. This serialized object of type
-    ``ml.combust.mleap.core.types.StructType``, represented as a JSON dictionary.
-    """
-    from pyspark.ml.util import _jvm
-    ReflectionUtil = _jvm().py4j.reflection.ReflectionUtil
-
-    # Convert the Spark dataframe's schema to an MLeap schema object.
-    # This is equivalent to the Scala function call
-    # `org.apache.spark.sql.mleap.TypeConverters.sparkSchemaToMleapSchema(dataframe)`
-    tc_clazz = ReflectionUtil.classForName("org.apache.spark.sql.mleap.TypeConverters$")
-    tc_inst = tc_clazz.getField("MODULE$").get(tc_clazz)
-    mleap_schema_struct = tc_inst.sparkSchemaToMleapSchema(dataframe._jdf)
-
-    # Obtain a JSON representation of the MLeap schema object
-    # This is equivalent to the Scala function call
-    # `ml.combust.mleap.json.JsonSupport.MleapStructTypeFormat().write(mleap_schema_struct)`
-    js_clazz = ReflectionUtil.classForName("ml.combust.mleap.json.JsonSupport$")
-    js_inst = js_clazz.getField("MODULE$").get(js_clazz)
-    mleap_schema_json = js_inst.MleapStructTypeFormat().write(mleap_schema_struct)
-    return json.loads(mleap_schema_json.toString())
+                            model_data=mleap_datapath_sub)
 
 
 def _handle_py4j_error(reraised_error_type, reraised_error_text):

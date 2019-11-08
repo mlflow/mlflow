@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { Menu, Dropdown } from 'antd';
 import classNames from 'classnames';
 import ExperimentViewUtil from "./ExperimentViewUtil";
+import Utils from '../utils/Utils';
 
 const styles = {
   metricParamCellContent: {
@@ -42,7 +43,7 @@ export default class BaggedCell extends PureComponent {
   };
 
   render() {
-    const { keyName, value, sortIcon } = this.props;
+    const { isMetric, keyName, value, sortIcon } = this.props;
     const cellClass = classNames("metric-param-content", "metric-param-cell", "BaggedCell");
     return (
       <span
@@ -76,8 +77,9 @@ export default class BaggedCell extends PureComponent {
             <span
               className="metric-param-value run-table-container"
               style={styles.metricParamCellContent}
+              title={value}
             >
-              {value}
+              {isMetric ? Utils.formatMetric(parseFloat(value)) : value}
             </span>
           </span>
         </Dropdown>

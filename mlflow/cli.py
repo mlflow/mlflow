@@ -9,25 +9,22 @@ import click
 from click import UsageError
 
 import mlflow.azureml.cli
-import mlflow.projects as projects
-import mlflow.data
+import mlflow.db
 import mlflow.experiments
 import mlflow.models.cli
-
-import mlflow.sagemaker.cli
+import mlflow.projects as projects
 import mlflow.runs
+import mlflow.sagemaker.cli
+import mlflow.store.artifact.cli
 import mlflow.store.db.utils
-import mlflow.db
-
-from mlflow.tracking.utils import _is_local_uri
+from mlflow import tracking
+from mlflow.server import _run_server
+from mlflow.server.handlers import initialize_backend_stores
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.process import ShellCommandException
-from mlflow.utils import cli_args
-from mlflow.server import _run_server
-from mlflow.server.handlers import _get_store
-from mlflow.store import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-from mlflow import tracking
-import mlflow.store.cli
+from mlflow.utils.uri import is_local_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -181,13 +178,13 @@ def ui(backend_store_uri, default_artifact_root, port):
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     if not default_artifact_root:
-        if _is_local_uri(backend_store_uri):
+        if is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
         else:
             default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     try:
-        _get_store(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, default_artifact_root)
     except Exception as e:  # pylint: disable=broad-except
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -242,7 +239,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
     """
     Run the MLflow tracking server.
 
-    The server which listen on ``http://localhost:5000`` by default, and only accept connections 
+    The server which listen on http://localhost:5000 by default, and only accept connections
     from the local machine. To let the server accept connections from other machines, you will need
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
@@ -255,7 +252,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
         backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 
     if not default_artifact_root:
-        if _is_local_uri(backend_store_uri):
+        if is_local_uri(backend_store_uri):
             default_artifact_root = backend_store_uri
         else:
             eprint("Option 'default-artifact-root' is required, when backend store is not "
@@ -263,7 +260,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
             sys.exit(1)
 
     try:
-        _get_store(backend_store_uri, default_artifact_root)
+        initialize_backend_stores(backend_store_uri, default_artifact_root)
     except Exception as e:  # pylint: disable=broad-except
         _logger.error("Error initializing backend store")
         _logger.exception(e)
@@ -280,7 +277,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 cli.add_command(mlflow.models.cli.commands)
 cli.add_command(mlflow.sagemaker.cli.commands)
 cli.add_command(mlflow.experiments.commands)
-cli.add_command(mlflow.store.cli.commands)
+cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.azureml.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)

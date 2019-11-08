@@ -1,7 +1,8 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import RequestStateWrapper from './RequestStateWrapper';
-import { getExperimentApi, getRunApi, getUUID, listArtifactsApi } from '../Actions';
+import { getExperimentApi, getRunApi, getUUID, listArtifactsApi, setTagApi } from '../Actions';
+import { searchModelVersionsApi } from '../model-registry/actions';
 import { connect } from 'react-redux';
 import RunView from './RunView';
 import Routes from '../Routes';
@@ -13,38 +14,56 @@ class RunPage extends Component {
   static propTypes = {
     runUuid: PropTypes.string.isRequired,
     experimentId: PropTypes.number.isRequired,
-    dispatch: PropTypes.func.isRequired,
+    modelVersions: PropTypes.arrayOf(Object),
+    getRunApi: PropTypes.func.isRequired,
+    listArtifactsApi: PropTypes.func.isRequired,
+    getExperimentApi: PropTypes.func.isRequired,
+    searchModelVersionsApi: PropTypes.func.isRequired,
+    setTagApi: PropTypes.func.isRequired,
   };
 
-  state = {
-    getRunRequestId: getUUID(),
-    listArtifactRequestId: getUUID(),
-    getExperimentRequestId: getUUID(),
-  };
+  getRunRequestId = getUUID();
+
+  listArtifactRequestId = getUUID();
+
+  getExperimentRequestId = getUUID();
+
+  searchModelVersionsRequestId = getUUID();
+
+  setTagRequestId = getUUID();
 
   componentWillMount() {
-    this.props.dispatch(getRunApi(this.props.runUuid, this.state.getRunRequestId));
-    this.props.dispatch(
-      listArtifactsApi(this.props.runUuid, undefined, this.state.listArtifactRequestId));
-    this.props.dispatch(
-      getExperimentApi(this.props.experimentId, this.state.getExperimentRequestId));
+    const { experimentId, runUuid } = this.props;
+    this.props.getRunApi(runUuid, this.getRunRequestId);
+    this.props.listArtifactsApi(runUuid, undefined, this.listArtifactRequestId);
+    this.props.getExperimentApi(experimentId, this.getExperimentRequestId);
+    this.props.searchModelVersionsApi({ run_id: runUuid }, this.searchModelVersionsRequestId);
   }
+
+  handleSetRunTag = (tagName, value) => {
+    const { runUuid } = this.props;
+    return this.props
+      .setTagApi(runUuid, tagName, value, this.setTagRequestId)
+      .then(() => getRunApi(runUuid, this.getRunRequestId));
+  };
 
   render() {
     return (
       <div className='App-content'>
         <RequestStateWrapper
-          requestIds={[this.state.getRunRequestId,
-            this.state.listArtifactRequestId,
-            this.state.getExperimentRequestId]}
+          requestIds={[
+            this.getRunRequestId,
+            this.listArtifactRequestId,
+            this.getExperimentRequestId,
+          ]}
         >
           {(isLoading, shouldRenderError, requests) => {
             if (shouldRenderError) {
-              const getRunRequest = Utils.getRequestWithId(requests, this.state.getRunRequestId);
+              const getRunRequest = Utils.getRequestWithId(requests, this.getRunRequestId);
               if (getRunRequest.error.getErrorCode() === ErrorCodes.RESOURCE_DOES_NOT_EXIST) {
                 return <RunNotFoundView runId={this.props.runUuid}/>;
               }
-              return undefined;
+              return null;
             }
             return <RunView
               runUuid={this.props.runUuid}
@@ -52,6 +71,8 @@ class RunPage extends Component {
                 Routes.getMetricPageRoute([this.props.runUuid], key, this.props.experimentId)
               }
               experimentId={this.props.experimentId}
+              modelVersions={this.props.modelVersions}
+              handleSetRunTag={this.handleSetRunTag}
             />;
           }}
         </RequestStateWrapper>
@@ -68,8 +89,16 @@ const mapStateToProps = (state, ownProps) => {
     runUuid,
     experimentId,
     // so that we re-render the component when the route changes
-    key: runUuid + experimentId
+    key: runUuid + experimentId,
   };
 };
 
-export default connect(mapStateToProps)(RunPage);
+const mapDispatchToProps = {
+  getRunApi,
+  listArtifactsApi,
+  getExperimentApi,
+  searchModelVersionsApi,
+  setTagApi,
+};
+
+export default connect(mapStateToProps, mapDispatchToProps)(RunPage);
