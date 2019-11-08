@@ -8,6 +8,7 @@ class Param(_MLflowObject):
     """
     Parameter object.
     """
+    
     def __init__(self, key, value):
         if "pyspark.ml" in sys.modules:
             import pyspark.ml.param
@@ -20,7 +21,6 @@ class Param(_MLflowObject):
     @property
     def key(self):
         """String key corresponding to the parameter name."""
-
         return self._key
 
     @property
