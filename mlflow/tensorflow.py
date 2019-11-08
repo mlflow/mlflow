@@ -499,7 +499,7 @@ class __MLflowTfKeras2Callback(Callback):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def on_train_begin(self, logs=None): # pylint: disable=unused-argument
+    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
         config = self.model.optimizer.get_config()
         for attribute in config:
             try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])

@@ -381,7 +381,7 @@ def autolog():
         Records available logs after each epoch.
         Records model structural information as params after training finishes.
         """
-        def on_train_begin(self, logs=None): # pylint: disable=unused-argument
+        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
             try_mlflow_log(mlflow.log_param, 'num_layers', len(self.model.layers))
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.model.optimizer).__name__)
             if hasattr(self.model.optimizer, 'lr'):
