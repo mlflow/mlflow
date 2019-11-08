@@ -8,7 +8,7 @@ class Param(_MLflowObject):
     """
     Parameter object.
     """
-    
+
     def __init__(self, key, value):
         if "pyspark.ml" in sys.modules:
             import pyspark.ml.param
