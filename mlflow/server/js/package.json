@@ -71,7 +71,8 @@
     "build": "react-app-rewired build",
     "test": "react-app-rewired test --env=jsdom",
     "eject": "react-scripts eject",
-    "lint": "react-scripts run lint"
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
   },
   "homepage": "static-files",
   "jest": {
