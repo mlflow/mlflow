@@ -88,6 +88,16 @@ matrix:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
         - ./travis/run-small-python-tests.sh
+    - language: python
+      python: 3.6
+      name: "RST Docs"
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+        - pip install -r ./travis/lint-requirements.txt
+        - pip install sphinx==2.2.1
+      script:
+        - cd docs
+        - make rsthtml
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
