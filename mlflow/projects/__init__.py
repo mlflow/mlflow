@@ -152,7 +152,9 @@ def _run(uri, experiment_id, entry_point="main", version=None, parameters=None,
                                         repository_uri=project.name,
                                         base_image=project.docker_env.get('image'),
                                         run_id=active_run.info.run_id)
-            command_args += _get_docker_command(image=image, active_run=active_run)
+            command_args += _get_docker_command(image=image, active_run=active_run,
+                                                volumes=project.docker_env.get("volumes"),
+                                                user_env_vars=project.docker_env.get("environment"))
         # Synchronously create a conda environment (even though this may take some time)
         # to avoid failures due to multiple concurrent attempts to create the same conda env.
         elif use_conda:
@@ -640,7 +642,7 @@ def _get_local_uri_or_none(uri):
         return None, None
 
 
-def _get_docker_command(image, active_run):
+def _get_docker_command(image, active_run, volumes=None, user_env_vars=None):
     docker_path = "docker"
     cmd = [docker_path, "run", "--rm"]
     env_vars = _get_run_env_vars(run_id=active_run.info.run_id,
@@ -653,6 +655,25 @@ def _get_docker_command(image, active_run):
     cmd += tracking_cmds + artifact_cmds
     env_vars.update(tracking_envs)
     env_vars.update(artifact_envs)
+    if user_env_vars is not None:
+        for user_entry in user_env_vars:
+            if isinstance(user_entry, list):
+                # User has defined a new environment variable for the docker environment
+                env_vars[user_entry[0]] = user_entry[1]
+            else:
+                # User wants to copy an environment variable from system environment
+                system_var = os.environ.get(user_entry)
+                if system_var is None:
+                    raise MlflowException(
+                        "This project expects the %s environment variable to "
+                        "be set on the machine running the project, but %s was "
+                        "not set. Please ensure all expected environment variables "
+                        "are set" % (", ".join(user_env_vars), user_entry))
+                env_vars[user_entry] = system_var
+
+    if volumes is not None:
+        for v in volumes:
+            cmd += ["-v", v]
 
     for key, value in env_vars.items():
         cmd += ["-e", "{key}={value}".format(key=key, value=value)]

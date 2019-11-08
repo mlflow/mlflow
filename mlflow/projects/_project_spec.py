@@ -36,9 +36,26 @@ def load_project(directory):
 
     # Validate config if docker_env parameter is present
     docker_env = yaml_obj.get("docker_env")
-    if docker_env and not docker_env.get("image"):
-        raise ExecutionException("Docker environment specified but no image "
-                                 "attribute found.")
+    if docker_env:
+        if not docker_env.get("image"):
+            raise ExecutionException("Project configuration (MLproject file) was invalid: Docker "
+                                     "environment specified but no image attribute found.")
+        if docker_env.get("volumes"):
+            if not (isinstance(docker_env["volumes"], list)
+                    and all([isinstance(i, str) for i in docker_env["volumes"]])):
+                raise ExecutionException("Project configuration (MLproject file) was invalid: "
+                                         "Docker volumes must be a list of strings, "
+                                         """e.g.: '["/path1/:/path1", "/path2/:/path2"])""")
+        if docker_env.get("environment"):
+            if not (isinstance(docker_env["environment"], list)
+                    and all([isinstance(i, list) or isinstance(i, str)
+                             for i in docker_env["environment"]])):
+                raise ExecutionException(
+                    "Project configuration (MLproject file) was invalid: "
+                    "environment must be a list containing either strings (to copy environment "
+                    "variables from host system) or lists of string pairs (to define new "
+                    "environment variables)."
+                    """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])""")
 
     # Validate config if conda_env parameter is present
     conda_path = yaml_obj.get("conda_env")
