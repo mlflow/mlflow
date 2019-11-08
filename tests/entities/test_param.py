@@ -26,10 +26,3 @@ class TestParam(unittest.TestCase):
 
         param3 = Param.from_dictionary(as_dict)
         self._check(param3, key, value)
-
-    def test_spark_integration(self):
-        from pyspark.ml.param import Param as SparkMLParam
-        key = SparkMLParam("parent", "name", "doc")
-        value = 123
-        param = Param(key, value)
-        self._check(param, "name", "123")
