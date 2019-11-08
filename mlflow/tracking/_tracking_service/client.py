@@ -6,6 +6,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import time
 import os
+import six
 from six import iteritems
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
@@ -333,7 +334,7 @@ class TrackingServiceClient(object):
             expressions. If the underlying tracking store supports pagination, the token for
             the next page may be obtained via the ``token`` attribute of the returned object.
         """
-        if isinstance(experiment_ids, int) or isinstance(experiment_ids, str):
+        if isinstance(experiment_ids, int) or isinstance(experiment_ids, six.string_types):
             experiment_ids = [experiment_ids]
         return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
                                       run_view_type=run_view_type, max_results=max_results,

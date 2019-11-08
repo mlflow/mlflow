@@ -4,6 +4,7 @@ Utilities for validating user inputs such as metric names and parameter names.
 import numbers
 import posixpath
 import re
+import six
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -196,7 +197,7 @@ def _validate_experiment_name(experiment_name):
     if experiment_name == "" or experiment_name is None:
         raise MlflowException("Invalid experiment name: '%s'" % experiment_name,
                               error_code=INVALID_PARAMETER_VALUE)
-    if not isinstance(experiment_name, str):
+    if not isinstance(experiment_name, six.string_types):
         raise MlflowException("Invalid experiment name: %s. Expects a string." % experiment_name,
                               error_code=INVALID_PARAMETER_VALUE)
 

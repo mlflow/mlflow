@@ -159,7 +159,7 @@ class Parameter(object):
     """A parameter in an MLproject entry point."""
     def __init__(self, name, yaml_obj):
         self.name = name
-        if isinstance(yaml_obj, str):
+        if isinstance(yaml_obj, six.string_types):
             self.type = yaml_obj
             self.default = None
         else:

@@ -3,6 +3,7 @@ import uuid
 
 import math
 import posixpath
+import six
 import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -140,7 +141,7 @@ class SqlAlchemyStore(AbstractStore):
         }
 
         def decorate(s):
-            if isinstance(s, str):
+            if isinstance(s, six.string_types):
                 return "'{}'".format(s)
             else:
                 return "{}".format(s)
