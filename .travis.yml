@@ -7,87 +7,87 @@ services:
 
 matrix:
   include:
-    - stage: small
-    - language: python
-      name: "Lint (Python 3.6)"
-      python: 3.6
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-        - pip install -r ./travis/lint-requirements.txt
-      script:
-        - ./lint.sh
-    - language: r
-      name: "R"
-      cache: packages
-      before_install:
-        # cache packages dramatically decreases build time, but it must not include mlflow
-        - rm -rf /home/travis/R/Library/mlflow
-        - export NOT_CRAN=true
-        - cd mlflow/R/mlflow
-        - Rscript -e 'install.packages("devtools")'
-        - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
-        - cd ../../..
-      install:
-        - source ./travis/install-common-deps.sh
-      script:
-        - cd mlflow/R/mlflow
-        # Building the package here populates the /home/travis/R/Library cache,
-        # and is also used when python forks into R (e.g., rfunc via models CLI).
-        - R CMD build .
-        - export LINTR_COMMENT_BOT=false
-        - cd tests
-        - Rscript ../.travis.R
-      after_success:
-        - export COVR_RUNNING=true
-        - Rscript -e 'covr::codecov()'
-      after_failure:
-        - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
-    - language: java
-      name: "Java"
-      install:
-        - source ./travis/install-common-deps.sh
-      script:
-        - cd mlflow/java
-        - mvn clean package -q
-    - language: node_js
-      node_js:
-        - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
-      install:
-      name: "Node.js"
-      script:
-        - cd mlflow/server/js
-        - npm i
-        - npm run lint
-        - npm test -- --coverage
-    - stage: large
-    - language: python
-      python: 2.7
-      install:
-        - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-large-python-tests.sh
-    # Run Windows tests in the "large" test builder so that we don't spend Travis executor
-    # time running Windows tests if Python 3 small tests fail.
-    - os: windows
-      name: "Windows"
-      language: sh
-      before_install:
-        - choco install python3 --version=3.7.4
-      install:
-        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
-        - pip install -r dev-requirements.txt
-        - pip install -r travis/small-requirements.txt
-        - pip install -e .
-      script:
-        - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects tests
-    # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
-    # time running Python 2.7 tests if Python 3 small tests fail.
-    - language: python
-      python: 2.7
-      install:
-        - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
-      script:
-        - ./travis/run-small-python-tests.sh
+  #   - stage: small
+  #   - language: python
+  #     name: "Lint (Python 3.6)"
+  #     python: 3.6
+  #     install:
+  #       - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+  #       - pip install -r ./travis/lint-requirements.txt
+  #     script:
+  #       - ./lint.sh
+  #   - language: r
+  #     name: "R"
+  #     cache: packages
+  #     before_install:
+  #       # cache packages dramatically decreases build time, but it must not include mlflow
+  #       - rm -rf /home/travis/R/Library/mlflow
+  #       - export NOT_CRAN=true
+  #       - cd mlflow/R/mlflow
+  #       - Rscript -e 'install.packages("devtools")'
+  #       - Rscript -e 'devtools::install_deps(dependencies = TRUE, upgrade = "always")'
+  #       - cd ../../..
+  #     install:
+  #       - source ./travis/install-common-deps.sh
+  #     script:
+  #       - cd mlflow/R/mlflow
+  #       # Building the package here populates the /home/travis/R/Library cache,
+  #       # and is also used when python forks into R (e.g., rfunc via models CLI).
+  #       - R CMD build .
+  #       - export LINTR_COMMENT_BOT=false
+  #       - cd tests
+  #       - Rscript ../.travis.R
+  #     after_success:
+  #       - export COVR_RUNNING=true
+  #       - Rscript -e 'covr::codecov()'
+  #     after_failure:
+  #       - "[ -r /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log ] && cat /home/travis/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
+  #   - language: java
+  #     name: "Java"
+  #     install:
+  #       - source ./travis/install-common-deps.sh
+  #     script:
+  #       - cd mlflow/java
+  #       - mvn clean package -q
+  #   - language: node_js
+  #     node_js:
+  #       - "node" # Use latest NodeJS: https://docs.travis-ci.com/user/languages/javascript-with-nodejs/#specifying-nodejs-versions
+  #     install:
+  #     name: "Node.js"
+  #     script:
+  #       - cd mlflow/server/js
+  #       - npm i
+  #       - npm run lint
+  #       - npm test -- --coverage
+  #   - stage: large
+  #   - language: python
+  #     python: 2.7
+  #     install:
+  #       - INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+  #     script:
+  #       - ./travis/run-large-python-tests.sh
+  #   # Run Windows tests in the "large" test builder so that we don't spend Travis executor
+  #   # time running Windows tests if Python 3 small tests fail.
+  #   - os: windows
+  #     name: "Windows"
+  #     language: sh
+  #     before_install:
+  #       - choco install python3 --version=3.7.4
+  #     install:
+  #       - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
+  #       - pip install -r dev-requirements.txt
+  #       - pip install -r travis/small-requirements.txt
+  #       - pip install -e .
+  #     script:
+  #       - pytest --verbose --ignore=tests/h2o --ignore=tests/keras --ignore=tests/pytorch --ignore=tests/pyfunc --ignore=tests/sagemaker --ignore=tests/sklearn  --ignore=tests/spark --ignore=tests/tensorflow --ignore=tests/keras_autolog --ignore=tests/tensorflow_autolog --ignore tests/azureml --ignore tests/onnx --ignore tests/projects tests
+  #   # Run small Python 2.7 tests in the "large" test builder so that we don't spend Travis executor
+  #   # time running Python 2.7 tests if Python 3 small tests fail.
+  #   - language: python
+  #     python: 2.7
+  #     install:
+  #       - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+  #     script:
+  #       - ./travis/run-small-python-tests.sh
     - language: python
       python: 3.6
       name: "RST Docs"
@@ -97,7 +97,7 @@ matrix:
         - pip install sphinx==2.2.1
       script:
         - cd docs
-        - make rsthtml
+        - make rsthtml SPHINXOPTS="-W --keep-going"
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
