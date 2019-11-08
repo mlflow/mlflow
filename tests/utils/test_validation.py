@@ -125,7 +125,7 @@ def test_validate_experiment_artifact_location():
 
 def test_validate_experiment_name():
     _validate_experiment_name("validstring")
-    bytestring = b'dog'
+    bytestring = b'test byte string'
     _validate_experiment_name(bytestring.decode("utf-8"))
     for invalid_name in ["", 12, 12.7, None, {}, []]:
         with pytest.raises(MlflowException):
