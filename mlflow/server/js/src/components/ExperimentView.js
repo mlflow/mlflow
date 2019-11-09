@@ -59,8 +59,8 @@ export class ExperimentView extends Component {
     this.removeBagged = this.removeBagged.bind(this);
     this.handleExposeNotesEditorClick = this.handleExposeNotesEditorClick.bind(this);
     this.renderNoteSection = this.renderNoteSection.bind(this);
-    this.handleNoteOnSubmit = this.handleNoteOnSubmit.bind(this);
-    this.handleNoteOnCancel = this.handleNoteOnCancel.bind(this);
+    this.handleSubmitEditNote = this.handleSubmitEditNote.bind(this);
+    this.handleCancelEditNote = this.handleCancelEditNote.bind(this);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     this.state = {
@@ -274,14 +274,15 @@ export class ExperimentView extends Component {
     }
   }
 
-  handleNoteOnSubmit(note) {
+  handleSubmitEditNote(note) {
     const { experiment_id } = this.props.experiment;
-    this.props.setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
-    .then(() => this.setState({showNotesEditor: false}));
+    this.props
+    .setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
+    .then(() => this.setState({ showNotesEditor: false }));
   }
 
-  handleNoteOnCancel() {
-    this.setState({showNotesEditor: false});
+  handleCancelEditNote() {
+    this.setState({showNoteEditor: false});
   }
 
   renderNoteSection(noteInfo) {
@@ -290,8 +291,8 @@ export class ExperimentView extends Component {
       return (
         <EditableNote
           defaultMarkdown={noteInfo && noteInfo.content}
-          onSubmit={this.handleNoteOnSubmit}
-          onCancel={this.handleNoteOnCancel}
+          onSubmit={this.handleSubmitEditNote}
+          onCancel={this.handleCancelEditNote}
           showEditor={showNotesEditor}
         />
       );
@@ -854,7 +855,7 @@ export const mapStateToProps = (state, ownProps) => {
 };
 
 const mapDispatchToProps = {
-  setExperimentTagApi
+  setExperimentTagApi,
 };
 
 const styles = {
