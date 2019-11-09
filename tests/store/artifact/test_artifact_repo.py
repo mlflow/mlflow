@@ -1,3 +1,4 @@
+import posixpath
 import mock
 import pytest
 
@@ -17,7 +18,12 @@ class ArtifactRepositoryImpl(ArtifactRepository):
         raise NotImplementedError()
 
     def _download_file(self, remote_file_path, local_path):
-        print("download_file called with ", remote_file_path)
+        print("download_file called with '%s'" % remote_file_path)
+        if not remote_file_path.endswith("modelfile"):
+            raise Exception("haha")
+        assert remote_file_path.endswith("modelfile")
+
+
 
 
 @pytest.mark.parametrize("base_uri, download_arg, list_return_val", [
@@ -29,10 +35,30 @@ class ArtifactRepositoryImpl(ArtifactRepository):
     ('', '12345/model', ['12345/model', '12345/model/modelfile']),
 ])
 def test_download_artifacts_does_not_infinitely_loop(base_uri, download_arg, list_return_val):
+    def list_artifacts(path):
+        fullpath = posixpath.join(base_uri, path)
+        if fullpath.endswith("model") or fullpath.endswith("model/"):
+            return [FileInfo(item, False, 123) for item in list_return_val]
+        elif fullpath.endswith("12345") or fullpath.endswith("12345/"):
+            return [FileInfo(posixpath.join(path, "model"), True, 0)]
+        else:
+            return []
 
+    with mock.patch.object(ArtifactRepositoryImpl, "list_artifacts") as list_artifacts_mock:
+        list_artifacts_mock.side_effect = list_artifacts
+        repo = ArtifactRepositoryImpl(base_uri)
+        repo.download_artifacts(download_arg)
+
+
+@pytest.mark.parametrize("base_uri, download_arg, list_return_val", [
+    ('', '12345/model', ['12345/model', '12345/model/modelfile', '12345/model/emptydir']),
+])
+def test_download_artifacts_handles_empty_dir(base_uri, download_arg, list_return_val):
     def list_artifacts(path):
         if path.endswith("model"):
-            return [FileInfo(item, False, 123) for item in list_return_val]
+            return [FileInfo(item, item.endswith("emptydir"), 123) for item in list_return_val]
+        elif path.endswith("12345") or path.endswith("12345/"):
+            return [FileInfo("12345/model", True, 0)]
         else:
             return []
 

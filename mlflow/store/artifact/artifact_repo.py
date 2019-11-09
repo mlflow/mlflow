@@ -79,7 +79,6 @@ class ArtifactRepository:
 
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         #       without downloading it, or to get a pre-signed URL for cloud storage.
-
         if dst_path is None:
             dst_path = tempfile.mkdtemp()
         dst_path = os.path.abspath(dst_path)
