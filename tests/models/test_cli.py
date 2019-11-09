@@ -26,7 +26,7 @@ from tests.models import test_pyfunc
 from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image, \
     pyfunc_serve_from_docker_image_with_env_override, \
     RestEndpoint, get_safe_port, pyfunc_serve_and_score_model
-from tests.projects.utils import tracking_uri_mock # pylint: disable=unused-import
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED, \
     CONTENT_TYPE_JSON, CONTENT_TYPE_CSV
@@ -129,7 +129,7 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
 
 
 def test_serve_gunicorn_opts(iris_data, sk_model,
-                             tracking_uri_mock): # pylint: disable=unused-argument
+                             tracking_uri_mock):  # pylint: disable=unused-argument
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
     with mlflow.start_run() as active_run:
@@ -161,7 +161,7 @@ def test_serve_gunicorn_opts(iris_data, sk_model,
         assert expected_command_pattern.search(stdout) is not None
 
 
-def test_predict(iris_data, sk_model, tracking_uri_mock): # pylint: disable=unused-argument
+def test_predict(iris_data, sk_model, tracking_uri_mock):  # pylint: disable=unused-argument
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
