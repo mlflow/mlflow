@@ -80,26 +80,45 @@ class ArtifactRepository:
         # TODO: Probably need to add a more efficient method to stream just a single artifact
         #       without downloading it, or to get a pre-signed URL for cloud storage.
 
-        def download_artifacts_into(artifact_path, dest_dir):
-            basename = posixpath.basename(artifact_path)
-            local_path = os.path.join(dest_dir, basename)
-
-            if self._is_directory(artifact_path):
-                # Artifact_path is a directory, so make a directory for it and download everything
-                if not os.path.exists(local_path):
-                    os.mkdir(local_path)
-                for file_info in self.list_artifacts(artifact_path):
-                    # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
-                    if file_info.path == "." or file_info.path == artifact_path:
-                        continue
-                    download_artifacts_into(artifact_path=file_info.path, dest_dir=local_path)
-            else:
-                self._download_file(remote_file_path=artifact_path, local_path=local_path)
-            return local_path
-
         if dst_path is None:
             dst_path = tempfile.mkdtemp()
         dst_path = os.path.abspath(dst_path)
+        if not os.path.exists(dst_path):
+            raise MlflowException(
+                message=(
+                    "The destination path for downloaded artifacts does not"
+                    " exist! Destination path: {dst_path}".format(dst_path=dst_path)),
+                error_code=RESOURCE_DOES_NOT_EXIST)
+        elif not os.path.isdir(dst_path):
+            raise MlflowException(
+                message=(
+                    "The destination path for downloaded artifacts must be a directory!"
+                    " Destination path: {dst_path}".format(dst_path=dst_path)),
+                error_code=INVALID_PARAMETER_VALUE)
+
+        def download_file(fullpath):
+            dirpath, filename = posixpath.split(fullpath)
+            local_dir_path = os.path.join(dst_path, dirpath)
+            local_file_path = os.path.join(dst_path, fullpath)
+            # Artifact_path is a directory, so make a directory for it and download everything
+            os.makedirs(local_dir_path, exist_ok=True)
+            self._download_file(remote_file_path=fullpath, local_path=local_file_path)
+            return local_file_path
+
+        def download_artifact_dir(dir_path):
+            local_dir = os.path.join(dst_path, dir_path)
+            dir_content = self.list_artifacts(dir_path)
+            if not dir_content:  # empty dir
+                os.makedirs(local_dir, exist_ok=True)
+            else:
+                for file_info in dir_content:
+                    # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
+                    if file_info.path == "." or file_info.path == dir_path:
+                        continue
+                    if file_info.is_dir:
+                        download_artifact_dir(dir_path=file_info.path)
+                    else:
+                        download_file(file_info.path)
 
         if not os.path.exists(dst_path):
             raise MlflowException(
@@ -114,7 +133,11 @@ class ArtifactRepository:
                     " Destination path: {dst_path}".format(dst_path=dst_path)),
                 error_code=INVALID_PARAMETER_VALUE)
 
-        return download_artifacts_into(artifact_path, dst_path)
+        # Check if the artifacts points to a directory
+        if self._is_directory(artifact_path):
+            return download_artifact_dir(artifact_path)
+        else:
+            return download_file(artifact_path)
 
     @abstractmethod
     def _download_file(self, remote_file_path, local_path):
