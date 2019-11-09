@@ -223,7 +223,8 @@ def test_predict(iris_data, sk_model, tracking_uri_mock):  # pylint: disable=unu
                              universal_newlines=True,
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
-                             stderr=sys.stderr)
+                             stderr=sys.stderr,
+                             env=env_with_tracking_uri)
         with open(input_json_path, "r") as f:
             stdout, _ = p.communicate(f.read())
         assert 0 == p.wait()
