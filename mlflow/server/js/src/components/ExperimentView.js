@@ -25,13 +25,14 @@ import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
 import { Icon, Popover, Descriptions } from 'antd';
+import { CollapsibleSection } from '../common/components/CollapsibleSection';
 import { EditableNote } from '../common/components/EditableNote';
 
+
 import Utils from '../utils/Utils';
-import {Spinner} from "./Spinner";
+import { Spinner } from "./Spinner";
 
 export const DEFAULT_EXPANDED_VALUE = false;
-const NOTES_KEY = 'notes';
 
 export class ExperimentView extends Component {
   constructor(props) {
@@ -57,7 +58,6 @@ export class ExperimentView extends Component {
     this.onExpand = this.onExpand.bind(this);
     this.addBagged = this.addBagged.bind(this);
     this.removeBagged = this.removeBagged.bind(this);
-    this.handleExposeNotesEditorClick = this.handleExposeNotesEditorClick.bind(this);
     this.renderNoteSection = this.renderNoteSection.bind(this);
     this.handleSubmitEditNote = this.handleSubmitEditNote.bind(this);
     this.handleCancelEditNote = this.handleCancelEditNote.bind(this);
@@ -262,18 +262,6 @@ export class ExperimentView extends Component {
       });
   }
 
-  handleExposeNotesEditorClick() {
-    this.setState({ showNotesEditor: true, showNotes: true });
-  }
-
-  returnOnClickFunction(notesKey) {
-    if (this.state.showNotesEditor) {
-      return undefined;
-    } else {
-      return () => this.onClickExpander(notesKey);
-    }
-  }
-
   handleSubmitEditNote(note) {
     const { experiment_id } = this.props.experiment;
     this.props
@@ -282,44 +270,32 @@ export class ExperimentView extends Component {
   }
 
   handleCancelEditNote() {
-    this.setState({showNoteEditor: false});
+    this.setState({showNotesEditor: false});
   }
 
+  startEditingDescription = (e) => {
+    e.stopPropagation();
+    this.setState({ showNotesEditor: true });
+  };
+
   renderNoteSection(noteInfo) {
-    const {showNotes, showNotesEditor} = this.state;
-    if (showNotes) {
-      return (
+    const { showNotesEditor } = this.state;
+
+    const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+
+    return (
+      <CollapsibleSection
+        title={<span>Notes {showNotesEditor ? null : editIcon}</span>}
+        forceOpen={showNotesEditor}
+      >
         <EditableNote
           defaultMarkdown={noteInfo && noteInfo.content}
           onSubmit={this.handleSubmitEditNote}
           onCancel={this.handleCancelEditNote}
           showEditor={showNotesEditor}
         />
-      );
-    }
-    return null;
-  }
-
-  onClickExpander(key) {
-    switch (key) {
-      case NOTES_KEY: {
-        this.setState({ showNotes: !this.state.showNotes });
-        return;
-      }
-      default:
-        return;
-    }
-  }
-
-  getExpanderClassName(key) {
-    switch (key) {
-      case NOTES_KEY: {
-        return this.state.showNotes ? 'fa-caret-down' : 'fa-caret-right';
-      }
-      default: {
-        return null;
-      }
-    }
+      </CollapsibleSection>
+    );
   }
 
   render() {
@@ -376,22 +352,6 @@ export class ExperimentView extends Component {
           <Descriptions.Item label='Artifact Location'>{artifact_location}</Descriptions.Item>
         </Descriptions>
         <div className="ExperimentView-info">
-          <h2 className="table-name">
-                <span className="metadata">
-                  <span
-                      onClick={this.returnOnClickFunction(NOTES_KEY)}
-                      className="metadata-header">
-                    <i className={`fa ${this.getExpanderClassName(NOTES_KEY)}`}/>{' '}Description:
-                  </span>
-                  {!this.state.showNotes || !this.state.showNotesEditor ?
-                      <a onClick={this.handleExposeNotesEditorClick} >
-                        <Icon type="form" />
-                      </a>
-                      :
-                      null
-                  }
-                </span>
-          </h2>
           {this.renderNoteSection(noteInfo)}
         </div>
         <div className="ExperimentView-runs runs-table-flex-container">
