@@ -34,7 +34,7 @@ def test_run_local_params(tracking_uri_mock):  # pylint: disable=unused-argument
     'test-experiment',
 ])
 def test_run_local_experiment_specification(experiment_name,
-                                            tracking_uri_mock): # pylint: disable=unused-argument
+                                            tracking_uri_mock):  # pylint: disable=unused-argument
     invoke_cli_runner(
         cli.run,
         [
