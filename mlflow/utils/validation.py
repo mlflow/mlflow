@@ -4,7 +4,6 @@ Utilities for validating user inputs such as metric names and parameter names.
 import numbers
 import posixpath
 import re
-import six
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE

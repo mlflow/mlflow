@@ -3,7 +3,6 @@
 import os
 import yaml
 
-import six
 from six.moves import shlex_quote
 
 from mlflow import data

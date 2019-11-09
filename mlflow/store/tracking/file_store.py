@@ -4,7 +4,6 @@ import posixpath
 import sys
 
 import uuid
-import six
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
     ViewType, SourceType, ExperimentTag

@@ -3,7 +3,6 @@ import uuid
 
 import math
 import posixpath
-import six
 import sqlalchemy
 
 from mlflow.entities.lifecycle_stage import LifecycleStage

@@ -6,7 +6,6 @@ exposed in the :py:mod:`mlflow.tracking` module.
 
 import time
 import os
-import six
 from six import iteritems
 
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
