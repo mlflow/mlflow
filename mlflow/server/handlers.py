@@ -2,7 +2,6 @@
 import json
 import os
 import re
-import six
 
 from functools import wraps
 from flask import Response, request, send_file
