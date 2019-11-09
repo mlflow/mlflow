@@ -57,7 +57,7 @@ matrix:
       script:
         - cd mlflow/server/js
         - npm i
-        - ./lint.sh
+        - npm run lint
         - npm test -- --coverage
     - stage: large
     - language: python
@@ -72,7 +72,7 @@ matrix:
       name: "Windows"
       language: sh
       before_install:
-        - cinst -y python3
+        - choco install python3 --version=3.7.4
       install:
         - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
         - pip install -r dev-requirements.txt
@@ -110,6 +110,7 @@ script:
       ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
     else
       ./travis/run-large-python-tests.sh;
+      ./travis/test-anaconda-compatibility.sh;
     fi
 
 notifications:

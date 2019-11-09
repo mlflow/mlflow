@@ -1,0 +1,34 @@
+from mlflow.protos.model_registry_pb2 import ModelVersionStatus as ProtoModelVersionStatus
+
+
+class ModelVersionStatus(object):
+    """Enum for status of an :py:class:`mlflow.entities.model_registry.ModelVersionDetailed`."""
+    PENDING_REGISTRATION = ProtoModelVersionStatus.Value('PENDING_REGISTRATION')
+    FAILED_REGISTRATION = ProtoModelVersionStatus.Value('FAILED_REGISTRATION')
+    READY = ProtoModelVersionStatus.Value('READY')
+    PENDING_DELETION = ProtoModelVersionStatus.Value('PENDING_DELETION')
+    FAILED_DELETION = ProtoModelVersionStatus.Value('FAILED_DELETION')
+
+    _STRING_TO_STATUS = {k: ProtoModelVersionStatus.Value(k)
+                         for k in ProtoModelVersionStatus.keys()}
+    _STATUS_TO_STRING = {value: key for key, value in _STRING_TO_STATUS.items()}
+
+    @staticmethod
+    def from_string(status_str):
+        if status_str not in ModelVersionStatus._STRING_TO_STATUS:
+            raise Exception(
+                "Could not get model version status corresponding to string %s. Valid status "
+                "strings: %s" % (status_str, list(ModelVersionStatus._STRING_TO_STATUS.keys())))
+        return ModelVersionStatus._STRING_TO_STATUS[status_str]
+
+    @staticmethod
+    def to_string(status):
+        if status not in ModelVersionStatus._STATUS_TO_STRING:
+            raise Exception("Could not get string corresponding to model version status %s. Valid "
+                            "statuses: %s" % (status,
+                                              list(ModelVersionStatus._STATUS_TO_STRING.keys())))
+        return ModelVersionStatus._STATUS_TO_STRING[status]
+
+    @staticmethod
+    def all_status():
+        return list(ModelVersionStatus._STATUS_TO_STRING.keys())

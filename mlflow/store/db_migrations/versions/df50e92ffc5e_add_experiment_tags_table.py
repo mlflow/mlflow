@@ -7,7 +7,7 @@ Create Date: 2019-07-15 17:46:42.704214
 """
 from alembic import op
 import sqlalchemy as sa
-from mlflow.store.dbmodels.models import SqlExperimentTag
+from mlflow.store.tracking.dbmodels.models import SqlExperimentTag
 
 # revision identifiers, used by Alembic.
 revision = 'df50e92ffc5e'

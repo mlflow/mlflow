@@ -7,7 +7,7 @@ import re
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.dbmodels.db_types import DATABASE_ENGINES
+from mlflow.store.db.db_types import DATABASE_ENGINES
 
 _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
