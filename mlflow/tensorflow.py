@@ -473,14 +473,15 @@ class __MLflowTfKerasCallback(Callback):
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
 
+        sum_list = []
+        self.model.summary(print_fn=sum_list.append)
+        summary = '\n'.join(sum_list)
+        try_mlflow_log(mlflow.set_tag, 'summary', summary)
+
     def on_epoch_end(self, epoch, logs=None):
         pass
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        tmp_list = []
-        self.model.summary(print_fn=tmp_list.append)
-        summary = '\n'.join(tmp_list)
-        try_mlflow_log(mlflow.set_tag, 'summary', summary)
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
 
 
@@ -504,15 +505,16 @@ class __MLflowTfKeras2Callback(Callback):
         for attribute in config:
             try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
 
+        sum_list = []
+        self.model.summary(print_fn=sum_list.append)
+        summary = '\n'.join(sum_list)
+        try_mlflow_log(mlflow.set_tag, 'summary', summary)
+
     def on_epoch_end(self, epoch, logs=None):
         if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
             try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        tmp_list = []
-        self.model.summary(print_fn=tmp_list.append)
-        summary = '\n'.join(tmp_list)
-        try_mlflow_log(mlflow.set_tag, 'summary', summary)
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
 
 
