@@ -37,7 +37,7 @@ class HtmlTableView extends Component {
                   return <td key={idx} style={style}>{v}</td>;
                 } else {
                   style = styles['td'];
-                  return <td key={idx} style={style} title={v}>{Utils.formatMetric(v)}</td>;
+                  return <td key={idx} style={style} title={v}>{v}</td>;
                 }
               })}
             </tr>
