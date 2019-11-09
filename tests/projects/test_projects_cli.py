@@ -9,7 +9,7 @@ from click.testing import CliRunner
 import pytest
 
 from mlflow import cli
-from mlflow.tracking.client import MlflowClient 
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils import process
 from tests.integration.utils import invoke_cli_runner
 from tests.projects.utils import TEST_PROJECT_DIR, GIT_PROJECT_URI, SSH_PROJECT_URI, \
@@ -33,12 +33,12 @@ def test_run_local_params(tracking_uri_mock):  # pylint: disable=unused-argument
     b'test-experiment'.decode("utf-8"),
     'test-experiment',
 ])
-def test_run_local_experiment_specification(experiment_name, 
+def test_run_local_experiment_specification(experiment_name,
                                             tracking_uri_mock): # pylint: disable=unused-argument
     invoke_cli_runner(
-        cli.run, 
+        cli.run,
         [
-            TEST_PROJECT_DIR, 
+            TEST_PROJECT_DIR,
             "-e", "greeter",
             "--experiment-name", experiment_name,
         ])
@@ -47,9 +47,9 @@ def test_run_local_experiment_specification(experiment_name,
     experiment_id = client.get_experiment_by_name(experiment_name).experiment_id
 
     invoke_cli_runner(
-        cli.run, 
+        cli.run,
         [
-            TEST_PROJECT_DIR, 
+            TEST_PROJECT_DIR,
             "-e", "greeter",
             "--experiment-id", experiment_id,
         ])
