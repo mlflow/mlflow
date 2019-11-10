@@ -39,7 +39,6 @@ def add_assets(app):
 def copy_assets(app, exception):
     if app.builder.name != 'html' or exception:
         return
-
     logger.info('Copying examplecode stylesheet/javascript... ', nonl=True)
     dest = os.path.join(app.builder.outdir, '_static', JS_FILE)
     source = os.path.join(os.path.abspath(os.path.dirname(__file__)), JS_FILE)
