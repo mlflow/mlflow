@@ -219,7 +219,7 @@ def run(uri, entry_point="main", version=None, parameters=None,
     For information on using this method in chained workflows, see `Building Multistep Workflows
     <../projects.html#building-multistep-workflows>`_.
 
-    :raises: :py:class:`ExecutionException` If a run launched in blocking mode
+    :raises: :py:class:`mlflow.exceptions.ExecutionException` If a run launched in blocking mode
              is unsuccessful.
 
     :param uri: URI of project to run. A local filesystem path
