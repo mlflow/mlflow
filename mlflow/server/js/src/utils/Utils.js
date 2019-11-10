@@ -23,7 +23,7 @@ class Utils {
         const cur = ret[key] || {};
         ret[key] = {
           ...cur,
-          [curRunUuid]: keyValueObj[key]
+          [curRunUuid]: keyValueObj[key],
         };
       });
     });

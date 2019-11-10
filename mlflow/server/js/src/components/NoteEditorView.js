@@ -24,7 +24,7 @@ class NoteEditorView extends Component {
       mdeState: {
         markdown: this.uneditedContent,
       },
-      mdSource: this.uneditedContent
+      mdSource: this.uneditedContent,
     };
   }
 

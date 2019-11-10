@@ -5,7 +5,7 @@ export const CREATE_REGISTERED_MODEL = 'CREATE_REGISTERED_MODEL';
 export const createRegisteredModelApi = (name, id = getUUID()) => ({
   type: CREATE_REGISTERED_MODEL,
   payload: wrapDeferred(Services.createRegisteredModel, { name }),
-  meta: { id, name }
+  meta: { id, name },
 });
 
 export const LIST_REGISTRED_MODELS = 'LIST_REGISTRED_MODELS';
@@ -95,7 +95,7 @@ export const getModelVersionDetailsApi = (modelName, version, id = getUUID()) =>
         name: modelName,
       },
       version,
-    }
+    },
   }),
   meta: { id, modelName, version },
 });
