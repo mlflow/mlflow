@@ -96,7 +96,7 @@ matrix:
         - pip install sphinx==2.2.1 sphinx-click==2.3.0
       script:
         - cd docs
-        - make rsthtml SPHINXOPTS="-W --keep-going"
+        - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
