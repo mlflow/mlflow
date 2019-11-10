@@ -248,21 +248,26 @@ export default connect(mapStateToProps)(RunView);
 // Private helper functions.
 
 const getParamValues = (params) => {
-  return Object.values(params).sort().map((p) =>
-    [p.getKey(), p.getValue()]
-  );
+  return Object.values(params).sort().map((p) => {
+    return {
+      key: p.getKey(),
+      value: p.getValue(),
+      valueTitle: p.getValue(),
+    };
+  });
 };
 
 const getMetricValues = (latestMetrics, getMetricPagePath) => {
   return Object.values(latestMetrics).sort().map((m) => {
     const key = m.key;
-    return [
-      <Link to={getMetricPagePath(key)} title="Plot chart">
+    return {
+      key: <Link to={getMetricPagePath(key)} title="Plot chart">
         {key}
         <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
       </Link>,
-      Utils.formatMetric(m.value)
-    ];
+      value: Utils.formatMetric(m.value),
+      valueTitle: m.value,
+    };
   });
 };
 
