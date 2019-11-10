@@ -3,12 +3,12 @@
 import os
 import yaml
 
-import six
 from six.moves import shlex_quote
 
 from mlflow import data
 from mlflow.exceptions import ExecutionException
 from mlflow.utils.file_utils import get_local_path_or_none
+from mlflow.utils.string_utils import is_string_type
 
 
 MLPROJECT_FILE_NAME = "mlproject"
@@ -102,7 +102,7 @@ class Project(object):
         ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
         if file_extension in ext_to_cmd:
             command = "%s %s" % (ext_to_cmd[file_extension], shlex_quote(entry_point))
-            if type(command) not in six.string_types:
+            if not is_string_type(command):
                 command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
         elif file_extension == ".R":
@@ -176,7 +176,7 @@ class Parameter(object):
     """A parameter in an MLproject entry point."""
     def __init__(self, name, yaml_obj):
         self.name = name
-        if isinstance(yaml_obj, str):
+        if is_string_type(yaml_obj):
             self.type = yaml_obj
             self.default = None
         else:

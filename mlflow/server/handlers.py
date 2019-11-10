@@ -2,7 +2,6 @@
 import json
 import os
 import re
-import six
 
 from functools import wraps
 from flask import Response, request, send_file
@@ -28,6 +27,7 @@ from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.validation import _validate_batch_log_api_req
+from mlflow.utils.string_utils import is_string_type
 
 _tracking_store = None
 _model_registry_store = None
@@ -120,7 +120,7 @@ def _get_request_message(request_message, flask_request=request):
     # above actually converts it to a string. Therefore, we check this condition
     # (which we can tell for sure because any proper request should be a dictionary),
     # and decode it a second time.
-    if isinstance(request_json, six.string_types):
+    if is_string_type(request_json):
         request_json = json.loads(request_json)
 
     # If request doesn't have json body then assume it's empty.

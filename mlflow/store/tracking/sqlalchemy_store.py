@@ -21,6 +21,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREA
 from mlflow.utils.uri import is_local_uri, extract_db_type_from_uri
 from mlflow.utils.file_utils import mkdir, local_file_uri_to_path
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.validation import _validate_batch_log_limits, _validate_batch_log_data, \
     _validate_run_id, _validate_metric, _validate_experiment_tag, _validate_tag
 
@@ -140,7 +141,7 @@ class SqlAlchemyStore(AbstractStore):
         }
 
         def decorate(s):
-            if isinstance(s, str):
+            if is_string_type(s):
                 return "'{}'".format(s)
             else:
                 return "{}".format(s)

@@ -8,6 +8,7 @@ import re
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.utils.string_utils import is_string_type
 
 _VALID_PARAM_AND_METRIC_NAMES = re.compile(r"^[/\w.\- ]*$")
 
@@ -196,7 +197,8 @@ def _validate_experiment_name(experiment_name):
     if experiment_name == "" or experiment_name is None:
         raise MlflowException("Invalid experiment name: '%s'" % experiment_name,
                               error_code=INVALID_PARAMETER_VALUE)
-    if not isinstance(experiment_name, str):
+
+    if not is_string_type(experiment_name):
         raise MlflowException("Invalid experiment name: %s. Expects a string." % experiment_name,
                               error_code=INVALID_PARAMETER_VALUE)
 
