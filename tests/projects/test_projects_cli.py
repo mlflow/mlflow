@@ -40,6 +40,7 @@ def test_run_local_experiment_specification(experiment_name,
         [
             TEST_PROJECT_DIR,
             "-e", "greeter",
+            "-P", "name=test",
             "--experiment-name", experiment_name,
         ])
 
@@ -51,6 +52,7 @@ def test_run_local_experiment_specification(experiment_name,
         [
             TEST_PROJECT_DIR,
             "-e", "greeter",
+            "-P", "name=test",
             "--experiment-id", experiment_id,
         ])
 
