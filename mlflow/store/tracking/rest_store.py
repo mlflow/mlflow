@@ -1,11 +1,12 @@
 from mlflow.entities import Experiment, Run, RunInfo, Metric, ViewType
+from mlflow.entities.columns import Columns
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperiment, \
     GetRun, SearchRuns, ListExperiments, GetMetricHistory, LogMetric, LogParam, SetTag, \
     UpdateRun, CreateRun, DeleteRun, RestoreRun, DeleteExperiment, RestoreExperiment, \
     UpdateExperiment, LogBatch, DeleteTag, SetExperimentTag, GetExperimentByName, \
-    UpdateArtifactsLocation
+    UpdateArtifactsLocation, ListAllColumns
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import call_endpoint, extract_api_info_for_service
@@ -187,6 +188,13 @@ class RestStore(AbstractStore):
             run_uuid=run_id, run_id=run_id, metric_key=metric_key))
         response_proto = self._call_endpoint(GetMetricHistory, req_body)
         return [Metric.from_proto(metric) for metric in response_proto.metrics]
+
+    def list_all_columns(self, experiment_ids):
+        experiment_ids = [str(experiment_id) for experiment_id in experiment_ids]
+        lac = ListAllColumns(experiment_ids=experiment_ids)
+        req_body = message_to_json(lac)
+        response_proto = self._call_endpoint(ListAllColumns, req_body)
+        return Columns.from_proto(response_proto)
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token, metrics_whitelist, params_whitelist, tags_whitelist):

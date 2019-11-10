@@ -1183,6 +1183,25 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         assert [r.info.run_id for r in result] == runs[8:]
         assert result.token is None
 
+    def test_list_all_columns(self):
+        experiment_id = self._experiment_factory('list_all_columns')
+        r1 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+        r2 = self._run_factory(self._get_run_configs(experiment_id)).info.run_id
+
+        self.store.set_tag(r1, entities.RunTag('tag1', 'p_val'))
+        self.store.set_tag(r2, entities.RunTag('tag2', 'p_val'))
+
+        self.store.log_param(r1, entities.Param('param1', 'p_val'))
+        self.store.log_param(r2, entities.Param('param2', 'p_val'))
+
+        self.store.log_metric(r1, entities.Metric("metric1", 1.0, 1, 0))
+        self.store.log_metric(r2, entities.Metric("metric2", 1.0, 1, 0))
+
+        columns = self.store.list_all_columns(experiment_ids=[experiment_id])
+        assert set(columns.tags) == {"tag1", "tag2"}
+        assert set(columns.params) == {"param1", "param2"}
+        assert set(columns.metrics) == {"metric1", "metric2"}
+
     def test_log_batch(self):
         experiment_id = self._experiment_factory('log_batch')
         run_id = self._run_factory(self._get_run_configs(experiment_id)).info.run_id

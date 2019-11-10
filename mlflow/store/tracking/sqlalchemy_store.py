@@ -15,7 +15,7 @@ import mlflow.store.db.utils
 from mlflow.store.tracking.dbmodels.models import SqlExperiment, SqlRun, \
     SqlMetric, SqlParam, SqlTag, SqlExperimentTag, SqlLatestMetric
 from mlflow.store.db.base_sql_model import Base
-from mlflow.entities import RunStatus, SourceType, Experiment
+from mlflow.entities import RunStatus, SourceType, Experiment, Columns
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.entities import ViewType
 from mlflow.exceptions import MlflowException
@@ -623,6 +623,17 @@ class SqlAlchemyStore(AbstractStore):
                     "See https://mlflow.org/docs/latest/tracking.html#adding-tags-to-runs",
                     error_code=INVALID_STATE)
             session.delete(filtered_tags[0])
+
+    def list_all_columns(self, experiment_ids):
+        with self.ManagedSessionMaker() as session:
+            tags = [r[0] for r in session.query(SqlTag.key).join(SqlRun)
+                    .filter(SqlRun.experiment_id.in_(experiment_ids)).distinct().all()]
+            metrics = [r[0] for r in session.query(SqlLatestMetric.key).join(SqlRun)
+                       .filter(SqlRun.experiment_id.in_(experiment_ids)).distinct().all()]
+            params = [r[0] for r in session.query(SqlParam.key).join(SqlRun)
+                      .filter(SqlRun.experiment_id.in_(experiment_ids)).distinct().all()]
+            return Columns(metrics=metrics, params=params,
+                           tags=tags)
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token, metrics_whitelist, params_whitelist, tags_whitelist):

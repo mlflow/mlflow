@@ -346,6 +346,28 @@ service MlflowService {
     };
   }
 
+  // List all columns
+  //
+  rpc listAllColumns (ListAllColumns) returns (ListAllColumns.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/columns/list"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
+        path: "/preview/mlflow/columns/list"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "GET",
+        path: "/preview/mlflow/columns/list"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List all columns",
+    };
+  }
+
   // Search for runs that satisfy expressions. Search expressions can use :ref:`mlflowMetric` and
   // :ref:`mlflowParam` keys.
   //
@@ -916,6 +938,20 @@ message GetRun {
   message Response {
     // Run metadata (name, start time, etc) and data (metrics, params, and tags).
     optional Run run = 1;
+  }
+}
+
+message ListAllColumns {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // List of experiment IDs to search over.
+  repeated string experiment_ids = 1;
+
+  message Response {
+    repeated string attributes = 1;
+    repeated string metrics = 2;
+    repeated string params = 3;
+    repeated string tags = 4;
   }
 }
 

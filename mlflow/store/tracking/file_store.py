@@ -6,7 +6,7 @@ import sys
 import uuid
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
-    ViewType, SourceType, ExperimentTag
+    ViewType, SourceType, ExperimentTag, Columns
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active, check_run_is_deleted
 from mlflow.exceptions import MlflowException, MissingConfigException
@@ -594,6 +594,33 @@ class FileStore(AbstractStore):
                 logging.warning("Malformed run '%s'. Detailed error %s", r_id, str(rnfe),
                                 exc_info=True)
         return run_infos
+
+    def list_all_columns(self, experiment_ids):
+        self._check_root_dir()
+        metric_columns = set()
+        tag_columns = set()
+        param_columns = set()
+        for experiment_id in experiment_ids:
+            if not self._has_experiment(experiment_id):
+                continue
+            experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
+            run_uuids = list_all(experiment_dir,
+                                 filter_func=lambda x:
+                                 all([os.path.basename(os.path.normpath(x)) != reservedFolderName
+                                      for reservedFolderName in
+                                      FileStore.RESERVED_EXPERIMENT_FOLDERS]) and os.path.isdir(x),
+                                 full_path=False)
+            for run_uuid in run_uuids:
+                _, metrics = self._get_run_files(run_uuid, "metric", None)
+                _, tags = self._get_run_files(run_uuid, "tag", None)
+                _, params = self._get_run_files(run_uuid, "param", None)
+                metric_columns.update(metrics)
+                tag_columns.update(tags)
+                param_columns.update(params)
+
+            return Columns(metrics=list(metric_columns),
+                           params=list(param_columns),
+                           tags=list(tag_columns))
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
                      page_token, metrics_whitelist, params_whitelist, tags_whitelist):

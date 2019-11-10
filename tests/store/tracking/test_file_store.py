@@ -416,6 +416,23 @@ class TestFileStore(unittest.TestCase):
         assert len(self._search(fs, self.experiments[0])) == 2
         assert len(self._search(fs, self.experiments[0], run_view_type=ViewType.DELETED_ONLY)) == 0
 
+    def test_list_columns(self):
+        fs = FileStore(self.test_root)
+        experiment_id = fs.create_experiment("test_list_columns", None)
+        r1 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
+        r2 = fs.create_run(experiment_id, 'user', 0, []).info.run_id
+        fs.log_metric(r1, Metric("metric1", 10, 1232, 0))
+        fs.log_metric(r2, Metric("metric2", 10, 1231, 0))
+        fs.set_tag(r1, RunTag("tag1", "value1!"))
+        fs.set_tag(r2, RunTag("tag2", "value2!"))
+        fs.log_param(r1, Param("param1", "Value"))
+        fs.log_param(r2, Param("param2", "Value"))
+
+        columns = fs.list_all_columns(experiment_ids=[experiment_id])
+        assert set(columns.tags) == {"tag1", "tag2"}
+        assert set(columns.params) == {"param1", "param2"}
+        assert set(columns.metrics) == {"metric1", "metric2"}
+
     def test_search_tags(self):
         fs = FileStore(self.test_root)
         experiment_id = self.experiments[0]
