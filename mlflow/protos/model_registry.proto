@@ -5,7 +5,7 @@ package mlflow;
 import "scalapb/scalapb.proto";
 import "databricks.proto";
 
-option java_package = "com.databricks.api.proto.mlflow";
+option java_package = "org.mlflow.api.proto";
 option java_generate_equals_and_hash = true;
 option py_generic_services = true;
 option (scalapb.options) = {
