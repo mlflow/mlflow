@@ -118,7 +118,7 @@ class ArtifactRepository:
                         download_artifact_dir(dir_path=file_info.path)
                     else:
                         download_file(file_info.path)
-
+            return local_dir
         if not os.path.exists(dst_path):
             raise MlflowException(
                 message=(

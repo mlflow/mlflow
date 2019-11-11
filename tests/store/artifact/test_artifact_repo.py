@@ -24,8 +24,6 @@ class ArtifactRepositoryImpl(ArtifactRepository):
         assert remote_file_path.endswith("modelfile")
 
 
-
-
 @pytest.mark.parametrize("base_uri, download_arg, list_return_val", [
     ('12345/model', '', ['modelfile']),
     ('12345/model', '', ['.', 'modelfile']),
