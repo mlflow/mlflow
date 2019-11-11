@@ -400,11 +400,11 @@ def autolog():
             sum_list = []
             self.model.summary(print_fn=sum_list.append)
             summary = '\n'.join(sum_list)
-            try_mlflow_log(mlflow.set_tag, 'summary', summary)
+            try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
 
             tempdir = tempfile.mkdtemp()
             try:
-                summary_file = os.path.join(tempdir, "summary.txt")
+                summary_file = os.path.join(tempdir, "model_summary.txt")
                 with open(summary_file, 'w') as f:
                     f.write(summary)
                 try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
