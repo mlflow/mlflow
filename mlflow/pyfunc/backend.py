@@ -28,6 +28,14 @@ class PyFuncBackend(FlavorBackend):
         self._no_conda = no_conda
         self._install_mlflow = install_mlflow
 
+    def prepare_env(self, model_uri):
+        local_path = _download_artifact_from_uri(model_uri)
+        if self._no_conda or ENV not in self._config:
+            return 0
+        conda_env_path = os.path.join(local_path, self._config[ENV])
+        command = 'python -c ""'
+        return _execute_in_conda_env(conda_env_path, command, self._install_mlflow)
+
     def predict(self, model_uri, input_path, output_path, content_type, json_format, ):
         """
         Generate predictions using generic python model saved with MLflow.

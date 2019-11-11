@@ -91,6 +91,22 @@ def predict(model_uri, input_path, output_path, content_type, json_format, no_co
                                                                       json_format=json_format)
 
 
+@commands.command("prepare-env")
+@cli_args.MODEL_URI
+@cli_args.NO_CONDA
+@cli_args.INSTALL_MLFLOW
+def prepare_env(model_uri, no_conda, install_mlflow):
+    """
+    **EXPERIMENTAL**: Performs any preparation necessary to predict or serve the model, for example
+    downloading dependencies or initializing a conda environment. After preparation,
+    calling predict or serve should be fast.
+
+    This method is experimental and may be removed in a future release without warning.
+    """
+    return _get_flavor_backend(model_uri, no_conda=no_conda,
+                               install_mlflow=install_mlflow).prepare_env(model_uri=model_uri)
+
+
 @commands.command("build-docker")
 @cli_args.MODEL_URI
 @click.option("--name", "-n", default="mlflow-pyfunc-servable",

@@ -70,7 +70,7 @@ def test_predict_with_old_mlflow_in_conda_and_with_orient_records(iris_data):
         output_json_path = tmp.path("output.json")
         test_model_path = tmp.path("test_model")
         test_model_conda_path = tmp.path("conda.yml")
-        # create env with odl mlflow!
+        # create env with old mlflow!
         _mlflow_conda_env(path=test_model_conda_path,
                           additional_pip_deps=["mlflow=={}".format(test_pyfunc.MLFLOW_VERSION)])
         pyfunc.save_model(path=test_model_path,
@@ -229,6 +229,51 @@ def test_predict(iris_data, sk_model):
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
+
+
+def test_prepare_env_passes(sk_model):
+    if no_conda:
+        pytest.skip("This test requires conda.")
+
+    with TempDir(chdr=True):
+        with mlflow.start_run() as active_run:
+            mlflow.sklearn.log_model(sk_model, "model")
+            model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+
+        # Test with no conda
+        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri,
+                              "--no-conda"], stderr=subprocess.PIPE)
+        assert p.wait() == 0
+
+        # With conda
+        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri],
+                             stderr=subprocess.PIPE)
+        assert p.wait() == 0
+
+        # Should be idempotent
+        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri],
+                             stderr=subprocess.PIPE)
+        assert p.wait() == 0
+
+
+def test_prepare_env_fails(sk_model):
+    if no_conda:
+        pytest.skip("This test requires conda.")
+
+    with TempDir(chdr=True):
+        with mlflow.start_run() as active_run:
+            mlflow.sklearn.log_model(sk_model, "model", conda_env={"env": "Bad conda env"})
+            model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+
+        # Test with no conda
+        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri,
+                              "--no-conda"], stderr=subprocess.PIPE)
+        assert p.wait() == 0
+
+        # With conda - should fail due to bad conda environment.
+        p = subprocess.Popen(["mlflow", "models", "prepare-env", "-m", model_uri],
+                             stderr=subprocess.PIPE)
+        assert p.wait() != 0
 
 
 @pytest.mark.release
