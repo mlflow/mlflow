@@ -404,7 +404,7 @@ def autolog():
             self.model.summary(print_fn=sum_list.append)
             summary = '\n'.join(sum_list)
             try_mlflow_log(mlflow.set_tag, 'summary', summary)
-            with os.open('summary.txt', 'w') as f:
+            with open('summary.txt', 'w') as f:
                 f.write(summary)
             try_mlflow_log(mlflow.log_artifact, local_path='summary.txt')
             os.remove("summary.txt")

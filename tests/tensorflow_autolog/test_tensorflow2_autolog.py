@@ -78,6 +78,9 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert 'Total params: 6,922' in tf_keras_random_data_run.data.tags['summary']
     all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'accuracy')
     assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
+    artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert 'summary.txt' in artifacts
 
 
 @pytest.mark.large

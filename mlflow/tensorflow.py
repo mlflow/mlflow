@@ -479,7 +479,7 @@ class __MLflowTfKerasCallback(Callback):
         self.model.summary(print_fn=tmp_list.append)
         summary = '\n'.join(tmp_list)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
-        with os.open('summary.txt', 'w') as f:
+        with open('summary.txt', 'w') as f:
             f.write(summary)
         try_mlflow_log(mlflow.log_artifact, local_path='summary.txt')
         os.remove("summary.txt")
@@ -514,7 +514,7 @@ class __MLflowTfKeras2Callback(Callback):
         self.model.summary(print_fn=tmp_list.append)
         summary = '\n'.join(tmp_list)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
-        with os.open('summary.txt', 'w') as f:
+        with open('summary.txt', 'w') as f:
             f.write(summary)
         try_mlflow_log(mlflow.log_artifact, local_path='summary.txt')
         os.remove("summary.txt")

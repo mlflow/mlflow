@@ -66,9 +66,11 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     assert data.params['optimizer_name'] == 'Adam'
     assert 'epsilon' in data.params
     assert data.params['epsilon'] == '1e-07'
-    assert 'summary' in keras_random_data_run.data.tags
-    assert 'Total params: 6,922' in keras_random_data_run.data.tags['summary']
-
+    assert 'summary' in data.tags
+    assert 'Total params: 6,922' in data.tags['summary']
+    artifacts = client.list_artifacts(keras_random_data_run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert 'summary.txt' in artifacts
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
