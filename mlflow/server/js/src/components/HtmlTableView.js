@@ -2,7 +2,6 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import "./HtmlTableView.css";
 import Table from 'react-bootstrap/es/Table';
-import Utils from '../utils/Utils';
 
 class HtmlTableView extends Component {
   static propTypes = {
@@ -34,11 +33,10 @@ class HtmlTableView extends Component {
                 let style;
                 if (idx === 0) {
                   style = styles['td-first'] || styles['td'];
-                  return <td key={idx} style={style}>{v}</td>;
                 } else {
                   style = styles['td'];
-                  return <td key={idx} style={style} title={v}>{Utils.formatMetric(v)}</td>;
                 }
+                return <td key={idx} style={style}>{v}</td>;
               })}
             </tr>
           ))}
