@@ -411,13 +411,15 @@ default location to store artifacts for all runs in this experiment. Additional,
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
 
-Use ``--default-artifact-root`` (defaults to local ``./mlruns`` directory) to configure default
-location to server's artifact store. This will be used as artifact location for newly-created
+Use ``--default-artifact-root`` (defaults to client's local ``./mlruns`` directory) to configure the default
+artifact location for the server's future experiments. This will be used as artifact location for newly-created
 experiments that do not specify one. Once you create an experiment, ``--default-artifact-root``
 is no longer relevant to that experiment.
 
+A client will connect to the artifact location directly, regardless whether it was configured via the server or via the client. Therefore both, server and client, need connectivity and authentication for the artifact location.
+
 To allow the server and clients to access the artifact location, you should configure your cloud
-provider credentials as normal. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
+provider credentials as normal, on both server and client side. For example, for S3, you can set the ``AWS_ACCESS_KEY_ID``
 and ``AWS_SECRET_ACCESS_KEY`` environment variables, use an IAM role, or configure a default
 profile in ``~/.aws/credentials``.
 See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/setup-credentials.html>`_ for more info.
@@ -454,6 +456,8 @@ For example, if you have a Minio server at 1.2.3.4 on port 9000:
 .. code-block:: bash
 
   export MLFLOW_S3_ENDPOINT_URL=http://1.2.3.4:9000
+  
+on both, tracking server and client.
 
 Azure Blob Storage
 ^^^^^^^^^^^^^^^^^^
