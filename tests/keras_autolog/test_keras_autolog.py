@@ -72,6 +72,7 @@ def test_keras_autolog_logs_expected_data(keras_random_data_run):
     artifacts = map(lambda x: x.path, artifacts)
     assert 'summary.txt' in artifacts
 
+
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_keras_autolog_model_can_load_from_artifact(keras_random_data_run, random_train_data):
