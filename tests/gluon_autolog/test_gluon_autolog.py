@@ -1,6 +1,7 @@
 import random
 import warnings
 
+import mxnet as mx
 import mxnet.ndarray as nd
 import numpy as np
 import pytest
@@ -69,5 +70,5 @@ def test_gluon_autolog_model_can_load_from_artifact(gluon_random_data_run):
     artifacts = client.list_artifacts(gluon_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert "model" in artifacts
-    model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model")
+    model = mlflow.gluon.load_model("runs:/" + gluon_random_data_run.info.run_id + "/model", mx.cpu())
     model(nd.array(np.random.rand(1000, 1, 32)))

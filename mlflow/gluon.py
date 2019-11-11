@@ -1,10 +1,8 @@
 import os
 
 import gorilla
-import mxnet
 from mxnet import gluon
 from mxnet import sym
-from mxnet.gluon import HybridBlock
 from mxnet.gluon.contrib.estimator import Estimator, TrainEnd, EpochEnd
 from mxnet.gluon.nn import HybridSequential
 
@@ -20,7 +18,7 @@ _MODEL_SAVE_PATH = "net"
 
 
 @experimental
-def load_model(model_uri):
+def load_model(model_uri, ctx):
     """
     Load a Gluon model from a local file or a run.
 
@@ -34,6 +32,7 @@ def load_model(model_uri):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
+    :param ctx: Either CPU or GPU
 
     :return: A Gluon model instance.
 
@@ -45,7 +44,6 @@ def load_model(model_uri):
 
     model_arch_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-symbol.json"
     model_params_path = os.path.join(local_model_path, "data", _MODEL_SAVE_PATH) + "-0000.params"
-    ctx = mxnet.cpu()
     symbol = sym.load(model_arch_path)
     inputs = sym.var('data', dtype='float32')
     net = gluon.SymbolBlock(symbol, inputs)
@@ -54,7 +52,7 @@ def load_model(model_uri):
 
 
 @experimental
-def save_model(gluon_model: HybridBlock, path: str, mlflow_model: Model = Model()):
+def save_model(gluon_model, path, mlflow_model=Model()):
     """
     Save a Gluon model to a path on the local file system.
 
@@ -97,7 +95,7 @@ def save_model(gluon_model: HybridBlock, path: str, mlflow_model: Model = Model(
 
 
 @experimental
-def log_model(gluon_model: HybridBlock, artifact_path: str):
+def log_model(gluon_model, artifact_path):
     """
     Log a Gluon model as an MLflow artifact for the current run.
 
@@ -135,6 +133,7 @@ def autolog():
     function, and optimizer data as parameters. Model checkpoints
     are logged as artifacts to a 'models' directory.
     """
+
     class __MLflowGluonCallback(TrainEnd, EpochEnd):
         def __init__(self):
             self.current_epoch = 0
