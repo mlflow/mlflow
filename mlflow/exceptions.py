@@ -64,7 +64,7 @@ class RestException(MlflowException):
 
 
 class ExecutionException(MlflowException):
-    """Exception thrown when executing a project fails."""
+    """Exception thrown when executing a project fails"""
     pass
 
 

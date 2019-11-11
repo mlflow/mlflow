@@ -119,6 +119,7 @@ def build_docker(model_uri, name, install_mlflow):
     you can disable it via the DISABLE_NGINX environment variable:
 
     .. code:: bash
+
         docker run -p 5001:8080 -e DISABLE_NGINX=true "my-image-name"
 
 

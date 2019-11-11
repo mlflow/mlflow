@@ -166,4 +166,3 @@ def _handle_py4j_error(reraised_error_type, reraised_error_text):
 
 class MLeapSerializationException(MlflowException):
     """Exception thrown when a model or DataFrame cannot be serialized in MLeap format"""
-    pass

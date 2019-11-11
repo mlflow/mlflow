@@ -145,10 +145,11 @@ multiple experiments, use one of the client APIs.
 Python
 ^^^^^^
 
-Use the :py:func:`mlflow.tracking.client.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to search programmatically.
-You can specify the list of columns to order by (for example, "metrics.rmse") in the ``order_by`` column.
-The column can contain an optional ``DESC`` or ``ASC`` value; the default is ``ASC``.
-The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+Use the :py:func:`mlflow.tracking.MlflowClient.search_runs` or :py:func:`mlflow.search_runs` API to 
+search programmatically. You can specify the list of columns to order by 
+(for example, "metrics.rmse") in the ``order_by`` column. The column can contain an 
+optional ``DESC`` or ``ASC`` value; the default is ``ASC``. The default ordering is to sort by 
+``start_time DESC``, then ``run_id``.
 
 For example, to get all `active` runs from experiments IDs 3, 4, and 17 that used a CNN model
 with 10 layers and had a prediction accuracy of 94.5% or higher, use:

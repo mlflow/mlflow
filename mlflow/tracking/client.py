@@ -372,7 +372,7 @@ class MlflowClient(object):
         """
         List of all registered models.
 
-        :return: List of :py:class:`mlflow.entities.registry.RegisteredModel` objects.
+        :return: List of :py:class:`mlflow.entities.model_registry.RegisteredModel` objects.
         """
         return self._get_registry_client().list_registered_models()
 
