@@ -62,6 +62,9 @@ class ModelsArtifactRepository(ArtifactRepository):
         (name, version, stage) = ModelsArtifactRepository._parse_uri(uri)
         if stage is not None:
             latest = client.get_latest_versions(name, [stage])
+            if len(latest) == 0:
+                raise MlflowException("No versions of model with name '{name}' and "
+                                      "stage '{stage}' found".format(name=name, stage=stage))
             version = latest[0].version
         return client.get_model_version_download_uri(name, version)
 

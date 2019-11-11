@@ -26,6 +26,7 @@ from tests.models import test_pyfunc
 from tests.helper_functions import pyfunc_build_image, pyfunc_serve_from_docker_image, \
     pyfunc_serve_from_docker_image_with_env_override, \
     RestEndpoint, get_safe_port, pyfunc_serve_and_score_model
+from tests.projects.utils import tracking_uri_mock  # pylint: disable=unused-import
 from mlflow.protos.databricks_pb2 import ErrorCode, MALFORMED_REQUEST
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON_SPLIT_ORIENTED, \
     CONTENT_TYPE_JSON, CONTENT_TYPE_CSV
@@ -127,38 +128,45 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         assert "No suitable flavor backend was found for the model." in stderr
 
 
-def test_serve_gunicorn_opts(iris_data, sk_model):
+def test_serve_gunicorn_opts(iris_data, sk_model,
+                             tracking_uri_mock):  # pylint: disable=unused-argument
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
     with mlflow.start_run() as active_run:
-        mlflow.sklearn.log_model(sk_model, "model")
-        model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="imlegit")
+        run_id = active_run.info.run_id
 
-    with TempDir() as tpm:
-        output_file_path = tpm.path("stoudt")
-        with open(output_file_path, "w") as output_file:
-            x, _ = iris_data
-            scoring_response = pyfunc_serve_and_score_model(
-                model_uri, pd.DataFrame(x),
-                content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
-                stdout=output_file,
-                extra_args=["-w", "3"])
-        with open(output_file_path, "r") as output_file:
-            stdout = output_file.read()
-    actual = pd.read_json(scoring_response.content, orient="records")
-    actual = actual[actual.columns[0]].values
-    expected = sk_model.predict(x)
-    assert all(expected == actual)
-    expected_command_pattern = re.compile((
-        "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"))
-    assert expected_command_pattern.search(stdout) is not None
+    model_uris = [
+        "models:/{name}/{stage}".format(name="imlegit", stage="None"),
+        "runs:/{run_id}/model".format(run_id=run_id)
+    ]
+    for model_uri in model_uris:
+        with TempDir() as tpm:
+            output_file_path = tpm.path("stoudt")
+            with open(output_file_path, "w") as output_file:
+                x, _ = iris_data
+                scoring_response = pyfunc_serve_and_score_model(
+                    model_uri, pd.DataFrame(x),
+                    content_type=CONTENT_TYPE_JSON_SPLIT_ORIENTED,
+                    stdout=output_file,
+                    extra_args=["-w", "3"])
+            with open(output_file_path, "r") as output_file:
+                stdout = output_file.read()
+        actual = pd.read_json(scoring_response.content, orient="records")
+        actual = actual[actual.columns[0]].values
+        expected = sk_model.predict(x)
+        assert all(expected == actual)
+        expected_command_pattern = re.compile((
+            "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"))
+        assert expected_command_pattern.search(stdout) is not None
 
 
-def test_predict(iris_data, sk_model):
+def test_predict(iris_data, sk_model, tracking_uri_mock):  # pylint: disable=unused-argument
     with TempDir(chdr=True) as tmp:
         with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model")
+            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
             model_uri = "runs:/{run_id}/model".format(run_id=active_run.info.run_id)
+        model_registry_uri = "models:/{name}/{stage}".format(name="impredicting", stage="None")
         input_json_path = tmp.path("input.json")
         input_csv_path = tmp.path("input.csv")
         output_json_path = tmp.path("output.json")
@@ -166,9 +174,13 @@ def test_predict(iris_data, sk_model):
         pd.DataFrame(x).to_json(input_json_path, orient="split")
         pd.DataFrame(x).to_csv(input_csv_path, index=False)
 
-        # Test with no conda
-        p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
-                              "-o", output_json_path, "--no-conda"], stderr=subprocess.PIPE)
+        # Test with no conda & model registry URI
+        env_with_tracking_uri = os.environ.copy()
+        env_with_tracking_uri.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
+        p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_registry_uri,
+                              "-i", input_json_path,
+                              "-o", output_json_path, "--no-conda"],
+                             stderr=subprocess.PIPE, env=env_with_tracking_uri)
         assert p.wait() == 0
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
@@ -177,7 +189,7 @@ def test_predict(iris_data, sk_model):
 
         # With conda + --install-mlflow
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
-                              "-o", output_json_path] + extra_options)
+                              "-o", output_json_path] + extra_options, env=env_with_tracking_uri)
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
@@ -186,7 +198,8 @@ def test_predict(iris_data, sk_model):
 
         # explicit json format with default orient (should be split)
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
-                              "-o", output_json_path, "-t", "json"] + extra_options)
+                              "-o", output_json_path, "-t", "json"] + extra_options,
+                             env=env_with_tracking_uri)
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
@@ -196,7 +209,8 @@ def test_predict(iris_data, sk_model):
         # explicit json format with orient==split
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_json_path,
                               "-o", output_json_path, "-t", "json", "--json-format", "split"]
-                             + extra_options)
+                             + extra_options,
+                             env=env_with_tracking_uri)
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
@@ -209,7 +223,8 @@ def test_predict(iris_data, sk_model):
                              universal_newlines=True,
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
-                             stderr=sys.stderr)
+                             stderr=sys.stderr,
+                             env=env_with_tracking_uri)
         with open(input_json_path, "r") as f:
             stdout, _ = p.communicate(f.read())
         assert 0 == p.wait()
@@ -223,7 +238,8 @@ def test_predict(iris_data, sk_model):
 
         # csv
         p = subprocess.Popen(["mlflow", "models", "predict", "-m", model_uri, "-i", input_csv_path,
-                              "-o", output_json_path, "-t", "csv"] + extra_options)
+                              "-o", output_json_path, "-t", "csv"] + extra_options,
+                             env=env_with_tracking_uri)
         assert 0 == p.wait()
         actual = pd.read_json(output_json_path, orient="records")
         actual = actual[actual.columns[0]].values
