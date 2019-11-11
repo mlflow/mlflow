@@ -478,10 +478,13 @@ class __MLflowTfKerasCallback(Callback):
         summary = '\n'.join(sum_list)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
 
-        with open('summary.txt', 'w') as f:
-            f.write(summary)
-        try_mlflow_log(mlflow.log_artifact, local_path='summary.txt')
-        os.remove("summary.txt")
+        try:
+            summary_file = os.path.join(tempdir, "summary.txt")
+            with open(summary_file, 'w') as f:
+                f.write(summary)
+            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+        finally:
+            shutil.rmtree(tempdir)
 
     def on_epoch_end(self, epoch, logs=None):
         pass
@@ -515,10 +518,13 @@ class __MLflowTfKeras2Callback(Callback):
         summary = '\n'.join(sum_list)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
 
-        with open('summary.txt', 'w') as f:
-            f.write(summary)
-        try_mlflow_log(mlflow.log_artifact, local_path='summary.txt')
-        os.remove("summary.txt")
+        try:
+            summary_file = os.path.join(tempdir, "summary.txt")
+            with open(summary_file, 'w') as f:
+                f.write(summary)
+            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+        finally:
+            shutil.rmtree(tempdir)
 
     def on_epoch_end(self, epoch, logs=None):
         if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
