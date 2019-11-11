@@ -30,9 +30,6 @@ class PyFuncBackend(FlavorBackend):
 
     def prepare_env(self, model_uri):
         local_path = _download_artifact_from_uri(model_uri)
-        # NB: Absolute windows paths do not work with mlflow apis, use file uri to ensure
-        # platform compatibility.
-        local_uri = path_to_local_file_uri(local_path)
         if self._no_conda or ENV not in self._config:
             return 0
         conda_env_path = os.path.join(local_path, self._config[ENV])
