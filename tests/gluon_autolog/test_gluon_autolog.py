@@ -35,6 +35,7 @@ def gluon_random_data_run():
 
     with mlflow.start_run() as run:
         data = DataLoader(LogsDataset(), batch_size=128, last_batch="discard")
+        validation = DataLoader(LogsDataset(), batch_size=128, last_batch="discard")
 
         model = HybridSequential()
         model.add(Dense(64, activation="relu"))
@@ -49,7 +50,7 @@ def gluon_random_data_run():
 
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            est.fit(data, epochs=5)
+            est.fit(data, epochs=5, val_data=validation)
 
     return client.get_run(run.info.run_id)
 
@@ -58,7 +59,9 @@ def gluon_random_data_run():
 def test_gluon_autolog_logs_expected_data(gluon_random_data_run):
     data = gluon_random_data_run.data
     assert "train accuracy" in data.metrics
+    assert "validation accuracy" in data.metrics
     assert "train softmaxcrossentropyloss" in data.metrics
+    assert "validation softmaxcrossentropyloss" in data.metrics
     assert "optimizer_name" in data.params
     assert data.params["optimizer_name"] == "Adam"
     assert "epsilon" in data.params
