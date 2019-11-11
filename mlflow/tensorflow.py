@@ -478,6 +478,7 @@ class __MLflowTfKerasCallback(Callback):
         summary = '\n'.join(sum_list)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
 
+        tempdir = tempfile.mkdtemp()
         try:
             summary_file = os.path.join(tempdir, "summary.txt")
             with open(summary_file, 'w') as f:
@@ -518,6 +519,7 @@ class __MLflowTfKeras2Callback(Callback):
         summary = '\n'.join(sum_list)
         try_mlflow_log(mlflow.set_tag, 'summary', summary)
 
+        tempdir = tempfile.mkdtemp()
         try:
             summary_file = os.path.join(tempdir, "summary.txt")
             with open(summary_file, 'w') as f:
