@@ -44,7 +44,7 @@ def manual_run(request):
     return request.param
 
 
-def create_model():
+def create_keras_model():
     model = tf.keras.Sequential()
 
     model.add(layers.Dense(64, activation='relu', input_shape=(32,)))
@@ -64,7 +64,7 @@ def test_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels)
     data = random_train_data
     labels = random_one_hot_labels
 
-    model = create_model()
+    model = create_keras_model()
 
     model.fit(data, labels, epochs=10)
 
@@ -79,7 +79,7 @@ def test_autolog_persists_manually_created_run(random_train_data,
         data = random_train_data
         labels = random_one_hot_labels
 
-        model = create_model()
+        model = create_keras_model()
 
         model.fit(data, labels, epochs=10)
 
@@ -97,7 +97,7 @@ def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_ru
     data = random_train_data
     labels = random_one_hot_labels
 
-    model = create_model()
+    model = create_keras_model()
 
     model.fit(data, labels, epochs=10)
 
