@@ -842,7 +842,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         experiment_id = self.store.create_experiment('order_by_attributes')
 
         def create_run(start_time, end):
-
             return self.store.create_run(
                     experiment_id,
                     user_id="MrDuck",
@@ -1395,20 +1394,24 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
 
     def _generate_large_data(self, nb_runs=1000):
         experiment_id = self.store.create_experiment('test_experiment')
-        run_ids = []
-        for _ in range(nb_runs):
-            run_ids.append(self.store.create_run(
-                experiment_id=experiment_id,
-                start_time=time.time(),
-                tags=(),
-                user_id='Anderson').info.run_uuid)
 
         current_run = 0
+
+        run_ids = []
         metrics_list = []
         tags_list = []
         params_list = []
         latest_metrics_list = []
-        for run_id in run_ids:
+
+        for _ in range(nb_runs):
+            run_id = self.store.create_run(
+                experiment_id=experiment_id,
+                start_time=current_run,
+                tags=(),
+                user_id='Anderson').info.run_uuid
+
+            run_ids.append(run_id)
+
             for i in range(100):
                 metric = {
                     'key': 'mkey_%s' % i,
@@ -1486,17 +1489,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                                              "and params.pkey_0 = 'pval_0'",
                                              ViewType.ALL, max_results=5)
         assert len(run_results) == 1  # 2 runs on previous request, 1 of which has a 0 pkey_0 value
-
-    def test_get_attribute_name(self):
-        assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
-        assert(models.SqlRun.get_attribute_name("status") == "status")
-        assert(models.SqlRun.get_attribute_name("start_time") == "start_time")
-        assert(models.SqlRun.get_attribute_name("end_time") == "end_time")
-
-        # we want this to break if a searchable or orderable attribute has been added
-        # and not referred to in this test
-        # searchable attibutes are also orderable
-        assert(len(entities.RunInfo.get_orderable_attributes()) == 4)
 
 
 class TestSqlAlchemyStoreSqliteMigratedDB(TestSqlAlchemyStoreSqlite):
@@ -1593,7 +1585,10 @@ class TestZeroValueInsertion(unittest.TestCase):
 def test_get_attribute_name():
     assert(models.SqlRun.get_attribute_name("artifact_uri") == "artifact_uri")
     assert(models.SqlRun.get_attribute_name("status") == "status")
+    assert(models.SqlRun.get_attribute_name("start_time") == "start_time")
+    assert(models.SqlRun.get_attribute_name("end_time") == "end_time")
 
-    # we want this to break if a searchable attribute has been added
+    # we want this to break if a searchable or orderable attribute has been added
     # and not referred to in this test
-    assert(len(entities.RunInfo.get_searchable_attributes()) == 2)
+    # searchable attibutes are also orderable
+    assert(len(entities.RunInfo.get_orderable_attributes()) == 4)

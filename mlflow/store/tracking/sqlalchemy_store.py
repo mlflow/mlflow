@@ -599,7 +599,7 @@ class SqlAlchemyStore(AbstractStore):
             # ``run.to_mlflow_entity()``, so eager loading helps avoid additional database queries
             # that are otherwise executed at attribute access time under a lazy loading model.
             parsed_filters = SearchUtils.parse_search_filter(filter_string)
-            parsed_orderby, sorting_joins = get_orderby_clauses(order_by, session)
+            parsed_orderby, sorting_joins = _get_orderby_clauses(order_by, session)
 
             query = session.query(SqlRun)
             for j in _get_sqlalchemy_filter_clauses(parsed_filters, session) + sorting_joins:
@@ -701,7 +701,7 @@ def _get_sqlalchemy_filter_clauses(parsed, session):
     return filters
 
 
-def get_orderby_clauses(order_by_list, session):
+def _get_orderby_clauses(order_by_list, session):
     """Sorts a set of runs based on their natural ordering and an overriding set of order_bys.
     Runs are naturally ordered first by start time descending, then by run id for tie-breaking.
     """
@@ -714,16 +714,19 @@ def get_orderby_clauses(order_by_list, session):
     if order_by_list:
         for order_by_clause in order_by_list:
             (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
-            subquery = None
             if SearchUtils.is_attribute(key_type, '='):
                 order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
             else:
                 if SearchUtils.is_metric(key_type, '='):  # any valid comparator
                     entity = SqlLatestMetric
+                    value_label = "latest_metrics_value"
+                    is_nan_value = "latest_metrics_is_nan"
                 elif SearchUtils.is_tag(key_type, '='):
                     entity = SqlTag
+                    value_label = "tags_value"
                 elif SearchUtils.is_param(key_type, '='):
                     entity = SqlParam
+                    value_label = "params_value"
                 else:
                     raise MlflowException("Invalid identifier type '%s'" % key_type,
                                           error_code=INVALID_PARAMETER_VALUE)
@@ -733,18 +736,18 @@ def get_orderby_clauses(order_by_list, session):
                 subquery = session \
                     .query(entity) \
                     .filter(entity.key == key) \
-                    .subquery()
+                    .subquery(with_labels=True)
+
                 ordering_joins.append(subquery)
-                order_value = subquery.c.value
+                order_value = getattr(subquery.c, value_label)
 
             # sqlite does not support NULLS LAST expression, so we sort first by
             # presence of the field (and is_nan for metrics), then by actual value
             if SearchUtils.is_metric(key_type, '='):
                 clauses.append(sql.case([
-                    (subquery.c.is_nan.is_(True), 1),
+                    (getattr(subquery.c, is_nan_value).is_(True), 1),
                     (order_value.is_(None), 1)
-                ],
-                    else_=0))
+                ], else_=0))
             else:  # other entities do not have an 'is_nan' field
                 clauses.append(sql.case([(order_value.is_(None), 1)], else_=0))
 
