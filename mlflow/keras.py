@@ -14,6 +14,8 @@ import importlib
 import os
 import yaml
 import gorilla
+import tempfile
+import shutil
 
 import pandas as pd
 
@@ -179,7 +181,7 @@ def save_model(keras_model, path, conda_env=None, mlflow_model=Model(), custom_o
 
 
 def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, keras_module=None,
-              **kwargs):
+              registered_model_name=None, **kwargs):
     """
     Log a Keras model as an MLflow artifact for the current run.
 
@@ -212,6 +214,10 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     :param keras_module: Keras module to be used to save / load the model
                          (``keras`` or ``tf.keras``). If not provided, MLflow will
                          attempt to infer the Keras module based on the given model.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     :param kwargs: kwargs to pass to ``keras_model.save`` method.
 
     >>> from keras import Dense, layers
@@ -227,7 +233,7 @@ def log_model(keras_model, artifact_path, conda_env=None, custom_objects=None, k
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.keras,
               keras_model=keras_model, conda_env=conda_env, custom_objects=custom_objects,
-              keras_module=keras_module, **kwargs)
+              keras_module=keras_module, registered_model_name=registered_model_name, **kwargs)
 
 
 def _save_custom_objects(path, custom_objects):
@@ -377,13 +383,7 @@ def autolog():
         Records available logs after each epoch.
         Records model structural information as params after training finishes.
         """
-
-        def on_epoch_end(self, epoch, logs=None):
-            if not logs:
-                return
-            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
-
-        def on_train_end(self, logs=None):
+        def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
             try_mlflow_log(mlflow.log_param, 'num_layers', len(self.model.layers))
             try_mlflow_log(mlflow.log_param, 'optimizer_name', type(self.model.optimizer).__name__)
             if hasattr(self.model.optimizer, 'lr'):
@@ -396,19 +396,36 @@ def autolog():
                     type(self.model.optimizer.epsilon) is float \
                     else keras.backend.eval(self.model.optimizer.epsilon)
                 try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
+
             sum_list = []
             self.model.summary(print_fn=sum_list.append)
             summary = '\n'.join(sum_list)
-            try_mlflow_log(mlflow.set_tag, 'summary', summary)
+            try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
+
+            tempdir = tempfile.mkdtemp()
+            try:
+                summary_file = os.path.join(tempdir, "model_summary.txt")
+                with open(summary_file, 'w') as f:
+                    f.write(summary)
+                try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+            finally:
+                shutil.rmtree(tempdir)
+
+        def on_epoch_end(self, epoch, logs=None):
+            if not logs:
+                return
+            try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
+
+        def on_train_end(self, logs=None):
             try_mlflow_log(log_model, self.model, artifact_path='model')
 
     @gorilla.patch(keras.Model)
     def fit(self, *args, **kwargs):
         original = gorilla.get_original_attribute(keras.Model, 'fit')
         if len(args) >= 6:
-            l = list(args)
-            l[5] += [__MLflowKerasCallback()]
-            args = tuple(l)
+            tmp_list = list(args)
+            tmp_list[5] += [__MLflowKerasCallback()]
+            args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:
@@ -419,9 +436,9 @@ def autolog():
     def fit_generator(self, *args, **kwargs):
         original = gorilla.get_original_attribute(keras.Model, 'fit_generator')
         if len(args) >= 5:
-            l = list(args)
-            l[4] += [__MLflowKerasCallback()]
-            args = tuple(l)
+            tmp_list = list(args)
+            tmp_list[4] += [__MLflowKerasCallback()]
+            args = tuple(tmp_list)
         elif 'callbacks' in kwargs:
             kwargs['callbacks'] += [__MLflowKerasCallback()]
         else:

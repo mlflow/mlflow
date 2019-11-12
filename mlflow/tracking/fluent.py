@@ -106,8 +106,9 @@ def start_run(run_id=None, experiment_id=None, run_name=None, nested=False):
     # back compat for int experiment_id
     experiment_id = str(experiment_id) if isinstance(experiment_id, int) else experiment_id
     if len(_active_run_stack) > 0 and not nested:
-        raise Exception(("Run with UUID {} is already active. To start a nested " +
-                        "run, call start_run with nested=True").format(
+        raise Exception(("Run with UUID {} is already active. To start a new run, first end the " +
+                         "current run with mlflow.end_run(). To start a nested " +
+                         "run, call start_run with nested=True").format(
             _active_run_stack[0].info.run_id))
     if run_id:
         existing_run_id = run_id
@@ -172,6 +173,23 @@ atexit.register(end_run)
 def active_run():
     """Get the currently active ``Run``, or None if no such run exists."""
     return _active_run_stack[-1] if len(_active_run_stack) > 0 else None
+
+
+def get_run(run_id):
+    """
+    Fetch the run from backend store. The resulting :py:class:`Run <mlflow.entities.Run>`
+    contains a collection of run metadata -- :py:class:`RunInfo <mlflow.entities.RunInfo>`,
+    as well as a collection of run parameters, tags, and metrics --
+    :py:class:`RunData <mlflow.entities.RunData>`. In the case where multiple metrics with the
+    same key are logged for the run, the :py:class:`RunData <mlflow.entities.RunData>` contains
+    the most recently logged value at the largest step for each metric.
+
+    :param run_id: Unique identifier for the run.
+
+    :return: A single :py:class:`mlflow.entities.Run` object, if the run exists. Otherwise,
+                raises an exception.
+    """
+    return MlflowClient().get_run(run_id)
 
 
 def log_param(key, value):
@@ -284,6 +302,26 @@ def log_artifacts(local_dir, artifact_path=None):
     """
     run_id = _get_or_start_run().info.run_id
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
+
+
+def get_experiment(experiment_id):
+    """
+    Retrieve an experiment by experiment_id from the backend store
+
+    :param experiment_id: The experiment ID returned from ``create_experiment``.
+    :return: :py:class:`mlflow.entities.Experiment`
+    """
+    return MlflowClient().get_experiment(experiment_id)
+
+
+def get_experiment_by_name(name):
+    """
+    Retrieve an experiment by experiment name from the backend store
+
+    :param name: The experiment name.
+    :return: :py:class:`mlflow.entities.Experiment`
+    """
+    return MlflowClient().get_experiment_by_name(name)
 
 
 def create_experiment(name, artifact_location=None):

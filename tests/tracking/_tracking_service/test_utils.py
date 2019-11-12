@@ -8,9 +8,13 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracking.registry import TrackingStoreRegistry
-from mlflow.tracking.utils import _get_store, _TRACKING_URI_ENV_VAR, _TRACKING_USERNAME_ENV_VAR, \
-    _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, _TRACKING_INSECURE_TLS_ENV_VAR
+from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
+from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
+from mlflow.tracking._tracking_service.utils import _get_store, _TRACKING_URI_ENV_VAR, \
+    _TRACKING_USERNAME_ENV_VAR, _TRACKING_PASSWORD_ENV_VAR, _TRACKING_TOKEN_ENV_VAR, \
+    _TRACKING_INSECURE_TLS_ENV_VAR
+
+# pylint: disable=unused-argument
 
 
 def test_get_store_file_store(tmp_wkdir):
@@ -116,8 +120,8 @@ def test_get_store_sqlalchemy_store(tmp_wkdir, db_type):
         _TRACKING_URI_ENV_VAR: uri
     }
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine,\
-            mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._verify_schema"), \
-            mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._initialize_tables"):
+            mock.patch("mlflow.store.db.utils._verify_schema"), \
+            mock.patch("mlflow.store.db.utils._initialize_tables"):
         store = _get_store()
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
@@ -136,8 +140,8 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_wkdir, db_type):
     artifact_uri = "file:artifact/path"
 
     with mock.patch.dict(os.environ, env), patch_create_engine as mock_create_engine, \
-            mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._verify_schema"), \
-            mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore._initialize_tables"):
+            mock.patch("mlflow.store.db.utils._verify_schema"), \
+            mock.patch("mlflow.store.db.utils._initialize_tables"):
         store = _get_store(artifact_uri=artifact_uri)
         assert isinstance(store, SqlAlchemyStore)
         assert store.db_uri == uri
@@ -183,7 +187,7 @@ def test_standard_store_registry_with_mocked_entrypoint():
         # Entrypoints are registered at import time, so we need to reload the
         # module to register the entrypoint given by the mocked
         # extrypoints.get_group_all
-        reload(mlflow.tracking.utils)
+        reload(mlflow.tracking._tracking_service.utils)
 
         expected_standard_registry = {
             '',
@@ -198,7 +202,7 @@ def test_standard_store_registry_with_mocked_entrypoint():
             'mock-scheme'
         }
         assert expected_standard_registry.issubset(
-            mlflow.tracking.utils._tracking_store_registry._registry.keys()
+            mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
         )
 
 
@@ -206,8 +210,9 @@ def test_standard_store_registry_with_mocked_entrypoint():
 def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    reload(mlflow.tracking.utils)
-    assert "file-plugin" in mlflow.tracking.utils._tracking_store_registry._registry.keys()
+    reload(mlflow.tracking._tracking_service.utils)
+    assert "file-plugin" in \
+           mlflow.tracking._tracking_service.utils._tracking_store_registry._registry.keys()
 
     from mlflow_test_plugin import PluginFileStore
 
@@ -215,7 +220,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_wkdir):
         _TRACKING_URI_ENV_VAR: "file-plugin:test-path",
     }
     with mock.patch.dict(os.environ, env):
-        plugin_file_store = mlflow.tracking.utils._get_store()
+        plugin_file_store = mlflow.tracking._tracking_service.utils._get_store()
         assert isinstance(plugin_file_store, PluginFileStore)
         assert plugin_file_store.is_plugin
 
@@ -276,6 +281,5 @@ def test_get_store_for_unregistered_scheme():
 
     tracking_store = TrackingStoreRegistry()
 
-    with pytest.raises(mlflow.exceptions.MlflowException,
-                       match="Unexpected URI scheme"):
+    with pytest.raises(UnsupportedModelRegistryStoreURIException):
         tracking_store.get_store("unknown-scheme://")

@@ -39,7 +39,7 @@ def test_server_default_artifact_root_validation():
 
 @pytest.mark.parametrize("command", [server, ui])
 def test_tracking_uri_validation_failure(command):
-    handlers._store = None
+    handlers._tracking_store = None
     with mock.patch("mlflow.cli._run_server") as run_server_mock:
         # SQLAlchemy expects postgresql:// not postgres://
         CliRunner().invoke(command,
@@ -50,13 +50,19 @@ def test_tracking_uri_validation_failure(command):
 
 @pytest.mark.parametrize("command", [server, ui])
 def test_tracking_uri_validation_sql_driver_uris(command):
-    handlers._store = None
-    with mock.patch("mlflow.cli._run_server") as run_server_mock,\
-            mock.patch("mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore") as sql_store:
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    with mock.patch("mlflow.cli._run_server") as run_server_mock, \
+        mock.patch(
+            "mlflow.store.tracking.sqlalchemy_store.SqlAlchemyStore") as tracking_store_mock, \
+        mock.patch(
+            "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore") as registry_store_mock:
         CliRunner().invoke(command,
                            ["--backend-store-uri", "mysql+pymysql://user:pwd@host:5432/mydb",
                             "--default-artifact-root", "./mlruns"])
-        sql_store.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb", "./mlruns")
+        tracking_store_mock.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb",
+                                                    "./mlruns")
+        registry_store_mock.assert_called_once_with("mysql+pymysql://user:pwd@host:5432/mydb")
         run_server_mock.assert_called()
 
 

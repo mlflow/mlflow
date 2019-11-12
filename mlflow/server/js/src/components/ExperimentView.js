@@ -25,7 +25,7 @@ import NoteEditorView from "./NoteEditorView";
 import NoteShowView from "./NoteShowView";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
-import { Icon, Popover } from 'antd';
+import { Icon, Popover, Descriptions } from 'antd';
 
 import Utils from '../utils/Utils';
 import {Spinner} from "./Spinner";
@@ -366,16 +366,10 @@ export class ExperimentView extends Component {
           selectedRunIds={Object.keys(this.state.runsSelected)}
         />
         <h1>{name}</h1>
-        <div className="metadata">
-          <span className="metadata">
-            <span className="metadata-header">Experiment ID:</span>
-            {experiment_id}
-          </span>
-          <span className="metadata">
-            <span className="metadata-header">Artifact Location:</span>
-            {artifact_location}
-          </span>
-        </div>
+        <Descriptions className='metadata-list'>
+          <Descriptions.Item label='Experiment ID'>{experiment_id}</Descriptions.Item>
+          <Descriptions.Item label='Artifact Location'>{artifact_location}</Descriptions.Item>
+        </Descriptions>
         <div className="ExperimentView-info">
           <h2 className="table-name">
                 <span className="metadata">
@@ -419,7 +413,8 @@ export class ExperimentView extends Component {
                     <input
                       className="ExperimentView-searchInput"
                       type="text"
-                      placeholder={'metrics.rmse < 1 and params.model = "tree"'}
+                      placeholder={'metrics.rmse < 1 and params.model = "tree" and ' +
+                                   'tags."mlflow.source.type" = "LOCAL"'}
                       value={this.state.searchInput}
                       onChange={this.onSearchInput}
                     />

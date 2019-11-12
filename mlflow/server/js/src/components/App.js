@@ -16,6 +16,14 @@ import HomePage from './HomePage';
 import ErrorModal from './modals/ErrorModal';
 import PageNotFoundView from './PageNotFoundView';
 import { Switch } from 'react-router';
+import {
+  modelListPageRoute,
+  modelPageRoute,
+  modelVersionPageRoute,
+} from '../model-registry/routes';
+import ModelVersionPage from "../model-registry/components/ModelVersionPage";
+import ModelListPage from '../model-registry/components/ModelListPage';
+import ModelPage from '../model-registry/components/ModelPage';
 
 class App extends Component {
   render() {
@@ -53,6 +61,10 @@ class App extends Component {
               <Route exact path={Routes.metricPageRoute} component={MetricPage}/>
               <Route exact path={Routes.compareRunPageRoute} component={CompareRunPage}/>
               <Route path={Routes.experimentPageSearchRoute} component={HomePage}/>
+              {/* TODO(Zangr) see if route component can be injected here */}
+              <Route exact path={modelListPageRoute} component={ModelListPage}/>
+              <Route exact path={modelVersionPageRoute} component={ModelVersionPage}/>
+              <Route exact path={modelPageRoute} component={ModelPage}/>
               <Route component={PageNotFoundView}/>
             </Switch>
           </AppErrorBoundary>
