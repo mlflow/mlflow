@@ -3,7 +3,7 @@ import os
 import gorilla
 from mxnet import gluon
 from mxnet import sym
-from mxnet.gluon.contrib.estimator import Estimator, TrainEnd, EpochEnd
+from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin
 from mxnet.gluon.nn import HybridSequential
 
 import mlflow
@@ -134,7 +134,7 @@ def autolog():
     are logged as artifacts to a 'models' directory.
     """
 
-    class __MLflowGluonCallback(TrainEnd, EpochEnd):
+    class __MLflowGluonCallback(EpochEnd, TrainBegin):
         def __init__(self):
             self.current_epoch = 0
 
@@ -149,7 +149,7 @@ def autolog():
             try_mlflow_log(mlflow.log_metrics, logs, step=self.current_epoch)
             self.current_epoch += 1
 
-        def train_end(self, estimator, *args, **kwargs):
+        def train_begin(self, estimator, *args, **kwargs):
             try_mlflow_log(mlflow.log_param, "num_layers", len(estimator.net))
             if estimator.max_epoch is not None:
                 try_mlflow_log(mlflow.log_param, "epochs", estimator.max_epoch)
