@@ -432,7 +432,7 @@ See `Set up AWS Credentials and Region for Development <https://docs.aws.amazon.
 SQLAlchemy Options
 ~~~~~~~~~~~~~~~~~~
 
-You can inject some `SQLAlchemy connection polling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
+You can inject some `SQLAlchemy connection pooling options <https://docs.sqlalchemy.org/en/latest/core/pooling.html>`_ using environment variables.
 
 +-----------------------------------------+-----------------------------+
 | MLFlow Environment Variable             | SQLAlchemy QueuePool Option |
