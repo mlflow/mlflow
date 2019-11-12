@@ -130,6 +130,14 @@ class FlavorBackend(object):
         """
         pass
 
+    def prepare_env(self, model_uri):
+        """
+        Performs any preparation necessary to predict or serve the model, for example
+        downloading dependencies or initializing a conda environment. After preparation,
+        calling predict or serve should be fast.
+        """
+        pass
+
     @abstractmethod
     def can_score_model(self):
         """

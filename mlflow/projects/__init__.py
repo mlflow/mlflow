@@ -221,7 +221,8 @@ def run(uri, entry_point="main", version=None, parameters=None,
     For information on using this method in chained workflows, see `Building Multistep Workflows
     <../projects.html#building-multistep-workflows>`_.
 
-    :raises ``ExecutionException``: If a run launched in blocking mode is unsuccessful.
+    :raises: :py:class:`mlflow.exceptions.ExecutionException` If a run launched in blocking mode
+             is unsuccessful.
 
     :param uri: URI of project to run. A local filesystem path
                 or a Git repository URI (e.g. https://github.com/mlflow/mlflow-example)
@@ -665,7 +666,7 @@ def _get_docker_command(image, active_run, volumes=None, user_env_vars=None):
                 system_var = os.environ.get(user_entry)
                 if system_var is None:
                     raise MlflowException(
-                        "This project expects the %s environment variable to "
+                        "This project expects the %s environment variables to "
                         "be set on the machine running the project, but %s was "
                         "not set. Please ensure all expected environment variables "
                         "are set" % (", ".join(user_env_vars), user_entry))
