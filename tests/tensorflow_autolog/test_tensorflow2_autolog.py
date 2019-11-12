@@ -58,8 +58,7 @@ def create_model():
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels, fit_variant):
+def test_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
 
     data = random_train_data
@@ -67,21 +66,14 @@ def test_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels,
 
     model = create_model()
 
-    if fit_variant == 'fit_generator':
-        def generator():
-            while True:
-                yield data, labels
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-    else:
-        model.fit(data, labels, epochs=10)
+    model.fit(data, labels, epochs=10)
 
     assert mlflow.active_run() is None
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_autolog_persists_manually_created_run(random_train_data,
-                                               random_one_hot_labels, fit_variant):
+                                               random_one_hot_labels):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
         data = random_train_data
@@ -89,20 +81,14 @@ def test_autolog_persists_manually_created_run(random_train_data,
 
         model = create_model()
 
-        if fit_variant == 'fit_generator':
-            def generator():
-                while True:
-                    yield data, labels
-            model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-        else:
-            model.fit(data, labels, epochs=10)
+        model.fit(data, labels, epochs=10)
 
         assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
 @pytest.fixture
-def tf_keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels, manual_run):
+def tf_keras_random_data_run(random_train_data, random_one_hot_labels, manual_run):
     if manual_run:
         mlflow.start_run()
 
@@ -113,20 +99,13 @@ def tf_keras_random_data_run(random_train_data, fit_variant, random_one_hot_labe
 
     model = create_model()
 
-    if fit_variant == 'fit_generator':
-        def generator():
-            while True:
-                yield data, labels
-        model.fit_generator(generator(), epochs=10, steps_per_epoch=1)
-    else:
-        model.fit(data, labels, epochs=10)
+    model.fit(data, labels, epochs=10)
 
     mlflow.end_run()
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     data = tf_keras_random_data_run.data
     assert 'accuracy' in data.metrics
@@ -150,7 +129,6 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
 
 
 @pytest.mark.large
-@pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_tf_keras_autolog_model_can_load_from_artifact(tf_keras_random_data_run, random_train_data):
     artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
