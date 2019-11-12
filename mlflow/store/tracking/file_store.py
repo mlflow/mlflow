@@ -4,7 +4,6 @@ import posixpath
 import sys
 
 import uuid
-import six
 
 from mlflow.entities import Experiment, Metric, Param, Run, RunData, RunInfo, RunStatus, RunTag, \
     ViewType, SourceType, ExperimentTag
@@ -24,6 +23,7 @@ from mlflow.utils.file_utils import (is_directory, list_subdirs, mkdir, exists, 
                                      write_to, append_to, make_containing_dirs, mv, get_parent_dir,
                                      list_all, local_file_uri_to_path, path_to_local_file_uri)
 from mlflow.utils.search_utils import SearchUtils
+from mlflow.utils.string_utils import is_string_type
 
 _TRACKING_DIR_ENV_VAR = "MLFLOW_TRACKING_DIR"
 
@@ -603,7 +603,7 @@ class FileStore(AbstractStore):
     def _writeable_value(self, tag_value):
         if tag_value is None:
             return ""
-        elif isinstance(tag_value, six.string_types):
+        elif is_string_type(tag_value):
             return tag_value
         else:
             return "%s" % tag_value

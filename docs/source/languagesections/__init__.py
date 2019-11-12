@@ -1,8 +1,11 @@
 import os
+from sphinx.util import logging
 
 from docutils.parsers.rst import Directive
 from docutils import nodes
 from sphinx.util.osutil import copyfile
+
+logger = logging.getLogger(__name__)
 
 JS_FILE = 'languagesections.js'
 
@@ -36,11 +39,11 @@ def add_assets(app):
 def copy_assets(app, exception):
     if app.builder.name != 'html' or exception:
         return
-    app.info('Copying examplecode stylesheet/javascript... ', nonl=True)
+    logger.info('Copying examplecode stylesheet/javascript... ', nonl=True)
     dest = os.path.join(app.builder.outdir, '_static', JS_FILE)
     source = os.path.join(os.path.abspath(os.path.dirname(__file__)), JS_FILE)
     copyfile(source, dest)
-    app.info('done')
+    logger.info('done')
 
 def setup(app):
     app.add_directive('code-section', CodeSectionDirective)

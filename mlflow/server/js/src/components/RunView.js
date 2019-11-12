@@ -263,7 +263,7 @@ const getMetricValues = (latestMetrics, getMetricPagePath) => {
         {key}
         <i className="fas fa-chart-line" style={{paddingLeft: "6px"}}/>
       </Link>,
-      m.value
+      <span title={m.value}>{Utils.formatMetric(m.value)}</span>,
     ];
   });
 };
