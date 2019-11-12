@@ -82,6 +82,7 @@ def test_autolog_persists_manually_created_run(random_train_data,
         else:
             model.fit(data, labels, epochs=10)
 
+        assert mlflow.active_run()
         assert mlflow.active_run().info.run_id == run.info.run_id
 
 
