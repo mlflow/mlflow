@@ -63,23 +63,17 @@ class ShowArtifactImageView extends Component {
     img.src = this.getSrc();
   };
 
-  imageContainer = ({ children }) => (
-    <div className="image-outer-container">
-      <div className="image-container">{children}</div>
-    </div>
-  );
-
   renderGif = () => {
     const { loading } = this.state;
     return (
-      <this.imageContainer>
+      <React.Fragment>
         <div style={{ display: loading ? 'block' : 'none' }}>Loading...</div>
         <img
           src={this.getSrc()}
           onLoad={() => this.setState({ loading: false })}
           style={{ height: '100%', display: loading ? 'none' : 'block' }}
         />
-      </this.imageContainer>
+      </React.Fragment>
     );
   };
 
@@ -89,55 +83,53 @@ class ShowArtifactImageView extends Component {
     if (loading) return <div>Loading...</div>;
 
     return (
-      <this.imageContainer>
-        {
-          <Plot
-            layout={{
-              width: width * (500 / height),
-              height: 500,
-              xaxis: { visible: false, range: [0, width] },
-              yaxis: { visible: false, range: [0, height], scaleanchor: 'x', scaleratio: 1 },
-              images: [
-                {
-                  source: dataURL,
-                  xref: 'x',
-                  yref: 'y',
-                  x: 0,
-                  y: 0,
-                  xanchor: 'left',
-                  yanchor: 'bottom',
-                  sizex: width,
-                  sizey: height,
-                },
-              ],
-              margin: { l: 0, r: 0, t: 0, b: 0 },
-            }}
-            config={{
-              displaylogo: false,
-              scrollZoom: true,
-              doubleClick: 'reset',
-              modeBarButtonsToRemove: [
-                'hoverCompareCartesian',
-                'hoverClosestCartesian',
-                'lasso2d',
-                'sendDataToCloud',
-                'select2d',
-                'toggleSpikelines',
-              ],
-            }}
-            useResizeHandler
-          />
-        }
-      </this.imageContainer>
+      <Plot
+        layout={{
+          width: width * (500 / height),
+          height: 500,
+          xaxis: { visible: false, range: [0, width] },
+          yaxis: { visible: false, range: [0, height], scaleanchor: 'x', scaleratio: 1 },
+          images: [
+            {
+              source: dataURL,
+              xref: 'x',
+              yref: 'y',
+              x: 0,
+              y: 0,
+              xanchor: 'left',
+              yanchor: 'bottom',
+              sizex: width,
+              sizey: height,
+            },
+          ],
+          margin: { l: 0, r: 0, t: 0, b: 0 },
+        }}
+        config={{
+          displaylogo: false,
+          scrollZoom: true,
+          doubleClick: 'reset',
+          modeBarButtonsToRemove: [
+            'hoverCompareCartesian',
+            'hoverClosestCartesian',
+            'lasso2d',
+            'sendDataToCloud',
+            'select2d',
+            'toggleSpikelines',
+          ],
+        }}
+        useResizeHandler
+      />
     );
   };
 
   render() {
-    if (this.isGif()) {
-      return this.renderGif();
-    }
-
-    return this.renderStaticImage();
+    return (
+      <div className="image-outer-container">
+        <div className="image-container">
+          {this.isGif() ? this.renderGif() : this.renderStaticImage()}
+        </div>
+      </div>
+    );
   }
 }
 
