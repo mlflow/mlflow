@@ -11,7 +11,7 @@ staging to production), and annotations.
 
 .. contents:: Table of Contents
   :local:
-  :depth: 1
+  :depth: 2
 
 Concepts
 ========
@@ -37,19 +37,20 @@ Adding an MLflow Model to the Model Registry
 ============================================
 
 Before a model can be added to the Model Registry you must log it using the ``log_model`` methods
-of the corresponding model flavors. Once a model has been logged, you can add it to the registry
-either through a UI workflow or through APIs.
+of the corresponding model flavors. Once a model has been logged, you can add it to the Model Registry through the UI or the API.
 
 UI Workflow
 -----------
 
-From the MLflow Runs detail page, select a logged MLflow Model in the **Artifacts** section. Click the **Register Model** button.
+#. From the MLflow Runs detail page, select a logged MLflow Model in the **Artifacts** section.
 
-.. figure:: _static/images/oss_registry_1_register.png
+#. Click the **Register Model** button.
 
-In the **Model Name** field, if you are adding a new model, specify a unique name to identify the model. If you are registering a new version to an existing model, pick the existing model name from the dropdown.
+   .. figure:: _static/images/oss_registry_1_register.png
 
-.. figure:: _static/images/oss_registry_2_dialog.png
+#. In the **Model Name** field, if you are adding a new model, specify a unique name to identify the model. If you are registering a new version to an existing model, pick the existing model name from the dropdown.
+
+  .. figure:: _static/images/oss_registry_2_dialog.png
 
 Once the model is added to the Model Registry you can:
 
@@ -61,12 +62,16 @@ Once the model is added to the Model Registry you can:
 
   .. figure:: _static/images/oss_registry_3b_version.png
 
-Each model has an overview page that shows the active versions. Click a version to navigate to the version detail page.
+Each model has an overview page that shows the active versions.
+
+.. figure:: _static/images/oss_registry_3c_version.png
+
+Click a version to navigate to the version detail page.
 
 .. figure:: _static/images/oss_registry_4_version.png
 
 On the version detail page you can see model version details and the current stage of the model
-version. If you click on the stage in the top right, you can transition the model
+version. Click the **Stage** drop-down at the top right, to transition the model
 version to one of the other valid stages.
 
 .. figure:: _static/images/oss_registry_5_transition.png
@@ -75,17 +80,15 @@ version to one of the other valid stages.
 API Workflow
 ------------
 
-Once a model is logged using ``log_model`` you can add it to the registry, referencing the model by its URI.
+You can register a model using two APIs: ``register_model`` and ``log_model``.
 
-Call the ``register_model`` API to add it to the registry.
+If the model has already been logged, you can add it to the registry with the ``register_model`` API, referencing the model by its URI.
 
 .. code-block:: py
 
-   mlflow.register_model("runs:/e148278107274..832/artifacts/model",
-                         "EmailMarketingCampaign")
+   mlflow.register_model("runs:/e148278107274..832/artifacts/model", "EmailMarketingCampaign")
 
-Alternatively, you can pass ``registered_model_name`` to ``log_model`` to log the model under the
-specified registered model.
+If the model has not been logged, pass ``registered_model_name`` to ``log_model`` to log the model under the specified registered model.
 
 .. code-block:: py
 
@@ -97,8 +100,7 @@ specified registered model.
 
 .. note:: If the registered model does not already exist, the registry will create one before creating a new model version.
 
-With the ``get_model_version_details`` API you can confirm that the model has successfully been
-registered.
+To confirm that the model has successfully been registered, call the ``get_model_version_details`` API:
 
 .. code-block:: py
 
@@ -106,15 +108,14 @@ registered.
    client.get_model_version_details(name = "EmailMarketingCampaign",
                                     version = 12)
 
-You can ask for the latest version of each registered model by a particular stage.
+You can query for the latest version of each registered model by stage using the ``get_latest_versions`` API:
 
 .. code-block:: py
 
    client.get_latest_versions(name = "EmailMarketingCampaign",
                               stages = ["Staging"])
 
-Newly-registered model versions are added to the registry with stage **None**. You can update its
-stage.
+Newly-registered model versions are added to the registry with stage **None**. To update the stage, call the ``update_model_version`` API:
 
 .. code-block:: py
 
