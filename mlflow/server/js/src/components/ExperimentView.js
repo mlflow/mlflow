@@ -265,8 +265,8 @@ export class ExperimentView extends Component {
   handleSubmitEditNote(note) {
     const { experiment_id } = this.props.experiment;
     this.props
-    .setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
-    .then(() => this.setState({ showNotesEditor: false }));
+      .setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
+      .then(() => this.setState({ showNotesEditor: false }));
   }
 
   handleCancelEditNote() {
