@@ -104,7 +104,7 @@ def test_create_and_query_registered_model_flow(mlflow_client, backend_store_uri
     registered_model_detailed = mlflow_client.get_registered_model_details(name)
     assert isinstance(registered_model_detailed, RegisteredModelDetailed)
     assert registered_model_detailed.name == name
-    assert str(registered_model_detailed.description) is ""
+    assert str(registered_model_detailed.description) == ""
     assert registered_model_detailed.latest_versions == []
     assert_is_between(start_time, end_time, registered_model_detailed.creation_timestamp)
     assert_is_between(start_time, end_time, registered_model_detailed.last_updated_timestamp)
@@ -118,7 +118,7 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
     end_time_1 = now()
     registered_model_detailed_1 = mlflow_client.get_registered_model_details(name)
     assert registered_model_detailed_1.name == name
-    assert str(registered_model_detailed_1.description) is ""
+    assert str(registered_model_detailed_1.description) == ""
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.creation_timestamp)
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_1.last_updated_timestamp)
 
@@ -135,7 +135,7 @@ def test_update_registered_model_flow(mlflow_client, backend_store_uri):
         mlflow_client.get_registered_model_details(name)
     registered_model_detailed_2 = mlflow_client.get_registered_model_details(new_name)
     assert registered_model_detailed_2.name == new_name
-    assert str(registered_model_detailed_2.description) is ""
+    assert str(registered_model_detailed_2.description) == ""
     assert_is_between(start_time_1, end_time_1, registered_model_detailed_2.creation_timestamp)
     assert_is_between(start_time_2, end_time_2, registered_model_detailed_2.last_updated_timestamp)
 
