@@ -414,7 +414,7 @@ export class ExperimentView extends Component {
                       className="ExperimentView-searchInput"
                       type="text"
                       placeholder={'metrics.rmse < 1 and params.model = "tree" and ' +
-                                   'tags."mlflow.source.type" = "LOCAL"'}
+                                   'tags.mlflow.source.type = "LOCAL"'}
                       value={this.state.searchInput}
                       onChange={this.onSearchInput}
                     />
