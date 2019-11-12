@@ -58,7 +58,7 @@ def create_keras_model():
 
 
 @pytest.mark.large
-def test_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
+def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels):
     mlflow.tensorflow.autolog()
 
     data = random_train_data
@@ -72,7 +72,7 @@ def test_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels)
 
 
 @pytest.mark.large
-def test_autolog_persists_manually_created_run(random_train_data,
+def test_tf_keras_autolog_persists_manually_created_run(random_train_data,
                                                random_one_hot_labels):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
