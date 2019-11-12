@@ -100,7 +100,8 @@ class ArtifactRepository:
             local_dir_path = os.path.join(dst_path, dirpath)
             local_file_path = os.path.join(dst_path, fullpath)
             # Artifact_path is a directory, so make a directory for it and download everything
-            os.makedirs(local_dir_path, exist_ok=True)
+            if not os.path.exists(local_dir_path):
+                os.makedirs(local_dir_path)
             self._download_file(remote_file_path=fullpath, local_path=local_file_path)
             return local_file_path
 
@@ -108,7 +109,8 @@ class ArtifactRepository:
             local_dir = os.path.join(dst_path, dir_path)
             dir_content = self.list_artifacts(dir_path)
             if not dir_content:  # empty dir
-                os.makedirs(local_dir, exist_ok=True)
+                if not os.path.exists(local_dir):
+                    os.makedirs(local_dir, exist_ok=True)
             else:
                 for file_info in dir_content:
                     # prevent an infinite loop (sometimes the current path is listed e.g. as ".")
