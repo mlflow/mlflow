@@ -460,10 +460,7 @@ class __MLflowTfKerasCallback(Callback):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
-    def on_epoch_end(self, epoch, logs=None):
-        pass
-
-    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
+    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
         opt = self.model.optimizer
         if hasattr(opt, 'optimizer'):
             opt = opt.optimizer
@@ -475,10 +472,25 @@ class __MLflowTfKerasCallback(Callback):
             epsilon = opt._epsilon if type(opt._epsilon) is float \
                 else tensorflow.keras.backend.eval(opt._epsilon)
             try_mlflow_log(mlflow.log_param, 'epsilon', epsilon)
-        tmp_list = []
-        self.model.summary(print_fn=tmp_list.append)
-        summary = '\n'.join(tmp_list)
-        try_mlflow_log(mlflow.set_tag, 'summary', summary)
+
+        sum_list = []
+        self.model.summary(print_fn=sum_list.append)
+        summary = '\n'.join(sum_list)
+        try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
+
+        tempdir = tempfile.mkdtemp()
+        try:
+            summary_file = os.path.join(tempdir, "model_summary.txt")
+            with open(summary_file, 'w') as f:
+                f.write(summary)
+            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+        finally:
+            shutil.rmtree(tempdir)
+
+    def on_epoch_end(self, epoch, logs=None):
+        pass
+
+    def on_train_end(self, logs=None):  # pylint: disable=unused-argument
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
 
 
@@ -497,19 +509,30 @@ class __MLflowTfKeras2Callback(Callback):
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
+    def on_train_begin(self, logs=None):  # pylint: disable=unused-argument
+        config = self.model.optimizer.get_config()
+        for attribute in config:
+            try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
+
+        sum_list = []
+        self.model.summary(print_fn=sum_list.append)
+        summary = '\n'.join(sum_list)
+        try_mlflow_log(mlflow.set_tag, 'model_summary', summary)
+
+        tempdir = tempfile.mkdtemp()
+        try:
+            summary_file = os.path.join(tempdir, "model_summary.txt")
+            with open(summary_file, 'w') as f:
+                f.write(summary)
+            try_mlflow_log(mlflow.log_artifact, local_path=summary_file)
+        finally:
+            shutil.rmtree(tempdir)
+
     def on_epoch_end(self, epoch, logs=None):
         if (epoch-1) % _LOG_EVERY_N_STEPS == 0:
             try_mlflow_log(mlflow.log_metrics, logs, step=epoch)
 
     def on_train_end(self, logs=None):  # pylint: disable=unused-argument
-        opt = self.model.optimizer
-        config = opt.get_config()
-        for attribute in config:
-            try_mlflow_log(mlflow.log_param, "opt_" + attribute, config[attribute])
-        tmp_list = []
-        self.model.summary(print_fn=tmp_list.append)
-        summary = '\n'.join(tmp_list)
-        try_mlflow_log(mlflow.set_tag, 'summary', summary)
         try_mlflow_log(mlflow.keras.log_model, self.model, artifact_path='model')
 
 
