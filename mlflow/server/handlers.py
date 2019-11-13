@@ -371,8 +371,16 @@ def _search_runs():
     experiment_ids = request_message.experiment_ids
     order_by = request_message.order_by
     page_token = request_message.page_token
+    metrics_whitelist = request_message.metrics_whitelist.fields\
+        if request_message.HasField("metrics_whitelist") else None
+    params_whitelist = request_message.params_whitelist.fields\
+        if request_message.HasField("params_whitelist") else None
+    tags_whitelist = request_message.tags_whitelist.fields\
+        if request_message.HasField("tags_whitelist") else None
     run_entities = _get_tracking_store().search_runs(experiment_ids, filter_string, run_view_type,
-                                                     max_results, order_by, page_token)
+                                                     max_results, order_by, page_token,
+                                                     metrics_whitelist, params_whitelist,
+                                                     tags_whitelist)
     response_message.runs.extend([r.to_proto() for r in run_entities])
     if run_entities.token:
         response_message.next_page_token = run_entities.token

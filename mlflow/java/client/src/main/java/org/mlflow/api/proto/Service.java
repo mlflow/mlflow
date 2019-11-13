@@ -34868,6 +34868,60 @@ public final class Service {
      */
     com.google.protobuf.ByteString
         getPageTokenBytes();
+
+    /**
+     * <pre>
+     * These metrics, params and tags whitelist limit the fields returned by the search runs query
+     * A None whitelist will select all the fields
+     * </pre>
+     *
+     * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+     */
+    boolean hasMetricsWhitelist();
+    /**
+     * <pre>
+     * These metrics, params and tags whitelist limit the fields returned by the search runs query
+     * A None whitelist will select all the fields
+     * </pre>
+     *
+     * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+     */
+    org.mlflow.api.proto.Service.SearchRuns.WhiteList getMetricsWhitelist();
+    /**
+     * <pre>
+     * These metrics, params and tags whitelist limit the fields returned by the search runs query
+     * A None whitelist will select all the fields
+     * </pre>
+     *
+     * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+     */
+    org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder getMetricsWhitelistOrBuilder();
+
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+     */
+    boolean hasParamsWhitelist();
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+     */
+    org.mlflow.api.proto.Service.SearchRuns.WhiteList getParamsWhitelist();
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+     */
+    org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder getParamsWhitelistOrBuilder();
+
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+     */
+    boolean hasTagsWhitelist();
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+     */
+    org.mlflow.api.proto.Service.SearchRuns.WhiteList getTagsWhitelist();
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+     */
+    org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder getTagsWhitelistOrBuilder();
   }
   /**
    * Protobuf type {@code mlflow.SearchRuns}
@@ -34959,6 +35013,45 @@ public final class Service {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000008;
               pageToken_ = bs;
+              break;
+            }
+            case 66: {
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000010) == 0x00000010)) {
+                subBuilder = metricsWhitelist_.toBuilder();
+              }
+              metricsWhitelist_ = input.readMessage(org.mlflow.api.proto.Service.SearchRuns.WhiteList.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(metricsWhitelist_);
+                metricsWhitelist_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000010;
+              break;
+            }
+            case 74: {
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000020) == 0x00000020)) {
+                subBuilder = paramsWhitelist_.toBuilder();
+              }
+              paramsWhitelist_ = input.readMessage(org.mlflow.api.proto.Service.SearchRuns.WhiteList.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(paramsWhitelist_);
+                paramsWhitelist_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000020;
+              break;
+            }
+            case 82: {
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder subBuilder = null;
+              if (((bitField0_ & 0x00000040) == 0x00000040)) {
+                subBuilder = tagsWhitelist_.toBuilder();
+              }
+              tagsWhitelist_ = input.readMessage(org.mlflow.api.proto.Service.SearchRuns.WhiteList.PARSER, extensionRegistry);
+              if (subBuilder != null) {
+                subBuilder.mergeFrom(tagsWhitelist_);
+                tagsWhitelist_ = subBuilder.buildPartial();
+              }
+              bitField0_ |= 0x00000040;
               break;
             }
             default: {
@@ -36061,6 +36154,619 @@ public final class Service {
 
     }
 
+    public interface WhiteListOrBuilder extends
+        // @@protoc_insertion_point(interface_extends:mlflow.SearchRuns.WhiteList)
+        com.google.protobuf.MessageOrBuilder {
+
+      /**
+       * <code>repeated string fields = 1;</code>
+       */
+      java.util.List<java.lang.String>
+          getFieldsList();
+      /**
+       * <code>repeated string fields = 1;</code>
+       */
+      int getFieldsCount();
+      /**
+       * <code>repeated string fields = 1;</code>
+       */
+      java.lang.String getFields(int index);
+      /**
+       * <code>repeated string fields = 1;</code>
+       */
+      com.google.protobuf.ByteString
+          getFieldsBytes(int index);
+    }
+    /**
+     * <pre>
+     * this whitelist message exists to be able to have an optional whitelist :
+     * no whitelist = all fields are available
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.SearchRuns.WhiteList}
+     */
+    public  static final class WhiteList extends
+        com.google.protobuf.GeneratedMessageV3 implements
+        // @@protoc_insertion_point(message_implements:mlflow.SearchRuns.WhiteList)
+        WhiteListOrBuilder {
+    private static final long serialVersionUID = 0L;
+      // Use WhiteList.newBuilder() to construct.
+      private WhiteList(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+        super(builder);
+      }
+      private WhiteList() {
+        fields_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      }
+
+      @java.lang.Override
+      public final com.google.protobuf.UnknownFieldSet
+      getUnknownFields() {
+        return this.unknownFields;
+      }
+      private WhiteList(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        this();
+        if (extensionRegistry == null) {
+          throw new java.lang.NullPointerException();
+        }
+        int mutable_bitField0_ = 0;
+        com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+            com.google.protobuf.UnknownFieldSet.newBuilder();
+        try {
+          boolean done = false;
+          while (!done) {
+            int tag = input.readTag();
+            switch (tag) {
+              case 0:
+                done = true;
+                break;
+              case 10: {
+                com.google.protobuf.ByteString bs = input.readBytes();
+                if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+                  fields_ = new com.google.protobuf.LazyStringArrayList();
+                  mutable_bitField0_ |= 0x00000001;
+                }
+                fields_.add(bs);
+                break;
+              }
+              default: {
+                if (!parseUnknownField(
+                    input, unknownFields, extensionRegistry, tag)) {
+                  done = true;
+                }
+                break;
+              }
+            }
+          }
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          throw e.setUnfinishedMessage(this);
+        } catch (java.io.IOException e) {
+          throw new com.google.protobuf.InvalidProtocolBufferException(
+              e).setUnfinishedMessage(this);
+        } finally {
+          if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+            fields_ = fields_.getUnmodifiableView();
+          }
+          this.unknownFields = unknownFields.build();
+          makeExtensionsImmutable();
+        }
+      }
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchRuns_WhiteList_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return org.mlflow.api.proto.Service.internal_static_mlflow_SearchRuns_WhiteList_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                org.mlflow.api.proto.Service.SearchRuns.WhiteList.class, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder.class);
+      }
+
+      public static final int FIELDS_FIELD_NUMBER = 1;
+      private com.google.protobuf.LazyStringList fields_;
+      /**
+       * <code>repeated string fields = 1;</code>
+       */
+      public com.google.protobuf.ProtocolStringList
+          getFieldsList() {
+        return fields_;
+      }
+      /**
+       * <code>repeated string fields = 1;</code>
+       */
+      public int getFieldsCount() {
+        return fields_.size();
+      }
+      /**
+       * <code>repeated string fields = 1;</code>
+       */
+      public java.lang.String getFields(int index) {
+        return fields_.get(index);
+      }
+      /**
+       * <code>repeated string fields = 1;</code>
+       */
+      public com.google.protobuf.ByteString
+          getFieldsBytes(int index) {
+        return fields_.getByteString(index);
+      }
+
+      private byte memoizedIsInitialized = -1;
+      @java.lang.Override
+      public final boolean isInitialized() {
+        byte isInitialized = memoizedIsInitialized;
+        if (isInitialized == 1) return true;
+        if (isInitialized == 0) return false;
+
+        memoizedIsInitialized = 1;
+        return true;
+      }
+
+      @java.lang.Override
+      public void writeTo(com.google.protobuf.CodedOutputStream output)
+                          throws java.io.IOException {
+        for (int i = 0; i < fields_.size(); i++) {
+          com.google.protobuf.GeneratedMessageV3.writeString(output, 1, fields_.getRaw(i));
+        }
+        unknownFields.writeTo(output);
+      }
+
+      @java.lang.Override
+      public int getSerializedSize() {
+        int size = memoizedSize;
+        if (size != -1) return size;
+
+        size = 0;
+        {
+          int dataSize = 0;
+          for (int i = 0; i < fields_.size(); i++) {
+            dataSize += computeStringSizeNoTag(fields_.getRaw(i));
+          }
+          size += dataSize;
+          size += 1 * getFieldsList().size();
+        }
+        size += unknownFields.getSerializedSize();
+        memoizedSize = size;
+        return size;
+      }
+
+      @java.lang.Override
+      public boolean equals(final java.lang.Object obj) {
+        if (obj == this) {
+         return true;
+        }
+        if (!(obj instanceof org.mlflow.api.proto.Service.SearchRuns.WhiteList)) {
+          return super.equals(obj);
+        }
+        org.mlflow.api.proto.Service.SearchRuns.WhiteList other = (org.mlflow.api.proto.Service.SearchRuns.WhiteList) obj;
+
+        boolean result = true;
+        result = result && getFieldsList()
+            .equals(other.getFieldsList());
+        result = result && unknownFields.equals(other.unknownFields);
+        return result;
+      }
+
+      @java.lang.Override
+      public int hashCode() {
+        if (memoizedHashCode != 0) {
+          return memoizedHashCode;
+        }
+        int hash = 41;
+        hash = (19 * hash) + getDescriptor().hashCode();
+        if (getFieldsCount() > 0) {
+          hash = (37 * hash) + FIELDS_FIELD_NUMBER;
+          hash = (53 * hash) + getFieldsList().hashCode();
+        }
+        hash = (29 * hash) + unknownFields.hashCode();
+        memoizedHashCode = hash;
+        return hash;
+      }
+
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(
+          java.nio.ByteBuffer data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(
+          java.nio.ByteBuffer data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(
+          com.google.protobuf.ByteString data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(
+          com.google.protobuf.ByteString data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(byte[] data)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(
+          byte[] data,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return PARSER.parseFrom(data, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseDelimitedFrom(java.io.InputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseDelimitedFrom(
+          java.io.InputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(
+          com.google.protobuf.CodedInputStream input)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input);
+      }
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList parseFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        return com.google.protobuf.GeneratedMessageV3
+            .parseWithIOException(PARSER, input, extensionRegistry);
+      }
+
+      @java.lang.Override
+      public Builder newBuilderForType() { return newBuilder(); }
+      public static Builder newBuilder() {
+        return DEFAULT_INSTANCE.toBuilder();
+      }
+      public static Builder newBuilder(org.mlflow.api.proto.Service.SearchRuns.WhiteList prototype) {
+        return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+      }
+      @java.lang.Override
+      public Builder toBuilder() {
+        return this == DEFAULT_INSTANCE
+            ? new Builder() : new Builder().mergeFrom(this);
+      }
+
+      @java.lang.Override
+      protected Builder newBuilderForType(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        Builder builder = new Builder(parent);
+        return builder;
+      }
+      /**
+       * <pre>
+       * this whitelist message exists to be able to have an optional whitelist :
+       * no whitelist = all fields are available
+       * </pre>
+       *
+       * Protobuf type {@code mlflow.SearchRuns.WhiteList}
+       */
+      public static final class Builder extends
+          com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+          // @@protoc_insertion_point(builder_implements:mlflow.SearchRuns.WhiteList)
+          org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder {
+        public static final com.google.protobuf.Descriptors.Descriptor
+            getDescriptor() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SearchRuns_WhiteList_descriptor;
+        }
+
+        @java.lang.Override
+        protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+            internalGetFieldAccessorTable() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SearchRuns_WhiteList_fieldAccessorTable
+              .ensureFieldAccessorsInitialized(
+                  org.mlflow.api.proto.Service.SearchRuns.WhiteList.class, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder.class);
+        }
+
+        // Construct using org.mlflow.api.proto.Service.SearchRuns.WhiteList.newBuilder()
+        private Builder() {
+          maybeForceBuilderInitialization();
+        }
+
+        private Builder(
+            com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+          super(parent);
+          maybeForceBuilderInitialization();
+        }
+        private void maybeForceBuilderInitialization() {
+          if (com.google.protobuf.GeneratedMessageV3
+                  .alwaysUseFieldBuilders) {
+          }
+        }
+        @java.lang.Override
+        public Builder clear() {
+          super.clear();
+          fields_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+          bitField0_ = (bitField0_ & ~0x00000001);
+          return this;
+        }
+
+        @java.lang.Override
+        public com.google.protobuf.Descriptors.Descriptor
+            getDescriptorForType() {
+          return org.mlflow.api.proto.Service.internal_static_mlflow_SearchRuns_WhiteList_descriptor;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SearchRuns.WhiteList getDefaultInstanceForType() {
+          return org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance();
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SearchRuns.WhiteList build() {
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList result = buildPartial();
+          if (!result.isInitialized()) {
+            throw newUninitializedMessageException(result);
+          }
+          return result;
+        }
+
+        @java.lang.Override
+        public org.mlflow.api.proto.Service.SearchRuns.WhiteList buildPartial() {
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList result = new org.mlflow.api.proto.Service.SearchRuns.WhiteList(this);
+          int from_bitField0_ = bitField0_;
+          if (((bitField0_ & 0x00000001) == 0x00000001)) {
+            fields_ = fields_.getUnmodifiableView();
+            bitField0_ = (bitField0_ & ~0x00000001);
+          }
+          result.fields_ = fields_;
+          onBuilt();
+          return result;
+        }
+
+        @java.lang.Override
+        public Builder clone() {
+          return (Builder) super.clone();
+        }
+        @java.lang.Override
+        public Builder setField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.setField(field, value);
+        }
+        @java.lang.Override
+        public Builder clearField(
+            com.google.protobuf.Descriptors.FieldDescriptor field) {
+          return (Builder) super.clearField(field);
+        }
+        @java.lang.Override
+        public Builder clearOneof(
+            com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+          return (Builder) super.clearOneof(oneof);
+        }
+        @java.lang.Override
+        public Builder setRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            int index, java.lang.Object value) {
+          return (Builder) super.setRepeatedField(field, index, value);
+        }
+        @java.lang.Override
+        public Builder addRepeatedField(
+            com.google.protobuf.Descriptors.FieldDescriptor field,
+            java.lang.Object value) {
+          return (Builder) super.addRepeatedField(field, value);
+        }
+        @java.lang.Override
+        public Builder mergeFrom(com.google.protobuf.Message other) {
+          if (other instanceof org.mlflow.api.proto.Service.SearchRuns.WhiteList) {
+            return mergeFrom((org.mlflow.api.proto.Service.SearchRuns.WhiteList)other);
+          } else {
+            super.mergeFrom(other);
+            return this;
+          }
+        }
+
+        public Builder mergeFrom(org.mlflow.api.proto.Service.SearchRuns.WhiteList other) {
+          if (other == org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance()) return this;
+          if (!other.fields_.isEmpty()) {
+            if (fields_.isEmpty()) {
+              fields_ = other.fields_;
+              bitField0_ = (bitField0_ & ~0x00000001);
+            } else {
+              ensureFieldsIsMutable();
+              fields_.addAll(other.fields_);
+            }
+            onChanged();
+          }
+          this.mergeUnknownFields(other.unknownFields);
+          onChanged();
+          return this;
+        }
+
+        @java.lang.Override
+        public final boolean isInitialized() {
+          return true;
+        }
+
+        @java.lang.Override
+        public Builder mergeFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws java.io.IOException {
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList parsedMessage = null;
+          try {
+            parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+          } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+            parsedMessage = (org.mlflow.api.proto.Service.SearchRuns.WhiteList) e.getUnfinishedMessage();
+            throw e.unwrapIOException();
+          } finally {
+            if (parsedMessage != null) {
+              mergeFrom(parsedMessage);
+            }
+          }
+          return this;
+        }
+        private int bitField0_;
+
+        private com.google.protobuf.LazyStringList fields_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        private void ensureFieldsIsMutable() {
+          if (!((bitField0_ & 0x00000001) == 0x00000001)) {
+            fields_ = new com.google.protobuf.LazyStringArrayList(fields_);
+            bitField0_ |= 0x00000001;
+           }
+        }
+        /**
+         * <code>repeated string fields = 1;</code>
+         */
+        public com.google.protobuf.ProtocolStringList
+            getFieldsList() {
+          return fields_.getUnmodifiableView();
+        }
+        /**
+         * <code>repeated string fields = 1;</code>
+         */
+        public int getFieldsCount() {
+          return fields_.size();
+        }
+        /**
+         * <code>repeated string fields = 1;</code>
+         */
+        public java.lang.String getFields(int index) {
+          return fields_.get(index);
+        }
+        /**
+         * <code>repeated string fields = 1;</code>
+         */
+        public com.google.protobuf.ByteString
+            getFieldsBytes(int index) {
+          return fields_.getByteString(index);
+        }
+        /**
+         * <code>repeated string fields = 1;</code>
+         */
+        public Builder setFields(
+            int index, java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureFieldsIsMutable();
+          fields_.set(index, value);
+          onChanged();
+          return this;
+        }
+        /**
+         * <code>repeated string fields = 1;</code>
+         */
+        public Builder addFields(
+            java.lang.String value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureFieldsIsMutable();
+          fields_.add(value);
+          onChanged();
+          return this;
+        }
+        /**
+         * <code>repeated string fields = 1;</code>
+         */
+        public Builder addAllFields(
+            java.lang.Iterable<java.lang.String> values) {
+          ensureFieldsIsMutable();
+          com.google.protobuf.AbstractMessageLite.Builder.addAll(
+              values, fields_);
+          onChanged();
+          return this;
+        }
+        /**
+         * <code>repeated string fields = 1;</code>
+         */
+        public Builder clearFields() {
+          fields_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+          bitField0_ = (bitField0_ & ~0x00000001);
+          onChanged();
+          return this;
+        }
+        /**
+         * <code>repeated string fields = 1;</code>
+         */
+        public Builder addFieldsBytes(
+            com.google.protobuf.ByteString value) {
+          if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureFieldsIsMutable();
+          fields_.add(value);
+          onChanged();
+          return this;
+        }
+        @java.lang.Override
+        public final Builder setUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.setUnknownFields(unknownFields);
+        }
+
+        @java.lang.Override
+        public final Builder mergeUnknownFields(
+            final com.google.protobuf.UnknownFieldSet unknownFields) {
+          return super.mergeUnknownFields(unknownFields);
+        }
+
+
+        // @@protoc_insertion_point(builder_scope:mlflow.SearchRuns.WhiteList)
+      }
+
+      // @@protoc_insertion_point(class_scope:mlflow.SearchRuns.WhiteList)
+      private static final org.mlflow.api.proto.Service.SearchRuns.WhiteList DEFAULT_INSTANCE;
+      static {
+        DEFAULT_INSTANCE = new org.mlflow.api.proto.Service.SearchRuns.WhiteList();
+      }
+
+      public static org.mlflow.api.proto.Service.SearchRuns.WhiteList getDefaultInstance() {
+        return DEFAULT_INSTANCE;
+      }
+
+      @java.lang.Deprecated public static final com.google.protobuf.Parser<WhiteList>
+          PARSER = new com.google.protobuf.AbstractParser<WhiteList>() {
+        @java.lang.Override
+        public WhiteList parsePartialFrom(
+            com.google.protobuf.CodedInputStream input,
+            com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+            throws com.google.protobuf.InvalidProtocolBufferException {
+          return new WhiteList(input, extensionRegistry);
+        }
+      };
+
+      public static com.google.protobuf.Parser<WhiteList> parser() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Parser<WhiteList> getParserForType() {
+        return PARSER;
+      }
+
+      @java.lang.Override
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteList getDefaultInstanceForType() {
+        return DEFAULT_INSTANCE;
+      }
+
+    }
+
     private int bitField0_;
     public static final int EXPERIMENT_IDS_FIELD_NUMBER = 1;
     private com.google.protobuf.LazyStringList experimentIds_;
@@ -36332,6 +37038,84 @@ public final class Service {
       }
     }
 
+    public static final int METRICS_WHITELIST_FIELD_NUMBER = 8;
+    private org.mlflow.api.proto.Service.SearchRuns.WhiteList metricsWhitelist_;
+    /**
+     * <pre>
+     * These metrics, params and tags whitelist limit the fields returned by the search runs query
+     * A None whitelist will select all the fields
+     * </pre>
+     *
+     * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+     */
+    public boolean hasMetricsWhitelist() {
+      return ((bitField0_ & 0x00000010) == 0x00000010);
+    }
+    /**
+     * <pre>
+     * These metrics, params and tags whitelist limit the fields returned by the search runs query
+     * A None whitelist will select all the fields
+     * </pre>
+     *
+     * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+     */
+    public org.mlflow.api.proto.Service.SearchRuns.WhiteList getMetricsWhitelist() {
+      return metricsWhitelist_ == null ? org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : metricsWhitelist_;
+    }
+    /**
+     * <pre>
+     * These metrics, params and tags whitelist limit the fields returned by the search runs query
+     * A None whitelist will select all the fields
+     * </pre>
+     *
+     * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+     */
+    public org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder getMetricsWhitelistOrBuilder() {
+      return metricsWhitelist_ == null ? org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : metricsWhitelist_;
+    }
+
+    public static final int PARAMS_WHITELIST_FIELD_NUMBER = 9;
+    private org.mlflow.api.proto.Service.SearchRuns.WhiteList paramsWhitelist_;
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+     */
+    public boolean hasParamsWhitelist() {
+      return ((bitField0_ & 0x00000020) == 0x00000020);
+    }
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+     */
+    public org.mlflow.api.proto.Service.SearchRuns.WhiteList getParamsWhitelist() {
+      return paramsWhitelist_ == null ? org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : paramsWhitelist_;
+    }
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+     */
+    public org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder getParamsWhitelistOrBuilder() {
+      return paramsWhitelist_ == null ? org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : paramsWhitelist_;
+    }
+
+    public static final int TAGS_WHITELIST_FIELD_NUMBER = 10;
+    private org.mlflow.api.proto.Service.SearchRuns.WhiteList tagsWhitelist_;
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+     */
+    public boolean hasTagsWhitelist() {
+      return ((bitField0_ & 0x00000040) == 0x00000040);
+    }
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+     */
+    public org.mlflow.api.proto.Service.SearchRuns.WhiteList getTagsWhitelist() {
+      return tagsWhitelist_ == null ? org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : tagsWhitelist_;
+    }
+    /**
+     * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+     */
+    public org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder getTagsWhitelistOrBuilder() {
+      return tagsWhitelist_ == null ? org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : tagsWhitelist_;
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -36363,6 +37147,15 @@ public final class Service {
       }
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 7, pageToken_);
+      }
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
+        output.writeMessage(8, getMetricsWhitelist());
+      }
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
+        output.writeMessage(9, getParamsWhitelist());
+      }
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+        output.writeMessage(10, getTagsWhitelist());
       }
       unknownFields.writeTo(output);
     }
@@ -36403,6 +37196,18 @@ public final class Service {
       if (((bitField0_ & 0x00000008) == 0x00000008)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, pageToken_);
       }
+      if (((bitField0_ & 0x00000010) == 0x00000010)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(8, getMetricsWhitelist());
+      }
+      if (((bitField0_ & 0x00000020) == 0x00000020)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(9, getParamsWhitelist());
+      }
+      if (((bitField0_ & 0x00000040) == 0x00000040)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeMessageSize(10, getTagsWhitelist());
+      }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
       return size;
@@ -36442,6 +37247,21 @@ public final class Service {
         result = result && getPageToken()
             .equals(other.getPageToken());
       }
+      result = result && (hasMetricsWhitelist() == other.hasMetricsWhitelist());
+      if (hasMetricsWhitelist()) {
+        result = result && getMetricsWhitelist()
+            .equals(other.getMetricsWhitelist());
+      }
+      result = result && (hasParamsWhitelist() == other.hasParamsWhitelist());
+      if (hasParamsWhitelist()) {
+        result = result && getParamsWhitelist()
+            .equals(other.getParamsWhitelist());
+      }
+      result = result && (hasTagsWhitelist() == other.hasTagsWhitelist());
+      if (hasTagsWhitelist()) {
+        result = result && getTagsWhitelist()
+            .equals(other.getTagsWhitelist());
+      }
       result = result && unknownFields.equals(other.unknownFields);
       return result;
     }
@@ -36476,6 +37296,18 @@ public final class Service {
       if (hasPageToken()) {
         hash = (37 * hash) + PAGE_TOKEN_FIELD_NUMBER;
         hash = (53 * hash) + getPageToken().hashCode();
+      }
+      if (hasMetricsWhitelist()) {
+        hash = (37 * hash) + METRICS_WHITELIST_FIELD_NUMBER;
+        hash = (53 * hash) + getMetricsWhitelist().hashCode();
+      }
+      if (hasParamsWhitelist()) {
+        hash = (37 * hash) + PARAMS_WHITELIST_FIELD_NUMBER;
+        hash = (53 * hash) + getParamsWhitelist().hashCode();
+      }
+      if (hasTagsWhitelist()) {
+        hash = (37 * hash) + TAGS_WHITELIST_FIELD_NUMBER;
+        hash = (53 * hash) + getTagsWhitelist().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -36605,6 +37437,9 @@ public final class Service {
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessageV3
                 .alwaysUseFieldBuilders) {
+          getMetricsWhitelistFieldBuilder();
+          getParamsWhitelistFieldBuilder();
+          getTagsWhitelistFieldBuilder();
         }
       }
       @java.lang.Override
@@ -36622,6 +37457,24 @@ public final class Service {
         bitField0_ = (bitField0_ & ~0x00000010);
         pageToken_ = "";
         bitField0_ = (bitField0_ & ~0x00000020);
+        if (metricsWhitelistBuilder_ == null) {
+          metricsWhitelist_ = null;
+        } else {
+          metricsWhitelistBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000040);
+        if (paramsWhitelistBuilder_ == null) {
+          paramsWhitelist_ = null;
+        } else {
+          paramsWhitelistBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000080);
+        if (tagsWhitelistBuilder_ == null) {
+          tagsWhitelist_ = null;
+        } else {
+          tagsWhitelistBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000100);
         return this;
       }
 
@@ -36676,6 +37529,30 @@ public final class Service {
           to_bitField0_ |= 0x00000008;
         }
         result.pageToken_ = pageToken_;
+        if (((from_bitField0_ & 0x00000040) == 0x00000040)) {
+          to_bitField0_ |= 0x00000010;
+        }
+        if (metricsWhitelistBuilder_ == null) {
+          result.metricsWhitelist_ = metricsWhitelist_;
+        } else {
+          result.metricsWhitelist_ = metricsWhitelistBuilder_.build();
+        }
+        if (((from_bitField0_ & 0x00000080) == 0x00000080)) {
+          to_bitField0_ |= 0x00000020;
+        }
+        if (paramsWhitelistBuilder_ == null) {
+          result.paramsWhitelist_ = paramsWhitelist_;
+        } else {
+          result.paramsWhitelist_ = paramsWhitelistBuilder_.build();
+        }
+        if (((from_bitField0_ & 0x00000100) == 0x00000100)) {
+          to_bitField0_ |= 0x00000040;
+        }
+        if (tagsWhitelistBuilder_ == null) {
+          result.tagsWhitelist_ = tagsWhitelist_;
+        } else {
+          result.tagsWhitelist_ = tagsWhitelistBuilder_.build();
+        }
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -36760,6 +37637,15 @@ public final class Service {
           bitField0_ |= 0x00000020;
           pageToken_ = other.pageToken_;
           onChanged();
+        }
+        if (other.hasMetricsWhitelist()) {
+          mergeMetricsWhitelist(other.getMetricsWhitelist());
+        }
+        if (other.hasParamsWhitelist()) {
+          mergeParamsWhitelist(other.getParamsWhitelist());
+        }
+        if (other.hasTagsWhitelist()) {
+          mergeTagsWhitelist(other.getTagsWhitelist());
         }
         this.mergeUnknownFields(other.unknownFields);
         onChanged();
@@ -37400,6 +38286,405 @@ public final class Service {
         pageToken_ = value;
         onChanged();
         return this;
+      }
+
+      private org.mlflow.api.proto.Service.SearchRuns.WhiteList metricsWhitelist_ = null;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder, org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder> metricsWhitelistBuilder_;
+      /**
+       * <pre>
+       * These metrics, params and tags whitelist limit the fields returned by the search runs query
+       * A None whitelist will select all the fields
+       * </pre>
+       *
+       * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+       */
+      public boolean hasMetricsWhitelist() {
+        return ((bitField0_ & 0x00000040) == 0x00000040);
+      }
+      /**
+       * <pre>
+       * These metrics, params and tags whitelist limit the fields returned by the search runs query
+       * A None whitelist will select all the fields
+       * </pre>
+       *
+       * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+       */
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteList getMetricsWhitelist() {
+        if (metricsWhitelistBuilder_ == null) {
+          return metricsWhitelist_ == null ? org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : metricsWhitelist_;
+        } else {
+          return metricsWhitelistBuilder_.getMessage();
+        }
+      }
+      /**
+       * <pre>
+       * These metrics, params and tags whitelist limit the fields returned by the search runs query
+       * A None whitelist will select all the fields
+       * </pre>
+       *
+       * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+       */
+      public Builder setMetricsWhitelist(org.mlflow.api.proto.Service.SearchRuns.WhiteList value) {
+        if (metricsWhitelistBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          metricsWhitelist_ = value;
+          onChanged();
+        } else {
+          metricsWhitelistBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000040;
+        return this;
+      }
+      /**
+       * <pre>
+       * These metrics, params and tags whitelist limit the fields returned by the search runs query
+       * A None whitelist will select all the fields
+       * </pre>
+       *
+       * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+       */
+      public Builder setMetricsWhitelist(
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder builderForValue) {
+        if (metricsWhitelistBuilder_ == null) {
+          metricsWhitelist_ = builderForValue.build();
+          onChanged();
+        } else {
+          metricsWhitelistBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000040;
+        return this;
+      }
+      /**
+       * <pre>
+       * These metrics, params and tags whitelist limit the fields returned by the search runs query
+       * A None whitelist will select all the fields
+       * </pre>
+       *
+       * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+       */
+      public Builder mergeMetricsWhitelist(org.mlflow.api.proto.Service.SearchRuns.WhiteList value) {
+        if (metricsWhitelistBuilder_ == null) {
+          if (((bitField0_ & 0x00000040) == 0x00000040) &&
+              metricsWhitelist_ != null &&
+              metricsWhitelist_ != org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance()) {
+            metricsWhitelist_ =
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList.newBuilder(metricsWhitelist_).mergeFrom(value).buildPartial();
+          } else {
+            metricsWhitelist_ = value;
+          }
+          onChanged();
+        } else {
+          metricsWhitelistBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000040;
+        return this;
+      }
+      /**
+       * <pre>
+       * These metrics, params and tags whitelist limit the fields returned by the search runs query
+       * A None whitelist will select all the fields
+       * </pre>
+       *
+       * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+       */
+      public Builder clearMetricsWhitelist() {
+        if (metricsWhitelistBuilder_ == null) {
+          metricsWhitelist_ = null;
+          onChanged();
+        } else {
+          metricsWhitelistBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000040);
+        return this;
+      }
+      /**
+       * <pre>
+       * These metrics, params and tags whitelist limit the fields returned by the search runs query
+       * A None whitelist will select all the fields
+       * </pre>
+       *
+       * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+       */
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder getMetricsWhitelistBuilder() {
+        bitField0_ |= 0x00000040;
+        onChanged();
+        return getMetricsWhitelistFieldBuilder().getBuilder();
+      }
+      /**
+       * <pre>
+       * These metrics, params and tags whitelist limit the fields returned by the search runs query
+       * A None whitelist will select all the fields
+       * </pre>
+       *
+       * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+       */
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder getMetricsWhitelistOrBuilder() {
+        if (metricsWhitelistBuilder_ != null) {
+          return metricsWhitelistBuilder_.getMessageOrBuilder();
+        } else {
+          return metricsWhitelist_ == null ?
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : metricsWhitelist_;
+        }
+      }
+      /**
+       * <pre>
+       * These metrics, params and tags whitelist limit the fields returned by the search runs query
+       * A None whitelist will select all the fields
+       * </pre>
+       *
+       * <code>optional .mlflow.SearchRuns.WhiteList metrics_whitelist = 8;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder, org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder> 
+          getMetricsWhitelistFieldBuilder() {
+        if (metricsWhitelistBuilder_ == null) {
+          metricsWhitelistBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder, org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder>(
+                  getMetricsWhitelist(),
+                  getParentForChildren(),
+                  isClean());
+          metricsWhitelist_ = null;
+        }
+        return metricsWhitelistBuilder_;
+      }
+
+      private org.mlflow.api.proto.Service.SearchRuns.WhiteList paramsWhitelist_ = null;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder, org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder> paramsWhitelistBuilder_;
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+       */
+      public boolean hasParamsWhitelist() {
+        return ((bitField0_ & 0x00000080) == 0x00000080);
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+       */
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteList getParamsWhitelist() {
+        if (paramsWhitelistBuilder_ == null) {
+          return paramsWhitelist_ == null ? org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : paramsWhitelist_;
+        } else {
+          return paramsWhitelistBuilder_.getMessage();
+        }
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+       */
+      public Builder setParamsWhitelist(org.mlflow.api.proto.Service.SearchRuns.WhiteList value) {
+        if (paramsWhitelistBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          paramsWhitelist_ = value;
+          onChanged();
+        } else {
+          paramsWhitelistBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000080;
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+       */
+      public Builder setParamsWhitelist(
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder builderForValue) {
+        if (paramsWhitelistBuilder_ == null) {
+          paramsWhitelist_ = builderForValue.build();
+          onChanged();
+        } else {
+          paramsWhitelistBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000080;
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+       */
+      public Builder mergeParamsWhitelist(org.mlflow.api.proto.Service.SearchRuns.WhiteList value) {
+        if (paramsWhitelistBuilder_ == null) {
+          if (((bitField0_ & 0x00000080) == 0x00000080) &&
+              paramsWhitelist_ != null &&
+              paramsWhitelist_ != org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance()) {
+            paramsWhitelist_ =
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList.newBuilder(paramsWhitelist_).mergeFrom(value).buildPartial();
+          } else {
+            paramsWhitelist_ = value;
+          }
+          onChanged();
+        } else {
+          paramsWhitelistBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000080;
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+       */
+      public Builder clearParamsWhitelist() {
+        if (paramsWhitelistBuilder_ == null) {
+          paramsWhitelist_ = null;
+          onChanged();
+        } else {
+          paramsWhitelistBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000080);
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+       */
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder getParamsWhitelistBuilder() {
+        bitField0_ |= 0x00000080;
+        onChanged();
+        return getParamsWhitelistFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+       */
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder getParamsWhitelistOrBuilder() {
+        if (paramsWhitelistBuilder_ != null) {
+          return paramsWhitelistBuilder_.getMessageOrBuilder();
+        } else {
+          return paramsWhitelist_ == null ?
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : paramsWhitelist_;
+        }
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList params_whitelist = 9;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder, org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder> 
+          getParamsWhitelistFieldBuilder() {
+        if (paramsWhitelistBuilder_ == null) {
+          paramsWhitelistBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder, org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder>(
+                  getParamsWhitelist(),
+                  getParentForChildren(),
+                  isClean());
+          paramsWhitelist_ = null;
+        }
+        return paramsWhitelistBuilder_;
+      }
+
+      private org.mlflow.api.proto.Service.SearchRuns.WhiteList tagsWhitelist_ = null;
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder, org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder> tagsWhitelistBuilder_;
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+       */
+      public boolean hasTagsWhitelist() {
+        return ((bitField0_ & 0x00000100) == 0x00000100);
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+       */
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteList getTagsWhitelist() {
+        if (tagsWhitelistBuilder_ == null) {
+          return tagsWhitelist_ == null ? org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : tagsWhitelist_;
+        } else {
+          return tagsWhitelistBuilder_.getMessage();
+        }
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+       */
+      public Builder setTagsWhitelist(org.mlflow.api.proto.Service.SearchRuns.WhiteList value) {
+        if (tagsWhitelistBuilder_ == null) {
+          if (value == null) {
+            throw new NullPointerException();
+          }
+          tagsWhitelist_ = value;
+          onChanged();
+        } else {
+          tagsWhitelistBuilder_.setMessage(value);
+        }
+        bitField0_ |= 0x00000100;
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+       */
+      public Builder setTagsWhitelist(
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder builderForValue) {
+        if (tagsWhitelistBuilder_ == null) {
+          tagsWhitelist_ = builderForValue.build();
+          onChanged();
+        } else {
+          tagsWhitelistBuilder_.setMessage(builderForValue.build());
+        }
+        bitField0_ |= 0x00000100;
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+       */
+      public Builder mergeTagsWhitelist(org.mlflow.api.proto.Service.SearchRuns.WhiteList value) {
+        if (tagsWhitelistBuilder_ == null) {
+          if (((bitField0_ & 0x00000100) == 0x00000100) &&
+              tagsWhitelist_ != null &&
+              tagsWhitelist_ != org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance()) {
+            tagsWhitelist_ =
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList.newBuilder(tagsWhitelist_).mergeFrom(value).buildPartial();
+          } else {
+            tagsWhitelist_ = value;
+          }
+          onChanged();
+        } else {
+          tagsWhitelistBuilder_.mergeFrom(value);
+        }
+        bitField0_ |= 0x00000100;
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+       */
+      public Builder clearTagsWhitelist() {
+        if (tagsWhitelistBuilder_ == null) {
+          tagsWhitelist_ = null;
+          onChanged();
+        } else {
+          tagsWhitelistBuilder_.clear();
+        }
+        bitField0_ = (bitField0_ & ~0x00000100);
+        return this;
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+       */
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder getTagsWhitelistBuilder() {
+        bitField0_ |= 0x00000100;
+        onChanged();
+        return getTagsWhitelistFieldBuilder().getBuilder();
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+       */
+      public org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder getTagsWhitelistOrBuilder() {
+        if (tagsWhitelistBuilder_ != null) {
+          return tagsWhitelistBuilder_.getMessageOrBuilder();
+        } else {
+          return tagsWhitelist_ == null ?
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList.getDefaultInstance() : tagsWhitelist_;
+        }
+      }
+      /**
+       * <code>optional .mlflow.SearchRuns.WhiteList tags_whitelist = 10;</code>
+       */
+      private com.google.protobuf.SingleFieldBuilderV3<
+          org.mlflow.api.proto.Service.SearchRuns.WhiteList, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder, org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder> 
+          getTagsWhitelistFieldBuilder() {
+        if (tagsWhitelistBuilder_ == null) {
+          tagsWhitelistBuilder_ = new com.google.protobuf.SingleFieldBuilderV3<
+              org.mlflow.api.proto.Service.SearchRuns.WhiteList, org.mlflow.api.proto.Service.SearchRuns.WhiteList.Builder, org.mlflow.api.proto.Service.SearchRuns.WhiteListOrBuilder>(
+                  getTagsWhitelist(),
+                  getParentForChildren(),
+                  isClean());
+          tagsWhitelist_ = null;
+        }
+        return tagsWhitelistBuilder_;
       }
       @java.lang.Override
       public final Builder setUnknownFields(
@@ -47766,6 +49051,11 @@ public final class Service {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_SearchRuns_Response_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_SearchRuns_WhiteList_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_SearchRuns_WhiteList_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_ListArtifacts_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -47905,143 +49195,148 @@ public final class Service {
       "rpc.RPC[$this.Response]\"}\n\006GetRun\022\016\n\006run" +
       "_id\030\002 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\032$\n\010Response\022" +
       "\030\n\003run\030\001 \001(\0132\013.mlflow.Run:+\342?(\n&com.data" +
-      "bricks.rpc.RPC[$this.Response]\"\230\002\n\nSearc" +
+      "bricks.rpc.RPC[$this.Response]\"\334\003\n\nSearc" +
       "hRuns\022\026\n\016experiment_ids\030\001 \003(\t\022\016\n\006filter\030" +
       "\004 \001(\t\0224\n\rrun_view_type\030\003 \001(\0162\020.mlflow.Vi" +
       "ewType:\013ACTIVE_ONLY\022\031\n\013max_results\030\005 \001(\005" +
       ":\0041000\022\020\n\010order_by\030\006 \003(\t\022\022\n\npage_token\030\007" +
-      " \001(\t\032>\n\010Response\022\031\n\004runs\030\001 \003(\0132\013.mlflow." +
-      "Run\022\027\n\017next_page_token\030\002 \001(\t:+\342?(\n&com.d" +
-      "atabricks.rpc.RPC[$this.Response]\"\253\001\n\rLi" +
-      "stArtifacts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030" +
-      "\001 \001(\t\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010root_" +
-      "uri\030\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileIn" +
-      "fo:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
-      "sponse]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_" +
-      "dir\030\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020GetMetr" +
-      "icHistory\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 " +
-      "\001(\t\022\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Respons" +
-      "e\022\037\n\007metrics\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n" +
-      "&com.databricks.rpc.RPC[$this.Response]\"" +
-      "\261\001\n\010LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030" +
-      "\002 \003(\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r." +
-      "mlflow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunT" +
-      "ag\032\n\n\010Response:+\342?(\n&com.databricks.rpc." +
-      "RPC[$this.Response]\"\225\001\n\023GetExperimentByN" +
-      "ame\022\035\n\017experiment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Re" +
-      "sponse\022&\n\nexperiment\030\001 \001(\0132\022.mlflow.Expe" +
-      "riment:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\"\216\001\n\027UpdateArtifactsLocation\022" +
-      "\024\n\006run_id\030\001 \001(\tB\004\370\206\031\001\022$\n\026new_artifacts_l" +
-      "ocation\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&co" +
-      "m.databricks.rpc.RPC[$this.Response]*6\n\010" +
-      "ViewType\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONL" +
-      "Y\020\002\022\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001" +
-      "\022\007\n\003JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNK" +
-      "NOWN\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCH" +
-      "EDULED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KI" +
-      "LLED\020\0052\276\037\n\rMlflowService\022\246\001\n\023getExperime" +
-      "ntByName\022\033.mlflow.GetExperimentByName\032$." +
-      "mlflow.GetExperimentByName.Response\"L\362\206\031" +
-      "H\n,\n\003GET\022\037/mlflow/experiments/get-by-nam" +
-      "e\032\004\010\002\020\000\020\001*\026Get Experiment By Name\022\306\001\n\020cr" +
-      "eateExperiment\022\030.mlflow.CreateExperiment" +
-      "\032!.mlflow.CreateExperiment.Response\"u\362\206\031" +
-      "q\n(\n\004POST\022\032/mlflow/experiments/create\032\004\010" +
-      "\002\020\000\n0\n\004POST\022\"/preview/mlflow/experiments" +
-      "/create\032\004\010\002\020\000\020\001*\021Create Experiment\022\274\001\n\017l" +
-      "istExperiments\022\027.mlflow.ListExperiments\032" +
-      " .mlflow.ListExperiments.Response\"n\362\206\031j\n" +
-      "%\n\003GET\022\030/mlflow/experiments/list\032\004\010\002\020\000\n-" +
-      "\n\003GET\022 /preview/mlflow/experiments/list\032" +
-      "\004\010\002\020\000\020\001*\020List Experiments\022\262\001\n\rgetExperim" +
-      "ent\022\025.mlflow.GetExperiment\032\036.mlflow.GetE" +
-      "xperiment.Response\"j\362\206\031f\n$\n\003GET\022\027/mlflow" +
-      "/experiments/get\032\004\010\002\020\000\n,\n\003GET\022\037/preview/" +
-      "mlflow/experiments/get\032\004\010\002\020\000\020\001*\016Get Expe" +
-      "riment\022\306\001\n\020deleteExperiment\022\030.mlflow.Del" +
-      "eteExperiment\032!.mlflow.DeleteExperiment." +
-      "Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experime" +
-      "nts/delete\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflo" +
-      "w/experiments/delete\032\004\010\002\020\000\020\001*\021Delete Exp" +
-      "eriment\022\314\001\n\021restoreExperiment\022\031.mlflow.R" +
-      "estoreExperiment\032\".mlflow.RestoreExperim" +
-      "ent.Response\"x\362\206\031t\n)\n\004POST\022\033/mlflow/expe" +
-      "riments/restore\032\004\010\002\020\000\n1\n\004POST\022#/preview/" +
-      "mlflow/experiments/restore\032\004\010\002\020\000\020\001*\022Rest" +
-      "ore Experiment\022\306\001\n\020updateExperiment\022\030.ml" +
-      "flow.UpdateExperiment\032!.mlflow.UpdateExp" +
-      "eriment.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/" +
-      "experiments/update\032\004\010\002\020\000\n0\n\004POST\022\"/previ" +
-      "ew/mlflow/experiments/update\032\004\010\002\020\000\020\001*\021Up" +
-      "date Experiment\022\234\001\n\tcreateRun\022\021.mlflow.C" +
-      "reateRun\032\032.mlflow.CreateRun.Response\"`\362\206" +
-      "\031\\\n!\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\n)\n" +
-      "\004POST\022\033/preview/mlflow/runs/create\032\004\010\002\020\000" +
-      "\020\001*\nCreate Run\022\234\001\n\tupdateRun\022\021.mlflow.Up" +
-      "dateRun\032\032.mlflow.UpdateRun.Response\"`\362\206\031" +
-      "\\\n!\n\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000\n)\n\004" +
-      "POST\022\033/preview/mlflow/runs/update\032\004\010\002\020\000\020" +
-      "\001*\nUpdate Run\022\234\001\n\tdeleteRun\022\021.mlflow.Del" +
-      "eteRun\032\032.mlflow.DeleteRun.Response\"`\362\206\031\\" +
-      "\n!\n\004POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\n)\n\004P" +
-      "OST\022\033/preview/mlflow/runs/delete\032\004\010\002\020\000\020\001" +
-      "*\nDelete Run\022\242\001\n\nrestoreRun\022\022.mlflow.Res" +
-      "toreRun\032\033.mlflow.RestoreRun.Response\"c\362\206" +
-      "\031_\n\"\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\n*" +
-      "\n\004POST\022\034/preview/mlflow/runs/restore\032\004\010\002" +
-      "\020\000\020\001*\013Restore Run\022\244\001\n\tlogMetric\022\021.mlflow" +
-      ".LogMetric\032\032.mlflow.LogMetric.Response\"h" +
-      "\362\206\031d\n%\n\004POST\022\027/mlflow/runs/log-metric\032\004\010" +
-      "\002\020\000\n-\n\004POST\022\037/preview/mlflow/runs/log-me" +
-      "tric\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logParam\022\020." +
-      "mlflow.LogParam\032\031.mlflow.LogParam.Respon" +
-      "se\"m\362\206\031i\n(\n\004POST\022\032/mlflow/runs/log-param" +
-      "eter\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/runs" +
-      "/log-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\341\001\n\020se" +
-      "tExperimentTag\022\030.mlflow.SetExperimentTag" +
-      "\032!.mlflow.SetExperimentTag.Response\"\217\001\362\206" +
-      "\031\212\001\n4\n\004POST\022&/mlflow/experiments/set-exp" +
-      "eriment-tag\032\004\010\002\020\000\n<\n\004POST\022./preview/mlfl" +
-      "ow/experiments/set-experiment-tag\032\004\010\002\020\000\020" +
-      "\001*\022Set Experiment Tag\022\222\001\n\006setTag\022\016.mlflo" +
-      "w.SetTag\032\027.mlflow.SetTag.Response\"_\362\206\031[\n" +
-      "\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\n*\n\004P" +
-      "OST\022\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000\020" +
-      "\001*\007Set Tag\022\244\001\n\tdeleteTag\022\021.mlflow.Delete" +
-      "Tag\032\032.mlflow.DeleteTag.Response\"h\362\206\031d\n%\n" +
-      "\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\n-\n\004" +
-      "POST\022\037/preview/mlflow/runs/delete-tag\032\004\010" +
-      "\002\020\000\020\001*\nDelete Tag\022\210\001\n\006getRun\022\016.mlflow.Ge" +
-      "tRun\032\027.mlflow.GetRun.Response\"U\362\206\031Q\n\035\n\003G" +
-      "ET\022\020/mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/prev" +
-      "iew/mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n" +
-      "\nsearchRuns\022\022.mlflow.SearchRuns\032\033.mlflow" +
-      ".SearchRuns.Response\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/m" +
-      "lflow/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/previe" +
-      "w/mlflow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/prev" +
-      "iew/mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search R" +
-      "uns\022\260\001\n\rlistArtifacts\022\025.mlflow.ListArtif" +
-      "acts\032\036.mlflow.ListArtifacts.Response\"h\362\206" +
-      "\031d\n#\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\n" +
-      "+\n\003GET\022\036/preview/mlflow/artifacts/list\032\004" +
-      "\010\002\020\000\020\001*\016List Artifacts\022\307\001\n\020getMetricHist" +
-      "ory\022\030.mlflow.GetMetricHistory\032!.mlflow.G" +
-      "etMetricHistory.Response\"v\362\206\031r\n(\n\003GET\022\033/" +
-      "mlflow/metrics/get-history\032\004\010\002\020\000\n0\n\003GET\022" +
-      "#/preview/mlflow/metrics/get-history\032\004\010\002" +
-      "\020\000\020\001*\022Get Metric History\022\373\001\n\027updateArtif" +
-      "actsLocation\022\037.mlflow.UpdateArtifactsLoc" +
-      "ation\032(.mlflow.UpdateArtifactsLocation.R" +
-      "esponse\"\224\001\362\206\031\217\001\n3\n\003PUT\022&/mlflow/runs/upd" +
-      "ate-artifacts-location\032\004\010\002\020\000\n;\n\003PUT\022./pr" +
-      "eview/mlflow/runs/update-artifacts-locat" +
-      "ion\032\004\010\002\020\000\020\001*\031Update Artifacts Location\022\236" +
-      "\001\n\010logBatch\022\020.mlflow.LogBatch\032\031.mlflow.L" +
-      "ogBatch.Response\"e\362\206\031a\n$\n\004POST\022\026/mlflow/" +
-      "runs/log-batch\032\004\010\002\020\000\n,\n\004POST\022\036/preview/m" +
-      "lflow/runs/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB" +
-      "\036\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001"
+      " \001(\t\0227\n\021metrics_whitelist\030\010 \001(\0132\034.mlflow" +
+      ".SearchRuns.WhiteList\0226\n\020params_whitelis" +
+      "t\030\t \001(\0132\034.mlflow.SearchRuns.WhiteList\0224\n" +
+      "\016tags_whitelist\030\n \001(\0132\034.mlflow.SearchRun" +
+      "s.WhiteList\032>\n\010Response\022\031\n\004runs\030\001 \003(\0132\013." +
+      "mlflow.Run\022\027\n\017next_page_token\030\002 \001(\t\032\033\n\tW" +
+      "hiteList\022\016\n\006fields\030\001 \003(\t:+\342?(\n&com.datab" +
+      "ricks.rpc.RPC[$this.Response]\"\253\001\n\rListAr" +
+      "tifacts\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(" +
+      "\t\022\014\n\004path\030\002 \001(\t\032=\n\010Response\022\020\n\010root_uri\030" +
+      "\001 \001(\t\022\037\n\005files\030\002 \003(\0132\020.mlflow.FileInfo:+" +
+      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
+      "se]\";\n\010FileInfo\022\014\n\004path\030\001 \001(\t\022\016\n\006is_dir\030" +
+      "\002 \001(\010\022\021\n\tfile_size\030\003 \001(\003\"\250\001\n\020GetMetricHi" +
+      "story\022\016\n\006run_id\030\003 \001(\t\022\020\n\010run_uuid\030\001 \001(\t\022" +
+      "\030\n\nmetric_key\030\002 \001(\tB\004\370\206\031\001\032+\n\010Response\022\037\n" +
+      "\007metrics\030\001 \003(\0132\016.mlflow.Metric:+\342?(\n&com" +
+      ".databricks.rpc.RPC[$this.Response]\"\261\001\n\010" +
+      "LogBatch\022\016\n\006run_id\030\001 \001(\t\022\037\n\007metrics\030\002 \003(" +
+      "\0132\016.mlflow.Metric\022\035\n\006params\030\003 \003(\0132\r.mlfl" +
+      "ow.Param\022\034\n\004tags\030\004 \003(\0132\016.mlflow.RunTag\032\n" +
+      "\n\010Response:+\342?(\n&com.databricks.rpc.RPC[" +
+      "$this.Response]\"\225\001\n\023GetExperimentByName\022" +
+      "\035\n\017experiment_name\030\001 \001(\tB\004\370\206\031\001\0322\n\010Respon" +
+      "se\022&\n\nexperiment\030\001 \001(\0132\022.mlflow.Experime" +
+      "nt:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\"\216\001\n\027UpdateArtifactsLocation\022\024\n\006r" +
+      "un_id\030\001 \001(\tB\004\370\206\031\001\022$\n\026new_artifacts_locat" +
+      "ion\030\002 \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.da" +
+      "tabricks.rpc.RPC[$this.Response]*6\n\010View" +
+      "Type\022\017\n\013ACTIVE_ONLY\020\001\022\020\n\014DELETED_ONLY\020\002\022" +
+      "\007\n\003ALL\020\003*I\n\nSourceType\022\014\n\010NOTEBOOK\020\001\022\007\n\003" +
+      "JOB\020\002\022\013\n\007PROJECT\020\003\022\t\n\005LOCAL\020\004\022\014\n\007UNKNOWN" +
+      "\020\350\007*M\n\tRunStatus\022\013\n\007RUNNING\020\001\022\r\n\tSCHEDUL" +
+      "ED\020\002\022\014\n\010FINISHED\020\003\022\n\n\006FAILED\020\004\022\n\n\006KILLED" +
+      "\020\0052\276\037\n\rMlflowService\022\246\001\n\023getExperimentBy" +
+      "Name\022\033.mlflow.GetExperimentByName\032$.mlfl" +
+      "ow.GetExperimentByName.Response\"L\362\206\031H\n,\n" +
+      "\003GET\022\037/mlflow/experiments/get-by-name\032\004\010" +
+      "\002\020\000\020\001*\026Get Experiment By Name\022\306\001\n\020create" +
+      "Experiment\022\030.mlflow.CreateExperiment\032!.m" +
+      "lflow.CreateExperiment.Response\"u\362\206\031q\n(\n" +
+      "\004POST\022\032/mlflow/experiments/create\032\004\010\002\020\000\n" +
+      "0\n\004POST\022\"/preview/mlflow/experiments/cre" +
+      "ate\032\004\010\002\020\000\020\001*\021Create Experiment\022\274\001\n\017listE" +
+      "xperiments\022\027.mlflow.ListExperiments\032 .ml" +
+      "flow.ListExperiments.Response\"n\362\206\031j\n%\n\003G" +
+      "ET\022\030/mlflow/experiments/list\032\004\010\002\020\000\n-\n\003GE" +
+      "T\022 /preview/mlflow/experiments/list\032\004\010\002\020" +
+      "\000\020\001*\020List Experiments\022\262\001\n\rgetExperiment\022" +
+      "\025.mlflow.GetExperiment\032\036.mlflow.GetExper" +
+      "iment.Response\"j\362\206\031f\n$\n\003GET\022\027/mlflow/exp" +
+      "eriments/get\032\004\010\002\020\000\n,\n\003GET\022\037/preview/mlfl" +
+      "ow/experiments/get\032\004\010\002\020\000\020\001*\016Get Experime" +
+      "nt\022\306\001\n\020deleteExperiment\022\030.mlflow.DeleteE" +
+      "xperiment\032!.mlflow.DeleteExperiment.Resp" +
+      "onse\"u\362\206\031q\n(\n\004POST\022\032/mlflow/experiments/" +
+      "delete\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/ex" +
+      "periments/delete\032\004\010\002\020\000\020\001*\021Delete Experim" +
+      "ent\022\314\001\n\021restoreExperiment\022\031.mlflow.Resto" +
+      "reExperiment\032\".mlflow.RestoreExperiment." +
+      "Response\"x\362\206\031t\n)\n\004POST\022\033/mlflow/experime" +
+      "nts/restore\032\004\010\002\020\000\n1\n\004POST\022#/preview/mlfl" +
+      "ow/experiments/restore\032\004\010\002\020\000\020\001*\022Restore " +
+      "Experiment\022\306\001\n\020updateExperiment\022\030.mlflow" +
+      ".UpdateExperiment\032!.mlflow.UpdateExperim" +
+      "ent.Response\"u\362\206\031q\n(\n\004POST\022\032/mlflow/expe" +
+      "riments/update\032\004\010\002\020\000\n0\n\004POST\022\"/preview/m" +
+      "lflow/experiments/update\032\004\010\002\020\000\020\001*\021Update" +
+      " Experiment\022\234\001\n\tcreateRun\022\021.mlflow.Creat" +
+      "eRun\032\032.mlflow.CreateRun.Response\"`\362\206\031\\\n!" +
+      "\n\004POST\022\023/mlflow/runs/create\032\004\010\002\020\000\n)\n\004POS" +
+      "T\022\033/preview/mlflow/runs/create\032\004\010\002\020\000\020\001*\n" +
+      "Create Run\022\234\001\n\tupdateRun\022\021.mlflow.Update" +
+      "Run\032\032.mlflow.UpdateRun.Response\"`\362\206\031\\\n!\n" +
+      "\004POST\022\023/mlflow/runs/update\032\004\010\002\020\000\n)\n\004POST" +
+      "\022\033/preview/mlflow/runs/update\032\004\010\002\020\000\020\001*\nU" +
+      "pdate Run\022\234\001\n\tdeleteRun\022\021.mlflow.DeleteR" +
+      "un\032\032.mlflow.DeleteRun.Response\"`\362\206\031\\\n!\n\004" +
+      "POST\022\023/mlflow/runs/delete\032\004\010\002\020\000\n)\n\004POST\022" +
+      "\033/preview/mlflow/runs/delete\032\004\010\002\020\000\020\001*\nDe" +
+      "lete Run\022\242\001\n\nrestoreRun\022\022.mlflow.Restore" +
+      "Run\032\033.mlflow.RestoreRun.Response\"c\362\206\031_\n\"" +
+      "\n\004POST\022\024/mlflow/runs/restore\032\004\010\002\020\000\n*\n\004PO" +
+      "ST\022\034/preview/mlflow/runs/restore\032\004\010\002\020\000\020\001" +
+      "*\013Restore Run\022\244\001\n\tlogMetric\022\021.mlflow.Log" +
+      "Metric\032\032.mlflow.LogMetric.Response\"h\362\206\031d" +
+      "\n%\n\004POST\022\027/mlflow/runs/log-metric\032\004\010\002\020\000\n" +
+      "-\n\004POST\022\037/preview/mlflow/runs/log-metric" +
+      "\032\004\010\002\020\000\020\001*\nLog Metric\022\246\001\n\010logParam\022\020.mlfl" +
+      "ow.LogParam\032\031.mlflow.LogParam.Response\"m" +
+      "\362\206\031i\n(\n\004POST\022\032/mlflow/runs/log-parameter" +
+      "\032\004\010\002\020\000\n0\n\004POST\022\"/preview/mlflow/runs/log" +
+      "-parameter\032\004\010\002\020\000\020\001*\tLog Param\022\341\001\n\020setExp" +
+      "erimentTag\022\030.mlflow.SetExperimentTag\032!.m" +
+      "lflow.SetExperimentTag.Response\"\217\001\362\206\031\212\001\n" +
+      "4\n\004POST\022&/mlflow/experiments/set-experim" +
+      "ent-tag\032\004\010\002\020\000\n<\n\004POST\022./preview/mlflow/e" +
+      "xperiments/set-experiment-tag\032\004\010\002\020\000\020\001*\022S" +
+      "et Experiment Tag\022\222\001\n\006setTag\022\016.mlflow.Se" +
+      "tTag\032\027.mlflow.SetTag.Response\"_\362\206\031[\n\"\n\004P" +
+      "OST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\n*\n\004POST\022" +
+      "\034/preview/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007S" +
+      "et Tag\022\244\001\n\tdeleteTag\022\021.mlflow.DeleteTag\032" +
+      "\032.mlflow.DeleteTag.Response\"h\362\206\031d\n%\n\004POS" +
+      "T\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\n-\n\004POST" +
+      "\022\037/preview/mlflow/runs/delete-tag\032\004\010\002\020\000\020" +
+      "\001*\nDelete Tag\022\210\001\n\006getRun\022\016.mlflow.GetRun" +
+      "\032\027.mlflow.GetRun.Response\"U\362\206\031Q\n\035\n\003GET\022\020" +
+      "/mlflow/runs/get\032\004\010\002\020\000\n%\n\003GET\022\030/preview/" +
+      "mlflow/runs/get\032\004\010\002\020\000\020\001*\007Get Run\022\314\001\n\nsea" +
+      "rchRuns\022\022.mlflow.SearchRuns\032\033.mlflow.Sea" +
+      "rchRuns.Response\"\214\001\362\206\031\207\001\n!\n\004POST\022\023/mlflo" +
+      "w/runs/search\032\004\010\002\020\000\n)\n\004POST\022\033/preview/ml" +
+      "flow/runs/search\032\004\010\002\020\000\n(\n\003GET\022\033/preview/" +
+      "mlflow/runs/search\032\004\010\002\020\000\020\001*\013Search Runs\022" +
+      "\260\001\n\rlistArtifacts\022\025.mlflow.ListArtifacts" +
+      "\032\036.mlflow.ListArtifacts.Response\"h\362\206\031d\n#" +
+      "\n\003GET\022\026/mlflow/artifacts/list\032\004\010\002\020\000\n+\n\003G" +
+      "ET\022\036/preview/mlflow/artifacts/list\032\004\010\002\020\000" +
+      "\020\001*\016List Artifacts\022\307\001\n\020getMetricHistory\022" +
+      "\030.mlflow.GetMetricHistory\032!.mlflow.GetMe" +
+      "tricHistory.Response\"v\362\206\031r\n(\n\003GET\022\033/mlfl" +
+      "ow/metrics/get-history\032\004\010\002\020\000\n0\n\003GET\022#/pr" +
+      "eview/mlflow/metrics/get-history\032\004\010\002\020\000\020\001" +
+      "*\022Get Metric History\022\373\001\n\027updateArtifacts" +
+      "Location\022\037.mlflow.UpdateArtifactsLocatio" +
+      "n\032(.mlflow.UpdateArtifactsLocation.Respo" +
+      "nse\"\224\001\362\206\031\217\001\n3\n\003PUT\022&/mlflow/runs/update-" +
+      "artifacts-location\032\004\010\002\020\000\n;\n\003PUT\022./previe" +
+      "w/mlflow/runs/update-artifacts-location\032" +
+      "\004\010\002\020\000\020\001*\031Update Artifacts Location\022\236\001\n\010l" +
+      "ogBatch\022\020.mlflow.LogBatch\032\031.mlflow.LogBa" +
+      "tch.Response\"e\362\206\031a\n$\n\004POST\022\026/mlflow/runs" +
+      "/log-batch\032\004\010\002\020\000\n,\n\004POST\022\036/preview/mlflo" +
+      "w/runs/log-batch\032\004\010\002\020\000\020\001*\tLog BatchB\036\n\024o" +
+      "rg.mlflow.api.proto\220\001\001\342?\002\020\001"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -48302,13 +49597,19 @@ public final class Service {
     internal_static_mlflow_SearchRuns_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_descriptor,
-        new java.lang.String[] { "ExperimentIds", "Filter", "RunViewType", "MaxResults", "OrderBy", "PageToken", });
+        new java.lang.String[] { "ExperimentIds", "Filter", "RunViewType", "MaxResults", "OrderBy", "PageToken", "MetricsWhitelist", "ParamsWhitelist", "TagsWhitelist", });
     internal_static_mlflow_SearchRuns_Response_descriptor =
       internal_static_mlflow_SearchRuns_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_SearchRuns_Response_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchRuns_Response_descriptor,
         new java.lang.String[] { "Runs", "NextPageToken", });
+    internal_static_mlflow_SearchRuns_WhiteList_descriptor =
+      internal_static_mlflow_SearchRuns_descriptor.getNestedTypes().get(1);
+    internal_static_mlflow_SearchRuns_WhiteList_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_SearchRuns_WhiteList_descriptor,
+        new java.lang.String[] { "Fields", });
     internal_static_mlflow_ListArtifacts_descriptor =
       getDescriptor().getMessageTypes().get(25);
     internal_static_mlflow_ListArtifacts_fieldAccessorTable = new

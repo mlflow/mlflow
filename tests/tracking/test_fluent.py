@@ -471,7 +471,8 @@ def test_search_runs_no_arguments():
     with experiment_id_patch, get_paginated_runs_patch:
         search_runs()
         mlflow.tracking.fluent._get_paginated_runs.assert_called_once_with(
-            mock_experiment_id, '', ViewType.ACTIVE_ONLY, SEARCH_MAX_RESULTS_PANDAS, None
+            mock_experiment_id, '', ViewType.ACTIVE_ONLY, SEARCH_MAX_RESULTS_PANDAS, None,
+            None, None, None
         )
 
 
@@ -485,7 +486,8 @@ def test_get_paginated_runs_lt_maxresults_onepage():
     max_results = 50
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
         with mock.patch.object(MlflowClient, "search_runs", return_value=tokenized_runs):
-            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None,
+                                                 None, None, None)
             MlflowClient.search_runs.assert_called_once()
             assert len(paginated_runs) == 5
 
@@ -502,7 +504,8 @@ def test_get_paginated_runs_lt_maxresults_multipage():
             MlflowClient.search_runs.side_effect = [tokenized_runs, tokenized_runs, no_token_runs]
             TOTAL_RUNS = 21
 
-            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None,
+                                                 None, None, None)
             assert len(paginated_runs) == TOTAL_RUNS
 
 
@@ -516,7 +519,8 @@ def test_get_paginated_runs_lt_maxresults_onepage_nonetoken():
     max_results = 50
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
         with mock.patch.object(MlflowClient, "search_runs", return_value=tokenized_runs):
-            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None,
+                                                 None, None, None)
             MlflowClient.search_runs.assert_called_once()
             assert len(paginated_runs) == 5
 
@@ -536,7 +540,8 @@ def test_get_paginated_runs_eq_maxresults_blanktoken():
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
         with mock.patch.object(MlflowClient, "search_runs"):
             MlflowClient.search_runs.side_effect = [tokenized_runs, no_token_runs]
-            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None,
+                                                 None, None, None)
             MlflowClient.search_runs.assert_called_once()
             assert len(paginated_runs) == 10
 
@@ -555,7 +560,8 @@ def test_get_paginated_runs_eq_maxresults_token():
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
         with mock.patch.object(MlflowClient, "search_runs"):
             MlflowClient.search_runs.side_effect = [tokenized_runs, blank_runs]
-            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results, None)
+            paginated_runs = _get_paginated_runs([], "", ViewType.ACTIVE_ONLY, max_results,
+                                                 None, None, None, None)
             MlflowClient.search_runs.assert_called_once()
             assert len(paginated_runs) == 10
 
@@ -572,10 +578,14 @@ def test_get_paginated_runs_gt_maxresults_multipage():
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 8):
         with mock.patch.object(MlflowClient, "search_runs"):
             MlflowClient.search_runs.side_effect = [full_page_runs, full_page_runs, partial_page]
-            paginated_runs = _get_paginated_runs([12], "", ViewType.ACTIVE_ONLY, max_results, None)
-            calls = [mock.call([12], "", ViewType.ACTIVE_ONLY, 8, None, None),
-                     mock.call([12], "", ViewType.ACTIVE_ONLY, 8, None, "abc"),
-                     mock.call([12], "", ViewType.ACTIVE_ONLY, 20 % 8, None, "abc")]
+            paginated_runs = _get_paginated_runs([12], "", ViewType.ACTIVE_ONLY, max_results, None,
+                                                 None, None, None)
+            calls = [mock.call([12], "", ViewType.ACTIVE_ONLY, 8, None, None,
+                               None, None, None),
+                     mock.call([12], "", ViewType.ACTIVE_ONLY, 8, None, "abc",
+                               None, None, None),
+                     mock.call([12], "", ViewType.ACTIVE_ONLY, 20 % 8, None, "abc",
+                               None, None, None)]
             MlflowClient.search_runs.assert_has_calls(calls)
             assert len(paginated_runs) == 20
 
@@ -590,9 +600,10 @@ def test_get_paginated_runs_gt_maxresults_onepage():
     max_results = 10
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 20):
         with mock.patch.object(MlflowClient, "search_runs", return_value=tokenized_runs):
-            paginated_runs = _get_paginated_runs([123], "", ViewType.ACTIVE_ONLY, max_results, None)
+            paginated_runs = _get_paginated_runs([123], "", ViewType.ACTIVE_ONLY, max_results,
+                                                 None, None, None, None)
             MlflowClient.search_runs.assert_called_once_with(
-                [123], "", ViewType.ACTIVE_ONLY, max_results, None, None)
+                [123], "", ViewType.ACTIVE_ONLY, max_results, None, None, None, None, None)
             assert len(paginated_runs) == 10
 
 

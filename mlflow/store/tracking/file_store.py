@@ -387,6 +387,23 @@ class FileStore(AbstractStore):
             self.set_tag(run_uuid, tag)
         return self.get_run(run_id=run_uuid)
 
+    def _get_run_with_whitelisting(self, run_id,
+                                   metrics_whitelist=None,
+                                   params_whitelist=None,
+                                   tags_whitelist=None):
+        """
+        Note: Will get both active and deleted runs.
+        """
+        _validate_run_id(run_id)
+        run_info = self._get_run_info(run_id)
+        if run_info is None:
+            raise MlflowException("Run '%s' metadata is in invalid state." % run_id,
+                                  databricks_pb2.INVALID_STATE)
+        metrics = self.get_all_metrics(run_id, metrics_whitelist)
+        params = self.get_all_params(run_id, params_whitelist)
+        tags = self.get_all_tags(run_id, tags_whitelist)
+        return Run(run_info, RunData(metrics, params, tags))
+
     def get_run(self, run_id):
         """
         Note: Will get both active and deleted runs.
@@ -396,9 +413,9 @@ class FileStore(AbstractStore):
         if run_info is None:
             raise MlflowException("Run '%s' metadata is in invalid state." % run_id,
                                   databricks_pb2.INVALID_STATE)
-        metrics = self.get_all_metrics(run_id)
-        params = self.get_all_params(run_id)
-        tags = self.get_all_tags(run_id)
+        metrics = self.get_all_metrics(run_id, None)
+        params = self.get_all_params(run_id, None)
+        tags = self.get_all_tags(run_id, None)
         return Run(run_info, RunData(metrics, params, tags))
 
     def _get_run_info(self, run_uuid):
@@ -419,7 +436,7 @@ class FileStore(AbstractStore):
             return None
         return run_info
 
-    def _get_run_files(self, run_uuid, resource_type):
+    def _get_run_files(self, run_uuid, resource_type, whitelist):
         _validate_run_id(run_uuid)
         run_info = self._get_run_info(run_uuid)
         if run_info is None:
@@ -436,14 +453,14 @@ class FileStore(AbstractStore):
             subfolder_name = FileStore.TAGS_FOLDER_NAME
         else:
             raise Exception("Looking for unknown resource under run.")
-        return self._get_resource_files(run_dir, subfolder_name)
+        return self._get_resource_files(run_dir, subfolder_name, whitelist)
 
     def _get_experiment_files(self, experiment_id):
         _validate_experiment_id(experiment_id)
         experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
-        return self._get_resource_files(experiment_dir, FileStore.EXPERIMENT_TAGS_FOLDER_NAME)
+        return self._get_resource_files(experiment_dir, FileStore.EXPERIMENT_TAGS_FOLDER_NAME, None)
 
-    def _get_resource_files(self, root_dir, subfolder_name):
+    def _get_resource_files(self, root_dir, subfolder_name, whitelist):
         source_dirs = find(root_dir, subfolder_name, full_path=True)
         if len(source_dirs) == 0:
             return root_dir, []
@@ -459,6 +476,9 @@ class FileStore(AbstractStore):
             # We need to translate the path into posix path.
             from mlflow.utils.file_utils import relative_path_to_artifact_path
             file_names = [relative_path_to_artifact_path(x) for x in file_names]
+        if whitelist is not None:
+            whitelist_set = set(whitelist)
+            file_names = list(filter(lambda file_name: file_name in whitelist_set, file_names))
         return source_dirs[0], file_names
 
     @staticmethod
@@ -474,9 +494,9 @@ class FileStore(AbstractStore):
         # https://docs.python.org/3/reference/expressions.html#value-comparisons
         return max(metric_objs, key=lambda m: (m.step, m.timestamp, m.value))
 
-    def get_all_metrics(self, run_uuid):
+    def get_all_metrics(self, run_uuid, metrics_whitelist):
         _validate_run_id(run_uuid)
-        parent_path, metric_files = self._get_run_files(run_uuid, "metric")
+        parent_path, metric_files = self._get_run_files(run_uuid, "metric", metrics_whitelist)
         metrics = []
         for metric_file in metric_files:
             metrics.append(self._get_metric_from_file(parent_path, metric_file))
@@ -497,7 +517,7 @@ class FileStore(AbstractStore):
     def get_metric_history(self, run_id, metric_key):
         _validate_run_id(run_id)
         _validate_metric_name(metric_key)
-        parent_path, metric_files = self._get_run_files(run_id, "metric")
+        parent_path, metric_files = self._get_run_files(run_id, "metric", None)
         if metric_key not in metric_files:
             raise MlflowException("Metric '%s' not found under run '%s'" % (metric_key, run_id),
                                   databricks_pb2.RESOURCE_DOES_NOT_EXIST)
@@ -516,8 +536,8 @@ class FileStore(AbstractStore):
         value = '' if len(param_data) == 0 else str(param_data[0].strip())
         return Param(param_name, value)
 
-    def get_all_params(self, run_uuid):
-        parent_path, param_files = self._get_run_files(run_uuid, "param")
+    def get_all_params(self, run_uuid, whitelist):
+        parent_path, param_files = self._get_run_files(run_uuid, "param", whitelist)
         params = []
         for param_file in param_files:
             params.append(self._get_param_from_file(parent_path, param_file))
@@ -542,8 +562,8 @@ class FileStore(AbstractStore):
         tag_data = read_file(parent_path, tag_name)
         return RunTag(tag_name, tag_data)
 
-    def get_all_tags(self, run_uuid):
-        parent_path, tag_files = self._get_run_files(run_uuid, "tag")
+    def get_all_tags(self, run_uuid, whitelist):
+        parent_path, tag_files = self._get_run_files(run_uuid, "tag", whitelist)
         tags = []
         for tag_file in tag_files:
             tags.append(self._get_tag_from_file(parent_path, tag_file))
@@ -576,7 +596,7 @@ class FileStore(AbstractStore):
         return run_infos
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+                     page_token, metrics_whitelist, params_whitelist, tags_whitelist):
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException("Invalid value for request parameter max_results. It must be at "
                                   "most {}, but got value {}".format(SEARCH_MAX_RESULTS_THRESHOLD,
@@ -585,7 +605,10 @@ class FileStore(AbstractStore):
         runs = []
         for experiment_id in experiment_ids:
             run_infos = self._list_run_infos(experiment_id, run_view_type)
-            runs.extend(self.get_run(r.run_id) for r in run_infos)
+            runs.extend(self._get_run_with_whitelisting(r.run_id, metrics_whitelist,
+                                                        params_whitelist,
+                                                        tags_whitelist)
+                        for r in run_infos)
         filtered = SearchUtils.filter(runs, filter_string)
         sorted_runs = SearchUtils.sort(filtered, order_by)
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)

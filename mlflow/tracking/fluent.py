@@ -376,7 +376,8 @@ def get_artifact_uri(artifact_path=None):
 
 
 def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None):
+                max_results=SEARCH_MAX_RESULTS_PANDAS, order_by=None,
+                metrics_whitelist=None, params_whitelist=None, tags_whitelist=None):
     """
     Get a pandas DataFrame of runs that fit the search criteria.
 
@@ -389,6 +390,9 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     :param order_by: List of columns to order by (e.g., "metrics.rmse"). The ``order_by`` column
                      can contain an optional ``DESC`` or ``ASC`` value. The default is ``ASC``.
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
+    :param metrics_whitelist: white list of metrics, default to all (None)
+    :param params_whitelist: white list of params, default to all (None)
+    :param tags_whitelist: white list of tags, default to all (None)
 
     :return: A pandas.DataFrame of runs, where each metric, parameter, and tag
         are expanded into their own columns named metrics.*, params.*, and tags.*
@@ -398,7 +402,7 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
     if not experiment_ids:
         experiment_ids = _get_experiment_id()
     runs = _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
-                               order_by)
+                               order_by, metrics_whitelist, params_whitelist, tags_whitelist)
     info = {'run_id': [], 'experiment_id': [],
             'status': [], 'artifact_uri': [],
             'start_time': [], 'end_time': []}
@@ -460,17 +464,19 @@ def search_runs(experiment_ids=None, filter_string="", run_view_type=ViewType.AC
 
 
 def _get_paginated_runs(experiment_ids, filter_string, run_view_type, max_results,
-                        order_by):
+                        order_by, metrics_whitelist, params_whitelist, tags_whitelist):
     all_runs = []
     next_page_token = None
     while(len(all_runs) < max_results):
         runs_to_get = max_results-len(all_runs)
         if runs_to_get < NUM_RUNS_PER_PAGE_PANDAS:
             runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
-                                              runs_to_get, order_by, next_page_token)
+                                              runs_to_get, order_by, next_page_token,
+                                              metrics_whitelist, params_whitelist, tags_whitelist)
         else:
             runs = MlflowClient().search_runs(experiment_ids, filter_string, run_view_type,
-                                              NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token)
+                                              NUM_RUNS_PER_PAGE_PANDAS, order_by, next_page_token,
+                                              metrics_whitelist, params_whitelist, tags_whitelist)
         all_runs.extend(runs)
         if hasattr(runs, 'token') and runs.token != '' and runs.token is not None:
             next_page_token = runs.token

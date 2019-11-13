@@ -315,7 +315,8 @@ class TrackingServiceClient(object):
         self.store.restore_run(run_id)
 
     def search_runs(self, experiment_ids, filter_string="", run_view_type=ViewType.ACTIVE_ONLY,
-                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None):
+                    max_results=SEARCH_MAX_RESULTS_DEFAULT, order_by=None, page_token=None,
+                    metrics_whitelist=None, params_whitelist=None, tags_whitelist=None):
         """
         Search experiments that fit the search criteria.
 
@@ -329,6 +330,9 @@ class TrackingServiceClient(object):
                      The default ordering is to sort by ``start_time DESC``, then ``run_id``.
         :param page_token: Token specifying the next page of results. It should be obtained from
             a ``search_runs`` call.
+        :param metrics_whitelist: white list of metrics, default to all (None)
+        :param params_whitelist: white list of params, default to all (None)
+        :param tags_whitelist: white list of tags, default to all (None)
 
         :return: A list of :py:class:`mlflow.entities.Run` objects that satisfy the search
             expressions. If the underlying tracking store supports pagination, the token for
@@ -338,4 +342,7 @@ class TrackingServiceClient(object):
             experiment_ids = [experiment_ids]
         return self.store.search_runs(experiment_ids=experiment_ids, filter_string=filter_string,
                                       run_view_type=run_view_type, max_results=max_results,
-                                      order_by=order_by, page_token=page_token)
+                                      order_by=order_by, page_token=page_token,
+                                      metrics_whitelist=metrics_whitelist,
+                                      params_whitelist=params_whitelist,
+                                      tags_whitelist=tags_whitelist)

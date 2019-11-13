@@ -953,10 +953,22 @@ message SearchRuns {
 
   optional string page_token = 7;
 
+  // These metrics, params and tags whitelist limit the fields returned by the search runs query
+  // A None whitelist will select all the fields
+  optional WhiteList metrics_whitelist = 8;
+  optional WhiteList params_whitelist = 9;
+  optional WhiteList tags_whitelist = 10;
+
   message Response {
     // Runs that match the search criteria.
     repeated Run runs = 1;
     optional string next_page_token = 2;
+  }
+
+  // this whitelist message exists to be able to have an optional whitelist :
+  // no whitelist = all fields are available
+  message WhiteList  {
+    repeated string fields = 1;
   }
 }
 
