@@ -3,7 +3,7 @@ import os
 import gorilla
 from mxnet import gluon
 from mxnet import sym
-from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin
+from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
 from mxnet.gluon.nn import HybridSequential
 
 import mlflow
@@ -134,7 +134,7 @@ def autolog():
     are logged as artifacts to a 'models' directory.
     """
 
-    class __MLflowGluonCallback(EpochEnd, TrainBegin):
+    class __MLflowGluonCallback(EpochEnd, TrainEnd,TrainBegin):
         def __init__(self):
             self.current_epoch = 0
 
@@ -163,11 +163,18 @@ def autolog():
             if hasattr(estimator.trainer.optimizer, "epsilon"):
                 try_mlflow_log(mlflow.log_param, "epsilon",
                                estimator.trainer.optimizer.epsilon)
+
+        def train_end(self, estimator, *args, **kwargs):
             if isinstance(estimator.net, HybridSequential):
                 try_mlflow_log(log_model, estimator.net, artifact_path="model")
 
     @gorilla.patch(Estimator)
     def fit(self, *args, **kwargs):
+        if not mlflow.active_run():
+            auto_end_run = True
+        else:
+            auto_end_run = False
+
         original = gorilla.get_original_attribute(Estimator, "fit")
         if len(args) >= 4:
             l = list(args)
@@ -177,7 +184,10 @@ def autolog():
             kwargs["event_handlers"] += [__MLflowGluonCallback()]
         else:
             kwargs["event_handlers"] = [__MLflowGluonCallback()]
-        return original(self, *args, **kwargs)
+        result = original(self, *args, **kwargs)
+        if auto_end_run:
+            mlflow.end_run()
+        return result
 
     settings = gorilla.Settings(allow_hit=True, store_hit=True)
     gorilla.apply(gorilla.Patch(Estimator, "fit", fit, settings=settings))
