@@ -380,7 +380,7 @@ class TestFileStore(unittest.TestCase):
             runs = self.exp_data[exp_id]["runs"]
             for run_id in runs:
                 run_info = self.run_data[run_id]
-                metrics = fs.get_all_metrics(run_id)
+                metrics = fs.get_all_metrics(run_id, None)
                 metrics_dict = run_info.pop("metrics")
                 for metric in metrics:
                     expected_timestamp, expected_value = max(metrics_dict[metric.key])
@@ -531,6 +531,23 @@ class TestFileStore(unittest.TestCase):
         assert metric.key == WEIRD_METRIC_NAME
         assert metric.value == 10
         assert metric.timestamp == 1234
+
+    def test_whitelisting(self):
+        fs = FileStore(self.test_root)
+        run_id = self.exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
+        fs.log_metric(run_id, Metric("metric1", 10, 1234, 0))
+        fs.log_metric(run_id, Metric("metric2", 10, 1234, 0))
+        fs.set_tag(run_id, RunTag("tag1", "value1!"))
+        fs.set_tag(run_id, RunTag("tag2", "value2!"))
+        fs.log_param(run_id, Param("param1", "Value"))
+        fs.log_param(run_id, Param("param2", "Value"))
+        run = fs._get_run_with_whitelisting(run_id,
+                                            metrics_whitelist=["metric2"],
+                                            params_whitelist=["param2"],
+                                            tags_whitelist=["tag1"])
+        assert {"metric2"} == set(run.data.metrics.keys())
+        assert {"param2"} == set(run.data.params.keys())
+        assert {"tag1"} == set(run.data.tags.keys())
 
     def test_weird_tag_names(self):
         WEIRD_TAG_NAME = "this is/a weird/but valid tag"

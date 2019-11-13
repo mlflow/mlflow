@@ -5,6 +5,8 @@ import math
 import posixpath
 import sqlalchemy
 import sqlalchemy.sql.expression as sql
+from itertools import groupby
+from sqlalchemy.orm import attributes
 
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_THRESHOLD
@@ -36,6 +38,53 @@ _logger = logging.getLogger(__name__)
 # https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.configure_mappers
 # and https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.mapper.Mapper
 sqlalchemy.orm.configure_mappers()
+
+
+# similar to https://docs.sqlalchemy.org/en/13/orm/loading_relationships.html#subquery-eager-loading
+# but with (optional) filtering
+def disjoint_load(query, parents, attr, whitelist=None):
+    # retrieves the relation mapping with the other table
+    target = attr.prop.mapper
+    # from the relation
+    # this retrieves the local cols : the ones from parent/query
+    # and remote cols : the ones from attr
+    local_cols, remote_cols = zip(*attr.prop.local_remote_pairs)
+
+    # from_self creates a super query of query, the argument "target" means we only want to retrieve
+    # this column ; see
+    # https://docs.sqlalchemy.org/en/13/orm/query.html#sqlalchemy.orm.query.Query.from_self
+    # we join with attr to retrieve the other table (this is the part that makes it similar to
+    # subquery load)
+    child_q = query.from_self(target).join(attr)
+    # keep only the lines of attr that we want
+    if whitelist is not None:
+        child_q = child_q.filter(whitelist)
+    # order remote cols (the cols from attr)
+    child_q = child_q.order_by(*remote_cols)
+    # also order by the relation order by if there were some
+    if attr.prop.order_by:
+        child_q = child_q.order_by(*attr.prop.order_by)
+
+    # build a dict of
+    # key : remote cols (from attr) represented values (eg run_uuid values)
+    # value : list of actual values of the cols
+    collections = dict((k, list(v)) for k, v in groupby(
+        child_q,
+        lambda x: tuple([getattr(x, c.key) for c in remote_cols])
+    ))
+    # for each record in parents
+    for p in parents:
+        # set that parent attr.key
+        # to the corresponding values in the remote cols (the ones from attr)
+        # for the local cols (the ones in the parent)
+        attributes.set_committed_value(
+            p,
+            attr.key,
+            collections.get(
+                tuple([getattr(p, c.key) for c in local_cols]),
+                ())
+        )
+    return parents
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -576,7 +625,7 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(filtered_tags[0])
 
     def _search_runs(self, experiment_ids, filter_string, run_view_type, max_results, order_by,
-                     page_token):
+                     page_token, metrics_whitelist, params_whitelist, tags_whitelist):
 
         def compute_next_token(current_size):
             next_token = None
@@ -607,16 +656,30 @@ class SqlAlchemyStore(AbstractStore):
                 query = query.join(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-            queried_runs = query.distinct() \
-                .options(*self._get_eager_run_query_options()) \
-                .filter(
-                    SqlRun.experiment_id.in_(experiment_ids),
-                    SqlRun.lifecycle_stage.in_(stages),
-                    *_get_attributes_filtering_clauses(parsed_filters)) \
+            queried_runs = query \
+                .filter(SqlRun.experiment_id.in_(experiment_ids),
+                        SqlRun.lifecycle_stage.in_(stages),
+                        *_get_attributes_filtering_clauses(parsed_filters)) \
                 .order_by(*parsed_orderby) \
-                .offset(offset).limit(max_results).all()
+                .offset(offset).limit(max_results)
 
-            runs = [run.to_mlflow_entity() for run in queried_runs]
+            all_runs = queried_runs.all()
+
+            # equivalent to subquery load strategy but includes filter feature
+            # see https://groups.google.com/forum/m/#!msg/sqlalchemy/zr99U2onipY/6lAB0fy3sGsJ
+            # for explanation
+            all_runs = disjoint_load(queried_runs, all_runs, SqlRun.tags,
+                                     SqlTag.key.in_(tags_whitelist)
+                                     if tags_whitelist is not None else None)
+            all_runs = disjoint_load(queried_runs, all_runs, SqlRun.latest_metrics,
+                                     SqlLatestMetric.key.in_(metrics_whitelist)
+                                     if metrics_whitelist is not None
+                                     else None)
+            all_runs = disjoint_load(queried_runs, all_runs, SqlRun.params,
+                                     SqlParam.key.in_(params_whitelist)
+                                     if params_whitelist is not None else None)
+
+            runs = [run.to_mlflow_entity() for run in all_runs]
             next_page_token = compute_next_token(len(runs))
 
         return runs, next_page_token

@@ -1435,16 +1435,16 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                     'run_uuid': run_id,
                 }
                 params_list.append(param)
-            latest_metrics_list.append(
-                {
-                    'key': 'mkey_0',
-                    'value': current_run,
-                    'timestamp': 100 * 2,
-                    'step': 100 * 3,
-                    'is_nan': 0,
-                    'run_uuid': run_id,
-                }
-            )
+                latest_metrics_list.append(
+                    {
+                        'key': 'mkey_%s' % i,
+                        'value': current_run,
+                        'timestamp': 100 * 2,
+                        'step': 100 * 3,
+                        'is_nan': 0,
+                        'run_uuid': run_id,
+                    }
+                )
             current_run += 1
         metrics = pd.DataFrame(metrics_list)
         metrics.to_sql('metrics', self.store.engine, if_exists='append', index=False)
@@ -1455,6 +1455,23 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         pd.DataFrame(latest_metrics_list).to_sql(
             'latest_metrics', self.store.engine, if_exists='append', index=False)
         return experiment_id, run_ids
+
+    def test_search_runs_returns_expected_results_with_whitelisting(self):
+        """
+        This case tests the SQLAlchemyStore implementation of the SearchRuns API to ensure
+        that search queries with whitelisting work as expected
+        """
+        experiment_id, _ = self._generate_large_data()
+
+        run_results = self.store.search_runs([experiment_id], None, ViewType.ALL, max_results=100,
+                                             order_by=None, page_token=None,
+                                             metrics_whitelist=["mkey_7", "mkey_42"],
+                                             params_whitelist=["pkey_3", "pkey_13"],
+                                             tags_whitelist=["tkey_9", "tkey_15"])
+        for run in run_results:
+            assert {"mkey_7", "mkey_42"} == set(run.data.metrics.keys())
+            assert {"pkey_3", "pkey_13"} == set(run.data.params.keys())
+            assert {"tkey_9", "tkey_15"} == set(run.data.tags.keys())
 
     def test_search_runs_returns_expected_results_with_large_experiment(self):
         """
