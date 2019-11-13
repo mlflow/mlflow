@@ -25,7 +25,10 @@ def random_one_hot_labels():
 
 @pytest.fixture(params=[True, False])
 def manual_run(request):
-    return request.param
+    if request.param:
+        mlflow.start_run()
+    yield
+    mlflow.end_run()
 
 
 def create_model():
@@ -88,8 +91,6 @@ def test_autolog_persists_manually_created_run(random_train_data,
 
 @pytest.fixture
 def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels, manual_run):
-    if manual_run:
-        mlflow.start_run()
 
     mlflow.keras.autolog()
 
@@ -106,7 +107,6 @@ def keras_random_data_run(random_train_data, fit_variant, random_one_hot_labels,
     else:
         model.fit(data, labels, epochs=10)
 
-    mlflow.end_run()
     return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
 
 
