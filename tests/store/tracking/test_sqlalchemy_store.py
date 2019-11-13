@@ -810,10 +810,6 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          ["1", "2", "3", "4", "5", "6", "7"]):
             create_and_log_run(names)
 
-        import logging
-        logging.basicConfig()
-        #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-
         # asc/asc
         self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "metrics.y asc"],
