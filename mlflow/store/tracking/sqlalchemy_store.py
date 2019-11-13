@@ -746,7 +746,8 @@ def _get_orderby_clauses(order_by_list, session):
                     (order_value.is_(None), 1)
                 ], else_=0).label(f'clause_{clause_id}'))
             else:  # other entities do not have an 'is_nan' field
-                clauses.append(sql.case([(order_value.is_(None), 1)], else_=0).label(f'clause_{clause_id}'))
+                clauses.append(sql.case([(order_value.is_(None), 1)], else_=0)
+                               .label(f'clause_{clause_id}'))
 
             if ascending:
                 clauses.append(order_value)
