@@ -15,7 +15,7 @@ from mlflow.protos.service_pb2 import CreateExperiment, MlflowService, GetExperi
     GetRun, SearchRuns, ListArtifacts, GetMetricHistory, CreateRun, \
     UpdateRun, LogMetric, LogParam, SetTag, ListExperiments, \
     DeleteExperiment, RestoreExperiment, RestoreRun, DeleteRun, UpdateExperiment, LogBatch, \
-    DeleteTag, SetExperimentTag, GetExperimentByName
+    DeleteTag, SetExperimentTag, GetExperimentByName, UpdateArtifactsLocation
 from mlflow.protos.model_registry_pb2 import ModelRegistryService, CreateRegisteredModel, \
     UpdateRegisteredModel, DeleteRegisteredModel, ListRegisteredModels, GetRegisteredModelDetails, \
     GetLatestVersions, CreateModelVersion, UpdateModelVersion, DeleteModelVersion, \
@@ -429,6 +429,17 @@ def _get_artifact_repo(run):
 
 
 @catch_mlflow_exception
+def _updateArtifactsLocation():
+    request_message = _get_request_message(UpdateArtifactsLocation())
+    _get_tracking_store().update_artifacts_location(
+        request_message.run_id, request_message.new_artifacts_location)
+    response_message = UpdateArtifactsLocation.Response()
+    response = Response(mimetype='application/json')
+    response.set_data(message_to_json(response_message))
+    return response
+
+
+@catch_mlflow_exception
 def _log_batch():
     _validate_batch_log_api_req(_get_request_json())
     request_message = _get_request_message(LogBatch())
@@ -649,6 +660,7 @@ HANDLERS = {
     ListArtifacts: _list_artifacts,
     GetMetricHistory: _get_metric_history,
     ListExperiments: _list_experiments,
+    UpdateArtifactsLocation: _updateArtifactsLocation,
 
     # Model Registry APIs
     CreateRegisteredModel: _create_registered_model,
