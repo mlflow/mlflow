@@ -134,7 +134,7 @@ def autolog():
     are logged as artifacts to a 'models' directory.
     """
 
-    class __MLflowGluonCallback(EpochEnd, TrainEnd,TrainBegin):
+    class __MLflowGluonCallback(EpochEnd, TrainEnd, TrainBegin):
         def __init__(self):
             self.current_epoch = 0
 
