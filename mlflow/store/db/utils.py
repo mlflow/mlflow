@@ -14,6 +14,10 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 _logger = logging.getLogger(__name__)
 
 
+MLFLOW_SQLALCHEMYSTORE_POOL_SIZE = "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE"
+MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW = "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW"
+
+
 def _get_package_dir():
     """Returns directory containing MLflow python package."""
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -158,3 +162,19 @@ def _upgrade_db_initialized_before_mlflow_1(url):
     # add metric steps, do not need to depend on this one. This allows us to eventually remove this
     # method and the associated migration e.g. in MLflow 1.1.
     command.stamp(config, "base")
+
+
+def create_sqlalchemy_engine(db_uri):
+    pool_size = os.environ.get(MLFLOW_SQLALCHEMYSTORE_POOL_SIZE)
+    pool_max_overflow = os.environ.get(MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW)
+    pool_kwargs = {}
+    # Send argument only if they have been injected.
+    # Some engine does not support them (for example sqllite)
+    if pool_size:
+        pool_kwargs['pool_size'] = int(pool_size)
+    if pool_max_overflow:
+        pool_kwargs['max_overflow'] = int(pool_max_overflow)
+    if pool_kwargs:
+        _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
+    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True,
+                                    **pool_kwargs)

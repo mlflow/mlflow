@@ -21,7 +21,8 @@ from mlflow.entities import ViewType, RunTag, SourceType, RunStatus, Experiment,
 from mlflow.protos.databricks_pb2 import ErrorCode, RESOURCE_DOES_NOT_EXIST, \
     INVALID_PARAMETER_VALUE, INTERNAL_ERROR
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.db.utils import _get_schema_version, _get_latest_schema_revision
+from mlflow.store.db.utils import _get_schema_version, _get_latest_schema_revision, \
+    MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW, MLFLOW_SQLALCHEMYSTORE_POOL_SIZE
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.db.db_types import MYSQL, MSSQL
 from mlflow import entities
@@ -1460,6 +1461,8 @@ class TestSqlAlchemyStoreMysqlDb(TestSqlAlchemyStoreSqlite):
     DEFAULT_MYSQL_PORT = 3306
 
     def setUp(self):
+        os.environ[MLFLOW_SQLALCHEMYSTORE_POOL_SIZE] = "2"
+        os.environ[MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW] = "1"
         db_username = os.environ.get("MYSQL_TEST_USERNAME")
         db_password = os.environ.get("MYSQL_TEST_PASSWORD")
         db_port = int(os.environ["MYSQL_TEST_PORT"]) if "MYSQL_TEST_PORT" in os.environ \
