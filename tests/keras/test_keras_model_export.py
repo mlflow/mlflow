@@ -206,6 +206,7 @@ def test_model_save_load(build_model, model_path, data):
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
+    print(scoring_response.content)
     assert all(pd.read_json(scoring_response.content, orient="records",
                             encoding="utf8").values.astype(np.float32)
                == expected)
