@@ -60,7 +60,7 @@ class Model(object):
             return cls(**yaml.safe_load(f.read()))
 
     @classmethod
-    def log(cls, artifact_path, flavor, **kwargs):
+    def log(cls, artifact_path, flavor, registered_model_name=None, **kwargs):
         """
         Log model using supplied flavor module.
 
@@ -68,6 +68,10 @@ class Model(object):
         :param flavor: Flavor module to save the model with. The module must have
                        the ``save_model`` function that will persist the model as a valid
                        MLflow model.
+        :param registered_model_name: Note:: Experimental: This argument may change or be removed
+                                      in a future release without warning. If given, create a model
+                                      version under ``registered_model_name``, also creating a
+                                      registered model if one with the given name does not exist.
         :param kwargs: Extra args passed to the model flavor.
         """
         with TempDir() as tmp:
@@ -76,6 +80,10 @@ class Model(object):
             mlflow_model = cls(artifact_path=artifact_path, run_id=run_id)
             flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
             mlflow.tracking.fluent.log_artifacts(local_path, artifact_path)
+            if registered_model_name is not None:
+                run_id = mlflow.tracking.fluent.active_run().info.run_id
+                mlflow.register_model("runs:/%s/%s" % (run_id, artifact_path),
+                                      registered_model_name)
 
 
 class FlavorBackend(object):
@@ -100,24 +108,33 @@ class FlavorBackend(object):
                            stdin.
         :param output_path: Path to the file with output predictions. If not specified, data is
                             written to stdout.
-        :param content_type: Specifies the input format. Can be one of {'json', 'csv'}
-        :param json_format: Only applies if content_type == 'json'. Specifies how is the input data
-                            encoded in json. Can be one of {'split', 'records'} mirroring the
-                            behavior of Pandas orient attribute. The default is 'split' which
+        :param content_type: Specifies the input format. Can be one of {``json``, ``csv``}
+        :param json_format: Only applies if ``content_type == json``. Specifies how is the input
+                            data encoded in json. Can be one of {``split``, ``records``} mirroring
+                            the behavior of Pandas orient attribute. The default is ``split`` which
                             expects dict like data: ``{'index' -> [index], 'columns' -> [columns],
                             'data' -> [values]}``, where index is optional.
-                            For more information see "https://pandas.pydata.org/
-                            pandas-docs/stable/reference/api/pandas.read_json.html"
+                            For more information see
+                            https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_json.html
         """
         pass
 
     @abstractmethod
     def serve(self, model_uri, port, host):
         """
-        Serve saved MLflow model locally.
+        Serve the specified MLflow model locally.
+
         :param model_uri: URI pointing to the MLflow model to be used for scoring.
-        :param port: Port to deploy the model to.
-        :param host: Host to use for the model deployment. Defaults to 'localhost'.
+        :param port: Port to use for the model deployment.
+        :param host: Host to use for the model deployment. Defaults to ``localhost``.
+        """
+        pass
+
+    def prepare_env(self, model_uri):
+        """
+        Performs any preparation necessary to predict or serve the model, for example
+        downloading dependencies or initializing a conda environment. After preparation,
+        calling predict or serve should be fast.
         """
         pass
 

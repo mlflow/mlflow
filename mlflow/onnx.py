@@ -196,8 +196,8 @@ def load_model(model_uri):
                       - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
 
                       For more information about supported URI schemes, see the
-                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/tracking.html#
-                      supported-artifact-stores>`_.
+                      `Artifacts Documentation <https://www.mlflow.org/docs/latest/
+                      tracking.html#artifact-stores>`_.
 
     :return: An ONNX model instance.
 
@@ -209,7 +209,7 @@ def load_model(model_uri):
 
 
 @experimental
-def log_model(onnx_model, artifact_path, conda_env=None):
+def log_model(onnx_model, artifact_path, conda_env=None, registered_model_name=None):
     """
     Log an ONNX model as an MLflow artifact for the current run.
 
@@ -232,6 +232,11 @@ def log_model(onnx_model, artifact_path, conda_env=None):
                                 'onnxruntime=0.3.0'
                             ]
                         }
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
     """
     Model.log(artifact_path=artifact_path, flavor=mlflow.onnx,
-              onnx_model=onnx_model, conda_env=conda_env)
+              onnx_model=onnx_model, conda_env=conda_env,
+              registered_model_name=registered_model_name)

@@ -16,6 +16,8 @@ import mlflow
 import mlflow.tensorflow
 import mlflow.keras
 
+import os
+
 SavedModelInfo = collections.namedtuple(
         "SavedModelInfo",
         ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"])
@@ -66,10 +68,13 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert 'epoch_loss' in data.metrics
     assert 'optimizer_name' in data.params
     assert data.params['optimizer_name'] == 'AdamOptimizer'
-    assert 'summary' in tf_keras_random_data_run.data.tags
-    assert 'Total params: 6,922' in tf_keras_random_data_run.data.tags['summary']
+    assert 'model_summary' in data.tags
+    assert 'Total params: 6,922' in data.tags['model_summary']
     all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'epoch_acc')
     assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
+    artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert 'model_summary.txt' in artifacts
 
 
 @pytest.mark.large
@@ -126,15 +131,10 @@ def tf_estimator_random_data_run():
         CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
         SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
-        train_path = tf.keras.utils.get_file(
-            "iris_training.csv", "https://storage.googleapis.com/download"
-                                 ".tensorflow.org/data/iris_training.csv")
-        test_path = tf.keras.utils.get_file(
-            "iris_test.csv", "https://storage.googleapis.com/download"
-                             ".tensorflow.org/data/iris_test.csv")
-
-        train = pd.read_csv(train_path, names=CSV_COLUMN_NAMES, header=0)
-        test = pd.read_csv(test_path, names=CSV_COLUMN_NAMES, header=0)
+        train = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_training.csv"),
+                            names=CSV_COLUMN_NAMES, header=0)
+        test = pd.read_csv(os.path.join(os.path.dirname(__file__), "iris_test.csv"),
+                           names=CSV_COLUMN_NAMES, header=0)
 
         train_y = train.pop('Species')
         test_y = test.pop('Species')
@@ -185,7 +185,7 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 
 
 @pytest.mark.large
-def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
+def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts

@@ -2,7 +2,7 @@
 The ``mlflow.sklearn`` module provides an API for logging and loading scikit-learn models. This
 module exports scikit-learn models with the following flavors:
 
-Python (native) `pickle <http://scikit-learn.org/stable/modules/model_persistence.html>`_ format
+Python (native) `pickle <https://scikit-learn.org/stable/modules/model_persistence.html>`_ format
     This is the main flavor that can be loaded back into scikit-learn.
 
 :py:mod:`mlflow.pyfunc`
@@ -66,7 +66,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
                       Conda environment yaml file. If provided, this decribes the environment
                       this model should be run in. At minimum, it should specify the dependencies
                       contained in :func:`get_default_conda_env()`. If `None`, the default
-                      :func:`get_default_conda_env()`` environment is added to the model.
+                      :func:`get_default_conda_env()` environment is added to the model.
                       The following is an *example* dictionary representation of a Conda
                       environment::
 
@@ -144,7 +144,7 @@ def save_model(sk_model, path, conda_env=None, mlflow_model=Model(),
 
 
 def log_model(sk_model, artifact_path, conda_env=None,
-              serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE):
+              serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE, registered_model_name=None):
     """
     Log a scikit-learn model as an MLflow artifact for the current run.
 
@@ -173,6 +173,10 @@ def log_model(sk_model, artifact_path, conda_env=None,
                                  format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
                                  provides better cross-system compatibility by identifying and
                                  packaging code dependencies with the serialized model.
+    :param registered_model_name: Note:: Experimental: This argument may change or be removed in a
+                                  future release without warning. If given, create a model
+                                  version under ``registered_model_name``, also creating a
+                                  registered model if one with the given name does not exist.
 
     >>> import mlflow
     >>> import mlflow.sklearn
@@ -192,7 +196,8 @@ def log_model(sk_model, artifact_path, conda_env=None,
                      flavor=mlflow.sklearn,
                      sk_model=sk_model,
                      conda_env=conda_env,
-                     serialization_format=serialization_format)
+                     serialization_format=serialization_format,
+                     registered_model_name=registered_model_name)
 
 
 def _load_model_from_local_file(path):

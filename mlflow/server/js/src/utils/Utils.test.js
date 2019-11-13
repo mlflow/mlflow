@@ -7,6 +7,11 @@ test("formatMetric", () => {
   expect(Utils.formatMetric(0.5)).toEqual("0.5");
   expect(Utils.formatMetric(0.001)).toEqual("0.001");
 
+  expect(Utils.formatMetric(0.000123445)).toEqual("1.234e-4");
+  expect(Utils.formatMetric(0.000123455)).toEqual("1.235e-4");
+  expect(Utils.formatMetric(-0.000123445)).toEqual("-1.234e-4");
+  expect(Utils.formatMetric(-0.000123455)).toEqual("-1.235e-4");
+
   expect(Utils.formatMetric(0.12345)).toEqual("0.123");
   expect(Utils.formatMetric(0.12355)).toEqual("0.124");
   expect(Utils.formatMetric(-0.12345)).toEqual("-0.123");
@@ -57,12 +62,6 @@ test("formatDuration", () => {
   expect(Utils.formatDuration(36 * 60 * 60 * 1000)).toEqual("1.5d");
   expect(Utils.formatDuration(48 * 60 * 60 * 1000)).toEqual("2.0d");
   expect(Utils.formatDuration(480 * 60 * 60 * 1000)).toEqual("20.0d");
-});
-
-test("formatUser", () => {
-  expect(Utils.formatUser("bob")).toEqual("bob");
-  expect(Utils.formatUser("bob.mcbob")).toEqual("bob.mcbob");
-  expect(Utils.formatUser("bob@example.com")).toEqual("bob");
 });
 
 test("baseName", () => {

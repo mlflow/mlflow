@@ -12,9 +12,31 @@ option (scalapb.options) = {
 };
 
 service MlflowService {
+
+
+  // Get metadata for an experiment.
+  //
+  // This endpoint will return deleted experiments, but prefers the active experiment
+  // if an active and deleted experiment share the same name. If multiple deleted
+  // experiments share the same name, the API will return one of them.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if no experiment with the specified name exists.
+  //
+  rpc getExperimentByName (GetExperimentByName) returns (GetExperimentByName.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/experiments/get-by-name",
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Experiment By Name",
+    };
+  }
+
   // Create an experiment with a name. Returns the ID of the newly created experiment.
-  // Validates that another experiment with the same name does not already exist and fails if
-  // another experiment with the same name already exists.
+  // Validates that another experiment with the same name does not already exist and fails
+  // if another experiment with the same name already exists.
   //
   //
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a experiment with the given name exists.
@@ -53,8 +75,7 @@ service MlflowService {
     };
   }
 
-  // Get metadata for an experiment and a list of runs for the experiment.
-  // This method works on deleted experiments.
+  // Get metadata for an experiment. This method works on deleted experiments.
   rpc getExperiment (GetExperiment) returns (GetExperiment.Response) {
     option (rpc) = {
       endpoints: [{
@@ -243,6 +264,25 @@ service MlflowService {
 
       visibility: PUBLIC,
       rpc_doc_title: "Log Param",
+    };
+  }
+
+  // Set a tag on an experiment. Experiment tags are metadata that can be updated.
+  //
+  rpc setExperimentTag(SetExperimentTag) returns (SetExperimentTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/experiments/set-experiment-tag"
+        since { major: 2, minor: 0 },
+      }, {
+        method: "POST",
+        path: "/preview/mlflow/experiments/set-experiment-tag"
+        since { major: 2, minor: 0 },
+      }],
+
+      visibility: PUBLIC,
+      rpc_doc_title: "Set Experiment Tag",
     };
   }
 
@@ -532,6 +572,14 @@ message RunTag {
   optional string value = 2;
 }
 
+// Tag for an experiment.
+message ExperimentTag {
+  // The tag key.
+  optional string key = 1;
+  // The tag value.
+  optional string value = 2;
+}
+
 // Metadata of a single run.
 message RunInfo {
   // Unique identifier for the run.
@@ -588,6 +636,9 @@ message Experiment {
 
   // Creation time
   optional int64 creation_time = 6;
+
+  // Tags: Additional metadata key-value pairs.
+  repeated ExperimentTag tags = 7;
 }
 
 message CreateExperiment {
@@ -780,6 +831,24 @@ message LogParam {
   }
 }
 
+message SetExperimentTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the experiment under which to log the tag. Must be provided.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 2 [(validate_required) = true];
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
+  optional string value = 3 [(validate_required) = true];
+
+  message Response {
+  }
+}
+
 message SetTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -790,10 +859,12 @@ message SetTag {
   // be removed in a future MLflow version.
   optional string run_uuid = 1;
 
-  // Name of the tag. Maximum size is 255 bytes.
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
   optional string key = 2 [(validate_required) = true];
 
-  // String value of the tag being logged. Maximum size is 5000 bytes.
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 5000 bytes in size.
   optional string value = 3 [(validate_required) = true];
 
   message Response {
@@ -937,5 +1008,17 @@ message LogBatch {
   // metrics, params, and tags in total.
   repeated RunTag tags = 4;
   message Response {
+  }
+}
+
+message GetExperimentByName {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the associated experiment.
+  optional string experiment_name = 1 [(validate_required) = true];
+
+  message Response {
+    // Experiment details.
+    optional Experiment experiment = 1;
   }
 }

@@ -2,7 +2,13 @@ import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { connect } from 'react-redux';
 import './ExperimentView.css';
-import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
+import {
+  getExperiment,
+  getParams,
+  getRunInfo,
+  getRunTags,
+  getExperimentTags } from '../reducers/Reducers';
+import { setExperimentTagApi, getUUID } from '../Actions';
 import { withRouter } from 'react-router-dom';
 import Routes from '../Routes';
 import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
@@ -10,22 +16,23 @@ import { Experiment, RunInfo } from '../sdk/MlflowMessages';
 import { saveAs } from 'file-saver';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import KeyFilter from '../utils/KeyFilter';
-
 import ExperimentRunsTableCompactView from "./ExperimentRunsTableCompactView";
 import { LIFECYCLE_FILTER } from './ExperimentPage';
 import ExperimentViewUtil from './ExperimentViewUtil';
 import DeleteRunModal from './modals/DeleteRunModal';
 import RestoreRunModal from './modals/RestoreRunModal';
-
+import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import LocalStorageUtils from "../utils/LocalStorageUtils";
 import { ExperimentViewPersistedState } from "../sdk/MlflowLocalStorageMessages";
-import { Icon, Popover } from 'antd';
+import { Icon, Popover, Descriptions } from 'antd';
+import { CollapsibleSection } from '../common/components/CollapsibleSection';
+import { EditableNote } from '../common/components/EditableNote';
+
 
 import Utils from '../utils/Utils';
-import {Spinner} from "./Spinner";
+import { Spinner } from "./Spinner";
 
 export const DEFAULT_EXPANDED_VALUE = false;
-
 
 export class ExperimentView extends Component {
   constructor(props) {
@@ -51,11 +58,16 @@ export class ExperimentView extends Component {
     this.onExpand = this.onExpand.bind(this);
     this.addBagged = this.addBagged.bind(this);
     this.removeBagged = this.removeBagged.bind(this);
+    this.renderNoteSection = this.renderNoteSection.bind(this);
+    this.handleSubmitEditNote = this.handleSubmitEditNote.bind(this);
+    this.handleCancelEditNote = this.handleCancelEditNote.bind(this);
     const store = ExperimentView.getLocalStore(this.props.experiment.experiment_id);
     const persistedState = new ExperimentViewPersistedState(store.loadComponentState());
     this.state = {
       ...ExperimentView.getDefaultUnpersistedState(),
       persistedState: persistedState.toJSON(),
+      showNotesEditor: false,
+      showNotes: true,
     };
   }
 
@@ -76,6 +88,8 @@ export class ExperimentView extends Component {
     metricsList: PropTypes.arrayOf(Array).isRequired,
     // List of tags dictionary in all the visible runs.
     tagsList: PropTypes.arrayOf(Object).isRequired,
+    // Object of experiment tags
+    experimentTags: PropTypes.instanceOf(Object).isRequired,
 
     // Input to the paramKeyFilter field
     paramKeyFilter: PropTypes.instanceOf(KeyFilter).isRequired,
@@ -96,6 +110,7 @@ export class ExperimentView extends Component {
     nextPageToken: PropTypes.string,
     handleLoadMoreRuns: PropTypes.func.isRequired,
     loadingMore: PropTypes.bool.isRequired,
+    setExperimentTagApi: PropTypes.func.isRequired,
   };
 
   /** Returns default values for state attributes that aren't persisted in local storage. */
@@ -247,8 +262,45 @@ export class ExperimentView extends Component {
       });
   }
 
+  handleSubmitEditNote(note) {
+    const { experiment_id } = this.props.experiment;
+    this.props
+      .setExperimentTagApi(experiment_id, NOTE_CONTENT_TAG, note, getUUID())
+      .then(() => this.setState({ showNotesEditor: false }));
+  }
+
+  handleCancelEditNote() {
+    this.setState({showNotesEditor: false});
+  }
+
+  startEditingDescription = (e) => {
+    e.stopPropagation();
+    this.setState({ showNotesEditor: true });
+  };
+
+  renderNoteSection(noteInfo) {
+    const { showNotesEditor } = this.state;
+
+    const editIcon = <a onClick={this.startEditingDescription}><Icon type='form' /></a>;
+
+    return (
+      <CollapsibleSection
+        title={<span>Notes {showNotesEditor ? null : editIcon}</span>}
+        forceOpen={showNotesEditor}
+      >
+        <EditableNote
+          defaultMarkdown={noteInfo && noteInfo.content}
+          onSubmit={this.handleSubmitEditNote}
+          onCancel={this.handleCancelEditNote}
+          showEditor={showNotesEditor}
+        />
+      </CollapsibleSection>
+    );
+  }
+
   render() {
     const { experiment_id, name, artifact_location } = this.props.experiment;
+    const { experimentTags } = this.props;
     const {
       runInfos,
       paramKeyFilter,
@@ -269,6 +321,7 @@ export class ExperimentView extends Component {
     const compareDisabled = Object.keys(this.state.runsSelected).length < 2;
     const deleteDisabled = Object.keys(this.state.runsSelected).length < 1;
     const restoreDisabled = Object.keys(this.state.runsSelected).length < 1;
+    const noteInfo = NoteInfo.fromTags(experimentTags);
     const searchInputHelpTooltipContent = (
       <div className="search-input-tooltip-content">
         Search runs using a simplified version of the SQL <b>WHERE</b> clause.<br/>
@@ -294,15 +347,12 @@ export class ExperimentView extends Component {
           selectedRunIds={Object.keys(this.state.runsSelected)}
         />
         <h1>{name}</h1>
-        <div className="metadata">
-          <span className="metadata">
-            <span className="metadata-header">Experiment ID:</span>
-            {experiment_id}
-          </span>
-          <span className="metadata">
-            <span className="metadata-header">Artifact Location:</span>
-            {artifact_location}
-          </span>
+        <Descriptions className='metadata-list'>
+          <Descriptions.Item label='Experiment ID'>{experiment_id}</Descriptions.Item>
+          <Descriptions.Item label='Artifact Location'>{artifact_location}</Descriptions.Item>
+        </Descriptions>
+        <div className="ExperimentView-info">
+          {this.renderNoteSection(noteInfo)}
         </div>
         <div className="ExperimentView-runs runs-table-flex-container">
           {this.props.searchRunsError ?
@@ -328,7 +378,8 @@ export class ExperimentView extends Component {
                     <input
                       className="ExperimentView-searchInput"
                       type="text"
-                      placeholder={'metrics.rmse < 1 and params.model = "tree"'}
+                      placeholder={'metrics.rmse < 1 and params.model = "tree" and ' +
+                                   'tags.mlflow.source.type = "LOCAL"'}
                       value={this.state.searchInput}
                       onChange={this.onSearchInput}
                     />
@@ -751,6 +802,7 @@ export const mapStateToProps = (state, ownProps) => {
   });
 
   const tagsList = runInfos.map((runInfo) => getRunTags(runInfo.getRunUuid(), state));
+  const experimentTags = getExperimentTags(experiment.experiment_id, state);
   return {
     runInfos,
     experiment,
@@ -759,7 +811,12 @@ export const mapStateToProps = (state, ownProps) => {
     metricsList,
     paramsList,
     tagsList,
+    experimentTags,
   };
+};
+
+const mapDispatchToProps = {
+  setExperimentTagApi,
 };
 
 const styles = {
@@ -771,4 +828,4 @@ const styles = {
   },
 };
 
-export default withRouter(connect(mapStateToProps)(ExperimentView));
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(ExperimentView));

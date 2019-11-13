@@ -53,6 +53,7 @@ a:hover, a:focus {
   height: 60px;
   color: white;
   display: block;
+  margin-bottom: 24px;
 }
 
 .App-header-text {
@@ -100,7 +101,6 @@ div.header-links {
 }
 
 h1 {
-  margin-top: 24px;
   font-size: 18px;
   margin-bottom: 24px;
   font-weight: bold;

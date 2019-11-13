@@ -45,7 +45,7 @@ To run this tutorial, you'll need to:
 
        - Install `conda <https://conda.io/projects/conda/en/latest/user-guide/install/index.html>`_
        - Install the MLflow package (via ``install.packages("mlflow")``)
-       - Install MLflow (via ``mlflow::mlflow_install()``)
+       - Install MLflow (via ``mlflow::install_mlflow()``)
        - Clone (download) the MLflow repository via ``git clone https://github.com/mlflow/mlflow``
        - ``setwd()`` into the ``examples`` directory within your clone of MLflow - we'll use this
          working directory for running the tutorial. We avoid running directly from our clone of
@@ -133,7 +133,7 @@ as the one that contains the ``mlruns`` run:
 
         mlflow_ui()
 
-and view it at `<http://localhost:5000>`_.
+and view it at http://localhost:5000.
 
 On this page, you can see a list of experiment runs with metrics you can use to compare the models.
 
