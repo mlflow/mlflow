@@ -708,25 +708,22 @@ def _get_orderby_clauses(order_by_list, session):
 
     clauses = []
     ordering_joins = []
-
+    clause_id = 0
     # contrary to filters, it is not easily feasible to separately handle sorting
     # on attributes and on joined tables as we must keep all clauses in the same order
     if order_by_list:
         for order_by_clause in order_by_list:
+            clause_id += 1
             (key_type, key, ascending) = SearchUtils.parse_order_by(order_by_clause)
             if SearchUtils.is_attribute(key_type, '='):
                 order_value = getattr(SqlRun, SqlRun.get_attribute_name(key))
             else:
                 if SearchUtils.is_metric(key_type, '='):  # any valid comparator
                     entity = SqlLatestMetric
-                    value_label = "latest_metrics_value"
-                    is_nan_value = "latest_metrics_is_nan"
                 elif SearchUtils.is_tag(key_type, '='):
                     entity = SqlTag
-                    value_label = "tags_value"
                 elif SearchUtils.is_param(key_type, '='):
                     entity = SqlParam
-                    value_label = "params_value"
                 else:
                     raise MlflowException("Invalid identifier type '%s'" % key_type,
                                           error_code=INVALID_PARAMETER_VALUE)
@@ -736,20 +733,20 @@ def _get_orderby_clauses(order_by_list, session):
                 subquery = session \
                     .query(entity) \
                     .filter(entity.key == key) \
-                    .subquery(with_labels=True)
+                    .subquery()
 
                 ordering_joins.append(subquery)
-                order_value = getattr(subquery.c, value_label)
+                order_value = subquery.c.value
 
             # sqlite does not support NULLS LAST expression, so we sort first by
             # presence of the field (and is_nan for metrics), then by actual value
             if SearchUtils.is_metric(key_type, '='):
                 clauses.append(sql.case([
-                    (getattr(subquery.c, is_nan_value).is_(True), 1),
+                    (subquery.c.is_nan.is_(True), 1),
                     (order_value.is_(None), 1)
-                ], else_=0))
+                ], else_=0).label(f'clause_{clause_id}'))
             else:  # other entities do not have an 'is_nan' field
-                clauses.append(sql.case([(order_value.is_(None), 1)], else_=0))
+                clauses.append(sql.case([(order_value.is_(None), 1)], else_=0).label(f'clause_{clause_id}'))
 
             if ascending:
                 clauses.append(order_value)

@@ -810,6 +810,10 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
                          ["1", "2", "3", "4", "5", "6", "7"]):
             create_and_log_run(names)
 
+        import logging
+        logging.basicConfig()
+        #logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
+
         # asc/asc
         self.assertListEqual(["-inf/3", "-1000/4", "0/5", "0/6", "1000/7", "inf/2", "nan/1"],
                              self.get_ordered_runs(["metrics.x asc", "metrics.y asc"],
@@ -1358,18 +1362,18 @@ class TestSqlAlchemyStoreSqlite(unittest.TestCase):
         This JSON dump can be replicated by installing MLflow version 1.2.0 and executing the
         following code from the directory containing this test suite:
 
-        >>> import json
-        >>> import mlflow
-        >>> from mlflow.tracking.client import MlflowClient
-        >>> mlflow.set_tracking_uri(
-        ...     "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql")
-        >>> client = MlflowClient()
-        >>> summary_metrics = {
-        ...     run.info.run_id: run.data.metrics for run
-        ...     in client.search_runs(experiment_ids="0")
-        ... }
-        >>> with open("dump.json", "w") as dump_file:
-        >>>     json.dump(summary_metrics, dump_file, indent=4)
+        # >>> import json
+        # >>> import mlflow
+        # >>> from mlflow.tracking.client import MlflowClient
+        # >>> mlflow.set_tracking_uri(
+        # ...     "sqlite:///../../resources/db/db_version_7ac759974ad8_with_metrics.sql")
+        # >>> client = MlflowClient()
+        # >>> summary_metrics = {
+        # ...     run.info.run_id: run.data.metrics for run
+        # ...     in client.search_runs(experiment_ids="0")
+        # ... }
+        # >>> with open("dump.json", "w") as dump_file:
+        # >>>     json.dump(summary_metrics, dump_file, indent=4)
         """
         current_dir = os.path.dirname(os.path.abspath(__file__))
         db_resources_path = os.path.normpath(
