@@ -1,40 +1,25 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { Alert, Button, ButtonToolbar} from 'react-bootstrap';
+import { Tooltip } from 'antd';
 import { Prompt } from 'react-router';
-import ReactMde from 'react-mde';
+import ReactMde, { SvgIcon } from 'react-mde';
 import { getConverter, sanitizeConvertedHtml } from "../utils/MarkdownUtils";
 import PropTypes from 'prop-types';
 import { setTagApi, setExperimentTagApi, getUUID } from '../Actions';
-import { NoteInfo, NOTE_CONTENT_TAG } from "../utils/NoteUtils";
+import { NOTE_CONTENT_TAG } from "../utils/NoteUtils";
 import 'react-mde/lib/styles/css/react-mde-all.css';
 import './NoteEditorView.css';
 
 class NoteEditorView extends Component {
-  constructor(props) {
-    super(props);
-    this.converter = getConverter();
-    this.handleMdeValueChange = this.handleMdeValueChange.bind(this);
-    this.handleSubmitClick = this.handleSubmitClick.bind(this);
-    this.handleCancelClick = this.handleCancelClick.bind(this);
-    this.handleErrorAlertDismissed = this.handleErrorAlertDismissed.bind(this);
-    this.renderButtonToolbar = this.renderButtonToolbar.bind(this);
-    this.uneditedContent = this.getUneditedContent();
-    this.state = {
-      mdeState: {
-        markdown: this.uneditedContent,
-      },
-      mdSource: this.uneditedContent
-    };
-  }
-
   state = {
-    mdeState: undefined,
-    mdSource: undefined,
+    markdown: this.props.defaultMarkdown,
+    selectedTab: this.props.defaultSelectedTab,
     error: undefined,
     errorAlertDismissed: false,
     isSubmitting: false,
   };
+  converter = getConverter();
 
   static propTypes = {
     runUuid: PropTypes.string,
@@ -43,23 +28,25 @@ class NoteEditorView extends Component {
     submitCallback: PropTypes.func.isRequired,
     cancelCallback: PropTypes.func.isRequired,
     dispatch: PropTypes.func.isRequired,
-    noteInfo: PropTypes.instanceOf(NoteInfo),
+    defaultMarkdown: PropTypes.string,
+    defaultSelectedTab: PropTypes.string,
   };
 
-  getUneditedContent() {
-    return this.props.noteInfo === undefined ? '' : this.props.noteInfo.content;
+  static defaultProps = {
+    defaultMarkdown: '',
+    defaultSelectedTab: 'write',
   }
 
-  handleMdeValueChange(mdeState) {
-    this.setState({ mdeState: mdeState, mdSource: mdeState.markdown });
+  handleMdeValueChange = (markdown) => {
+    this.setState({ markdown });
   }
 
-  handleSubmitClick() {
+  handleSubmitClick = () => {
     this.setState({ isSubmitting: true });
-    const submittedContent = this.state.mdSource;
+    const submittedContent = this.state.markdown;
     const setTagRequestId = getUUID();
-    let id = '';
-    let tagApiCall = '';
+    let id;
+    let tagApiCall;
     if (this.props.type === "experiment") {
       id = this.props.experimentId;
       tagApiCall = setExperimentTagApi;
@@ -77,22 +64,27 @@ class NoteEditorView extends Component {
       }).catch((err) => {
         this.setState({ isSubmitting: false, error: err, errorAlertDismissed: false });
         this.props.submitCallback(err);
-      });
+      }
+    );
   }
 
-  handleCancelClick() {
+  handleCancelClick = () => {
     this.props.cancelCallback();
   }
 
-  handleErrorAlertDismissed() {
+  handleTabChange = (selectedTab) => {
+    this.setState({ selectedTab });
+  }
+
+  handleErrorAlertDismissed = () => {
     this.setState({ errorAlertDismissed: true });
   }
 
-  contentHasChanged() {
-    return this.state.mdSource !== this.uneditedContent;
+  contentHasChanged = () => {
+    return this.state.markdown !== this.props.defaultMarkdown;
   }
 
-  renderButtonToolbar() {
+  renderButtonToolbar = () => {
     const canSubmit = this.contentHasChanged() && !this.state.loading && !this.state.isSubmitting;
     return (
       <div className="note-editor-button-area">
@@ -107,11 +99,13 @@ class NoteEditorView extends Component {
           null
         }
         <ButtonToolbar>
-          <Button className="mlflow-form-button mlflow-save-button"
-                  bsStyle="primary"
-                  type="submit"
-                  onClick={this.handleSubmitClick}
-                  {...(canSubmit ? {} : {disabled: true})}>
+          <Button
+            className="mlflow-form-button mlflow-save-button"
+            bsStyle="primary"
+            type="submit"
+            onClick={this.handleSubmitClick}
+            disabled={!canSubmit}
+          >
             Save
           </Button>
           <Button className="mlflow-form-button" onClick={this.handleCancelClick}>
@@ -122,16 +116,28 @@ class NoteEditorView extends Component {
     );
   }
 
+  getSanitizedHtmlContent = () => {
+    const { markdown } = this.state;
+    return markdown
+      ? sanitizeConvertedHtml(this.converter.makeHtml(markdown))
+      : null;
+  }
+
   render() {
+    const { markdown, selectedTab } = this.state;
+
     return (
       <div className="note-view-outer-container">
         <div className="note-view-text-area">
           <ReactMde
-            layout="tabbed"
+            value={markdown}
             onChange={this.handleMdeValueChange}
-            editorState={this.state.mdeState}
-            generateMarkdownPreview={markdown =>
-              Promise.resolve(sanitizeConvertedHtml(this.converter.makeHtml(markdown)))}
+            selectedTab={selectedTab}
+            onTabChange={this.handleTabChange}
+            generateMarkdownPreview={() =>
+              Promise.resolve(this.getSanitizedHtmlContent())
+            }
+            getIcon={(name) => <TooltipIcon name={name} />}
           />
         </div>
         <this.renderButtonToolbar/>
@@ -143,6 +149,19 @@ class NoteEditorView extends Component {
     );
   }
 }
+
+function TooltipIcon(props) {
+  const { name } = props;
+  return (
+    <Tooltip position="top" title={name}>
+      <span>
+        <SvgIcon icon={name} />
+      </span>
+    </Tooltip>
+  );
+}
+
+TooltipIcon.propTypes = { name: PropTypes.string };
 
 // eslint-disable-next-line no-unused-vars
 const mapDispatchToProps = (dispatch, ownProps) => {
