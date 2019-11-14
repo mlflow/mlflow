@@ -11,11 +11,19 @@ from tests.projects.utils import tracking_uri_mock
 
 EXAMPLES_DIR = 'examples'
 
+
 @pytest.mark.parametrize("directory, params", [
     ('sklearn_logistic_regression', []),
-    ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
-    (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
+    ('sklearn_elasticnet_wine', ['-P', 'alpha=0.5']),
     ('h2o', []),
+])
+def test_mlflow_run_example(tracking_uri_mock, directory, params):
+    cli_run_list = [os.path.join(EXAMPLES_DIR, directory)] + params
+    invoke_cli_runner(cli.run, cli_run_list)
+
+
+@pytest.mark.parametrize("directory, params", [
+    (os.path.join("sklearn_elasticnet_diabetes", "linux"), []),
 ])
 @pytest.mark.large
 def test_mlflow_run_example(tracking_uri_mock, directory, params):
