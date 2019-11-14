@@ -256,13 +256,13 @@ class Utils {
       marginRight: '2px',
     };
     if (sourceType === "NOTEBOOK") {
-      return <img title="Notebook" style={imageStyle} src={notebookSvg} />;
+      return <img alt="" title="Notebook" style={imageStyle} src={notebookSvg} />;
     } else if (sourceType === "LOCAL") {
-      return <img title="Local Source" style={imageStyle} src={laptopSvg} />;
+      return <img alt="" title="Local Source" style={imageStyle} src={laptopSvg} />;
     } else if (sourceType === "PROJECT") {
-      return <img title="Project" style={imageStyle} src={projectSvg} />;
+      return <img alt="" title="Project" style={imageStyle} src={projectSvg} />;
     }
-    return <img style={imageStyle} src={emptySvg} />;
+    return <img alt="" style={imageStyle} src={emptySvg} />;
   }
 
   /**
