@@ -11,7 +11,7 @@ from tests.projects.utils import tracking_uri_mock
 
 EXAMPLES_DIR = 'examples'
 
-
+@pytest.mark.large
 @pytest.mark.parametrize("directory, params", [
     ('sklearn_logistic_regression', []),
     ("sklearn_elasticnet_wine", ["-P", "alpha=0.5"]),
