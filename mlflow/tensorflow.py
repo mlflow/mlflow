@@ -705,6 +705,7 @@ def autolog(every_n_iter=100):
         if _AUTO_END_RUN:
             mlflow.end_run()
         _AUTO_END_RUN = False
+
         return result
 
     @gorilla.patch(tensorflow.keras.Model)
@@ -733,6 +734,7 @@ def autolog(every_n_iter=100):
         if _AUTO_END_RUN:
             mlflow.end_run()
         _AUTO_END_RUN = False
+
         return result
 
     @gorilla.patch(EventFileWriter)
