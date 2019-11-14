@@ -62,7 +62,8 @@ def create_tf_keras_model():
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels, fit_variant):
+def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_hot_labels,
+                                                fit_variant):
     mlflow.tensorflow.autolog()
 
     data = random_train_data
@@ -83,7 +84,8 @@ def test_tf_keras_autolog_ends_auto_created_run(random_train_data, random_one_ho
 
 @pytest.mark.large
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
-def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels, fit_variant):
+def test_tf_keras_autolog_persists_manually_created_run(random_train_data, random_one_hot_labels,
+                                                        fit_variant):
     mlflow.tensorflow.autolog()
     with mlflow.start_run() as run:
         data = random_train_data
