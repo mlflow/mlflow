@@ -170,7 +170,7 @@ def test_that_keras_module_arg_works(model_path):
         mlflow.keras.save_model(x, path1, keras_module=FakeKerasModule.__name__)
         z = mlflow.keras.load_model(path1)
         assert x == z
-        # Tets model log
+        # Tests model log
         with mlflow.start_run() as active_run:
             with pytest.raises(MlflowException):
                 mlflow.keras.log_model(x, "model0")
@@ -198,7 +198,7 @@ def test_model_save_load(build_model, model_path, data):
     assert type(keras_model) == type(model_loaded)
     assert all(expected == model_loaded.predict(x))
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert all(pyfunc_loaded.predict(x).values == expected)
 
     # pyfunc serve
@@ -206,14 +206,16 @@ def test_model_save_load(build_model, model_path, data):
         model_uri=os.path.abspath(model_path),
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
-    assert all(pd.read_json(scoring_response.content, orient="records").values.astype(np.float32)
+    print(scoring_response.content)
+    assert all(pd.read_json(scoring_response.content, orient="records",
+                            encoding="utf8").values.astype(np.float32)
                == expected)
     # test spark udf
     spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
                                          pandas_df=pd.DataFrame(x),
                                          result_type="float")
-    np.testing.assert_array_almost_equal(
-        np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)), decimal=4)
+    np.allclose(
+        np.array(spark_udf_preds), expected.reshape(len(spark_udf_preds)))
 
 
 @pytest.mark.large
@@ -231,24 +233,28 @@ def test_custom_model_save_load(custom_model, custom_layer, data, custom_predict
         data=pd.DataFrame(x),
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON_SPLIT_ORIENTED)
     assert np.allclose(
-        pd.read_json(scoring_response.content, orient="records").values.astype(np.float32),
+        pd.read_json(scoring_response.content, orient="records",
+                     encoding="utf8").values.astype(np.float32),
         custom_predicted,
         rtol=1e-5,
         atol=1e-9)
     # Loading pyfunc model
-    pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_path)
+    pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     assert all(pyfunc_loaded.predict(x).values == custom_predicted)
     # test spark udf
     spark_udf_preds = score_model_as_udf(model_uri=os.path.abspath(model_path),
                                          pandas_df=pd.DataFrame(x),
                                          result_type="float")
-    np.testing.assert_array_almost_equal(
-        np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)), decimal=4)
+    np.allclose(
+        np.array(spark_udf_preds), custom_predicted.reshape(len(spark_udf_preds)))
 
 
 def test_custom_model_save_respects_user_custom_objects(custom_model, custom_layer, model_path):
     class DifferentCustomLayer():
         def __init__(self):
+            pass
+
+        def __call__(self):
             pass
 
     incorrect_custom_objects = {'MyDense': DifferentCustomLayer()}
@@ -294,10 +300,29 @@ def test_model_log(tracking_uri_mock, model, data, predicted):  # pylint: disabl
             assert all(model_loaded.predict(x) == predicted)
 
             # Loading pyfunc model
-            pyfunc_loaded = mlflow.pyfunc.load_pyfunc(model_uri=model_uri)
+            pyfunc_loaded = mlflow.pyfunc.load_model(model_uri=model_uri)
             assert all(pyfunc_loaded.predict(x).values == predicted)
         finally:
             mlflow.end_run()
+
+
+def test_log_model_calls_register_model(tracking_uri_mock, model):
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.keras.log_model(model, artifact_path=artifact_path,
+                               registered_model_name="AdsModel1")
+        model_uri = "runs:/{run_id}/{artifact_path}".format(run_id=mlflow.active_run().info.run_id,
+                                                            artifact_path=artifact_path)
+        mlflow.register_model.assert_called_once_with(model_uri, "AdsModel1")
+
+
+def test_log_model_no_registered_model_name(tracking_uri_mock, model):
+    artifact_path = "model"
+    register_model_patch = mock.patch("mlflow.register_model")
+    with mlflow.start_run(), register_model_patch:
+        mlflow.keras.log_model(model, artifact_path=artifact_path)
+        mlflow.register_model.assert_not_called()
 
 
 @pytest.mark.large

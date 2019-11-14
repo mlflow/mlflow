@@ -57,7 +57,7 @@ matrix:
       script:
         - cd mlflow/server/js
         - npm i
-        - ./lint.sh
+        - npm run lint
         - npm test -- --coverage
     - stage: large
     - language: python
@@ -72,7 +72,7 @@ matrix:
       name: "Windows"
       language: sh
       before_install:
-        - cinst -y python3
+        - choco install python3 --version=3.7.4
       install:
         - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
         - pip install -r dev-requirements.txt
@@ -88,6 +88,15 @@ matrix:
         - INSTALL_SMALL_PYTHON_DEPS=true source ./travis/install-common-deps.sh
       script:
         - ./travis/run-small-python-tests.sh
+    - language: python
+      python: 3.6
+      name: "Docs (rsthtml)"
+      install:
+        - INSTALL_SMALL_PYTHON_DEPS=true INSTALL_LARGE_PYTHON_DEPS=true source ./travis/install-common-deps.sh
+        - pip install sphinx==2.2.1 sphinx-click==2.3.0
+      script:
+        - cd docs
+        - make rsthtml SPHINXOPTS="-W --keep-going" # Interpret Sphinx warnings as errors via the `-W` flag
 
 # Travis runs an extra top-level job for each build stage - depending on the build stage, we either
 # run small or large Python tests below.
@@ -110,6 +119,7 @@ script:
       ./travis/run-small-python-tests.sh && ./test-generate-protos.sh;
     else
       ./travis/run-large-python-tests.sh;
+      ./travis/test-anaconda-compatibility.sh;
     fi
 
 notifications:

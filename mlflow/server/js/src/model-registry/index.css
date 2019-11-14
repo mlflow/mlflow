@@ -1,0 +1,31 @@
+@import 'components/ModelView.css';
+@import 'components/ModelVersionTable.css';
+@import 'components/ModelVersionView.css';
+@import 'components/ModelStageTransitionDropdown.css';
+@import 'overrides/style-overrides.css';
+
+/** TODO(Zangr) migrate globally common components and styles into src/common folder */
+.metadata-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.metadata-entry {
+  margin-bottom: 16px;
+}
+
+.breadcrumb-caret {
+  font-size: 11px;
+  vertical-align: 4px;
+  padding-left: 5px;
+  cursor: pointer;
+}
+
+.icon-pending, .icon-ready {
+  color: green;
+}
+
+.icon-fail {
+  color: red;
+}

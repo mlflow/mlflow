@@ -126,6 +126,7 @@ def pyfunc_serve_and_score_model(
     """
     env = dict(os.environ)
     env.update(LC_ALL="en_US.UTF-8", LANG="en_US.UTF-8")
+    env.update(MLFLOW_TRACKING_URI=mlflow.get_tracking_uri())
     port = get_safe_port()
     scoring_cmd = ['mlflow', 'models', 'serve', '-m', model_uri, "-p", str(port)]
     if extra_args is not None:

@@ -5,6 +5,7 @@ import keras.layers as layers
 
 import mlflow
 import mlflow.keras
+from distutils.version import LooseVersion
 
 client = mlflow.tracking.MlflowClient()
 
@@ -59,14 +60,17 @@ def keras_random_data_run(random_train_data, fit_variant):
 @pytest.mark.parametrize('fit_variant', ['fit', 'fit_generator'])
 def test_keras_autolog_logs_expected_data(keras_random_data_run):
     data = keras_random_data_run.data
-    assert 'acc' in data.metrics
+    assert 'accuracy' in data.metrics
     assert 'loss' in data.metrics
     assert 'optimizer_name' in data.params
     assert data.params['optimizer_name'] == 'Adam'
     assert 'epsilon' in data.params
     assert data.params['epsilon'] == '1e-07'
-    assert 'summary' in keras_random_data_run.data.tags
-    assert 'Total params: 6,922' in keras_random_data_run.data.tags['summary']
+    assert 'model_summary' in data.tags
+    assert 'Total params: 6,922' in data.tags['model_summary']
+    artifacts = client.list_artifacts(keras_random_data_run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert 'model_summary.txt' in artifacts
 
 
 @pytest.mark.large

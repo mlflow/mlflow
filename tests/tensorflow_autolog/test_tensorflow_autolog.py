@@ -68,10 +68,13 @@ def test_tf_keras_autolog_logs_expected_data(tf_keras_random_data_run):
     assert 'epoch_loss' in data.metrics
     assert 'optimizer_name' in data.params
     assert data.params['optimizer_name'] == 'AdamOptimizer'
-    assert 'summary' in tf_keras_random_data_run.data.tags
-    assert 'Total params: 6,922' in tf_keras_random_data_run.data.tags['summary']
+    assert 'model_summary' in data.tags
+    assert 'Total params: 6,922' in data.tags['model_summary']
     all_epoch_acc = client.get_metric_history(tf_keras_random_data_run.info.run_id, 'epoch_acc')
     assert all((x.step - 1) % 5 == 0 for x in all_epoch_acc)
+    artifacts = client.list_artifacts(tf_keras_random_data_run.info.run_id)
+    artifacts = map(lambda x: x.path, artifacts)
+    assert 'model_summary.txt' in artifacts
 
 
 @pytest.mark.large
@@ -182,7 +185,7 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 
 
 @pytest.mark.large
-def test_tf_keras_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
+def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
     assert 'model' in artifacts
