@@ -411,8 +411,7 @@ default location to store artifacts for all runs in this experiment. Additional,
 is a property on :py:class:`mlflow.entities.RunInfo` to indicate location where all artifacts for
 this run are stored.
 
-Use ``--default-artifact-root`` (defaults to client's local ``./mlruns`` directory) to configure the default
-artifact location for the server's future experiments. This will be used as artifact location for newly-created
+Use ``--default-artifact-root`` (defaults to client's local ``./mlruns`` directory) to configure the default artifact location for the server. This will be used as artifact location for newly-created
 experiments that do not specify one. Once you create an experiment, ``--default-artifact-root``
 is no longer relevant to that experiment.
 
