@@ -658,7 +658,39 @@ def autolog(every_n_iter=100):
         return
 
     @gorilla.patch(tensorflow.estimator.Estimator)
+    def train(self, *args, **kwargs):
+        global _AUTO_END_RUN
+        if not mlflow.active_run():
+            mlflow.start_run()
+            _AUTO_END_RUN = True
+
+        original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, 'train')
+
+        # Checking step and max_step parameters for logging
+        if len(args) >= 3:
+            try_mlflow_log(mlflow.log_param, 'steps', args[2])
+            if len(args) >= 4:
+                try_mlflow_log(mlflow.log_param, 'max_steps', args[3])
+        if 'steps' in kwargs:
+            try_mlflow_log(mlflow.log_param, 'steps', kwargs['steps'])
+        if 'max_steps' in kwargs:
+            try_mlflow_log(mlflow.log_param, 'max_steps', kwargs['max_steps'])
+
+        result = original(self, *args, **kwargs)
+        
+        if _AUTO_END_RUN:
+            mlflow.end_run()
+        _AUTO_END_RUN = False
+
+        return result
+
+
+    @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):
+        global _AUTO_END_RUN
+        if not mlflow.active_run():
+            mlflow.start_run()
+            _AUTO_END_RUN = True
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_saved_model')
         serialized = original(self, *args, **kwargs)
@@ -666,10 +698,17 @@ def autolog(every_n_iter=100):
                        tf_meta_graph_tags=[tag_constants.SERVING],
                        tf_signature_def_key='predict',
                        artifact_path='model')
+        if _AUTO_END_RUN:
+            mlflow.end_run()
+        _AUTO_END_RUN = False
         return serialized
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_savedmodel(self, *args, **kwargs):
+        global _AUTO_END_RUN
+        if not mlflow.active_run():
+            mlflow.start_run()
+            _AUTO_END_RUN = True
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
         serialized = original(self, *args, **kwargs)
@@ -677,6 +716,9 @@ def autolog(every_n_iter=100):
                        tf_meta_graph_tags=[tag_constants.SERVING],
                        tf_signature_def_key='predict',
                        artifact_path='model')
+        if _AUTO_END_RUN:
+            mlflow.end_run()
+        _AUTO_END_RUN = False
         return serialized
 
     @gorilla.patch(tensorflow.keras.Model)
