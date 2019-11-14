@@ -6,7 +6,6 @@ from flask import Flask, send_from_directory
 
 from mlflow.server import handlers
 from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix
-from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 from mlflow.utils.process import exec_cmd
 
 # NB: These are intenrnal environment variables used for communication between
@@ -25,6 +24,7 @@ for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
 if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
+    from mlflow.server.prometheus_exporter import activate_prometheus_exporter
     activate_prometheus_exporter(app)
 
 
