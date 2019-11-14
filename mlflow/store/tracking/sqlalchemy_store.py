@@ -740,14 +740,17 @@ def _get_orderby_clauses(order_by_list, session):
 
             # sqlite does not support NULLS LAST expression, so we sort first by
             # presence of the field (and is_nan for metrics), then by actual value
+            # As the subqueries are created independently and used later in the
+            # same main query, the CASE WHEN columns need to have unique names to
+            # avoid ambiguity
             if SearchUtils.is_metric(key_type, '='):
                 clauses.append(sql.case([
                     (subquery.c.is_nan.is_(True), 1),
                     (order_value.is_(None), 1)
-                ], else_=0).label(f'clause_{clause_id}'))
+                ], else_=0).label('clause_%s' % clause_id))
             else:  # other entities do not have an 'is_nan' field
                 clauses.append(sql.case([(order_value.is_(None), 1)], else_=0)
-                               .label(f'clause_{clause_id}'))
+                               .label('clause_%s' % clause_id))
 
             if ascending:
                 clauses.append(order_value)
