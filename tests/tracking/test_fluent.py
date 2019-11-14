@@ -2,37 +2,46 @@ import os
 import random
 import uuid
 
-import pytest
 import mock
 import numpy as np
 import pandas as pd
+import pytest
 from six.moves import reload_module as reload
 
 import mlflow
-from mlflow.entities import LifecycleStage, SourceType, Run, RunInfo, RunData, RunStatus, Metric, \
-    Param, RunTag, ViewType
-from mlflow.exceptions import MlflowException
-from mlflow.store.abstract_store import PagedList
-from mlflow.tracking.client import MlflowClient
-import mlflow.tracking.fluent
 import mlflow.tracking.context.registry
-from mlflow.tracking.fluent import start_run, _get_experiment_id, _get_experiment_id_from_env, \
-    search_runs, _EXPERIMENT_NAME_ENV_VAR, _EXPERIMENT_ID_ENV_VAR, _RUN_ID_ENV_VAR, \
-    _get_paginated_runs, NUM_RUNS_PER_PAGE_PANDAS, SEARCH_MAX_RESULTS_PANDAS
-from mlflow.utils.file_utils import TempDir
+import mlflow.tracking.fluent
+from mlflow.entities import (LifecycleStage, Metric, Param, Run, RunData,
+                             RunInfo, RunStatus, RunTag, SourceType, ViewType)
+from mlflow.exceptions import MlflowException
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.tracking.client import MlflowClient
+from mlflow.tracking.fluent import (_EXPERIMENT_ID_ENV_VAR,
+                                    _EXPERIMENT_NAME_ENV_VAR, _RUN_ID_ENV_VAR,
+                                    SEARCH_MAX_RESULTS_PANDAS,
+                                    _get_experiment_id,
+                                    _get_experiment_id_from_env,
+                                    _get_paginated_runs, search_runs,
+                                    set_experiment, start_run, get_run)
 from mlflow.utils import mlflow_tags
+from mlflow.utils.file_utils import TempDir
+
+# pylint: disable=unused-argument
 
 
 class HelperEnv:
+    def __init__(self):
+        pass
+
     @classmethod
     def assert_values(cls, exp_id, name):
         assert os.environ.get(_EXPERIMENT_NAME_ENV_VAR) == name
         assert os.environ.get(_EXPERIMENT_ID_ENV_VAR) == exp_id
 
     @classmethod
-    def set_values(cls, id=None, name=None):
-        if id:
-            os.environ[_EXPERIMENT_ID_ENV_VAR] = str(id)
+    def set_values(cls, experiment_id=None, name=None):
+        if experiment_id:
+            os.environ[_EXPERIMENT_ID_ENV_VAR] = str(experiment_id)
         elif os.environ.get(_EXPERIMENT_ID_ENV_VAR):
             del os.environ[_EXPERIMENT_ID_ENV_VAR]
 
@@ -42,7 +51,8 @@ class HelperEnv:
             del os.environ[_EXPERIMENT_NAME_ENV_VAR]
 
 
-def create_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None, tags=None,
+def create_run(run_id="", exp_id="", uid="", start=0, end=0,
+               metrics=None, params=None, tags=None,
                status=RunStatus.FINISHED, a_uri=None):
     return Run(
         RunInfo(
@@ -52,7 +62,7 @@ def create_run(run_id="", exp_id="", uid="", start=0, metrics=None, params=None,
             user_id=uid,
             status=status,
             start_time=start,
-            end_time=0,
+            end_time=end,
             lifecycle_stage=LifecycleStage.ACTIVE,
             artifact_uri=a_uri
         ), RunData(
@@ -86,7 +96,7 @@ def test_get_experiment_id_from_env():
 
     # set only ID
     random_id = random.randint(1, 1e6)
-    HelperEnv.set_values(id=random_id)
+    HelperEnv.set_values(experiment_id=random_id)
     HelperEnv.assert_values(str(random_id), None)
     assert _get_experiment_id_from_env() == str(random_id)
 
@@ -105,7 +115,7 @@ def test_get_experiment_id_from_env():
         exp_id = mlflow.create_experiment(name)
         assert exp_id is not None
         random_id = random.randint(1, 1e6)
-        HelperEnv.set_values(name=name, id=random_id)
+        HelperEnv.set_values(name=name, experiment_id=random_id)
         HelperEnv.assert_values(str(random_id), name)
         assert _get_experiment_id_from_env() == exp_id
 
@@ -155,7 +165,7 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
         exp_name = "random experiment %d" % random.randint(1, 1e6)
         exp_id = mlflow.create_experiment(exp_name)
         notebook_id = str(int(exp_id) + 73)
-        HelperEnv.set_values(id=exp_id)
+        HelperEnv.set_values(experiment_id=exp_id)
 
     with mock.patch("mlflow.tracking.fluent.is_in_databricks_notebook") as notebook_detection_mock,\
             mock.patch("mlflow.tracking.fluent.get_notebook_id") as notebook_id_mock:
@@ -164,6 +174,25 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
 
         assert _get_experiment_id() != notebook_id
         assert _get_experiment_id() == exp_id
+
+
+def test_get_experiment_by_id():
+    with TempDir(chdr=True):
+        name = "Random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+
+        experiment = mlflow.get_experiment(exp_id)
+        print(experiment)
+        assert experiment.experiment_id == exp_id
+
+
+def test_get_experiment_by_name():
+    with TempDir(chdr=True):
+        name = "Random experiment %d" % random.randint(1, 1e6)
+        exp_id = mlflow.create_experiment(name)
+
+        experiment = mlflow.get_experiment_by_name(name)
+        assert experiment.experiment_id == exp_id
 
 
 @pytest.fixture
@@ -277,7 +306,6 @@ def test_start_run_with_parent():
     parent_run = mock.Mock()
     mock_experiment_id = mock.Mock()
     mock_source_name = mock.Mock()
-    mock_run_name = mock.Mock()
 
     active_run_stack_patch = mock.patch("mlflow.tracking.fluent._active_run_stack", [parent_run])
 
@@ -346,6 +374,19 @@ def test_start_run_existing_run_from_environment(empty_active_run_stack):
         MlflowClient.get_run.assert_called_once_with(run_id)
 
 
+def test_start_run_existing_run_from_environment_with_set_environment(empty_active_run_stack):
+    mock_run = mock.Mock()
+    mock_run.info.lifecycle_stage = LifecycleStage.ACTIVE
+
+    run_id = uuid.uuid4().hex
+    env_patch = mock.patch.dict("os.environ", {_RUN_ID_ENV_VAR: run_id})
+
+    with env_patch, mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        with pytest.raises(MlflowException):
+            set_experiment("test-run")
+            start_run()
+
+
 def test_start_run_existing_run_deleted(empty_active_run_stack):
     mock_run = mock.Mock()
     mock_run.info.lifecycle_stage = LifecycleStage.DELETED
@@ -357,6 +398,15 @@ def test_start_run_existing_run_deleted(empty_active_run_stack):
             start_run(run_id)
 
 
+def test_get_run():
+    run_id = uuid.uuid4().hex
+    mock_run = mock.Mock()
+    mock_run.info.user_id = "my_user_id"
+    with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
+        run = get_run(run_id)
+        assert run.info.user_id == "my_user_id"
+
+
 def test_search_runs_attributes():
     runs = [create_run(status=RunStatus.FINISHED, a_uri="dbfs:/test", run_id='abc', exp_id="123"),
             create_run(status=RunStatus.SCHEDULED, a_uri="dbfs:/test2", run_id='def', exp_id="321")]
@@ -365,7 +415,9 @@ def test_search_runs_attributes():
         data = {'status': [RunStatus.FINISHED, RunStatus.SCHEDULED],
                 'artifact_uri': ["dbfs:/test", "dbfs:/test2"],
                 'run_id': ['abc', 'def'],
-                'experiment_id': ["123", "321"]}
+                'experiment_id': ["123", "321"],
+                'start_time': [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)],
+                'end_time': [pd.to_datetime(0, utc=True), pd.to_datetime(0, utc=True)]}
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
@@ -375,11 +427,15 @@ def test_search_runs_data():
         create_run(
             metrics=[Metric("mse", 0.2, 0, 0)],
             params=[Param("param", "value")],
-            tags=[RunTag("tag", "value")]),
+            tags=[RunTag("tag", "value")],
+            start=1564675200000,
+            end=1564683035000),
         create_run(
             metrics=[Metric("mse", 0.6, 0, 0), Metric("loss", 1.2, 0, 5)],
             params=[Param("param2", "val"), Param("k", "v")],
-            tags=[RunTag("tag2", "v2")])]
+            tags=[RunTag("tag2", "v2")],
+            start=1564765200000,
+            end=1564783200000)]
     with mock.patch('mlflow.tracking.fluent._get_paginated_runs', return_value=runs):
         pdf = search_runs()
         data = {
@@ -393,7 +449,11 @@ def test_search_runs_data():
             'params.param2': [None, "val"],
             'params.k': [None, "v"],
             'tags.tag': ["value", None],
-            'tags.tag2': [None, "v2"]}
+            'tags.tag2': [None, "v2"],
+            'start_time': [pd.to_datetime(1564675200000, unit="ms", utc=True),
+                           pd.to_datetime(1564765200000, unit="ms", utc=True)],
+            'end_time': [pd.to_datetime(1564683035000, unit="ms", utc=True),
+                         pd.to_datetime(1564783200000, unit="ms", utc=True)]}
         expected_df = pd.DataFrame(data)
         pd.testing.assert_frame_equal(pdf, expected_df, check_like=True, check_frame_type=False)
 
@@ -409,7 +469,7 @@ def test_search_runs_no_arguments():
     get_paginated_runs_patch = mock.patch('mlflow.tracking.fluent._get_paginated_runs',
                                           return_value=[])
     with experiment_id_patch, get_paginated_runs_patch:
-        pdf = search_runs()
+        search_runs()
         mlflow.tracking.fluent._get_paginated_runs.assert_called_once_with(
             mock_experiment_id, '', ViewType.ACTIVE_ONLY, SEARCH_MAX_RESULTS_PANDAS, None
         )
@@ -420,7 +480,7 @@ def test_get_paginated_runs_lt_maxresults_onepage():
     Number of runs is less than max_results and fits on one page,
     so we only need to fetch one page.
     """
-    runs = [create_run() for i in range(5)]
+    runs = [create_run() for _ in range(5)]
     tokenized_runs = PagedList(runs, "")
     max_results = 50
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
@@ -434,7 +494,7 @@ def test_get_paginated_runs_lt_maxresults_multipage():
     """
     Number of runs is less than max_results, but multiple pages are necessary to get all runs
     """
-    tokenized_runs = PagedList([create_run() for i in range(10)], "token")
+    tokenized_runs = PagedList([create_run() for _ in range(10)], "token")
     no_token_runs = PagedList([create_run()], "")
     max_results = 50
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
@@ -451,7 +511,7 @@ def test_get_paginated_runs_lt_maxresults_onepage_nonetoken():
     Number of runs is less than max_results and fits on one page.
     The token passed back on the last page is None, not the emptystring
     """
-    runs = [create_run() for i in range(5)]
+    runs = [create_run() for _ in range(5)]
     tokenized_runs = PagedList(runs, None)
     max_results = 50
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 10):
@@ -469,7 +529,7 @@ def test_get_paginated_runs_eq_maxresults_blanktoken():
     Expected behavior is to NOT query for more pages.
     """
     # runs returned equal to max_results, blank token
-    runs = [create_run() for i in range(10)]
+    runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "")
     no_token_runs = PagedList([], "")
     max_results = 10
@@ -488,7 +548,7 @@ def test_get_paginated_runs_eq_maxresults_token():
     more runs exist). In this example, a toke IS sent back.
     Expected behavior is to NOT query for more pages.
     """
-    runs = [create_run() for i in range(10)]
+    runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "abc")
     blank_runs = PagedList([], "")
     max_results = 10
@@ -506,8 +566,8 @@ def test_get_paginated_runs_gt_maxresults_multipage():
     Expected to only get max_results number of results back.
     """
     # should ask for and return the correct number of max_results
-    full_page_runs = PagedList([create_run() for i in range(8)], "abc")
-    partial_page = PagedList([create_run() for i in range(4)], "def")
+    full_page_runs = PagedList([create_run() for _ in range(8)], "abc")
+    partial_page = PagedList([create_run() for _ in range(4)], "def")
     max_results = 20
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 8):
         with mock.patch.object(MlflowClient, "search_runs"):
@@ -525,7 +585,7 @@ def test_get_paginated_runs_gt_maxresults_onepage():
     Number of runs that fit search criteria is greater than max_results. Only one page expected.
     Expected to only get max_results number of results back.
     """
-    runs = [create_run() for i in range(10)]
+    runs = [create_run() for _ in range(10)]
     tokenized_runs = PagedList(runs, "abc")
     max_results = 10
     with mock.patch("mlflow.tracking.fluent.NUM_RUNS_PER_PAGE_PANDAS", 20):

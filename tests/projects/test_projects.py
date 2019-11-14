@@ -1,5 +1,6 @@
 import os
 import git
+import shutil
 import tempfile
 import yaml
 
@@ -10,9 +11,10 @@ import pytest
 
 import mlflow
 
-from mlflow.entities import RunStatus, ViewType, Experiment, SourceType
+from mlflow.entities import RunStatus, ViewType, SourceType
 from mlflow.exceptions import ExecutionException, MlflowException
-from mlflow.store.file_store import FileStore
+from mlflow.projects import _resolve_experiment_id
+from mlflow.store.tracking.file_store import FileStore
 from mlflow.utils import env
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_USER, MLFLOW_SOURCE_NAME, \
     MLFLOW_SOURCE_TYPE, MLFLOW_GIT_BRANCH, MLFLOW_GIT_REPO_URL, LEGACY_MLFLOW_GIT_BRANCH_NAME, \
@@ -41,6 +43,14 @@ def _build_uri(base_uri, subdirectory):
 def _get_version_local_git_repo(local_git_repo):
     repo = git.Repo(local_git_repo, search_parent_directories=True)
     return repo.git.rev_parse("HEAD")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def clean_mlruns_dir():
+    yield
+    dir_path = os.path.join(TEST_PROJECT_DIR, "mlruns")
+    if os.path.exists(dir_path):
+        shutil.rmtree(dir_path)
 
 
 @pytest.fixture
@@ -128,6 +138,27 @@ def test_fetch_project_validations(local_git_repo_uri):
     # Passing `version` raises an exception for local projects
     with pytest.raises(ExecutionException):
         mlflow.projects._fetch_project(uri=TEST_PROJECT_DIR, force_tempdir=False, version="version")
+
+
+@pytest.mark.parametrize('experiment_name,experiment_id,expected', [
+    ('Default', None, '0'),
+    ('add an experiment', None, '1'),
+    (None, 2, '2'),
+    (None, '2', '2'),
+    (None, None, '0')
+])
+def test_resolve_experiment_id(experiment_name,
+                               experiment_id,
+                               expected,
+                               tracking_uri_mock):  # pylint: disable=unused-argument
+    assert expected == _resolve_experiment_id(experiment_name=experiment_name,
+                                              experiment_id=experiment_id)
+
+
+def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
+    with pytest.raises(MlflowException,
+                       match="Specify only one of 'experiment_name' or 'experiment_id'."):
+        _resolve_experiment_id(experiment_name='experiment_named', experiment_id="44")
 
 
 def test_dont_remove_mlruns(tmpdir):
@@ -232,27 +263,6 @@ def test_run_local_git_repo(patch_user,  # pylint: disable=unused-argument
         assert tags[MLFLOW_GIT_REPO_URL] == local_git_repo_uri
         assert tags[LEGACY_MLFLOW_GIT_BRANCH_NAME] == "master"
         assert tags[LEGACY_MLFLOW_GIT_REPO_URL] == local_git_repo_uri
-
-
-@pytest.mark.parametrize("experiment_id,experiment_name,expected",
-                         [("1", None, "1"), (None, 'name', "33")])
-def test_resolve_experiment_id(experiment_id, experiment_name, expected):
-    with mock.patch('mlflow.tracking.MlflowClient.get_experiment_by_name') \
-            as get_experiment_by_name_mock:
-        get_experiment_by_name_mock.return_value = Experiment(experiment_id="33", name='Name',
-                                                              artifact_location=None,
-                                                              lifecycle_stage=None)
-
-        exp_id = mlflow.projects._resolve_experiment_id(experiment_name=experiment_name,
-                                                        experiment_id=experiment_id)
-        assert exp_id == expected
-
-
-def test_resolve_experiment_id_should_not_allow_both_name_and_id_in_use():
-    with pytest.raises(MlflowException,
-                       match="Specify only one of 'experiment_name' or 'experiment_id'."):
-        _ = mlflow.projects._resolve_experiment_id(experiment_name='experiment_named',
-                                                   experiment_id="44")
 
 
 def test_invalid_version_local_git_repo(local_git_repo_uri,
