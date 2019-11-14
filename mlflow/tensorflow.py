@@ -583,7 +583,7 @@ def _log_event(event):
     Extracts metric information from the event protobuf
     """
     if not mlflow.active_run():
-        mlflow.start_run()
+        try_mlflow_log(mlflow.start_run())
         global _AUTO_END_RUN
         _AUTO_END_RUN = True
     if event.WhichOneof('what') == 'summary':
