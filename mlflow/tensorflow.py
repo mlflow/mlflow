@@ -677,13 +677,12 @@ def autolog(every_n_iter=100):
             try_mlflow_log(mlflow.log_param, 'max_steps', kwargs['max_steps'])
 
         result = original(self, *args, **kwargs)
-        
+
         if _AUTO_END_RUN:
             mlflow.end_run()
         _AUTO_END_RUN = False
 
         return result
-
 
     @gorilla.patch(tensorflow.estimator.Estimator)
     def export_saved_model(self, *args, **kwargs):

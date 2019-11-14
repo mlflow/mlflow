@@ -168,10 +168,10 @@ def test_tf_core_autolog_logs_scalars(tf_core_random_tensors):
 
 
 @pytest.fixture
-def tf_estimator_random_data_run():
+def tf_estimator_random_data_run(manual_run, export):
     mlflow.tensorflow.autolog()
-    with mlflow.start_run() as run:
-        dir = tempfile.mkdtemp()
+    dir = tempfile.mkdtemp()
+    try:
         CSV_COLUMN_NAMES = ['SepalLength', 'SepalWidth', 'PetalLength', 'PetalWidth', 'Species']
         SPECIES = ['Setosa', 'Versicolor', 'Virginica']
 
@@ -215,13 +215,15 @@ def tf_estimator_random_data_run():
         classifier.train(
             input_fn=lambda: input_fn(train, train_y, training=True),
             steps=500)
-        classifier.export_saved_model(dir, receiver_fn)
-
-    shutil.rmtree(dir)
-    return client.get_run(run.info.run_id)
+        if export:
+            classifier.export_saved_model(dir, receiver_fn)
+        return client.get_run(client.list_run_infos(experiment_id='0')[0].run_id)
+    finally:
+        shutil.rmtree(dir)
 
 
 @pytest.mark.large
+@pytest.mark.parametrize('export', [True, False])
 def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
     assert 'loss' in tf_estimator_random_data_run.data.metrics
     metrics = client.get_metric_history(tf_estimator_random_data_run.info.run_id, 'loss')
@@ -229,6 +231,7 @@ def test_tf_estimator_autolog_logs_metrics(tf_estimator_random_data_run):
 
 
 @pytest.mark.large
+@pytest.mark.parametrize('export', [True])
 def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_data_run):
     artifacts = client.list_artifacts(tf_estimator_random_data_run.info.run_id)
     artifacts = map(lambda x: x.path, artifacts)
@@ -239,13 +242,14 @@ def test_tf_estimator_autolog_model_can_load_from_artifact(tf_estimator_random_d
 
 
 @pytest.fixture
-def duplicate_autolog_tf_estimator_run():
+def duplicate_autolog_tf_estimator_run(manual_run, export):
     mlflow.tensorflow.autolog(every_n_iter=23)  # 23 is prime; no false positives in test
-    run = tf_estimator_random_data_run()
+    run = tf_estimator_random_data_run(manual_run, export)
     return run  # should be autologged every 4 steps
 
 
 @pytest.mark.large
+@pytest.mark.parametrize('export', [True, False])
 def test_duplicate_autolog_second_overrides(duplicate_autolog_tf_estimator_run):
     metrics = client.get_metric_history(duplicate_autolog_tf_estimator_run.info.run_id, 'loss')
     assert all((x.step - 1) % 4 == 0 for x in metrics)
