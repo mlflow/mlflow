@@ -1,12 +1,14 @@
 import os
 
 import gorilla
+import mxnet as mx
 from mxnet import gluon
 from mxnet import sym
 from mxnet.gluon.contrib.estimator import Estimator, EpochEnd, TrainBegin, TrainEnd
 from mxnet.gluon.nn import HybridSequential
 
 import mlflow
+from mlflow import pyfunc
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -32,7 +34,7 @@ def load_model(model_uri, ctx):
                       For more information about supported URI schemes, see
                       `Referencing Artifacts <https://www.mlflow.org/docs/latest/tracking.html#
                       artifact-locations>`_.
-    :param ctx: Either CPU or GPU
+    :param ctx: Either CPU or GPU.
 
     :return: A Gluon model instance.
 
@@ -49,6 +51,24 @@ def load_model(model_uri, ctx):
     net = gluon.SymbolBlock(symbol, inputs)
     net.collect_params().load(model_params_path, ctx)
     return net
+
+
+class _GluonModelWrapper:
+    def __init__(self, gluon_model):
+        self.gluon_model = gluon_model
+
+    def predict(self, ndarray):
+        return self.gluon_model(ndarray)
+
+
+def _load_pyfunc(path):
+    """
+    Load PyFunc implementation. Called by ``pyfunc.load_pyfunc``.
+
+    :param path: Local filesystem path to the MLflow Model with the ``gluon`` flavor.
+    """
+    m = load_model(path, mx.current_context())
+    return _GluonModelWrapper(m)
 
 
 @experimental
@@ -91,6 +111,7 @@ def save_model(gluon_model, path, mlflow_model=Model()):
     gluon_model.export(os.path.join(data_path, _MODEL_SAVE_PATH))
     with open(os.path.join(path, "architecture.txt"), "w") as fp:
         fp.write(str(gluon_model))
+    pyfunc.add_to_model(mlflow_model, loader_module="mlflow.gluon")
     mlflow_model.save(os.path.join(path, "MLmodel"))
 
 
