@@ -55,6 +55,7 @@ _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
 # For tracking if the run was started by autologging.
 _AUTO_END_RUN = False
+_AUTOLOG_RUN_ID = None
 
 
 def get_default_conda_env():
@@ -583,9 +584,11 @@ def _log_event(event):
     Extracts metric information from the event protobuf
     """
     if not mlflow.active_run():
-        mlflow.start_run()
+        try_mlflow_log(mlflow.start_run())
         global _AUTO_END_RUN
         _AUTO_END_RUN = True
+        global _AUTOLOG_RUN_ID
+        _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
     if event.WhichOneof('what') == 'summary':
         summary = event.summary
         for v in summary.value:
@@ -661,8 +664,10 @@ def autolog(every_n_iter=100):
     def train(self, *args, **kwargs):
         global _AUTO_END_RUN
         if not mlflow.active_run():
-            mlflow.start_run()
+            try_mlflow_log(mlflow.start_run())
             _AUTO_END_RUN = True
+            global _AUTOLOG_RUN_ID
+            _AUTOLOG_RUN_ID = mlflow.active_run().info.run_id
 
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator, 'train')
 
@@ -679,7 +684,7 @@ def autolog(every_n_iter=100):
         result = original(self, *args, **kwargs)
 
         if _AUTO_END_RUN:
-            mlflow.end_run()
+            try_mlflow_log(mlflow.end_run())
         _AUTO_END_RUN = False
 
         return result
@@ -688,7 +693,11 @@ def autolog(every_n_iter=100):
     def export_saved_model(self, *args, **kwargs):
         global _AUTO_END_RUN
         if not mlflow.active_run():
-            mlflow.start_run()
+            global _AUTOLOG_RUN_ID
+            if _AUTOLOG_RUN_ID:
+                try_mlflow_log(mlflow.start_run(_AUTOLOG_RUN_ID))
+            else:
+                try_mlflow_log(mlflow.start_run())
             _AUTO_END_RUN = True
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_saved_model')
@@ -698,7 +707,7 @@ def autolog(every_n_iter=100):
                        tf_signature_def_key='predict',
                        artifact_path='model')
         if _AUTO_END_RUN:
-            mlflow.end_run()
+            try_mlflow_log(mlflow.end_run())
         _AUTO_END_RUN = False
         return serialized
 
@@ -706,7 +715,11 @@ def autolog(every_n_iter=100):
     def export_savedmodel(self, *args, **kwargs):
         global _AUTO_END_RUN
         if not mlflow.active_run():
-            mlflow.start_run()
+            global _AUTOLOG_RUN_ID
+            if _AUTOLOG_RUN_ID:
+                try_mlflow_log(mlflow.start_run(_AUTOLOG_RUN_ID))
+            else:
+                try_mlflow_log(mlflow.start_run())
             _AUTO_END_RUN = True
         original = gorilla.get_original_attribute(tensorflow.estimator.Estimator,
                                                   'export_savedmodel')
@@ -716,7 +729,7 @@ def autolog(every_n_iter=100):
                        tf_signature_def_key='predict',
                        artifact_path='model')
         if _AUTO_END_RUN:
-            mlflow.end_run()
+            try_mlflow_log(mlflow.end_run())
         _AUTO_END_RUN = False
         return serialized
 
@@ -766,6 +779,7 @@ def autolog(every_n_iter=100):
         gorilla.Patch(EventFileWriter, 'add_event', add_event, settings=settings),
         gorilla.Patch(EventFileWriterV2, 'add_event', add_event, settings=settings),
         gorilla.Patch(tensorflow.keras.Model, 'fit', fit, settings=settings),
+        gorilla.Patch(tensorflow.estimator.Estimator, 'train', train, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_saved_model',
                       export_saved_model, settings=settings),
         gorilla.Patch(tensorflow.estimator.Estimator, 'export_savedmodel',
