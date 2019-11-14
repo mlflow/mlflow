@@ -234,8 +234,10 @@ def _validate_static_prefix(ctx, param, value):  # pylint: disable=unused-argume
               help="Additional command line options forwarded to gunicorn processes.")
 @click.option("--waitress-opts", default=None,
               help="Additional command line options for waitress-serve.")
+@click.option("--activate-prometheus", default=False, is_flag=True,
+              help="Activate prometheus exporter to expose metrics on /metrics endpoint.")
 def server(backend_store_uri, default_artifact_root, host, port,
-           workers, static_prefix, gunicorn_opts, waitress_opts):
+           workers, static_prefix, gunicorn_opts, waitress_opts, activate_prometheus):
     """
     Run the MLflow tracking server.
 
@@ -268,7 +270,7 @@ def server(backend_store_uri, default_artifact_root, host, port,
 
     try:
         _run_server(backend_store_uri, default_artifact_root, host, port,
-                    static_prefix, workers, gunicorn_opts, waitress_opts)
+                    static_prefix, workers, gunicorn_opts, waitress_opts, activate_prometheus)
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
         sys.exit(1)

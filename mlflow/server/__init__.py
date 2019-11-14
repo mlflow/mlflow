@@ -6,12 +6,14 @@ from flask import Flask, send_from_directory
 
 from mlflow.server import handlers
 from mlflow.server.handlers import get_artifact_handler, STATIC_PREFIX_ENV_VAR, _add_static_prefix
+from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 from mlflow.utils.process import exec_cmd
 
 # NB: These are intenrnal environment variables used for communication between
 # the cli and the forked gunicorn processes.
 BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
 ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
+PROMETHEUS_EXPORTER_ENV_VAR = "_MLFLOW_ACTIVATE_PROMETHEUS_EXPORTER"
 
 REL_STATIC_DIR = "js/build"
 
@@ -21,6 +23,9 @@ STATIC_DIR = os.path.join(app.root_path, REL_STATIC_DIR)
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+
+if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
+    activate_prometheus_exporter(app)
 
 
 # Serve the "get-artifact" route.
@@ -60,7 +65,7 @@ def _build_gunicorn_command(gunicorn_opts, host, port, workers):
 
 
 def _run_server(file_store_path, default_artifact_root, host, port, static_prefix=None,
-                workers=None, gunicorn_opts=None, waitress_opts=None):
+                workers=None, gunicorn_opts=None, waitress_opts=None, activate_prometheus=False):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
     :param static_prefix: If set, the index.html asset will be served from the path static_prefix.
@@ -74,6 +79,9 @@ def _run_server(file_store_path, default_artifact_root, host, port, static_prefi
         env_map[ARTIFACT_ROOT_ENV_VAR] = default_artifact_root
     if static_prefix:
         env_map[STATIC_PREFIX_ENV_VAR] = static_prefix
+
+    if activate_prometheus:
+        env_map[PROMETHEUS_EXPORTER_ENV_VAR] = '1'
 
     # TODO: eventually may want waitress on non-win32
     if sys.platform == 'win32':
