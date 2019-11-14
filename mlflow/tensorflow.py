@@ -53,6 +53,9 @@ _metric_queue = []
 
 _thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
 
+# For tracking if the run was started by autologging.
+_AUTO_END_RUN = False
+
 
 def get_default_conda_env():
     """
@@ -451,8 +454,7 @@ class __MLflowTfKerasCallback(Callback):
         Records model structural information as params after training finishes.
     """
     def __init__(self):
-        if mlflow.active_run() is None:
-            mlflow.start_run()
+        pass
 
     def __enter__(self):
         pass
@@ -497,11 +499,10 @@ class __MLflowTfKerasCallback(Callback):
 class __MLflowTfKeras2Callback(Callback):
     """
         Callback for auto-logging parameters and metrics in TensorFlow >= 2.0.0.
-        Records model structural information as params after training finishes.
+        Records model structural information as params when training starts.
     """
     def __init__(self):
-        if mlflow.active_run() is None:
-            mlflow.start_run()
+        pass
 
     def __enter__(self):
         pass
@@ -581,8 +582,10 @@ def _log_event(event):
     """
     Extracts metric information from the event protobuf
     """
-    if mlflow.active_run() is None:
+    if not mlflow.active_run():
         mlflow.start_run()
+        global _AUTO_END_RUN
+        _AUTO_END_RUN = True
     if event.WhichOneof('what') == 'summary':
         summary = event.summary
         for v in summary.value:
@@ -678,7 +681,13 @@ def autolog(every_n_iter=100):
 
     @gorilla.patch(tensorflow.keras.Model)
     def fit(self, *args, **kwargs):
+        global _AUTO_END_RUN
+        if not mlflow.active_run():
+            mlflow.start_run()
+            _AUTO_END_RUN = True
+
         original = gorilla.get_original_attribute(tensorflow.keras.Model, 'fit')
+
         # Checking if the 'callback' argument of fit() is set
         if len(args) >= 6:
             tmp_list = list(args)
@@ -692,6 +701,10 @@ def autolog(every_n_iter=100):
         _flush_queue()
         _log_artifacts_with_warning(local_dir=log_dir, artifact_path='tensorboard_logs')
         shutil.rmtree(log_dir)
+
+        if _AUTO_END_RUN:
+            mlflow.end_run()
+        _AUTO_END_RUN = False
         return result
 
     @gorilla.patch(EventFileWriter)
